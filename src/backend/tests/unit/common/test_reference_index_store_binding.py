@@ -35,3 +35,28 @@ def test_disabled_inference_service_binds_the_noop_store(monkeypatch):
 
     assert isinstance(store, NoopReferenceIndexStore)
     assert store.binding == "noop"
+
+
+def test_the_noop_contribution_line_names_no_contributor() -> None:
+    """#1989: ``reference_contribution_noop`` logged ``contributed_by=<account key>`` beside ``tenant_key``.
+
+    ``contributed_by`` is the contributor's plaintext account key (the task passes
+    ``user_key``), so the line named the subject in clear text next to the raw
+    tenant. It now carries neither; the tenant alone names no subject.
+    """
+    import structlog.testing
+
+    user_key = "contributor-3e8d51"
+    with structlog.testing.capture_logs() as logs:
+        stored = NoopReferenceIndexStore().add_user_contribution(
+            species_key="sp-1",
+            scientific_name="Solanum lycopersicum",
+            image_data=b"\x89PNG",
+            tenant_key="tenant-1",
+            contributed_by=user_key,
+        )
+
+    assert stored is False
+    (line,) = [e for e in logs if e["event"] == "reference_contribution_noop"]
+    assert "contributed_by" not in line
+    assert user_key not in repr(logs)

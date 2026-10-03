@@ -46,7 +46,7 @@ from app.common.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from app.common.log_privacy import log_subject, loggable_error
+from app.common.log_privacy import log_subject, log_tenant, loggable_error
 from app.config.settings import settings
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.plant_diary_repository import DiaryOverviewFilter, IPlantDiaryRepository
@@ -808,7 +808,9 @@ class PlantDiaryService:
             },
             expected_rev=rev,
         )
-        logger.info("diary_analysis_requested", entry_key=key, tenant_key=tenant_key, subject=log_subject(user_key))
+        logger.info(
+            "diary_analysis_requested", entry_key=key, tenant=log_tenant(tenant_key), subject=log_subject(user_key)
+        )
         return updated
 
     def cancel_analysis_request(
@@ -844,7 +846,10 @@ class PlantDiaryService:
             expected_rev=rev,
         )
         logger.info(
-            "diary_analysis_request_cancelled", entry_key=key, tenant_key=tenant_key, subject=log_subject(user_key)
+            "diary_analysis_request_cancelled",
+            entry_key=key,
+            tenant=log_tenant(tenant_key),
+            subject=log_subject(user_key),
         )
         return updated
 

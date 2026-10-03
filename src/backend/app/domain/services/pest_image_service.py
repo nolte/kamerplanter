@@ -20,7 +20,7 @@ import structlog
 
 from app.common.enums import AttachmentCategory, PestImageStatus
 from app.common.exceptions import FeatureNotConfiguredError
-from app.common.log_privacy import log_subject, loggable_error
+from app.common.log_privacy import log_subject, log_tenant, loggable_error
 from app.domain.engines.storage.thumbnail_generator import can_render
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
 from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
@@ -182,7 +182,7 @@ class PestImageService:
         created = self._repo.create(contribution)
         logger.info(
             "pest_image_contributed",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             subject=log_subject(user_key),
             pest_key=pest_key,
             contribution_id=created.key,
@@ -353,7 +353,7 @@ class PestImageService:
         await self._attachments.delete(contribution.attachment_id, tenant_key)
         logger.info(
             "pest_image_deleted",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             subject=log_subject(user_key),
             pest_key=contribution.pest_key,
             contribution_id=contribution_key,
@@ -403,7 +403,7 @@ class PestImageService:
         logger.info(
             "pest_image_promotion_changed",
             contribution_id=contribution_key,
-            tenant_key=updated.tenant_key,
+            tenant=log_tenant(updated.tenant_key),
             pest_key=updated.pest_key,
             status=updated.status.value,
             admin_subject=log_subject(admin_user_key),
@@ -436,7 +436,7 @@ class PestImageService:
             logger.info(
                 "pest_image_active_changed",
                 contribution_id=contribution_key,
-                tenant_key=updated.tenant_key,
+                tenant=log_tenant(updated.tenant_key),
                 pest_key=updated.pest_key,
                 is_active=updated.is_active,
                 admin_subject=log_subject(admin_user_key),

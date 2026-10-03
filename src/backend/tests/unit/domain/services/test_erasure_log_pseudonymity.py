@@ -53,7 +53,8 @@ def _log_pseudonym_salt(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "log_pseudonym_salt", LOG_SALT)
 
 
-TENANT = "t-1"
+#: Distinctive too (#1989): a substring hit on the tenant key cannot be ``att-1``.
+TENANT = "tenant-5d02b7"
 
 
 def _values(value: Any) -> list[str]:
@@ -67,12 +68,12 @@ def _values(value: Any) -> list[str]:
     return []
 
 
-def _leaks(logs: list[dict[str, Any]]) -> list[str]:
+def _leaks(logs: list[dict[str, Any]], needle: str = USER_KEY) -> list[str]:
     return [
         f"{event.get('event')}.{field}"
         for event in logs
         for field, value in event.items()
-        if any(USER_KEY in text for text in _values(value))
+        if any(needle in text for text in _values(value))
     ]
 
 
@@ -187,6 +188,28 @@ class TestErasureLogsNameNobody:
         erased = next(event for event in logs if event.get("event") == "erasure.account_erased")
         assert erased["subject"] == ErasureEngine.log_subject(USER_KEY, LOG_SALT)
         assert tombstone not in repr(logs)
+
+    async def test_a_full_erasure_names_the_tenant_only_by_its_reference(self, tmp_path: Path) -> None:
+        """#1989: the adapters' per-subject summary lines carried ``tenant_key=<raw>``.
+
+        ``storage_delete_for_user`` / ``storage_strip_exif_for_user`` name no
+        subject themselves, but each is written right before the
+        ``retention.erasure.storage_*`` line that does — same scope, same
+        counts, ``tenant=ten_…`` and ``subject=``. Side by side the raw key
+        joins the subject pseudonym to the tenant (NFR-011 L-1). Asserted over
+        every captured value, so a new line of the erasure that carries the raw
+        key under any name fails here too.
+        """
+        service = _service(tmp_path)
+
+        with structlog.testing.capture_logs() as logs:
+            await service.erase_account(USER_KEY)
+
+        reference = ErasureEngine.log_tenant(TENANT, LOG_SALT)
+        for name in ("storage_delete_for_user", "storage_strip_exif_for_user", "retention.erasure.storage_hard_delete"):
+            line = next(event for event in logs if event.get("event") == name)
+            assert line["tenant"] == reference, name
+        assert _leaks(logs, TENANT) == []
 
     async def test_a_failed_erasure_logs_no_plaintext_key(self, tmp_path: Path) -> None:
         executor = MagicMock()

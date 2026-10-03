@@ -341,7 +341,7 @@ class S3StorageAdapter(IObjectStorageAdapter):
         logger.info(
             "storage_delete_for_user",
             backend=BACKEND_KEY,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             scope=scope,
             deleted=result.removed,
             retained_shared=result.retained_shared,
@@ -386,7 +386,7 @@ class S3StorageAdapter(IObjectStorageAdapter):
         logger.info(
             "storage_strip_exif_for_user",
             backend=BACKEND_KEY,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             scope=scope,
             rewritten=rewritten,
             skipped_unsupported=skipped_unsupported,
