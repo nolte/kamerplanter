@@ -160,15 +160,19 @@ def _build_jobs() -> list[SeedJob]:
     return jobs
 
 
-def seed_fingerprint(job_names: Iterable[str], root: Path = _MIGRATIONS_DIR) -> str:
-    """A digest of what a seed run applies: the job list, the loaders and their data files.
+def seed_fingerprint(job_names: Iterable[str], root: Path = _MIGRATIONS_DIR, *, build_revision: str = "") -> str:
+    """A digest of what a seed run applies: the image, the job list, the loaders and their data.
 
     Two replicas of the same image compute the same value; a replica of another image
     (a rolling update racing a restart) computes another, so it never skips a run
-    whose inputs differ from its own. Covers ``app/migrations/*.py`` (the loaders),
-    ``seeds/`` and every file under ``seed_data/``.
+    whose inputs differ from its own. Covers the build revision (the image's commit,
+    empty in a local build), ``app/migrations/*.py`` (the loaders), ``seeds/`` and
+    every file under ``seed_data/``. Code outside ``app/migrations`` that shapes a
+    seed's output (a domain engine) is covered only through the build revision.
     """
     digest = hashlib.sha256()
+    digest.update(f"build_revision={build_revision}".encode())
+    digest.update(b"\0")
     for name in job_names:
         digest.update(name.encode())
         digest.update(b"\0")
@@ -260,7 +264,7 @@ def run_seeds(db: StandardDatabase, jobs: list[SeedJob] | None = None) -> None:
     (#2028).
     """
     selected = jobs if jobs is not None else _build_jobs()
-    fingerprint = seed_fingerprint(job.name for job in selected)
+    fingerprint = seed_fingerprint((job.name for job in selected), build_revision=settings.build_revision)
     owner, seen = _acquire_seed_lock(db)
     try:
         current = tracking.seed_run_marker(db)

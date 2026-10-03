@@ -105,3 +105,29 @@ def test_two_concurrent_first_boots_leave_the_counts_of_one_boot(one_sequential_
     assert outcomes == ["started", "started"], "no replica aborts (ERR 1210 on location_types before #2028)"
     assert counts == one_sequential_boot
     assert counts["phase_sequences"] > 0 and counts["location_types"] > 0, "the boot seeded (non-vacuous)"
+
+
+def test_refresh_lock_is_fenced_by_owner_and_revision_on_the_real_driver() -> None:
+    """The in-memory double models ``_rev`` fencing; this measures the driver does the same."""
+    from arango.exceptions import DocumentRevisionError
+
+    name = run_database_name("seed_lock_refresh")
+    system, db = create_database(name)
+    try:
+        col = db.collection("schema_migrations")
+        owner = tracking.acquire_lock(db)
+        col.update({"_key": tracking.LOCK_KEY, "acquired_at": "2000-01-01T00:00:00+00:00"})
+
+        assert tracking.refresh_lock(db, owner) is True
+        assert col.get(tracking.LOCK_KEY)["acquired_at"] > "2026"
+
+        stale = col.get(tracking.LOCK_KEY)
+        col.update({"_key": tracking.LOCK_KEY, "owner": owner})  # bumps _rev under the reader
+        with pytest.raises(DocumentRevisionError):
+            col.replace({**stale, "acquired_at": "x"})  # what refresh_lock's replace meets after a race
+
+        col.update({"_key": tracking.LOCK_KEY, "owner": "taken-over"})
+        assert tracking.refresh_lock(db, owner) is False
+        assert col.get(tracking.LOCK_KEY)["owner"] == "taken-over"
+    finally:
+        system.delete_database(name)

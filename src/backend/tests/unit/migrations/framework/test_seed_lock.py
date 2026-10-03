@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 import structlog.testing
 
+from app.config.settings import settings
 from app.data_access.arango.collections import SCHEMA_MIGRATIONS
 from app.migrations.framework import tracking
 from app.migrations.framework.report import SeedBarrierTimeoutError, SeedLockLostError
@@ -35,6 +36,11 @@ class _FakeTime:
         self.now += seconds
         if self._on_sleep is not None:
             self._on_sleep(self.sleeps)
+
+
+def _fp(*names: str) -> str:
+    """The fingerprint ``run_seeds`` computes for jobs of these names in this process."""
+    return seed_fingerprint(names, build_revision=settings.build_revision)
 
 
 def _jobs(calls: list[str], *names: str) -> list[SeedJob]:
@@ -69,7 +75,7 @@ class TestUncontended:
         assert calls == ["a", "b"]
         marker = tracking.seed_run_marker(fake_db)
         assert marker is not None
-        assert marker["fingerprint"] == seed_fingerprint(["a", "b"])
+        assert marker["fingerprint"] == _fp("a", "b")
         assert marker["failed_jobs"] == []
         assert fake_db.collection(SCHEMA_MIGRATIONS).get(tracking.LOCK_KEY) is None
         assert fake_time.sleeps == 0
@@ -102,9 +108,7 @@ class TestWaitingForAnotherReplica:
 
         def other_replica_finishes(sleeps: int) -> None:
             if sleeps == 3:
-                tracking.record_seed_run(
-                    fake_db, run_id="run-other", fingerprint=seed_fingerprint(["a", "b"]), failed_jobs=[]
-                )
+                tracking.record_seed_run(fake_db, run_id="run-other", fingerprint=_fp("a", "b"), failed_jobs=[])
                 _release_other(fake_db)
 
         monkeypatch.setattr(registry, "time", _FakeTime(other_replica_finishes))
@@ -120,7 +124,7 @@ class TestWaitingForAnotherReplica:
     def test_a_marker_older_than_the_wait_does_not_make_the_waiter_skip(self, fake_db, monkeypatch) -> None:
         """Contended on a lock held for something else (migrations): no run completed, so seed."""
         calls: list[str] = []
-        tracking.record_seed_run(fake_db, run_id="last-boot", fingerprint=seed_fingerprint(["a"]), failed_jobs=[])
+        tracking.record_seed_run(fake_db, run_id="last-boot", fingerprint=_fp("a"), failed_jobs=[])
         _hold_lock(fake_db)
         monkeypatch.setattr(
             registry, "time", _FakeTime(lambda sleeps: _release_other(fake_db) if sleeps == 2 else None)
@@ -147,7 +151,7 @@ class TestWaitingForAnotherReplica:
                 tracking.record_seed_run(
                     fake_db,
                     run_id="run-other",
-                    fingerprint=fingerprint or seed_fingerprint(["a"]),
+                    fingerprint=fingerprint or _fp("a"),
                     failed_jobs=failed,
                 )
                 _release_other(fake_db)
@@ -254,6 +258,12 @@ class TestFingerprint:
         before = seed_fingerprint(["a"], root)
         change(root)
         assert seed_fingerprint(["a"], root) != before
+
+    def test_the_build_revision_is_part_of_the_fingerprint(self, tmp_path: Path) -> None:
+        root = self._tree(tmp_path)
+        assert seed_fingerprint(["a"], root, build_revision="abc") != seed_fingerprint(
+            ["a"], root, build_revision="def"
+        )
 
     def test_the_job_list_is_part_of_the_fingerprint(self, tmp_path: Path) -> None:
         root = self._tree(tmp_path)
