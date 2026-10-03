@@ -88,6 +88,12 @@ describe('auth endpoints', () => {
     expect(client.post).toHaveBeenCalledWith('/auth/verify-email', { token: 'tok' });
   });
 
+  it('resendVerification posts the email (#2037)', async () => {
+    client.post.mockResolvedValue({ data: { message: 'accepted' } });
+    await auth.resendVerification('a@b.de');
+    expect(client.post).toHaveBeenCalledWith('/auth/resend-verification', { email: 'a@b.de' });
+  });
+
   it('requestPasswordReset posts email', async () => {
     client.post.mockResolvedValue({ data: undefined });
     await auth.requestPasswordReset('a@b.de');

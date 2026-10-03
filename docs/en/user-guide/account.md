@@ -1,4 +1,4 @@
-<!-- REQ-023 — Source: src/frontend/src/pages/auth/{LoginPage,RegisterPage,EmailVerificationPage,PasswordResetRequestPage,PasswordResetConfirmPage,OAuthCallbackPage,AccountSettingsPage,EmailChangeCard,EmailChangeConfirmPage,EmailChangeRevertPage}.tsx, src/backend/app/domain/services/auth_service.py, src/backend/app/domain/engines/login_throttle_engine.py, src/backend/app/config/settings.py — REQ-025 (Art. 16) for the email change itself, see privacy.md -->
+<!-- REQ-023 — Source: src/frontend/src/pages/auth/{LoginPage,RegisterPage,EmailVerificationPage,ResendVerificationPage,PasswordResetRequestPage,PasswordResetConfirmPage,OAuthCallbackPage,AccountSettingsPage,EmailChangeCard,EmailChangeConfirmPage,EmailChangeRevertPage}.tsx, src/backend/app/domain/services/auth_service.py, src/backend/app/domain/engines/login_throttle_engine.py, src/backend/app/config/settings.py — REQ-025 (Art. 16) for the email change itself, see privacy.md -->
 
 # Account & Sign-In
 
@@ -43,7 +43,25 @@ After registering, you receive an email with a confirmation link.
 
 #### When the Confirmation Link No Longer Works
 
-If the link is older than 24 hours or was copied incompletely, the page shows a red notice instead of the success message — for example **Invalid or expired token**. Below it you will find the same **Log in** button, which takes you back to the sign-in page. From there you can sign in (if your address was already confirmed via an earlier link) or use **Forgot password?** to have another email sent to you.
+If the link is older than 24 hours, has already been used or was copied incompletely, the page shows a red notice instead of the success message — for example **Invalid or expired token**. Below it you will find two buttons:
+
+- **Request a new verification link** opens a page where you enter your account's email address and click **Send a new verification email**
+- **Log in** takes you back to the sign-in page — for example if your address was already confirmed via an earlier link
+
+#### Requesting a New Verification Link
+
+If the first email never arrived or the link has expired, request a new one. There are two ways:
+
+- **When signing in:** if you enter your correct password but your address is not confirmed yet, the sign-in page shows a yellow notice with a **Send a new verification email** button below it. It sends the link to the address you just tried to sign in with.
+- **Without signing in:** via **Request a new verification link** on the error page of the old link (see above).
+
+Afterwards you always see the same message: **If this address belongs to an account that still needs verification, a new link is on its way.** The page deliberately does not tell you whether an email was sent — otherwise anyone could try out which addresses have an account.
+
+!!! info "What to know about the new link"
+    - The new link is valid for **24 hours** again. Every new link replaces all earlier ones — always use the one from the most recent email.
+    - Kamerplanter sends at most **three** new links per address. After that, the next one only goes out once nobody has requested one for this address for an hour.
+    - If you request too often from your connection, the page reports **Too many requests**. Wait a while in that case.
+    - Accounts that sign in only through a provider such as Google need no verification link and do not get one.
 
 !!! note "Changed behaviour"
     Up to this version this error page was a dead end: it showed only the error message and no way back into the application — you had to type the sign-in page's address yourself. <!-- REQ-023 -->

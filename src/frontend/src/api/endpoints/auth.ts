@@ -67,6 +67,17 @@ export async function verifyEmail(token: string): Promise<UserProfile> {
   return res.data;
 }
 
+/**
+ * Ask for a new e-mail verification link (REQ-023, #2037).
+ *
+ * The backend answers `202` with the same body for every address — unknown,
+ * unverified or already verified — so the caller never learns whether a mail
+ * went out. Rate-limited per client address (`429`).
+ */
+export async function resendVerification(email: string): Promise<void> {
+  await client.post(`${BASE}/resend-verification`, { email });
+}
+
 export async function requestPasswordReset(email: string): Promise<void> {
   await client.post(`${BASE}/password-reset/request`, { email });
 }

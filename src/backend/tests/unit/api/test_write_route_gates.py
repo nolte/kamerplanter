@@ -854,6 +854,11 @@ _PUBLIC_ALLOWLIST: dict[str, str] = {
     "auth.router.request_password_reset": "the caller has lost the credential",
     "auth.router.confirm_password_reset": "authorised by the emailed token",
     "auth.router.verify_email": "authorised by the emailed token",
+    # #2037 — the caller is exactly the one who cannot sign in yet: an unverified
+    # account is refused at login until it holds a link, and this is how it gets a
+    # new one. Not unguarded: per-IP limit (`rate_limit_resend_verification`), a
+    # silent per-address budget, and one answer for every address (REQ-023 §3.2b).
+    "auth.router.resend_verification": "an unverified account cannot sign in until it has a link",
     "auth.router.redeem_device_pairing": "authorised by the pairing code",
     "privacy.router.confirm_email_change": "authorised by the emailed token (REQ-025)",
     "privacy.router.revert_email_change": "authorised by the token mailed to the previous address (REQ-025, #1848)",
@@ -1530,7 +1535,7 @@ class TestEveryWriteOperationResolvesSomeAuthorisation:
     def test_the_allowlist_is_small(self):
         """A ceiling, because the cheapest way to make this test green is to grow the list.
 
-        Twelve entries today, all of them pre-session endpoints, a published
+        Fourteen entries today, all of them pre-session endpoints, a published
         probe, or a route that authenticates from its own request body. A
         thirteenth is not automatically wrong, but it should cost a conversation.
 
@@ -1539,8 +1544,12 @@ class TestEveryWriteOperationResolvesSomeAuthorisation:
         more than this one does. Moving it here is a tightening, not a widening —
         the route is now measured by the obsolescence rule and the reason rule
         below, neither of which reached it before.
+
+        Grew by one in #2037: `resend_verification` is a pre-session endpoint of
+        the same kind as `request_password_reset` — the caller is an account that
+        cannot sign in until it receives the link this route mails.
         """
-        assert len(_PUBLIC_ALLOWLIST) <= 13, (
+        assert len(_PUBLIC_ALLOWLIST) <= 14, (
             f"_PUBLIC_ALLOWLIST has grown to {len(_PUBLIC_ALLOWLIST)} entries. "
             "Adding a route here makes it anonymously reachable; say why in the issue, not only in the dict."
         )

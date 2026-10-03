@@ -65,6 +65,40 @@ Content-Type: application/json
 }
 ```
 
+Ein Link gilt 24 Stunden und nur einmal. Ein falscher, abgelaufener oder schon benutzter Token ergibt `401 Unauthorized` (`INVALID_TOKEN`).
+
+### Bestätigungslink erneut anfordern
+
+Für ein Konto, dessen erster Link verloren gegangen oder abgelaufen ist. Die Anmeldung eines unbestätigten Kontos antwortet `403 Forbidden` mit `error_code` `EMAIL_NOT_VERIFIED` — das ist der Hinweis, diesen Endpunkt anzubieten.
+
+```http
+POST /api/v1/auth/resend-verification
+Content-Type: application/json
+
+{
+  "email": "gartner@example.com"
+}
+```
+
+**Antwort** `202 Accepted`, immer mit demselben Body:
+
+```json
+{
+  "message": "If this address belongs to an account that still needs verification, a new verification email is on its way."
+}
+```
+
+Die Antwort ist für **jede** Adresse gleich — unbekannt, unbestätigt, schon bestätigt, Service-Account oder ein Konto ohne lokales Passwort. Auch die Arbeit vor der Antwort ist für alle gleich; Kontosuche, neuer Token und Versand laufen erst danach. So verrät der Endpunkt weder über den Inhalt noch über die Antwortzeit, ob es ein Konto gibt.
+
+Eine E-Mail geht nur raus, wenn `REQUIRE_EMAIL_VERIFICATION` aktiv ist und das Konto aktiv, unbestätigt, interaktiv (kein Service-Account) und mit lokalem Passwort angelegt ist. Jeder Versand schreibt einen **neuen** Token mit 24 Stunden Gültigkeit; alle vorher verschickten Links werden damit ungültig.
+
+| Grenze | Wert | Antwort bei Überschreitung |
+|--------|------|----------------------------|
+| Je Client-IP | `RATE_LIMIT_RESEND_VERIFICATION`, Default `10/hour` | `429 Too Many Requests` |
+| Je Adresse | 3 Anfragen; das Budget füllt sich wieder auf, sobald eine Stunde lang keine Anfrage für die Adresse kam | Unverändert `202` — es geht nur keine E-Mail mehr raus |
+
+Die Grenze je Adresse zählt **jede** eingegebene Adresse gleich, ob es ein Konto gibt oder nicht. Darum antwortet sie stumm: ein `429` würde nichts verraten, aber ein Budget, das nur echte Konten zählt, würde es.
+
 ---
 
 ## Login

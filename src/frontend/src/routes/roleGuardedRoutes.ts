@@ -195,6 +195,8 @@ export const UNGATED_ROUTES: readonly string[] = [
   'login',
   'register',
   'verify-email/:token',
+  // #2037 — anonymous by nature: the caller is an account that cannot sign in yet.
+  'resend-verification',
   // #1848 — public token landings; the token is the only credential, no role involved.
   'email-change/:token',
   'email-change/revert/:token',

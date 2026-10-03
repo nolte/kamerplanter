@@ -24,6 +24,7 @@ from app.api.v1.auth.schemas import (
     PasswordResetRequest,
     RefreshRequest,
     RegisterRequest,
+    ResendVerificationRequest,
     TokenPairResponse,
     TokenResponse,
     UserProfileResponse,
@@ -476,6 +477,46 @@ def verify_email(
     """Verify a user's email address from a signed token."""
     profile = service.verify_email(body.token)
     return UserProfileResponse(**profile.model_dump())
+
+
+#: The one answer of ``/auth/resend-verification`` — for an unknown address, an
+#: unverified one, a verified one, a service account, an exhausted per-address
+#: budget and a deployment that does not require verification alike (#2037).
+_RESEND_VERIFICATION_MESSAGE = (
+    "If this address belongs to an account that still needs verification, a new verification email is on its way."
+)
+
+
+@router.post("/resend-verification", response_model=MessageResponse, status_code=202)
+@limiter.limit(settings.rate_limit_resend_verification)
+def resend_verification(
+    request: Request,
+    body: ResendVerificationRequest,
+    background_tasks: BackgroundTasks,
+    service: AuthService = Depends(get_auth_service),
+) -> MessageResponse:
+    """Ask for a new e-mail verification link (REQ-023 §3.2b, #2037).
+
+    For an account whose first link was lost or has expired — without it, such
+    an account could never sign in once ``REQUIRE_EMAIL_VERIFICATION`` is on.
+
+    **Enumeration-safe.** Always ``202`` with the same body, whatever the address:
+    unknown, unverified, already verified, a service or federated-only account,
+    or over its per-address budget. The request path does the same work for all
+    of them (one budget reservation); the account lookup, the new token and the
+    mail run after the response has been written (#1890), so neither the answer
+    nor its duration says which case was hit.
+
+    **Limits.** Per client IP ``settings.rate_limit_resend_verification``
+    (default 10/hour, answers 429 — a property of the source, never of the
+    address); per address three requests, refilled once the address has been
+    left alone for an hour — enforced silently, so the budget is no oracle.
+
+    Every mail carries a fresh single-use token valid for 24 hours; it replaces,
+    and so invalidates, any link sent before it.
+    """
+    service.resend_verification_email(body.email, defer_mail=background_tasks.add_task)
+    return MessageResponse(message=_RESEND_VERIFICATION_MESSAGE)
 
 
 @router.post("/password-reset/request", response_model=MessageResponse)

@@ -1,8 +1,8 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, miniSerializeError } from '@reduxjs/toolkit';
 import { isRateLimited } from '@/api/client';
 import * as authApi from '@/api/endpoints/auth';
 import type { UserProfile } from '@/api/types';
-import { parseApiError } from '@/api/errors';
+import { isApiError, parseApiError } from '@/api/errors';
 
 interface AuthState {
   user: UserProfile | null;
@@ -27,11 +27,24 @@ const initialState: AuthState = {
   initialized: false,
 };
 
+/** The backend's `error_code` for a correct password on an unverified address (#2037). */
+export const EMAIL_NOT_VERIFIED = 'EMAIL_NOT_VERIFIED';
+
 export const loginLocal = createAsyncThunk(
   'auth/loginLocal',
   async (data: { email: string; password: string; remember_me?: boolean }) => {
     const response = await authApi.login(data);
     return response;
+  },
+  {
+    // RTK's default serialisation keeps name/message/stack/`code` of the thrown
+    // error, and an `ApiError` carries the backend's code as `errorCode` — so it
+    // was dropped, and the login page could not tell "unverified" from any other
+    // refusal. Carried as `code`, which `SerializedError` already has (#2037).
+    serializeError: (error) => ({
+      ...miniSerializeError(error),
+      ...(isApiError(error) ? { code: error.errorCode } : {}),
+    }),
   },
 );
 

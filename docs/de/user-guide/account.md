@@ -1,4 +1,4 @@
-<!-- REQ-023 — Quelle: src/frontend/src/pages/auth/{LoginPage,RegisterPage,EmailVerificationPage,PasswordResetRequestPage,PasswordResetConfirmPage,OAuthCallbackPage,AccountSettingsPage,EmailChangeCard,EmailChangeConfirmPage,EmailChangeRevertPage}.tsx, src/backend/app/domain/services/auth_service.py, src/backend/app/domain/engines/login_throttle_engine.py, src/backend/app/config/settings.py — REQ-025 (Art. 16) für die E-Mail-Änderung selbst, siehe privacy.md -->
+<!-- REQ-023 — Quelle: src/frontend/src/pages/auth/{LoginPage,RegisterPage,EmailVerificationPage,ResendVerificationPage,PasswordResetRequestPage,PasswordResetConfirmPage,OAuthCallbackPage,AccountSettingsPage,EmailChangeCard,EmailChangeConfirmPage,EmailChangeRevertPage}.tsx, src/backend/app/domain/services/auth_service.py, src/backend/app/domain/engines/login_throttle_engine.py, src/backend/app/config/settings.py — REQ-025 (Art. 16) für die E-Mail-Änderung selbst, siehe privacy.md -->
 
 # Konto & Anmeldung
 
@@ -43,7 +43,25 @@ Nach der Registrierung erhältst du eine E-Mail mit einem Bestätigungslink.
 
 #### Wenn der Bestätigungslink nicht mehr funktioniert
 
-Ist der Link älter als 24 Stunden oder unvollständig kopiert, zeigt die Seite statt der Erfolgsmeldung einen roten Hinweis — etwa **Ungültiger oder abgelaufener Token**. Darunter findest du ebenfalls den Button **Anmelden**, der dich zurück zur Anmeldeseite bringt. Von dort kannst du dich anmelden (sofern deine Adresse bereits über einen früheren Link bestätigt wurde) oder dir über **Passwort vergessen?** wieder eine E-Mail zusenden lassen.
+Ist der Link älter als 24 Stunden, schon benutzt oder unvollständig kopiert, zeigt die Seite statt der Erfolgsmeldung einen roten Hinweis — etwa **Ungültiger oder abgelaufener Token**. Darunter findest du zwei Buttons:
+
+- **Neuen Bestätigungslink anfordern** öffnet eine Seite, auf der du die E-Mail-Adresse deines Kontos eingibst und **Neue Bestätigungs-E-Mail senden** klickst
+- **Anmelden** bringt dich zurück zur Anmeldeseite — etwa wenn deine Adresse über einen früheren Link schon bestätigt ist
+
+#### Neuen Bestätigungslink anfordern
+
+Ist die erste E-Mail nie angekommen oder der Link abgelaufen, fordere einen neuen an. Das geht auf zwei Wegen:
+
+- **Beim Anmelden:** Gibst du dein richtiges Passwort ein, deine Adresse ist aber noch nicht bestätigt, zeigt die Anmeldeseite einen gelben Hinweis und darunter den Button **Neue Bestätigungs-E-Mail senden**. Er schickt den Link an die Adresse, mit der du dich gerade anmelden wolltest.
+- **Ohne Anmeldung:** über **Neuen Bestätigungslink anfordern** auf der Fehlerseite des alten Links (siehe oben).
+
+Danach siehst du immer dieselbe Meldung: **Gehört diese Adresse zu einem Konto, das noch bestätigt werden muss, ist ein neuer Link unterwegs.** Ob eine E-Mail verschickt wurde, verrät die Seite bewusst nicht — sonst könnte jeder ausprobieren, welche Adressen ein Konto haben.
+
+!!! info "Was du beim neuen Link wissen solltest"
+    - Der neue Link ist wieder **24 Stunden** gültig. Jeder neue Link ersetzt alle vorherigen — benutze immer den aus der neuesten E-Mail.
+    - Pro Adresse verschickt Kamerplanter höchstens **drei** neue Links. Danach kommt erst wieder einer, wenn eine Stunde lang niemand einen für diese Adresse angefordert hat.
+    - Fragst du von deinem Anschluss aus zu oft an, meldet die Seite **Zu viele Anfragen**. Warte dann eine Weile.
+    - Konten, die sich nur über einen Anbieter wie Google anmelden, brauchen keinen Bestätigungslink und bekommen auch keinen.
 
 !!! note "Geändertes Verhalten"
     Bis zu dieser Version war diese Fehlerseite eine Sackgasse: Sie zeigte nur die Fehlermeldung und keinen Weg zurück in die Anwendung — du musstest die Adresse der Anmeldeseite selbst eintippen. <!-- REQ-023 -->

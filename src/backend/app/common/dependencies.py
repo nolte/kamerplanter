@@ -74,6 +74,7 @@ from app.domain.interfaces.device_pairing_throttle import IDevicePairingThrottle
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
+from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
 from app.domain.services.auth_service import AuthService
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.enrichment_service import EnrichmentService
@@ -832,6 +833,27 @@ def get_unknown_account_store():
     return RedisUnknownAccountStore(_get_redis_client())
 
 
+def get_verification_resend_store() -> IStepUpThrottleStore:
+    """#2037 per-address budget of ``POST /auth/resend-verification``.
+
+    The step-up counter mechanism with its own one-hour window and its own
+    in-process fallback. Valkey-backed so replicas share one budget per address;
+    degrades to the in-process tier when Valkey is unreachable — failing open
+    would unbound the mail an anonymous caller can send to a chosen address.
+    """
+    from app.data_access.external.step_up_throttle import (
+        DEFAULT_VERIFICATION_RESEND_STORE,
+        VERIFICATION_RESEND_WINDOW_SECONDS,
+        RedisStepUpThrottleStore,
+    )
+
+    return RedisStepUpThrottleStore(
+        _get_redis_client(),
+        ttl_seconds=VERIFICATION_RESEND_WINDOW_SECONDS,
+        fallback=DEFAULT_VERIFICATION_RESEND_STORE,
+    )
+
+
 def get_device_pairing_code_store() -> IDevicePairingCodeStore:
     """REQ-023 / #1118 one-time custody of QR pairing codes.
 
@@ -963,6 +985,8 @@ def get_auth_service() -> AuthService:
         # #1850 — the per-key budget on the REST path; the MCP authenticator
         # draws on the same limiter (one budget per key across both surfaces).
         api_key_rate_limiter=get_api_key_rate_limiter(),
+        # #2037 — the resend endpoint's per-address budget, shared across replicas.
+        verification_resend_store=get_verification_resend_store(),
     )
 
 
