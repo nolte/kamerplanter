@@ -1016,7 +1016,7 @@ import { fieldConfigs } from '../config/fieldConfigs';
 
 ## 16. Node-Version & Build
 
-**`.tool-versions`**: `nodejs 25.9.0` (asdf)
+**`.tool-versions`**: `nodejs 26.10.0` (asdf)
 
 ```bash
 npm run dev         # Vite Dev-Server (Port 5173, API-Proxy → localhost:8000)

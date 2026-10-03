@@ -15,8 +15,12 @@ from app.data_access.arango.fertilizer_repository import ArangoFertilizerReposit
 from app.data_access.arango.nutrient_plan_repository import ArangoNutrientPlanRepository
 from app.domain.models.fertilizer import Fertilizer
 from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
+from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
+
+#: The seed files that ship fertilizer products (the plan-only files carry none).
+_FERTILIZER_SEED_FILES = ("fertilizers.yaml", "plagron.yaml", "gardol.yaml")
 
 
 def global_fertilizer_map(fert_repo: ArangoFertilizerRepository) -> dict[tuple[str, str], Fertilizer]:
@@ -40,14 +44,31 @@ def global_fertilizer_keys(fert_repo: ArangoFertilizerRepository) -> dict[str, s
 
     A seed plan is global, so a dosage it names must resolve to a global product —
     never to a tenant's private one that happens to share the name (which every other
-    tenant would then see referenced by key in a shared plan). First row per name by
-    ``_key``, so the resolution is the same on every boot.
+    tenant would then see referenced by key in a shared plan).
+
+    A plan's dosage names a product by ``product_name`` alone, and two global products
+    may share a name under different brands. The product the seed files themselves
+    ship under that name wins — ``(product_name, brand)`` as ``fertilizers.yaml``,
+    ``plagron.yaml`` and ``gardol.yaml`` give it; only a name no seed file ships falls
+    back to the first row by ``_key``. Without that, a global "CalMag" of another brand
+    with a lower ``_key`` (one created before the seed product) took the dosage.
     """
+    seeded = seed_fertilizer_identities()
+    rows = [fert for fert in fert_repo.get_global_fertilizers() if fert.key]
     keys: dict[str, str] = {}
-    for fert in fert_repo.get_global_fertilizers():
-        if fert.key:
-            keys.setdefault(fert.product_name, fert.key)
+    for fert in sorted(rows, key=lambda f: (f.product_name, f.brand) not in seeded):
+        keys.setdefault(fert.product_name, fert.key or "")
     return keys
+
+
+def seed_fertilizer_identities() -> frozenset[tuple[str, str]]:
+    """``(product_name, brand)`` of every fertilizer the seed files ship."""
+    pairs = (
+        (entry["product_name"], entry.get("brand", ""))
+        for name in _FERTILIZER_SEED_FILES
+        for entry in load_yaml(name).get("fertilizers", [])
+    )
+    return frozenset(pairs)
 
 
 def upsert_fertilizers(

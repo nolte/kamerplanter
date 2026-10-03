@@ -20,7 +20,7 @@ Installiere folgende Werkzeuge, bevor du beginnst:
 | Node.js | 25.1.0 | Frontend-Entwicklung ohne Cluster |
 
 !!! note "Node.js-Version via asdf"
-    Im `src/frontend/`-Verzeichnis liegt eine `.tool-versions`-Datei mit `nodejs 25.9.0`. Nach der asdf-Installation wird die korrekte Version automatisch aktiviert:
+    Im `src/frontend/`-Verzeichnis liegt eine `.tool-versions`-Datei mit `nodejs 26.10.0`. Nach der asdf-Installation wird die korrekte Version automatisch aktiviert:
     ```bash
     asdf plugin add nodejs
     asdf install
