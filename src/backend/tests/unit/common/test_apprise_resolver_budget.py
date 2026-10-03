@@ -82,7 +82,7 @@ def _urls(*hosts: str) -> list[str]:
 
 
 def test_the_owner_cap_is_enforced_per_owner_and_released_when_a_resolution_ends(resolver):
-    lane = _ResolverLane("t", workers=8, per_owner=3)
+    lane = _ResolverLane("t", workers=8, per_owner=3, trusts_cache=True)
     held = [lane.try_submit("a", resolver, f"stuck{i}") for i in range(3)]
     assert all(f is not None for f in held)
     assert lane.try_submit("a", resolver, "stuck3") is None
@@ -93,7 +93,7 @@ def test_the_owner_cap_is_enforced_per_owner_and_released_when_a_resolution_ends
 
 
 def test_a_full_lane_refuses_instead_of_queueing(resolver):
-    lane = _ResolverLane("t", workers=2, per_owner=3)
+    lane = _ResolverLane("t", workers=2, per_owner=3, trusts_cache=True)
     assert lane.try_submit("a", resolver, "stuck-a") is not None
     assert lane.try_submit("b", resolver, "stuck-b") is not None
     assert lane.try_submit("c", resolver, "fast.example") is None
@@ -101,7 +101,7 @@ def test_a_full_lane_refuses_instead_of_queueing(resolver):
 
 
 def test_a_resolution_that_raises_frees_its_slot(resolver):
-    lane = _ResolverLane("t", workers=8, per_owner=1)
+    lane = _ResolverLane("t", workers=8, per_owner=1, trusts_cache=True)
     future = lane.try_submit("a", resolver, "boom.example")
     assert future is not None
     assert lane.try_submit("a", resolver, "fast.example") is None
@@ -114,7 +114,7 @@ def test_a_resolution_that_raises_frees_its_slot(resolver):
 
 def test_a_timed_out_resolution_keeps_its_slot_until_its_thread_returns(resolver):
     """The deadline ends the wait, not the lookup: the slot follows the thread (#1995)."""
-    lane = _ResolverLane("t", workers=8, per_owner=3)
+    lane = _ResolverLane("t", workers=8, per_owner=3, trusts_cache=True)
     refusals = url_safety._apprise_resolution_refusals(_urls("stuck1.example"), owner_key="a", lane=lane)
     assert refusals == {0: TIMEOUT_REASON}
     assert lane.outstanding("a") == 1
@@ -126,7 +126,7 @@ def test_a_timed_out_resolution_keeps_its_slot_until_its_thread_returns(resolver
 
 
 def test_excess_is_refused_at_once_without_reaching_the_resolver(resolver):
-    lane = _ResolverLane("t", workers=8, per_owner=3)
+    lane = _ResolverLane("t", workers=8, per_owner=3, trusts_cache=True)
     url_safety._apprise_resolution_refusals(_urls("stuck1", "stuck2", "stuck3"), owner_key="user-7f3a", lane=lane)
     assert lane.outstanding("user-7f3a") == 3
     calls_before = len(resolver.calls)
@@ -143,7 +143,7 @@ def test_excess_is_refused_at_once_without_reaching_the_resolver(resolver):
 
 def test_a_call_with_more_hosts_than_its_share_resolves_them_in_turn(resolver):
     """A legitimate list of more distinct names than the share still resolves within the deadline."""
-    lane = _ResolverLane("t", workers=8, per_owner=3)
+    lane = _ResolverLane("t", workers=8, per_owner=3, trusts_cache=True)
     hosts = [f"h{i}.example" for i in range(7)]
     assert url_safety._apprise_resolution_refusals(_urls(*hosts), owner_key="a", lane=lane) == {}
     assert sorted(resolver.calls) == sorted(hosts)
@@ -210,7 +210,7 @@ def test_cache_size_is_bounded_and_drops_the_oldest():
 def test_the_resolver_is_consulted_once_per_ttl(resolver, monkeypatch):
     clock = _Clock()
     monkeypatch.setattr(url_safety, "_resolution_cache", _HostCache(ttl=60, negative_ttl=10, clock=clock))
-    lane = _ResolverLane("t")
+    lane = _ResolverLane("t", trusts_cache=True)
     for _ in range(2):
         assert url_safety._apprise_resolution_refusals(
             _urls("fast.example", "loop.example"), owner_key="a", lane=lane
@@ -224,7 +224,7 @@ def test_the_resolver_is_consulted_once_per_ttl(resolver, monkeypatch):
 def test_a_failure_is_cached_for_the_negative_ttl_only(resolver, monkeypatch):
     clock = _Clock()
     monkeypatch.setattr(url_safety, "_resolution_cache", _HostCache(ttl=60, negative_ttl=10, clock=clock))
-    lane = _ResolverLane("t")
+    lane = _ResolverLane("t", trusts_cache=True)
     reason = "An Apprise URL host could not be resolved."
     for _ in range(2):
         assert url_safety._apprise_resolution_refusals(_urls("nx.example"), owner_key="a", lane=lane) == {0: reason}
@@ -238,7 +238,7 @@ def test_a_timeout_is_never_cached_and_a_late_answer_is(resolver, monkeypatch):
     """A timeout says nothing about the name; the answer the stuck lookup ends with does."""
     cache = _HostCache(ttl=60, negative_ttl=10, clock=_Clock())
     monkeypatch.setattr(url_safety, "_resolution_cache", cache)
-    lane = _ResolverLane("t")
+    lane = _ResolverLane("t", trusts_cache=True)
     assert url_safety._apprise_resolution_refusals(_urls("stuck.example"), owner_key="a", lane=lane) == {
         0: TIMEOUT_REASON
     }
@@ -247,6 +247,22 @@ def test_a_timeout_is_never_cached_and_a_late_answer_is(resolver, monkeypatch):
     assert _wait_until(lambda: cache.lookup("stuck.example")[0])
     assert cache.lookup("stuck.example") == (True, (PUBLIC,))
     assert url_safety._apprise_resolution_refusals(_urls("stuck.example"), owner_key="a", lane=lane) == {}
+
+
+def test_the_send_lane_takes_only_a_blocked_verdict_from_the_cache_and_writes_nothing(resolver, monkeypatch):
+    """#1995 review F1: at send, a cached ``ok`` or failure is resolved again; only ``blocked`` is reused."""
+    cache = _HostCache(ttl=60, negative_ttl=10, clock=_Clock())
+    monkeypatch.setattr(url_safety, "_resolution_cache", cache)
+    cache.store("fast.example", (PUBLIC,))  # a cached ok: must be resolved again at send
+    cache.store("nx-cached.example", None)  # stale failure
+    cache.store("loop.example", ("127.0.0.1",))
+    send = _ResolverLane("send-t", trusts_cache=False)
+    refusals = url_safety._apprise_resolution_refusals(
+        _urls("fast.example", "nx-cached.example", "loop.example", "other.example"), owner_key="a", lane=send
+    )
+    assert sorted(resolver.calls) == ["fast.example", "nx-cached.example", "other.example"]
+    assert set(refusals) == {1, 2}  # NXDOMAIN now, loop from cache; fast/other resolve public
+    assert cache.lookup("other.example") == (False, None), "the send lane wrote into the cache"
 
 
 # ── The send path knows whose delivery it is ────────────────────────

@@ -722,11 +722,12 @@ APPRISE_RESOLVER_WORKERS = 8
 #: threads per owner. Beyond it a host is refused at once (as a timeout), never
 #: queued (#1995).
 APPRISE_RESOLUTIONS_PER_OWNER = 3
-#: Seconds a resolver answer is reused: an address list (``ok`` or ``blocked``),
-#: and a failure (NXDOMAIN, resolver error). A *timeout* is never cached: it says
-#: nothing about the name, and caching it would refuse a legitimate host for a
-#: slow moment of the nameserver. A stuck lookup that ends after the deadline
-#: caches what it ended with, under these TTLs.
+#: Seconds a save-time resolver answer is reused by the next save: an address
+#: list (``ok`` or ``blocked``), and a failure (NXDOMAIN, resolver error). A
+#: *timeout* is never cached: it says nothing about the name. A stuck save-time
+#: lookup that ends after the deadline caches what it ended with, under these TTLs.
+#: The send path reads only a cached ``blocked`` verdict and writes nothing (see
+#: :class:`_HostCache`).
 APPRISE_RESOLVE_CACHE_TTL_SECONDS = 60.0
 APPRISE_RESOLVE_NEGATIVE_CACHE_TTL_SECONDS = 10.0
 #: Host names the cache holds at most; the oldest entry goes first.
@@ -734,11 +735,19 @@ APPRISE_RESOLVE_CACHE_MAX_ENTRIES = 1024
 
 
 class _HostCache:
-    """Recent resolver answers per host name: address tuple, or ``None`` for a failure.
+    """Recent save-time resolver answers per host name: address tuple, or ``None`` for a failure.
 
-    Bounded, thread-safe, clock injectable. Reusing an answer does not widen the
-    DNS-rebinding window: Apprise resolves again when it connects, so a name can
-    flip between check and connect with or without the cache.
+    Bounded, thread-safe, clock injectable. Only the **save** lane writes it and
+    only the save lane takes every answer from it: a save is followed by no
+    connect, so a reused answer opens no window there.
+
+    The **send** lane takes from it a ``blocked`` verdict only — reusing that can
+    only refuse — and resolves ``ok`` and every failure fresh, writing nothing
+    back. A reused ``ok`` at send would leave the TTL between the check and
+    Apprise's own resolution at connect: a host re-pointed to ``127.0.0.1`` after
+    the save would pass (#1995 review F1). A reused failure would let a lookup
+    that timed out (refused) and later ended with an error read as NXDOMAIN, which
+    ``ntfy://topic`` tolerates.
     """
 
     def __init__(
@@ -803,8 +812,12 @@ class _ResolverLane:
         *,
         workers: int = APPRISE_RESOLVER_WORKERS,
         per_owner: int = APPRISE_RESOLUTIONS_PER_OWNER,
+        trusts_cache: bool,
     ) -> None:
         self.name = name
+        #: Whether this lane reads every cached answer and writes its own (save),
+        #: or reads only cached ``blocked`` verdicts and writes nothing (send).
+        self.trusts_cache = trusts_cache
         self._workers = workers
         self._per_owner = per_owner
         self._pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix=f"apprise-dns-{name}")
@@ -845,8 +858,8 @@ class _ResolverLane:
 _resolution_cache = _HostCache()
 #: Save (a user's PUT) and send (delivery) resolve in separate lanes, so a burst
 #: of saves cannot hold the threads delivery needs, nor the other way round.
-_save_lane = _ResolverLane("save")
-_send_lane = _ResolverLane("send")
+_save_lane = _ResolverLane("save", trusts_cache=True)
+_send_lane = _ResolverLane("send", trusts_cache=False)
 
 
 def resolve_host_addresses(host: str) -> list[str]:
@@ -955,7 +968,8 @@ def _apprise_cache_on_end(host: str) -> Callable[[Future[list[str]]], None]:
 def _apprise_resolve_hosts(hosts: list[str], *, owner_key: str, lane: _ResolverLane) -> dict[str, str]:
     """Host -> ``ok`` / ``blocked`` / ``unresolvable`` / ``timeout``, within one deadline.
 
-    Cached answers first. The rest runs in ``lane`` under ``owner_key``'s slots:
+    Cached answers first — every one on a lane that trusts the cache, only a
+    ``blocked`` verdict otherwise (see :class:`_HostCache`). The rest runs in ``lane`` under ``owner_key``'s slots:
     when no slot is free and nothing of this call is running, the remaining hosts
     are refused at once; otherwise they take the slot the next finished lookup of
     this call frees, until the deadline.
@@ -964,8 +978,9 @@ def _apprise_resolve_hosts(hosts: list[str], *, owner_key: str, lane: _ResolverL
     pending: list[str] = []
     for host in hosts:
         hit, addresses = _resolution_cache.lookup(host)
-        if hit:
-            verdict[host] = _apprise_resolved_verdict(addresses)
+        cached = _apprise_resolved_verdict(addresses) if hit else None
+        if cached is not None and (lane.trusts_cache or cached == "blocked"):
+            verdict[host] = cached
         else:
             pending.append(host)
     resolve: Callable[[str], list[str]] = resolve_host_addresses
@@ -974,7 +989,8 @@ def _apprise_resolve_hosts(hosts: list[str], *, owner_key: str, lane: _ResolverL
     capped = 0
     while pending:
         while pending and (future := lane.try_submit(owner_key, resolve, pending[0])) is not None:
-            future.add_done_callback(_apprise_cache_on_end(pending[0]))
+            if lane.trusts_cache:
+                future.add_done_callback(_apprise_cache_on_end(pending[0]))
             running[future] = pending.pop(0)
         if not pending:
             break

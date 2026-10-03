@@ -1,4 +1,4 @@
-"""#1995 — no thread or process pool is built at module scope under ``app/``.
+"""#1995 — no BARE thread or process pool is built at module scope under ``app/``.
 
 The defect class of #1995: a module-wide ``ThreadPoolExecutor`` shared by every
 request (``_resolver_pool`` in ``url_safety``). Its queue is unbounded and a task
@@ -13,9 +13,13 @@ however imported (``ThreadPoolExecutor``, an alias, ``concurrent.futures.X``,
 level assignment, a default argument, a class body. A call inside a function or
 method is per call or per instance and is not this class.
 
-Blind spot, stated: a module-level *instance* of a class that builds a pool in
-its ``__init__`` is not flagged (that is how the bounded lane is built); nor is a
-pool obtained through a factory function called at module scope.
+What this guard does NOT see (stated, so nobody reads more into a green run): it
+checks *bare* executor constructions only. A module-level *instance* of a class
+that builds a pool in its ``__init__`` is not flagged — that is how the bounded
+``_ResolverLane`` is built, and an unbounded wrapper class would pass just the
+same; nor is a pool obtained through a factory function called at module scope,
+nor the event loop's default executor (``run_in_executor(None, ...)``,
+``asyncio.to_thread``), which is shared by every request too.
 """
 
 from __future__ import annotations
@@ -110,7 +114,7 @@ def test_the_sweep_leaves_per_call_and_per_instance_pools_alone():
     assert module_level_executors(source) == []
 
 
-def test_no_module_level_executor_under_app():
+def test_no_bare_executor_at_module_scope_under_app():
     files = sorted(APP_ROOT.rglob("*.py"))
     assert len(files) > 100, f"the sweep found too few files under {APP_ROOT}"
     offenders = [
@@ -119,6 +123,6 @@ def test_no_module_level_executor_under_app():
         for line in module_level_executors(path.read_text(encoding="utf-8"))
     ]
     assert offenders == [], (
-        "A module-level executor is shared by every caller with an unbounded queue (#1995); "
+        "A bare module-level executor is shared by every caller with an unbounded queue (#1995); "
         "build it inside a per-caller bounded wrapper such as url_safety._ResolverLane: " + ", ".join(offenders)
     )

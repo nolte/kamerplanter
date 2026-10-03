@@ -559,6 +559,8 @@ class NotificationService:
     ) -> dict:
         """Send a test notification through a specific channel."""
         notification = Notification(
+            user_key=user_key,
+            tenant_key=tenant_key,
             notification_type="system.test",
             title="Test Notification",
             body="This is a test notification from Kamerplanter.",
