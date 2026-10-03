@@ -144,10 +144,10 @@ class TenantErasureEngine:
         _delete("nutrient_plan_phase_entries", _parent("plan_key", "nutrient_plans")),
         _delete("substrates"),
         _delete("substrate_batches"),
-        # A system seed the v0004 backfill stamped with this tenant is not its row.
-        TenantErasureEntry(collection="activities", action="delete", keep_when=({"is_system": True},)),
-        # A system seed the v0004 backfill stamped with this tenant is not its row.
-        TenantErasureEntry(collection="workflow_templates", action="delete", keep_when=({"is_system": True},)),
+        # A seed is global (``tenant_key == ""``) and never selected; a row carrying this
+        # tenant's key is the tenant's, ``is_system`` or not (#2027 follow-up).
+        _delete("activities"),
+        _delete("workflow_templates"),
         _delete("workflow_phases", _parent("workflow_template_key", "workflow_templates")),
         _delete("task_templates"),
         # ── Plants and runs ──

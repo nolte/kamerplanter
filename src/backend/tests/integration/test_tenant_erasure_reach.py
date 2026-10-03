@@ -379,18 +379,23 @@ def test_a_retry_reaches_a_child_whose_parent_the_first_attempt_deleted(database
     assert _read(database, late) is None
 
 
-def test_a_granted_species_and_a_system_seed_outlive_the_tenant(database, erased):
-    """#1769 code review — rows another tenant depends on, or a system seed v0004 stamped, are not the tenant's."""
+def test_a_granted_species_outlives_the_tenant_and_a_flagged_row_does_not(database, erased):
+    """#1769 code review — a row another tenant depends on is not the tenant's.
+
+    A row carrying the tenant's key and ``is_system`` is (#2027 follow-up): until then
+    it was kept as "a system seed v0004 stamped", but a seed is global and this shape is
+    exactly what ``POST /t/{slug}/tasks/workflows`` wrote when it accepted ``is_system``.
+    """
     tenant = "t-sharing"
     ids = _seed_tenant(database, tenant)
     shared = database.collection("species").insert({"tenant_key": tenant, "scientific_name": "Sharea granta"})["_id"]
     database.collection("tenant_has_access").insert({"_from": f"tenants/{OTHER}", "_to": shared})
-    seed = database.collection("workflow_templates").insert({"tenant_key": tenant, "is_system": True})["_id"]
+    flagged = database.collection("workflow_templates").insert({"tenant_key": tenant, "is_system": True})["_id"]
 
     _delete_through(database, "platform_admin", tenant)
 
     assert _read(database, shared) is not None
-    assert _read(database, seed) is not None
+    assert _read(database, flagged) is None
     assert _read(database, ids["species"]) is None
     assert _read(database, ids["workflow_templates"]) is None
     record = database.collection("tenant_erasure_records").get(TenantErasureEngine.record_key(tenant))

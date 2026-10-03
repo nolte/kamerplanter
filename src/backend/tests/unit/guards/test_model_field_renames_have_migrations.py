@@ -160,6 +160,14 @@ _CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
     ("actuator.py", "Actuator", "last_changed_at"): _NoStoredDocuments(
         "Renamed to last_state_change in 426be8b4e (#561), same commit and same reason as `state` above."
     ),
+    ("tenant_erasure.py", "TenantErasureEntry", "keep_when"): _NoStoredDocuments(
+        "Added in 0d7276476 (#1769) on an entry of the in-memory tenant-erasure inventory "
+        "(TenantErasureEngine.INVENTORY), "
+        "built per run and handed to the executor; no TenantErasureEntry or TenantErasurePlan "
+        "is ever written — the persisted TenantErasureRecord carries parent keys and outcomes, "
+        "not entries. Removed in the #2027 follow-up because it spared a tenant's own "
+        "is_system rows from the erasure."
+    ),
     **{
         ("oidc_config.py", class_name, field_name): _UNCALLED_OIDC_REQUEST_DTO
         for class_name, field_name in _VANISHED_OIDC_REQUEST_FIELDS
