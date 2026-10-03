@@ -8,7 +8,8 @@ Only a fixed allow-list of chat/push schemes is delivered to (#1947): the URL
 list comes from a user-editable preference, and Apprise would otherwise mail or
 POST to any third party the user names. Checked on save and again here; host
 targets are also resolved and refused when they land in loopback/link-local/
-reserved space (#1986). Redirects and Matrix discovery happen inside Apprise
+reserved space (#1986), or in private space unless the operator allows it
+(``APPRISE_ALLOW_PRIVATE_TARGETS``, #1996). Redirects and Matrix discovery happen inside Apprise
 and are not controllable here: that is the operator's egress policy.
 
 Channel config expects:
@@ -57,7 +58,7 @@ class AppriseNotificationChannel(INotificationChannel):
         notification: Notification,
         channel_config: dict,
     ) -> ChannelResult:
-        urls, refused = await _partition(channel_config.get("urls", []))
+        urls, refused = await _partition(channel_config.get("urls", []), _owner_key(notification))
         if refused:
             logger.warning("apprise_urls_refused_at_send", refused_count=refused)
         if not urls:
@@ -135,7 +136,7 @@ class AppriseNotificationChannel(INotificationChannel):
         if not notifications:
             return ChannelResult(channel_key=self.channel_key, success=True)
 
-        urls, refused = await _partition(channel_config.get("urls", []))
+        urls, refused = await _partition(channel_config.get("urls", []), _owner_key(notifications[0]))
         if refused:
             logger.warning("apprise_urls_refused_at_send", refused_count=refused)
         if not urls:
@@ -209,9 +210,21 @@ class AppriseNotificationChannel(INotificationChannel):
 # ── Module-level helpers ─────────────────────────────────────────────
 
 
-async def _partition(urls: object) -> tuple[list[str], int]:
+#: Owner of a delivery whose notification names neither user nor tenant: such
+#: deliveries share one resolver share (#1995).
+_UNATTRIBUTED_OWNER = "unattributed"
+
+
+def _owner_key(notification: Notification) -> str:
+    """Whose share of the send resolver lane a delivery uses: recipient, else tenant (#1995)."""
+    return notification.user_key or notification.tenant_key or _UNATTRIBUTED_OWNER
+
+
+async def _partition(urls: object, owner_key: str) -> tuple[list[str], int]:
     """``partition_apprise_urls`` off the event loop: it resolves host targets (#1986)."""
-    return await asyncio.get_running_loop().run_in_executor(None, partition_apprise_urls, urls)
+    return await asyncio.get_running_loop().run_in_executor(
+        None, partial(partition_apprise_urls, urls, owner_key=owner_key)
+    )
 
 
 def _import_apprise():  # noqa: ANN202

@@ -20,6 +20,7 @@ from app.common.auth import get_current_tenant, get_current_user, require_accoun
 from app.common.dependencies import get_notification_service
 from app.common.enums import TenantRole
 from app.common.exceptions import KamerplanterError
+from app.config.settings import settings
 from app.data_access.external.apprise_notification_channel import AppriseNotificationChannel
 from app.domain.models.notification import Notification, NotificationPreferences
 from app.domain.models.tenant_context import TenantContext
@@ -52,6 +53,11 @@ REFUSED = [
     "gotify://127.0.0.1/token",
     "ntfy://localhost/topic",
     "gotify://169.254.169.254/token",
+    # Apprise reads ``scheme:[/\\]+`` as the separator, so the host follows any run of
+    # slashes; ``urlsplit`` sees an empty authority there and no host to judge.
+    "ntfy:///127.0.0.1/topic",
+    "ntfys:////169.254.169.254/topic",
+    "ntfy:///169.254.169.254/topic?mode=private",
     "not a url",
     "",
 ]
@@ -147,7 +153,10 @@ def test_route_refuses_scheme_outside_allowlist_and_stores_nothing(bad):
         assert bad.strip() not in resp.text
 
 
-def test_route_accepts_documented_services():
+def test_route_accepts_documented_services(monkeypatch):
+    # The LAN Gotify below needs the private-target switch (#1996): on in light
+    # mode, off by default in full mode — see test_apprise_private_targets.py.
+    monkeypatch.setattr(settings, "apprise_allow_private_targets", True)
     client, repo = _client()
     urls = [
         GOOD,

@@ -406,7 +406,7 @@ class NotificationService:
         """
         apprise = preferences.channels.get("apprise")
         if apprise is not None and "urls" in apprise.config:
-            validate_apprise_urls(apprise.config["urls"])
+            validate_apprise_urls(apprise.config["urls"], owner_key=user_key)
         home_assistant = preferences.channels.get("home_assistant")
         if home_assistant is not None:
             validate_ha_channel_config(home_assistant.config)
@@ -559,6 +559,8 @@ class NotificationService:
     ) -> dict:
         """Send a test notification through a specific channel."""
         notification = Notification(
+            user_key=user_key,
+            tenant_key=tenant_key,
             notification_type="system.test",
             title="Test Notification",
             body="This is a test notification from Kamerplanter.",

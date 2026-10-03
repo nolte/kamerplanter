@@ -144,7 +144,10 @@ class NotificationEngine:
                 "channels_failed": [],
             }
 
-        # 5. Send through each channel
+        # 5. Send through each channel — owned by the recipient already, so a
+        # channel can attribute its work (the Apprise resolver share, #1995).
+        notification.user_key = user_key
+        notification.tenant_key = tenant_key
         channels_sent: list[str] = []
         channels_failed: list[str] = []
         results: list[ChannelResult] = []
@@ -202,6 +205,9 @@ class NotificationEngine:
 
         prefs = self._load_preferences(user_key)
         channel_keys = self._resolve_channels(notifications[0], prefs)
+        for notif in notifications:  # owned before sending, as in ``notify`` (#1995)
+            notif.user_key = user_key
+            notif.tenant_key = tenant_key
 
         total_sent = 0
         total_failed = 0

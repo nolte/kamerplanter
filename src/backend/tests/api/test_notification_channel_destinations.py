@@ -29,6 +29,7 @@ from app.common.auth import get_current_tenant, get_current_user, require_accoun
 from app.common.dependencies import get_notification_service
 from app.common.enums import TenantRole
 from app.common.exceptions import KamerplanterError
+from app.config.settings import settings
 from app.data_access.external.apprise_notification_channel import AppriseNotificationChannel
 from app.data_access.external.ha_notification_channel import HomeAssistantNotificationChannel
 from app.domain.models.notification import Notification, NotificationPreferences
@@ -350,7 +351,9 @@ def test_resolver_timeout_fails_closed(monkeypatch, stub_apprise):
         release.set()
 
 
-def test_rfc1918_and_public_hosts_stay_allowed(resolver, stub_apprise):
+def test_rfc1918_and_public_hosts_stay_allowed_when_private_targets_are(resolver, stub_apprise, monkeypatch):
+    """With the private-target switch on (light mode's default, #1996) a LAN host passes."""
+    monkeypatch.setattr(settings, "apprise_allow_private_targets", True)
     client, repo = _client()
     urls = ["gotify://gotify.public.example/t", "gotify://gotify.lan.example/t", "gotify://dual.example/t"]
     assert _put(client, "apprise", {"urls": urls}).status_code == 200
