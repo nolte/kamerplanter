@@ -15,7 +15,7 @@ from app.data_access.arango import collections as col
 from app.migrations.versions.v0068_dedupe_seed_rows_multiplied_per_boot import migration
 from app.migrations.yaml_loader import load_yaml
 from tests.support.arango_integration import run_database_name
-from tests.support.seed_boot import create_database
+from tests.support.seed_boot import create_database, drop_seed_identity_indexes
 
 pytestmark = [
     pytest.mark.usefixtures("arango_db"),
@@ -29,6 +29,8 @@ _BOOTS = 3
 @pytest.fixture
 def db():
     system, database = create_database(_DB_NAME)
+    # A volume v0068 ran on had no identity index yet (#2001 adds them in v0070).
+    drop_seed_identity_indexes(database)
     yield database
     system.delete_database(_DB_NAME)
 

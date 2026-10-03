@@ -9,8 +9,8 @@ from typing import Any
 import structlog
 from arango.database import StandardDatabase
 
+from app.common.exceptions import DuplicateError, WriteConflictError
 from app.data_access.arango import collections as col
-from app.data_access.arango.base_repository import get_all_pages
 from app.data_access.arango.fertilizer_repository import ArangoFertilizerRepository
 from app.data_access.arango.nutrient_plan_repository import ArangoNutrientPlanRepository
 from app.domain.models.fertilizer import Fertilizer
@@ -19,40 +19,80 @@ from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
 logger = structlog.get_logger()
 
 
-def load_all_fertilizers(fert_repo: ArangoFertilizerRepository) -> list[Fertilizer]:
-    """Every fertilizer row, all tenants, every page (#2015).
+def global_fertilizer_map(fert_repo: ArangoFertilizerRepository) -> dict[tuple[str, str], Fertilizer]:
+    """``(product_name, brand) → global fertilizer`` — the seed-match universe (#2000).
 
-    The four fertilizer seed loaders read ``get_all(offset=0, limit=1000,
-    all_tenants=True)`` once: past the 1000th row (sorted by ``product_name``) an
-    existing seed product was treated as missing, created again and refused by the
-    collection-wide ``(product_name, brand)`` unique index, and a plan seed lost the
-    key of a product it references. Matching across tenants is unchanged here; that
-    is #2000's decision (it needs the unique-index call), not a paging fix.
+    Global rows only (``tenant_key`` empty or absent), the whole catalogue, through
+    :meth:`ArangoFertilizerRepository.get_global_fertilizers`. The loaders used to
+    match over ``get_all(offset=0, limit=1000, all_tenants=True)``: a tenant's own
+    product with a seed's ``(product_name, brand)`` was found, rewritten from the seed
+    model as global and overwritten; and past row 1000 a seed was treated as missing.
+    The first row per identity wins; the rows come ordered by ``_key``.
     """
-    rows: list[Fertilizer] = get_all_pages(fert_repo, all_tenants=True)
+    rows: dict[tuple[str, str], Fertilizer] = {}
+    for fert in fert_repo.get_global_fertilizers():
+        rows.setdefault((fert.product_name, fert.brand), fert)
     return rows
+
+
+def global_fertilizer_keys(fert_repo: ArangoFertilizerRepository) -> dict[str, str]:
+    """``product_name → key`` over the global fertilizers, for a plan seed's dosages (#2000).
+
+    A seed plan is global, so a dosage it names must resolve to a global product —
+    never to a tenant's private one that happens to share the name (which every other
+    tenant would then see referenced by key in a shared plan). First row per name by
+    ``_key``, so the resolution is the same on every boot.
+    """
+    keys: dict[str, str] = {}
+    for fert in fert_repo.get_global_fertilizers():
+        if fert.key:
+            keys.setdefault(fert.product_name, fert.key)
+    return keys
 
 
 def upsert_fertilizers(
     fert_repo: ArangoFertilizerRepository,
     fertilizers: list[Fertilizer],
 ) -> dict[str, str]:
-    """Upsert fertilizers: update existing, create new. Returns product_name→key map."""
-    all_existing = load_all_fertilizers(fert_repo)
-    existing_map = {(f.product_name, f.brand): f for f in all_existing}
+    """Upsert fertilizers among the global rows: update existing, create new.
+
+    Returns the ``product_name → key`` map of the rows written. Only a global row is
+    ever matched (:func:`global_fertilizer_map`); a tenant's same-named product is
+    neither found nor touched. The unique index is ``(tenant_key, product_name,
+    brand)`` since v0069, so the global seed row and a tenant's own product of the
+    same name coexist.
+
+    A create that the unique index refuses means another process (a second replica
+    booting at the same time) wrote the same global row between the read and the
+    insert: the row is re-read and updated instead, so concurrent boots converge on
+    one row rather than failing the job.
+    """
+    existing_map = global_fertilizer_map(fert_repo)
 
     fert_keys: dict[str, str] = {}
     for fert in fertilizers:
         found = existing_map.get((fert.product_name, fert.brand))
-        if found:
-            fert_keys[fert.product_name] = found.key or ""
-            fert.key = found.key
-            fert_repo.update(found.key or "", fert)
-            logger.info("fertilizer_upserted", name=fert.product_name, brand=fert.brand)
-        else:
-            created = fert_repo.create(fert)
-            fert_keys[fert.product_name] = created.key or ""
-            logger.info("fertilizer_created", name=fert.product_name, brand=fert.brand)
+        if found is None:
+            try:
+                created = fert_repo.create(fert)
+            except (DuplicateError, WriteConflictError) as exc:
+                found = global_fertilizer_map(fert_repo).get((fert.product_name, fert.brand))
+                if found is None:
+                    raise
+                logger.info(
+                    "fertilizer_created_concurrently",
+                    name=fert.product_name,
+                    brand=fert.brand,
+                    refused_with=type(exc).__name__,
+                )
+            else:
+                fert_keys[fert.product_name] = created.key or ""
+                logger.info("fertilizer_created", name=fert.product_name, brand=fert.brand)
+                continue
+        fert_keys[fert.product_name] = found.key or ""
+        fert.key = found.key
+        fert_repo.update(found.key or "", fert)
+        logger.info("fertilizer_upserted", name=fert.product_name, brand=fert.brand)
 
     return fert_keys
 

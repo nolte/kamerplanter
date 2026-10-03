@@ -1084,18 +1084,37 @@ class BaseArangoRepository[TModel: BaseModel]:
 
         For relations whose identity is the vertex pair alone, written by code that
         runs more than once (a seed on every boot). :meth:`create_edge` never
-        rejects a second edge between the same vertices — the edge collections carry
-        no unique index — so a caller that wrapped it in ``try/except`` to mean "this
-        exists already" was writing the whole set again on every run (#1956).
+        rejects a second edge between the same vertices on a collection without a
+        unique index on the pair, so a caller that wrapped it in ``try/except`` to mean
+        "this exists already" was writing the whole set again on every run (#1956).
+
+        The look-before-write alone holds only sequentially: two replicas booting at
+        once both read "absent" and both insert (#2001). Where the collection carries
+        a unique index on the vertex pair (``collections.UNIQUE_PAIR_EDGE_COLLECTIONS``)
+        the storage layer refuses the loser, and that refusal is read here as "exists"
+        — ``DuplicateError`` always, ``WriteConflictError`` only once a re-read shows
+        the winner's edge (a conflict says the other writer *held* the entry, never
+        that it committed).
         """
+        if self._edge_exists(edge_collection, from_id, to_id):
+            return False
+        try:
+            self.create_edge(edge_collection, from_id, to_id, data)
+        except DuplicateError:
+            return False
+        except WriteConflictError:
+            if self._edge_exists(edge_collection, from_id, to_id):
+                return False
+            raise
+        return True
+
+    def _edge_exists(self, edge_collection: str, from_id: str, to_id: str) -> bool:
+        """Whether an edge ``from_id -> to_id`` exists in ``edge_collection``."""
         cursor = self._db.aql.execute(
             "FOR e IN @@edge_col FILTER e._from == @from_id AND e._to == @to_id LIMIT 1 RETURN 1",
             bind_vars={"@edge_col": edge_collection, "from_id": from_id, "to_id": to_id},
         )
-        if next(iter(cursor), None) is not None:
-            return False
-        self.create_edge(edge_collection, from_id, to_id, data)
-        return True
+        return next(iter(cursor), None) is not None
 
     def get_edges(self, edge_collection: str, vertex_id: str, direction: str = "outbound") -> list[dict[str, Any]]:
         query = f"""

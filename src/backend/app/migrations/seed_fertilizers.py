@@ -165,8 +165,8 @@ def _build_phase_entries(
 def run_seed_fertilizers() -> None:
     """Create fertilizer products and nutrient plans."""
     from app.migrations.seed_upsert_helpers import (
+        global_fertilizer_keys,
         global_plan_map,
-        load_all_fertilizers,
         load_species_key_map,
         resolve_plan_species_keys,
         upsert_fertilizers,
@@ -183,13 +183,11 @@ def run_seed_fertilizers() -> None:
 
     # ── Resolve cross-file fertilizer references ──────────────────────────
     # Some nutrient plans reference products from other seed files (e.g.
-    # PK 13-14 from plagron.yaml).  Look up any existing fertilizers in
-    # the DB that are not yet in fert_keys so cross-file references
-    # resolve correctly.
-    all_existing = load_all_fertilizers(fert_repo)
-    for fert in all_existing:
-        if fert.product_name not in fert_keys:
-            fert_keys[fert.product_name] = fert.key or ""
+    # PK 13-14 from plagron.yaml).  Fill in the global products not yet in
+    # fert_keys so cross-file references resolve — global rows only (#2000):
+    # a global plan must never point at a tenant's private product.
+    for product_name, key in global_fertilizer_keys(fert_repo).items():
+        fert_keys.setdefault(product_name, key)
 
     # ── Upsert nutrient plans ─────────────────────────────────────────────
     # #1618: seeded plans are linked to the species their source names.
