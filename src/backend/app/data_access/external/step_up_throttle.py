@@ -277,14 +277,14 @@ DEFAULT_VERIFICATION_RESEND_STORE = anonymous_budget_fallback(VERIFICATION_RESEN
 DEFAULT_VERIFICATION_RESEND_PROVEN_STORE = MemoryStepUpThrottleStore(ttl_seconds=VERIFICATION_RESEND_WINDOW_SECONDS)
 
 
-#: Window of the per-address budget of ``POST /auth/password-reset/request``
-#: (#2043) — the third user of this mechanism, shaped exactly like the resend
-#: budget above: an atomic counter per subject, window renewed by every request,
-#: no strikes, no locks. Its subjects — ``password-reset:<address>`` — digest to
+#: Window of the two-stage budget of ``POST /auth/password-reset/request``
+#: (#2043, #2059) — the third user of this mechanism, shaped like the resend
+#: budget above: an atomic counter per subject, window renewed by every write,
+#: no strikes, no locks. Its subjects — ``password-reset-source:<address>|<ip>``
+#: per source and ``password-reset:<address>`` over all sources — digest to
 #: neither a step-up subject nor a ``verification-resend:`` one, so the budgets
 #: never spend each other. One hour, like the resend budget: the reset link
-#: itself lives one hour, so a fourth link inside it would only replace a link
-#: that is still valid.
+#: itself lives one hour.
 PASSWORD_RESET_WINDOW_SECONDS = 3_600
 
 #: Process-wide in-process tier of the reset budget, and the degradation target

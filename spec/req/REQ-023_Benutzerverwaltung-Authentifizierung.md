@@ -15,7 +15,7 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
-| 1.35 | 2026-10-04 | **Nacharbeit zu #2043/#2045:** (1) **Ein Zähler je Route, nicht je Pfadwert (#2052):** der IP-Limiter nutzt `key_style="endpoint"`; vorher öffnete jeder vom Aufrufer gewählte Pfadwert (Glossar-Slug, Export-Schlüssel, Tenant-Slug) einen eigenen Zähler und einen eigenen Valkey-Schlüssel (gemessen: 31 Slugs → 31 × `200`). Details am Ende von §3.8. (2) **Limit-Prüfung nicht mehr auf der Ereignisschleife (#2048):** asynchrone begrenzte Routen prüfen über `run_in_threadpool`; `GET /api/health` zählt nur im Prozessspeicher. (3) **Rückfall-Stufe der anonymen Budgets verdrängt nicht (#2058):** eine volle Stufe wirft abgelaufene Einträge hinaus und behandelt sonst eine neue Adresse als über dem Budget; vorher verschaffte eine Flut von 4096 Adressen dem Opfer einen vierten Link. `maxmemory` des Chart-Valkey bleibt bewusst ungesetzt (§3.2c). |
+| 1.35 | 2026-10-04 | **Nacharbeit zu #2043/#2045:** (1) **Ein Zähler je Route, nicht je Pfadwert (#2052):** der IP-Limiter nutzt `key_style="endpoint"`; vorher öffnete jeder vom Aufrufer gewählte Pfadwert (Glossar-Slug, Export-Schlüssel, Tenant-Slug) einen eigenen Zähler und einen eigenen Valkey-Schlüssel (gemessen: 31 Slugs → 31 × `200`). Details am Ende von §3.8. (2) **Limit-Prüfung nicht mehr auf der Ereignisschleife (#2048):** asynchrone begrenzte Routen prüfen über `run_in_threadpool`; `GET /api/health` zählt nur im Prozessspeicher. (3) **Rückfall-Stufe der anonymen Budgets verdrängt nicht (#2058):** eine volle Stufe wirft abgelaufene Einträge hinaus und behandelt sonst eine neue Adresse als über dem Budget; vorher verschaffte eine Flut von 4096 Adressen dem Opfer einen vierten Link. `maxmemory` des Chart-Valkey bleibt bewusst ungesetzt (§3.2c). (4) **Reset-Budget zweistufig (#2059):** 3 je Adresse und Client-IP, 10 Links je Adresse insgesamt (nur zugelassene Anfragen zählen); vorher hielt eine Quelle mit einer Anfrage je Stunde bis zu 1199 Adressen gesperrt (gemessen: 0 von 100 Inhaberinnen bekamen einen Link, danach 100 von 100). Log-Ereignis `password_reset_budget_exhausted` (nur Digest). Kein Admin-Weg — §3.2c sagt das jetzt ausdrücklich. |
 | 1.34 | 2026-10-03 | **Bündel-Prüfung #2043/#2045/#2046:** (1) Die Mail-Budgets (§3.2b, §3.2c, Login-Ablehnung) und der Zähler für unbekannte Adressen bekamen ihren Valkey-Client mit den redis-py-Defaults (5 s je Socket-Operation): gemessen über die echten Routen 5,0 s für eine Reset-Anfrage, 5,3 s für eine Login-Ablehnung, 10,6 s für eine fehlgeschlagene Anmeldung mit unbekannter Adresse, auch je für acht gleichzeitige. Jetzt ein eigener, geteilter Client mit den Optionen des IP-Limiters (0,5 s je Verbindungsversuch und Adresse, keine Wiederholung): gemessen 0,51 s, 0,78 s und 1,3 s; ohne Prüfplan, Valkey wird bei jeder Anfrage gefragt. (2) Das Subject des anonymen Bestätigungslinks wird im Service getrimmt und kleingeschrieben wie das des Resets. (3) Korrigiert: Summe der drei Budgets je Postfach, Squatting-Fall und Admin-Ausweg, Neustart von Valkey, `@` im Passwort, Proxy-Benennung, Bedingung der unveränderten Header-Namen. |
 | 1.33 | 2026-10-03 | **Neuer Bestätigungslink über die Login-Ablehnung (#2046):** Das Budget je Adresse von `POST /auth/resend-verification` (§3.2b) zählt jede eingegebene Adresse — wer eine fremde Adresse kennt, konnte es für den Inhaber aufbrauchen und ihm so jeden neuen Link vorenthalten (bisher als Restrisiko geführt). Neu: Die Ablehnung `403 EMAIL_NOT_VERIFIED` (nur nach korrektem Passwort erreichbar) verschickt den neuen Link selbst, nach der Antwort, an die gespeicherte Adresse des Kontos — auf einem eigenen Budget je Konto (Subject `verification-resend-proven:<user_key>`, 3 je Stunde, Valkey-geteilt mit In-Process-Rückfall, nie fail-open), das anonyme Anfragen nicht erreichen. Kein neuer Endpunkt, kein Passwort in einem weiteren Request-Body. Die Antwort bleibt unverändert (Status, Body, Header) — ob gesendet, Budget erschöpft oder Zustellung gescheitert; ein falsches Passwort antwortet wie bisher `401` ohne Mail. Die Login-Route gibt die Ablehnung zurück statt sie zu werfen, weil FastAPI Background-Tasks bei einer Exception verwirft (gemessen). Frontend: der Hinweis stellt den Link in Aussicht (nie „gesendet“), die anonyme Aktion bleibt Rückfall. Details in §3.2b. |
 | 1.32 | 2026-10-03 | **Budget je Adresse beim Passwort-Reset (#2043):** `POST /auth/password-reset/request` war nur je Client-IP begrenzt (`RATE_LIMIT_AUTH`, `20/minute`); gemessen über die echte Route: 20 Reset-Mails an eine Adresse aus einer Quelle in einer Minute, jede mit neuem Link — rechnerisch 1200 je Stunde und Quelle, mit jeder weiteren Quelle mehr. Neu: ein Budget je Adresse wie beim Bestätigungslink (§3.2b) — 3 Anfragen, Auffüllung nach einer Stunde Ruhe, eigenes Budget (Subject `password-reset:<Adresse>`), reserviert vor der Kontosuche für jede eingegebene Adresse gleich, stumm (unverändert `200`, gleicher Body, gleiche Header). Groß-/Kleinschreibung und umgebende Leerzeichen teilen ein Budget. Bei Valkey-Ausfall Rückfall auf die In-Process-Stufe, nie fail-open. Details in §3.2c. |
@@ -1062,25 +1062,41 @@ blockiert dann auch legitime Mails).
 | Grenze | Wert | Antwort bei Überschreitung | Umsetzung |
 |--------|------|----------------------------|-----------|
 | Je Client-IP | `settings.rate_limit_auth`, Env `RATE_LIMIT_AUTH`, Default `20/minute` | `429 Too Many Requests` | slowapi-Limiter des Auth-Routers, Schlüssel über `resolve_client_ip` (#1130) |
-| Je Adresse | 3 Anfragen; Auffüllung, sobald eine Stunde lang keine Anfrage für die Adresse kam (Fenster wird je Anfrage erneuert) | Unverändert `200` mit demselben Body und denselben Headern, es wird nur nichts verschickt | Wie das Budget in §3.2b, aber eigene Instanz: Zähler-Mechanik des Step-up-Throttles (`reserve_attempt`, atomar per `MULTI/EXEC`), 1-h-Fenster, eigener In-Process-Rückfall; Subject `password-reset:<Adresse>`, die Adresse getrimmt und kleingeschrieben, als SHA-256 abgelegt (NFR-011); bei Valkey-Ausfall Rückfall auf die In-Process-Stufe, nie fail-open |
+| Je Adresse und Client-IP (#2059) | 3 Anfragen; Auffüllung, sobald von dieser IP eine Stunde lang keine Anfrage für die Adresse kam (Fenster wird je Anfrage dieser Quelle erneuert, auch über dem Budget) | Unverändert `200` mit demselben Body und denselben Headern, es wird nur nichts verschickt | Wie das Budget in §3.2b, aber eigene Instanz: Zähler-Mechanik des Step-up-Throttles (`reserve_attempt`, atomar per `MULTI/EXEC`), 1-h-Fenster, eigener In-Process-Rückfall; Subject `password-reset-source:<Adresse>|<IP>`, IP aus `resolve_client_ip` (ohne auflösbare IP: eine gemeinsame Quelle `unknown`), die Adresse getrimmt und kleingeschrieben, als SHA-256 abgelegt (NFR-011); bei Valkey-Ausfall Rückfall auf die In-Process-Stufe, nie fail-open |
+| Je Adresse insgesamt (#2059) | 10 Links über alle Quellen; gezählt und erneuert **nur** für Anfragen, die die erste Stufe zugelassen hat; Auffüllung, sobald eine Stunde lang keine solche Anfrage kam | wie oben | Dieselbe Instanz, Subject `password-reset:<Adresse>` (`MAX_PASSWORD_RESETS_PER_ADDRESS_PER_WINDOW`) |
 
-Die Reservierung läuft **vor** der Kontosuche, für jede eingegebene Adresse gleich —
-unbekannt, Service-Account oder echtes Konto. Über dem Budget folgt weder Kontosuche
-noch Token noch Mail. Beide Budgets sind getrennt: Wer das Budget des
+Beide Reservierungen laufen **vor** der Kontosuche, für jede eingegebene Adresse
+gleich — unbekannt, Service-Account oder echtes Konto: zuerst je Adresse und Quelle,
+dann (nur wenn die erste zulässt) je Adresse insgesamt. Über einem der Budgets folgt
+weder Kontosuche noch Token noch Mail. Die Anfrage, die eine Stufe als erste
+überschreitet, loggt `password_reset_budget_exhausted` mit `stage`
+(`address_source` / `address`) und `email_digest` (HMAC mit `LOG_PSEUDONYM_SALT`) —
+nie die Adresse, nie die IP; weitere Anfragen über dem Budget loggen nichts. Beide Budgets sind getrennt: Wer das Budget des
 Bestätigungslinks einer Adresse ausschöpft, verbraucht nicht ihr Reset-Budget, und
 umgekehrt. Wert und Fenster sind die des Bestätigungslinks und ebenso bewusst
 nicht konfigurierbar.
 
-**Restrisiko.** Wer eine fremde Adresse dauerhaft über ihrem Budget hält,
-verhindert neue Reset-Links für dieses Konto. Dafür reicht eine Anfrage pro Stunde
-und Adresse, ohne jede Kenntnis des Kontos; eine einzelne IP kann mit dem
-Default-Limit von 20/min so rund 1200 Adressen gleichzeitig blockiert halten. Die
-Inhaberin kann sich mit ihrem bisherigen Passwort weiter anmelden — wenn sie es
-noch kennt. Bei einem vergessenen Passwort, dem eigentlichen Anlass des Resets,
-bleibt sie ausgesperrt, solange jemand das Budget verbraucht; ebenso, wenn ein
-Squatter ihre Adresse registriert hat (dann gibt es kein „bisheriges Passwort“ von
-ihr). Einen anderen Weg gibt es nicht: Kein Admin-Endpunkt setzt ein Passwort, löst einen Reset-Link
-aus oder leert das Budget.
+**Aussperren durch Dritte (#2059).** Bis #2059 zählte das Budget nur je Adresse,
+und jede Anfrage — auch über dem Budget — erneuerte das Fenster: Eine Anfrage pro
+Stunde und Adresse hielt die Adresse dauerhaft über dem Budget, ohne jede Kenntnis
+des Kontos. Gemessen über die echte Route mit gefälschter Uhr (IP-Limit 20/min als
+3 s je Anfrage): eine Quelle hielt 1000 und 1199 Adressen; 100 von 1000 Inhaberinnen
+fragten von ihrer eigenen IP an und bekamen **0** Links. (Bei genau 1200 Adressen
+läuft das Fenster beim nächsten Durchgang gerade ab — die Grenze liegt bei 1199,
+nicht bei den zuvor genannten „rund 1200“.) Seit #2059 verbraucht eine Quelle nur
+ihr eigenes Budget je Adresse; dieselbe Messung ergibt 100 von 100 Links. Aussperren
+geht nur noch über das Gesamtbudget: zehn **zugestellte** Links je Stunde, also
+mindestens vier Quellen je Adresse, deren Links tatsächlich bei der Inhaberin
+ankommen. Der Preis: Ein Postfach kann jetzt bis zu zehn statt drei Reset-Links je
+Stunde bekommen (aus mindestens vier Quellen).
+
+**Kein Admin-Weg.** Kein Endpunkt setzt ein Passwort, löst einen Reset-Link aus oder
+leert das Budget — auch nicht für eine Plattform-Administratorin
+(Betreiberentscheidung zu #2059). Wer ausgesperrt ist, wartet eine Stunde ohne
+Anfrage oder meldet sich mit dem bisherigen Passwort an, wenn sie es noch kennt;
+hat ein Squatter ihre Adresse registriert, gibt es kein „bisheriges Passwort“ von
+ihr. Das Log-Ereignis `password_reset_budget_exhausted` macht gehäufte
+Überschreitungen für Betreiber sichtbar, ohne die Adresse zu nennen.
 
 **Bei Valkey-Ausfall** zählt jeder Prozess für sich: bis zu 3 Links je Adresse,
 Stunde und Worker-Prozess über alle Replikas. **Die In-Process-Stufe verdrängt nie
@@ -1256,7 +1272,7 @@ class UserService:
 | POST | `/auth/device-pairing/redeem` | QR-Kopplungscode gegen Token-Paar einlösen (#1118, §3.8) | Nein (öffentlich) |
 | POST | `/auth/verify-email` | E-Mail bestätigen | Nein |
 | POST | `/auth/resend-verification` | Neuen Bestätigungslink anfordern — immer `202`, gleicher Body für jede Adresse; 10/h je IP, 3 je Adresse (§3.2b, #2037) | Nein |
-| POST | `/auth/password-reset/request` | Passwort-Reset anfordern — immer `200`, gleicher Body für jede Adresse; 20/min je IP, 3 je Adresse und Stunde (§3.2c, #2043) | Nein |
+| POST | `/auth/password-reset/request` | Passwort-Reset anfordern — immer `200`, gleicher Body für jede Adresse; 20/min je IP, 3 je Adresse und IP, 10 je Adresse insgesamt, je Stunde (§3.2c, #2043, #2059) | Nein |
 | POST | `/auth/password-reset/confirm` | Passwort-Reset durchführen | Nein |
 | GET | `/auth/oauth/providers` | Aktivierte Provider auflisten (für Login-Seite) | Nein |
 | GET | `/auth/oauth/{provider_slug}` | OAuth-Redirect initiieren | Nein |

@@ -111,6 +111,9 @@ After several failed sign-in attempts in a row, the system temporarily locks you
 !!! note "Why this message always appears"
     This message is shown regardless of whether an account with the entered address exists. It prevents outsiders from using the reset feature to discover which email addresses are registered with Kamerplanter.
 
+!!! tip "No link arrived?"
+    Kamerplanter sends at most **three** links per hour for one address to requests from your network, and at most **ten** overall. After that, the next one only goes out once no request from your network has arrived for an hour — so don't ask several times in a row, wait an hour instead. Other people asking for your address do not use up the allowance of your network. There is no way for an administrator to send you a link or reset your password. <!-- REQ-023 -->
+
 4. Open the reset link from the email (valid for **1 hour**)
 5. Choose a new password (at least 10 characters) and confirm it
 6. Click **Save Password** — you are redirected to the sign-in page

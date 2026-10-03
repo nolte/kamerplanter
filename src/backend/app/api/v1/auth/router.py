@@ -555,12 +555,15 @@ def request_password_reset(
     failure must not tell the caller whether the address has an account.
 
     **Limits.** Per client IP ``settings.rate_limit_auth`` (answers 429 — a
-    property of the source, never of the address); per address three requests,
-    refilled once the address has been left alone for an hour (#2043). The
-    per-address budget is enforced silently and counts unknown addresses alike:
-    a request over it answers exactly like an accepted one and only sends nothing.
+    property of the source, never of the address); per address and client IP
+    three requests, refilled once that source has left the address alone for an
+    hour (#2043, #2059); per address over all sources ten links an hour. Both
+    budgets are enforced silently and count unknown addresses alike: a request
+    over one answers exactly like an accepted one and only sends nothing.
     """
-    service.request_password_reset(body.email, defer_mail=background_tasks.add_task)
+    service.request_password_reset(
+        body.email, client_ip=resolve_client_ip(request), defer_mail=background_tasks.add_task
+    )
     return MessageResponse(message="If the email exists, a reset link has been sent.")
 
 

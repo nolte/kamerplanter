@@ -292,7 +292,8 @@ class TestTheBudgetStopsTheMail:
     ) -> None:
         _request(client, OWNER)
 
-        assert world.order == ["reserve", "lookup", "response-sent", "write", "send"]
+        # Two reservations since #2059: per address and source, then per address.
+        assert world.order == ["reserve", "reserve", "lookup", "response-sent", "write", "send"]
 
     def test_over_the_budget_nothing_after_the_reservation_runs(self, world: _World, client: TestClient) -> None:
         for _ in range(MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW):
@@ -345,7 +346,7 @@ class TestOneBudgetPerAddress:
         """
         service = world.service()
         for email in (f" {OWNER.upper()} ", OWNER, "Owner@Example.com"):
-            service.request_password_reset(email)
+            service.request_password_reset(email, client_ip="testclient")
 
         assert world.budget.reserve_attempt(f"password-reset:{OWNER}") == 4
 
@@ -377,7 +378,13 @@ class TestAStorageOutage:
 
         assert {r.status_code for r in answers} == {200}
         assert world.mail.count(OWNER) == MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW
-        assert fallback.reserve_attempt(f"password-reset:{OWNER}") == MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW + _OVER + 1
+        # Every request counted in the per-source stage (#2059); only the admitted
+        # ones reached the per-address stage.
+        assert (
+            fallback.reserve_attempt(f"password-reset-source:{OWNER}|testclient")
+            == MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW + _OVER + 1
+        )
+        assert fallback.reserve_attempt(f"password-reset:{OWNER}") == MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW + 1
 
     def test_the_wired_store_degrades_to_its_own_in_process_tier(self) -> None:
         subject = "password-reset:outage-probe-2043@example.com"

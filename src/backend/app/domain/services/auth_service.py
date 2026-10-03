@@ -175,21 +175,46 @@ MAX_PROVEN_VERIFICATION_RESENDS_PER_WINDOW = 3
 #: store digests the whole subject.
 _VERIFICATION_RESEND_PROVEN_SUBJECT = "verification-resend-proven:"
 
-#: Requests one address may make to ``/auth/password-reset/request`` before the
-#: mail stops (#2043). The same number and window as the resend budget
-#: (:data:`MAX_VERIFICATION_RESENDS_PER_WINDOW`) and for the same reason: the
-#: route is anonymous and the caller chooses the recipient, so the per-IP limit
-#: alone let one source mail one inbox twenty links a minute. The window is
+#: Requests one **source address** may make to ``/auth/password-reset/request``
+#: for one recipient before the mail stops (#2043, per source since #2059). The
+#: same number and window as the resend budget
+#: (:data:`MAX_VERIFICATION_RESENDS_PER_WINDOW`): the route is anonymous and the
+#: caller chooses the recipient. The window is
 #: ``step_up_throttle.PASSWORD_RESET_WINDOW_SECONDS`` (one hour, renewed by every
-#: request). A request over the budget answers exactly like one inside it; it
-#: only sends nothing. Fixed rather than configurable, like the resend budget.
+#: request of that source for that address — above the budget too, so a source
+#: that keeps asking keeps only *itself* out). A request over the budget answers
+#: exactly like one inside it; it only sends nothing. Fixed, not configurable.
+#:
+#: Why per source (#2059): counted per address alone, one request an hour kept
+#: an address above the budget, and the owner — asking from her own address —
+#: got no link. Measured on the real route with a fake clock: one source at the
+#: default 20/minute held 1199 addresses; 100 owners asking from their own
+#: address received 0 links.
 MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW = 3
 
-#: Subject prefix of the reset budget — its own, so it never shares a counter
-#: with the resend budget or a step-up subject. The address is stripped and
-#: lowercased before the prefix is put in front (the lookup compares
-#: ``LOWER(doc.email) == LOWER(@email)``); the store then digests the subject.
+#: Links one recipient may receive per window over **all** sources (#2059) — the
+#: bound on mail to one inbox now that each source has its own three. Counted
+#: only for requests the per-source stage admitted, and renewed only by them,
+#: so one source contributes at most
+#: :data:`MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW` per window and holding an
+#: address above this bound takes four sources that keep mailing it.
+MAX_PASSWORD_RESETS_PER_ADDRESS_PER_WINDOW = 10
+
+#: Subject prefix of the reset budget over all sources — its own, so it never
+#: shares a counter with the resend budget or a step-up subject. The address is
+#: stripped and lowercased before the prefix is put in front (the lookup
+#: compares ``LOWER(doc.email) == LOWER(@email)``); the store then digests it.
 _PASSWORD_RESET_SUBJECT = "password-reset:"
+
+#: Subject prefix of the per-source stage: ``password-reset-source:<address>|<ip>``.
+#: The last ``|`` separates the two — a domain and an IP address contain none — so
+#: no two pairs share a subject; the store digests it.
+_PASSWORD_RESET_SOURCE_SUBJECT = "password-reset-source:"
+
+#: The source a request is counted under when no client address could be
+#: established (``resolve_client_ip`` returned ``None``): all such requests share
+#: one per-source budget, which is the safe direction.
+_UNKNOWN_SOURCE = "unknown"
 
 #: Lifetime of a mailed e-mail verification link — at registration and on every
 #: resend (#2037). One constant, so the two issuance paths cannot drift apart.
@@ -282,6 +307,19 @@ def _id_token_issuer(token_response: dict) -> str | None:
         return str(OAuthEngine.id_token_claims(token_response).get("iss") or "") or None
     except ValueError:
         return None
+
+
+def _report_budget_crossing(stage: str, address: str, reserved: int, budget: int) -> None:
+    """Log the one request that takes a password-reset stage over its budget (#2059).
+
+    Only the crossing, not every request above it: a source that keeps asking
+    must not turn into a log flood. The address appears only as the keyed
+    ``email_digest`` (NFR-011); the source address not at all. Operators see a
+    subject pushed over its budget — the signature of the lock-out #2059
+    describes — without the log naming whom.
+    """
+    if reserved == budget + 1:
+        logger.warning("password_reset_budget_exhausted", stage=stage, email_digest=email_digest(address))
 
 
 class AuthService:
@@ -934,18 +972,35 @@ class AuthService:
 
     # ── Password reset ──────────────────────────────────────────────────
 
-    def request_password_reset(self, email: str, *, defer_mail: MailDeferrer | None = None) -> None:
+    def request_password_reset(
+        self, email: str, *, client_ip: str | None, defer_mail: MailDeferrer | None = None
+    ) -> None:
         """Always succeeds (no email enumeration).
 
         The token write and the mail go through :meth:`_deliver_mail`: neither a
         failing adapter or database nor the time they take may answer a known
         address differently from an unknown one (#1890).
 
-        Per-address budget (#2043): every call reserves one attempt for the
-        submitted address before anything is looked up, for an unknown address
-        exactly like for a registered one. Past
-        :data:`MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW` the call returns without
-        a lookup, a token or a mail — and without any other visible difference.
+        Two-stage budget (#2043, #2059), both reserved before anything is looked
+        up, for an unknown address exactly like for a registered one:
+
+        1. per address **and** source (*client_ip*):
+           :data:`MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW`. A source that keeps
+           asking for someone else's address keeps only itself out.
+        2. per address over all sources, counted only for requests stage 1
+           admitted: :data:`MAX_PASSWORD_RESETS_PER_ADDRESS_PER_WINDOW`.
+
+        Past either the call returns without a lookup, a token or a mail — and
+        without any other visible difference. The request that first crosses a
+        stage logs ``password_reset_budget_exhausted`` with the stage and a keyed
+        digest of the address, never the address or the source.
+
+        Args:
+            email: The address the caller submitted.
+            client_ip: The resolved client address (``resolve_client_ip``);
+                ``None`` counts under one shared "unknown" source.
+            defer_mail: Runs the mail step after the response (the route passes
+                ``BackgroundTasks.add_task``).
         """
         # Counted before anything is known about the address, for every address
         # alike, so reaching the budget says nothing about whether an account
@@ -953,8 +1008,15 @@ class AuthService:
         # is normalised here and not only by the store: the store strips the
         # whole subject, so whitespace between the prefix and the address would
         # survive it and buy a fresh budget for the same inbox.
-        reserved = self._password_reset_store.reserve_attempt(_PASSWORD_RESET_SUBJECT + email.strip().lower())
-        if reserved > MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW:
+        address = email.strip().lower()
+        source = (client_ip or _UNKNOWN_SOURCE).strip().lower()
+        per_source = self._password_reset_store.reserve_attempt(f"{_PASSWORD_RESET_SOURCE_SUBJECT}{address}|{source}")
+        if per_source > MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW:
+            _report_budget_crossing("address_source", address, per_source, MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW)
+            return
+        per_address = self._password_reset_store.reserve_attempt(_PASSWORD_RESET_SUBJECT + address)
+        if per_address > MAX_PASSWORD_RESETS_PER_ADDRESS_PER_WINDOW:
+            _report_budget_crossing("address", address, per_address, MAX_PASSWORD_RESETS_PER_ADDRESS_PER_WINDOW)
             return
 
         user = self._user_repo.get_by_email(email)
