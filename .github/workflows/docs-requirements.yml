@@ -22,7 +22,7 @@ name: Docs Requirements
 # use: recompile, compare, red on difference.
 #
 # ADVISORY, AND IT MUST STAY ADVISORY WHILE IT IS PATH-FILTERED.
-# `develop` requires `static / Static CI Tests` and `lint-test-build (22)` and
+# `develop` requires `static / Static CI Tests` and `lint-test-build` and
 # nothing else. This lane is NOT to be promoted to a required context as long as
 # it carries a `paths:` filter: a path-filtered required check never reports on
 # a change it filters out, and GitHub treats a check that never reports as

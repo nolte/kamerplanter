@@ -15,7 +15,7 @@
 #
 # ADVISORY START (NFR-018 §4). These three jobs begin as ADVISORY lanes: they
 # are NOT in the branch-protection required set and MUST NOT be added to it here.
-# `develop` requires only `static / Static CI Tests` and `lint-test-build (22)`.
+# `develop` requires only `static / Static CI Tests` and `lint-test-build`.
 # Promotion to required is a decision made on measured stability per NFR-018 §4,
 # not by editing this comment. This workflow does not touch branch protection.
 #

@@ -19,7 +19,7 @@ name: Security — ZAP Post-Merge Scans
 ##      follow-up push / the `strict: true` rebase superseded the run (the
 ##      `cancel-in-progress: true` this file used to carry), AND the pull request
 ##      is merged by the `automerge` label as soon as the two REQUIRED contexts
-##      report (`static / Static CI Tests`, `lint-test-build (22)`), which closing
+##      report (`static / Static CI Tests`, `lint-test-build`), which closing
 ##      the pull request cancels. `cancel-in-progress: false` alone removes the
 ##      first but NOT the second: the scan still loses to the merge of its own PR.
 ##   3. This lane runs ONLY pre-merge and never re-runs, so a cancelled commit

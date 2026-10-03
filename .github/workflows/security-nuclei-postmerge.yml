@@ -40,7 +40,7 @@ name: Security — Nuclei Post-Merge Scan
 # now reported AFTER the merge rather than beside it. It costs nothing that was
 # actually being delivered — this check has never been required
 # (`.github/settings.yml` requires only `static / Static CI Tests` and
-# `lint-test-build (22)`), and a cancelled run blocks nothing and reports
+# `lint-test-build`), and a cancelled run blocks nothing and reports
 # nothing. Promotion to a required check stays out of the question until there
 # is measured history to justify it (NFR-018 §4); making a check that never
 # completes blocking would be strictly worse than today.

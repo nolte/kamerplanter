@@ -184,7 +184,7 @@ jobs:
       - run: npm run build
 ```
 
-1. Alle Frontend-Jobs laufen auf Node 25, wie die lokale Entwicklung. Der Check heißt aus historischen Gründen weiter `lint-test-build (22)`, weil er der required Context in `.github/settings.yml` ist. Das Frontend-Dockerfile baut ebenfalls mit `node:25-alpine` (siehe [Frontend-Image](#frontend-image) unten).
+1. Alle Frontend-Jobs laufen auf Node 25, wie die lokale Entwicklung. Der Check `lint-test-build` ist der required Context in `.github/settings.yml` und trägt bewusst keine Node-Version im Namen. Das Frontend-Dockerfile baut ebenfalls mit `node:25-alpine` (siehe [Frontend-Image](#frontend-image) unten).
 
 !!! tip "Lokale Prüfung vor dem Push"
     ```bash

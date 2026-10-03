@@ -149,7 +149,7 @@ branches:
           #
           # `frontend.yml`'s pull_request trigger had to lose its `paths:` filter
           # for this to work; see the header there.
-          - lint-test-build (22)
+          - lint-test-build
           #
           # `lint-test (3.14)` (backend) is deliberately NOT promoted alongside
           # it, and the difference is measured rather than assumed. Over 30
@@ -167,7 +167,7 @@ branches:
           #
           # #1404 — the mechanical write-route guards, and ONLY those. Until this
           # promotion no backend test suite was an enforced check at all:
-          # `static` runs pre-commit, `lint-test-build (22)` is the frontend, and
+          # `static` runs pre-commit, `lint-test-build` is the frontend, and
           # `Backend CI` is path-filtered and advisory. That is where
           # `tests/unit/api/test_write_route_gates.py` lives — the mechanical
           # guard against this repository's largest defect class, 23 closed

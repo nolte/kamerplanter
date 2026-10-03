@@ -1,7 +1,7 @@
 ##
 ## Frontend CI.
 ##
-## `lint-test-build (22)` is a REQUIRED check on `develop` (#828). Before that it
+## `lint-test-build` is a REQUIRED check on `develop` (#828). Before that it
 ## gated nothing: a pull request whose entire vitest run was red could reach
 ## develop as long as the two required contexts passed, and #824 (jsdom 29 -> 30,
 ## 71 of 361 test files red) was stopped only because someone inspected the
@@ -94,22 +94,19 @@ jobs:
 
   # REQUIRED check. The job itself always runs; only its *steps* are conditional.
   #
-  # A job skipped by a job-level `if:` does not expand its matrix, so GitHub
-  # reports the check run as `lint-test-build` — without the ` (22)` suffix that
-  # the required context carries. The required context then never reports at all
-  # and every non-frontend pull request sits on "Expected — waiting for status to
-  # be reported" forever. Verified the hard way: it blocked #841 and #842
-  # immediately after the promotion landed.
+  # A job skipped by a job-level `if:` never reports under the required context
+  # name, which then never reports at all and every non-frontend pull request
+  # sits on "Expected — waiting for status to be reported" forever. Verified the
+  # hard way: it blocked #841 and #842 immediately after the promotion landed.
   #
   # Running the job and skipping its steps costs a few seconds of runner time and
-  # produces a green `lint-test-build (22)` on every pull request, which is what
+  # produces a green `lint-test-build` on every pull request, which is what
   # branch protection needs.
   #
-  # Node 25 (same as local development). The check keeps its historical name
-  # `lint-test-build (22)` as a static string because it is the required context
-  # in `.github/settings.yml`; renaming it means changing branch protection first.
+  # The name is a static string without a Node version (and no matrix), so the
+  # required context in `.github/settings.yml` does not change when Node does.
   lint-test-build:
-    name: lint-test-build (22)
+    name: lint-test-build
     needs: changes
     if: always()
     runs-on: ubuntu-latest
@@ -122,7 +119,7 @@ jobs:
       # it, a `changes` job that FAILED or was cancelled leaves
       # `needs.changes.outputs.frontend` as an empty string, every comparison is
       # false, every step is skipped — and a job whose steps are all skipped
-      # reports Success. The required `lint-test-build (22)` context would go
+      # reports Success. The required `lint-test-build` context would go
       # green without tsc, ESLint, vitest or the build ever running: a check
       # that reports on nothing is indistinguishable from one that passed.
       #
@@ -200,7 +197,7 @@ jobs:
     # steps are all skipped reports Success. Coverage would go green without
     # measuring anything.
     #
-    # Lower stakes than `lint-test-build (22)`, which is a required context —
+    # Lower stakes than `lint-test-build`, which is a required context —
     # this one is advisory. It is guarded anyway because it is the same defect
     # two dozen lines from the fix for it, and the next reader copying either
     # job should copy the guarded form.
@@ -275,7 +272,7 @@ jobs:
   # warn-level (report-only) until their own baseline is stable.
   #
   # ADVISORY regardless: branch protection requires only `static / Static CI
-  # Tests` and `lint-test-build (22)` (`.github/settings.yml`), and this job is
+  # Tests` and `lint-test-build` (`.github/settings.yml`), and this job is
   # deliberately not among them. It is promoted to a required check on measured
   # history per NFR-018 §4, never by editing this comment.
   lighthouse:
@@ -332,7 +329,7 @@ jobs:
   # ADVISORY, AND HONESTLY SO. It carries NO `continue-on-error`: the job goes
   # red when knip finds something, because a job that cannot fail is not a
   # check (NFR-018 §2). It blocks nothing regardless — branch protection
-  # requires only `static / Static CI Tests` and `lint-test-build (22)`
+  # requires only `static / Static CI Tests` and `lint-test-build`
   # (`.github/settings.yml`), and this job is deliberately not among them.
   #
   # It IS red today: 9 unreachable files and 38 unused exports as of

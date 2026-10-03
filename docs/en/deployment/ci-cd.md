@@ -184,7 +184,7 @@ jobs:
       - run: npm run build
 ```
 
-1. All frontend jobs run on Node 25, like local development. For historical reasons the check is still named `lint-test-build (22)` because it is the required context in `.github/settings.yml`. The frontend Dockerfile builds with `node:25-alpine` too (see [Frontend image](#frontend-image) below).
+1. All frontend jobs run on Node 25, like local development. The `lint-test-build` check is the required context in `.github/settings.yml` and deliberately carries no Node version in its name. The frontend Dockerfile builds with `node:25-alpine` too (see [Frontend image](#frontend-image) below).
 
 !!! tip "Local check before pushing"
     ```bash
