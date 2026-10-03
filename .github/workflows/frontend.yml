@@ -122,7 +122,7 @@ jobs:
   # produces a green `lint-test-build (22)` on every pull request, which is what
   # branch protection needs.
   #
-  # Node 25 (same as local development). The check keeps its historical name
+  # Node 26. The check keeps its historical name
   # `lint-test-build (22)` as a static string because it is the required context
   # in `.github/settings.yml`; renaming it means changing branch protection first.
   lint-test-build:
@@ -171,9 +171,9 @@ jobs:
           version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # npm is the one bundled with the Node version of .tool-versions (npm 11 for
-      # Node 25), i.e. the same npm that writes the lockfile locally. Do not
-      # `npm install -g npm@latest`: npm 12 refuses Node 25 (EBADENGINE).
+      # npm is the one bundled with the Node version of .tool-versions, i.e. the npm
+      # that writes the lockfile locally. No `npm install -g npm@latest`: a newer
+      # npm can refuse the Node version in use (npm 12 failed with EBADENGINE on 25).
       - name: Install dependencies
         if: env.RUN_FRONTEND == 'true'
         run: npm ci

@@ -184,7 +184,7 @@ jobs:
       - run: npm run build
 ```
 
-1. Alle Frontend-Jobs laufen auf Node 25, wie die lokale Entwicklung. Der Check heißt aus historischen Gründen weiter `lint-test-build (22)`, weil er der required Context in `.github/settings.yml` ist. Das Frontend-Dockerfile baut ebenfalls mit `node:25-alpine` (siehe [Frontend-Image](#frontend-image) unten).
+1. Alle Frontend-Jobs laufen auf Node 26, wie die lokale Entwicklung. Der Check heißt aus historischen Gründen weiter `lint-test-build (22)`, weil er der required Context in `.github/settings.yml` ist. Das Frontend-Dockerfile baut ebenfalls mit `node:26-alpine` (siehe [Frontend-Image](#frontend-image) unten).
 
 !!! tip "Lokale Prüfung vor dem Push"
     ```bash
@@ -278,7 +278,7 @@ Das Image wird nach `ghcr.io/nolte/kamerplanter-backend` gepusht. Abhängigkeite
 Das Frontend-Image verwendet ebenfalls ein Multi-Stage-Dockerfile: Zuerst wird die React-App mit Node.js 24 gebaut, dann werden die statischen Dateien in ein schlankes, **unprivilegiertes** nginx-Image kopiert (läuft nicht als root, kompatibel mit `runAsNonRoot`):
 
 ```dockerfile title="src/frontend/Dockerfile (vereinfacht)"
-FROM node:25-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
