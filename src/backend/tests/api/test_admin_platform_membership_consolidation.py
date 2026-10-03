@@ -233,7 +233,6 @@ class Backend:
         )
         self.user_service = UserService(
             self.user_repo,  # type: ignore[arg-type]
-            MagicMock(),
         )
 
         app = FastAPI()

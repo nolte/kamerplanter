@@ -74,7 +74,7 @@ class IdentificationEngine:
             raise PayloadTooLargeError(self._max_image_size_bytes)
 
         if not (image_data[:2] == _JPEG_MAGIC or image_data[:8] == _PNG_MAGIC):
-            raise UnsupportedMediaTypeError("unknown", ["image/jpeg", "image/png"])
+            raise UnsupportedMediaTypeError(["image/jpeg", "image/png"])
 
     def compute_image_hash(self, image_data: bytes) -> str:
         """SHA-256 hash (truncated) of the image — for audit/dedup, not storage."""
@@ -103,7 +103,7 @@ class IdentificationEngine:
         try:
             clean_image = strip_exif_and_normalize(image_data, max_dimension=self._max_image_dimension)
         except ValueError as exc:
-            raise UnsupportedMediaTypeError("unknown", ["image/jpeg", "image/png"]) from exc
+            raise UnsupportedMediaTypeError(["image/jpeg", "image/png"]) from exc
 
         # Hash the sanitized image actually sent to the third party.
         image_hash = self.compute_image_hash(clean_image)
@@ -169,7 +169,7 @@ class IdentificationEngine:
         try:
             clean_image = strip_exif_and_normalize(image_data, max_dimension=self._max_image_dimension)
         except ValueError as exc:
-            raise UnsupportedMediaTypeError("unknown", ["image/jpeg", "image/png"]) from exc
+            raise UnsupportedMediaTypeError(["image/jpeg", "image/png"]) from exc
         return adapter.identify(clean_image, organ=organ, language=language)
 
     def _match_candidates(self, result: IdentificationResult, tenant_key: str) -> list[IdentificationCandidate]:

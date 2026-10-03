@@ -199,6 +199,9 @@ class _Providers:
         if any((r.provider, r.oidc_config_slug, r.provider_user_id) == unique for r in self.rows):
             raise ValueError(f"unique constraint violated: {unique}")
         self.writes.append("create")
+        if row.key is None:
+            # The repository returns the stored document with the key the database assigned.
+            row = row.model_copy(update={"key": f"prov-{len(self.rows)}-{len(self.writes)}"})
         self.rows.append(row)
         return row
 
@@ -209,6 +212,7 @@ class _Providers:
     def delete(self, key: str) -> bool:
         self.writes.append("delete")
         self.deleted.append(key)
+        self.rows = [r for r in self.rows if r.key != key]
         return True
 
     def delete_by_config_slug(self, oidc_config_slug: str, *, only_without_issuer: bool = False) -> int:

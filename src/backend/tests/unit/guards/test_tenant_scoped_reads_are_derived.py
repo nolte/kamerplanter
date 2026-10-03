@@ -241,6 +241,7 @@ ANCHOR_TARGETS: dict[str, str | None] = {
     "cultivar_key": col.CULTIVARS,
     # Not tenant anchors.
     "user_key": None,  # an account; spans every tenant it is a member of
+    "oidc_config_key": None,  # a platform-wide sign-in provider configuration (#1987); tenants do not own it
     "owner_user_key": None,
     "default_tenant_key": None,  # a tenant id, not a document of one
     "personal_tenant_keys": None,  # tenant ids an account erasure recorded (#1788), not documents of one
@@ -860,9 +861,6 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ),
     ("ArangoMcpAuditRepository", "count_undated"): Exclusion(
         "system", "held-count of the installation-wide mcp_audit_log retention task (#1806 GDPR-003)"
-    ),
-    ("ArangoCareReminderRepository", "get_all_profiles"): Exclusion(
-        "system", "the care-reminder Celery task walks every profile to generate due tasks"
     ),
     ("ArangoNotificationRepository", "find_overdue_watering"): Exclusion(
         "system", "the escalation Celery task re-notifies every overdue watering reminder"

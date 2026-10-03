@@ -138,7 +138,7 @@ class TestTheRouteOperand:
         assert mine == theirs
 
     def test_the_measured_candidate_count(self) -> None:
-        """803 mounted ``/api/v1`` operations.
+        """804 mounted ``/api/v1`` operations.
 
         Pinned deliberately. The candidate *count* moves with every triage
         decision and is not pinned anywhere; the denominator moving is a route
@@ -172,9 +172,13 @@ class TestTheRouteOperand:
         +1: ``GET /admin/platform/users/{key}/erasure-preview`` (#1961) — the same
         preview for the target of a platform admin's deletion; consumed by
         ``getAdminUserErasurePreview`` in ``src/frontend/src/api/endpoints/adminPlatform.ts``.
+
+        +1: ``GET /admin/platform/erasures/{erasure_key}`` (#1949) — the status of the account
+        erasure the admin deletion now only accepts (202); consumed by ``getAdminErasureStatus``
+        in the same file.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 803
+        assert len(checker.collect_operations(app)) == 804
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

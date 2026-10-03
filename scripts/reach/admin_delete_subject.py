@@ -9,8 +9,14 @@ The act half of the admin-delete reach probes, along the path production takes:
 2. The admin signs in and sends ``DELETE /api/v1/admin/platform/users/{key}``
    for the seeded subject — the route that until #1767 discarded the erasure
    report — with the step-up #1814 requires (subject's e-mail + admin password).
+3. Since #1949 the route answers ``202 Accepted``: the account is closed and the
+   erasure runs in a worker. The act therefore **waits for the erasure request's
+   terminal state** (``GET /admin/platform/erasures/{erasure_key}`` leaves
+   ``scheduled``/``in_progress``) before it closes its marker window, so the
+   observers never read a half-erased subject; a timed-out wait fails the act
+   loudly instead of letting an observation pass over an unfinished run.
 
-It exits 0 whatever the route answered. The answer is logged for the operator,
+It exits 0 whatever the route answered (a failed wait exits 1). The answer is logged for the operator,
 never read as an observation; ``observe_erasure_residue.py`` counts the rows and
 ``observe_erasure_records.py`` reads the persisted erasure records instead.
 Markers ``reach-marker:admin-delete:begin`` / ``:end`` bracket the act in
@@ -37,11 +43,16 @@ from _reach_common import (  # noqa: E402 — sibling import after the path inse
     read_stack,
     read_subject,
     run,
+    wait_until,
 )
 from run_export_for_subject import sign_in  # noqa: E402
 
-#: The erasure walks object storage and ~60 collections in one transaction.
-DELETE_TIMEOUT_SECONDS = 300
+#: The request only records, closes the account and dispatches (#1949); the run is the worker's.
+DELETE_TIMEOUT_SECONDS = 60
+#: The worker walks object storage, the personal tenants in bounded batches and ~60 collections.
+ERASURE_WAIT_SECONDS = 600
+#: The states in which the worker has not finished its run; anything else is the run's result.
+_UNSETTLED = frozenset({"scheduled", "in_progress"})
 ADMIN_EMAIL = "reach-platform-admin@example.com"
 
 
@@ -61,6 +72,14 @@ def _admin(api: str) -> dict[str, str]:
     return {"email": ADMIN_EMAIL, "password": password}
 
 
+def _settled(api: str, headers: dict[str, str], erasure_key: str):
+    """The erasure request once its run is over (``completed`` or ``partially_completed``), else ``None``."""
+    status, body = http_json("GET", f"{api}/api/v1/admin/platform/erasures/{erasure_key}", headers=headers)
+    if status != 200 or not isinstance(body, dict):
+        raise ReachError(f"GET /admin/platform/erasures/{{key}} answered {status}: {body}")
+    return None if body.get("status") in _UNSETTLED else body
+
+
 def delete(subject_key: str) -> int:
     stack = read_stack()
     subject = read_subject(subject_key)
@@ -78,6 +97,13 @@ def delete(subject_key: str) -> int:
         headers=headers,
         timeout=DELETE_TIMEOUT_SECONDS,
     )
+    if status == 202 and isinstance(body, dict) and body.get("erasure_key"):
+        settled = wait_until(
+            lambda: _settled(api, headers, body["erasure_key"]),
+            timeout=ERASURE_WAIT_SECONDS,
+            what="the worker to finish the accepted erasure of the subject",
+        )
+        log(f"the accepted erasure settled as {settled['status']}")
     arango.mark("reach-marker:admin-delete:end")
     log(f"DELETE /admin/platform/users answered {status} (the act's end, not an observation): {body}")
     return status

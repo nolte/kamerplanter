@@ -83,9 +83,20 @@ describe('adminPlatform endpoints — stats, tenants, users', () => {
     expect(preview.personal_tenants).toEqual([{ name: 'Garden', other_member_count: 2 }]);
   });
 
+  it('getAdminErasureStatus reads the encoded erasure key (#1949)', async () => {
+    client.get.mockResolvedValue({ data: { key: 'er/1', status: 'partially_completed', requested_at: null } });
+    const status = await admin.getAdminErasureStatus('er/1');
+    expect(client.get).toHaveBeenCalledWith('/admin/platform/erasures/er%2F1');
+    expect(status.status).toBe('partially_completed');
+  });
+
   it("deleteAdminUser deletes encoded user key and carries the target's e-mail step-up (#1814)", async () => {
-    client.delete.mockResolvedValue({ data: undefined });
-    await admin.deleteAdminUser('u/1', { confirm_email: 'target@example.org', password: 'admin-pw' });
+    const accepted = { erasure_key: 'er-1', status: 'scheduled', requested_at: null, message: 'accepted' };
+    client.delete.mockResolvedValue({ data: accepted });
+    // 202 since #1949: the accepted request comes back, not `void`.
+    await expect(
+      admin.deleteAdminUser('u/1', { confirm_email: 'target@example.org', password: 'admin-pw' }),
+    ).resolves.toEqual(accepted);
     expect(client.delete).toHaveBeenCalledWith('/admin/platform/users/u%2F1', {
       data: { confirm_email: 'target@example.org', password: 'admin-pw' },
     });

@@ -135,7 +135,7 @@ All API errors follow a consistent JSON format. Every error response contains a 
 
 | Error Code | HTTP | Description |
 |-----------|------|-------------|
-| `ERASURE_INCOMPLETE` | 500 | An immediate account erasure (platform admin, cleanup of never-confirmed accounts) did not reach a declared step; the erasure request is recorded and retried automatically |
+| `ERASURE_INCOMPLETE` | 500 | The cleanup of never-confirmed accounts (or a synchronous operator run) did not reach a declared step; the erasure request is recorded and retried automatically. `DELETE /admin/platform/users/{key}` no longer answers it (`202` since #1949): the same condition is the request status `partially_completed` at `GET /admin/platform/erasures/{erasure_key}` |
 | `TENANT_ERASURE_INCOMPLETE` | 500 | A tenant deletion did not reach something that still holds the tenant (the message names only collection names, never a tenant or account key); the deletion is recorded and retried automatically. Since issue #1792 the tenant-deletion endpoints (`202 Accepted`) no longer return this error to the caller — it occurs in the worker and is recorded on the deletion record |
 | `WRITE_CONFLICT` | 409 | An erasure for this account or tenant is already running |
 | `FEATURE_NOT_CONFIGURED` | 503 | The instance is not configured correctly for account or tenant erasure; nothing was changed |

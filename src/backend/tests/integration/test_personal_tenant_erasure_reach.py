@@ -201,12 +201,17 @@ def _privacy_service(database) -> PrivacyService:
 
 
 def _admin_delete(database, subject: str) -> None:
+    privacy_service = _privacy_service(database)
+    # #1949 — the route only accepts; the Celery task body (no broker here) does the erasure.
+    dispatched: list[str] = []
+    privacy_service._dispatch_account_erasure = dispatched.append  # type: ignore[method-assign]
     admin_router.delete_user(
         subject,
         **admin_erasure_route_args(
-            _privacy_service(database), admin_key=ADMIN, target_key=subject, target_email=f"{subject}@example.com"
+            privacy_service, admin_key=ADMIN, target_key=subject, target_email=f"{subject}@example.com"
         ),
     )
+    asyncio.run(privacy_service.run_account_erasure_task(dispatched[0]))
 
 
 def _scheduled_erasure(database, subject: str) -> None:

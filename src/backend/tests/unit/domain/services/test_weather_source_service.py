@@ -72,7 +72,6 @@ def _build_service(*, site=None, existing=None, ha_client=None, encryption=None)
         weather_source_config_repo=config_repo,
         site_repo=site_repo,
         encryption_engine=engine,
-        resolver=MagicMock(),
         ha_client_factory=lambda: ha_client,
     )
     return service, config_repo, site_repo, engine

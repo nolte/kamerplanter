@@ -311,14 +311,14 @@ Ten actions require re-confirmation by the signed-in person, in addition to a va
 | Action | Route(s) | Typed-back target (body field) | Password / Fresh sign-in / Code |
 |---|---|---|---|
 | Delete own account (GDPR Art. 17) | `DELETE /users/me`, `POST /privacy/erasure` | own email (`confirm_email`) | own password, if a local one exists — otherwise a `step_up_token` from a fresh sign-in, or, only for GitHub/Apple-only accounts, the emailed code (`step_up_code`) |
-| Delete another account (platform admin) | `DELETE /admin/platform/users/{key}` | target's email (`confirm_email`) | the admin's own, otherwise their `step_up_token` or code |
+| Delete another account (platform admin; `202`, the erasure runs in a worker, #1949) | `DELETE /admin/platform/users/{key}` | target's email (`confirm_email`) | the admin's own, otherwise their `step_up_token` or code |
 | Delete a tenant | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | slug (`confirm_slug`) | own password, otherwise a `step_up_token` or code |
 | Change email address | `POST /privacy/email-change` | — | own password, otherwise a `step_up_token` or code |
 | Change password | `POST /users/me/password` | — | current (`current_password`) — setting the **first** password on an account without one runs through a `step_up_token` or code instead |
 | Issue an API key | `POST /auth/api-keys` | — | own password, otherwise a `step_up_token` or code. **Light Mode:** no step-up — the instance has only the one system account |
 | Pair a device by QR code | `POST /auth/device-pairing` | — | own password, otherwise a `step_up_token` or code |
 | Remove a sign-in method (provider link) | `DELETE /users/me/providers/{provider_key}` | — | own password, otherwise a `step_up_token` or code |
-| Raise another account's trust (platform admin) | `PATCH /admin/platform/users/{key}`, only when `email_verified` or `is_active` flips from `false` to `true` | — | the admin's own, otherwise their `step_up_token` or code |
+| Change another account's trust (platform admin) | `PATCH /admin/platform/users/{key}`, whenever `email_verified` or `is_active` changes (raising or lowering, #1992) | — | the admin's own, otherwise their `step_up_token` or code |
 | Create, change or delete an OIDC provider (platform admin) | `POST /admin/oidc-providers`, `PUT`/`DELETE /admin/oidc-providers/{key}` — not for a `PUT` that only changes `display_name` or `icon_url` (switching it on or off needs it) | — | the admin's own, otherwise their `step_up_token` or code |
 
 !!! info "No automatic revocation of API keys"
@@ -428,7 +428,7 @@ The server sets the HttpOnly refresh cookie and redirects to the frontend — wi
 {frontend_url}/auth/callback
 ```
 
-Before the server signs anyone in, it checks the provider's ID token (OIDC Core 3.1.3.7): the **signature** against the keys (JWKS) the provider publishes (the configuration's `jwks_url`, otherwise the `jwks_uri` of its discovery document), `iss`, `aud`/`azp` (this instance), the request's `nonce`, and `exp` and `iat`. When the provider delivers the identity through the userinfo endpoint, its `sub` must equal the ID token's `sub` (OIDC Core 5.3.2); an empty or missing `sub` refuses the sign-in. Every refusal looks the same to the browser (`?error=provider_error`, no session, no new account); the reason appears only as the log event `oauth_login_refused` with a `reason` field (`signature`, `iss`, `aud`, `azp`, `nonce`, `exp`, `iat`, `sub_missing`, `sub_mismatch`, `id_token_missing`, `jwks_unavailable`) — never with values from the token. Providers without an ID token (GitHub, plain OAuth2) deliver an account `id` instead of a `sub`; there too a missing value refuses the sign-in. <!-- #1936 -->
+Before the server signs anyone in, it checks the provider's ID token (OIDC Core 3.1.3.7): the **signature** against the keys (JWKS) the provider publishes (the configuration's `jwks_url`, otherwise the `jwks_uri` of its discovery document), `iss`, `aud`/`azp` (this instance), the request's `nonce`, and `exp`, `iat` (at most ten minutes old) and, if present, `nbf` (30 seconds of tolerance). The keys sit in the worker's cache for ten minutes per configuration; an unknown `kid` fetches them again at most once every ten seconds, and responses are limited to 256 KiB. When the provider delivers the identity through the userinfo endpoint, its `sub` must equal the ID token's `sub` (OIDC Core 5.3.2); an empty or missing `sub` refuses the sign-in. Every refusal looks the same to the browser (`?error=provider_error`, no session, no new account); the reason appears only as the log event `oauth_login_refused` with a `reason` field (`signature`, `iss`, `aud`, `azp`, `nonce`, `exp`, `iat`, `nbf`, `sub_missing`, `sub_mismatch`, `id_token_missing`, `jwks_unavailable`, `configuration_changed`) — never with values from the token. Providers without an ID token (GitHub, plain OAuth2) deliver an account `id` instead of a `sub`; there too a missing value refuses the sign-in. <!-- #1936, #1987 -->
 
 ---
 

@@ -30,6 +30,13 @@ class AuthProvider(BaseModel):
     #: step-up (``FederatedReauthPolicy``) guesses it. ``issuer`` is recorded on the
     #: first sign-in of a link that has none.
     oidc_config_slug: str | None = None
+    #: The immutable ``_key`` of that configuration (#1987). A slug can be deleted and
+    #: re-used; the key cannot, so a link written by a login that loaded the OLD
+    #: configuration — slug and all — is recognisable as an orphan of it and is never
+    #: matched by the new one. ``None`` on links made before #1987 (and on those of a
+    #: configuration whose key the writer did not know): those are matched by slug alone,
+    #: exactly as before, which is why no migration rewrites them.
+    oidc_config_key: str | None = None
     issuer: str | None = None
     provider_email: str | None = None
     provider_display_name: str | None = None

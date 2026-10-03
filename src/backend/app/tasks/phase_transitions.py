@@ -10,6 +10,7 @@ from app.common.dependencies import (
 )
 from app.common.enums import CycleType, LightType, TransitionTrigger, TransitionTriggerType
 from app.common.log_privacy import loggable_error
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.calculators.photoperiod_calculator import effective_light_hours
 from app.domain.calculators.sun_calculator import calculate_sun_times
 from app.domain.engines.cycle_resolver import resolve_effective_cycle
@@ -167,7 +168,7 @@ def check_auto_transitions() -> dict:
     transitioned = 0
     errors = 0
 
-    plants, total = plant_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
+    plants = get_all_pages(plant_repo, all_tenants=True)  # system task: all tenants
     for plant in plants:
         if plant.removed_on is not None:
             continue
@@ -245,4 +246,4 @@ def check_auto_transitions() -> dict:
             errors += 1
             logger.error("auto_transition_error", plant_key=plant.key, error=loggable_error(e))
 
-    return {"transitioned": transitioned, "errors": errors, "checked": total}
+    return {"transitioned": transitioned, "errors": errors, "checked": len(plants)}

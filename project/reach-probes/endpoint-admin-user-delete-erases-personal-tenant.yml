@@ -122,7 +122,7 @@ expected:
   - dangling-edges/0
   - stamped-elsewhere/0
   - control-changed/0
-derived_from: blob:1af46fca966b22c292e5d6b4e2d1d98f3dac183a
+derived_from: blob:c134ebc8c19194f719a1346f6b927125dbc70d96
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -138,7 +138,7 @@ observe:
   - reach-personal-tenant
   timeout_seconds: 300
 approval:
-  approved_at: '2026-10-02T21:23:32Z'
+  approved_at: '2026-10-03T00:21:15Z'
   approved_by: nolte
   observation_digest: 888ee4b15ca04b4436986ed2b7620ca3e4546f01409998fadbcddba4452d81b1
   mode: reconfirmed

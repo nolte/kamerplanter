@@ -208,7 +208,8 @@ class TestTheOtherMembersAreToldWhenTheErasureIsRequested:
         assert "no grace period" in body and "(UTC)" not in body
 
     @pytest.mark.asyncio
-    async def test_the_cleanup_of_an_unverified_account_sends_nothing(self):
+    async def test_the_cleanup_of_an_unverified_account_still_tells_the_members_of_its_garden(self):
+        """#1992 — the cleanup used to skip the notice ("an unverified account never had a shared garden")."""
         tenants, privacy, email_service = _shared()
         privacy._user_repo.get_by_key.side_effect = lambda key: User(
             _key=key, email=f"{key}@example.org", display_name=key, email_verified=False, is_active=True
@@ -216,7 +217,29 @@ class TestTheOtherMembersAreToldWhenTheErasureIsRequested:
 
         await privacy.erase_account_now(OWNER, origin="unverified_cleanup", now=NOW)
 
+        assert len(_sent(email_service)) == 2, "both other members of the personal garden are told"
+        (stored,) = privacy._erasure_repo.stored.values()
+        assert stored.members_notified_count == 2
+
+    @pytest.mark.asyncio
+    async def test_the_cleanup_never_erases_an_account_an_admin_demoted(self):
+        """#1992 — a verified account whose ``email_verified`` an admin lowered is not abandoned."""
+        tenants, privacy, email_service = _shared()
+        privacy._user_repo.get_by_key.side_effect = lambda key: User(
+            _key=key,
+            email=f"{key}@example.org",
+            display_name=key,
+            email_verified=False,
+            email_verified_lowered_at=NOW,
+            is_active=True,
+        )
+
+        result = await privacy.erase_account_now(OWNER, origin="unverified_cleanup", now=NOW)
+
+        assert result is None
+        assert tenants.runs == []
         assert _sent(email_service) == []
+        assert not privacy._erasure_repo.stored
 
 
 class TestThePersonalTenantGoesWithTheAccountWhoeverIsMember:

@@ -259,7 +259,9 @@ def test_the_admins_password_confirms_the_change(method: str, path: str, body: d
     resp = world.call(method, path, {**body, "current_password": PASSWORD})
 
     assert resp.status_code in (200, 201, 204), resp.text
-    assert len(world.configs.writes) == 1
+    # A creation is two writes since #1987: created switched off, switched on once the
+    # links orphaned under its slug are purged. Every other change is one.
+    assert len(world.configs.writes) == (2 if method == "POST" else 1)
     assert "current_password" not in str(world.configs.rows)
 
 

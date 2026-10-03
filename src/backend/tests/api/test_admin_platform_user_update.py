@@ -122,7 +122,6 @@ def client(
 
     service = UserService(
         ArangoUserRepository(service_db),  # type: ignore[arg-type]
-        MagicMock(),
     )
 
     # #1019: the roles block now routes through TenantService; no memberships are
@@ -175,18 +174,18 @@ class TestRoutesThroughTheServiceLayer:
 
 class TestExistingBehaviourIsPreserved:
     def test_updates_display_name_and_flags(self, client, store):
+        # Re-sending the current trust values changes nothing, so it needs no step-up (#1992).
         response = _patch(
             client,
-            {"display_name": "Alice Renamed", "is_active": False, "email_verified": False},
+            {"display_name": "Alice Renamed", "is_active": True, "email_verified": True},
         )
 
         assert response.status_code == 200
         body = response.json()
         assert body["display_name"] == "Alice Renamed"
-        assert body["is_active"] is False
-        assert body["email_verified"] is False
+        assert body["is_active"] is True
+        assert body["email_verified"] is True
         assert store[USER_KEY]["display_name"] == "Alice Renamed"
-        assert store[USER_KEY]["is_active"] is False
 
     def test_empty_payload_leaves_the_user_untouched(self, client, store, writes):
         response = _patch(client, {})

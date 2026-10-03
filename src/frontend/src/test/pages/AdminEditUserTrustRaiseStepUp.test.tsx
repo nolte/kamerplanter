@@ -12,9 +12,10 @@ import { createTestStore, authState, renderWithProviders } from '@/test/helpers'
  * `PATCH /admin/platform/users/{key}` used to set `email_verified` — the trust
  * anchor of the OAuth auto-link — on nothing but the admin session. The backend
  * now asks for the **admin's own** step-up (`current_password`, or
- * `step_up_token` / `step_up_code` without one) exactly when the update turns
- * `email_verified` or `is_active` from false to true. Every other update (a
- * rename, lowering either flag) saves as before, without a dialog.
+ * `step_up_token` / `step_up_code` without one) whenever the update CHANGES
+ * `email_verified` or `is_active` — raising them (#1857) or lowering them (#1992: a
+ * demoted address is what the unverified cleanup erases, a deactivation locks the
+ * owner out). A rename saves as before, without a dialog.
  */
 
 vi.mock('react-router-dom', async () => ({
@@ -167,20 +168,35 @@ describe('AdminEditUserPage — trust-raise step-up (#1857)', () => {
     expect(screen.queryByTestId('update-user-dialog')).toBeNull();
   });
 
-  it('saves lowering trust (deactivating) without a step-up', async () => {
+  it('asks for the step-up when lowering trust too (deactivating, #1992)', async () => {
     await renderPage({ ...UNVERIFIED, email_verified: true } as AdminUser);
 
     await userEvent.click(switchInput('edit-user-active-switch'));
     await userEvent.click(screen.getByTestId('edit-user-save'));
+
+    const dialog = await screen.findByTestId('update-user-dialog');
+    expect(admin.updateAdminUser).not.toHaveBeenCalled();
+    await userEvent.type(passwordInput(dialog), 'admin-password');
+    await userEvent.click(within(dialog).getByTestId('update-user-confirm'));
 
     await waitFor(() =>
       expect(admin.updateAdminUser).toHaveBeenCalledWith('target-key', {
         display_name: undefined,
         is_active: false,
         email_verified: undefined,
+        current_password: 'admin-password',
       }),
     );
-    expect(screen.queryByTestId('update-user-dialog')).toBeNull();
+  });
+
+  it('asks for the step-up when demoting a verified address (#1992)', async () => {
+    await renderPage({ ...UNVERIFIED, email_verified: true } as AdminUser);
+
+    await userEvent.click(switchInput('edit-user-email-verified-switch'));
+    await userEvent.click(screen.getByTestId('edit-user-save'));
+
+    expect(await screen.findByTestId('update-user-dialog')).toBeInTheDocument();
+    expect(admin.updateAdminUser).not.toHaveBeenCalled();
   });
 
   it('keeps the dialog open and shows a refused step-up inside it', async () => {

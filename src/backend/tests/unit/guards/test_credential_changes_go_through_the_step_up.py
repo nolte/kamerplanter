@@ -93,6 +93,11 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "sign-in path: links the provider identity the OAuth callback just authenticated; reached only from "
         "_complete_login (the sign-in half of the provider callback), never from a signed-in session"
     ),
+    ("auth_service.py", "AuthService._login_link"): (
+        "sign-in path: removes a link whose recorded configuration key is not the configuration's own (#1987) — "
+        "an orphan of a deleted provider whose slug was re-used, which matches no sign-in and would collide with "
+        "the link the sign-in is about to make; reached only from _complete_login, never from a signed-in session"
+    ),
     ("privacy_service.py", "PrivacyService.confirm_email_change"): (
         "gated upstream: the token exists only for a request that passed the step-up in request_email_change, "
         "and possession of the new mailbox is proven by the token"
@@ -126,9 +131,10 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "the field set is built in the same function from a closed tuple (display_name, avatar_url, locale) — "
         "no credential key can reach update_fields"
     ),
-    ("privacy_service.py", "PrivacyService.erase_account_now"): (
-        "reached only behind a step-up'd entry (erase_account_by_admin) or the unverified-account cleanup "
-        "(no interactive caller); pinned by test_the_immediate_admin_erasure_starts_only_behind_the_step_up"
+    ("privacy_service.py", "PrivacyService._open_immediate_erasure"): (
+        "reached only behind a step-up'd entry (erase_account_by_admin, request_account_erasure_by_admin) or "
+        "erase_account_now for the unverified-account cleanup (no interactive caller); pinned by "
+        "test_the_immediate_admin_erasure_starts_only_behind_the_step_up"
     ),
 }
 
@@ -291,7 +297,9 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: The class size measured when this guard was written (#1841). A change in either
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
-EXPECTED_MEMBERS = 24  # +3 with #1883: OidcProviderAdminService.create/update/delete_provider
+EXPECTED_MEMBERS = (
+    25  # +3 with #1883: OidcProviderAdminService.create/update/delete_provider; +1 with #1987: _login_link
+)
 
 
 def test_every_credential_change_is_step_up_gated_or_classified() -> None:
@@ -416,6 +424,8 @@ def test_the_predicate_ignores_reads_and_other_keys() -> None:
 #: the executing cores; the others claim, record and hand over to them.
 _IRREVERSIBLE = {
     "erase_account_now",
+    # #1949: the admin request no longer runs the erasure — it hands it to the Celery task through this.
+    "_dispatch_account_erasure",
     "erase_account",
     "_finalize_erasure",
     "_run_tenant_erasure",
@@ -430,6 +440,10 @@ _IRREVERSIBLE_CALLERS: dict[tuple[str, str], str] = {
     ("domain/services/privacy_service.py", "PrivacyService.erase_account_now"): (
         "the shared immediate-erasure entry: reached from erase_account_by_admin (step-up) and the unverified-"
         "account cleanup task; test_the_immediate_admin_erasure_starts_only_behind_the_step_up pins the admin origin"
+    ),
+    ("domain/services/privacy_service.py", "PrivacyService.run_account_erasure_task"): (
+        "the Celery worker body of an accepted admin erasure (#1949): runs a request that already exists — "
+        "created behind the step-up in request_account_erasure_by_admin — and never creates one"
     ),
     ("domain/services/privacy_service.py", "PrivacyService._finalize_erasure"): (
         "runs a request that already exists — created behind the step-up (request_erasure / erase_account_by_admin) "
@@ -524,8 +538,9 @@ def irreversible_callers(root: Path = APP) -> dict[tuple[str, str], tuple[set[st
     return found
 
 
-#: Measured when the second class was added (review SEC-004 d).
-EXPECTED_IRREVERSIBLE_CALLERS = 12
+#: Measured when the second class was added (review SEC-004 d); +2 by #1949 (request_account_erasure_by_admin
+#: dispatches the worker, run_account_erasure_task is the worker body).
+EXPECTED_IRREVERSIBLE_CALLERS = 14
 
 
 def test_every_caller_of_an_irreversible_core_reaches_the_step_up_or_is_classified() -> None:
@@ -550,6 +565,7 @@ def test_the_step_up_entries_of_the_irreversible_class_are_gated() -> None:
     found = irreversible_callers()
     for entry in (
         ("domain/services/privacy_service.py", "PrivacyService.erase_account_by_admin"),
+        ("domain/services/privacy_service.py", "PrivacyService.request_account_erasure_by_admin"),
         ("domain/services/tenant_service.py", "TenantService.delete_tenant"),
     ):
         assert entry in found and found[entry][1], f"{entry} does not reach the step-up"
