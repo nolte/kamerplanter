@@ -106,13 +106,24 @@ def warn_if_console_email_adapter() -> bool:
     takes over the account), which makes the gap invisible unless it is named
     here. Deliberately a warning, not a refusal to start: refusing would break
     every Helm install that has not configured SMTP. Returns whether it warned.
+
+    Since #1948 ``REQUIRE_EMAIL_VERIFICATION`` defaults to ``true``, so on such an
+    installation a self-registered account cannot sign in until it confirms a
+    mail that never arrives. The warning then names the second way out too.
     """
     if settings.email_adapter != "console" or settings.debug:
         return False
+    detail = "verification and password-reset e-mails are not delivered; set EMAIL_ADAPTER=smtp or resend"
+    if settings.require_email_verification:
+        detail += (
+            "; REQUIRE_EMAIL_VERIFICATION is on, so self-registered accounts cannot sign in until they"
+            " confirm — an installation without outbound mail sets REQUIRE_EMAIL_VERIFICATION=false"
+        )
     logger.warning(
         "email_adapter_console_in_production",
         email_adapter=settings.email_adapter,
-        detail="verification and password-reset e-mails are not delivered; set EMAIL_ADAPTER=smtp or resend",
+        require_email_verification=settings.require_email_verification,
+        detail=detail,
     )
     return True
 

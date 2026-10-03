@@ -2,13 +2,16 @@
 
 Wires the router with mocked service + tenant context and asserts the HTTP
 contract: masked responses (no ciphertext ever leaves, AC-8), the ownership
-guard mapping to 403 (AC-11), the available list, the connection test never
-500-ing (AC-7), and the HA entity pickers.
+guard answering 404 for a foreign site exactly as for an unknown one (AC-11),
+the available list, the connection test never 500-ing (AC-7), and the HA
+entity pickers.
 """
 
 from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -17,7 +20,9 @@ from app.common.auth import get_current_tenant
 from app.common.dependencies import get_sensor_service, get_weather_source_service
 from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler
-from app.common.exceptions import ForbiddenError, KamerplanterError, NotFoundError
+from app.common.exceptions import KamerplanterError, NotFoundError
+from app.domain.engines.encryption_engine import EncryptionEngine
+from app.domain.models.site import Site
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.weather import (
     WeatherForecast,
@@ -28,6 +33,7 @@ from app.domain.models.weather import (
 from app.domain.services.weather_source_service import (
     AvailableWeatherSource,
     AvailableWeatherSources,
+    WeatherSourceService,
     WeatherTestResult,
 )
 
@@ -140,14 +146,58 @@ def test_put_invalid_body_is_422():
     service.save_config.assert_not_called()
 
 
-def test_foreign_site_returns_403():
-    service = MagicMock()
-    service.get_config.side_effect = ForbiddenError("This site belongs to a different tenant.")
-    client = TestClient(_build_app(service))
+def _real_service_app(site: Site | None) -> FastAPI:
+    """The router over the real service, with only the site read faked.
 
-    resp = client.get(f"{BASE}/sites/{SITE_KEY}/weather-source")
+    The refusal is decided by the service and rendered by the app's error
+    handler, so the response body below is the one a client actually receives.
+    """
+    site_repo = MagicMock()
+    site_repo.get_site_by_key.return_value = site
+    config_repo = MagicMock()
+    service = WeatherSourceService(
+        weather_source_config_repo=config_repo,
+        site_repo=site_repo,
+        encryption_engine=EncryptionEngine(Fernet.generate_key().decode()),
+        ha_client_factory=lambda: None,
+    )
+    return _build_forecast_app(MagicMock(), service)
 
-    assert resp.status_code == 403
+
+_SITE_ROUTES = [
+    ("GET", f"{BASE}/sites/{SITE_KEY}/weather-source", None),
+    ("PUT", f"{BASE}/sites/{SITE_KEY}/weather-source", {"enabled": True, "sources": []}),
+    ("GET", f"{BASE}/sites/{SITE_KEY}/weather-forecast", None),
+    ("GET", f"{BASE}/sites/{SITE_KEY}/climate-normals", None),
+    ("POST", f"{BASE}/sites/{SITE_KEY}/weather-sources/test", {"source_name": "open-meteo", "kind": "public"}),
+]
+
+#: Per-response noise: a fresh correlation id and the moment of the answer.
+_VOLATILE = ("error_id", "timestamp")
+
+
+def _stable(body: dict) -> dict:
+    return {k: v for k, v in body.items() if k not in _VOLATILE}
+
+
+@pytest.mark.parametrize(("method", "url", "body"), _SITE_ROUTES)
+def test_foreign_site_answers_like_an_unknown_one(method, url, body):
+    """REQ-046 AC-11 / #1871 B8: 404 for a foreign site, byte-identical to an unknown one.
+
+    The site key is the same on both requests; only whether it exists in another
+    tenant differs. Before the operator decision of 2026-10-03 the foreign case
+    answered 403, which told the caller the key exists elsewhere.
+    """
+    foreign = TestClient(_real_service_app(Site(_key=SITE_KEY, tenant_key="other-tenant", name="Theirs")))
+    unknown = TestClient(_real_service_app(None))
+
+    foreign_resp = foreign.request(method, url, json=body)
+    unknown_resp = unknown.request(method, url, json=body)
+
+    assert foreign_resp.status_code == 404
+    assert unknown_resp.status_code == 404
+    assert _stable(foreign_resp.json()) == _stable(unknown_resp.json())
+    assert "other-tenant" not in foreign_resp.text
 
 
 def test_available_lists_sources_and_ha_flag():
@@ -314,17 +364,23 @@ def test_site_weather_forecast_graceful_empty():
     assert body["forecast_frost_warning"] is None
 
 
-def test_site_weather_forecast_foreign_site_403():
-    # Defense-in-depth: a foreign site is rejected at the API layer (403) and the
-    # forecast service is never consulted — no cross-tenant forecast leak.
+def test_site_weather_forecast_foreign_site_never_reaches_the_forecast():
+    # Defense-in-depth: a foreign site is rejected at the API layer (404, like an
+    # unknown one) and the forecast service is never consulted.
     sensor_service = MagicMock()
-    source_service = MagicMock()
-    source_service.verify_site_owned.side_effect = ForbiddenError("This site belongs to a different tenant.")
+    site_repo = MagicMock()
+    site_repo.get_site_by_key.return_value = Site(_key=SITE_KEY, tenant_key="other-tenant", name="Theirs")
+    source_service = WeatherSourceService(
+        weather_source_config_repo=MagicMock(),
+        site_repo=site_repo,
+        encryption_engine=EncryptionEngine(Fernet.generate_key().decode()),
+        ha_client_factory=lambda: None,
+    )
     client = TestClient(_build_forecast_app(sensor_service, source_service))
 
     resp = client.get(f"{BASE}/sites/{SITE_KEY}/weather-forecast")
 
-    assert resp.status_code == 403
+    assert resp.status_code == 404
     sensor_service.get_site_weather_forecast.assert_not_called()
 
 
@@ -338,3 +394,24 @@ def test_site_weather_forecast_unknown_site_404():
 
     assert resp.status_code == 404
     sensor_service.get_site_weather_forecast.assert_not_called()
+
+
+def test_a_viewer_is_still_refused_with_403_before_any_site_read():
+    """The role gate is not part of #1871 B8: a member without the grower role
+    keeps its 403, and the site is not even looked up (so no 404/403 split)."""
+    site_repo = MagicMock()
+    service = WeatherSourceService(
+        weather_source_config_repo=MagicMock(),
+        site_repo=site_repo,
+        encryption_engine=EncryptionEngine(Fernet.generate_key().decode()),
+        ha_client_factory=lambda: None,
+    )
+    app = _build_app(service)
+    app.dependency_overrides[get_current_tenant] = lambda: TenantContext(
+        tenant_key=TENANT_KEY, tenant_slug="test-slug", user_key="user-1", role=TenantRole.VIEWER
+    )
+
+    resp = TestClient(app).put(f"{BASE}/sites/{SITE_KEY}/weather-source", json={"enabled": True, "sources": []})
+
+    assert resp.status_code == 403
+    site_repo.get_site_by_key.assert_not_called()

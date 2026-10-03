@@ -2,11 +2,13 @@
 
 REQ-023 §3.2 wants the address that already owns an account to hear that
 somebody tried to register with it. #957 deliberately did not build that,
-because the obvious version reopens the oracle it had just closed:
-``require_email_verification`` defaults to ``False``, so a genuine registration
-sends **no mail at all**, and ``SmtpEmailAdapter._send`` re-raises. A synchronous
-send on the duplicate branch alone would therefore be both slower *and* able to
-answer 500 where a real registration answers 201.
+because the obvious version reopens the oracle it had just closed: a genuine
+registration sends **no mail inside the request** (none with
+``require_email_verification`` off; with it on, the default since #1948, the
+verification mail is deferred past the response, #1890), and
+``SmtpEmailAdapter._send`` re-raises. A synchronous send on the duplicate branch
+alone would therefore be both slower *and* able to answer 500 where a real
+registration answers 201.
 
 This module asserts the two conditions that make the notice safe, on the wire:
 

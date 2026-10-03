@@ -2,10 +2,11 @@
 
 Keeps the tenant-scoped router thin. Owns:
 
-* **Site ownership** — every site-bound operation loads the site through the
-  site repository and rejects a site that is missing (``404``) or belongs to a
-  different tenant (``403``), so a caller can never touch a foreign site's
-  weather config (AC-11).
+* **Site ownership** — every site-bound operation resolves the site through
+  :func:`require_owned_site` and refuses a site that is missing *or* belongs to
+  a different tenant with the same ``404`` (AC-11, #1871 B8), so a caller can
+  never touch a foreign site's weather config and cannot tell a foreign site
+  from an absent one.
 * **Secret handling (D1, AC-8)** — a *new* plaintext OpenWeatherMap key is
   Fernet-encrypted via :class:`EncryptionEngine` and stored as ciphertext in
   ``WeatherSourcePublicConfig.api_key_ref``. An empty / masked key means
@@ -30,7 +31,6 @@ import httpx
 import structlog
 from pydantic import BaseModel, Field
 
-from app.common.exceptions import ForbiddenError, NotFoundError
 from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.domain.models.weather import (
@@ -41,6 +41,7 @@ from app.domain.models.weather import (
     WeatherSourceHaConfig,
     WeatherSourcePublicConfig,
 )
+from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.weather_adapter_registry import WeatherAdapterRegistry
 
 if TYPE_CHECKING:
@@ -124,20 +125,23 @@ class WeatherSourceService:
     # ── Site ownership ────────────────────────────────────────────────
 
     def _load_owned_site(self, site_key: str, tenant_key: str) -> Site:
-        site = self._site_repo.get_site_by_key(site_key)
-        if site is None:
-            raise NotFoundError("Site", site_key)
-        if site.tenant_key != tenant_key:
-            raise ForbiddenError("This site belongs to a different tenant.")
-        return site
+        """The tenant's site behind ``site_key``, or ``NotFoundError``.
+
+        An unknown site and a site of another tenant raise the **same** error —
+        status, code, message and details — after the same single read (REQ-046
+        AC-11, operator decision #1871 B8 of 2026-10-03). The 403 this answered
+        for a foreign site until then was an existence oracle for other tenants'
+        site keys.
+        """
+        return require_owned_site(self._site_repo, site_key, tenant_key, "Site", site_key)
 
     def verify_site_owned(self, site_key: str, tenant_key: str) -> None:
         """Public ownership guard for read endpoints needing defense-in-depth.
 
-        Raises :class:`NotFoundError` (unknown site) / :class:`ForbiddenError`
-        (foreign site) exactly like the write-path check, so read routes can
-        enforce site ownership at the API layer consistently with the sibling
-        weather-source endpoints instead of relying solely on a service filter.
+        Raises :class:`NotFoundError` for an unknown and for a foreign site alike,
+        exactly like the write-path check, so read routes can enforce site
+        ownership at the API layer consistently with the sibling weather-source
+        endpoints instead of relying solely on a service filter.
         """
         self._load_owned_site(site_key, tenant_key)
 
@@ -152,7 +156,7 @@ class WeatherSourceService:
     def get_climate_normals(self, site_key: str, tenant_key: str) -> list[ClimateNormal]:
         """REQ-041 — the site's long-term climate normals (one per source).
 
-        Enforces site ownership first (``404`` unknown / ``403`` foreign) so a
+        Enforces site ownership first (``404`` for unknown and foreign alike) so a
         caller can never read a foreign site's normals, then returns the
         tenant-scoped records. Returns ``[]`` when the collection has not been
         populated yet (fetch beat has not run for this site) — never a ``500``.

@@ -238,7 +238,7 @@ Details: [Speicher konfigurieren](../user-guide/object-storage.md), [Helm Charts
 | Full-Modus (Auth + Multi-Tenant) <!-- REQ-023 / REQ-024 --> | Backend + Frontend | `KAMERPLANTER_MODE=full` (Default) | `JWT_SECRET_KEY`, `FERNET_KEY` (beide ohnehin immer Pflicht, siehe oben) | — | Ja (über die generellen Backend-Secrets) |
 | DSGVO-Löschung/Anonymisierung <!-- REQ-025 --> | Backend + Celery Beat | Immer aktiv, keine Deaktivierung möglich | `ERASURE_TOMBSTONE_SALT` | ein täglicher Celery-Task | Ja (`erasure_tombstone_salt`, immer geprüft) |
 | Log-Pseudonymisierung (Subject-Referenzen, E-Mail-Digests) <!-- NFR-011 §3.4 --> | Backend + Celery Worker | Immer aktiv, keine Deaktivierung möglich | `LOG_PSEUDONYM_SALT` — rotierbar, unabhängig von `ERASURE_TOMBSTONE_SALT` | — | Ja (`log_pseudonym_salt`, immer geprüft; Celery Beat prüft ihn nicht) |
-| E-Mail-Verifikation bei Registrierung | Backend | `REQUIRE_EMAIL_VERIFICATION=true` (Default `false`) | E-Mail-Kanal konfiguriert (siehe Benachrichtigungssystem) | — | Nein |
+| E-Mail-Verifikation bei Registrierung | Backend | Aktiv per Default (`REQUIRE_EMAIL_VERIFICATION=true`); `false` schaltet sie ab | Ausgehender Mailversand (`EMAIL_ADAPTER=smtp` oder `resend`); ohne ihn `false` setzen | — | Nein |
 | „Have I Been Pwned"-Prüfung | Backend | `HIBP_ENABLED=true` (Default `false`) | — | ausgehende HTTPS-Anfragen bei Passwortänderung | Nein |
 
 ---

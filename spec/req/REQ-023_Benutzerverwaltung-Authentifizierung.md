@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.28 (Default `REQUIRE_EMAIL_VERIFICATION=true` und OIDC-Admin-Seite festgelegt, #1948, #1906)
+Version: 1.29 (SEC-H-009 Bedingung 1 an den neuen Default angepasst, #1948); 1.28 (Default `REQUIRE_EMAIL_VERIFICATION=true` und OIDC-Admin-Seite festgelegt, #1948, #1906)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.29 | 2026-10-03 | **#1948 umgesetzt:** Der Default `true` ist ausgeliefert (Settings, Helm-Chart, Doku); E2E-Compose und Skaffold-Dev-Werte setzen `false` ausdrücklich. SEC-H-009 Bedingung 1 sagte noch „per Default `false`“ und begründete damit, dass eine echte Registrierung keine Mail verschickt — das stimmt nur noch mit `false`; mit `true` geht die Bestätigungsmail nach der Antwort raus (#1890). Die Bedingung bleibt unverändert gültig. |
 | 1.28 | 2026-10-03 | **Betreiberentscheidungen #1948, #1906:** `REQUIRE_EMAIL_VERIFICATION` hat den Default `true`; OIDC-Provider werden über eine eigene Admin-Seite im Optionen-Bereich verwaltet (neuer Abschnitt vor „Benannte SSO-Provider“). |
 | 1.27 | 2026-10-03 | **#2007, #2008 (Nacharbeit zu #1987):** (1) Der **Token-Endpunkt** (erhält Client-Secret und Autorisierungscode) und der **Userinfo-Endpunkt** (erhält das Access-Token) laufen vor dem Abruf durch `validate_oidc_fetch_url` (`app/common/url_safety.py`) — beim Login und beim Step-up (§3.9): Stammt der Endpunkt aus dem Discovery-Dokument, nie eine Metadaten-/Link-Local-Adresse, eine private nur auf dem Host des Ausstellers selbst oder mit `DEBUG`; vom Admin gesetzt (`token_url`, `userinfo_url`), nie eine Metadaten-/Link-Local-Adresse, eine private ist seine Wahl; die eingebauten Endpunkte von Google/GitHub bleiben ungeprüfte Konstanten. Ebenso wird `issuer_url` vor dem Abruf des Discovery-Dokuments geprüft (wie ein vom Admin gesetzter Endpunkt). Beide Antworten werden wie Discovery und JWKS gestreamt und auf 256 KiB (dekodiert, `Accept-Encoding: identity`) mit 10 s Gesamtfrist begrenzt gelesen; eine Antwort, die kein JSON-Objekt ist, verweigert. Ein verweigerter Endpunkt wird nie angesprochen; der Login endet mit `provider_error` (`oauth_endpoint_refused`, Grund nennt Endpunktart und Regel, nie Adresse), der Step-up mit `step_up_failed`. (2) **Step-up prüft `nbf` und `iat` bewusst nicht** (Entscheidung zu #2008, §3.9): ohne Signaturprüfung stammen die Claims nur vom Provider, und `nonce` (je Anfrage, State einmalig, 5 Minuten) sowie `auth_time` (≤ 300 s + 30 s) begrenzen enger, was eine `iat`-Untergrenze leisten würde. |
 | 1.26 | 2026-10-03 | **#1992:** `PATCH /admin/platform/users/{key}` verlangt das Step-up des Administrators (§3.9; kein API-Schlüssel, 403) bei **jeder Änderung** von `email_verified` oder `is_active` — nicht mehr nur beim Anheben: Eine Änderung, die zur Löschung oder Sperrung eines fremden Kontos führen kann, ist eine Step-up-Handlung. Das erneute Senden unveränderter Werte und eine Namensänderung brauchen keines. Ein gesenktes `email_verified` wird als `email_verified_lowered_at` vermerkt; der Bereinigungstask `cleanup_unverified_accounts` (AK-17) wählt ein so vermerktes Konto nie aus. `DELETE /admin/platform/users/{key}` antwortet seit #1949 mit `202` (REQ-025 AK-IE-01). |
@@ -691,8 +692,9 @@ nicht neu herleiten muss — und damit niemand die Mail „vereinfacht" und dabe
 genau das Orakel wieder öffnet, das SEC-H-009 schließen soll.
 
 **Bedingung 1 — asynchrone Zustellung, nach der Antwort.**
-`require_email_verification` ist per Default `false`. Eine *echte* Registrierung
-verschickt also **gar keine Mail**. Ein synchroner SMTP-Roundtrip nur im
+Eine *echte* Registrierung verschickt **innerhalb der Anfrage keine Mail**: mit
+`require_email_verification=false` gar keine, mit `true` (Default seit #1948,
+v1.28) geht die Bestätigungsmail erst nach der Antwort raus (#1890). Ein synchroner SMTP-Roundtrip nur im
 Duplikat-Zweig macht diesen Zweig damit messbar **langsamer** als eine echte
 Registrierung — dieselbe Auskunft, nur über die Uhr statt über den Body. Schlimmer
 noch: `SmtpEmailAdapter._send` wirft weiter, ein Zustellfehler würde aus dem

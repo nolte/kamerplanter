@@ -59,6 +59,7 @@ ARANGODB_DATABASE=kamerplanter
 ARANGODB_USERNAME=root
 REDIS_URL=redis://valkey:6379/0
 DEBUG=false
+# Fehlt die Zeile, gilt true; ohne ausgehenden Mailversand ausdrücklich false
 REQUIRE_EMAIL_VERIFICATION=false
 CORS_ORIGINS=["http://localhost:8080"]
 ```
