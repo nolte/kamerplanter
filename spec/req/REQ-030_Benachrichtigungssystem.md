@@ -610,7 +610,7 @@ Benachrichtigungs-Adresse gibt es nicht. Konkret:
   `NotificationPreferences` bei jeder Konstruktion verworfen (Schreib- wie Lesepfad), Migration
   v0065 entfernt gespeicherte Werte. Wer die Adresse ändern will, nutzt den E-Mail-Wechsel
   (REQ-023, #1848), der die neue Adresse per Link bestätigt.
-- „Bestätigt“ heißt `email_verified` des Kontos (REQ-023). Mit `REQUIRE_EMAIL_VERIFICATION=false` (Entwicklungs-Default) setzt die Registrierung dieses Flag ohne Bestätigung — dort ist die Adresse nicht belegt; Produktivbetrieb setzt die Variable auf `true`. Ein eigener Bestätigungsnachweis (z. B. `email_confirmed_at`) ist Folgearbeit.
+- „Bestätigt“ heißt `email_verified` des Kontos (REQ-023). Mit `REQUIRE_EMAIL_VERIFICATION=false` setzt die Registrierung dieses Flag ohne Bestätigung — dort ist die Adresse nicht belegt; Der Default ist seit Betreiberentscheidung #1948 `true` (REQ-023 v1.28); `false` setzt nur, wer ohne Mailversand betreibt. Ein eigener Bestätigungsnachweis (z. B. `email_confirmed_at`) ist Folgearbeit.
 - Dieselbe Auflösung gilt für Einzel-Mail, Test-Mail (`send_test`) und Digest
   (`send_email_digest(user_key, since)` — ohne Adressparameter).
 

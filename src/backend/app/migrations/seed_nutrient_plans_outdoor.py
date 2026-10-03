@@ -136,6 +136,7 @@ def run_seed_nutrient_plans_outdoor() -> None:
     """Create outdoor Plagron Terra nutrient plans."""
     from app.migrations.seed_upsert_helpers import (
         global_plan_map,
+        load_all_fertilizers,
         load_species_key_map,
         resolve_plan_species_keys,
         upsert_nutrient_plan_with_entries,
@@ -146,7 +147,7 @@ def run_seed_nutrient_plans_outdoor() -> None:
     plan_repo = get_nutrient_plan_repo()
 
     # ── Load fertilizer keys ──
-    existing_ferts, _ = fert_repo.get_all(offset=0, limit=1000, all_tenants=True)  # seed: global catalog
+    existing_ferts = load_all_fertilizers(fert_repo)
     fert_keys: dict[str, str] = {}
     for f in existing_ferts:
         if f.brand == "Plagron" and f.key:

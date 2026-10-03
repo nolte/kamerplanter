@@ -56,6 +56,8 @@ class ArangoAquaponikRepository(BaseArangoRepository[AquaponicSystem]):
         if feed_type:
             extra.append(("feed_type", "==", feed_type))
         if not extra:
+            # Bounded by construction (#2015): fish species come only from
+            # fish_species.yaml (8 rows); create_species has no API or service caller.
             items, _ = self._species.get_all(offset=0, limit=500, all_tenants=True)
             return items
         first_field, first_op, first_value = extra[0]
