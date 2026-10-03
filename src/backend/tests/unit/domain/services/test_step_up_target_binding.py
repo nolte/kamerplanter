@@ -220,7 +220,14 @@ class _World:
             )
         }
         user_repo = MagicMock(**{"get_by_key.side_effect": users.get})
-        membership_repo = MagicMock(**{"get_by_user_and_tenant.side_effect": lambda u, t: memberships.get((u, t))})
+        # #2009 — the membership a platform admin may remove, by its key.
+        by_key = {"m-1": Membership(_key="m-1", user_key="u-2", tenant_key="t-1", role=TenantRole.LEAD)}
+        membership_repo = MagicMock(
+            **{
+                "get_by_user_and_tenant.side_effect": lambda u, t: memberships.get((u, t)),
+                "get_by_key.side_effect": by_key.get,
+            }
+        )
         tenant_repo = MagicMock(**{"get_by_key.side_effect": tenants.get})
         erasure_repo = MagicMock(**{"get.side_effect": self.erasures.get})
         providers = MagicMock(
@@ -260,6 +267,8 @@ class _World:
         ("provider_unlink", "link-1"),
         ("oidc_provider_change", "cfg-1"),
         ("oidc_provider_change", "new:other"),
+        ("admin_tenant_update", "t-1"),
+        ("admin_membership_removal", "m-1"),
     ],
 )
 def test_a_platform_admin_obtains_a_factor_for_an_existing_target(action: str, target: str) -> None:
@@ -276,6 +285,10 @@ def test_a_platform_admin_obtains_a_factor_for_an_existing_target(action: str, t
         ("oidc_provider_change", "new:other"),
         ("tenant_deletion", "t-1"),
         ("tenant_deletion", "t-404"),
+        ("admin_tenant_update", "t-1"),
+        ("admin_tenant_update", "t-404"),
+        ("admin_membership_removal", "m-1"),
+        ("admin_membership_removal", "m-404"),
     ],
 )
 def test_who_is_no_platform_admin_is_refused_before_existence_is_told(action: str, target: str) -> None:
@@ -296,6 +309,9 @@ def test_who_is_no_platform_admin_is_refused_before_existence_is_told(action: st
         ("oidc_provider_change", "cfg-404", NotFoundError),
         ("oidc_provider_change", "new:corp", DuplicateError),
         ("oidc_provider_change", "new:Not A Slug", ValidationError),
+        ("admin_tenant_update", "t-404", NotFoundError),
+        ("admin_tenant_update", "platform", ForbiddenError),
+        ("admin_membership_removal", "m-404", NotFoundError),
     ],
 )
 def test_a_target_the_act_would_refuse_gets_no_factor(action: str, target: str, error: type[Exception]) -> None:
@@ -305,6 +321,13 @@ def test_a_target_the_act_would_refuse_gets_no_factor(action: str, target: str, 
 
 def test_a_tenant_lead_with_management_obtains_a_factor_for_its_own_tenant() -> None:
     _World(platform_admin=False, tenant_role=TenantRole.LEAD).authorize("tenant_deletion", "t-1")
+
+
+@pytest.mark.parametrize(("action", "target"), [("admin_tenant_update", "t-1"), ("admin_membership_removal", "m-1")])
+def test_a_tenant_lead_obtains_no_factor_for_the_platform_admin_acts_on_its_tenant(action: str, target: str) -> None:
+    """#2009 — deactivating a tenant and the admin removal are platform-admin acts, not tenant management."""
+    with pytest.raises(ForbiddenError):
+        _World(platform_admin=False, tenant_role=TenantRole.LEAD).authorize(action, target)
 
 
 def test_a_grower_does_not() -> None:

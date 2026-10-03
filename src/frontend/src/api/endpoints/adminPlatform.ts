@@ -12,6 +12,7 @@ import type {
   AdminUser,
   AdminUserMembership,
   AdminUserUpdate,
+  CredentialStepUp,
   ErasurePreview,
   TenantDeleteRequest,
   TenantDeletionAccepted,
@@ -33,6 +34,12 @@ export async function fetchAdminUsers(): Promise<AdminUser[]> {
   return data;
 }
 
+/**
+ * Partially update a tenant. Changing `is_active` passes the **admin's own**
+ * step-up (#2009): the payload then carries `current_password` (or
+ * `step_up_token` / `step_up_code` for an admin without one) for the act
+ * `admin_tenant_update`, bound to the tenant's key; 401 without it.
+ */
 export async function updateAdminTenant(
   key: string,
   payload: AdminTenantUpdate,
@@ -126,12 +133,19 @@ export async function addTenantMember(
   return data;
 }
 
+/**
+ * Remove a member (#2009): the body carries the **admin's own** step-up —
+ * `current_password`, or `step_up_token` / `step_up_code` for the act
+ * `admin_membership_removal` bound to the membership's key; 401 without it.
+ */
 export async function removeTenantMember(
   tenantKey: string,
   membershipKey: string,
+  stepUp: CredentialStepUp,
 ): Promise<void> {
   await apiClient.delete(
     `/admin/platform/tenants/${encodeURIComponent(tenantKey)}/members/${encodeURIComponent(membershipKey)}`,
+    { data: stepUp },
   );
 }
 
@@ -165,12 +179,15 @@ export async function addUserToTenant(
   return data;
 }
 
+/** Remove a user from a tenant (#2009): the same step-up body as {@link removeTenantMember}. */
 export async function removeUserFromTenant(
   userKey: string,
   membershipKey: string,
+  stepUp: CredentialStepUp,
 ): Promise<void> {
   await apiClient.delete(
     `/admin/platform/users/${encodeURIComponent(userKey)}/memberships/${encodeURIComponent(membershipKey)}`,
+    { data: stepUp },
   );
 }
 

@@ -38,6 +38,7 @@ from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
 from app.domain.services.tenant_service import TenantService
 from app.domain.services.user_service import UserService
+from tests.support.step_up import PassedStepUpVerifier
 
 # ── In-memory repository doubles (real models, real service logic) ────────────
 
@@ -222,6 +223,10 @@ class Backend:
         self.tenant_repo = InMemoryTenantRepo(self.tenants)
         self.user_repo = InMemoryUserRepo(self.users)
 
+        # The removal passes the admin's step-up since #2009; this suite is about the two
+        # views converging, so the step-up is the passed double (it records act and target).
+        # The refusals are pinned against the real verifier in test_admin_tenant_step_up.py.
+        self.step_up = PassedStepUpVerifier()
         self.tenant_service = TenantService(
             tenant_repo=self.tenant_repo,  # type: ignore[arg-type]
             membership_repo=self.membership_repo,  # type: ignore[arg-type]
@@ -230,6 +235,7 @@ class Backend:
             tenant_engine=MagicMock(),
             membership_engine=MagicMock(),
             invitation_engine=MagicMock(),
+            step_up_verifier=self.step_up,  # type: ignore[arg-type]
         )
         self.user_service = UserService(
             self.user_repo,  # type: ignore[arg-type]
@@ -362,6 +368,9 @@ class TestRemoveMembershipEquivalence:
         assert user_view.membership_repo.location_assignments_cleaned == ["m-1"]
         assert tenant_view.membership_repo.edges == []
         assert user_view.membership_repo.edges == []
+        # … and both passed the same step-up, bound to the same membership (#2009, #1884).
+        assert tenant_view.step_up.actions == user_view.step_up.actions == ["admin_membership_removal"]
+        assert tenant_view.step_up.targets == user_view.step_up.targets == ["m-1"]
 
 
 # ── Ownership constraint: a membership addressed under the wrong parent 404s ───

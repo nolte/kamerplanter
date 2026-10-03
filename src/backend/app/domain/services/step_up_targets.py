@@ -22,7 +22,10 @@ on a kind of target learns nothing about which targets of that kind exist (403 b
   (a deletion an earlier attempt left partial is resumed by the same act);
 * ``provider_unlink`` — the link is one of the requester's own;
 * ``oidc_provider_change`` (#1883) — a platform admin; the configuration exists, or,
-  for ``new:<slug>``, no configuration uses that slug yet.
+  for ``new:<slug>``, no configuration uses that slug yet;
+* ``admin_tenant_update`` (#2009) — a platform admin; the tenant exists and is not the
+  platform tenant (which cannot be deactivated, #1021);
+* ``admin_membership_removal`` (#2009) — a platform admin; the membership exists.
 """
 
 from __future__ import annotations
@@ -96,6 +99,17 @@ class StepUpTargetAuthorizer:
         elif action == "oidc_provider_change":
             self._require_platform_admin(user_key)
             self._authorize_oidc_provider(target)
+        elif action == "admin_tenant_update":
+            self._require_platform_admin(user_key)
+            tenant = self._tenants.get_by_key(target)
+            if tenant is None:
+                raise NotFoundError("Tenant", target)
+            if tenant.is_platform:
+                raise ForbiddenError("The platform tenant cannot be deactivated.")
+        elif action == "admin_membership_removal":
+            self._require_platform_admin(user_key)
+            if self._memberships.get_by_key(target) is None:
+                raise NotFoundError("Membership", target)
         else:  # pragma: no cover - a new targeted act must be given its rule here
             raise ForbiddenError("This act cannot be confirmed here.")
 
