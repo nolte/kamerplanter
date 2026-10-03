@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import structlog
 
-from app.common.log_privacy import log_subject, loggable_error, mask_url_paths
+from app.common.log_privacy import log_subject, log_tenant, loggable_error, mask_url_paths
 from app.domain.engines.notification_channel_registry import NotificationChannelRegistry
 from app.domain.interfaces.notification_preference_repository import (
     INotificationPreferenceRepository,
@@ -84,9 +84,12 @@ class NotificationEngine:
         6. Persist notification in DB
         7. Set dedup key in Redis
         """
+        # Every line of this run inherits the binding, so the tenant goes in as
+        # its salted reference: beside ``subject`` the raw key would join the
+        # pseudonym to the tenant (#1989, NFR-011 L-1).
         log = logger.bind(
             subject=log_subject(user_key),
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             notification_type=notification.notification_type,
         )
 

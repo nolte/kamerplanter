@@ -22,7 +22,7 @@ from PIL import Image, UnidentifiedImageError
 
 from app.common.datetimes import now_utc
 from app.common.exceptions import ValidationError
-from app.common.log_privacy import log_subject, loggable_error
+from app.common.log_privacy import log_subject, log_tenant, loggable_error
 from app.config.settings import settings
 from app.domain.interfaces.reference_contribution_marker import IReferenceContributionMarker
 from app.domain.models.reference_image import (
@@ -284,7 +284,7 @@ class ReferenceImageService:
         logger.info(
             "reference_user_contribution_quarantined",
             species_key=species_key,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             contributed_by=log_subject(user_key),
             dim=response.get("dim"),
         )

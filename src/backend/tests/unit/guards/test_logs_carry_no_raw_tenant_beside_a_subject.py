@@ -1,4 +1,4 @@
-"""No log call hands a raw tenant key to the logger next to a subject reference (#1928).
+"""No log call hands a raw tenant key to the logger next to a subject reference (#1928, #1989).
 
 The #1788 review (GDPR-05) removed the tenant key from
 ``tenant_erasure.personal_tenant_retained``: the tenant key sits on the
@@ -6,30 +6,44 @@ pseudonymised retention rows (erasure records, the CanG/PflSchG harvest and
 treatment rows), and for a personal tenant it identifies its owner. A log line
 that carries it beside ``subject=<salted pseudonym>`` joins the pseudonym to the
 tenant and the tenant's rows to the subject — the join the salted
-``log_subject`` exists to prevent. #1928 found the same pair on the invitation
-and tenant-erasure lines of ``tenant_service``; those carry
-``tenant=log_tenant(...)`` now (``ErasureEngine.log_tenant``, keyed with
-``LOG_PSEUDONYM_SALT``).
+``log_subject`` exists to prevent. Such a line carries ``tenant=log_tenant(...)``
+instead (``ErasureEngine.log_tenant``, keyed with ``LOG_PSEUDONYM_SALT``).
 
 **The rule** (one detector, :func:`findings_in_source`, shared by the tree scan
-and the self-test): a log call that passes a tenant keyword —
-``tenant``, ``tenant_key``, ``*_tenant_key``, ``tenant_slug`` — whose value is
-not a call or a literal, **and** a subject keyword — ``subject``, ``*_subject``,
-``user_key`` — or any keyword whose value is a ``log_subject(...)`` call.
+and the self-test): a log call that names a raw tenant **and** a subject.
 
-**What the scan found when it was added** (develop, 2026-10-02): 17 sites. The 4
-in ``tenant_service`` that #1928 names and the 2 account-erasure storage lines in
-``privacy_service`` were fixed; the 11 in other services are allow-listed below
-and tracked in a follow-up issue — operational lines outside #1928's invitation /
-erasure scope.
+* *A raw tenant* is a keyword named like a tenant — ``tenant``, ``tenant_key``,
+  ``*_tenant_key``, ``tenant_slug``, ``tenant_keys`` — whose value is neither a
+  literal nor a :data:`_TENANT_PSEUDONYMS` call, **or** a tenant-named name or
+  attribute (``tenant_key``, ``ctx.tenant_key``, ``tenant.key``) anywhere in a
+  positional argument (the ``%s`` spelling), an f-string message, a keyword of
+  any other name (``owner=``, ``extra={...}``, ``**{"tenant": ...}``). A call
+  ends that search: ``len(tenant_keys)`` is a count, ``log_tenant(k)`` the
+  pseudonym.
+* *A subject* is a keyword ``subject``, ``*_subject``, ``user_key`` or an actor
+  keyword ``*ed_by`` (``contributed_by=``, ``requested_by=``), a
+  ``log_subject(...)`` call anywhere in the call, or a local the enclosing
+  function assigned from ``log_subject(...)``.
+* *Bound loggers*: ``log = logger.bind(...)`` in a function carries what it
+  binds into every ``log.<method>(...)`` of that function, so a subject bound
+  once and a raw tenant passed later (or the reverse) is one line.
 
-**Spellings this guard cannot see**: a tenant key inside an f-string under a
-neutral keyword (``prefix=f"t/{tenant_key}/"`` — the storage-key class is
-``test_privacy_logs_carry_no_plaintext_subject``'s), a tenant key and a subject
-on two *consecutive* log calls, a ``**fields`` splat or ``extra={...}``, a
-logger reached under another name, and a tenant key under a keyword that is not
-named like a tenant (``owner=``, ``scope=``). The 81 log calls that pass a raw
-tenant key *without* a subject are out of this rule.
+**History.** Added with #1928 (17 sites on develop, 6 fixed there, 11
+allow-listed for #1989). #1989 fixed the 11 and, from a wider measurement than
+this rule had, two spellings the first detector missed: the four
+``NotificationEngine.notify`` lines that inherit the bound
+``subject``/``tenant_key`` pair (only the ``bind`` itself was a finding), and
+``NoopReferenceIndexStore.add_user_contribution``, whose ``contributed_by=``
+was the contributor's *plaintext* account key beside ``tenant_key=``. The
+allow-list is empty.
+
+**Spellings this guard still cannot see**: a ``**fields`` splat of a dict built
+elsewhere, a tenant key under a name that is not tenant-like (``key=``,
+``owner_key=``) or held in a local not named like a tenant, a subject handed in
+through a parameter not named like one, a logger reached under a name without
+``log``, and two log lines that share an entity key (``attachment_id``) — one
+with the subject, the other with the raw tenant. The ~80 log calls that pass a
+raw tenant key *without* a subject are out of this rule.
 """
 
 from __future__ import annotations
@@ -46,45 +60,68 @@ from tests.unit.guards.test_privacy_logs_carry_no_plaintext_subject import (
     _rel,
 )
 
-_TENANT_KEYWORD = re.compile(r"^(tenant|tenant_key|\w+_tenant_key|tenant_slug)$")
-_SUBJECT_KEYWORD = re.compile(r"^(subject|\w+_subject|user_key)$")
-
-_FOLLOW_UP = "operational line outside #1928's invitation / erasure scope; tracked in #1989"
+#: A keyword, name or attribute that holds a tenant key or the tenant itself.
+_TENANT_NAME = re.compile(r"^(tenant|tenant_key|\w+_tenant_key|tenant_slug|tenant_keys)$")
+_TENANT_KEYWORD = _TENANT_NAME
+_SUBJECT_KEYWORD = re.compile(r"^(subject|\w+_subject|user_key|\w+ed_by)$")
+#: The calls that turn a tenant key into what a log line may carry beside a subject.
+_TENANT_PSEUDONYMS = {"log_tenant", "log_tenant_record_key"}
 
 #: ``path::enclosing_function::event`` -> reason. Keyed by the log event name, so an
 #: edit above an entry neither orphans it nor moves the excuse onto another line.
-_ALLOWED: dict[str, str] = {
-    f"app/domain/{module}::{function}::{event}": _FOLLOW_UP
-    for module, function, event in (
-        ("engines/notification_engine.py", "NotificationEngine.notify", "?"),
-        ("services/attachment_service.py", "AttachmentService.upload", "attachment_uploaded"),
-        ("services/attachment_service.py", "AttachmentService._link_to_stored_object", "attachment_uploaded"),
-        (
-            "services/identification_service.py",
-            "IdentificationService.assess_quality",
-            "photo_quality_assessment_requested",
-        ),
-        ("services/pest_image_service.py", "PestImageService.contribute", "pest_image_contributed"),
-        ("services/pest_image_service.py", "PestImageService.delete", "pest_image_deleted"),
-        ("services/pest_image_service.py", "PestImageService.set_promotion", "pest_image_promotion_changed"),
-        ("services/pest_image_service.py", "PestImageService.set_active", "pest_image_active_changed"),
-        ("services/plant_diary_service.py", "PlantDiaryService.request_analysis", "diary_analysis_requested"),
-        (
-            "services/plant_diary_service.py",
-            "PlantDiaryService.cancel_analysis_request",
-            "diary_analysis_request_cancelled",
-        ),
-        (
-            "services/reference_image_service.py",
-            "ReferenceImageService.contribute_user_reference",
-            "reference_user_contribution_quarantined",
-        ),
+#: Empty since #1989: every site the rule finds logs the pseudonym.
+_ALLOWED: dict[str, str] = {}
+
+
+def _call_name(func: ast.expr) -> str:
+    if isinstance(func, ast.Name):
+        return func.id
+    return func.attr if isinstance(func, ast.Attribute) else ""
+
+
+def _raw_tenant_value(value: ast.expr) -> bool:
+    """A tenant-named keyword's value is raw unless it is a literal or the pseudonym."""
+    if isinstance(value, ast.Constant):
+        return False
+    return not (isinstance(value, ast.Call) and _call_name(value.func) in _TENANT_PSEUDONYMS)
+
+
+def _tenant_references(node: ast.AST) -> list[str]:
+    """Tenant-named names/attributes inside *node*, not looking into calls."""
+    if isinstance(node, ast.Call):
+        return []
+    if isinstance(node, ast.Name):
+        return [node.id] if _TENANT_NAME.match(node.id) else []
+    if isinstance(node, ast.Attribute):
+        if _TENANT_NAME.match(node.attr):
+            return [ast.unparse(node)]
+        return _tenant_references(node.value)
+    return [hit for child in ast.iter_child_nodes(node) for hit in _tenant_references(child)]
+
+
+def _names_log_subject(node: ast.AST, subject_locals: set[str]) -> bool:
+    return any(
+        (isinstance(n, ast.Call) and _call_name(n.func) == "log_subject")
+        or (isinstance(n, ast.Name) and n.id in subject_locals)
+        for n in ast.walk(node)
     )
-}
 
 
-def _is_raw(value: ast.expr) -> bool:
-    return not isinstance(value, ast.Call | ast.Constant)
+def _inspect(node: ast.Call, subject_locals: set[str]) -> tuple[list[str], bool]:
+    """``(raw tenant spellings, names a subject)`` of one log call."""
+    raw: list[str] = []
+    names_subject = False
+    for kw in node.keywords:
+        if kw.arg and _TENANT_KEYWORD.match(kw.arg):
+            if _raw_tenant_value(kw.value):
+                raw.append(f"{kw.arg}=")
+        else:
+            raw.extend(f"{kw.arg or '**'}={hit}" for hit in _tenant_references(kw.value))
+        if kw.arg and _SUBJECT_KEYWORD.match(kw.arg):
+            names_subject = True
+    for arg in node.args:
+        raw.extend(f"arg:{hit}" for hit in _tenant_references(arg))
+    return raw, names_subject or _names_log_subject(node, subject_locals)
 
 
 def _event_name(node: ast.Call) -> str:
@@ -98,6 +135,10 @@ class _Visitor(ast.NodeVisitor):
         self.scope: list[str] = []
         self.findings: list[str] = []
         self.sites: list[str] = []
+        #: Per function: locals assigned from ``log_subject(...)``, and bound
+        #: loggers -> (raw tenant spellings, names a subject) of their ``bind``.
+        self.subject_locals: list[set[str]] = [set()]
+        self.bound: list[dict[str, tuple[list[str], bool]]] = [{}]
 
     def _enter(self, node: ast.AST, name: str) -> None:
         self.scope.append(name)
@@ -108,30 +149,38 @@ class _Visitor(ast.NodeVisitor):
         self._enter(node, node.name)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self.subject_locals.append(set())
+        self.bound.append({})
         self._enter(node, node.name)
+        self.subject_locals.pop()
+        self.bound.pop()
 
     visit_AsyncFunctionDef = visit_FunctionDef  # noqa: N815
 
+    def visit_Assign(self, node: ast.Assign) -> None:
+        # Visit the value first: a ``bind`` call is itself a log call.
+        self.generic_visit(node)
+        if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
+            return
+        target, value = node.targets[0].id, node.value
+        if isinstance(value, ast.Call) and _call_name(value.func) == "log_subject":
+            self.subject_locals[-1].add(target)
+        elif isinstance(value, ast.Call) and _call_name(value.func) == "bind" and _is_log_call(value):
+            self.bound[-1][target] = _inspect(value, self.subject_locals[-1])
+
     def visit_Call(self, node: ast.Call) -> None:
         if _is_log_call(node):
-            keywords = [kw for kw in node.keywords if kw.arg]
-            raw_tenant = [kw.arg for kw in keywords if _TENANT_KEYWORD.match(kw.arg or "") and _is_raw(kw.value)]
-            names_subject = any(
-                _SUBJECT_KEYWORD.match(kw.arg or "")
-                or (isinstance(kw.value, ast.Call) and _call_name(kw.value.func) == "log_subject")
-                for kw in keywords
-            )
+            raw, names_subject = _inspect(node, self.subject_locals[-1])
+            receiver = node.func.value if isinstance(node.func, ast.Attribute) else None
+            if isinstance(receiver, ast.Name) and receiver.id in self.bound[-1]:
+                bound_raw, bound_subject = self.bound[-1][receiver.id]
+                raw = raw + [f"bound {spelling}" for spelling in bound_raw]
+                names_subject = names_subject or bound_subject
             self.sites.append(self.rel)
-            if raw_tenant and names_subject:
+            if raw and names_subject:
                 key = f"{self.rel}::{'.'.join(self.scope) or '<module>'}::{_event_name(node)}"
-                self.findings.append(f"{key} ({', '.join(str(k) for k in raw_tenant)}=)")
+                self.findings.append(f"{key} ({', '.join(raw)})")
         self.generic_visit(node)
-
-
-def _call_name(func: ast.expr) -> str:
-    if isinstance(func, ast.Name):
-        return func.id
-    return func.attr if isinstance(func, ast.Attribute) else ""
 
 
 def findings_in_source(source: str, rel: str) -> list[str]:
@@ -182,11 +231,30 @@ def test_allowlist_entries_still_exist() -> None:
         ('logger.info("e", tenant_slug=slug, user_key=u)', True),
         ('logger.info("e", owner_tenant_key=k, who=log_subject(u))', True),
         ('logger.info("e", tenant=tenant_key or other, subject=s)', True),
-        # the pseudonymised tenant, a literal, or no subject: not this rule
+        ('logger.info("e", tenant_key=getattr(row, "tenant_key"), subject=s)', True),
+        ('logger.info("e", tenant_keys=keys, subject=s)', True),
+        # #1989: spellings the first detector missed
+        ('logger.info("e %s", tenant_key, subject=s)', True),
+        ('logger.info(f"e {ctx.tenant_key}", subject=s)', True),
+        ('logger.info("e", extra={"tenant_key": tenant_key}, subject=s)', True),
+        ('logger.info("e", **{"tenant": tenant_key}, subject=s)', True),
+        ('logger.info("e", owner=updated.tenant_key, admin_subject=s)', True),
+        ('logger.info("e", scope=tenant.key, subject=s)', True),
+        ('logger.info("e", tenant_key=k, contributed_by=contributed_by)', True),
+        ('logger.info("e", tenant_key=k, requested_by=log_subject(u))', True),
+        ('def f():\n    ref = log_subject(u)\n    logger.info("e", actor=ref, tenant_key=k)', True),
+        ('def f():\n    log = logger.bind(subject=log_subject(u))\n    log.info("e", tenant_key=k)', True),
+        ('def f():\n    log = logger.bind(tenant_key=k)\n    log.info("e", subject=s)', True),
+        # the pseudonymised tenant, a literal, a count, or no subject: not this rule
         ('logger.info("e", subject=log_subject(u), tenant=log_tenant(tenant.key))', False),
+        ('logger.info("e", subject=s, record_key=log_tenant_record_key(r.key))', False),
         ('logger.info("e", tenant_key="demo", subject=s)', False),
         ('logger.info("e", tenant_key=tenant_key, removed=3)', False),
         ('logger.info("e", subject=s, record_key=k)', False),
+        ('logger.info("e", tenants=len(tenant_keys), subject=s)', False),
+        ('logger.info("e", tenant_key=k, sort_by=field)', False),
+        ('def f():\n    log = logger.bind(subject=s, tenant=log_tenant(k))\n    log.info("e", removed=1)', False),
+        ('def f():\n    log = logger.bind(subject=s)\n\ndef g():\n    log.info("e", tenant_key=k)', False),
         # not a log call
         ('audit.record("e", subject=s, tenant_key=k)', False),
         ('send("e", subject=s, tenant_key=k)', False),
@@ -196,6 +264,14 @@ def test_detector_sees_each_spelling(source: str, caught: bool) -> None:
     assert bool(findings_in_source(source, "app/x.py")) is caught
 
 
-def test_the_tenant_service_lines_named_in_1928_pass() -> None:
-    path = BACKEND_ROOT / "app/domain/services/tenant_service.py"
+@pytest.mark.parametrize(
+    "rel",
+    [
+        "app/domain/services/tenant_service.py",
+        "app/domain/engines/notification_engine.py",
+        "app/data_access/vectordb/noop_reference_index_store.py",
+    ],
+)
+def test_the_lines_named_in_1928_and_1989_pass(rel: str) -> None:
+    path = BACKEND_ROOT / rel
     assert findings_in_source(path.read_text(encoding="utf-8"), _rel(path)) == []

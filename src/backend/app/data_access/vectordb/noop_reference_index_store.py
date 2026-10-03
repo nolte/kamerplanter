@@ -100,12 +100,14 @@ class NoopReferenceIndexStore(IReferenceIndexStore):
     ) -> bool:
         # REQ-034 §4 — full no-op: no index is deployed on this instance. Logged
         # so the hook stays observable; no embedding is computed, no image
-        # leaves the instance, nothing is persisted.
+        # leaves the instance, nothing is persisted. ``contributed_by`` is the
+        # contributor's account key and stays out of the line (NFR-011 L-1);
+        # without it the tenant key names no subject (#1989), like the
+        # inference-service binding's line for the same hook.
         logger.info(
             "reference_contribution_noop",
             reason="inference-service not enabled; no contribution on record",
             species_key=species_key,
             tenant_key=tenant_key,
-            contributed_by=contributed_by,
         )
         return False

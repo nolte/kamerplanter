@@ -272,3 +272,31 @@ def test_pruning_never_rewrites_the_whole_preferences_document() -> None:
 
     assert pruned == 0
     assert not repo.recreated, "the prune wrote the whole preferences document back"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("notification_type", ["frost_forecast_warning", "care.watering.due"])
+async def test_notify_lines_name_the_tenant_only_by_its_reference(
+    engine, monkeypatch: pytest.MonkeyPatch, notification_type: str
+) -> None:
+    """#1989: ``notify`` bound ``tenant_key=<raw>`` beside ``subject`` on every line it writes.
+
+    The binding is inherited by ``notification_sent`` / ``notification_queued_quiet_hours`` /
+    ``notification_deduplicated`` / ``no_channels_available``, so the raw key joined the subject
+    pseudonym to the tenant (NFR-011 L-1). Both a delivered and a queued run are captured.
+    """
+    import structlog.testing
+
+    from app.common.log_privacy import log_subject, log_tenant
+    from app.config.settings import settings
+
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "notify-log-test-salt-not-a-secret-0123")
+    tenant_key = "tenant-ab41c9"
+
+    with structlog.testing.capture_logs() as logs:
+        await engine.notify("u1", tenant_key, _notification(notification_type))
+
+    lines = [e for e in logs if e.get("subject") == log_subject("u1")]
+    assert lines, "notify wrote no subject line; the assertion below would hold vacuously"
+    assert {e["tenant"] for e in lines} == {log_tenant(tenant_key)}
+    assert tenant_key not in repr(logs)
