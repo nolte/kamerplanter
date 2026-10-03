@@ -25,6 +25,10 @@ key of an unknown type (``bad_jwks_entries``), a rotated signing key
 the token request is in flight (``on_token_request``) so a test can change the
 world between the callback's configuration load and its link write.
 
+**#2007 adds the token and userinfo answers to that:** a token response or userinfo
+answer far larger than any real one (``token_padding``, ``userinfo_padding``), and the
+headers of both requests, so a test can see what reached an endpoint.
+
 **DNS is doubled as well.** Login now checks every provider-supplied URL through
 :mod:`app.common.url_safety`, which resolves the host; the fixture hosts of these
 tests (``idp-a.example``) resolve to nothing. ``dns`` maps a host to the address it
@@ -113,6 +117,12 @@ class FakeIdp:
         self.on_token_request: Callable[[], None] | None = None
         #: Whitespace appended to the discovery document, likewise.
         self.discovery_padding = 0
+        #: Whitespace appended to the token response and the userinfo answer (#2007).
+        self.token_padding = 0
+        self.userinfo_padding = 0
+        #: Headers of every token and userinfo request (#2007).
+        self.token_request_headers: list[httpx.Headers] = []
+        self.userinfo_request_headers: list[httpx.Headers] = []
         #: The clock the key cache runs on (seconds); ``advance`` moves it.
         self.now = 1_000.0
         #: Host -> address it resolves to; a host not listed resolves to ``PUBLIC_ADDRESS``.
@@ -156,6 +166,7 @@ class FakeIdp:
             if any(not form.get(field) for field in _TOKEN_FIELDS):
                 return httpx.Response(400, json={"error": "invalid_request"})
             self.token_requests.append(form)
+            self.token_request_headers.append(request.headers)
             if self.on_token_request is not None:
                 self.on_token_request()
             body: dict[str, Any] = {"access_token": ACCESS_TOKEN, "token_type": "Bearer"}
@@ -163,7 +174,9 @@ class FakeIdp:
                 body["id_token"] = self.id_token_override
             elif not self.omit_id_token:
                 body["id_token"] = self.sign(self.claims)
-            return httpx.Response(200, json=body)
+            return httpx.Response(
+                200, content=json.dumps(body) + " " * self.token_padding, headers={"content-type": "application/json"}
+            )
         if path.endswith("/jwks"):
             self.jwks_requests += 1
             self.jwks_urls.append(str(request.url))
@@ -194,9 +207,14 @@ class FakeIdp:
             if request.headers.get("authorization") != f"Bearer {ACCESS_TOKEN}":
                 return httpx.Response(401, json={"error": "invalid_token"})
             self.userinfo_requests += 1
+            self.userinfo_request_headers.append(request.headers)
             if self.userinfo is None:
                 return httpx.Response(404)
-            return httpx.Response(200, json=self.userinfo)
+            return httpx.Response(
+                200,
+                content=json.dumps(self.userinfo) + " " * self.userinfo_padding,
+                headers={"content-type": "application/json"},
+            )
         return httpx.Response(404)
 
     def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
