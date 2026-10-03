@@ -45,9 +45,16 @@ _LOCK_PREFIX = "kp:auth:stepup:lock:"
 #: so the backoff keeps growing across consecutive lockouts instead of restarting.
 DEFAULT_TTL_SECONDS = 86_400
 
-#: Entry cap of the in-process tier. Subjects are derived from authenticated
-#: accounts, so the map cannot be flooded anonymously; the cap bounds memory when
-#: Redis is down during a sweep across many sessions.
+#: Entry cap of the in-process tier; it bounds memory while Valkey is down. The
+#: step-up's subjects derive from authenticated accounts and cannot be flooded
+#: anonymously. The two anonymous budgets — the verification resend
+#: (``DEFAULT_VERIFICATION_RESEND_STORE``, #2037) and the password reset
+#: (``DEFAULT_PASSWORD_RESET_STORE``, #2043) — count caller-chosen addresses:
+#: while Valkey is down, more than this many distinct addresses submitted to one
+#: process evict the oldest entry (LRU), and with it that address's spent
+#: budget. Only worthwhile with several source IPs: one IP at the default 20/min
+#: needs about 205 minutes per eviction, while the window refills after 60
+#: minutes anyway. Tracked separately.
 _FALLBACK_CAPACITY = 4096
 
 

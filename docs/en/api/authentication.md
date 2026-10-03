@@ -226,6 +226,9 @@ For security reasons, this endpoint always returns the same success response reg
 
 The per-address limit works like the one for the [verification link](#requesting-a-new-verification-link), with a budget of its own: it counts **every** submitted address alike, whether it has an account or not, and therefore answers silently. Case and surrounding whitespace do not matter — `Grower@Example.com` and `grower@example.com` share one budget. If you requested three links and none arrived, wait an hour without asking again; your current password stays valid until then.
 
+!!! warning "Limits of this protection"
+    Keeping someone else's address above its budget takes only one request per hour and address, with no knowledge of the account — a single IP can hold roughly 1200 addresses blocked at once with the default limit. The owner then signs in with their current password; there is no admin path that sets a password, triggers a reset link or clears the budget. While Valkey is unreachable, each process counts on its own: up to 3 links per address, hour and worker process across all replicas, and a flapping Valkey can release up to 3 more, because the counters of the two tiers are separate.
+
 ### Set a new password
 
 ```http

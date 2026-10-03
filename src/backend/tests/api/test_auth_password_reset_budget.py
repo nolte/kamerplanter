@@ -321,6 +321,7 @@ class TestEveryAddressSpendsTheBudgetAlike:
             for _ in range(MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW + 1)
         ]
 
+        assert answers[0].status_code == 200
         assert {(r.status_code, r.content) for r in answers} == {(answers[0].status_code, answers[0].content)}
         assert len({tuple(_stable_headers(r)) for r in answers}) == 1
 
@@ -335,7 +336,13 @@ class TestOneBudgetPerAddress:
         assert world.mail.count(OWNER) == MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW
 
     def test_a_variant_that_reaches_the_service_unstripped_still_shares_the_budget(self, world: _World) -> None:
-        """The route's ``EmailStr`` strips; the budget does not rely on it (the store normalises the subject)."""
+        """The route's ``EmailStr`` strips; the budget does not rely on it.
+
+        The service strips and lowercases the address before it puts the prefix in
+        front (``AuthService.request_password_reset``). The store's own
+        normalisation would not carry this: it strips the whole subject, so a space
+        between the prefix and the address would survive it.
+        """
         service = world.service()
         for email in (f" {OWNER.upper()} ", OWNER, "Owner@Example.com"):
             service.request_password_reset(email)

@@ -226,6 +226,9 @@ Aus Sicherheitsgründen gibt dieser Endpunkt immer dieselbe Erfolgsantwort zurü
 
 Die Grenze je Adresse funktioniert wie beim [Bestätigungslink](#bestatigungslink-erneut-anfordern), hat aber ihr eigenes Budget: Sie zählt **jede** eingegebene Adresse gleich, ob es ein Konto gibt oder nicht, und antwortet deshalb stumm. Groß-/Kleinschreibung und Leerzeichen um die Adresse spielen keine Rolle — `Gartner@Example.com` und `gartner@example.com` teilen sich ein Budget. Hast du drei Links angefordert und keiner kam an, warte eine Stunde, ohne erneut anzufragen; dein bisheriges Passwort bleibt bis dahin gültig.
 
+!!! warning "Grenzen dieses Schutzes"
+    Wer eine fremde Adresse über ihrem Budget halten will, braucht nur eine Anfrage pro Stunde und Adresse und muss nichts über das Konto wissen — eine einzelne IP kann so mit dem Default-Limit rund 1200 Adressen gleichzeitig blockieren. Die Inhaberin meldet sich dann mit ihrem bisherigen Passwort an; einen Admin-Weg, der ein Passwort setzt, einen Reset-Link auslöst oder das Budget leert, gibt es nicht. Ist Valkey nicht erreichbar, zählt jeder Prozess für sich: bis zu 3 Links je Adresse, Stunde und Worker-Prozess über alle Replikas, und ein flatternder Valkey kann bis zu 3 weitere freigeben, weil die Zähler beider Stufen getrennt sind.
+
 ### Neues Passwort setzen
 
 ```http

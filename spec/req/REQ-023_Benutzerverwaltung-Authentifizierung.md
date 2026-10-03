@@ -1003,10 +1003,17 @@ Bestätigungslinks einer Adresse ausschöpft, verbraucht nicht ihr Reset-Budget,
 umgekehrt. Wert und Fenster sind die des Bestätigungslinks und ebenso bewusst
 nicht konfigurierbar.
 
-**Restrisiko.** Wer eine fremde Adresse dauerhaft über ihrem Budget hält (eine
-Anfrage pro Stunde reicht), verhindert neue Reset-Links für dieses Konto. Die
-Inhaberin kann sich mit ihrem bisherigen Passwort weiter anmelden; ein
-Plattform-Admin kann helfen.
+**Restrisiko.** Wer eine fremde Adresse dauerhaft über ihrem Budget hält,
+verhindert neue Reset-Links für dieses Konto. Dafür reicht eine Anfrage pro Stunde
+und Adresse, ohne jede Kenntnis des Kontos; eine einzelne IP kann mit dem
+Default-Limit von 20/min so rund 1200 Adressen gleichzeitig blockiert halten. Die
+Inhaberin kann sich mit ihrem bisherigen Passwort weiter anmelden. Einen anderen
+Weg gibt es nicht: Kein Admin-Endpunkt setzt ein Passwort, löst einen Reset-Link
+aus oder leert das Budget.
+
+**Bei Valkey-Ausfall** zählt jeder Prozess für sich: bis zu 3 Links je Adresse,
+Stunde und Worker-Prozess über alle Replikas. Die Zähler der beiden Stufen sind
+getrennt, ein flatternder Valkey kann deshalb bis zu 3 weitere Links freigeben.
 
 <!-- Quelle: Smart-Home-HA-Integration Review A-003 -->
 ### 3.7 M2M-Authentifizierung (API-Keys)
