@@ -17,6 +17,7 @@ from app.common.enums import (
 )
 from app.common.exceptions import DuplicateError, WriteConflictError
 from app.common.tenant_guard import verify_tenant_ownership
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
@@ -1489,7 +1490,7 @@ class CareReminderService:
         if self._plant_repo is None:
             return []
 
-        plants, _total = self._plant_repo.get_all(offset=0, limit=500, tenant_key=tenant_key)
+        plants = get_all_pages(self._plant_repo, tenant_key=tenant_key)  # every plant, not the first 500 (#2015)
         active_plants = [p for p in plants if p.removed_on is None]
 
         # The service's own cache, not a local one: the preset resolution reads the

@@ -6,6 +6,7 @@ import structlog
 from app.common.datetimes import replace_year, today_utc
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine, CalendarSourceRows
 from app.domain.engines.season_overview_engine import (
     SeasonOverview,
@@ -171,9 +172,8 @@ class CalendarService:
 
         # Theoretical species data — the tenant's visible catalogue (global seeds
         # plus its own additions), never another tenant's private species (#1870).
-        species_list, _ = (
-            self._species_repo.get_all(offset=0, limit=5000, tenant_key=tenant_key) if self._species_repo else ([], 0)
-        )
+        # Every visible species, not the first 5000 (#2015).
+        species_list = get_all_pages(self._species_repo, tenant_key=tenant_key) if self._species_repo else []
         species_data = [
             SpeciesData(
                 key=sp.key or "",

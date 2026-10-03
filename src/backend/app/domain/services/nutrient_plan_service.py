@@ -1,6 +1,7 @@
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.delivery_channel_engine import DeliveryChannelValidator
 from app.domain.engines.dosage_calculation_engine import (
     DosageCalculationEngine,
@@ -641,9 +642,10 @@ class NutrientPlanService:
         without tenant_key falls back to an explicit all-tenant catalog scan.
         """
         # Search for supplement products with "CalMag" in the name
-        ferts, _ = self._fert_repo.get_all(
-            offset=0,
-            limit=100,
+        # Every supplement, not the first 100 by name: a CalMag sorted past the
+        # window was reported as absent (#2015).
+        ferts = get_all_pages(
+            self._fert_repo,
             filters={"fertilizer_type": "supplement"},
             tenant_key=tenant_key or None,
             all_tenants=not tenant_key,

@@ -3,6 +3,7 @@ import re
 from app.common.enums import DataOrigin, DuplicateStrategy, EntityType, ImportJobStatus, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.config.settings import settings
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.csv_parser import CsvParser
 from app.domain.engines.import_engine import ImportEngine
 from app.domain.engines.membership_engine import MembershipEngine
@@ -342,7 +343,8 @@ class ImportService:
 
     def _get_existing_keys(self, entity_type: EntityType) -> set[str]:
         if entity_type == EntityType.SPECIES and self._species_repo:
-            docs, _ = self._species_repo.get_all(0, 10000)
+            # Every species: a row past a fixed window was not seen as a duplicate (#2015).
+            docs = get_all_pages(self._species_repo)
             return {
                 d.get("scientific_name", d.get("_key", ""))
                 if isinstance(d, dict)
@@ -350,7 +352,7 @@ class ImportService:
                 for d in docs
             }
         if entity_type == EntityType.BOTANICAL_FAMILY and self._family_repo:
-            docs, _ = self._family_repo.get_all(0, 10000)
+            docs = get_all_pages(self._family_repo)
             return {d.get("name", d.get("_key", "")) if isinstance(d, dict) else getattr(d, "name", "") for d in docs}
         return set()
 
