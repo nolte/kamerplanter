@@ -101,7 +101,24 @@ run_seeds(db)  # Registry, je Seed isoliert — Referenzdaten non-fatal
    editiert — Korrekturen kommen als **neue** Version. Der Framework-Checksum
    (SHA-256 des `up`-Quelltexts) erkennt Drift und warnt beim Start.
 
-7. **Test beilegen:** Unter `tests/unit/migrations/versions/` — mindestens ein
+7. **Indizes nie über `type == "persistent"` erkennen (#2034):** Bis zum
+   07.06.2026 (`516bcd832`) legte `ensure_collections` jeden Index mit
+   `add_hash_index` an. Volumes, die vor diesem Datum zum ersten Mal gestartet
+   sind, tragen diese Indizes bis heute, und ArangoDB 3.12 meldet sie als
+   `type: "hash"`. Ein Neuanlegen mit `add_persistent_index` und derselben
+   Definition ersetzt sie nicht, sondern legt einen zweiten Index daneben an
+   (gemessen auf 3.12.8). Eine Migration, die einen Alt-Index über
+   `type == "persistent"` sucht, sieht ihn dort nicht. Sie meldet Erfolg, und
+   die alte, strengere Constraint bleibt aktiv. So ist es v0030, v0064 und v0069
+   passiert, korrigiert durch v0073, v0074 und v0072. Neue Migrationen wählen
+   Indizes deshalb über `app/migrations/support/legacy_indexes.py`
+   (`is_index_on`, `indexes_on`, `retire_legacy_index`). Der Selektor erkennt
+   `persistent` und `hash`, und `retire_legacy_index` entfernt einen Alt-Index
+   nur, wenn ein eindeutiger Ersatz schon existiert. Der Guard
+   `tests/unit/guards/test_migration_index_selectors.py` lehnt jeden
+   Inline-Vergleich auf den Index-Typ in einer neuen Versionsdatei ab.
+
+8. **Test beilegen:** Unter `tests/unit/migrations/versions/` — mindestens ein
    Smoke-Test (up idempotent/No-op, dry-run schreibt nicht, down verhält sich
    gemäß Reversibilität).
 

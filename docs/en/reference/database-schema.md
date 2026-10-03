@@ -325,7 +325,7 @@ Kamerplanter automatically creates the following indexes on startup:
 <!-- Quelle: src/backend/app/data_access/arango/collections.py (ensure_indexes) -->
 
 !!! note "Sparse indexes"
-    An index marked **sparse** only considers documents in which the field is actually set. For `harvest_batches.batch_id` this is required because the batch ID is an optional field: empty input is normalised to `null`, and any number of batches may exist without a batch ID at the same time, while identifiers that are set must still stay unique. Existing data is migrated by `v0030` (empty strings → `null`, index recreated as `unique + sparse`).
+    An index marked **sparse** only considers documents in which the field is actually set. For `harvest_batches.batch_id` this is required because the batch ID is an optional field: empty input is normalised to `null`, and any number of batches may exist without a batch ID at the same time, while identifiers that are set must still stay unique. Existing data is migrated by `v0030` (empty strings → `null`, index recreated as `unique + sparse`). On databases created before June 2026, ArangoDB reports the old index as type `hash`. `v0030` misses it there, and only `v0073` removes it.
 
 ---
 

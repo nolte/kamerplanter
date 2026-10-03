@@ -325,7 +325,7 @@ Kamerplanter legt beim Start automatisch folgende Indizes an:
 <!-- Quelle: src/backend/app/data_access/arango/collections.py (ensure_indexes) -->
 
 !!! note "Sparse-Indizes"
-    Ein als **sparse** markierter Index berücksichtigt nur Dokumente, in denen das Feld tatsächlich gesetzt ist. Bei `harvest_batches.batch_id` ist das erforderlich, weil die Chargen-ID ein optionales Feld ist: Leere Eingaben werden auf `null` normalisiert, und beliebig viele Chargen dürfen gleichzeitig ohne Chargen-ID existieren, während gesetzte Kennungen weiterhin eindeutig bleiben müssen. Bestandsdaten werden von Migration `v0030` angepasst (leere Zeichenketten → `null`, Index-Neuanlage als `unique + sparse`).
+    Ein als **sparse** markierter Index berücksichtigt nur Dokumente, in denen das Feld tatsächlich gesetzt ist. Bei `harvest_batches.batch_id` ist das erforderlich, weil die Chargen-ID ein optionales Feld ist: Leere Eingaben werden auf `null` normalisiert, und beliebig viele Chargen dürfen gleichzeitig ohne Chargen-ID existieren, während gesetzte Kennungen weiterhin eindeutig bleiben müssen. Bestandsdaten werden von Migration `v0030` angepasst (leere Zeichenketten → `null`, Index-Neuanlage als `unique + sparse`). Auf Datenbanken, die vor Juni 2026 angelegt wurden, führt ArangoDB den alten Index als Typ `hash`. `v0030` übersieht ihn dort, und erst `v0073` entfernt ihn.
 
 ---
 
