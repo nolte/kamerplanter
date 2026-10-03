@@ -26,7 +26,7 @@ to ``BackgroundTasks`` run only when the handler *returns* a response.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -50,7 +50,11 @@ from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.models.user import User
-from app.domain.services.auth_service import MAX_VERIFICATION_RESENDS_PER_WINDOW, AuthService
+from app.domain.services.auth_service import (
+    MAX_PROVEN_VERIFICATION_RESENDS_PER_WINDOW,
+    MAX_VERIFICATION_RESENDS_PER_WINDOW,
+    AuthService,
+)
 
 PENDING = "pending@example.com"
 PENDING_KEY = "3000001"
@@ -243,16 +247,23 @@ class _CountingRedis:
 
 
 class _OrderRecordingApp:
-    """Marks the moment the response body has left the app, in the same log as the work."""
+    """Marks the moment the response body has left the app, in the same log as the work.
 
-    def __init__(self, app: ASGIApp, log: list[str]) -> None:
+    ``on_sent`` runs right there — after the response, before any background task —
+    so a test can change the account between the answer and the deferred send.
+    """
+
+    def __init__(self, app: ASGIApp, log: list[str], on_sent: list[Callable[[], None]] | None = None) -> None:
         self._app = app
         self._log = log
+        self._on_sent = on_sent if on_sent is not None else []
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         async def _send(message: Message) -> None:
             if message["type"] == "http.response.body" and not message.get("more_body", False):
                 self._log.append("response-sent")
+                for hook in self._on_sent:
+                    hook()
             await send(message)
 
         await self._app(scope, receive, _send)
@@ -272,6 +283,8 @@ class _World:
         self.mail = _CountingMail(self.order)
         self.anonymous = _RecordingBudget(self.order, "reserve-anonymous")
         self.proven = proven
+        #: Run once the response has left the app, before the background tasks.
+        self.on_response_sent: list[Callable[[], None]] = []
 
     def service(self) -> AuthService:
         extra: dict[str, Any] = {} if self.proven is None else {"verification_resend_proven_store": self.proven}
@@ -296,7 +309,9 @@ def _client(world: _World) -> Iterator[TestClient]:
 
         app.dependency_overrides[get_auth_service] = world.service
         try:
-            yield TestClient(_OrderRecordingApp(app, world.order), raise_server_exceptions=False)
+            yield TestClient(
+                _OrderRecordingApp(app, world.order, world.on_response_sent), raise_server_exceptions=False
+            )
         finally:
             app.dependency_overrides.pop(get_auth_service, None)
 
@@ -364,10 +379,14 @@ class TestTheProvenRefusalMailsAFreshLink:
 
         assert [recipient for recipient, _ in world.mail.sent] == [PENDING]
 
-    def test_a_mailed_refusal_carries_the_headers_of_a_refusal_that_mails_nothing(self, client: TestClient) -> None:
-        answers = [_login(client) for _ in range(MAX_VERIFICATION_RESENDS_PER_WINDOW + 1)]
+    def test_a_mailed_refusal_carries_the_headers_of_a_refusal_that_mails_nothing(
+        self, world: _World, client: TestClient
+    ) -> None:
+        answers = [_login(client) for _ in range(MAX_PROVEN_VERIFICATION_RESENDS_PER_WINDOW + 1)]
         mailed, silent = answers[0], answers[-1]
 
+        # Only a comparison of a mailed with an unmailed refusal: the last one must be over the budget.
+        assert len(world.mail.sent) == MAX_PROVEN_VERIFICATION_RESENDS_PER_WINDOW
         assert _stable_body(mailed) == _stable_body(silent) == _REFUSAL
         assert _stable_headers(mailed) == _stable_headers(silent)
 
@@ -417,9 +436,9 @@ class TestTheAnonymousBudgetCannotLockTheOwnerOut:
 
 class TestTheProvenBudget:
     def test_three_mails_an_hour_then_the_same_refusal_without_mail(self, world: _World, client: TestClient) -> None:
-        answers = [_login(client) for _ in range(MAX_VERIFICATION_RESENDS_PER_WINDOW + 2)]
+        answers = [_login(client) for _ in range(MAX_PROVEN_VERIFICATION_RESENDS_PER_WINDOW + 2)]
 
-        assert len(world.mail.sent) == MAX_VERIFICATION_RESENDS_PER_WINDOW == 3
+        assert len(world.mail.sent) == MAX_PROVEN_VERIFICATION_RESENDS_PER_WINDOW == 3
         assert {r.status_code for r in answers} == {403}
         assert all(_stable_body(r) == _REFUSAL for r in answers)
 
@@ -438,7 +457,7 @@ class TestTheProvenBudget:
         world = _World()
         world.proven = _RecordingBudget(world.order, "reserve-proven")
         for client in _client(world):
-            for _ in range(MAX_VERIFICATION_RESENDS_PER_WINDOW):
+            for _ in range(MAX_PROVEN_VERIFICATION_RESENDS_PER_WINDOW):
                 _login(client)
             world.order.clear()
             _login(client)
@@ -512,6 +531,69 @@ class TestTheProvenBudget:
         assert service._verification_resend_proven_store is sentinel
 
 
+class TestOnlyTheUnverifiedRefusalReserves:
+    """The other refusals of a correct password come first and reserve nothing."""
+
+    def test_an_inactive_account_reserves_nothing_and_mails_nothing(self) -> None:
+        world = _World()
+        world.proven = _RecordingBudget(world.order, "reserve-proven")
+        world.repo.users[PENDING] = world.repo.users[PENDING].model_copy(update={"is_active": False})
+        for client in _client(world):
+            answer = _login(client)
+
+        assert answer.status_code == 401
+        assert world.proven.subjects == []
+        assert world.mail.sent == []
+        assert "write" not in world.order
+
+    def test_a_locked_account_reserves_nothing_and_mails_nothing(self) -> None:
+        world = _World()
+        world.proven = _RecordingBudget(world.order, "reserve-proven")
+        world.repo.users[PENDING] = world.repo.users[PENDING].model_copy(
+            update={"failed_login_attempts": 5, "locked_until": datetime.now(UTC) + timedelta(minutes=30)}
+        )
+        for client in _client(world):
+            answer = _login(client)
+
+        assert answer.status_code == 423
+        assert world.proven.subjects == []
+        assert world.mail.sent == []
+        assert "write" not in world.order
+
+
+class TestTheDeferredSendReReadsTheAccount:
+    """The send runs after the response; the account may have changed in between."""
+
+    def test_an_account_verified_after_the_response_gets_no_write_and_no_mail(
+        self, world: _World, client: TestClient
+    ) -> None:
+        def _verify() -> None:
+            world.repo.users[PENDING] = world.repo.users[PENDING].model_copy(
+                update={"email_verified": True, "email_verification_token": None}
+            )
+
+        world.on_response_sent.append(_verify)
+        answer = _login(client)
+
+        assert (answer.status_code, _stable_body(answer)) == (403, _REFUSAL)
+        assert world.order == ["response-sent"]
+        assert world.mail.sent == []
+        assert world.repo.users[PENDING].email_verification_token is None
+
+    def test_an_account_deleted_after_the_response_gets_no_write_and_no_mail(
+        self, world: _World, client: TestClient
+    ) -> None:
+        def _delete() -> None:
+            del world.repo.users[PENDING]
+
+        world.on_response_sent.append(_delete)
+        answer = _login(client)
+
+        assert (answer.status_code, _stable_body(answer)) == (403, _REFUSAL)
+        assert world.order == ["response-sent"]
+        assert world.mail.sent == []
+
+
 class TestFailuresChangeNothing:
     def test_a_failing_mail_adapter_leaves_the_refusal_unchanged_and_logs_no_address(
         self, world: _World, client: TestClient
@@ -543,13 +625,13 @@ class TestFailuresChangeNothing:
             )
         )
         for client in _client(world):
-            answers = [_login(client) for _ in range(MAX_VERIFICATION_RESENDS_PER_WINDOW + 2)]
+            answers = [_login(client) for _ in range(MAX_PROVEN_VERIFICATION_RESENDS_PER_WINDOW + 2)]
 
         assert {r.status_code for r in answers} == {403}
         assert all(_stable_body(r) == _REFUSAL for r in answers)
-        assert len(world.mail.sent) == MAX_VERIFICATION_RESENDS_PER_WINDOW
+        assert len(world.mail.sent) == MAX_PROVEN_VERIFICATION_RESENDS_PER_WINDOW
         subject = f"verification-resend-proven:{PENDING_KEY}"
-        assert fallback.reserve_attempt(subject) == MAX_VERIFICATION_RESENDS_PER_WINDOW + 2 + 1
+        assert fallback.reserve_attempt(subject) == MAX_PROVEN_VERIFICATION_RESENDS_PER_WINDOW + 2 + 1
 
 
 class TestBackgroundTasksRunOnlyOnAReturnedResponse:

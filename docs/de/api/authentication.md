@@ -108,7 +108,7 @@ Diese Ablehnung erreicht nur, wer das Passwort kennt. Deshalb hat dieser Weg ein
 | Grenze | Wert | Antwort bei Überschreitung |
 |--------|------|----------------------------|
 | Je Client-IP | `RATE_LIMIT_AUTH` (gilt für den ganzen Login) | `429 Too Many Requests` |
-| Je Konto | 3 Links; das Budget füllt sich wieder auf, sobald eine Stunde lang kein Link über die Anmeldung angefordert wurde | Unverändert `403` `EMAIL_NOT_VERIFIED` — es geht nur keine E-Mail raus |
+| Je Konto | 3 Links; das Budget füllt sich wieder auf, sobald eine Stunde lang keine Anmeldung mit `EMAIL_NOT_VERIFIED` abgelehnt wurde — jede solche Ablehnung zählt, auch über dem Budget, und verlängert das Fenster | Unverändert `403` `EMAIL_NOT_VERIFIED` — es geht nur keine E-Mail raus |
 
 Die Antwort sagt nicht, ob ein Link verschickt wurde: Status, Body und Header sind dieselben, ob eine E-Mail rausging, das Budget aufgebraucht war oder die Zustellung scheiterte. Ein falsches Passwort antwortet unverändert `401 Unauthorized` und verschickt nichts. Clients stellen den neuen Link deshalb nur in Aussicht und bieten `resend-verification` als Rückfall an.
 

@@ -679,7 +679,7 @@ class AuthService:
                 )
                 if reserved <= MAX_PROVEN_VERIFICATION_RESENDS_PER_WINDOW:
                     self._deliver_mail(
-                        "verification_resend_proven", partial(self._issue_verification_link, user), defer_mail
+                        "verification_resend_proven", partial(self._send_proven_verification_link, user.key), defer_mail
                     )
             raise EmailNotVerifiedError()
 
@@ -880,6 +880,19 @@ class AuthService:
         sent earlier stops working the moment this one is issued.
         """
         user: User | None = self._user_repo.get_by_email(email)
+        if user is None or not self._needs_verification_mail(user):
+            return
+        self._issue_verification_link(user)
+
+    def _send_proven_verification_link(self, user_key: UserKey) -> None:
+        """The deferred half of the ``EMAIL_NOT_VERIFIED`` refusal (#2046) — runs after the response.
+
+        Re-reads the account by key rather than using the snapshot taken at
+        login: between the response and this call the address may have been
+        verified, the account deactivated or deleted, and none of those may still
+        get a token written or a mail sent. Same re-check as the anonymous path.
+        """
+        user: User | None = self._user_repo.get_by_key(user_key)
         if user is None or not self._needs_verification_mail(user):
             return
         self._issue_verification_link(user)

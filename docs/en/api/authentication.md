@@ -108,7 +108,7 @@ Only someone who knows the password reaches this refusal. That is why this path 
 | Limit | Value | Response when exceeded |
 |-------|-------|------------------------|
 | Per client IP | `RATE_LIMIT_AUTH` (applies to the whole sign-in) | `429 Too Many Requests` |
-| Per account | 3 links; the budget refills once no link has been requested through the sign-in for an hour | Still `403` `EMAIL_NOT_VERIFIED` — only no mail goes out |
+| Per account | 3 links; the budget refills once no sign-in has been refused with `EMAIL_NOT_VERIFIED` for an hour — every such refusal counts, above the budget too, and extends the window | Still `403` `EMAIL_NOT_VERIFIED` — only no mail goes out |
 
 The answer does not tell whether a link was sent: status, body and headers are the same whether a mail went out, the budget was spent or the delivery failed. A wrong password still answers `401 Unauthorized` and sends nothing. Clients should therefore only promise the new link and offer `resend-verification` as the fallback.
 

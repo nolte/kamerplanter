@@ -42,6 +42,12 @@ control flow (a reservation in a branch the send does not pass through still
 counts) — the route tests own both (``tests/api/test_auth_password_reset_budget.py``,
 ``tests/api/test_auth_resend_verification.py``,
 ``tests/api/test_auth_login_proven_resend.py``).
+
+Nor does it see **whether a queued mail ever runs**. The login route has to
+*return* its ``EMAIL_NOT_VERIFIED`` refusal for the deferred link to be sent —
+FastAPI drops background tasks when the handler raises. A route that went back
+to raising would keep ``login_local`` a bounded member here while every link is
+silently lost; ``tests/api/test_auth_login_proven_resend.py`` covers that.
 """
 
 from __future__ import annotations

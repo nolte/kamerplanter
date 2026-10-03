@@ -60,7 +60,7 @@ Afterwards you always see the same message: **If this address belongs to an acco
 !!! info "What to know about the new link"
     - The new link is valid for **24 hours** again. Every new link replaces all earlier ones — always use the one from the most recent email.
     - Through the button or the **Request a new verification link** page, Kamerplanter sends at most **three** new links per address. After that, the next one only goes out once nobody has requested one for this address for an hour.
-    - Signing in with your correct password has its own allowance of **three** links per hour. If someone else has used up your address's allowance, you still get a new link by signing in. <!-- REQ-023 -->
+    - Signing in with your correct password has its own allowance of at most **three** links. After that, the next one only goes out once you have not tried to sign in for an hour — every further attempt in that time extends the wait. If someone else has used up your address's allowance, you still get a new link by signing in. <!-- REQ-023 -->
     - If you request too often from your connection, the page reports **Too many requests**. Wait a while in that case.
     - Accounts that sign in only through a provider such as Google need no verification link and do not get one.
 
@@ -270,7 +270,7 @@ The confirmation dialog asks you to type your **own email address** back in. If 
 ## Frequently Asked Questions
 
 ??? question "I didn't receive a confirmation email. What can I do?"
-    Check your spam folder first. The confirmation link is valid for 24 hours; after that, you need to register again to receive a new email.
+    Check your spam folder first. The confirmation link is valid for 24 hours. If it has expired or never arrived, sign in with your password — Kamerplanter then sends you a new link — or request one via **Send a new verification email** (see [Requesting a New Verification Link](#requesting-a-new-verification-link)). Registering again does not help: for an address that is already taken, it sends no new link.
 
 ??? question "Can I change my email address?"
     Yes, in the **Profile** tab of your account settings, in the **Change Email Address** section (see above). The new address must be confirmed via a confirmation link; your previous address can then undo the change for 7 days. Details: [Changing Your Email Address (GDPR Art. 16)](privacy.md#changing-your-email-address-gdpr-art-16).

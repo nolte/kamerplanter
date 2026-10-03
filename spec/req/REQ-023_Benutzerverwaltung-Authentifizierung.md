@@ -1015,10 +1015,16 @@ weiteren Request-Body:
 | Grenze | Wert | Antwort bei Überschreitung |
 |--------|------|----------------------------|
 | Je Client-IP | `settings.rate_limit_auth` (`RATE_LIMIT_AUTH`, gilt für den ganzen Login) | `429 Too Many Requests` |
-| Je Konto | 3 Links; Auffüllung, sobald eine Stunde lang kein Link über die Anmeldung angefordert wurde | Unverändert `403 EMAIL_NOT_VERIFIED`, es wird nur nichts verschickt |
+| Je Konto | 3 Links; Auffüllung, sobald eine Stunde lang keine Anmeldung mit `EMAIL_NOT_VERIFIED` abgelehnt wurde — jede solche Ablehnung reserviert, auch über dem Budget, und erneuert damit das Fenster | Unverändert `403 EMAIL_NOT_VERIFIED`, es wird nur nichts verschickt |
 
 Wer das Passwort kennt, kann den Inhaber so höchstens dreimal pro Stunde
 anschreiben lassen — begrenzt, und er hält das Passwort ohnehin.
+
+**Restrisiko beider Wege.** Wer Adresse **und** Passwort kennt, kann den Inhaber
+aus beiden Wegen zugleich aussperren: Sind beide Budgets einmal verbraucht, hält
+etwa eine anonyme Resend-Anfrage und eine Anmeldung pro Stunde (rund zwei Anfragen)
+beide Fenster offen. Ausweg ist der Plattform-Admin, der `email_verified` über
+`PATCH /admin/platform/users/{key}` setzt.
 
 **Frontend.** Die Login-Seite zeigt bei `error_code=EMAIL_NOT_VERIFIED` statt des
 englischen Backend-Texts einen lokalisierten Hinweis (`role="alert"`), der den
