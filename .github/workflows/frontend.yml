@@ -152,9 +152,11 @@ jobs:
           version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Node 22 bundles npm 10, which resolves optional peers differently from the
+      # npm 11 that writes the lockfile; keep CI on the current npm.
       - name: Install dependencies
         if: env.RUN_FRONTEND == 'true'
-        run: npm ci
+        run: npm install -g npm@latest && npm ci
 
       # Invoked through the Taskfile (continuous-integration §E). `lint:frontend`
       # previously linted only `src/` while this job linted the whole project, so
@@ -209,7 +211,7 @@ jobs:
     with:
       node-version: '22'
       working-directory: src/frontend
-      install-command: npm ci
+      install-command: npm install -g npm@latest && npm ci
       test-command: npm run test:coverage
       fail-under: 80
 
