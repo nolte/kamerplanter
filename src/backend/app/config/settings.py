@@ -30,6 +30,22 @@ UNKNOWN_BUILD_REVISION = "unknown"
 # or an honest admission of not knowing, and nothing in between.
 _BUILD_REVISION_SHAPE = re.compile(r"^[0-9a-f]{7,40}$")
 
+#: The ``limits`` storage schemes the IP rate limiter can count in (#2045),
+#: measured against the installed ``limits`` 5.8 rather than its registry:
+#: ``valkey://``, ``valkeys://`` and ``valkey+unix://`` are registered there but
+#: need the ``valkey`` client package, which the backend does not ship, and fail
+#: at import; ``async+…`` storages would hand the synchronous slowapi limiter
+#: coroutines instead of counts; sentinel and cluster storages take options the
+#: limiter's bounded-timeout configuration does not cover (cluster also connects
+#: while it is built).
+RATE_LIMIT_STORAGE_SCHEMES: tuple[str, ...] = ("redis", "rediss", "redis+unix", "memory")
+
+
+def rate_limit_storage_scheme_is_usable(uri: str) -> bool:
+    """Return whether ``uri`` names one of :data:`RATE_LIMIT_STORAGE_SCHEMES` as ``<scheme>://``."""
+    scheme, separator, _ = uri.partition("://")
+    return bool(separator) and scheme in RATE_LIMIT_STORAGE_SCHEMES
+
 
 class GBIFSettings(BaseModel):
     base_url: str = "https://api.gbif.org/v1"
@@ -560,17 +576,17 @@ class Settings(BaseSettings):
 
     # Rate limiting
     #: Where the IP rate limits (the shared slowapi ``limiter``) keep their
-    #: counters (#2045). A ``limits`` storage URI — ``redis://…``, ``rediss://…``
-    #: or ``memory://``.
+    #: counters (#2045). A ``limits`` storage URI whose scheme is one of
+    #: :data:`RATE_LIMIT_STORAGE_SCHEMES` — ``redis://…``, ``rediss://…``,
+    #: ``redis+unix://…`` or ``memory://``; anything else refuses to load.
     #:
     #: **Empty means "use ``redis_url``", and that default is the fix.** slowapi
     #: falls back to ``memory://`` when given no storage, so every replica and
     #: every worker process counted on its own and ``N`` processes multiplied each
-    #: documented limit by ``N`` — including the mail bound on
-    #: ``/auth/resend-verification``. Requiring an explicit value instead would
-    #: let a forgotten one reproduce exactly that, silently; deriving it from the
-    #: Valkey the backend already needs makes the shared count the state nobody
-    #: has to remember.
+    #: documented limit by ``N``. Requiring an explicit value instead would let a
+    #: forgotten one reproduce exactly that, silently; deriving it from the Valkey
+    #: the backend already needs makes the shared count the state nobody has to
+    #: remember.
     #:
     #: Set it to point the counters at a different Valkey database, or to
     #: ``memory://`` where one process *is* the deployment (the unit-test suite,
@@ -578,6 +594,24 @@ class Settings(BaseSettings):
     #: limiter counts per process until it is back — the pre-#2045 bound, never
     #: open and never a 500 (``app/common/rate_limit.py``).
     rate_limit_storage_url: str = ""
+
+    @field_validator("rate_limit_storage_url")
+    @classmethod
+    def _rate_limit_storage_url_has_a_usable_scheme(cls, value: str) -> str:
+        """Refuse a storage URI the limiter cannot count in, without echoing it (#2045).
+
+        Unchecked, an unknown scheme fails inside ``limits`` while the auth
+        router is imported — before the redacting log setup — with a message
+        that is the whole URI, Valkey password included. The message here names
+        the allowed schemes only: not even the configured scheme, because a
+        value without ``://`` (``user:password@host``) parses its secret as one.
+        """
+        if value and not rate_limit_storage_scheme_is_usable(value):
+            allowed = ", ".join(f"{scheme}://" for scheme in RATE_LIMIT_STORAGE_SCHEMES)
+            msg = f"unsupported rate-limit storage scheme (value withheld); allowed: {allowed}, or empty for REDIS_URL"
+            raise ValueError(msg)
+        return value
+
     rate_limit_auth: str = "20/minute"
     rate_limit_general: str = "100/minute"
     #: ``POST /api/v1/privacy/email-change`` (REQ-025 Art. 16), per client IP.

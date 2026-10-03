@@ -715,12 +715,14 @@ After multiple failed login attempts, the account is temporarily locked. The API
 
 ### IP Rate Limits and Proxy Depth
 
-The IP limits on the sign-in routes (login, registration, password reset, device pairing, resending the verification mail) count in storage that all replicas and worker processes share. An installation with several replicas therefore has the same bound as one with a single process. <!-- REQ-023 -->
+The IP limits on the sign-in routes (login, registration, password reset, device pairing) count in storage that all replicas and worker processes share. An installation with several replicas therefore has the same bound as one with a single process. <!-- REQ-023 -->
 
 !!! info "API only / operator configuration"
-    As an operator you choose the storage with `RATE_LIMIT_STORAGE_URL`. If it stays empty, the backend uses the Valkey from `REDIS_URL` — usually you do not need to set anything. Use `memory://` only when a single process is the whole installation.
+    As an operator you choose the storage with `RATE_LIMIT_STORAGE_URL`. If it stays empty, the backend uses the Valkey from `REDIS_URL` — usually you do not need to set anything. Allowed are `redis://`, `rediss://`, `redis+unix://` and `memory://`; any other value stops the start, and the message names only the allowed schemes, never the value. Use `memory://` only when a single process is the whole installation — without `DEBUG` the backend then logs `rate_limit_storage_counts_per_process` once at start-up.
 
-- **Storage fails:** Each process then keeps counting on its own. Requests are not let through unchecked and none is rejected with an error, but the bound is softer: during the outage a fresh window can apply per process. If the storage hangs, only the first request waits, for at most 0.5 s.
+- **Storage fails:** Each process then keeps counting on its own. Requests are not let through unchecked and none is rejected with an error — not even those waiting on the storage at the moment it fails — but the bound is softer: during the outage a fresh window can apply per process.
+- **Wait time:** If the storage hangs instead of refusing the connection, the request that notices the failure waits at most 0.5 s (one socket timeout, no retry). Requests already waiting at that moment wait at most 0.5 s each, at the same time. Every further request is counted by the process itself, without waiting.
+- **Recovery:** The backend checks the storage again at intervals of 1, 2, 4, 8, 16 and 32 s and every 32 s after that, each time with a single request, which again waits at most 0.5 s. Once the storage answers, all processes count together again from that request on. The log shows `rate_limit_storage_unavailable` and `rate_limit_storage_recovered`.
 - **Proxy depth:** The limit applies per client address. `TRUSTED_PROXY_HOPS` tells the backend how many proxies sit in front of it. The Helm chart sets `1` (Traefik in front of nginx).
 
 If you find the line `forwarded_chain_deeper_than_trusted_proxy_hops` in the backend log once per process, `TRUSTED_PROXY_HOPS` is `0` although the `X-Forwarded-For` chain has more than one entry. The backend then reads a proxy's address instead of the caller's, and all callers share one counter. Set `TRUSTED_PROXY_HOPS` to the number of proxies after the first (behind ingress and nginx: `1`). The line carries neither the header value nor an IP address. A run without ingress, where the chain has a single entry, stays silent.
