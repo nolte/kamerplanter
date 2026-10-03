@@ -30,9 +30,43 @@ can choose it can walk around the lockout and can claim an allowlisted address.
 
 from __future__ import annotations
 
+import structlog
 from fastapi import Request
 
 from app.config.settings import settings
+
+logger = structlog.get_logger()
+
+#: Whether this process has already reported a forwarded chain deeper than
+#: ``trusted_proxy_hops = 0`` explains (#2045). Once per process: the condition
+#: is a property of the deployment, not of a request, and one line per request
+#: would bury it. An unsynchronised flag is enough — a race costs a second line.
+_zero_hops_warning_emitted = False
+
+
+def _warn_once_on_unexplained_chain(chain_length: int) -> None:
+    """Report, once, a chain that ``trusted_proxy_hops = 0`` cannot account for.
+
+    The app cannot see its proxy topology, so a depth left at the default behind
+    ingress + nginx was silent: the resolver read the ingress address nginx
+    appended, and every IP-keyed control — the rate limits, the pairing lockout,
+    the ``ip_allowlist`` — bound to one shared bucket (#2045). Behind exactly one
+    proxy (dev, e2e) the chain has one entry and hops 0 is right, so only a
+    longer chain is reported: either a proxy the setting does not count, or a
+    caller who prepended entries. Both are worth a look; neither is decided here.
+
+    Logs the entry *count* only — never the header or an address (NFR-011).
+    """
+    global _zero_hops_warning_emitted
+    if _zero_hops_warning_emitted or chain_length <= 1:
+        return
+    _zero_hops_warning_emitted = True
+    logger.warning(
+        "forwarded_chain_deeper_than_trusted_proxy_hops",
+        trusted_proxy_hops=0,
+        forwarded_entries=chain_length,
+        hint="Behind more than one proxy, set TRUSTED_PROXY_HOPS to the number of proxies after the first.",
+    )
 
 
 def resolve_client_ip(request: Request) -> str | None:
@@ -64,7 +98,10 @@ def resolve_client_ip(request: Request) -> str | None:
     # `hops` entries were appended *after* the caller's, so the caller sits that
     # far in from the right. A chain too short for the configured depth is not
     # evidence about anyone.
-    index = len(chain) - 1 - settings.trusted_proxy_hops
+    hops = settings.trusted_proxy_hops
+    if hops == 0:
+        _warn_once_on_unexplained_chain(len(chain))
+    index = len(chain) - 1 - hops
     if index < 0:
         return peer
     return chain[index]
