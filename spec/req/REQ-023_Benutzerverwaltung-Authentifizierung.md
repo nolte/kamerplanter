@@ -15,7 +15,7 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
-| 1.35 | 2026-10-04 | **Nacharbeit zu #2043/#2045:** (1) **Ein Zähler je Route, nicht je Pfadwert (#2052):** der IP-Limiter nutzt `key_style="endpoint"`; vorher öffnete jeder vom Aufrufer gewählte Pfadwert (Glossar-Slug, Export-Schlüssel, Tenant-Slug) einen eigenen Zähler und einen eigenen Valkey-Schlüssel (gemessen: 31 Slugs → 31 × `200`). Details am Ende von §3.8. (2) **Limit-Prüfung nicht mehr auf der Ereignisschleife (#2048):** asynchrone begrenzte Routen prüfen über `run_in_threadpool`; `GET /api/health` zählt nur im Prozessspeicher. |
+| 1.35 | 2026-10-04 | **Nacharbeit zu #2043/#2045:** (1) **Ein Zähler je Route, nicht je Pfadwert (#2052):** der IP-Limiter nutzt `key_style="endpoint"`; vorher öffnete jeder vom Aufrufer gewählte Pfadwert (Glossar-Slug, Export-Schlüssel, Tenant-Slug) einen eigenen Zähler und einen eigenen Valkey-Schlüssel (gemessen: 31 Slugs → 31 × `200`). Details am Ende von §3.8. (2) **Limit-Prüfung nicht mehr auf der Ereignisschleife (#2048):** asynchrone begrenzte Routen prüfen über `run_in_threadpool`; `GET /api/health` zählt nur im Prozessspeicher. (3) **Rückfall-Stufe der anonymen Budgets verdrängt nicht (#2058):** eine volle Stufe wirft abgelaufene Einträge hinaus und behandelt sonst eine neue Adresse als über dem Budget; vorher verschaffte eine Flut von 4096 Adressen dem Opfer einen vierten Link. `maxmemory` des Chart-Valkey bleibt bewusst ungesetzt (§3.2c). |
 | 1.34 | 2026-10-03 | **Bündel-Prüfung #2043/#2045/#2046:** (1) Die Mail-Budgets (§3.2b, §3.2c, Login-Ablehnung) und der Zähler für unbekannte Adressen bekamen ihren Valkey-Client mit den redis-py-Defaults (5 s je Socket-Operation): gemessen über die echten Routen 5,0 s für eine Reset-Anfrage, 5,3 s für eine Login-Ablehnung, 10,6 s für eine fehlgeschlagene Anmeldung mit unbekannter Adresse, auch je für acht gleichzeitige. Jetzt ein eigener, geteilter Client mit den Optionen des IP-Limiters (0,5 s je Verbindungsversuch und Adresse, keine Wiederholung): gemessen 0,51 s, 0,78 s und 1,3 s; ohne Prüfplan, Valkey wird bei jeder Anfrage gefragt. (2) Das Subject des anonymen Bestätigungslinks wird im Service getrimmt und kleingeschrieben wie das des Resets. (3) Korrigiert: Summe der drei Budgets je Postfach, Squatting-Fall und Admin-Ausweg, Neustart von Valkey, `@` im Passwort, Proxy-Benennung, Bedingung der unveränderten Header-Namen. |
 | 1.33 | 2026-10-03 | **Neuer Bestätigungslink über die Login-Ablehnung (#2046):** Das Budget je Adresse von `POST /auth/resend-verification` (§3.2b) zählt jede eingegebene Adresse — wer eine fremde Adresse kennt, konnte es für den Inhaber aufbrauchen und ihm so jeden neuen Link vorenthalten (bisher als Restrisiko geführt). Neu: Die Ablehnung `403 EMAIL_NOT_VERIFIED` (nur nach korrektem Passwort erreichbar) verschickt den neuen Link selbst, nach der Antwort, an die gespeicherte Adresse des Kontos — auf einem eigenen Budget je Konto (Subject `verification-resend-proven:<user_key>`, 3 je Stunde, Valkey-geteilt mit In-Process-Rückfall, nie fail-open), das anonyme Anfragen nicht erreichen. Kein neuer Endpunkt, kein Passwort in einem weiteren Request-Body. Die Antwort bleibt unverändert (Status, Body, Header) — ob gesendet, Budget erschöpft oder Zustellung gescheitert; ein falsches Passwort antwortet wie bisher `401` ohne Mail. Die Login-Route gibt die Ablehnung zurück statt sie zu werfen, weil FastAPI Background-Tasks bei einer Exception verwirft (gemessen). Frontend: der Hinweis stellt den Link in Aussicht (nie „gesendet“), die anonyme Aktion bleibt Rückfall. Details in §3.2b. |
 | 1.32 | 2026-10-03 | **Budget je Adresse beim Passwort-Reset (#2043):** `POST /auth/password-reset/request` war nur je Client-IP begrenzt (`RATE_LIMIT_AUTH`, `20/minute`); gemessen über die echte Route: 20 Reset-Mails an eine Adresse aus einer Quelle in einer Minute, jede mit neuem Link — rechnerisch 1200 je Stunde und Quelle, mit jeder weiteren Quelle mehr. Neu: ein Budget je Adresse wie beim Bestätigungslink (§3.2b) — 3 Anfragen, Auffüllung nach einer Stunde Ruhe, eigenes Budget (Subject `password-reset:<Adresse>`), reserviert vor der Kontosuche für jede eingegebene Adresse gleich, stumm (unverändert `200`, gleicher Body, gleiche Header). Groß-/Kleinschreibung und umgebende Leerzeichen teilen ein Budget. Bei Valkey-Ausfall Rückfall auf die In-Process-Stufe, nie fail-open. Details in §3.2c. |
@@ -1000,10 +1000,11 @@ weiteren Request-Body:
   `verification-resend:<Adresse>` kann es nie verbrauchen). 3 Links, Auffüllung
   nach einer Stunde ohne Anforderung, als SHA-256 abgelegt (NFR-011). Gleiche
   Mechanik wie oben, eigene Instanz: Valkey-geteilt, bei Ausfall Rückfall auf die
-  eigene In-Process-Stufe, nie fail-open. Diese Stufe übernimmt die bekannte
-  Grenze der Rückfall-Stufen (feste Kapazität, LRU-Verdrängung eines verbrauchten
-  Budgets; getrennt verfolgt) — hier zählen allerdings Konten, die nur mit ihrem
-  Passwort erreichbar sind.
+  eigene In-Process-Stufe, nie fail-open. Diese Stufe hat die Grenze der
+  Rückfall-Stufe des Step-ups (feste Kapazität von 4096, LRU-Verdrängung eines
+  verbrauchten Budgets) — hier zählen allerdings Konten, die nur mit ihrem
+  Passwort erreichbar sind. Die beiden anonymen Budgets (oben und §3.2c)
+  verdrängen nicht (#2058, §3.2c).
 - **Nach der Antwort:** Token-Schreiben und Versand laufen als eine Einheit über
   die Background-Tasks (#1890-Muster), Zustellfehler werden gefangen und nur mit
   Typ geloggt (`auth_mail_send_failed`, `kind=verification_resend_proven`).
@@ -1082,7 +1083,23 @@ ihr). Einen anderen Weg gibt es nicht: Kein Admin-Endpunkt setzt ein Passwort, l
 aus oder leert das Budget.
 
 **Bei Valkey-Ausfall** zählt jeder Prozess für sich: bis zu 3 Links je Adresse,
-Stunde und Worker-Prozess über alle Replikas. Die Zähler der beiden Stufen sind
+Stunde und Worker-Prozess über alle Replikas. **Die In-Process-Stufe verdrängt nie
+(#2058)** — das gilt für dieses Budget und das von §3.2b, deren Subjects frei
+gewählte Adressen sind: Bis dahin verdrängte die volle Stufe (4096 Einträge) den
+ältesten Eintrag und mit ihm ein verbrauchtes Budget; gemessen über die echte
+Route mit ausgefallenem Valkey: nach 4096 erfundenen Adressen bekam das Opfer einen
+vierten Link. Jetzt wirft eine volle Stufe (`anonymous_budget_fallback`, 16 384
+Einträge je Prozess und Budget) zuerst abgelaufene Einträge hinaus; ist sie dann
+noch voll, gilt eine **neue** Adresse als über dem Budget — stumm, kein Link —, bis
+Einträge ablaufen (einmal je Episode `anonymous_budget_fallback_full` im Log, ohne
+Adresse). Der Preis: Wer während eines Ausfalls 16 384 Adressen in einen Prozess
+schickt, hält neue Reset-Links dieses Prozesses bis zu eine Stunde lang auf.
+**`maxmemory` des Chart-Valkey** bleibt ungesetzt (Default `noeviction` ohne
+Obergrenze), bewusst: Eine Verdrängungs-Policy (`allkeys-*`, `volatile-*`) würde
+Budget- und Limiter-Schlüssel — alle mit TTL — verdrängen und so verbrauchte
+Budgets zurückgeben; `noeviction` mit Obergrenze ließe bei vollem Speicher auch die
+Celery-Queue scheitern. Das Wachstum ist begrenzt: Limiter-Schlüssel je Client-
+Adresse und Route (§3.8, #2052), Budget-Schlüssel je Anfrage höchstens eine Stunde. Die Zähler der beiden Stufen sind
 getrennt, ein flatternder Valkey kann deshalb bis zu 3 weitere Links freigeben —
 solange Valkey seine Schlüssel behält. Ein Neustart, der sie verliert, gibt je
 Budget weitere 3 frei.
