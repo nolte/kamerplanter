@@ -58,7 +58,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Final, Literal, TypeVar
 
 import structlog
 from limits.storage import MemoryStorage, Storage, storage_from_string
@@ -96,6 +96,15 @@ _PROBE_MAX_DELAY_S = 32.0
 #: Schemes whose ``limits`` storage hands its options straight to
 #: ``redis.from_url``, so the socket timeouts and the retry policy are understood.
 _REDIS_SCHEMES = frozenset({"redis", "rediss", "redis+unix"})
+
+#: How slowapi names a route inside a bucket key (#2052). ``"endpoint"`` is the
+#: route function (``module.function``); slowapi's default ``"url"`` is the
+#: request **path**, so on a route with a path parameter every value the caller
+#: chose was its own bucket — the limit bypassed by varying the value, and one
+#: storage key written per value. Measured on ``/public/glossary/term/{slug}``
+#: (30/minute): 31 distinct slugs → 31 × 200 and 31 keys. A route function
+#: mounted under two prefixes now shares one bucket as well.
+LIMITER_KEY_STYLE: Final[Literal["endpoint"]] = "endpoint"
 
 #: The scheme the failover wrapper registers under with ``limits``. Never
 #: configured by an operator: :func:`build_rate_limiter` builds it around the
@@ -330,13 +339,14 @@ def build_rate_limiter(key_func: Callable[[Request], str], *, storage_url: str |
                 "rate_limit_storage_counts_per_process",
                 detail="IP rate limits count per process; every replica and worker grants the full budget",
             )
-        return Limiter(key_func=key_func, storage_uri=uri)
+        return Limiter(key_func=key_func, storage_uri=uri, key_style=LIMITER_KEY_STYLE)
 
     options: dict[str, object] = {"primary_uri": uri}
     if _scheme(uri) in _REDIS_SCHEMES:
         options.update(bounded_redis_client_options())
     return Limiter(
         key_func=key_func,
+        key_style=LIMITER_KEY_STYLE,
         storage_uri=f"{_FAILOVER_SCHEME}://",
         # slowapi annotates ``storage_options`` as ``Dict[str, str]`` although it
         # forwards them unchanged to the storage, which needs the primary URI,
