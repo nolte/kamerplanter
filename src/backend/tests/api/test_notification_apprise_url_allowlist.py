@@ -53,6 +53,11 @@ REFUSED = [
     "gotify://127.0.0.1/token",
     "ntfy://localhost/topic",
     "gotify://169.254.169.254/token",
+    # Apprise reads ``scheme:[/\\]+`` as the separator, so the host follows any run of
+    # slashes; ``urlsplit`` sees an empty authority there and no host to judge.
+    "ntfy:///127.0.0.1/topic",
+    "ntfys:////169.254.169.254/topic",
+    "ntfy:///169.254.169.254/topic?mode=private",
     "not a url",
     "",
 ]

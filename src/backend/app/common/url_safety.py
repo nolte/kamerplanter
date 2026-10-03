@@ -1155,7 +1155,10 @@ def _apprise_url_refusal(url: object) -> str | None:
     host_addressed = scheme in _APPRISE_HOST_SCHEMES or (
         scheme in _APPRISE_NTFY_SCHEMES and _apprise_ntfy_names_a_server(parts.path, parts.query)
     )
-    if not host and scheme in _APPRISE_HOST_SCHEMES:
+    # Every allowed scheme names something in the host position. Without one, Apprise
+    # still finds a host: it reads ``scheme:[/\\]+`` as the separator, so
+    # ``ntfy:///169.254.169.254/topic`` dials the address ``urlsplit`` saw as the path.
+    if not host:
         return "An Apprise URL is malformed."
     if host:
         address = _apprise_literal_address(host)
