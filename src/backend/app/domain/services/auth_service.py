@@ -1044,8 +1044,11 @@ class AuthService:
                     user.key,
                     {"password_reset_token": token, "password_reset_expires": _iso(expires)},
                 )
+            # The stored spelling, never the typed one (#2060): the lookup matches
+            # case-insensitively, and a mail server may not — a link for
+            # ``Owner@d`` must not reach a different mailbox ``owner@d``.
             self._email_service.send_password_reset_email(
-                to_email=email,
+                to_email=user.email,
                 token=token,
                 frontend_url=self._frontend_url,
             )
