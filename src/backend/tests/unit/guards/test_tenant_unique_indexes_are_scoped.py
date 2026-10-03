@@ -66,8 +66,6 @@ DECLARED: dict[tuple[str, tuple[str, ...]], str] = {
 #: Known defects of this class: a tenant is refused a value another tenant holds.
 #: May only shrink — fix the index (with a migration) and delete the line.
 OPEN: dict[tuple[str, tuple[str, ...]], str] = {
-    (col.ACTIVITIES, ("name",)): "hybrid catalogue; decided in #2027, not here",
-    (col.WORKFLOW_TEMPLATES, ("name",)): "hybrid catalogue; decided in #2027, not here",
     (col.SPECIES, ("scientific_name",)): (
         "hybrid catalogue; #1162 scoped scientific_name_normalized to the tenant but left the raw "
         "scientific_name index collection-wide (#2063)"
@@ -192,6 +190,20 @@ def test_tanks_are_scoped_to_the_tenant() -> None:
     unique = bootstrap_unique_indexes()
     assert (col.TANKS, tuple(col.TANK_NAME_INDEX_FIELDS)) in unique
     assert (col.TANKS, ("name",)) not in unique
+
+
+@pytest.mark.parametrize(
+    ("collection", "fields"),
+    [
+        (col.ACTIVITIES, col.ACTIVITY_NAME_INDEX_FIELDS),
+        (col.WORKFLOW_TEMPLATES, col.WORKFLOW_TEMPLATE_NAME_INDEX_FIELDS),
+    ],
+)
+def test_hybrid_catalogue_names_are_scoped_to_the_tenant(collection: str, fields: list[str]) -> None:
+    """#2027: a global seed row and a tenant's row of one name coexist (v0076, v0077)."""
+    unique = bootstrap_unique_indexes()
+    assert (collection, tuple(fields)) in unique
+    assert (collection, ("name",)) not in unique
 
 
 def test_the_care_dedup_key_carries_the_tenant() -> None:

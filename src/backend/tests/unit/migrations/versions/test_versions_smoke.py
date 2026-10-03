@@ -97,6 +97,7 @@ class _NoopCollection:
             {"type": "persistent", "fields": ["tenant_key", "name"], "unique": False},
             # v0075 (#2029): tanks.(tenant_key, name) is bootstrapped unique on a fresh
             # volume, so the cutover finds its replacement present and nothing to drop.
+            # v0076 / v0077 (#2027): the same shape on activities and workflow_templates.
             {"type": "persistent", "fields": col.TANK_NAME_INDEX_FIELDS, "unique": True},
             # v0026 (#624): the *legacy global* species dedup index. Still listed
             # because that migration is shipped and looks for exactly these fields;

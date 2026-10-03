@@ -1966,6 +1966,34 @@ TANK_NAME_INDEX_FIELDS = ["tenant_key", "name"]
 #: the server reports it as ``persistent`` or (pre-June volumes) ``hash``.
 LEGACY_TANK_NAME_INDEX_FIELDS = ["name"]
 
+#: Fields of the activity name index (#2027): a name is unique **per tenant**, the
+#: global seed rows (``tenant_key`` empty) forming one scope of their own.
+#:
+#: ``activities`` is a hybrid catalogue (global seed rows plus, by the model, rows of
+#: a tenant). The index used to be collection-wide on ``name``, so a global seed row
+#: and a tenant's activity of the same name could not coexist, and the seed loader
+#: resolved the clash by rewriting the tenant's row as the global one. ``v0076``
+#: creates this index on a legacy volume and retires the old one.
+ACTIVITY_NAME_INDEX_FIELDS = ["tenant_key", "name"]
+
+#: The pre-#2027 collection-wide index; ``v0076`` recognises and drops it, whether
+#: the server reports it as ``persistent`` or (pre-June volumes) ``hash``.
+LEGACY_ACTIVITY_NAME_INDEX_FIELDS = ["name"]
+
+#: Fields of the workflow template name index (#2027): a name is unique **per
+#: tenant**, the global templates (``tenant_key`` empty) forming one scope of their own.
+#:
+#: Tenants create their own templates (``POST /t/{slug}/tasks/workflows``). The index used
+#: to be collection-wide on ``name``: a tenant was refused a name another tenant (or
+#: the seed) holds, and the seed loader rewrote a tenant's template named like a seed
+#: as the global one. ``v0077`` creates this index on a legacy volume and retires the
+#: old one.
+WORKFLOW_TEMPLATE_NAME_INDEX_FIELDS = ["tenant_key", "name"]
+
+#: The pre-#2027 collection-wide index; ``v0077`` recognises and drops it, whether
+#: the server reports it as ``persistent`` or (pre-June volumes) ``hash``.
+LEGACY_WORKFLOW_TEMPLATE_NAME_INDEX_FIELDS = ["name"]
+
 #: The identity a seed gives a harvest indicator (#1956, #2001):
 #: ``(species, indicator_type, measurement_unit)`` — see
 #: ``ArangoHarvestRepository.find_indicator``. **Sparse**, so a legacy species-less
@@ -2159,7 +2187,7 @@ def ensure_collections(db: StandardDatabase) -> None:
     ensure_care_task_dedup_index(tasks_col)
 
     wf_templates_col = db.collection(WORKFLOW_TEMPLATES)
-    wf_templates_col.add_persistent_index(fields=["name"], unique=True)
+    wf_templates_col.add_persistent_index(fields=WORKFLOW_TEMPLATE_NAME_INDEX_FIELDS, unique=True)
 
     wf_phases_col = db.collection(WORKFLOW_PHASES)
     wf_phases_col.add_persistent_index(fields=["workflow_template_key"], unique=False)
@@ -2281,7 +2309,7 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     # Activity indexes
     activities_col = db.collection(ACTIVITIES)
-    activities_col.add_persistent_index(fields=["name"], unique=True)
+    activities_col.add_persistent_index(fields=ACTIVITY_NAME_INDEX_FIELDS, unique=True)
 
     # REQ-015 Calendar indexes
     calendar_feeds_col = db.collection(CALENDAR_FEEDS)
