@@ -21,7 +21,11 @@ writes if it can reach one of those through the call graph.
 **How it resolves a call.** By receiver type, not by method name. ``self.X`` is
 resolved through the enclosing class and the type its ``__init__`` annotates for
 ``X``; a local or a parameter through its annotation, its constructor call, or
-the return annotation of the call it came from. A method found on a type is then
+the return annotation of the call it came from; a loop or comprehension variable
+through the element type of what it iterates (in-tree classes only); a class
+named directly through itself; ``a or b`` / ``a if c else b`` through both
+operands, in a body and in an ``__init__`` assignment alike; an attribute that is
+a ``@property`` through the property's return annotation. A method found on a type is then
 looked up across that type's bases **and** its subclasses — the services here are
 annotated against ``I*Repository`` interfaces whose bodies are ``...``, so
 ignoring implementors would miss every write in the application.
@@ -198,6 +202,7 @@ class FunctionNode:
         "direct_write_lineno",
         "_call_nodes",
         "_assignments",
+        "_iterations",
         "_annotations",
         "_return_annotation",
         "callees",
@@ -214,6 +219,9 @@ class FunctionNode:
         self.direct_write_lineno: int | None = None
         self._call_nodes: list[ast.Call] = []
         self._assignments: dict[str, list[ast.expr]] = defaultdict(list)
+        #: `for plant in plants:` and `[p.key for p in plants]` — the ITERABLE a
+        #: loop variable is drawn from, so the variable is typed by its element.
+        self._iterations: dict[str, list[ast.expr]] = defaultdict(list)
         self._annotations: dict[str, ast.expr] = {}
         self._return_annotation: ast.expr | None = None
         self.callees: list[FunctionNode] = []
@@ -398,6 +406,11 @@ class CallGraph:
                         owner.methods[child.name].append(function)
                         if child.name == "__init__":
                             _harvest_self_attributes(child, owner)
+                        if child.returns is not None and _is_property(child):
+                            # `ctx.plant_service.get(...)` reads an attribute whose
+                            # type is the property's return annotation; it is not
+                            # a call of `plant_service`, so nothing else types it.
+                            owner.attributes.setdefault(child.name, child.returns)
                     visit(child, function.qualname + ".<locals>.", None)
                 elif isinstance(child, ast.ClassDef):
                     klass = ClassNode(module, child.name)
@@ -433,6 +446,9 @@ class CallGraph:
                 for target in inner.targets:
                     if isinstance(target, ast.Name):
                         fn._assignments[target.id].append(inner.value)
+            elif isinstance(inner, ast.For | ast.AsyncFor | ast.comprehension):
+                if isinstance(inner.target, ast.Name):
+                    fn._iterations[inner.target.id].append(inner.iter)
             elif isinstance(inner, ast.Call):
                 fn._call_nodes.append(inner)
                 callee = inner.func
@@ -482,10 +498,22 @@ class CallGraph:
             found: set[str] = set()
             for assigned in scope._assignments.get(expression.id, ()):
                 found |= self._types_of(assigned, scope, depth + 1)
+            for iterable in scope._iterations.get(expression.id, ()):
+                # The element of `plants: list[Plant]` is a `Plant` — containers
+                # are already looked through by `_base_names`. Only a type defined
+                # in this tree is taken: an unparameterised `list` or a `dict`
+                # (whose iteration yields KEYS) must leave the variable untyped,
+                # so a write-vocabulary call on it still falls back by name.
+                found |= {name for name in self._types_of(iterable, scope, depth + 1) if name in self.classes}
             if not found:
                 module_level = self.module_globals.get(scope.module, {}).get(expression.id)
                 if module_level is not None:
                     found |= self._types_of(module_level, scope, depth + 1)
+            if not found and expression.id in self.classes and expression.id in self.module_symbols[scope.module]:
+                # A class named directly — `TenantErasureEngine.plan(...)`, a
+                # static or class method. The name is bound to the class by its
+                # own `class` statement or by an import, not by a guess.
+                found = {expression.id}
             return found
         if isinstance(expression, ast.Attribute):
             found = set()
@@ -546,6 +574,12 @@ class CallGraph:
             return self._types_of(expression.body, scope, depth + 1) | self._types_of(
                 expression.orelse, scope, depth + 1
             )
+        if isinstance(expression, ast.BoolOp):
+            # `repo or DefaultRepository()` — either operand can be the value.
+            found = set()
+            for operand in expression.values:
+                found |= self._types_of(operand, scope, depth + 1)
+            return found
         return set()
 
     def _related_classes(self, name: str) -> Iterator[ClassNode]:
@@ -798,6 +832,15 @@ class CallGraph:
         return None  # pragma: no cover - a writer always reaches a direct write
 
 
+def _is_property(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """Is this method read as an attribute — `@property` or `@cached_property`?"""
+    for decorator in node.decorator_list:
+        name = decorator.attr if isinstance(decorator, ast.Attribute) else getattr(decorator, "id", None)
+        if name in {"property", "cached_property"}:
+            return True
+    return False
+
+
 def _docstring_ids(tree: ast.Module) -> set[int]:
     found: set[int] = set()
     for node in ast.walk(tree):
@@ -828,11 +871,36 @@ def _harvest_self_attributes(node: ast.FunctionDef | ast.AsyncFunctionDef, klass
                     continue
                 if target.value.id != "self":
                     continue
-                source = inner.value
-                if isinstance(source, ast.Name) and source.id in parameters:
-                    klass.attributes.setdefault(target.attr, parameters[source.id])
-                elif isinstance(source, ast.Call) and isinstance(source.func, ast.Name | ast.Subscript):
-                    klass.attributes.setdefault(target.attr, source.func)
+                annotation = _attribute_annotation(inner.value, parameters)
+                if annotation is not None:
+                    klass.attributes.setdefault(target.attr, annotation)
+
+
+def _attribute_annotation(source: ast.expr, parameters: dict[str, ast.expr]) -> ast.expr | None:
+    """The type expression an `__init__` assignment gives `self.X`, if one is written down.
+
+    `self._repo = repo` takes the parameter's annotation and `self._engine =
+    Engine()` the constructor. The DEFAULTED shapes — `repo or Default()` and
+    `repo if repo is not None else Default()` — are the same two facts joined, and
+    are read as their union: every operand is a value the attribute can hold. An
+    operand that names nothing typed contributes nothing; it does not untype the
+    others.
+    """
+    if isinstance(source, ast.Name):
+        return parameters.get(source.id)
+    if isinstance(source, ast.Call) and isinstance(source.func, ast.Name | ast.Subscript):
+        return source.func
+    operands: list[ast.expr] = []
+    if isinstance(source, ast.BoolOp):
+        operands = list(source.values)
+    elif isinstance(source, ast.IfExp):
+        operands = [source.body, source.orelse]
+    union: ast.expr | None = None
+    for operand in operands:
+        part = _attribute_annotation(operand, parameters)
+        if part is not None:
+            union = part if union is None else ast.BinOp(left=union, op=ast.BitOr(), right=part)
+    return union
 
 
 @lru_cache(maxsize=1)
