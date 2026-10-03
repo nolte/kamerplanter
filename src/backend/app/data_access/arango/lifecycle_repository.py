@@ -124,6 +124,16 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
 
     def delete_phase(self, key: PhaseKey) -> bool:
         phase_id = f"{col.GROWTH_PHASES}/{key}"
+        # The phase's requirement and nutrient profiles are its children (the erasure
+        # inventory says so: "children of a growth phase") and go with it. Detaching
+        # only the edges left them behind unreachable — 155 orphans of each on a fresh
+        # install, and 5 more on every boot while two seeds traded one species' phases
+        # (#2002). Before the edges go, because the edges say which profiles are owned.
+        for profile_collection, edge_collection in (
+            (col.REQUIREMENT_PROFILES, col.REQUIRES_PROFILE),
+            (col.NUTRIENT_PROFILES, col.USES_NUTRIENTS),
+        ):
+            self._delete_owned_profiles(key, phase_id, profile_collection, edge_collection)
         self.delete_edges(col.CONSISTS_OF, phase_id, direction="inbound")
         # `next_phase` is a chain (`create_transition_rule` writes
         # from_phase → to_phase), so a phase in the middle carries one edge on each
@@ -136,6 +146,37 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
         self.delete_edges(col.USES_NUTRIENTS, from_id=phase_id)
         self.delete_edges(col.GOVERNED_BY, from_id=phase_id)
         return self._phases.delete(key)
+
+    def _delete_owned_profiles(
+        self, key: PhaseKey, phase_id: str, profile_collection: str, edge_collection: str
+    ) -> None:
+        """Remove the profiles of ``profile_collection`` that belong to phase ``key`` alone.
+
+        Owned means reached by this phase's own edge or naming it in ``phase_key``
+        (the attribute ``create_*_profile`` writes beside the edge) — and reached by no
+        other phase's edge, so a profile some other phase still points at is kept.
+        """
+        self._db.aql.execute(
+            """
+            LET owned = UNION_DISTINCT(
+                (FOR e IN @@edges FILTER e._from == @phase_id RETURN e._to),
+                (FOR p IN @@profiles FILTER p.phase_key == @key RETURN p._id)
+            )
+            FOR profile_id IN owned
+                FILTER PARSE_IDENTIFIER(profile_id).collection == @profile_collection
+                FILTER LENGTH(
+                    FOR e IN @@edges FILTER e._to == profile_id AND e._from != @phase_id LIMIT 1 RETURN 1
+                ) == 0
+                REMOVE PARSE_IDENTIFIER(profile_id).key IN @@profiles OPTIONS { ignoreErrors: true }
+            """,
+            bind_vars={
+                "@edges": edge_collection,
+                "@profiles": profile_collection,
+                "profile_collection": profile_collection,
+                "phase_id": phase_id,
+                "key": key,
+            },
+        )
 
     # ── Requirement Profile ───────────────────────────────────────────
 

@@ -14,7 +14,9 @@ product (every tenant's own products count, the read spans all tenants):
 * ``run_seed_nutrient_plans_ro`` found its required products "missing" and returned
   early, seeding none of its plans.
 
-All four now read through ``load_all_fertilizers`` (``get_all_pages``). The test puts
+All four now read the whole global catalogue through ``get_global_fertilizers`` (#2000
+replaced the all-tenant ``load_all_fertilizers`` / ``get_all_pages`` read #2015 introduced,
+so the match is global-only as well as complete). The test puts
 1001 filler rows in front of every real product name and runs the production loaders
 against a real ArangoDB, so the sort order, the ``total`` and the unique index are the
 server's, not a double's.
