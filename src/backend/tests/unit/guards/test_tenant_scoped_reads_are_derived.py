@@ -738,7 +738,6 @@ _CATALOGUE_WRITTEN_BY_ADMINS = (
 EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     # ── catalogue ──────────────────────────────────────────────────────────
     ("ArangoActivityRepository", "get_all"): Exclusion("catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"),
-    ("ArangoActivityRepository", "get_by_name"): Exclusion("catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"),
     ("ArangoActivityRepository", "get_system_activities"): Exclusion(
         "catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"
     ),

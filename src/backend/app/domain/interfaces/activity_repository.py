@@ -20,9 +20,6 @@ class IActivityRepository(ABC):
     def get_or_raise(self, key: ActivityKey) -> Activity: ...
 
     @abstractmethod
-    def get_by_name(self, name: str) -> Activity | None: ...
-
-    @abstractmethod
     def create(self, activity: Activity) -> Activity: ...
 
     @abstractmethod

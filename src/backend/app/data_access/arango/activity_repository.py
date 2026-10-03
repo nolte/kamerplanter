@@ -58,9 +58,6 @@ class ArangoActivityRepository(BaseArangoRepository[Activity], IActivityReposito
             return items, total
         return super().get_all(offset, limit)
 
-    def get_by_name(self, name: str) -> Activity | None:
-        return self.find_one_by_field("name", name)
-
     def get_global_activities(self) -> list[Activity]:
         """Every global (system) activity, the whole catalogue, no row limit (#2027).
 

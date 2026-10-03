@@ -108,21 +108,6 @@ class TestGetByKey:
         assert repo.get_by_key("a1") is None
 
 
-class TestGetByName:
-    def test_returns_first_match(self, repo, mock_db):
-        mock_db.aql.execute.return_value = iter([_activity_doc(name="Pruning")])
-
-        result = repo.get_by_name("Pruning")
-
-        assert isinstance(result, Activity)
-        assert result.name == "Pruning"
-
-    def test_returns_none_when_no_match(self, repo, mock_db):
-        mock_db.aql.execute.return_value = iter([])
-
-        assert repo.get_by_name("missing") is None
-
-
 class TestCreate:
     def test_inserts_and_returns_model(self, repo, mock_db):
         coll = mock_db.collection.return_value
