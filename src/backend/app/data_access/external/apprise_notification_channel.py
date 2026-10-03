@@ -8,7 +8,8 @@ Only a fixed allow-list of chat/push schemes is delivered to (#1947): the URL
 list comes from a user-editable preference, and Apprise would otherwise mail or
 POST to any third party the user names. Checked on save and again here; host
 targets are also resolved and refused when they land in loopback/link-local/
-reserved space (#1986). Redirects and Matrix discovery happen inside Apprise
+reserved space (#1986), or in private space unless the operator allows it
+(``APPRISE_ALLOW_PRIVATE_TARGETS``, #1996). Redirects and Matrix discovery happen inside Apprise
 and are not controllable here: that is the operator's egress policy.
 
 Channel config expects:

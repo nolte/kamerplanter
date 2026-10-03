@@ -122,6 +122,34 @@ def test_a_timed_out_resolution_keeps_its_slot_until_its_thread_returns(resolver
     assert _wait_until(lambda: lane.outstanding("a") == 0)
 
 
+def test_on_end_runs_before_the_slot_is_released(resolver):
+    """R8: a lane that reads idle has run every ``on_end`` (the cache write) already."""
+    lane = _ResolverLane("t", trusts_cache=True)
+    held_at_end: list[int] = []
+    future = lane.try_submit("a", resolver, "fast.example", on_end=lambda _f: held_at_end.append(lane.outstanding("a")))
+    assert future is not None
+    assert _wait_until(lambda: lane.outstanding("a") == 0)
+    assert held_at_end == [1]
+
+
+def test_the_save_lane_cache_write_precedes_the_release(resolver, monkeypatch):
+    """R8 through the real call: when the answer is cached, the slot is still held."""
+    lane = _ResolverLane("t", trusts_cache=True)
+    seen: list[int] = []
+    cache = _HostCache()
+    real_store = cache.store
+
+    def _store(host, addresses):
+        seen.append(lane.outstanding("a"))
+        real_store(host, addresses)
+
+    monkeypatch.setattr(cache, "store", _store)
+    monkeypatch.setattr(url_safety, "_resolution_cache", cache)
+    url_safety._apprise_resolution_refusals(_urls("fast.example"), owner_key="a", lane=lane)
+    assert _wait_until(lambda: lane.outstanding("a") == 0)
+    assert seen == [1]
+
+
 # ── Refusal at once, same wording as a timeout, owner never logged ─────
 
 

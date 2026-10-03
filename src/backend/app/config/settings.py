@@ -439,6 +439,26 @@ class Settings(BaseSettings):
     # operators who run it on an RFC1918/loopback address must opt in explicitly.
     ha_allow_private_endpoint: bool = False
 
+    #: Whether a user's Apprise host target (``gotify``/``matrix``/``ntfy`` server)
+    #: may sit in private address space: RFC1918, unique-local ``fc00::/7`` and
+    #: shared ``100.64.0.0/10`` (#1996, REQ-030 §3.6). Unset (``None``) means the
+    #: deployment mode decides — see :meth:`apprise_private_targets_allowed`: off
+    #: in ``full`` (a private address there is the cluster: API server, ArangoDB,
+    #: Valkey on pod IPs), on in ``light`` (one user, a LAN Gotify/ntfy is the
+    #: documented use). ``APPRISE_ALLOW_PRIVATE_TARGETS=true|false`` overrides the
+    #: mode in either direction. Unlike ``HA_ALLOW_PRIVATE_ENDPOINT`` (a plain
+    #: ``False`` default in every mode, an admin-typed URL) these targets are typed
+    #: by any user; no validator ties it to other settings, and ``DEBUG`` does not
+    #: loosen it. Loopback, link-local, reserved and metadata addresses stay
+    #: refused regardless.
+    apprise_allow_private_targets: bool | None = None
+
+    def apprise_private_targets_allowed(self) -> bool:
+        """The effective Apprise private-target switch: the explicit setting, else ``light`` mode."""
+        if self.apprise_allow_private_targets is not None:
+            return self.apprise_allow_private_targets
+        return self.kamerplanter_mode == "light"
+
     # Reactive frost-warning threshold (°C) for the HA
     # ``binary_sensor.kp_{location}_frost_warning`` entity. A warning fires when
     # a location's latest ambient temperature is at/below this value. The small
