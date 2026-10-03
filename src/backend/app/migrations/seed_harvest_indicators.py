@@ -3,11 +3,13 @@
 Create-if-absent by the identity the YAML gives an entry: ``(species,
 indicator_type, measurement_unit)``. ``(species, indicator_type)`` is not unique
 in ``harvest_indicators.yaml`` (a species lists several ``texture`` or ``color``
-indicators measured in different units), and the collection carries no unique
-index — so the loader itself must look before it writes. It used to call
+indicators measured in different units). The loader looks before it writes, and
+since #2001 a sparse unique index on that identity (``ensure_seed_identity_indexes``,
+promoted by v0070 on a legacy volume) refuses the second of two replicas that boot
+at the same time; the refusal is counted as "exists". Before #1956 the loader called
 ``create_indicator`` inside a ``try/except`` that logged ``harvest_indicator_exists``;
-the insert never fails, the ``except`` never fired, and every start appended the
-whole set again (173 rows per boot, #1956).
+with no index the insert never failed, the ``except`` never fired, and every start
+appended the whole set again (173 rows per boot).
 
 A row that exists is left exactly as it is: an operator may have tuned its
 reliability score, and the seed does not own the catalogue after the first write.
@@ -23,6 +25,7 @@ from typing import Any
 import structlog
 
 from app.common.dependencies import get_db, get_harvest_repo
+from app.common.exceptions import DuplicateError, WriteConflictError
 from app.domain.models.harvest import HarvestIndicator
 from app.migrations.seed_upsert_helpers import load_species_key_map
 from app.migrations.yaml_loader import load_yaml
@@ -53,19 +56,32 @@ def run_seed_harvest_indicators() -> None:
             unresolved += 1
             logger.info("harvest_indicator_species_not_found", species=entry["species_name"])
             continue
-        if harvest_repo.find_indicator(species_key, entry["indicator_type"], entry["measurement_unit"]):
+        identity = (species_key, entry["indicator_type"], entry["measurement_unit"])
+        if harvest_repo.find_indicator(*identity):
             existing += 1
             continue
-        harvest_repo.create_indicator(
-            HarvestIndicator(
-                indicator_type=entry["indicator_type"],
-                measurement_unit=entry["measurement_unit"],
-                measurement_method=entry["measurement_method"],
-                observation_frequency=entry["observation_frequency"],
-                reliability_score=entry["reliability_score"],
-                species_key=species_key,
+        try:
+            harvest_repo.create_indicator(
+                HarvestIndicator(
+                    indicator_type=entry["indicator_type"],
+                    measurement_unit=entry["measurement_unit"],
+                    measurement_method=entry["measurement_method"],
+                    observation_frequency=entry["observation_frequency"],
+                    reliability_score=entry["reliability_score"],
+                    species_key=species_key,
+                )
             )
-        )
+        except DuplicateError:
+            # A replica booting at the same time wrote it between the look and the
+            # insert; the unique identity index refused this one (#2001).
+            existing += 1
+            continue
+        except WriteConflictError:
+            # The other writer held the index entry; it exists only once a re-read shows it.
+            if harvest_repo.find_indicator(*identity) is None:
+                raise
+            existing += 1
+            continue
         created += 1
         logger.info("harvest_indicator_created", type=entry["indicator_type"], species=entry["species_name"])
 

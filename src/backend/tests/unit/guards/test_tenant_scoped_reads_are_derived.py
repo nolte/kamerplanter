@@ -865,6 +865,11 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ("ArangoNotificationRepository", "find_overdue_watering"): Exclusion(
         "system", "the escalation Celery task re-notifies every overdue watering reminder"
     ),
+    ("ArangoFertilizerRepository", "get_global_fertilizers"): Exclusion(
+        "system",
+        "the fertilizer seed loaders match a seed product to a GLOBAL row only (tenant_key empty, never a tenant's "
+        "own product), over the whole catalogue (#2000); no request handler reaches it",
+    ),
     ("ArangoNutrientPlanRepository", "get_global_plans"): Exclusion(
         "system",
         "the nutrient-plan seed loaders match a seed to a GLOBAL row only (tenant_key empty, never a tenant's "

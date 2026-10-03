@@ -45,6 +45,28 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
 
     # ── Fertilizer CRUD ──────────────────────────────────────────────
 
+    def get_global_fertilizers(self) -> list[Fertilizer]:
+        """Every global (system) fertilizer, the whole catalogue, no row limit (#2000).
+
+        The fertilizer seed loaders match a seed product to its row through this and
+        nothing wider — the twin of ``ArangoNutrientPlanRepository.get_global_plans``
+        (#1957). A row is global when its ``tenant_key`` is empty or absent, so a
+        tenant's own product that carries a seed's ``(product_name, brand)`` is never
+        returned and can never be rewritten from the seed as global. Deliberately not
+        :meth:`get_all`: that is paged, and ``get_all(offset=0, limit=1000)`` treated
+        row 1001 onwards as missing. Ordered by ``_key`` so that a lookup by name
+        resolves the same way on every boot.
+        """
+        cursor = self._db.aql.execute(
+            f"""
+            FOR doc IN {col.FERTILIZERS}
+                FILTER doc.tenant_key == "" OR doc.tenant_key == null
+                SORT doc._key
+                RETURN doc
+            """
+        )
+        return [Fertilizer(**self._from_doc(doc)) for doc in cursor]
+
     def get_all(
         self,
         offset: int = 0,

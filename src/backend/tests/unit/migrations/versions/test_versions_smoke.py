@@ -130,6 +130,14 @@ class _NoopCollection:
             # v0062 (#1770): attachments.storage_key is bootstrapped non-unique on a
             # fresh volume, so the migration finds it present and drops nothing.
             {"type": "persistent", "fields": ["storage_key"], "unique": False},
+            # v0069 (#2000): fertilizers.(tenant_key, product_name, brand) is bootstrapped
+            # unique on a fresh volume and the legacy (product_name, brand) index is
+            # absent, so the index swap finds nothing to do.
+            {"type": "persistent", "fields": col.FERTILIZER_IDENTITY_INDEX_FIELDS, "unique": True},
+            # v0070 (#2001): the seed-identity indexes are bootstrapped on a fresh volume
+            # (harvest_indicators sparse; the IPM edges' vertex pair), so it creates none.
+            {"type": "persistent", "fields": col.HARVEST_INDICATOR_IDENTITY_FIELDS, "unique": True, "sparse": True},
+            {"type": "persistent", "fields": col.EDGE_PAIR_FIELDS, "unique": True},
             # v0045 (#1301): tasks.care_dedup_key is bootstrapped unique+sparse on a
             # fresh volume, so the dedup+constraint migration finds it present → no-op.
             {
