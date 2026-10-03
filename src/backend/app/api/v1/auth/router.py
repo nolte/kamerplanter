@@ -37,7 +37,9 @@ from app.common.auth import (
     require_account_principal,
 )
 from app.common.dependencies import get_auth_service, get_mcp_authenticator, get_oidc_config_repo
+from app.common.error_handlers import app_error_response
 from app.common.exceptions import (
+    EmailNotVerifiedError,
     InvalidTokenError,
     NotFoundError,
     OAuthAutoLinkRefusedError,
@@ -285,6 +287,7 @@ def login(
     body: LoginRequest,
     request: Request,
     response: Response,
+    background_tasks: BackgroundTasks,
     service: AuthService = Depends(get_auth_service),
 ):
     """Authenticate with email and password, issuing access and refresh tokens.
@@ -323,16 +326,30 @@ def login(
 
     ``remember_me`` still decides the refresh token's lifetime in both shapes; it
     is orthogonal to how the token is delivered.
+
+    **Unverified address (REQ-023 §3.2b, #2046).** A correct password for an
+    account whose address is not verified answers ``403 EMAIL_NOT_VERIFIED`` —
+    and, at most three times per account and hour, mails a fresh verification
+    link to the stored address after the response. The answer is the same
+    whether a link was mailed, the budget was spent or the delivery failed.
     """
     user_agent = request.headers.get("user-agent")
     ip_address = request.client.host if request.client else None
-    token_pair, raw_refresh, is_persistent = service.login_local(
-        body.email,
-        body.password,
-        user_agent,
-        ip_address,
-        remember_me=body.remember_me,
-    )
+    try:
+        token_pair, raw_refresh, is_persistent = service.login_local(
+            body.email,
+            body.password,
+            user_agent,
+            ip_address,
+            remember_me=body.remember_me,
+            defer_mail=background_tasks.add_task,
+        )
+    except EmailNotVerifiedError as exc:
+        # Returned, not raised (#2046): the refusal of a correct password may
+        # have queued a fresh verification link, and FastAPI runs background
+        # tasks only for a response the handler returns. Built by the same
+        # function the exception handler uses, so the answer is unchanged.
+        return app_error_response(request, exc)
     if body.refresh_token_in_body:
         return TokenPairResponse(
             access_token=token_pair.access_token,

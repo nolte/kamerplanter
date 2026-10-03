@@ -18,11 +18,17 @@ name, so this guard enumerates the class **by what a member does**.
   the duplicate-registration notice).
 
 Every mail-reaching ``AuthService`` method of a member must call
-``self.<store>.reserve_attempt(...)`` in its own body — a per-recipient budget
-reserved on the request path — or be classified in :data:`_CLASSIFIED` with the
-reason it needs none. Every task dispatch must be classified as well. A
+``self.<store>.reserve_attempt(...)`` in its own body, **on a line before** its
+first step towards the mail (``self._email_service`` or a mail-reaching
+``self.<method>``) — a per-recipient budget reserved on the request path, ahead
+of the send — or be classified in :data:`_CLASSIFIED` with the reason it needs
+none. Every task dispatch must be classified as well. A
 classification that no longer names a live member fails, so the list cannot go
 stale and excuse the next copy.
+
+Since #2046 the login route is a member: its ``EMAIL_NOT_VERIFIED`` refusal is
+reached anonymously (the caller holds the password, not a session) and mails a
+fresh verification link on a per-account budget.
 
 **Spellings this predicate cannot see** (so nobody reads green as more than it
 is): a mail sent through an attribute other than ``self._email_service`` (a
@@ -31,9 +37,11 @@ service method reached through ``getattr``, a router helper reached other than
 by its bare name, a dispatch that imports from somewhere other than
 ``app.tasks``, routes outside ``app/api/v1/auth/router.py``, and anonymous
 ``GET`` routes. And a ``reserve_attempt`` call proves a reservation exists, not
-that its result is compared with a limit — the route tests own that
-(``tests/api/test_auth_password_reset_budget.py``,
-``tests/api/test_auth_resend_verification.py``).
+that its result is compared with a limit, and "before" is source order, not
+control flow (a reservation in a branch the send does not pass through still
+counts) — the route tests own both (``tests/api/test_auth_password_reset_budget.py``,
+``tests/api/test_auth_resend_verification.py``,
+``tests/api/test_auth_login_proven_resend.py``).
 """
 
 from __future__ import annotations
@@ -71,6 +79,7 @@ _CLASSIFIED: dict[str, str] = {
 
 #: Pinned so a predicate that silently loses a member fails instead of shrinking.
 _EXPECTED_MEMBERS = {
+    "/auth/login login_local",
     "/auth/register register_local",
     "/auth/register task:_enqueue_duplicate_registration_notice",
     "/auth/resend-verification resend_verification_email",
@@ -86,6 +95,11 @@ class _Method:
     self_refs: frozenset[str]
     touches_mail: bool
     reserves: bool
+    #: First line of a ``reserve_attempt`` call; ``None`` without one.
+    first_reserve: int | None = None
+    #: First line of each ``self.<method>`` reference, and of ``self._email_service``.
+    ref_lines: tuple[tuple[str, int], ...] = ()
+    mail_line: int | None = None
 
 
 def _self_attr_chain(node: ast.AST) -> tuple[str, ...] | None:
@@ -107,24 +121,42 @@ def _methods(class_source: str, class_name: str) -> dict[str, _Method]:
     for func in cls.body:
         if not isinstance(func, ast.FunctionDef):
             continue
-        refs: set[str] = set()
-        mail = reserves = False
+        ref_lines: dict[str, int] = {}
+        mail_line: int | None = None
+        reserve_lines: list[int] = []
         for node in ast.walk(func):
             chain = _self_attr_chain(node) if isinstance(node, ast.Attribute) else None
             if chain:
                 if chain[0] in names:
-                    refs.add(chain[0])
+                    ref_lines[chain[0]] = min(node.lineno, ref_lines.get(chain[0], node.lineno))
                 if chain[0] == "_email_service":
-                    mail = True
+                    mail_line = node.lineno if mail_line is None else min(mail_line, node.lineno)
             if (
                 isinstance(node, ast.Call)
                 and isinstance(node.func, ast.Attribute)
                 and node.func.attr == "reserve_attempt"
                 and _self_attr_chain(node.func.value) is not None
             ):
-                reserves = True
-        out[func.name] = _Method(frozenset(refs), mail, reserves)
+                reserve_lines.append(node.lineno)
+        out[func.name] = _Method(
+            frozenset(ref_lines),
+            mail_line is not None,
+            bool(reserve_lines),
+            min(reserve_lines) if reserve_lines else None,
+            tuple(sorted(ref_lines.items())),
+            mail_line,
+        )
     return out
+
+
+def _reserves_before_the_mail(method: _Method, reaching: set[str]) -> bool:
+    """A reservation exists and its first line precedes the method's first step towards a mail."""
+    if method.first_reserve is None:
+        return False
+    steps = [line for name, line in method.ref_lines if name in reaching]
+    if method.mail_line is not None:
+        steps.append(method.mail_line)
+    return all(method.first_reserve < line for line in steps)
 
 
 def _mail_reaching(methods: dict[str, _Method]) -> set[str]:
@@ -165,7 +197,7 @@ def _members(
     for path, handler_source in routes:
         attrs, names = _handler_refs(handler_source)
         for name in sorted(attrs & reaching):
-            out[f"{path} {name}"] = methods[name].reserves
+            out[f"{path} {name}"] = _reserves_before_the_mail(methods[name], reaching)
         for name in sorted(names & router_helpers.keys()):
             if _imports_tasks(router_helpers[name]):
                 out[f"{path} task:{name}"] = False
@@ -310,6 +342,66 @@ def test_selftest_a_task_dispatching_helper_is_a_member() -> None:
     members = _synthetic([("/d", "def d(tasks):\n    tasks.add_task(_enqueue, k)\n")])
 
     assert members == {"/d task:_enqueue": False}
+
+
+_LOGIN_ROUTE = "def login(service):\n    service.login_local(e, p)\n"
+
+
+def test_selftest_the_login_before_2046_is_no_member() -> None:
+    """The refusal used to raise and mail nothing: the login route reached no mail at all."""
+    old = """
+class S:
+    def login_local(self, email, password):
+        user = self._user_repo.get_by_email(email)
+        if not self._password_engine.verify_password(password, user.password_hash):
+            raise ValueError
+        if not user.email_verified:
+            raise RuntimeError
+"""
+    assert _members([("/login", _LOGIN_ROUTE)], _methods(old, "S"), {}) == {}
+
+
+def test_selftest_the_login_refusal_reserving_before_the_send_is_bounded() -> None:
+    new = """
+from functools import partial
+
+class S:
+    def login_local(self, email, password, *, defer_mail=None):
+        user = self._user_repo.get_by_email(email)
+        if not user.email_verified:
+            if self._proven.reserve_attempt("p:" + user.key) <= 3:
+                self._deliver_mail("k", partial(self._issue, user), defer_mail)
+            raise RuntimeError
+
+    def _deliver_mail(self, kind, send, defer):
+        send()
+
+    def _issue(self, user):
+        self._email_service.send_verification_email(to_email=user.email, token="t", frontend_url="u")
+"""
+    assert _members([("/login", _LOGIN_ROUTE)], _methods(new, "S"), {}) == {"/login login_local": True}
+
+
+def test_selftest_a_reservation_after_the_send_is_flagged() -> None:
+    """A send queued before the budget is consulted is not bounded by it — the reservation must come first."""
+    late = """
+from functools import partial
+
+class S:
+    def login_local(self, email, password, *, defer_mail=None):
+        user = self._user_repo.get_by_email(email)
+        if not user.email_verified:
+            self._deliver_mail("k", partial(self._issue, user), defer_mail)
+            self._proven.reserve_attempt("p:" + user.key)
+            raise RuntimeError
+
+    def _deliver_mail(self, kind, send, defer):
+        send()
+
+    def _issue(self, user):
+        self._email_service.send_verification_email(to_email=user.email, token="t", frontend_url="u")
+"""
+    assert _members([("/login", _LOGIN_ROUTE)], _methods(late, "S"), {}) == {"/login login_local": False}
 
 
 def test_selftest_the_old_password_reset_shape_is_flagged() -> None:

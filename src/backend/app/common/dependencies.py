@@ -854,6 +854,29 @@ def get_verification_resend_store() -> IStepUpThrottleStore:
     )
 
 
+def get_verification_resend_proven_store() -> IStepUpThrottleStore:
+    """#2046 per-account budget of the fresh link the ``EMAIL_NOT_VERIFIED`` login refusal mails.
+
+    Built exactly like :func:`get_verification_resend_store` — same mechanism,
+    same one-hour window, Valkey-backed so replicas share one budget per account
+    — but with its own in-process fallback and its own subjects, so spending the
+    anonymous per-address budget never spends this one. Degrades to the
+    in-process tier when Valkey is unreachable; failing open would unbound the
+    mail a password holder can trigger.
+    """
+    from app.data_access.external.step_up_throttle import (
+        DEFAULT_VERIFICATION_RESEND_PROVEN_STORE,
+        VERIFICATION_RESEND_WINDOW_SECONDS,
+        RedisStepUpThrottleStore,
+    )
+
+    return RedisStepUpThrottleStore(
+        _get_redis_client(),
+        ttl_seconds=VERIFICATION_RESEND_WINDOW_SECONDS,
+        fallback=DEFAULT_VERIFICATION_RESEND_PROVEN_STORE,
+    )
+
+
 def get_password_reset_store() -> IStepUpThrottleStore:
     """#2043 per-address budget of ``POST /auth/password-reset/request``.
 
@@ -1009,6 +1032,8 @@ def get_auth_service() -> AuthService:
         api_key_rate_limiter=get_api_key_rate_limiter(),
         # #2037 — the resend endpoint's per-address budget, shared across replicas.
         verification_resend_store=get_verification_resend_store(),
+        # #2046 — the login refusal's own per-account budget, shared across replicas.
+        verification_resend_proven_store=get_verification_resend_proven_store(),
         # #2043 — the reset request's per-address budget, shared across replicas.
         password_reset_store=get_password_reset_store(),
     )

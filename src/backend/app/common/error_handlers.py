@@ -14,6 +14,18 @@ logger = structlog.get_logger()
 
 async def app_error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
     """Handler for all KamerplanterError subclasses."""
+    return app_error_response(request, exc)
+
+
+def app_error_response(request: Request, exc: KamerplanterError) -> JSONResponse:
+    """The response :func:`app_error_handler` answers ``exc`` with — logged the same way.
+
+    A route returns this instead of raising when the answer must carry
+    ``BackgroundTasks``: FastAPI attaches them only to a response the handler
+    *returns*, and drops them when it raises (#2046, measured in
+    ``tests/api/test_auth_login_proven_resend.py``). One builder, so a returned
+    error and a raised one cannot drift apart.
+    """
     logger.warning(
         "app_error",
         error_id=exc.error_id,

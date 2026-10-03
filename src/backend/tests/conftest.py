@@ -243,7 +243,12 @@ def _fresh_step_up_throttle():
     passwords into the next test's lockout, so each test starts clean.
     """
     from app.data_access.external.step_up_code_store import DEFAULT_STEP_UP_CODE_STORE, DEFAULT_STEP_UP_REAUTH_STORE
-    from app.data_access.external.step_up_throttle import DEFAULT_PASSWORD_RESET_STORE, DEFAULT_STEP_UP_THROTTLE_STORE
+    from app.data_access.external.step_up_throttle import (
+        DEFAULT_PASSWORD_RESET_STORE,
+        DEFAULT_STEP_UP_THROTTLE_STORE,
+        DEFAULT_VERIFICATION_RESEND_PROVEN_STORE,
+        DEFAULT_VERIFICATION_RESEND_STORE,
+    )
 
     def clear() -> None:
         DEFAULT_STEP_UP_THROTTLE_STORE._entries.clear()
@@ -258,6 +263,10 @@ def _fresh_step_up_throttle():
         # an explicit store counts here, so three reset requests for one address in
         # earlier tests would silently stop the next test's mail.
         DEFAULT_PASSWORD_RESET_STORE._entries.clear()
+        # #2037 / #2046 — the resend budgets, anonymous (per address) and
+        # password-proven (per account): same reason as the reset budget.
+        DEFAULT_VERIFICATION_RESEND_STORE._entries.clear()
+        DEFAULT_VERIFICATION_RESEND_PROVEN_STORE._entries.clear()
 
     clear()
     yield

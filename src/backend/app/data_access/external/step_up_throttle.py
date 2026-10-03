@@ -54,7 +54,10 @@ DEFAULT_TTL_SECONDS = 86_400
 #: process evict the oldest entry (LRU), and with it that address's spent
 #: budget. Only worthwhile with several source IPs: one IP at the default 20/min
 #: needs about 205 minutes per eviction, while the window refills after 60
-#: minutes anyway. Tracked separately.
+#: minutes anyway. Tracked separately. The password-proven resend budget
+#: (``DEFAULT_VERIFICATION_RESEND_PROVEN_STORE``, #2046) has the same cap and
+#: the same eviction, but its subjects are account keys reached only with the
+#: account's correct password, so filling it takes that many proven accounts.
 _FALLBACK_CAPACITY = 4096
 
 
@@ -177,6 +180,15 @@ VERIFICATION_RESEND_WINDOW_SECONDS = 3_600
 #: one-hour window are never applied to each other's subjects. Module-level for
 #: the same reason as :data:`DEFAULT_STEP_UP_THROTTLE_STORE`.
 DEFAULT_VERIFICATION_RESEND_STORE = MemoryStepUpThrottleStore(ttl_seconds=VERIFICATION_RESEND_WINDOW_SECONDS)
+
+#: Process-wide in-process tier of the password-proven resend budget (#2046) —
+#: the fresh link the login refusal ``EMAIL_NOT_VERIFIED`` mails once the
+#: password was correct — and the degradation target of its Redis tier. Same
+#: one-hour window as the anonymous resend budget, but its own instance and its
+#: own subjects (``verification-resend-proven:<user_key>``): an anonymous caller
+#: who spends the per-address budget never reaches this one, so the owner cannot
+#: be locked out of a new link by someone who only knows the address.
+DEFAULT_VERIFICATION_RESEND_PROVEN_STORE = MemoryStepUpThrottleStore(ttl_seconds=VERIFICATION_RESEND_WINDOW_SECONDS)
 
 
 #: Window of the per-address budget of ``POST /auth/password-reset/request``

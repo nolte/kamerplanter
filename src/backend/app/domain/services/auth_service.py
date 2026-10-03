@@ -32,7 +32,11 @@ from app.common.types import UserKey
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
 from app.data_access.external.device_pairing_throttle import DEFAULT_DEVICE_PAIRING_THROTTLE_STORE
 from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
-from app.data_access.external.step_up_throttle import DEFAULT_PASSWORD_RESET_STORE, DEFAULT_VERIFICATION_RESEND_STORE
+from app.data_access.external.step_up_throttle import (
+    DEFAULT_PASSWORD_RESET_STORE,
+    DEFAULT_VERIFICATION_RESEND_PROVEN_STORE,
+    DEFAULT_VERIFICATION_RESEND_STORE,
+)
 from app.data_access.external.unknown_account_store import DEFAULT_UNKNOWN_ACCOUNT_STORE
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.erasure_engine import UNAVAILABLE_LOG_SUBJECT
@@ -155,6 +159,21 @@ MAX_VERIFICATION_RESENDS_PER_WINDOW = 3
 #: digests the whole subject, so ``Victim@Example.com`` and ``victim@example.com``
 #: share one budget and the address is never stored in the clear.
 _VERIFICATION_RESEND_SUBJECT = "verification-resend:"
+
+#: Fresh links the login refusal ``EMAIL_NOT_VERIFIED`` may mail one account per
+#: window (#2046). That refusal is reached only with the account's correct
+#: password, so it issues the link itself instead of sending the owner to the
+#: anonymous resend, whose per-address budget anyone can spend for them. The
+#: same number and window as :data:`MAX_VERIFICATION_RESENDS_PER_WINDOW`, on a
+#: budget of its own, keyed by the account. Over it the refusal answers exactly
+#: the same and only sends nothing.
+MAX_PROVEN_VERIFICATION_RESENDS_PER_WINDOW = 3
+
+#: Subject prefix of the proven budget — followed by the account key, never the
+#: address, so no spelling of the address buys a second budget and an anonymous
+#: request (subject ``verification-resend:<address>``) can never spend it. The
+#: store digests the whole subject.
+_VERIFICATION_RESEND_PROVEN_SUBJECT = "verification-resend-proven:"
 
 #: Requests one address may make to ``/auth/password-reset/request`` before the
 #: mail stops (#2043). The same number and window as the resend budget
@@ -295,6 +314,7 @@ class AuthService:
         api_key_rate_limiter: ApiKeyRateLimiter | None = None,
         verification_resend_store: IStepUpThrottleStore | None = None,
         password_reset_store: IStepUpThrottleStore | None = None,
+        verification_resend_proven_store: IStepUpThrottleStore | None = None,
     ) -> None:
         self._user_repo = user_repo
         self._auth_provider_repo = auth_provider_repo
@@ -354,6 +374,13 @@ class AuthService:
         # the reason ``_verification_resend_store`` is not.
         self._password_reset_store: IStepUpThrottleStore = (
             password_reset_store if password_reset_store is not None else DEFAULT_PASSWORD_RESET_STORE
+        )
+        # #2046 — the per-account budget of the link the login refusal mails.
+        # Never ``None``, for the reason ``_verification_resend_store`` is not.
+        self._verification_resend_proven_store: IStepUpThrottleStore = (
+            verification_resend_proven_store
+            if verification_resend_proven_store is not None
+            else DEFAULT_VERIFICATION_RESEND_PROVEN_STORE
         )
         self._device_pairing_throttle_store: IDevicePairingThrottleStore = (
             device_pairing_throttle_store
@@ -553,8 +580,24 @@ class AuthService:
         user_agent: str | None = None,
         ip_address: str | None = None,
         remember_me: bool = False,
+        *,
+        defer_mail: MailDeferrer | None = None,
     ) -> tuple[TokenPair, str, bool]:
-        """Returns (token_pair, raw_refresh_token, is_persistent)."""
+        """Returns (token_pair, raw_refresh_token, is_persistent).
+
+        Args:
+            defer_mail: Runs the fresh verification link of an
+                ``EMAIL_NOT_VERIFIED`` refusal after the response (#2046); see
+                :meth:`_deliver_mail`. ``None`` sends inline, still without
+                letting a failure out. The caller must hand the refusal back as
+                a *returned* response for a deferred send to run at all —
+                FastAPI drops background tasks when the handler raises.
+
+        Raises:
+            EmailNotVerifiedError: The password was correct, but the address is
+                not verified. Within the account's budget a fresh link has been
+                handed to ``defer_mail`` before this is raised.
+        """
         user = self._user_repo.get_by_email(email)
         if user is None:
             self._reject_unknown_account(email, password)
@@ -621,6 +664,23 @@ class AuthService:
 
         # Check email verification (only when required)
         if self._require_email_verification and not user.email_verified:
+            # #2046 — the caller has just proven the password, so this refusal
+            # issues the fresh link itself: the anonymous resend's per-address
+            # budget can be spent by anyone who knows the address, this one only
+            # by whoever holds the password. No new oracle — the refusal is
+            # already distinct from the wrong-password answer, its body does not
+            # change, and the work runs after the response.
+            #
+            # The reservation sits in this method's own body, before the send:
+            # ``test_anonymous_mail_routes_bound_the_recipient`` reads it here.
+            if user.key is not None and self._needs_verification_mail(user):
+                reserved = self._verification_resend_proven_store.reserve_attempt(
+                    _VERIFICATION_RESEND_PROVEN_SUBJECT + user.key
+                )
+                if reserved <= MAX_PROVEN_VERIFICATION_RESENDS_PER_WINDOW:
+                    self._deliver_mail(
+                        "verification_resend_proven", partial(self._issue_verification_link, user), defer_mail
+                    )
             raise EmailNotVerifiedError()
 
         # Success: reset failed attempts
@@ -820,7 +880,19 @@ class AuthService:
         sent earlier stops working the moment this one is issued.
         """
         user: User | None = self._user_repo.get_by_email(email)
-        if user is None or user.key is None or not self._needs_verification_mail(user):
+        if user is None or not self._needs_verification_mail(user):
+            return
+        self._issue_verification_link(user)
+
+    def _issue_verification_link(self, user: User) -> None:
+        """Write a new verification token for ``user`` and mail it to the stored address (#2037, #2046).
+
+        One unit, so the token write and the mail are deferred together: a link
+        that is written but never mailed would only invalidate the previous one.
+        The recipient is ``user.email`` — the stored spelling, never what a
+        caller typed.
+        """
+        if user.key is None:
             return
         token = token_urlsafe(32)
         self._user_repo.update_fields(
