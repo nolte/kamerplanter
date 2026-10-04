@@ -38,7 +38,8 @@ may replace the dense one). Each enforced entry goes through
 sees ``persistent`` and ``hash`` alike and which never drops a legacy index unless a
 different unique index of the replacement shape exists.
 
-**When the replacement is missing** the retirement refuses and nothing is dropped:
+**When the replacement is missing** — or the server fails the read or the drop — the
+retirement refuses and nothing is dropped:
 the stricter legacy constraint stays in force, which refuses more than it should but
 loses nothing. The boot logs ``retired_index_refused_without_replacement`` at error
 level and the readiness payload reports the count (:func:`last_enforcement`), with
@@ -65,6 +66,7 @@ from typing import Final
 
 import structlog
 from arango.database import StandardDatabase
+from arango.exceptions import ArangoError
 
 from app.data_access.arango import collections as col
 from app.migrations.support.legacy_indexes import PERSISTENT_INDEX_TYPES, IndexShape, retire_legacy_index
@@ -231,12 +233,19 @@ def enforce_retired_indexes(
         if not set(entry.retired_by) <= set(applied) or not db.has_collection(entry.collection):
             continue
         enforced.append(entry.label)
-        outcome = retire_legacy_index(
-            db.collection(entry.collection),
-            legacy=entry.legacy,
-            replacement=entry.replacement,
-            dry_run=dry_run,
-        )
+        try:
+            outcome = retire_legacy_index(
+                db.collection(entry.collection),
+                legacy=entry.legacy,
+                replacement=entry.replacement,
+                dry_run=dry_run,
+            )
+        except ArangoError as exc:
+            # A heal that fails must not take the boot down with it (a crash-loop would
+            # turn a too-strict constraint into an outage); it is reported like a refusal.
+            refused.append(entry.label)
+            logger.error("retired_index_enforcement_failed", index=entry.label, error_type=type(exc).__name__)
+            continue
         if outcome.refused:
             refused.append(entry.label)
             logger.error(

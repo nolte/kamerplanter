@@ -108,6 +108,21 @@ class TestEnforcement:
         outcome = enforce_retired_indexes(_Db([_REPLACEMENT]), applied={"0002"}, catalogue=(_ENTRY,))  # type: ignore[arg-type]
         assert (outcome.enforced, outcome.re_retired, outcome.refused) == (("tanks(name)",), (), ())
 
+    def test_a_server_error_is_reported_as_a_refusal_not_raised(self) -> None:
+        from arango.exceptions import IndexDeleteError
+
+        db = _Db([_LEGACY_HASH, _REPLACEMENT])
+
+        def fail(index_id: str, ignore_missing: bool = False) -> bool:  # noqa: ARG001
+            raise IndexDeleteError.__new__(IndexDeleteError)
+
+        db.tanks.delete_index = fail  # type: ignore[method-assign]
+
+        outcome = enforce_retired_indexes(db, applied={"0002"}, catalogue=(_ENTRY,))  # type: ignore[arg-type]
+
+        assert outcome.refused == ("tanks(name)",)
+        assert last_enforcement() == outcome
+
     def test_a_non_unique_replacement_is_refused_at_definition(self) -> None:
         with pytest.raises(ValueError, match="unique"):
             RetiredIndex(
