@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import json
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 from app.common.enums import AuthProviderType
@@ -32,7 +33,13 @@ def _jwt(claims: dict) -> str:
 
 
 def _service(token_response: dict, config: OidcProviderConfig) -> tuple[AuthService, MagicMock]:
-    existing = User(_key="u1", email="owner@example.org", display_name="Owner", email_verified=True)
+    existing = User(
+        _key="u1",
+        email="owner@example.org",
+        display_name="Owner",
+        email_verified=True,
+        email_confirmed_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
     user_repo = MagicMock()
     user_repo.get_by_email.return_value = existing
     auth_provider_repo = MagicMock()
