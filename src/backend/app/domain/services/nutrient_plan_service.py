@@ -160,8 +160,14 @@ class NutrientPlanService:
             owner="NutrientPlanService",
         )
 
-    def get_phase_entries(self, plan_key: NutrientPlanKey) -> list[NutrientPlanPhaseEntry]:
-        self.get_plan(plan_key)
+    def get_phase_entries(self, plan_key: NutrientPlanKey, *, tenant_key: str) -> list[NutrientPlanPhaseEntry]:
+        """The phase entries of a plan the caller may read — its own or a global one (#2104).
+
+        The plan is resolved under ``tenant_key`` first: an entry carries no tenant of
+        its own, so without that a foreign plan's EC targets, phase names and dosages
+        are one key away. A foreign or unknown plan is ``NotFoundError``.
+        """
+        self.get_plan(plan_key, tenant_key)
         return self._repo.get_phase_entries(plan_key)
 
     def update_phase_entry(
