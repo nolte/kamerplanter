@@ -130,7 +130,10 @@ Die vollständige Rechteübersicht — inklusive Plattform-Rollen, Dienstkonten 
 1. Navigiere zu **Einstellungen** > **Mitglieder**
 2. Klicke beim gewünschten Mitglied auf das Bearbeitungs-Symbol
 3. Wähle die neue Rolle
-4. Bestätigen — die Änderung gilt sofort
+4. Bestätige mit **deinem eigenen** Zugang — die Änderung gilt sofort
+
+!!! note "Rollenwechsel und Entfernen verlangen deine eigene Bestätigung"
+    Wer die Rolle eines Mitglieds ändert oder ein Mitglied entfernt, gibt dazu **sein eigenes** aktuelles Passwort ein — ohne lokales Passwort meldet er sich stattdessen frisch bei seinem Anmeldeanbieter an, oder lässt sich, nur bei einer Anmeldung ausschließlich über GitHub oder Apple, einen Code per E-Mail schicken. Grund: Die Rolle bestimmt, was jemand im Mandanten ändern und löschen darf, und das Entfernen sperrt die Person aus — auch die letzte Leitung. Eine Rolle, die du unverändert erneut sendest, braucht keine Bestätigung. Das Löschen einer Parzellen-Zuordnung braucht sie nicht: Es sperrt niemanden aus dem Mandanten aus.
 
 ---
 

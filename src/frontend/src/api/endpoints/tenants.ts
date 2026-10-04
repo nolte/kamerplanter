@@ -1,5 +1,6 @@
 import client from '../client';
 import type {
+  CredentialStepUp,
   Invitation,
   InvitationCreate,
   InvitationLinkCreate,
@@ -53,16 +54,31 @@ export async function listMembers(slug: string): Promise<Membership[]> {
   return res.data;
 }
 
+/**
+ * Change a member's role (#2032): an actual change carries the **acting administrator's
+ * own** step-up — `current_password`, or `step_up_token` / `step_up_code` for the act
+ * `tenant_member_role_change` bound to the membership's key; 401 without it.
+ */
 export async function changeMemberRole(
   slug: string,
   membershipKey: string,
   role: string,
+  stepUp: CredentialStepUp,
 ): Promise<void> {
-  await client.patch(`${BASE}/${slug}/members/${membershipKey}/role`, { role });
+  await client.patch(`${BASE}/${slug}/members/${membershipKey}/role`, { role, ...stepUp });
 }
 
-export async function removeMember(slug: string, membershipKey: string): Promise<void> {
-  await client.delete(`${BASE}/${slug}/members/${membershipKey}`);
+/**
+ * Remove a member (#2032): the body carries the **acting administrator's own** step-up —
+ * `current_password`, or `step_up_token` / `step_up_code` for the act
+ * `tenant_member_removal` bound to the membership's key; 401 without it.
+ */
+export async function removeMember(
+  slug: string,
+  membershipKey: string,
+  stepUp: CredentialStepUp,
+): Promise<void> {
+  await client.delete(`${BASE}/${slug}/members/${membershipKey}`, { data: stepUp });
 }
 
 export async function leaveTenant(slug: string): Promise<void> {

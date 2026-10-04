@@ -184,7 +184,7 @@ const NOT_LEAD_ONLY: Record<string, string> = {
   deleteConnection: 'inventree/tenant_router.py — require_admin_scope(TECHNICAL), not the domain rank',
   deleteActuator: 'actuators/tenant_router.py — require_admin_scope(TECHNICAL), not the domain rank',
   deleteTenant: 'tenants/router.py — require_admin_scope(MANAGEMENT) plus, in TenantService.delete_tenant, lead role and a step-up (#1791); no UI caller today',
-  removeMember: 'tenants/router.py — require_admin_scope(MANAGEMENT)',
+  removeMember: 'tenants/router.py — require_admin_scope(MANAGEMENT) plus, in TenantService.remove_member, a step-up (#2032)',
   deleteAssignment: 'tenants/router.py — require_admin_scope(MANAGEMENT)',
   deleteApiKey: 'auth — own service-account key',
   removeReferenceImage: 'admin reference images — platform admin surface',

@@ -75,7 +75,8 @@ class StepUpCodeRequest(BaseModel):
             "requester's own account, refused for any other: admin_account_update and admin_account_erasure "
             "the other account's key, tenant_deletion the tenant's key, provider_unlink the provider link's "
             "key (GET /users/me/providers), oidc_provider_change the configuration's key or new:<slug> for "
-            "one being created, admin_tenant_update the tenant's key, admin_membership_removal the "
+            "one being created, admin_tenant_update the tenant's key, admin_membership_removal, "
+            "admin_membership_role_change, tenant_member_removal and tenant_member_role_change the "
             "membership's key. It must exist and be the requester's to act on (403/404). The "
             "confirmation is bound to it and is refused for any other target."
         ),
@@ -104,7 +105,8 @@ class StepUpReauthRequest(BaseModel):
             "requester's own account, refused for any other: admin_account_update and admin_account_erasure "
             "the other account's key, tenant_deletion the tenant's key, provider_unlink the provider link's "
             "key (GET /users/me/providers), oidc_provider_change the configuration's key or new:<slug> for "
-            "one being created, admin_tenant_update the tenant's key, admin_membership_removal the "
+            "one being created, admin_tenant_update the tenant's key, admin_membership_removal, "
+            "admin_membership_role_change, tenant_member_removal and tenant_member_role_change the "
             "membership's key. It must exist and be the requester's to act on (403/404). The "
             "confirmation is bound to it and is refused for any other target."
         ),

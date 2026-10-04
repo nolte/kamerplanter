@@ -539,12 +539,15 @@ def remove_tenant_member(
 @router.patch(
     "/tenants/{tenant_key}/members/{membership_key}/role",
     response_model=AdminTenantMemberResponse,
+    responses=STEP_UP_RESPONSES,
 )
 def change_member_role(
     tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
     membership_key: Annotated[str, Path(description="Document key of the membership.")],
     body: AdminUpdateMemberRoleRequest,
-    _user: User = Depends(require_platform_admin),
+    admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     tenant_service: TenantService = Depends(get_tenant_service),
     user_service: UserService = Depends(get_user_service),
 ):
@@ -553,8 +556,25 @@ def change_member_role(
     Converges on ``TenantService.admin_change_membership_role`` (#1019), shared
     with the user-perspective ``change_user_membership_role``; the write goes
     through the membership repository's re-validated ``update_fields``.
+
+    **Step-up (#2032, REQ-024 AK-57):** an actual change of the role — a tenant's last
+    ``lead`` demoted, a member promoted — passes the admin's own step-up: the body
+    carries ``current_password`` (or ``step_up_token`` / ``step_up_code`` obtained for
+    ``admin_membership_role_change`` with the membership's key); 401 without it, 403
+    from an API-key request, 429 ``STEP_UP_LOCKED``; nothing is written then. A role
+    re-sent unchanged needs none. The step-up fields are never written.
     """
-    membership = tenant_service.admin_change_membership_role(membership_key, body.role, tenant_key=tenant_key)
+    membership = tenant_service.admin_change_membership_role(
+        membership_key,
+        body.role,
+        tenant_key=tenant_key,
+        requester=admin,
+        current_password=body.current_password,
+        step_up_code=body.step_up_code,
+        step_up_token=body.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     user = user_service.get_user(membership.user_key)
     return AdminTenantMemberResponse(
         membership_key=membership.key or membership_key,
@@ -675,12 +695,15 @@ def remove_user_from_tenant(
 @router.patch(
     "/users/{user_key}/memberships/{membership_key}/role",
     response_model=AdminUserMembershipResponse,
+    responses=STEP_UP_RESPONSES,
 )
 def change_user_membership_role(
     user_key: Annotated[str, Path(description="Document key of the user.")],
     membership_key: Annotated[str, Path(description="Document key of the membership.")],
     body: AdminUpdateMemberRoleRequest,
-    _user: User = Depends(require_platform_admin),
+    admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
     """Change a user's role in a tenant (user perspective). Platform admin only.
@@ -688,8 +711,23 @@ def change_user_membership_role(
     Converges on ``TenantService.admin_change_membership_role`` (#1019), shared
     with the tenant-perspective ``change_member_role``; the tenant is loaded for
     the tenant-centric response.
+
+    **Step-up (#2032, REQ-024 AK-57):** the same as the tenant perspective — an actual
+    change of the role passes the admin's own ``current_password`` (or ``step_up_token`` /
+    ``step_up_code`` for ``admin_membership_role_change`` with the membership's key) in the
+    body; 401 without it, 403 from an API-key request, 429 ``STEP_UP_LOCKED``.
     """
-    membership = tenant_service.admin_change_membership_role(membership_key, body.role, user_key=user_key)
+    membership = tenant_service.admin_change_membership_role(
+        membership_key,
+        body.role,
+        user_key=user_key,
+        requester=admin,
+        current_password=body.current_password,
+        step_up_code=body.step_up_code,
+        step_up_token=body.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     tenant = tenant_service.get_tenant(membership.tenant_key)
     return AdminUserMembershipResponse(
         membership_key=membership.key or membership_key,

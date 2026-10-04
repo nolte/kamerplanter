@@ -1,4 +1,4 @@
-"""#2009 / REQ-024 AK-56 — without the admin's step-up a tenant stays active and its member stays in it.
+"""#2009 / #2032 / REQ-024 AK-56, AK-57 — no step-up, no change: a tenant stays active, its members unchanged.
 
 Driven end to end against a **real** ArangoDB: the real platform-admin routes, the real
 ``TenantService`` with its real step-up verifier, over the real
@@ -22,9 +22,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.v1.admin.platform import router as mod
-from app.common.auth import require_platform_admin
+from app.api.v1.tenants.router import router as tenants_router
+from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_tenant_service, get_user_service
-from app.common.enums import TenantRole
+from app.common.enums import AdminScope, TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError
 from app.data_access.arango import collections as col
@@ -163,3 +164,92 @@ def test_the_last_lead_stays_without_the_admins_step_up_and_is_removed_with_it(d
     assert accepted.status_code == 204, accepted.text
     assert db.collection(col.MEMBERSHIPS).get(lead) is None
     assert not _membership_intact(db, lead)
+
+
+# ── #2032: the role of a member, and the tenant administrator's own routes ───
+
+
+def _role_of(db, membership_key: str) -> str:
+    return db.collection(col.MEMBERSHIPS).get(membership_key)["role"]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.param("/api/v1/admin/platform/tenants/" + TENANT + "/members/{key}/role", id="tenant view"),
+        pytest.param("/api/v1/admin/platform/users/" + MEMBER + "/memberships/{key}/role", id="user view"),
+    ],
+)
+def test_the_last_lead_keeps_its_role_without_the_admins_step_up_and_is_demoted_with_it(db, path: str):
+    client, lead = _client(db)
+
+    refused = client.patch(path.format(key=lead), json={"role": "viewer"})
+
+    assert refused.status_code == 401, refused.text
+    assert _role_of(db, lead) == "lead"
+
+    accepted = client.patch(path.format(key=lead), json={"role": "viewer", "current_password": PASSWORD})
+    assert accepted.status_code == 200, accepted.text
+    stored = db.collection(col.MEMBERSHIPS).get(lead)
+    assert stored["role"] == "viewer"
+    assert "current_password" not in stored
+
+
+def _tenant_admin_client(db) -> tuple[TestClient, str, str]:
+    """The tenant's own secretary (``management``, viewer) acting through ``/tenants/{slug}/…``."""
+    memberships = ArangoMembershipRepository(db)
+    lead = memberships.create(Membership(user_key=MEMBER, tenant_key=TENANT, role=TenantRole.LEAD, is_active=True))
+    secretary = User.model_validate(
+        {
+            "_key": "secretary-2032",
+            "email": "secretary-2032@example.com",
+            "display_name": "Secretary",
+            "password_hash": PasswordEngine().hash_password(PASSWORD),
+        }
+    )
+    db.collection(col.USERS).insert({"_key": secretary.key, "email": secretary.email, "display_name": "Secretary"})
+    memberships.create(
+        Membership(
+            user_key=secretary.key or "",
+            tenant_key=TENANT,
+            role=TenantRole.VIEWER,
+            admin_scopes=[AdminScope.MANAGEMENT],
+            is_active=True,
+        )
+    )
+    service = TenantService(
+        tenant_repo=ArangoTenantRepository(db),
+        membership_repo=memberships,
+        invitation_repo=MagicMock(),
+        assignment_repo=MagicMock(),
+        tenant_engine=TenantEngine(),
+        membership_engine=MembershipEngine(),
+        invitation_engine=InvitationEngine(),
+    )
+    app = FastAPI()
+    app.include_router(tenants_router, prefix="/api/v1")
+    app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
+    app.dependency_overrides[get_current_user] = lambda: secretary
+    app.dependency_overrides[get_tenant_service] = lambda: service
+    return TestClient(app, raise_server_exceptions=False), lead.key or "", "community-garden"
+
+
+def test_a_tenant_admin_neither_demotes_nor_removes_the_last_lead_without_the_step_up(db):
+    client, lead, slug = _tenant_admin_client(db)
+    role_path = f"/api/v1/tenants/{slug}/members/{lead}/role"
+    member_path = f"/api/v1/tenants/{slug}/members/{lead}"
+
+    demoted = client.patch(role_path, json={"role": "viewer"})
+    removed = client.request("DELETE", member_path)
+
+    assert (demoted.status_code, removed.status_code) == (401, 401), (demoted.text, removed.text)
+    assert _role_of(db, lead) == "lead"
+    assert _membership_intact(db, lead)
+
+    # The controls: with the actor's own password both go through, the removal taking both edges.
+    assert client.patch(role_path, json={"role": "viewer", "current_password": PASSWORD}).status_code == 200
+    assert _role_of(db, lead) == "viewer"
+    gone = client.request("DELETE", member_path, json={"current_password": PASSWORD})
+    assert gone.status_code == 200, gone.text
+    assert not _membership_intact(db, lead)
+    assert db.collection(col.MEMBERSHIPS).get(lead) is None

@@ -130,7 +130,10 @@ The full permission overview — including platform roles, service accounts, and
 1. Navigate to **Settings** > **Members**
 2. Click the edit icon next to the desired member
 3. Choose the new role
-4. Confirm — the change takes effect immediately
+4. Confirm with **your own** credentials — the change takes effect immediately
+
+!!! note "Changing a role and removing a member ask for your own confirmation"
+    Whoever changes a member's role or removes a member enters **their own** current password for it — with no local password, they sign in again at their identity provider instead, or, only when they sign in exclusively through GitHub or Apple, have a code e-mailed. Reason: the role decides what someone may change and delete in the tenant, and removing a member locks that person out — the last lead too. Re-sending a role unchanged needs no confirmation. Deleting a plot attribution does not: it locks nobody out of the tenant.
 
 ---
 

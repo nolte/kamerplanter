@@ -140,6 +140,7 @@ class _Memberships:
     def __init__(self, *memberships: Membership) -> None:
         self.rows = {m.key: m for m in memberships}
         self.deleted: list[str] = []
+        self.writes: list[tuple[str, dict[str, Any]]] = []
 
     def get_by_key(self, key: str) -> Membership | None:
         return self.rows.get(key)
@@ -150,6 +151,16 @@ class _Memberships:
     def delete(self, key: str) -> bool:
         self.deleted.append(key)
         return self.rows.pop(key, None) is not None
+
+    def update_fields(self, key: str, fields: dict[str, Any]) -> Membership | None:
+        if key not in self.rows:
+            return None
+        self.writes.append((key, dict(fields)))
+        self.rows[key] = self.rows[key].model_copy(update=fields)
+        return self.rows[key]
+
+    def count_managers(self, tenant_key: str) -> int:
+        return sum(1 for m in self.rows.values() if m.tenant_key == tenant_key and m.is_active and m.has_management)
 
     def list_by_tenant(self, tenant_key: str) -> list[MemberInfo]:
         return [

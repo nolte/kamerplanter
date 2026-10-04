@@ -221,7 +221,11 @@ class _World:
         }
         user_repo = MagicMock(**{"get_by_key.side_effect": users.get})
         # #2009 — the membership a platform admin may remove, by its key.
-        by_key = {"m-1": Membership(_key="m-1", user_key="u-2", tenant_key="t-1", role=TenantRole.LEAD)}
+        by_key = {
+            "m-1": Membership(_key="m-1", user_key="u-2", tenant_key="t-1", role=TenantRole.LEAD),
+            # #2032 — a membership of another tenant, which the tenant administrator of t-1 does not administer.
+            "m-2": Membership(_key="m-2", user_key="u-2", tenant_key="t-2", role=TenantRole.LEAD),
+        }
         membership_repo = MagicMock(
             **{
                 "get_by_user_and_tenant.side_effect": lambda u, t: memberships.get((u, t)),
@@ -269,6 +273,7 @@ class _World:
         ("oidc_provider_change", "new:other"),
         ("admin_tenant_update", "t-1"),
         ("admin_membership_removal", "m-1"),
+        ("admin_membership_role_change", "m-1"),
     ],
 )
 def test_a_platform_admin_obtains_a_factor_for_an_existing_target(action: str, target: str) -> None:
@@ -289,6 +294,8 @@ def test_a_platform_admin_obtains_a_factor_for_an_existing_target(action: str, t
         ("admin_tenant_update", "t-404"),
         ("admin_membership_removal", "m-1"),
         ("admin_membership_removal", "m-404"),
+        ("admin_membership_role_change", "m-1"),
+        ("admin_membership_role_change", "m-404"),
     ],
 )
 def test_who_is_no_platform_admin_is_refused_before_existence_is_told(action: str, target: str) -> None:
@@ -312,6 +319,7 @@ def test_who_is_no_platform_admin_is_refused_before_existence_is_told(action: st
         ("admin_tenant_update", "t-404", NotFoundError),
         ("admin_tenant_update", "platform", ForbiddenError),
         ("admin_membership_removal", "m-404", NotFoundError),
+        ("admin_membership_role_change", "m-404", NotFoundError),
     ],
 )
 def test_a_target_the_act_would_refuse_gets_no_factor(action: str, target: str, error: type[Exception]) -> None:
@@ -323,7 +331,10 @@ def test_a_tenant_lead_with_management_obtains_a_factor_for_its_own_tenant() -> 
     _World(platform_admin=False, tenant_role=TenantRole.LEAD).authorize("tenant_deletion", "t-1")
 
 
-@pytest.mark.parametrize(("action", "target"), [("admin_tenant_update", "t-1"), ("admin_membership_removal", "m-1")])
+@pytest.mark.parametrize(
+    ("action", "target"),
+    [("admin_tenant_update", "t-1"), ("admin_membership_removal", "m-1"), ("admin_membership_role_change", "m-1")],
+)
 def test_a_tenant_lead_obtains_no_factor_for_the_platform_admin_acts_on_its_tenant(action: str, target: str) -> None:
     """#2009 — deactivating a tenant and the admin removal are platform-admin acts, not tenant management."""
     with pytest.raises(ForbiddenError):
@@ -353,3 +364,42 @@ def test_the_oidc_target_of_a_creation_is_the_prefixed_slug() -> None:
     assert oidc_provider_target("cfg-1") == "cfg-1"
     with pytest.raises(ValueError):
         oidc_provider_target(None)
+
+
+# ── #2032: the tenant administrator's own acts on a membership ───────────────
+
+_TENANT_MEMBER_ACTS = ["tenant_member_removal", "tenant_member_role_change"]
+
+
+@pytest.mark.parametrize("action", _TENANT_MEMBER_ACTS)
+@pytest.mark.parametrize("role", [TenantRole.VIEWER, TenantRole.LEAD])
+def test_the_holder_of_the_management_scope_obtains_a_factor_for_a_membership_of_its_tenant(
+    action: str, role: TenantRole
+) -> None:
+    """Axis 2, not a rank (REQ-049): the secretary — a viewer holding management — administers members."""
+    _World(platform_admin=False, tenant_role=role).authorize(action, "m-1")
+
+
+@pytest.mark.parametrize("action", _TENANT_MEMBER_ACTS)
+@pytest.mark.parametrize("target", [pytest.param("m-2", id="another tenant's"), pytest.param("m-404", id="unknown")])
+def test_a_membership_of_another_tenant_and_an_unknown_one_are_one_answer(action: str, target: str) -> None:
+    """403 for both: the tenant is read off the membership, so "not yours" is decided before "unknown"."""
+    with pytest.raises(ForbiddenError):
+        _World(platform_admin=False, tenant_role=TenantRole.LEAD).authorize(action, target)
+
+
+@pytest.mark.parametrize("action", _TENANT_MEMBER_ACTS)
+def test_without_the_management_scope_or_a_membership_there_is_no_factor(action: str) -> None:
+    world = _World(platform_admin=False, tenant_role=TenantRole.LEAD)
+    world.policy._memberships.get_by_user_and_tenant.side_effect = lambda u, t: (  # noqa: SLF001
+        Membership(user_key=u, tenant_key=t, role=TenantRole.LEAD, admin_scopes=[AdminScope.TECHNICAL])
+    )
+    with pytest.raises(ForbiddenError):
+        world.authorize(action, "m-1")
+
+    outsider = _World(platform_admin=False)  # no membership in t-1 at all
+    with pytest.raises(ForbiddenError):
+        outsider.authorize(action, "m-1")
+    # A platform admin who is no member of the tenant acts through the platform routes, not these.
+    with pytest.raises(ForbiddenError):
+        _World(platform_admin=True).authorize(action, "m-1")

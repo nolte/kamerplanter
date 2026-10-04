@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.api.v1.auth.schemas import CredentialStepUp
 from app.common.enums import (
     AdminScope,
     InvitationStatus,
@@ -157,8 +158,43 @@ class MemberInfoResponse(BaseModel):
     joined_at: datetime | None
 
 
-class ChangeRoleRequest(BaseModel):
+class ChangeRoleRequest(CredentialStepUp):
+    """A member's new role; the step-up fields are the *acting administrator's* own (#2032).
+
+    They are needed only when the role actually changes (REQ-024 AK-57) — a role re-sent
+    unchanged needs none — and are never written to the membership. ``current_password``
+    for an administrator with a local password; for one without, ``step_up_token`` /
+    ``step_up_code`` obtained for ``tenant_member_role_change`` with the membership's key.
+    """
+
     role: TenantRole
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"role": "viewer", "current_password": "<the acting administrator's own current password>"},
+                {"role": "grower", "step_up_code": "48213907"},
+            ]
+        },
+    )
+
+
+class MemberRemovalRequest(CredentialStepUp):
+    """The body of a member removal: the *acting administrator's* own step-up (#2032).
+
+    ``current_password`` for an administrator with a local password; for one without,
+    ``step_up_token`` / ``step_up_code`` obtained for ``tenant_member_removal`` with the
+    membership's key as the target. Never written anywhere.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"current_password": "<the acting administrator's own current password>"},
+                {"step_up_code": "48213907"},
+            ]
+        },
+    )
 
 
 class ChangeScopesRequest(BaseModel):

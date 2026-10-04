@@ -167,6 +167,12 @@ type StepUpAction = Literal[
     "admin_tenant_update",
     # #2009 — a platform admin removing a member from a tenant.
     "admin_membership_removal",
+    # #2032 — a platform admin changing a member's role (demoting a tenant's last lead).
+    "admin_membership_role_change",
+    # #2032 — a tenant's member administrator (``management`` scope) removing a member.
+    "tenant_member_removal",
+    # #2032 — a tenant's member administrator changing a member's role.
+    "tenant_member_role_change",
 ]
 
 #: The acts that act on something other than the requester's own account (#1884).
@@ -179,7 +185,10 @@ type StepUpAction = Literal[
 #: configuration's key — or ``new:<slug>`` for one being created —
 #: (``oidc_provider_change``), the tenant's key again (``admin_tenant_update``) and
 #: the membership's key (``admin_membership_removal``, #2009 — the same membership
-#: whichever of the two admin views removes it). Every other act acts on the
+#: whichever of the two admin views removes it) — and, since #2032, the membership's key
+#: of the three role/removal acts that did not have a step-up
+#: (``admin_membership_role_change``, ``tenant_member_removal``,
+#: ``tenant_member_role_change``). Every other act acts on the
 #: requester's own account, which the digest already binds; it carries no target.
 TARGETED_ACTIONS: frozenset[str] = frozenset(
     {
@@ -190,6 +199,9 @@ TARGETED_ACTIONS: frozenset[str] = frozenset(
         "oidc_provider_change",
         "admin_tenant_update",
         "admin_membership_removal",
+        "admin_membership_role_change",
+        "tenant_member_removal",
+        "tenant_member_role_change",
     }
 )
 
@@ -243,6 +255,9 @@ CODE_PURPOSES: dict[str, str] = {
     "oidc_provider_change": "change the sign-in provider configuration of this installation",
     "admin_tenant_update": "deactivate or reactivate a garden (tenant) as a platform administrator",
     "admin_membership_removal": "remove a member from a garden (tenant) as a platform administrator",
+    "admin_membership_role_change": "change a member's role in a garden (tenant) as a platform administrator",
+    "tenant_member_removal": "remove a member from your garden (tenant)",
+    "tenant_member_role_change": "change a member's role in your garden (tenant)",
 }
 
 #: Attempts per account across all addresses before the account-wide lock starts.
