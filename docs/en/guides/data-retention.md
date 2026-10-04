@@ -401,7 +401,10 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     `tenant=` on the invitation and tenant-deletion lines next to the subject
     reference: the tenant key itself sits on the retained, pseudonymised rows and would
     otherwise join the pseudonym back to your tenant. In log lines the erasure-record
-    key `ter_<tenant>` reads `ter_ten_…`.
+    key `ter_<tenant>` reads `ter_ten_…` — also where it only appears inside a text, such as the
+    worker's `succeeded in …` line for the tenant-deletion task or a storage error that names
+    `t/<tenant>/…`. Fields named for the actor (`contributed_by`, `created_by`, …) never hold
+    the account key.
 
     `LOG_PSEUDONYM_SALT` keys only these log references (and the `requested_by_subject`
     provenance field on erasure and tenant-erasure records) — separate from

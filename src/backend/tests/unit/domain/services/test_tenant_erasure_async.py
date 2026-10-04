@@ -18,6 +18,7 @@ from unittest.mock import patch
 import pytest
 
 from app.common.exceptions import TenantErasureClaimLostError, WriteConflictError
+from app.common.log_privacy import log_tenant_record_key
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.models.tenant_erasure import TenantErasureReport
 from tests.support.tenant_erasure_doubles import (
@@ -146,7 +147,8 @@ class TestTheTaskClaimsAtomically:
 
         second = service.run_tenant_erasure_task(RECORD, NOW + timedelta(minutes=5))
 
-        assert second == {"record_key": RECORD, "outcome": "not_claimed"}
+        # The result is logged by the worker (#2020): it names the record by its log form, never the tenant key.
+        assert second == {"record_key": log_tenant_record_key(RECORD), "outcome": "not_claimed"}
         assert executor.plans == []
 
     def test_a_completed_or_unknown_record_is_nothing_to_do(self) -> None:

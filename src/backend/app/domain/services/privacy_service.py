@@ -1664,14 +1664,14 @@ class PrivacyService:
             authenticated_with_api_key=authenticated_with_api_key,
             client_ip=client_ip,
         )
-        requested_by = self.log_subject(requester.key or "")
+        requested_by_ref = self.log_subject(requester.key or "")
         logger.info(
             "erasure.admin_authorized",
             subject=self.log_subject(user_key),
-            requested_by=requested_by,
+            requested_by_subject=requested_by_ref,
             step_up=step_up,
         )
-        return step_up, requested_by
+        return step_up, requested_by_ref
 
     def _refuse_in_light_mode(self) -> None:
         """No account erasure through a request in light mode (review SEC-003).

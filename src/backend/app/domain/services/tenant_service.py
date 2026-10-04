@@ -474,13 +474,13 @@ class TenantService:
         configuration_error = self._tenant_erasure_configuration_error()
         if configuration_error is not None:
             raise FeatureNotConfiguredError("tenant_deletion", configuration_error)
-        requested_by = log_subject(requester.key)
+        requested_by_ref = log_subject(requester.key)
         logger.info(
             "tenant_erasure.authorized",
             tenant=log_tenant(tenant_key),
             origin=origin,
             step_up=step_up,
-            subject=requested_by,
+            subject=requested_by_ref,
         )
 
         if record is None:
@@ -490,7 +490,7 @@ class TenantService:
                         tenant_key=tenant_key,
                         tenant_type=str(tenant.tenant_type) if tenant is not None else "unknown",
                         origin=origin,
-                        requested_by_subject=requested_by,
+                        requested_by_subject=requested_by_ref,
                         step_up=step_up,
                         slug_digest=self._tenant_slug_digest(tenant.slug) if tenant is not None else None,
                         requested_at=now,
@@ -553,12 +553,16 @@ class TenantService:
         batched, heartbeat-refreshing erasure as every other path. Never raises for
         a failed run: the failure is recorded on the record (backoff, escalation)
         and the beat retries it.
+
+        The returned ``record_key`` is the log form (``ter_ten_…``, #2020): the worker
+        logs a task's return value on its ``succeeded in …`` line, and the result is
+        read by nobody (no result backend, the caller ``apply_async``s and moves on).
         """
         now = now or datetime.now(UTC)
         repo = self._require_tenant_erasure_repo()
         record = repo.get(record_key)
         if record is None or record.status == "completed":
-            return {"record_key": record_key, "outcome": "nothing_to_do"}
+            return {"record_key": log_tenant_record_key(record_key), "outcome": "nothing_to_do"}
         configuration_error = self._tenant_erasure_configuration_error()
         if configuration_error is not None:
             logger.error(
@@ -566,13 +570,13 @@ class TenantService:
                 record_key=log_tenant_record_key(record_key),
                 reason=configuration_error,
             )
-            return {"record_key": record_key, "outcome": "held"}
+            return {"record_key": log_tenant_record_key(record_key), "outcome": "held"}
         claimed = self._claim_tenant_erasure(record_key, now)
         if claimed is None:
-            return {"record_key": record_key, "outcome": "not_claimed"}
+            return {"record_key": log_tenant_record_key(record_key), "outcome": "not_claimed"}
         self._membership_repo.deactivate_all_for_tenant(claimed.tenant_key)
         finished = self._run_tenant_erasure(claimed, now, raise_on_failure=False)
-        return {"record_key": record_key, "outcome": finished.status}
+        return {"record_key": log_tenant_record_key(record_key), "outcome": finished.status}
 
     def _authorize_tenant_deletion(
         self, tenant_key: str, *, requester: User, authenticated_with_api_key: bool, origin: TenantErasureOrigin

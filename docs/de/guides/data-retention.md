@@ -428,7 +428,10 @@ lassen sie sich dagegen nicht verknüpfen.
     neben der Subjekt-Referenz: Der Mandantenschlüssel selbst hängt an den
     aufbewahrten, pseudonymisierten Zeilen und würde das Pseudonym sonst wieder mit
     deinem Mandanten verbinden. Aus dem Lösch-Nachweis-Schlüssel `ter_<Mandant>` wird
-    in Protokollzeilen `ter_ten_…`.
+    in Protokollzeilen `ter_ten_…` — auch dort, wo er nur innerhalb eines Textes steht, etwa in der
+    Worker-Zeile `succeeded in …` des Mandanten-Lösch-Tasks oder in einer Speicher-Fehlermeldung,
+    die `t/<Mandant>/…` nennt. Felder, die nach dem Akteur heißen (`contributed_by`, `created_by`, …),
+    enthalten nie den Kontoschlüssel.
 
     Fehlertexte in diesen Zeilen (`error=`) sind ebenso bereinigt: Der Kontoschlüssel
     ist durch die Referenz ersetzt, Export-Bundle-Pfade sind maskiert. Wo ein Fehlertext

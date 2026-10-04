@@ -106,6 +106,19 @@ _PATH_CREDENTIAL_SHAPES = (
 #: masked is decided by :func:`_looks_like_a_token`.
 _TOKEN_SEGMENT = re.compile(r"(?<=/)[A-Za-z0-9_:\-]{32,}")
 _HEX_RUN = re.compile(r"[0-9A-Fa-f]+")
+#: A tenant key inside free text (#2020), in the two spellings the app writes it:
+#: an erasure record key ``ter_<tenant_key>`` (the tenant-erasure task returns
+#: one, and Celery logs the return value) and a storage object key or prefix
+#: ``t/<tenant_key>/…`` (a storage adapter's error names the object). The key is
+#: replaced by :func:`log_tenant`'s reference; text that already carries a
+#: reference is left as it is, so the masking is idempotent. The object-key form
+#: needs the attachment shape (``<category>/<yyyy>/<mm>/``) or the end of the
+#: quoted prefix after the segment, so an ordinary ``t/x`` path is not a hit.
+_TENANT_REFERENCE = re.compile(r"ten_(?:[0-9a-f]{16}|unavailable)")
+_RECORD_KEY_IN_TEXT = re.compile(rf"(?<!\w){re.escape(RECORD_KEY_PREFIX)}([\w.:-]+)")
+_TENANT_OBJECT_KEY_IN_TEXT = re.compile(
+    r"(?<![\w.-])t/([^/\s'\"\\]+)/(?=(?:[A-Za-z0-9_-]+/\d{4}/\d{2}/)|$|[\s'\"\\)\]}])"
+)
 #: The longest text :func:`loggable_error` returns; the rest is replaced by a
 #: marker naming how much was cut. Applied after masking, so a cut can never
 #: leave half an address readable.
@@ -217,6 +230,23 @@ def mask_path_credentials(text: str) -> str:
     return _TOKEN_SEGMENT.sub(lambda m: "<redacted>" if _looks_like_a_token(m.group()) else m.group(), text)
 
 
+def _tenant_reference_of(key: str) -> str:
+    return key if _TENANT_REFERENCE.fullmatch(key) else (log_tenant(key) or key)
+
+
+def mask_tenant_keys(text: str) -> str:
+    """*text* with a tenant key in an erasure record key or storage object key replaced by its reference (#2020).
+
+    ``ter_<key>`` becomes ``ter_ten_…`` and ``t/<key>/…`` becomes ``t/ten_…/…`` — the
+    spellings :func:`log_tenant_record_key` and ``loggable_storage_key`` produce at
+    a log call, here for the text that reaches the sink without passing one
+    (a Celery task's return value, an exception text). Linear: every pattern starts
+    at a run boundary and its key run is a single bounded-by-class scan.
+    """
+    text = _RECORD_KEY_IN_TEXT.sub(lambda m: f"{RECORD_KEY_PREFIX}{_tenant_reference_of(m.group(1))}", text)
+    return _TENANT_OBJECT_KEY_IN_TEXT.sub(lambda m: f"t/{_tenant_reference_of(m.group(1))}/", text)
+
+
 def _mask_text(text: str) -> str:
     """URL userinfo, path credentials, URL query strings and fragments, bare request-target queries, then addresses.
 
@@ -227,7 +257,7 @@ def _mask_text(text: str) -> str:
     exception text of any shape masks in milliseconds (the unbounded predecessors
     were quadratic: 8 000 characters of ``a.`` took 0.85 s).
     """
-    text = mask_path_credentials(_URL_USERINFO.sub(r"\1<redacted>@", text))
+    text = mask_path_credentials(_URL_USERINFO.sub(r"\1<redacted>@", mask_tenant_keys(text)))
     # URL tails before addresses: an address-shaped path segment
     # (``/u/alice@example.org/``, ``tile@2x.png``) must not be turned into an
     # ``<email:…>`` token that hides the URL — and its query — from this step.
