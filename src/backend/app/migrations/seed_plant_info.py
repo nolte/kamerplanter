@@ -30,7 +30,6 @@ from app.common.enums import (
     FrostTolerance,
     GrowthDeterminacy,
     GrowthHabit,
-    PathogenType,
     PhotoperiodType,
     PlantCategory,
     PropagationDifficulty,
@@ -38,14 +37,10 @@ from app.common.enums import (
     RootType,
     StressTolerance,
     Suitability,
-    TreatmentApplicationMethod,
-    TreatmentType,
     WateringMethod,
     WoodStage,
 )
-from app.data_access.arango.base_repository import read_all_pages
 from app.domain.models.botanical_family import BotanicalFamily, PhRange
-from app.domain.models.ipm import Disease, Pest, Treatment
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 from app.domain.models.species import (
@@ -59,6 +54,7 @@ from app.domain.models.species import (
     WateringGuide,
 )
 from app.migrations.cultivar_seed import build_cultivar, global_cultivars
+from app.migrations.seed_ipm_rows import seed_ipm_rows
 from app.migrations.seed_phase_ownership import phases_owned_elsewhere
 from app.migrations.yaml_loader import load_yaml
 
@@ -364,11 +360,6 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
     cultivar_data: dict[str, list[dict[str, Any]]] = yaml_data.get("cultivars", {})
     companion_compatible: list[dict[str, Any]] = yaml_data.get("companion_planting", {}).get("compatible", [])
     companion_incompatible: list[dict[str, Any]] = yaml_data.get("companion_planting", {}).get("incompatible", [])
-    ipm_pests_data: list[dict[str, Any]] = yaml_data.get("pests", [])
-    ipm_diseases_data: list[dict[str, Any]] = yaml_data.get("diseases", [])
-    ipm_treatments_data: list[dict[str, Any]] = yaml_data.get("treatments", [])
-    ipm_targets_pest: list[dict[str, str]] = yaml_data.get("pest_treatments", [])
-    ipm_targets_disease: list[dict[str, str]] = yaml_data.get("disease_treatments", [])
 
     # ── S1: Seed new families ────────────────────────────────────────────
     family_map: dict[str, str] = {}
@@ -777,121 +768,8 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                 )
 
     # ── S7: IPM data ─────────────────────────────────────────────────────
-    # Build IPM models from YAML
-    ipm_pests = [
-        Pest(
-            scientific_name=p["scientific_name"],
-            common_name=p["common_name"],
-            pest_type=p.get("pest_type", "insect"),
-            lifecycle_days=p.get("lifecycle_days"),
-            optimal_temp_min=p.get("optimal_temp_min"),
-            optimal_temp_max=p.get("optimal_temp_max"),
-            detection_difficulty=p.get("detection_difficulty", "medium"),
-            description=p.get("description"),
-        )
-        for p in ipm_pests_data
-    ]
-
-    ipm_diseases = [
-        Disease(
-            scientific_name=d["scientific_name"],
-            common_name=d["common_name"],
-            pathogen_type=PathogenType(d["pathogen_type"]),
-            incubation_period_days=d.get("incubation_period_days"),
-            environmental_triggers=d.get("environmental_triggers", []),
-            affected_plant_parts=d.get("affected_plant_parts", []),
-            description=d.get("description"),
-        )
-        for d in ipm_diseases_data
-    ]
-
-    ipm_treatments = [
-        Treatment(
-            name=t["name"],
-            treatment_type=TreatmentType(t["treatment_type"]),
-            active_ingredient=t.get("active_ingredient"),
-            application_method=TreatmentApplicationMethod(t.get("application_method", "spray")),
-            safety_interval_days=t.get("safety_interval_days", 0),
-            dosage_per_liter=t.get("dosage_per_liter"),
-            description=t.get("description"),
-            protective_equipment=t.get("protective_equipment", []),
-        )
-        for t in ipm_treatments_data
-    ]
-
-    pest_key_map: dict[str, str] = {}
-    existing_pests = read_all_pages(ipm_repo.get_all_pests)  # not the first 500 (#2025)
-    existing_pest_names = {p.scientific_name for p in existing_pests}
-    for p in existing_pests:
-        pest_key_map[p.common_name] = p.key or ""
-
-    for pest in ipm_pests:
-        if pest.scientific_name in existing_pest_names:
-            logger.info("pest_exists", name=pest.common_name)
-            continue
-        created = ipm_repo.create_pest(pest)
-        pest_key_map[pest.common_name] = created.key or ""
-        logger.info("pest_created", name=pest.common_name)
-
-    disease_key_map: dict[str, str] = {}
-    existing_diseases = read_all_pages(ipm_repo.get_all_diseases)
-    existing_disease_names = {d.scientific_name for d in existing_diseases}
-    for d in existing_diseases:
-        disease_key_map[d.common_name] = d.key or ""
-
-    for disease in ipm_diseases:
-        if disease.scientific_name in existing_disease_names:
-            logger.info("disease_exists", name=disease.common_name)
-            continue
-        created = ipm_repo.create_disease(disease)
-        disease_key_map[disease.common_name] = created.key or ""
-        logger.info("disease_created", name=disease.common_name)
-
-    treatment_key_map: dict[str, str] = {}
-    existing_treatments = read_all_pages(ipm_repo.get_all_treatments)
-    existing_treatment_names = {t.name for t in existing_treatments}
-    for t in existing_treatments:
-        treatment_key_map[t.name] = t.key or ""
-
-    for treatment in ipm_treatments:
-        if treatment.name in existing_treatment_names:
-            logger.info("treatment_exists", name=treatment.name)
-            continue
-        created = ipm_repo.create_treatment(treatment)
-        treatment_key_map[treatment.name] = created.key or ""
-        logger.info("treatment_created", name=treatment.name)
-
-    for target in ipm_targets_pest:
-        treat_name = target["treatment"]
-        pest_name = target["pest"]
-        t_key = treatment_key_map.get(treat_name, "")
-        p_key = pest_key_map.get(pest_name, "")
-        if t_key and p_key:
-            try:
-                ipm_repo.create_targets_pest_edge(t_key, p_key)
-                logger.info("targets_pest_edge", treatment=treat_name, pest=pest_name)
-            except Exception:
-                logger.info("targets_pest_edge_exists", treatment=treat_name, pest=pest_name)
-
-    for target in ipm_targets_disease:
-        treat_name = target["treatment"]
-        disease_name = target["disease"]
-        t_key = treatment_key_map.get(treat_name, "")
-        d_key = disease_key_map.get(disease_name, "")
-        if t_key and d_key:
-            try:
-                ipm_repo.create_targets_disease_edge(t_key, d_key)
-                logger.info(
-                    "targets_disease_edge",
-                    treatment=treat_name,
-                    disease=disease_name,
-                )
-            except Exception:
-                logger.info(
-                    "targets_disease_edge_exists",
-                    treatment=treat_name,
-                    disease=disease_name,
-                )
+    # The file's own keys (new_pests …, treatment_pest_edges …): app/migrations/seed_ipm_rows.py.
+    ipm_counts = seed_ipm_rows(ipm_repo, yaml_data, source="plant_info.yaml")
 
     logger.info(
         "seed_plant_info_complete",
@@ -901,9 +779,9 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
         cultivar_groups=len(cultivar_data),
         compatible_edges=len(companion_compatible),
         incompatible_edges=len(companion_incompatible),
-        pests=len(ipm_pests),
-        diseases=len(ipm_diseases),
-        treatments=len(ipm_treatments),
+        pests_created=ipm_counts.pests_created,
+        diseases_created=ipm_counts.diseases_created,
+        treatments_created=ipm_counts.treatments_created,
     )
 
 
