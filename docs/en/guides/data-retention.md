@@ -189,7 +189,9 @@ SELECT add_retention_policy('sensor_daily',    INTERVAL '5 years');
 !!! info "Deleting a sensor or a tenant"
     When a sensor or a whole tenant is deleted, Kamerplanter removes the hourly and daily
     averages (`sensor_hourly`, `sensor_daily`) together with the raw data — of any age, in
-    the same deletion. The averages of other tenants and sensors are left untouched.
+    the same deletion. The averages of other tenants and sensors are left untouched. A reading
+    that arrives only after the deletion (for example from a device that is still sending) is
+    rejected and does not start a new time series.
 
 ---
 

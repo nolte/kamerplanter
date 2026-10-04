@@ -180,6 +180,11 @@ class _SensorDocuments:
     def get(self, key: str) -> Sensor | None:
         return self._sensor if key == SENSOR_A else None
 
+    def update(self, key: str, sensor: Sensor) -> Sensor:
+        """The mark ``delete_sensor`` writes before it purges (#1944)."""
+        self._sensor = sensor
+        return sensor
+
     def delete(self, key: str) -> bool:
         return key == SENSOR_A
 

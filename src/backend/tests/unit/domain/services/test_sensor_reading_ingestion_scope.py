@@ -91,3 +91,101 @@ def test_readings_for_an_own_sensor_are_recorded(sensor: str) -> None:
     service.record_readings_batch(sensor, [_reading(sensor), _reading(sensor)], tenant_key=OWN)
 
     assert len(store.inserted) == 3
+
+
+# ── #1944: a sensor that is gone or on its way out takes no reading ───────────
+
+
+class _Mutable(_Sensors):
+    """The sensor store, with per-test sensors the test can remove or mark."""
+
+    def __init__(self) -> None:
+        self._sensors = dict(_Sensors._sensors)
+
+
+class _Series(_Readings):
+    """A readings store that records the purge and can run something between the check and the insert."""
+
+    def __init__(self, before_insert=None) -> None:
+        super().__init__()
+        self.before_insert = before_insert
+        self.purged: list[tuple[str, str]] = []
+
+    def insert(self, reading) -> None:
+        if self.before_insert is not None:
+            self.before_insert()
+        super().insert(reading)
+
+    def insert_batch(self, readings) -> int:
+        if self.before_insert is not None:
+            self.before_insert()
+        return super().insert_batch(readings)
+
+    def delete_by_sensor(self, sensor_key: str, tenant_key: str) -> int:
+        self.purged.append((sensor_key, tenant_key))
+        return 0
+
+
+def _racing(sensors: _Mutable, store: _Series) -> ObservationService:
+    return ObservationService(store, sensors, tank_repo=_Tanks(), site_anchors=FakeSiteRepo())  # type: ignore[arg-type]
+
+
+def test_a_reading_that_finds_its_sensor_gone_after_the_insert_is_purged_and_refused() -> None:
+    sensors = _Mutable()
+    store = _Series(before_insert=lambda: sensors._sensors.pop("s_site_own"))
+
+    with pytest.raises(NotFoundError):
+        _racing(sensors, store).record_reading(_reading("s_site_own"), tenant_key=OWN)
+
+    assert store.purged == [("s_site_own", OWN)], "the row the reading just wrote must go with the series"
+
+
+def test_a_batch_that_finds_its_sensor_gone_after_the_insert_is_purged_and_refused() -> None:
+    sensors = _Mutable()
+    store = _Series(before_insert=lambda: sensors._sensors.pop("s_tank_own"))
+
+    with pytest.raises(NotFoundError):
+        _racing(sensors, store).record_readings_batch("s_tank_own", [_reading("s_tank_own")], tenant_key=OWN)
+
+    assert store.purged == [("s_tank_own", OWN)]
+
+
+def test_a_reading_whose_sensor_stays_is_not_purged() -> None:
+    sensors = _Mutable()
+    store = _Series()
+
+    _racing(sensors, store).record_reading(_reading("s_site_own"), tenant_key=OWN)
+
+    assert (len(store.inserted), store.purged) == (1, [])
+
+
+@pytest.mark.parametrize("sensor", ["s_tank_own", "s_site_own", "s_loc_own"])
+def test_a_sensor_whose_delete_began_takes_no_reading(sensor: str) -> None:
+    sensors = _Mutable()
+    sensors._sensors[sensor] = sensors._sensors[sensor].model_copy(update={"deletion_pending": True})
+    store = _Series()
+    service = _racing(sensors, store)
+
+    with pytest.raises(NotFoundError):
+        service.record_reading(_reading(sensor), tenant_key=OWN)
+    with pytest.raises(NotFoundError):
+        service.record_readings_batch(sensor, [_reading(sensor)], tenant_key=OWN)
+
+    assert store.inserted == []
+    assert service.owning_tenant_key(sensor) is None
+
+
+@pytest.mark.parametrize(
+    ("sensor", "owner"),
+    [
+        ("s_tank_own", OWN),
+        ("s_tank_foreign", "t_b"),
+        ("s_site_own", OWN),
+        ("s_loc_own", OWN),
+        ("s_orphan", None),
+        ("no-such-sensor", None),
+    ],
+)
+def test_the_owner_of_a_sensor_is_its_parents_tenant(sensor: str, owner: str | None) -> None:
+    """The Home Assistant poll stored every reading under ``''`` because a sensor document has no tenant_key."""
+    assert _racing(_Mutable(), _Series()).owning_tenant_key(sensor) == owner

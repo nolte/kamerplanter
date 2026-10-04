@@ -321,7 +321,13 @@ class TestTheTenantServiceDecides:
     def test_only_a_member_who_joined_after_the_first_read_keeps_the_tenant(self):
         """REQ-025 AK-IE-07 — the late joiner is the one case left of the retained branch."""
         service, delete = _tenant_service(tenant=_personal(), members=[USER, "u-2"])
-        service._membership_repo.active_member_user_keys.side_effect = [[USER, "u-2"], [USER, "u-2", "u-late"]]
+        # The read before the freeze, the read that finds the joiner, and the read after the
+        # withdrawal of the record (#1924) — the joiner's membership is still there.
+        service._membership_repo.active_member_user_keys.side_effect = [
+            [USER, "u-2"],
+            [USER, "u-2", "u-late"],
+            [USER, "u-2", "u-late"],
+        ]
 
         outcome = service.erase_personal_tenant_of(USER, PERSONAL, now=NOW)
 

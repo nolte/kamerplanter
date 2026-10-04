@@ -34,6 +34,7 @@ from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
+from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.invitation_repository import IInvitationRepository
 from app.domain.interfaces.location_assignment_repository import (
     ILocationAssignmentRepository,
@@ -101,10 +102,16 @@ class TenantService:
         password_engine: PasswordEngine | None = None,
         step_up_verifier: StepUpVerifier | None = None,
         site_anchors: SiteAnchorSource | None = None,
+        erasure_repo: IErasureRepository | None = None,
     ) -> None:
         # The location → site reads a location assignment is checked through
         # (#1871 B3). Without them an assignment is refused, never stored unchecked.
         self._site_anchors = site_anchors
+        # The account-erasure requests (REQ-025 AK-IE-06, #1924): who has asked to be
+        # erased decides whether anybody may still be invited into their personal
+        # tenant. Optional so non-invitation call sites stay unaffected; without it
+        # the invitation gate does not apply.
+        self._erasure_repo = erasure_repo
         self._tenant_repo = tenant_repo
         self._membership_repo = membership_repo
         self._invitation_repo = invitation_repo
@@ -782,8 +789,10 @@ class TenantService:
         that moment. The record is the freeze :meth:`_refuse_while_erasing`
         keys on, so a join that slipped between the first read and the insert is
         seen by the second as someone the first did not list. Such a tenant is
-        kept, the record withdrawn; before #1825 the joiner was silently
-        deactivated and the tenant erased. A record an earlier attempt left
+        kept, the record withdrawn — and the members read once more after the
+        withdrawal, so a joiner the freeze took back meanwhile does not keep it
+        for nobody (:meth:`_decide_retention_under_freeze`, #1924); before #1825
+        the joiner was silently deactivated and the tenant erased. A record an earlier attempt left
         unclaimed has no first read to compare with; there a member whose
         membership began at or after the record's ``requested_at`` — or whose
         start is not recorded — counts as late. The decision is
@@ -837,26 +846,84 @@ class TenantService:
             known_members = self._other_active_members(tenant_key, user_key)
             self._open_account_erasure_record(tenant_key, tenant, subject_user_key=user_key, now=now)
         if record is None or never_started:
-            # AK-IE-07 — the record is in place, so every later join is refused
-            # or rolls itself back (:meth:`accept_invitation`); whoever is an
-            # active member now and was not in the first read joined late.
-            retained = self._personal_tenant_retention(
+            retained = self._decide_retention_under_freeze(
                 tenant_key,
+                tenant,
                 user_key,
                 known_members=known_members,
                 frozen_at=record.requested_at if record is not None else None,
                 requested_at=requested_at,
+                now=now,
             )
             if retained is not None:
-                if not self._require_tenant_erasure_repo().delete_unclaimed(record_key):
-                    # A run claimed the record in between; it decides, and the
-                    # account erasure is retried against what it leaves.
-                    raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
                 return retained
         finished = self._erase_tenant_for_account_erasure(tenant_key, tenant, now=now)
         if finished.status != "completed":
             raise TenantErasureIncompleteError(list(finished.unreached) or [TenantErasureEngine.TENANT_COLLECTION])
         return PersonalTenantErasure(tenant_key=tenant_key, outcome="erased", tenant_erasure_record_key=record_key)
+
+    #: How often the retention decision re-freezes the tenant after a joiner it
+    #: counted was taken back by the freeze (see :meth:`_decide_retention_under_freeze`).
+    _RETENTION_ROUNDS = 3
+
+    def _decide_retention_under_freeze(
+        self,
+        tenant_key: str,
+        tenant: Tenant | None,
+        subject_user_key: str,
+        *,
+        known_members: frozenset[str] | None,
+        frozen_at: datetime | None,
+        requested_at: datetime | None,
+        now: datetime,
+    ) -> PersonalTenantErasure | None:
+        """The retained outcome — or ``None`` when the tenant is to be erased — with the freeze in place (#1924).
+
+        AK-IE-07 — the record is in place, so every later join is refused or
+        rolls itself back (:meth:`_create_membership_unless_erasing`); whoever
+        is an active member now and was not in the first read joined late.
+
+        Two decisions meet on a join that landed between the freeze and the
+        read below: this one counts the joiner and keeps the tenant, the joiner's
+        own re-check finds the freeze and takes the membership back. Before #1924
+        both could fire for the same joiner and the tenant stayed with nobody in
+        it. The record's withdrawal is therefore **part of the decision**, not
+        what follows it: the record is withdrawn first, and the members are read
+        again. The joiner's rollback is atomic against the withdrawal
+        (:meth:`IMembershipRepository.delete_while_tenant_frozen`), so a joiner
+        counted here is one the rollback can no longer take — it either committed
+        before the withdrawal and the re-read does not list it, or it finds no
+        record and the membership stands. A re-read that lists nobody means the
+        joiner was taken back: the tenant is frozen again and the decision is
+        repeated, at most :attr:`_RETENTION_ROUNDS` times; then the run stops
+        with a write conflict and the daily retry picks the open record up.
+        """
+        erasure_repo = self._require_tenant_erasure_repo()
+        record_key = TenantErasureEngine.record_key(tenant_key)
+
+        def late_member() -> PersonalTenantErasure | None:
+            return self._personal_tenant_retention(
+                tenant_key,
+                subject_user_key,
+                known_members=known_members,
+                frozen_at=frozen_at,
+                requested_at=requested_at,
+            )
+
+        for _round in range(self._RETENTION_ROUNDS):
+            if late_member() is None:
+                return None
+            if not erasure_repo.delete_unclaimed(record_key):
+                # A run claimed the record in between; it decides, and the
+                # account erasure is retried against what it leaves.
+                raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
+            retained = late_member()
+            if retained is not None:
+                return retained
+            # The joiner this decision counted was taken back by the freeze it
+            # raced with: nobody keeps the tenant — freeze it again and decide anew.
+            self._open_account_erasure_record(tenant_key, tenant, subject_user_key=subject_user_key, now=now)
+        raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
 
     @staticmethod
     def _is_unclaimed_account_erasure(record: TenantErasureRecord) -> bool:
@@ -1049,26 +1116,67 @@ class TenantService:
         if record is not None and record.status != "completed":
             raise ForbiddenError("This tenant is being deleted.")
 
+    def _refuse_invitation_while_owner_erasing(self, *, tenant_key: str) -> None:
+        """No invitation into a personal tenant whose owner has an open erasure request (REQ-025 AK-IE-06, #1924).
+
+        AK-IE-06 revokes the invitations that exist when the erasure is
+        requested; this is the other half — one created *during* the grace (a
+        member with the ``MANAGEMENT`` scope can still create one) or accepted
+        in it would let somebody join the subject's garden after the subject
+        asked for it to go. Every way in — both invitation types, creation and
+        acceptance — asks here, so the predicate is written once. Only a
+        ``PERSONAL`` tenant is the subject's own data decision; an organisation
+        the subject owns keeps inviting. The refusal does not say why: whoever holds
+        a token is not one of the members the erasure notice went to.
+        """
+        if self._erasure_repo is None:
+            return
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        if tenant is None or tenant.tenant_type != TenantType.PERSONAL:
+            return
+        if self._erasure_repo.find_active_for_user(tenant.owner_user_key) is not None:
+            raise ForbiddenError("No new members can be invited into this tenant.")
+
     def _create_membership_unless_erasing(self, membership: Membership) -> Membership:
         """Insert a membership into an existing tenant, and take it back if the tenant froze meanwhile.
 
         REQ-025 AK-IE-07 (#1825 SEC-003 b). The caller's
         :meth:`_refuse_while_erasing` and this insert are two writes: a deletion
         record inserted between them froze the tenant while the membership was
-        on its way in. Checked again once the membership exists, and removed,
-        so no active membership stays in a tenant that is being erased — the
-        counterpart of the second membership read in
-        :meth:`erase_personal_tenant_of`. Every path that joins an account to
-        an existing tenant goes through here.
+        on its way in. Checked again once the membership exists
+        (:meth:`_settle_join_against_freeze`), so no active membership stays in
+        a tenant that is being erased — the counterpart of the second membership
+        read in :meth:`erase_personal_tenant_of`. Every path that joins an
+        account to an existing tenant goes through here.
         """
         created = self._membership_repo.create(membership)
-        try:
-            self._refuse_while_erasing(membership.tenant_key)
-        except ForbiddenError:
-            if created.key:
-                self._membership_repo.delete(created.key)
-            raise
+        self._settle_join_against_freeze(created)
         return created
+
+    def _settle_join_against_freeze(self, created: Membership) -> None:
+        """The re-check of a join after its insert: raises ``ForbiddenError`` when the membership was taken back.
+
+        The take-back is atomic against the erasure's withdrawal of the record
+        (:meth:`IMembershipRepository.delete_while_tenant_frozen`, #1924): a
+        membership the erasure counted as a late joiner and kept the tenant for
+        is not removed after the fact, and one removed first is not counted. A
+        withdrawn record means the erasure decided to keep the tenant — the
+        membership stands.
+        """
+        try:
+            self._refuse_while_erasing(created.tenant_key)
+        except ForbiddenError:
+            if not created.key:
+                raise
+            try:
+                taken_back = self._membership_repo.delete_while_tenant_frozen(created.key, created.tenant_key)
+            except WriteConflictError:
+                # The record kept conflicting. Refusing a join is always safe
+                # for the subject's erasure; keeping an unchecked one is not.
+                self._membership_repo.delete(created.key)
+                raise
+            if taken_back:
+                raise
 
     def _require_tenant_erasure_repo(self) -> ITenantErasureRepository:
         if self._tenant_erasure_repo is None:
@@ -1684,6 +1792,7 @@ class TenantService:
         email: str,
         role: TenantRole = TenantRole.VIEWER,
     ) -> InvitationLink:
+        self._refuse_invitation_while_owner_erasing(tenant_key=tenant_key)
         raw_token, token_hash = self._invitation_engine.create_invitation_token()
         expires_at = self._invitation_engine.calculate_expiry(days=7)
 
@@ -1711,6 +1820,7 @@ class TenantService:
         invited_by_user_key: str,
         role: TenantRole = TenantRole.VIEWER,
     ) -> InvitationLink:
+        self._refuse_invitation_while_owner_erasing(tenant_key=tenant_key)
         raw_token, token_hash = self._invitation_engine.create_invitation_token()
         expires_at = self._invitation_engine.calculate_expiry(days=7)
 
@@ -1753,6 +1863,7 @@ class TenantService:
         is_expired = self._invitation_engine.is_expired(invitation.expires_at)
         is_pending = invitation.status == InvitationStatus.PENDING
         self._refuse_while_erasing(invitation.tenant_key)
+        self._refuse_invitation_while_owner_erasing(tenant_key=invitation.tenant_key)
         existing = self._membership_repo.get_by_user_and_tenant(user_key, invitation.tenant_key)
 
         can_accept, reason = self._invitation_engine.can_accept(
