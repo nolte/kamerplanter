@@ -321,6 +321,9 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "mcp.McpAuditLog.service_account_key": _A,
     "mcp.McpIdempotencyRecord.service_account_key": _A,
     "mcp.McpIdempotencyRecord.idempotency_key": _I,
+    "security_audit.SecurityAuditEntry.actor_user_key": _A,  # #2111: proof of who acted, never read back as a reference
+    "security_audit.SecurityAuditEntry.target_user_key": _A,
+    "security_audit.SecurityAuditEntry.membership_key": _I,
     "membership.Membership.user_key": _I,
     "membership.UserMembershipInfo.membership_key": _N,
     "notification.Notification.user_key": _I,  # derived from a verified assignee (#1871 B9)

@@ -206,6 +206,7 @@ celery_app.conf.update(
         "app.tasks.reference_image_tasks",
         "app.tasks.retention_tasks",
         "app.tasks.season_tasks",
+        "app.tasks.security_audit_tasks",
         "app.tasks.sensor_ingestion_tasks",
         "app.tasks.storage_tasks",
         "app.tasks.tank_maintenance_tasks",
@@ -271,6 +272,11 @@ celery_app.conf.update(
         "mcp-cleanup-idempotency-hourly": {
             "task": "mcp.cleanup_expired_idempotency",
             "schedule": 3600,
+        },
+        # MT-014 (#2111) security audit retention (NFR-011 R-38)
+        "security-audit-purge-daily": {
+            "task": "security_audit.purge_expired",
+            "schedule": crontab(hour=2, minute=55),
         },
         # REQ-023 Auth tasks
         "auth-cleanup-tokens-hourly": {

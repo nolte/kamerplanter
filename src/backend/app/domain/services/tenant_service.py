@@ -14,6 +14,8 @@ from app.common.enums import (
     AdminScope,
     InvitationStatus,
     InvitationType,
+    SecurityAuditAction,
+    SecurityAuditVia,
     TenantRole,
     TenantType,
 )
@@ -61,6 +63,7 @@ from app.domain.models.tenant_erasure import (
 )
 from app.domain.models.user import User, allows_interactive_auth
 from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_location
+from app.domain.services.security_audit_service import SecurityAuditService
 from app.domain.services.step_up_service import StepUpVerifier, default_step_up_verifier, echo_matches
 
 logger = structlog.get_logger()
@@ -103,7 +106,14 @@ class TenantService:
         step_up_verifier: StepUpVerifier | None = None,
         site_anchors: SiteAnchorSource | None = None,
         erasure_repo: IErasureRepository | None = None,
+        security_audit: SecurityAuditService | None = None,
     ) -> None:
+        # The persistent security audit of every membership, role and scope change
+        # (MT-014, #2111). ``None`` only where no membership is ever changed (read-only
+        # call sites, doubles); ``get_tenant_service`` always wires it, and
+        # ``test_membership_mutations_write_the_security_audit`` holds that every
+        # mutating method calls :meth:`_audit_membership`.
+        self._security_audit = security_audit
         # The location → site reads a location assignment is checked through
         # (#1871 B3). Without them an assignment is refused, never stored unchecked.
         self._site_anchors = site_anchors
@@ -177,7 +187,15 @@ class TenantService:
             is_active=True,
             joined_at=datetime.now(UTC).isoformat(),
         )
-        self._membership_repo.create(membership)
+        created = self._membership_repo.create(membership)
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.REGISTRATION,
+            actor_user_key=user_key,
+            target_user_key=user_key,
+            tenant_key=tenant.key or "",
+            membership=created,
+        )
 
         logger.info("personal_tenant_created", subject=log_subject(user_key), tenant=log_tenant(tenant.key))
         return tenant
@@ -218,7 +236,15 @@ class TenantService:
             is_active=True,
             joined_at=datetime.now(UTC).isoformat(),
         )
-        self._membership_repo.create(membership)
+        created = self._membership_repo.create(membership)
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.TENANT_CREATION,
+            actor_user_key=user_key,
+            target_user_key=user_key,
+            tenant_key=tenant.key or "",
+            membership=created,
+        )
 
         logger.info("organization_created", subject=log_subject(user_key), tenant=log_tenant(tenant.key))
         return tenant
@@ -1566,7 +1592,9 @@ class TenantService:
     # tenant-scoped ``change_member_role`` / ``remove_member`` enforce — so these
     # deliberately do not take ``actor_scopes``.
 
-    def admin_add_membership(self, tenant_key: str, user_key: str, role: TenantRole) -> Membership:
+    def admin_add_membership(
+        self, tenant_key: str, user_key: str, role: TenantRole, *, actor_user_key: str
+    ) -> Membership:
         """Add a user to a tenant on the platform-admin path.
 
         Single implementation behind both ``POST .../tenants/{tk}/members`` and
@@ -1595,7 +1623,16 @@ class TenantService:
             is_active=True,
             joined_at=datetime.now(UTC).isoformat(),
         )
-        return self._create_membership_unless_erasing(membership)
+        created = self._create_membership_unless_erasing(membership)
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.PLATFORM_ADMIN,
+            actor_user_key=actor_user_key,
+            target_user_key=user_key,
+            tenant_key=tenant_key,
+            membership=created,
+        )
+        return created
 
     def admin_change_membership_role(
         self,
@@ -1652,6 +1689,15 @@ class TenantService:
         result = self._membership_repo.update_fields(membership_key, {"role": new_role})
         if not result:
             raise NotFoundError("Membership", membership_key)
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ROLE_CHANGED,
+            via=SecurityAuditVia.PLATFORM_ADMIN,
+            actor_user_key=requester.key or "",
+            target_user_key=membership.user_key,
+            tenant_key=membership.tenant_key,
+            membership=result,
+            old_role=membership.role,
+        )
         return result
 
     def admin_remove_membership(
@@ -1685,7 +1731,7 @@ class TenantService:
         for an unknown one or one under another parent); without a valid step-up
         nothing is removed.
         """
-        self._resolve_admin_membership(membership_key, tenant_key=tenant_key, user_key=user_key)
+        membership = self._resolve_admin_membership(membership_key, tenant_key=tenant_key, user_key=user_key)
         self._step_up_verifier.verify(
             requester,
             action="admin_membership_removal",
@@ -1698,7 +1744,17 @@ class TenantService:
             authenticated_with_api_key=authenticated_with_api_key,
             client_ip=client_ip,
         )
-        return self._membership_repo.delete(membership_key)
+        removed = self._membership_repo.delete(membership_key)
+        if removed:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_REMOVED,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=requester.key or "",
+                target_user_key=membership.user_key,
+                tenant_key=membership.tenant_key,
+                membership=membership,
+            )
+        return removed
 
     def _resolve_admin_membership(
         self,
@@ -1793,6 +1849,15 @@ class TenantService:
         result = self._membership_repo.update_fields(membership_key, {"role": new_role})
         if not result:
             raise NotFoundError("Membership", membership_key)
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ROLE_CHANGED,
+            via=SecurityAuditVia.TENANT_ADMIN,
+            actor_user_key=actor_user_key,
+            target_user_key=membership.user_key,
+            tenant_key=tenant_key,
+            membership=result,
+            old_role=membership.role,
+        )
         return result
 
     def _refuse_role_grant(
@@ -1834,6 +1899,8 @@ class TenantService:
         membership_key: str,
         new_scopes: list[AdminScope],
         actor_scopes: list[AdminScope],
+        *,
+        actor_user_key: str,
     ) -> Membership:
         """Change a member's administrative scopes (REQ-049 axis 2).
 
@@ -1858,6 +1925,15 @@ class TenantService:
         result = self._membership_repo.update_fields(membership_key, {"admin_scopes": list(new_scopes)})
         if not result:
             raise NotFoundError("Membership", membership_key)
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_SCOPES_CHANGED,
+            via=SecurityAuditVia.TENANT_ADMIN,
+            actor_user_key=actor_user_key,
+            target_user_key=membership.user_key,
+            tenant_key=tenant_key,
+            membership=result,
+            old_scopes=membership.admin_scopes,
+        )
         return result
 
     def remove_member(
@@ -1905,7 +1981,17 @@ class TenantService:
             authenticated_with_api_key=authenticated_with_api_key,
             client_ip=client_ip,
         )
-        return self._membership_repo.delete(membership_key)
+        removed = self._membership_repo.delete(membership_key)
+        if removed:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_REMOVED,
+                via=SecurityAuditVia.TENANT_ADMIN,
+                actor_user_key=requester.key or "",
+                target_user_key=membership.user_key,
+                tenant_key=tenant_key,
+                membership=membership,
+            )
+        return removed
 
     def leave_tenant(self, tenant_key: str, user_key: str) -> bool:
         membership = self._membership_repo.get_by_user_and_tenant(user_key, tenant_key)
@@ -1918,7 +2004,61 @@ class TenantService:
                 "Cannot leave as the last member with the management scope. Hand it over first.",
             )
 
-        return self._membership_repo.delete(membership.key)
+        left = self._membership_repo.delete(membership.key)
+        if left:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_LEFT,
+                via=SecurityAuditVia.SELF,
+                actor_user_key=user_key,
+                target_user_key=user_key,
+                tenant_key=tenant_key,
+                membership=membership,
+            )
+        return left
+
+    def _audit_membership(
+        self,
+        *,
+        action: SecurityAuditAction,
+        via: SecurityAuditVia,
+        actor_user_key: str,
+        target_user_key: str,
+        tenant_key: str,
+        membership: Membership,
+        old_role: str | None = None,
+        old_scopes: list[AdminScope] | None = None,
+    ) -> None:
+        """Write the persistent security-audit row of one membership change (MT-014, #2111).
+
+        The one place every mutating method of this service hands its change to
+        (``test_membership_mutations_write_the_security_audit`` holds that). Called
+        **after** the change succeeded; a failing audit write raises, so the change
+        never goes unrecorded without somebody seeing the error. The roles and scopes
+        recorded are the stored membership's, never a request's claim.
+        """
+        if self._security_audit is None:
+            return
+        now_role, now_scopes = str(membership.role), [str(x) for x in membership.admin_scopes]
+        before_scopes = [str(x) for x in old_scopes] if old_scopes is not None else None
+        # What each action says about "before" and "after": a grant has only an after, a
+        # removal only a before, a change both.
+        if action in (SecurityAuditAction.MEMBERSHIP_REMOVED, SecurityAuditAction.MEMBERSHIP_LEFT):
+            fields = {"old_role": now_role, "old_scopes": now_scopes}
+        elif action == SecurityAuditAction.MEMBERSHIP_ROLE_CHANGED:
+            fields = {"old_role": None if old_role is None else str(old_role), "new_role": now_role}
+        elif action == SecurityAuditAction.MEMBERSHIP_SCOPES_CHANGED:
+            fields = {"old_scopes": before_scopes, "new_scopes": now_scopes}
+        else:
+            fields = {"new_role": now_role, "new_scopes": now_scopes}
+        self._security_audit.record_membership_change(
+            action=action,
+            via=via,
+            actor_user_key=actor_user_key,
+            target_user_key=target_user_key,
+            tenant_key=tenant_key,
+            membership_key=membership.key,
+            **fields,
+        )
 
     def _guard_last_manager(self, tenant_key: str, message: str) -> None:
         """Raise unless the tenant keeps at least one ``MANAGEMENT`` membership (INV-1)."""
@@ -2061,6 +2201,14 @@ class TenantService:
             )
             raise
 
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.INVITATION,
+            actor_user_key=user_key,
+            target_user_key=user_key,
+            tenant_key=invitation.tenant_key,
+            membership=membership,
+        )
         logger.info(
             "invitation_accepted",
             tenant=log_tenant(invitation.tenant_key),

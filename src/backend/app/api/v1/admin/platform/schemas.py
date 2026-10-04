@@ -154,3 +154,21 @@ class AdminAddUserToTenantRequest(BaseModel):
     # across all of them — so the body is the only place it can come from.
     tenant_key: str
     role: TenantRole = TenantRole.VIEWER
+
+
+class SecurityAuditEntryResponse(BaseModel):
+    """One row of the persistent security audit (MT-014, #2111, NFR-011 R-38)."""
+
+    key: str | None = None
+    action: str
+    via: str
+    actor_user_key: str
+    target_user_key: str
+    tenant_key: str
+    membership_key: str | None = None
+    old_role: str | None = None
+    new_role: str | None = None
+    old_scopes: list[str] | None = None
+    new_scopes: list[str] | None = None
+    request_id: str | None = None
+    created_at: datetime | None = None

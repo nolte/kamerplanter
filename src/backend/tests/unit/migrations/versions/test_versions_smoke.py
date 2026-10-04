@@ -87,6 +87,10 @@ class _NoopCollection:
                 "unique": True,
             },
             {"type": "persistent", "fields": ["expires_at"], "unique": False},
+            # v0082 (#2111) security_audit_log: (tenant_key, created_at) and created_at are listed
+            # above; the two account lookups are bootstrapped on a fresh volume too.
+            {"type": "persistent", "fields": ["target_user_key"], "unique": False},
+            {"type": "persistent", "fields": ["actor_user_key"], "unique": False},
             # v0018 propagation indexes
             {"type": "persistent", "fields": ["tenant_key", "batch_key"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "species_key"], "unique": False},

@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Path
+from fastapi import APIRouter, Body, Depends, Path, Query
 
 from app.api.v1.admin.platform.schemas import (
     AdminAddMemberRequest,
@@ -15,6 +15,7 @@ from app.api.v1.admin.platform.schemas import (
     AdminUserResponse,
     AdminUserTenantRole,
     AdminUserUpdate,
+    SecurityAuditEntryResponse,
 )
 from app.api.v1.auth.schemas import CREDENTIAL_STEP_UP_FIELDS
 from app.api.v1.privacy.schemas import (
@@ -26,11 +27,17 @@ from app.api.v1.privacy.schemas import (
 )
 from app.api.v1.tenants.schemas import TenantDeleteRequest, TenantDeletionAcceptedResponse
 from app.common.auth import get_authenticated_with_api_key, require_platform_admin
-from app.common.dependencies import get_privacy_service, get_tenant_service, get_user_service
+from app.common.dependencies import (
+    get_privacy_service,
+    get_security_audit_service,
+    get_tenant_service,
+    get_user_service,
+)
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
 from app.common.request_ip import resolve_client_ip
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
+from app.domain.services.security_audit_service import MAX_READ_LIMIT, SecurityAuditService
 from app.domain.services.tenant_service import TenantService
 from app.domain.services.user_service import UserService
 
@@ -57,6 +64,24 @@ def get_platform_stats(
         active_tenants=tenant_service.count_tenants(active_only=True),
         total_memberships=tenant_service.count_memberships(),
     )
+
+
+@router.get("/security-audit", response_model=list[SecurityAuditEntryResponse])
+def list_security_audit(
+    tenant_key: Annotated[str | None, Query(description="Only the rows of this tenant (document key).")] = None,
+    limit: Annotated[int, Query(ge=1, le=MAX_READ_LIMIT, description="Newest rows first, at most this many.")] = 100,
+    _user: User = Depends(require_platform_admin),
+    audit: SecurityAuditService = Depends(get_security_audit_service),
+):
+    """The persistent security audit of membership, role and scope changes. Platform admin only.
+
+    MT-014 (#2111): newest first, optionally of one tenant. Read-only; the rows are written
+    by the services that change a membership and kept for two years (NFR-011 R-38).
+    """
+    return [
+        SecurityAuditEntryResponse.model_validate(entry.model_dump(mode="json"))
+        for entry in audit.list_recent(tenant_key=tenant_key, limit=limit)
+    ]
 
 
 @router.get("/tenants", response_model=list[AdminTenantResponse])
@@ -471,7 +496,7 @@ def list_tenant_members(
 def add_tenant_member(
     tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
     body: AdminAddMemberRequest,
-    _user: User = Depends(require_platform_admin),
+    admin: User = Depends(require_platform_admin),
     tenant_service: TenantService = Depends(get_tenant_service),
     user_service: UserService = Depends(get_user_service),
 ):
@@ -484,7 +509,9 @@ def add_tenant_member(
     needs its name and email.
     """
     user = user_service.get_user(body.user_key)
-    membership = tenant_service.admin_add_membership(tenant_key, body.user_key, body.role)
+    membership = tenant_service.admin_add_membership(
+        tenant_key, body.user_key, body.role, actor_user_key=admin.key or ""
+    )
     return AdminTenantMemberResponse(
         membership_key=membership.key or "",
         user_key=body.user_key,
@@ -629,7 +656,7 @@ def list_user_memberships(
 def add_user_to_tenant(
     user_key: Annotated[str, Path(description="Document key of the user.")],
     body: AdminAddUserToTenantRequest,
-    _user: User = Depends(require_platform_admin),
+    admin: User = Depends(require_platform_admin),
     tenant_service: TenantService = Depends(get_tenant_service),
     user_service: UserService = Depends(get_user_service),
 ):
@@ -642,7 +669,9 @@ def add_user_to_tenant(
     """
     user_service.get_user(user_key)
     tenant = tenant_service.get_tenant(body.tenant_key)
-    membership = tenant_service.admin_add_membership(body.tenant_key, user_key, body.role)
+    membership = tenant_service.admin_add_membership(
+        body.tenant_key, user_key, body.role, actor_user_key=admin.key or ""
+    )
     return AdminUserMembershipResponse(
         membership_key=membership.key or "",
         tenant_key=body.tenant_key,

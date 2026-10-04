@@ -325,7 +325,7 @@ class TestNoDeletionThatBreaksTheInstallationOrLeaksAccess:
         service = tenant_service_for_deletion(record_repo=repo)
 
         with pytest.raises(ForbiddenError):
-            service.admin_add_membership(KEY, "user-9", TenantRole.GROWER)
+            service.admin_add_membership(KEY, "user-9", TenantRole.GROWER, actor_user_key="admin-9")
         service._membership_repo.create.assert_not_called()
 
     def test_the_retry_feeds_the_persisted_parent_keys_back(self) -> None:
