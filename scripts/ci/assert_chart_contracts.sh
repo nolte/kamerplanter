@@ -264,6 +264,41 @@ expect root-account "a backend overridden to root makes the backup dump as root"
   "${backup_pod} | .initContainers[] | select(.name == \"dump\") | .env[] | select(.name == \"ARANGODB_USERNAME\") | .value" \
   '["root"]'
 
+# ---------------------------------------------------------------------------
+# #2129 — backend metrics: `monitoring.enabled` is the one switch.
+#
+# Off (the default): no listener (METRICS_PORT=0), no Service port, no
+# ServiceMonitor, no scrape policy. On: all four, on 9464, and the backend's
+# own policy still admits nothing but :8000 — the scraper reaches the metrics
+# port and nothing else, so the scrape path is no way around nginx (#1159).
+# ---------------------------------------------------------------------------
+servicemonitor='select(.kind == "ServiceMonitor")'
+backend_svc='select(.kind == "Service" and .metadata.name == "kamerplanter-backend")'
+netpol() { printf 'select(.kind == "NetworkPolicy" and .metadata.name == "%s-%s")' "${RELEASE}" "$1"; }
+expect storage-default "monitoring off: the backend starts no metrics listener" "$(env_of backend METRICS_PORT)" '["0"]'
+expect storage-default "monitoring off: no ServiceMonitor" "${servicemonitor} | .metadata.name" '[]'
+expect storage-default "monitoring off: the backend Service exposes only http" "${backend_svc} | .spec.ports[] | .name" '["http"]'
+expect storage-default "monitoring off: no scrape policy" "$(netpol backend-metrics) | .metadata.name" '[]'
+
+render monitoring --set monitoring.enabled=true
+expect monitoring "monitoring.enabled starts the listener on 9464" "$(env_of backend METRICS_PORT)" '["9464"]'
+expect monitoring "the backend Service adds the metrics port" \
+  "${backend_svc} | .spec.ports[] | select(.name == \"metrics\") | .port" '[9464]'
+expect monitoring "the ServiceMonitor scrapes the metrics port of the backend Service" \
+  "${servicemonitor} | .spec.endpoints[] | [.port, .path] | join(\" \")" '["metrics /metrics"]'
+expect monitoring "the ServiceMonitor selects the backend Service" \
+  "${servicemonitor} | .spec.selector.matchLabels.\"app.kubernetes.io/service\"" '["kamerplanter-backend"]'
+expect monitoring "the scrape policy admits the metrics port only" \
+  "$(netpol backend-metrics) | .spec.ingress[] | .ports[] | .port" '[9464]'
+expect monitoring "the scrape policy names the scraper by namespace and pod" \
+  "$(netpol backend-metrics) | .spec.ingress[] | .from[] | [.namespaceSelector.matchLabels.\"kubernetes.io/metadata.name\", .podSelector.matchLabels.\"app.kubernetes.io/name\"] | join(\"/\")" \
+  '["monitoring/prometheus"]'
+expect monitoring "the backend's own policy still admits only :8000" \
+  "$(netpol backend) | .spec.ingress[] | .ports[] | .port" '[8000]'
+for profile in "${CHART}"/values-*.yaml; do
+  render "monitoring-$(basename "${profile}" .yaml)" -f "${profile}" --set monitoring.enabled=true
+done
+
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2
   exit 1
