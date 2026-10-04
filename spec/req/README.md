@@ -469,6 +469,30 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 
 ---
 
+## 🗺️ REQ-053: Grafische Garten- und Beetplanung
+**Fokus:** Metrischer Gartenplan als Oberfläche für das bestehende Standortmodell — Beete zeichnen, bepflanzen, pflegen, protokollieren · **Erweitert:** REQ-002 (Geometrie auf Site/Location/Slot), REQ-013 (Layout-Felder, geplante Belegung), REQ-006/REQ-022 (Beet-Aufgaben, Abschluss → Protokoll) · **Neu:** `garden_objects`, `care_events`, `irrigation_zones`
+- **Keine Parallelarchitektur:** Garten = Site, Beet = Location (`is_bed`), Pflanzposition = Slot, Pflegeaufgabe = Task. Der Auftrag nannte Go/Vue/Tailwind — verworfen zugunsten des verbindlichen Stacks (§3.2).
+- **Reale Maße, nicht Pixel:** Zwei Koordinatenrahmen (Plan in Metern; Slots beet-lokal, damit ein verschobenes Beet seine 40 Pflanzpositionen nicht umschreibt). Fläche, Bounding Box und Containment rechnet der Server.
+- **Rendering austauschbar:** SVG-in-React hinter einer `PlanRenderer`-Grenze; Konva erst bei gemessener Schwelle. Begründung in einer 13-Kriterien-Matrix (§19.4) — Accessibility und Testbarkeit entscheiden.
+- **Ein Pflegeprotokoll statt vier Collections:** `care_events` (append-only, Supersede/Void) beantwortet was/wann/wer/warum/Produkt/Menge/Pflanzen/Ergebnis und zeigt auf `watering_events`, `feeding_events`, `treatment_applications`, `harvest_batches`.
+- **Transaktionale Batch-API mit Plan-Revision** (409 bei Konflikt) — bewusste Abweichung vom Teilerfolgs-Muster der Task-Batches, weil eine halb gespeicherte Geometrie nicht reparierbar ist.
+- **Feldmodus** für das Smartphone im Beet: zwei Tipps bis „Erledigt", 64-px-Ziele, Long-Press statt Drag, Position korrigieren per Stepper.
+- **Ein Positionsmodell für Zelt und Beet** (Betreiberentscheidung O-01, v1.1): `Slot.geometry` für alle Slots; `Slot.position` und `Location.dimensions` werden in Welle 1 migriert und entfernt. Alle 15 offenen Punkte sind entschieden (§32).
+- **Drei Reviews eingearbeitet (v1.2):** Agrobiologie (`spec/analysis/agrobiology-review-req-053.md`), Outdoor-Persona, Security. Folgen: Zehrerstufe und N-Fixierung getrennt, `tenant_key` auf Location/Slot, Slot-Reservierung mit Zeitfenster, Beet räumen, Fruchtfolge-/Mischkultur-Hinweis im MVP, Redaktion für Pflegeereignisse, Quoten und Pflicht-Audit, Bodenmodell mit Textur/Füllmedium/Zustand.
+- **49 Given/When/Then-Kriterien, 67 Issue-Kandidaten, 9 Wellen** (MVP in Wellen 0–6, ~16 Wochen).
+
+---
+
+## 🧮 REQ-054: Automatische Anbauplanung
+**Fokus:** Aus einer Pflanzenliste und der Beet-Historie der letzten Jahre eine erklärbare, optimierte Beetbelegung je Saison vorschlagen · **Baut auf:** REQ-053 (Beete, Historie, Zeitfenster-Reservierung), REQ-001/REQ-002 (Rotationsgraph; `CropRotationPlan.optimization_goal` bekommt erstmals einen Konsumenten), REQ-028 (Mischkultur), REQ-015-A (Zeitfenster)
+- **Vorschlag, nie Ausführung:** Der Planer legt nichts an; angenommene Zuordnungen werden geplante Runs mit Zeitfenster und `CropRotationPlan`-Einträge.
+- **Harte Regeln sind nicht verhandelbar** (Anbaupause je Familie, Fläche, Zeitfenster, Frost, `severe`-Inkompatibilität); weiche Ziele mit Gewichten und Profilen (`balanced`, `soil_health`, `pest_control`, `yield`, `low_effort`). Eine Fixierung übersteuert sichtbar, nie still.
+- **Erklärbar je Zuordnung:** Breakdown (Kriterium, Beitrag, Gewicht), regelbasierter Satz, drei verworfene Alternativen mit Hauptunterschied. Kein LLM als Planer (D-01); deterministisch mit Seed, Goldfälle als Regressionsschutz.
+- **Historie ist Pflichteingang:** Beete ohne Rückblick werden als blind geplant markiert; nacherfasste Vorjahre zählen.
+- **v1.2 nach Agrobiologie- und Persona-Review:** Teilplan mit least-bad-Angebot statt Totalausfall, Vor-/Nachkultur und Gründüngung im MVP, Bodengefahren als harte Regel, Frost-Sicherheitsdatum statt Mittelwert, Score-Aggregation nach Flächenanteil, Geltungsbereich mit Schreibrecht je Beet. 27 Akzeptanzkriterien, alle offenen Punkte entschieden, 10 Issue-Kandidaten; Goldfälle im Review-Bericht. Roadmap hängt an REQ-053 Wellen 0–6.
+
+---
+
 ## Technologie-Stack
 
 ### Backend
