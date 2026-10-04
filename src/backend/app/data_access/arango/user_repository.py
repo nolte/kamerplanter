@@ -1,3 +1,6 @@
+from typing import cast
+
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from arango.exceptions import AQLQueryExecuteError
 
@@ -370,20 +373,23 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
               LIMIT 1
               RETURN 1
           ) > 0"""
-        cursor = self._db.aql.execute(
+        return self._count(
             self._unverified_query(
                 age=_REGISTERED_BEFORE_CUTOFF,
                 include_local_registrations=True,
                 extra=provider_rows,
                 tail="COLLECT WITH COUNT INTO pending RETURN pending",
             ),
-            bind_vars={
+            {
                 "@collection": col.USERS,
                 "@providers": col.AUTH_PROVIDERS,
                 "cutoff": cutoff_iso,
                 **self._local_bind(True),
             },
         )
+
+    def _count(self, query: str, bind_vars: dict[str, str]) -> int:
+        cursor = cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars))
         return int(next(iter(cursor), 0))
 
     def count_unverified_undated(self, *, include_local_registrations: bool = False) -> int:
@@ -398,16 +404,15 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         use, #2010) so the task can report the number next to its other counters,
         like R-06's ``held_without_tombstone``.
         """
-        cursor = self._db.aql.execute(
+        return self._count(
             self._unverified_query(
                 age="DATE_TIMESTAMP(doc.created_at) == null",
                 include_local_registrations=include_local_registrations,
                 tail="COLLECT WITH COUNT INTO held RETURN held",
             ),
-            bind_vars={
+            {
                 "@collection": col.USERS,
                 "@providers": col.AUTH_PROVIDERS,
                 **self._local_bind(include_local_registrations),
             },
         )
-        return int(next(iter(cursor), 0))
