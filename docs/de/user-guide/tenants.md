@@ -210,6 +210,9 @@ Du kannst einen Tenant verlassen, solange du nicht der einzige Admin bist:
 1. Navigiere zu **Einstellungen** > **Mitgliedschaft** > **Tenant verlassen**
 2. Bestätigen
 
+!!! note "Aufgaben und Erinnerungen"
+    Verlässt du einen Tenant — oder entfernt dich ein Admin —, bist du dort bei keiner Aufgabe mehr zugewiesen: Die Aufgaben bleiben im Tenant, aber ohne Zuständigen. Die täglichen Pflege-Erinnerungen und die Tageszusammenfassung gehen nur noch an aktive Mitglieder; eine Zusammenfassung enthält immer nur die Aufgaben **eines** Tenants (hast du mehrere, bekommst du je Tenant eine). <!-- Issue #2114, REQ-024 AK-62 -->
+
 !!! warning "Als einziger Admin"
     Wenn du der einzige Admin bist, musst du vorher entweder ein anderes Mitglied zum Admin befördern oder den Tenant löschen — Letzteres setzt zusätzlich voraus, dass du dort sowohl die Rolle Leitung als auch die Zusatzberechtigung Verwaltung hast. Details dazu unter [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md). <!-- Issue #1791 -->
 

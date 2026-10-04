@@ -47,6 +47,7 @@ from app.domain.interfaces.observation_repository import IObservationRepository
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
 from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
+from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.tenant_erasure_executor import ITenantErasureExecutor
 from app.domain.interfaces.tenant_erasure_repository import ITenantErasureRepository
 from app.domain.interfaces.tenant_repository import ITenantRepository
@@ -107,7 +108,12 @@ class TenantService:
         site_anchors: SiteAnchorSource | None = None,
         erasure_repo: IErasureRepository | None = None,
         security_audit: SecurityAuditService | None = None,
+        task_repo: ITaskRepository | None = None,
     ) -> None:
+        # The tasks a membership that ends takes its assignee off (#2114). ``None`` only where no membership
+        # is ever ended (doubles); ``get_tenant_service`` always wires it, and the class guard holds that every
+        # method that deletes a membership calls :meth:`_end_task_assignments`.
+        self._task_repo = task_repo
         # The persistent security audit of every membership, role and scope change
         # (MT-014, #2111). ``None`` only where no membership is ever changed (read-only
         # call sites, doubles); ``get_tenant_service`` always wires it, and
@@ -1800,6 +1806,7 @@ class TenantService:
                 tenant_key=membership.tenant_key,
                 membership=membership,
             )
+            self._end_task_assignments(membership.tenant_key, membership.user_key)
         return removed
 
     def _resolve_admin_membership(
@@ -2037,6 +2044,7 @@ class TenantService:
                 tenant_key=tenant_key,
                 membership=membership,
             )
+            self._end_task_assignments(tenant_key, membership.user_key)
         return removed
 
     def leave_tenant(self, tenant_key: str, user_key: str) -> bool:
@@ -2060,7 +2068,36 @@ class TenantService:
                 tenant_key=tenant_key,
                 membership=membership,
             )
+            self._end_task_assignments(tenant_key, user_key)
         return left
+
+    def _end_task_assignments(self, tenant_key: str, user_key: str) -> None:
+        """Take *user_key* off the assignee of *tenant_key*'s tasks after its membership ended (#2114).
+
+        Called after the membership delete succeeded. A failing clear does not undo the removal and is
+        not raised: the membership is gone, and the care-reminder beat asks the stored membership before it
+        notifies (``notification_tasks``), so a leftover assignment reaches nobody - the clear is the tidy-up,
+        the beat's check the barrier. The failure is logged (pseudonymised, no key, no exception text).
+        """
+        if self._task_repo is None:
+            return
+        try:
+            cleared = self._task_repo.clear_assignee(tenant_key=tenant_key, user_key=user_key)
+        except Exception as exc:  # noqa: BLE001 - see the docstring: the removal stands, the beat checks membership
+            logger.warning(
+                "task_assignments_not_cleared",
+                tenant=log_tenant(tenant_key),
+                subject=log_subject(user_key),
+                error_type=type(exc).__name__,
+            )
+            return
+        if cleared:
+            logger.info(
+                "task_assignments_cleared",
+                tenant=log_tenant(tenant_key),
+                subject=log_subject(user_key),
+                tasks=int(cleared),
+            )
 
     def _audit_membership(
         self,

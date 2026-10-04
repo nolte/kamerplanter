@@ -1241,6 +1241,8 @@ def get_tenant_service() -> TenantService:
         erasure_repo=get_erasure_repo(),
         # MT-014 (#2111) — every membership, role and scope change leaves a persistent audit row.
         security_audit=get_security_audit_service(),
+        # #2114 — a membership that ends takes the member off the tenant's task assignments.
+        task_repo=get_task_repo(),
     )
 
 

@@ -73,8 +73,14 @@ def deps(monkeypatch):
         "get_task_repo",
         "get_notification_service",
         "get_tenant_repo",
+        "get_membership_repo",
     ):
         setattr(module, name, MagicMock(name=name))
+    # #2114 — the notification beat asks the stored membership of (user, tenant); these tests are about
+    # paging, so everyone is an active member (the membership rule has its own tests).
+    module.get_membership_repo.return_value = SimpleNamespace(
+        get_by_user_and_tenant=lambda *_args: SimpleNamespace(is_active=True)
+    )
     monkeypatch.setitem(sys.modules, "app.common.dependencies", module)
     return module
 
@@ -279,8 +285,10 @@ class TestNotificationTasks:
 
         module.send_daily_summary()
 
-        body = service.send_notification.await_args.kwargs["body"]
-        assert "Due today (1001)" in body
+        # One summary per (user, tenant) since #2114; every open task beyond the first page is in one of them.
+        summaries = [call.kwargs for call in service.send_notification.await_args_list]
+        assert sum(s["data"]["due_today_count"] for s in summaries) == 1001
+        assert len({s["tenant_key"] for s in summaries}) == len(summaries) > 1
 
     def test_escalation_visits_every_tenant(self, monkeypatch, deps):
         import app.tasks.notification_tasks as module

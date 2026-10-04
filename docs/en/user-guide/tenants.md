@@ -210,6 +210,9 @@ You can leave a tenant as long as you are not the only admin:
 1. Navigate to **Settings** > **Membership** > **Leave Tenant**
 2. Confirm
 
+!!! note "Tasks and reminders"
+    When you leave a tenant — or an admin removes you — you are no longer assigned to any task there: the tasks stay in the tenant, but without an assignee. The daily care reminders and the daily summary go to active members only; a summary holds the tasks of **one** tenant only (with several tenants you get one per tenant). <!-- Issue #2114, REQ-024 AK-62 -->
+
 !!! warning "If you are the only admin"
     If you are the only admin, you must either promote another member to admin first, or delete the tenant — the latter additionally requires that you hold both the Lead role and the Management scope there. See [Roles, Tenants & Visibility](../reference/roles-and-permissions.md) for details. <!-- Issue #1791 -->
 

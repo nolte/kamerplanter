@@ -210,6 +210,121 @@ def test_the_running_application_wires_the_audit() -> None:
     assert any(kw.arg == "security_audit" for kw in call.keywords)
 
 
+# ── #2114: a membership that ends takes the task assignments with it ──────────
+
+_ENDS = {"delete", "delete_while_tenant_frozen"}
+_CLEAR = "_end_task_assignments"
+
+_ENDING_CLASSIFIED: dict[tuple[str, str], str] = {
+    ("tenant_service.py", "TenantService._settle_join_against_freeze"): (
+        "the take-back of a join the erasure froze meanwhile: the membership never stood, so the account was "
+        "never assigned a task of this tenant through it"
+    ),
+}
+
+
+def _calls_self(function: ast.FunctionDef | ast.AsyncFunctionDef, name: str) -> bool:
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "self"
+        and node.func.attr == name
+        for node in _own_nodes(function)
+    )
+
+
+def _ends_a_membership(function: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in _ENDS
+        and "membership" in _dotted(node.func.value).lower()
+        for node in _own_nodes(function)
+    )
+
+
+def membership_endings(root: Path = SERVICES) -> dict[tuple[str, str], bool]:
+    """Every service function that deletes a membership: (file, qualname) -> calls ``self._end_task_assignments``."""
+    found: dict[tuple[str, str], bool] = {}
+    for path in sorted(root.rglob("*.py")):
+        rel = path.relative_to(root).as_posix()
+        for qualname, function in _functions(ast.parse(path.read_text(encoding="utf-8"))):
+            if _ends_a_membership(function):
+                found[(rel, qualname)] = _calls_self(function, _CLEAR)
+    return found
+
+
+def test_every_membership_ending_clears_the_task_assignments_or_is_classified() -> None:
+    uncleared = sorted(
+        f"{rel}::{name}"
+        for (rel, name), clears in membership_endings().items()
+        if not clears and (rel, name) not in _ENDING_CLASSIFIED
+    )
+
+    assert uncleared == [], (
+        f"A service function that deletes a membership must call self.{_CLEAR} (#2114) or be classified:\n  "
+        + "\n  ".join(uncleared)
+    )
+
+
+def test_the_ending_predicate_sees_the_class() -> None:
+    found = membership_endings()
+    print(f"membership endings: {sorted(found)}")  # noqa: T201 - the measured set, read by the reviewer
+
+    assert set(found) == {
+        ("tenant_service.py", "TenantService.admin_remove_membership"),
+        ("tenant_service.py", "TenantService.remove_member"),
+        ("tenant_service.py", "TenantService.leave_tenant"),
+        ("tenant_service.py", "TenantService._settle_join_against_freeze"),
+    }
+    assert [name for (_, name), clears in found.items() if clears] != []
+
+
+def test_no_ending_classification_is_stale_or_redundant() -> None:
+    found = membership_endings()
+
+    assert sorted(k for k in _ENDING_CLASSIFIED if k not in found) == []
+    assert sorted(k for k in _ENDING_CLASSIFIED if found.get(k)) == []
+
+
+def test_the_running_application_wires_the_task_store() -> None:
+    tree = ast.parse((APP / "common" / "dependencies.py").read_text(encoding="utf-8"))
+    (factory,) = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "get_tenant_service"]
+    (call,) = [
+        n
+        for n in ast.walk(factory)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "TenantService"
+    ]
+
+    assert any(kw.arg == "task_repo" for kw in call.keywords)
+
+
+def test_the_clear_helper_asks_the_task_store() -> None:
+    """A helper that stopped calling the store would leave every ending 'clearing' over nothing."""
+    tree = ast.parse((SERVICES / "tenant_service.py").read_text(encoding="utf-8"))
+    (helper,) = [fn for name, fn in _functions(tree) if name == f"TenantService.{_CLEAR}"]
+    calls = {
+        node.func.attr
+        for node in _own_nodes(helper)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+
+    assert "clear_assignee" in calls
+
+
+def test_the_ending_predicate_recognises_each_spelling() -> None:
+    def ends(source: str) -> bool:
+        (function,) = [n for n in ast.walk(ast.parse(source)) if isinstance(n, ast.FunctionDef)]
+        return _ends_a_membership(function)
+
+    assert ends("def f(self):\n    self._membership_repo.delete(k)")
+    assert ends("def f(self):\n    self._membership_repo.delete_while_tenant_frozen(k, t)")
+    assert ends("def f(memberships):\n    memberships.delete(k)")
+    assert not ends("def f(self):\n    self._membership_repo.get_by_key(k)")
+    assert not ends("def f(self):\n    self._invitation_repo.delete(k)")
+
+
 # ── self-tests: the predicate recognises every spelling it claims ──────────────
 
 

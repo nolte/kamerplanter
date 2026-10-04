@@ -34,6 +34,28 @@ def _as_doc(row) -> dict:
     return doc
 
 
+class _ActiveMembers:
+    """Whether ``(user, tenant)`` is an active membership, asked once per pair for one beat run (#2114).
+
+    The care-reminder beat reads the recipient off the task (``assigned_to``). An assignment can outlive the
+    membership - data from before the assignee was cleared on leaving, a failed clear, a deactivated member -
+    and the beat then notified an ex-member of a tenant's plants and due dates. The stored membership of
+    ``(user, tenant)`` decides, the question ``frost_forecast_tasks`` already asks. A task with no assignee
+    asks for the pair ``("", tenant)`` and is refused like any non-member.
+    """
+
+    def __init__(self, membership_repo) -> None:
+        self._repo = membership_repo
+        self._answers: dict[tuple[str, str], bool] = {}
+
+    def __call__(self, user_key: str, tenant_key: str) -> bool:
+        pair = (user_key, tenant_key)
+        if pair not in self._answers:
+            membership = self._repo.get_by_user_and_tenant(user_key, tenant_key) if user_key and tenant_key else None
+            self._answers[pair] = membership is not None and bool(getattr(membership, "is_active", False))
+        return self._answers[pair]
+
+
 @celery_app.task(name="notifications.dispatch_due_care")
 def dispatch_due_care_notifications() -> dict:
     """Dispatch notifications for due care tasks.
@@ -47,11 +69,12 @@ def dispatch_due_care_notifications() -> dict:
     """
     from datetime import UTC, datetime
 
-    from app.common.dependencies import get_notification_service, get_task_repo
+    from app.common.dependencies import get_membership_repo, get_notification_service, get_task_repo
     from app.common.enums import TaskCategory, TaskStatus
 
     task_repo = get_task_repo()
     service = get_notification_service()
+    is_active_member = _ActiveMembers(get_membership_repo())
 
     # Work in UTC consistently: the task is scheduled at 06:05 UTC and the
     # window boundaries below carry UTC tzinfo. Using date.today() (local
@@ -107,6 +130,10 @@ def dispatch_due_care_notifications() -> dict:
             reminder_type = task_name.split(" \u2014 ")[-1].strip()
 
         plant_name = task_name.split(" \u2014 ")[0].strip() if " \u2014 " in task_name else task_name
+
+        # #2114 — only an active member of the task's tenant is notified of its plants and due dates.
+        if not is_active_member(task_doc.get("assigned_to", ""), task_doc.get("tenant_key", "")):
+            continue
 
         due_tasks.append(
             {
@@ -234,12 +261,13 @@ def send_daily_summary() -> dict:
     """
     from datetime import UTC, datetime
 
-    from app.common.dependencies import get_notification_service, get_task_repo
+    from app.common.dependencies import get_membership_repo, get_notification_service, get_task_repo
     from app.common.enums import TaskCategory, TaskStatus
     from app.domain.models.notification import NotificationUrgency
 
     service = get_notification_service()
     task_repo = get_task_repo()
+    is_active_member = _ActiveMembers(get_membership_repo())
 
     # Consistent UTC (see dispatch_due_care_notifications) — date.today() would
     # drift the window by a day across the local-vs-UTC midnight boundary.
@@ -260,27 +288,24 @@ def send_daily_summary() -> dict:
             continue
         care_tasks.append(task_doc)
 
-    # Group by user (assigned_to)
-    by_user: dict[str, list[dict]] = {}
+    # Group by (user, tenant) (#2114): one summary per tenant the user is an active member of. It used to
+    # group by user alone and file the whole lot under the tenant of the FIRST task document, so a user in two
+    # tenants got one notification with both tenants' tasks, under the wrong tenant.
+    by_user: dict[tuple[str, str], list[dict]] = {}
     for task_doc in care_tasks:
         user_key = task_doc.get("assigned_to", "")
-        if not user_key:
+        tenant_key = task_doc.get("tenant_key", "")
+        if not user_key or not is_active_member(user_key, tenant_key):
             continue
-        if user_key not in by_user:
-            by_user[user_key] = []
-        by_user[user_key].append(task_doc)
+        by_user.setdefault((user_key, tenant_key), []).append(task_doc)
 
     summaries_sent = 0
 
-    for user_key, user_tasks in by_user.items():
+    for (user_key, tenant_key), user_tasks in by_user.items():
         # Check if user has daily_summary enabled
         prefs = service.get_preferences(user_key)
         if not prefs.daily_summary.enabled:
             continue
-
-        tenant_key = ""
-        if user_tasks:
-            tenant_key = user_tasks[0].get("tenant_key", "")
 
         # Categorize tasks
         overdue = []
@@ -338,7 +363,7 @@ def send_daily_summary() -> dict:
                         "due_today_count": len(due_today),
                         "action_url": "/pflege",
                     },
-                    group_key=f"daily_summary:{user_key}:{today.isoformat()}",
+                    group_key=f"daily_summary:{user_key}:{tenant_key}:{today.isoformat()}",
                 )
             )
             summaries_sent += 1
@@ -350,13 +375,13 @@ def send_daily_summary() -> dict:
 
     logger.info(
         "daily_summary_complete",
-        users_with_tasks=len(by_user),
+        users_with_tasks=len({user for user, _tenant in by_user}),
         summaries_sent=summaries_sent,
     )
 
     return {
         "status": "complete",
-        "users_with_tasks": len(by_user),
+        "users_with_tasks": len({user for user, _tenant in by_user}),
         "summaries_sent": summaries_sent,
     }
 

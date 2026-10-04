@@ -584,6 +584,25 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             self.delete_edges(edge_col, task_id, direction="inbound")
         return super().delete(key)
 
+    def clear_assignee(self, *, tenant_key: str, user_key: str) -> int:
+        """Unassign *user_key* from every task of *tenant_key* (#2114); the count of tasks changed."""
+        if not tenant_key or not user_key:
+            # An empty key would match every unassigned task of every tenant (``assigned_to_user_key`` may be
+            # empty): refuse instead of rewriting rows that were never the account's.
+            return 0
+        query = f"""
+        FOR doc IN {col.TASKS}
+          FILTER doc.tenant_key == @tenant_key AND doc.assigned_to_user_key == @user_key
+          UPDATE doc WITH {{ assigned_to_user_key: null, updated_at: @now }} IN {col.TASKS}
+            OPTIONS {{ keepNull: true }}
+          COLLECT WITH COUNT INTO cleared
+          RETURN cleared
+        """
+        cursor = self._db.aql.execute(
+            query, bind_vars={"tenant_key": tenant_key, "user_key": user_key, "now": self._now()}
+        )
+        return int(next(iter(cursor), 0))  # type: ignore[call-overload]
+
     def get_tasks_for_plant(
         self,
         plant_key: str,
