@@ -116,6 +116,8 @@ class TestLastManagerGuard:
         # strand a tenant — the guard must not block it.
         service, repo = _service(_membership(_MANAGER), manager_count=1)
 
-        service.change_member_role("t1", "m1", new_role=TenantRole.VIEWER, actor_scopes=_MANAGER, **_STEP_UP)
+        service.change_member_role(
+            "t1", "m1", new_role=TenantRole.VIEWER, actor_scopes=_MANAGER, actor_user_key="u-actor", **_STEP_UP
+        )
 
         repo.update_fields.assert_called_once_with("m1", {"role": TenantRole.VIEWER})

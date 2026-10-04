@@ -427,7 +427,7 @@ class TestPlantHardinessStatus:
 
     def test_no_profile_yellow_will_materialize(self) -> None:
         # Fragaria-style: moderate frost sensitivity → half_hardy → yellow ampel.
-        species = SimpleNamespace(frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
+        species = SimpleNamespace(tenant_key="", frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.OUTDOOR)
         service = _status_service(plant=_plant(), species=species, site=site)
 
@@ -438,7 +438,7 @@ class TestPlantHardinessStatus:
         assert status.will_materialize is True
 
     def test_no_profile_green_will_not_materialize(self) -> None:
-        species = SimpleNamespace(frost_sensitivity=FrostTolerance.VERY_HARDY, hardiness_zones=["6a"])
+        species = SimpleNamespace(tenant_key="", frost_sensitivity=FrostTolerance.VERY_HARDY, hardiness_zones=["6a"])
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.OUTDOOR)
         service = _status_service(plant=_plant(), species=species, site=site)
 
@@ -452,7 +452,7 @@ class TestPlantHardinessStatus:
         # Same yellow-ampel species as the outdoor case, but on an indoor site: it is
         # never materialised, so `will_materialize` must stay False and the site is
         # flagged non-overwinterable (drives the FE indoor hint).
-        species = SimpleNamespace(frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
+        species = SimpleNamespace(tenant_key="", frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.INDOOR)
         service = _status_service(plant=_plant(), species=species, site=site)
 
@@ -465,7 +465,7 @@ class TestPlantHardinessStatus:
     def test_balcony_site_is_overwinterable_and_materializes_when_yellow(self) -> None:
         # REQ-047 §3.4 — a balcony is a frost-exposed outdoor location, so a yellow
         # plant there is overwinterable and will materialise just like outdoor.
-        species = SimpleNamespace(frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
+        species = SimpleNamespace(tenant_key="", frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.BALCONY)
         service = _status_service(plant=_plant(), species=species, site=site)
 
@@ -488,7 +488,7 @@ class TestPlantHardinessStatus:
         assert status.will_materialize is False
 
     def test_foreign_site_is_unknown(self) -> None:
-        species = SimpleNamespace(frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
+        species = SimpleNamespace(tenant_key="", frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
         site = SimpleNamespace(tenant_key="other_tenant", climate_zone="7a", type=SiteType.OUTDOOR)
         service = _status_service(plant=_plant(), species=species, site=site)
 
@@ -593,7 +593,7 @@ class TestHardinessOverview:
 
         class _SpeciesRepo:
             def get_by_key(self, key):  # noqa: ANN001, ANN201
-                return SimpleNamespace(scientific_name="Solanum lycopersicum", common_names=["Tomate"])
+                return SimpleNamespace(tenant_key="", scientific_name="Solanum lycopersicum", common_names=["Tomate"])
 
         class _SiteRepo:
             """Stores what the write path stores: no ``tenant_key`` on the row.

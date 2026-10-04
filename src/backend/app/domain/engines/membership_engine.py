@@ -46,6 +46,46 @@ class MembershipEngine:
         return AdminScope.MANAGEMENT in assigner_scopes and target_role in ROLE_HIERARCHY
 
     @staticmethod
+    def role_grant_refusal(
+        *,
+        target_role: TenantRole,
+        current_role: TenantRole | None,
+        is_own_membership: bool,
+        tenant_is_platform: bool,
+        actor_role: TenantRole | None,
+    ) -> str | None:
+        """Why handing ``target_role`` out is refused, or ``None`` when it may proceed (#2078).
+
+        :meth:`can_assign_role` answers *whether the actor administers members*; this answers
+        *whether this particular grant may stand*. Two rules, both about a role being worth more
+        than the right to hand it out:
+
+        * **Nobody raises their own role.** A step-up proves who is asking, not that they may be
+          given the role; the secretary REQ-049 §2.4 describes (``management``, role viewer)
+          appoints others, not herself - a self-appointed lead would hold both axes, and a lead
+          holding ``management`` is exactly who may delete the tenant (REQ-024 §1a.2). Lowering
+          one's own role is allowed. ``current_role`` is ``None`` for a grant that has no
+          membership yet (an invitation): the rule then does not apply.
+        * **``lead`` in the platform tenant is the platform role** (REQ-049 §2.5; ``is_platform_admin``
+          reads it), so it is handed out only by someone who holds it - the same standard the
+          platform-admin routes apply. Every other tenant keeps the REQ-049 §2.4 reading: no rank
+          ceiling on what ``management`` may grant, or a tenant whose only lead left could never
+          regain one.
+
+        ``actor_role`` is the actor's role in the tenant from the *stored, active* membership
+        (``None`` when there is none), never the request's claim.
+        """
+        if (
+            is_own_membership
+            and current_role is not None
+            and ROLE_HIERARCHY.get(target_role, 0) > ROLE_HIERARCHY.get(current_role, 0)
+        ):
+            return "A member cannot raise their own role"
+        if tenant_is_platform and target_role == TenantRole.LEAD and actor_role != TenantRole.LEAD:
+            return "Only a platform admin can grant the lead role in the platform tenant"
+        return None
+
+    @staticmethod
     def can_edit_resource(role: TenantRole) -> bool:
         """Growers and leads may create and change domain records."""
         return role in (TenantRole.LEAD, TenantRole.GROWER)

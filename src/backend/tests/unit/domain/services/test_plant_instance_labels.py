@@ -38,11 +38,19 @@ class TestResolveSpeciesAndCultivar:
     def test_resolve_species_returns_model(self):
         species = _make_species()
         self.species_repo.get_by_key.return_value = species
-        assert self.service.resolve_species("basil") is species
+        assert self.service.resolve_species("basil", tenant_key="t1") is species
         self.species_repo.get_by_key.assert_called_once_with("basil")
 
+    def test_resolve_species_of_a_foreign_tenant_is_not_returned(self):
+        """#2082: a stored key the reader's tenant cannot read labels as nothing."""
+        species = _make_species()
+        species.tenant_key = "other"
+        self.species_repo.get_by_key.return_value = species
+        self.species_repo.is_granted_to.return_value = False
+        assert self.service.resolve_species("basil", tenant_key="t1") is None
+
     def test_resolve_species_empty_key_skips_lookup(self):
-        assert self.service.resolve_species("") is None
+        assert self.service.resolve_species("", tenant_key="t1") is None
         self.species_repo.get_by_key.assert_not_called()
 
     def test_resolve_cultivar_returns_model(self):
@@ -68,7 +76,7 @@ class TestResolveWithoutSpeciesRepo:
         )
 
     def test_resolve_species_without_repo(self):
-        assert self.service.resolve_species("basil") is None
+        assert self.service.resolve_species("basil", tenant_key="t1") is None
 
     def test_resolve_cultivar_without_repo(self):
         assert self.service.resolve_cultivar("genovese") is None

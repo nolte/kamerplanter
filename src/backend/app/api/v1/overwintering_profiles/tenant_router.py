@@ -32,6 +32,7 @@ from app.domain.models.overwintering_profile_template import OverwinteringProfil
 from app.domain.models.species import Species
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
+from app.domain.services.species_visibility import readable_species
 
 router = APIRouter(prefix="/overwintering-profiles", tags=["overwintering-profiles"], responses=CRUD_RESPONSES)
 
@@ -107,7 +108,7 @@ def auto_generate_overwintering_profile(
     # dig-and-store path (B3) — whether the plant is a geophyte.
     is_geophyte = False
     if species_key:
-        species = species_repo.get_by_key(species_key)
+        species = readable_species(species_repo, species_key, ctx.tenant_key)
         if species is not None:
             if frost_sensitivity is None:
                 frost_sensitivity = species.frost_sensitivity

@@ -135,6 +135,9 @@ Die vollständige Rechteübersicht — inklusive Plattform-Rollen, Dienstkonten 
 !!! note "Rollenwechsel und Entfernen verlangen deine eigene Bestätigung"
     Wer die Rolle eines Mitglieds ändert oder ein Mitglied entfernt, gibt dazu **sein eigenes** aktuelles Passwort ein — ohne lokales Passwort meldet er sich stattdessen frisch bei seinem Anmeldeanbieter an, oder lässt sich, nur bei einer Anmeldung ausschließlich über GitHub oder Apple, einen Code per E-Mail schicken. Grund: Die Rolle bestimmt, was jemand im Mandanten ändern und löschen darf, und das Entfernen sperrt die Person aus — auch die letzte Leitung. Eine Rolle, die du unverändert erneut sendest, braucht keine Bestätigung. Das Löschen einer Parzellen-Zuordnung braucht sie nicht: Es sperrt niemanden aus dem Mandanten aus.
 
+!!! warning "Du kannst deine eigene Rolle nicht erhöhen"
+    Auch mit Verwaltung erhöhst du die Rolle deiner **eigenen** Mitgliedschaft nicht — das Herabstufen bleibt möglich. Im technischen Mandanten `platform` ist die Rolle Leitung die Plattform-Rolle; sie vergibt dort, per Rollenwechsel wie per Einladung, nur, wer sie selbst hat. In jedem anderen Mandanten darf die Verwaltung weiterhin eine Leitung ernennen. <!-- Issue #2078, REQ-024 AK-58 -->
+
 ---
 
 ## Parzellen zuordnen

@@ -1730,6 +1730,7 @@ class TenantService:
         new_role: TenantRole,
         actor_scopes: list[AdminScope],
         *,
+        actor_user_key: str,
         requester: User,
         current_password: str | None,
         step_up_code: str | None,
@@ -1749,6 +1750,12 @@ class TenantService:
         (``tenant_member_role_change``, bound to the membership — #1884); a role
         re-sent unchanged needs none and writes nothing. The scope gate and the
         tenant-ownership 404 come first.
+
+        **Escalation (#2078, REQ-024 AK-58).** The step-up proves who is asking, not that
+        they may be given the role: before it, :meth:`_refuse_role_grant` refuses a member
+        raising their *own* role (``actor_user_key`` is the acting account, compared with the
+        membership's owner) and a non-lead granting ``lead`` in the platform tenant, where it
+        is the platform role (403, nothing written, no password asked for).
         """
         if not self._membership_engine.can_manage_members(actor_scopes):
             raise ForbiddenError("Requires the management administrative scope")
@@ -1762,6 +1769,14 @@ class TenantService:
 
         if membership.role == new_role:
             return membership
+
+        self._refuse_role_grant(
+            tenant_key=tenant_key,
+            actor_user_key=actor_user_key,
+            target_role=new_role,
+            current_role=membership.role,
+            is_own_membership=membership.user_key == actor_user_key,
+        )
 
         self._step_up_verifier.verify(
             requester,
@@ -1779,6 +1794,39 @@ class TenantService:
         if not result:
             raise NotFoundError("Membership", membership_key)
         return result
+
+    def _refuse_role_grant(
+        self,
+        *,
+        tenant_key: str,
+        actor_user_key: str,
+        target_role: TenantRole,
+        current_role: TenantRole | None,
+        is_own_membership: bool,
+    ) -> None:
+        """Raise :class:`ForbiddenError` when this role grant may not stand (#2078, REQ-024 AK-58).
+
+        The one place the escalation rule of :meth:`MembershipEngine.role_grant_refusal` meets
+        stored state: the actor's role comes from their stored, *active* membership in the
+        tenant, and whether the tenant is the platform tenant from the tenant row - never from
+        the request. Every service function that hands out a membership role through the
+        tenant-scoped routes (:meth:`change_member_role`, the two invitations) calls it; the
+        class guard ``test_membership_role_grants_check_for_escalation`` holds that.
+        """
+        # The rule only bites on a self-raise or on ``lead``; skip the two reads otherwise.
+        if not is_own_membership and target_role != TenantRole.LEAD:
+            return
+        actor = self._membership_repo.get_by_user_and_tenant(actor_user_key, tenant_key)
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        reason = self._membership_engine.role_grant_refusal(
+            target_role=target_role,
+            current_role=current_role,
+            is_own_membership=is_own_membership,
+            tenant_is_platform=bool(tenant and tenant.is_platform),
+            actor_role=actor.role if actor and actor.is_active else None,
+        )
+        if reason:
+            raise ForbiddenError(reason)
 
     def change_member_scopes(
         self,
@@ -1888,6 +1936,13 @@ class TenantService:
         role: TenantRole = TenantRole.VIEWER,
     ) -> InvitationLink:
         self._refuse_invitation_while_owner_erasing(tenant_key=tenant_key)
+        self._refuse_role_grant(
+            tenant_key=tenant_key,
+            actor_user_key=invited_by_user_key,
+            target_role=role,
+            current_role=None,
+            is_own_membership=False,
+        )
         raw_token, token_hash = self._invitation_engine.create_invitation_token()
         expires_at = self._invitation_engine.calculate_expiry(days=7)
 
@@ -1916,6 +1971,13 @@ class TenantService:
         role: TenantRole = TenantRole.VIEWER,
     ) -> InvitationLink:
         self._refuse_invitation_while_owner_erasing(tenant_key=tenant_key)
+        self._refuse_role_grant(
+            tenant_key=tenant_key,
+            actor_user_key=invited_by_user_key,
+            target_role=role,
+            current_role=None,
+            is_own_membership=False,
+        )
         raw_token, token_hash = self._invitation_engine.create_invitation_token()
         expires_at = self._invitation_engine.calculate_expiry(days=7)
 
