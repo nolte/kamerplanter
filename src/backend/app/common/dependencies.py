@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from arango.database import StandardDatabase
 
@@ -180,6 +180,7 @@ if TYPE_CHECKING:
     from app.domain.interfaces.pest_media_source import PestMediaSource
     from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
     from app.domain.models.species import Species
+    from app.domain.models.substrate import SubstrateBatch
     from app.domain.services.activity_plan_service import ActivityPlanService
     from app.domain.services.activity_service import ActivityService
     from app.domain.services.actuator_service import ActuatorService
@@ -623,7 +624,7 @@ def get_plant_diary_service() -> PlantDiaryService:
     )
 
 
-def _resolve_substrate_batch(key: str, *, tenant_key: str):
+def _resolve_substrate_batch(key: str, *, tenant_key: str) -> SubstrateBatch:
     """The batch ``key`` of ``tenant_key`` or 404 — the resolver runs are checked through (#1868)."""
     return get_substrate_service().get_batch(key, tenant_key=tenant_key)
 
@@ -1774,7 +1775,31 @@ def get_notification_preference_repo() -> ArangoNotificationPreferenceRepository
     return ArangoNotificationPreferenceRepository(get_db())
 
 
-def _get_redis_client():
+class _DecodedRedis(Protocol):
+    """The part of a ``decode_responses=True`` Redis client the request-path stores use (#2039).
+
+    ``redis.Redis`` itself cannot be the annotation: its stubs type a reply as
+    ``bytes | str | None`` because the stubs do not know ``decode_responses``,
+    while the stores' own protocols (``_StringRedis``, ``_ClaimingRedis``) ask
+    for ``str | None`` — the truth for the client :func:`_get_redis_client`
+    builds. Widening those protocols to the stub would push ``bytes`` handling
+    into every store for a case that cannot occur.
+    """
+
+    def pipeline(self, transaction: bool = ...) -> Any: ...
+
+    def get(self, name: str) -> str | None: ...
+
+    def set(self, name: str, value: str, ex: int | None = ..., nx: bool = ...) -> object: ...
+
+    def ttl(self, name: str) -> int: ...
+
+    def delete(self, *names: str) -> int: ...
+
+    def decr(self, name: str, amount: int = ...) -> int: ...
+
+
+def _get_redis_client() -> _DecodedRedis:
     """Get a Redis client for the request-path stores, notification dedup and caching.
 
     Bounded like the limiter's storage (:func:`bounded_redis_client_options`):
@@ -1790,7 +1815,12 @@ def _get_redis_client():
 
     from app.common.rate_limit import bounded_redis_client_options
 
-    return redis.Redis.from_url(settings.redis_url, decode_responses=True, **bounded_redis_client_options())
+    # `decode_responses=True` is what makes the replies `str`; the cast states it
+    # where it is true, once, instead of in every consumer.
+    return cast(
+        "_DecodedRedis",
+        redis.Redis.from_url(settings.redis_url, decode_responses=True, **bounded_redis_client_options()),
+    )
 
 
 def _get_throttle_redis_client() -> LatchedRedis:
