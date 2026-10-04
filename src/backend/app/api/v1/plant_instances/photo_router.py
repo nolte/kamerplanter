@@ -27,6 +27,7 @@ from fastapi import APIRouter, Depends, Path, Request, Response, UploadFile
 
 from app.api.v1.attachments.permissions import require_attachment_permission
 from app.api.v1.attachments.tenant_router import _parse_content_length, _read_upload_bounded
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.plant_instances.photo_schemas import (
     AssessmentAdapterResponse,
     AssessmentAdaptersResponse,
@@ -46,6 +47,7 @@ from app.common.enums import AttachmentCategory
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError
 from app.common.log_privacy import log_tenant
 from app.common.openapi_responses import CRUD_RESPONSES
+from app.config.settings import settings
 from app.core.permissions import Action
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
 from app.domain.interfaces.attachment_repository import UNSET
@@ -116,6 +118,7 @@ def _resolved_cover(cover_photo_ref: str | None, photo_ids: list[str]) -> str | 
 
 
 @router.post("", response_model=PlantPhotoResponse, status_code=201)
+@limiter.limit(settings.rate_limit_upload, key_func=user_rate_limit_key)
 async def upload_plant_photo(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     request: Request,

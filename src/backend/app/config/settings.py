@@ -674,7 +674,28 @@ class Settings(BaseSettings):
         return value
 
     rate_limit_auth: str = "20/minute"
-    rate_limit_general: str = "100/minute"
+    #: Per-account budgets of the expensive authenticated routes (#2109), each
+    #: route counted on its own. Keyed on the authenticated principal
+    #: (``user_rate_limit_key``), on the client address only where none was
+    #: resolved. ``rate_limit_general`` ("100/minute") was removed with them:
+    #: no code ever read it.
+    #:
+    #: ``rate_limit_upload`` — every route that takes a file upload (attachments,
+    #: plant and task photos, pest-image contributions, the CSV import). Each
+    #: upload is buffered, magic-byte checked, EXIF-stripped and queues a
+    #: thumbnail render. 30 a minute covers a user picking a whole batch from
+    #: the gallery (the clients upload one request per photo).
+    rate_limit_upload: str = "30/minute"
+    #: ``rate_limit_inference`` — routes that run a model per request (CV
+    #: diagnosis, pest detection, plant identification, reference contribution).
+    #: Below the upload budget: one inference costs more than one upload, and
+    #: nobody photographs twenty plants a minute for a diagnosis. The per-day
+    #: caps of identification and contribution stay in force on top.
+    rate_limit_inference: str = "20/minute"
+    #: ``rate_limit_export`` — the PDF renders under ``/print``. A print is a
+    #: deliberate act; twenty a minute leaves room for retries and several
+    #: label sheets in a row.
+    rate_limit_export: str = "20/minute"
     #: ``POST /api/v1/privacy/email-change`` (REQ-025 Art. 16), per client IP.
     #:
     #: Deliberately far below ``rate_limit_auth`` rather than equal to it. The

@@ -35,11 +35,13 @@ from app.api.v1.attachments.schemas import (
     PresignUploadResponse,
     ThumbnailUris,
 )
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.common.dependencies import get_attachment_service
 from app.common.enums import AttachmentCategory, CaptureDevice
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, KamerplanterError, ValidationError
 from app.common.openapi_responses import CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
+from app.config.settings import settings
 from app.core.permissions import Action
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
 from app.domain.models.attachment import Attachment
@@ -119,6 +121,7 @@ def _parse_category(value: str) -> AttachmentCategory:
 
 
 @router.post("", response_model=AttachmentResponse, status_code=201)
+@limiter.limit(settings.rate_limit_upload, key_func=user_rate_limit_key)
 async def upload_attachment(
     request: Request,
     file: UploadFile,

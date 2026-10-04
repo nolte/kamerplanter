@@ -27,6 +27,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, Path, Query, Request, UploadFile
 from PIL import UnidentifiedImageError
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.recognition.schemas import (
     HistoryEntryResponse,
     IdentifyResponse,
@@ -124,7 +125,9 @@ def _validate_reference_image(image_data: bytes, max_bytes: int) -> None:
 
 
 @router.post("/identify", response_model=IdentifyResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def identify_plant(
+    request: Request,
     image: UploadFile,
     organ: str = Form("auto", description="leaf, flower, fruit, bark, habit, auto"),
     language: str = Form("de", description="Preferred language for the returned suggestions (ISO code)."),
@@ -161,6 +164,7 @@ async def identify_plant(
 
 
 @router.post("/reference", response_model=ReferenceContributionResponse, status_code=202)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def contribute_reference(
     request: Request,
     image: UploadFile,

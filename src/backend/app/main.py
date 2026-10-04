@@ -7,7 +7,6 @@ import structlog
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.api.v1.auth.router import limiter, process_memory_limiter
@@ -22,6 +21,7 @@ from app.common.error_handlers import (
 from app.common.exceptions import KamerplanterError
 from app.common.log_privacy import loggable_path, redact_text_in_flight, register_route_source
 from app.common.middleware import request_id_middleware
+from app.common.rate_limit import rate_limit_exceeded_with_retry_after
 from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH, MIN_TOMBSTONE_SALT_LENGTH
 from app.config.logging import setup_logging
 from app.config.settings import settings
@@ -390,7 +390,7 @@ app.openapi = _openapi_postprocessed  # type: ignore[method-assign]
 
 # Rate limiting
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_with_retry_after)
 
 
 # Security headers middleware

@@ -15,6 +15,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, Path, Query, Request, UploadFile
 from PIL import UnidentifiedImageError
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.tenant_scoped.cv_diagnosis.schemas import (
     ConfirmDiagnosisRequest,
     ConfirmDiagnosisResponse,
@@ -98,6 +99,7 @@ def cv_diagnosis_status(
 
 
 @router.post("/diagnose", response_model=CvDiagnosisResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def diagnose(
     request: Request,
     image: UploadFile,

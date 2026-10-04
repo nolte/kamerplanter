@@ -73,6 +73,7 @@ from __future__ import annotations
 
 import functools
 import inspect
+import math
 import threading
 import time
 from collections.abc import Callable
@@ -82,9 +83,11 @@ import structlog
 from limits.storage import MemoryStorage, Storage, storage_from_string
 from redis.backoff import NoBackoff
 from redis.retry import Retry
-from slowapi import Limiter
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
+from starlette.responses import Response
 
 from app.config.settings import (
     RATE_LIMIT_STORAGE_SCHEMES,
@@ -414,6 +417,40 @@ class OffLoopLimiter(Limiter):
             return check_off_the_loop
 
         return decorator
+
+
+def retry_after_seconds(request: Request, exc: RateLimitExceeded) -> int:
+    """Seconds until the exhausted window frees a request, for ``Retry-After`` (#2109).
+
+    Read from the limiter's own window statistics for the bucket the request
+    was counted in; the whole window length when they cannot be read (another
+    limiter counted it, or the storage failed). Never below one second.
+    """
+    window = int(exc.limit.limit.get_expiry())
+    limiter = getattr(request.app.state, "limiter", None)
+    view = getattr(request.state, "view_rate_limit", None)
+    if isinstance(limiter, Limiter) and isinstance(view, tuple) and len(view) == 2:
+        try:
+            stats = limiter.limiter.get_window_stats(view[0], *view[1])
+        except Exception:  # noqa: BLE001 — the header is advisory; the window length is a safe answer
+            return max(1, window)
+        return max(1, min(window, math.ceil(stats.reset_time - time.time())))
+    return max(1, window)
+
+
+def rate_limit_exceeded_with_retry_after(request: Request, exc: Exception) -> Response:
+    """slowapi's 429 response plus a ``Retry-After`` header (#2109).
+
+    slowapi adds the header only with ``headers_enabled``, which in turn makes
+    every limited route return a ``Response`` object; the header is therefore
+    added here, once, for every limited route.
+    """
+    if not isinstance(exc, RateLimitExceeded):  # pragma: no cover — registered for RateLimitExceeded only
+        raise exc
+    response = _rate_limit_exceeded_handler(request, exc)
+    if "Retry-After" not in response.headers:
+        response.headers["Retry-After"] = str(retry_after_seconds(request, exc))
+    return response
 
 
 def build_process_memory_rate_limiter(key_func: Callable[[Request], str]) -> Limiter:
