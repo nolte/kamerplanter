@@ -293,7 +293,8 @@ Sofort:
 - Alle aktiven Sitzungen werden beendet
 - Du kannst dich nicht mehr anmelden
 - Offene Einladungen in deinen persoenlichen Garten
-  (E-Mail- und Link-Einladungen) werden widerrufen;
+  (E-Mail- und Link-Einladungen) werden widerrufen, neue lassen
+  sich waehrend der 90 Tage nicht mehr anlegen oder einloesen;
   niemand kann ihm waehrend der 90 Tage mehr beitreten
 
 Persoenliche Daten (Art. 17 DSGVO):

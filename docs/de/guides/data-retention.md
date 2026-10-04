@@ -194,7 +194,9 @@ SELECT add_retention_policy('sensor_daily',    INTERVAL '5 years');
     Wird ein Sensor oder ein ganzer Mandant gelöscht, entfernt Kamerplanter neben den
     Rohdaten auch die zugehörigen Stunden- und Tagesmittel (`sensor_hourly`,
     `sensor_daily`) — in jedem Alter, im selben Löschvorgang. Die Mittelwerte anderer
-    Mandanten und Sensoren bleiben unverändert erhalten.
+    Mandanten und Sensoren bleiben unverändert erhalten. Eine Messung, die erst nach dem
+    Löschen eintrifft (etwa von einem Gerät, das noch sendet), wird abgewiesen und legt
+    keine neue Zeitreihe an.
 
 ---
 

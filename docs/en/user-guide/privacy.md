@@ -293,7 +293,8 @@ Immediately:
 - All active sessions are terminated
 - You can no longer log in
 - Pending invitations into your personal garden
-  (email and link invitations) are revoked;
+  (email and link invitations) are revoked, and new ones can
+  neither be created nor redeemed during the 90 days;
   nobody can join it during the 90 days any more
 
 Personal data (GDPR Art. 17):

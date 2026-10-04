@@ -15,7 +15,8 @@ def ingest_ha_readings() -> dict:
     if not settings.timescaledb_enabled:
         return {"status": "skipped", "reason": "timescaledb_disabled"}
 
-    from app.common.dependencies import get_ha_client, get_observation_repo, get_sensor_repo
+    from app.common.dependencies import get_ha_client, get_observation_repo, get_observation_service, get_sensor_repo
+    from app.common.exceptions import NotFoundError
     from app.domain.models.observation import SensorReading
 
     ha_client = get_ha_client()
@@ -24,6 +25,10 @@ def ingest_ha_readings() -> dict:
 
     sensor_repo = get_sensor_repo()
     obs_repo = get_observation_repo()
+    # The one path readings are stored through: it resolves whose a sensor is, refuses
+    # one that is gone or on its way out, and takes a reading back that raced an
+    # erasure (#1944). A sensor document has no tenant_key of its own.
+    observation_service = get_observation_service()
 
     if not obs_repo.is_available():
         logger.warning("sensor_ingest_timescaledb_unavailable")
@@ -34,37 +39,40 @@ def ingest_ha_readings() -> dict:
 
     db = sensor_repo._db  # noqa: SLF001 — direct access for AQL query
     cursor = db.aql.execute(
-        "FOR s IN @@col FILTER s.is_active == true AND s.ha_entity_id != null AND s.ha_entity_id != '' RETURN s",
+        "FOR s IN @@col FILTER s.is_active == true AND s.deletion_pending != true "
+        "AND s.ha_entity_id != null AND s.ha_entity_id != '' RETURN s",
         bind_vars={"@col": SENSORS},
     )
 
-    readings: list[SensorReading] = []
     errors: list[dict] = []
+    skipped = 0
+    inserted = 0
     now = datetime.now(tz=UTC)
 
     for doc in cursor:
         try:
+            tenant_key = observation_service.owning_tenant_key(doc["_key"])
+            if tenant_key is None:
+                skipped += 1  # no parent, or its delete began: nobody to store a reading for
+                continue
             result = ha_client.get_state(doc["ha_entity_id"])
             if result and result["value"] is not None:
-                readings.append(
-                    SensorReading(
-                        time=now,
-                        tenant_key=doc.get("tenant_key", ""),
-                        sensor_key=doc["_key"],
-                        sensor_type=doc.get("metric_type", "unknown"),
-                        value=float(result["value"]),
-                        unit=result.get("unit"),
-                        source="ha_auto",
-                        quality_score=1.0,
-                    )
+                reading = SensorReading(
+                    time=now,
+                    tenant_key=tenant_key,
+                    sensor_key=doc["_key"],
+                    sensor_type=doc.get("metric_type", "unknown"),
+                    value=float(result["value"]),
+                    unit=result.get("unit"),
+                    source="ha_auto",
+                    quality_score=1.0,
                 )
+                inserted += observation_service.record_readings_batch(doc["_key"], [reading], tenant_key=tenant_key)
+        except NotFoundError:
+            skipped += 1  # erased while Home Assistant was being asked; nothing was kept
         except Exception as exc:
             logger.warning("sensor_ingest_ha_error", entity_id=doc.get("ha_entity_id"), error=loggable_error(exc))
             errors.append({"entity_id": doc.get("ha_entity_id"), "error": str(exc)})
 
-    inserted = 0
-    if readings:
-        inserted = obs_repo.insert_batch(readings)
-
-    logger.info("sensor_ingest_complete", inserted=inserted, errors=len(errors))
-    return {"status": "ok", "inserted": inserted, "errors": len(errors)}
+    logger.info("sensor_ingest_complete", inserted=inserted, errors=len(errors), skipped=skipped)
+    return {"status": "ok", "inserted": inserted, "errors": len(errors), "skipped": skipped}
