@@ -265,9 +265,10 @@ class PrivacyService:
         # without either, before it touches anything.
         self._erasure_executor = erasure_executor
         # REQ-025 Art. 17 / #1788 — the account erasure erases the subject's
-        # personal tenant through the tenant-erasure inventory (#1769) when
-        # nobody else uses it. Optional like the executor: a deployment without
-        # it cannot erase an account and is refused before anything changes.
+        # personal tenant through the tenant-erasure inventory (#1769), also
+        # when other members use it (#1824). Optional like the executor: a
+        # deployment without it cannot erase an account and is refused before
+        # anything changes.
         self._tenant_service = tenant_service
         self._tombstone_salt = tombstone_salt
         # NFR-011 R-02 / R-06 periods (#1772): the erasure-record purge and the
@@ -2909,9 +2910,10 @@ class PrivacyService:
         3. **Phase 0 / 0.5 / pest images** (:meth:`_run_pre_arango_phases`):
            they resolve the user's tenants through the memberships step 5 removes.
         4. **The subject's personal tenants** (:meth:`_erase_personal_tenants`,
-           #1788): each one nobody else uses goes through the tenant-erasure
-           inventory (:meth:`TenantService.delete_tenant`, origin
-           ``account_erasure``). Runs on every attempt — each tenant is resumed
+           #1788): each one goes through the tenant-erasure inventory
+           (:meth:`TenantService.delete_tenant`, origin ``account_erasure``),
+           also with other active members (#1824; only a member who joined
+           after the erasure froze it keeps it, AK-IE-07). Runs on every attempt — each tenant is resumed
            from its own deletion record — and before step 5, which replaces the
            owner reference the tenants are found by.
         5. **The ArangoDB plan** via :class:`IErasureExecutor`, in one

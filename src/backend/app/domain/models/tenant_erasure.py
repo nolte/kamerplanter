@@ -28,7 +28,8 @@ from pydantic import BaseModel, Field, model_validator
 type TenantErasureAction = Literal["delete", "pseudonymize", "retain"]
 
 #: Which entry point asked for the deletion. ``account_erasure`` is the erasure of
-#: the tenant's owner when nobody else is an active member of it (#1788).
+#: the tenant's owner: a personal tenant goes with its owner's account, whoever else
+#: is an active member of it (#1788, erasure together #1824).
 type TenantErasureOrigin = Literal["tenant_management", "platform_admin", "account_erasure"]
 
 type TenantErasureStatus = Literal["in_progress", "completed", "partially_completed"]
@@ -40,7 +41,7 @@ type TenantErasureStatus = Literal["in_progress", "completed", "partially_comple
 #: mailed to it. ``slug_confirmation`` is written no more: it marks
 #: records from before #1815, when the echoed slug alone confirmed such an account.
 #: ``account_erasure_no_interactive_step_up`` — nobody asked interactively: the
-#: tenant is a personal tenant the erased account used alone, and the account
+#: tenant is a personal tenant of the erased account, and the account
 #: erasure that decided it (itself re-authenticated, a platform admin, or the
 #: unverified cleanup) took no step-up for the tenant (#1788).
 type TenantDeletionStepUp = Literal[
