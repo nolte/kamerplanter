@@ -52,11 +52,10 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
 
         ``instance_id`` is unique per tenant since #2065 (``(tenant_key,
         instance_id)``): two tenants may hold the same id, so the tenant filter is
-        what makes the answer unique. An empty ``tenant_key`` drops the filter and
-        returns the first match of any tenant.
+        what makes the answer unique. An empty ``tenant_key`` matches only rows whose
+        tenant is empty, never another tenant's row.
         """
-        extra = [("tenant_key", "==", tenant_key)] if tenant_key else None
-        return self.find_one_by_field("instance_id", instance_id, extra_filters=extra)
+        return self.find_one_by_field("instance_id", instance_id, extra_filters=[("tenant_key", "==", tenant_key)])
 
     def create(self, plant: PlantInstance) -> PlantInstance:
         created = super().create(plant)

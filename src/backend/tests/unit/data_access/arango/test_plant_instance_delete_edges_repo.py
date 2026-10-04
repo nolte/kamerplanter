@@ -82,3 +82,14 @@ def test_get_by_instance_id_can_be_tenant_scoped() -> None:
     assert "AGV-1-pup" in bind_values.values()
     assert "tenant-a" in bind_values.values()
     assert "tenant_key" in joined
+
+
+def test_get_by_instance_id_with_empty_tenant_still_filters_on_the_tenant() -> None:
+    """An empty tenant key matches only rows with an empty tenant, never every tenant's."""
+    db = _CapturingDb()
+    repo = ArangoPlantInstanceRepository(db)  # type: ignore[arg-type]
+
+    repo.get_by_instance_id("AGV-1-pup", tenant_key="")
+
+    joined = " ".join(c["query"] for c in db.aql.calls)
+    assert "tenant_key" in joined
