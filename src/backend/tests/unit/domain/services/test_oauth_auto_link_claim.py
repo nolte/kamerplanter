@@ -351,3 +351,16 @@ class TestTheRefusalReachesTheUser:
             service.complete_oauth("acme", "code", "state")
 
         assert "account settings" not in str(caught.value).lower()
+
+
+class TestTheRegistrationRecordsTheProofOnlyForAnAssertedClaim:
+    """#1948 — ``email_confirmed_at`` is the proof REQ-030 mails on; silence is no proof."""
+
+    @pytest.mark.parametrize(("claim", "proven"), [(True, True), (False, False), (None, False)])
+    def test_the_proof_follows_the_claim(self, claim: bool | None, proven: bool):
+        service, user_repo = _service_without_local_account(_oauth_user(claim))
+
+        service.complete_oauth("acme", "code", "state")
+
+        created = user_repo.create.call_args.args[0]
+        assert (created.email_confirmed_at is not None) is proven

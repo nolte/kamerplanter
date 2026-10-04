@@ -394,3 +394,16 @@ def test_a_confirmation_in_flight_is_superseded_by_the_revert() -> None:
     assert world.changes.rows[second.key].status == "superseded"
     assert world.post(CONFIRM, {"token": second_token}).status_code == 401
     assert world.users.rows[world.key].email == world.email
+
+
+def test_a_confirmed_change_and_its_revert_each_record_the_proof() -> None:
+    """#1948 — the new address was reached by the link, the old one by the revert link."""
+    world = _World()
+    assert world.users.rows[world.key].email_confirmed_at is None  # the fixture account never proved anything
+
+    revert = _changed(world)
+    after_change = world.users.rows[world.key].email_confirmed_at
+    assert after_change is not None
+
+    assert world.post(REVERT, {"token": revert}).status_code == 200
+    assert world.users.rows[world.key].email_confirmed_at is not None

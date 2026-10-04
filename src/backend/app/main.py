@@ -128,6 +128,33 @@ def warn_if_console_email_adapter() -> bool:
     return True
 
 
+def warn_if_email_channel_without_verification() -> bool:
+    """Warn once when notification mail can leave while verification is off (#1948).
+
+    With ``REQUIRE_EMAIL_VERIFICATION=false`` registration stamps ``email_verified``
+    without a confirmation. The e-mail notification channel therefore mails only
+    accounts that proved their address through a link (``email_confirmed_at``), so
+    on such an installation accounts registered while it was off receive nothing
+    until they follow a verification link — which only a ``true`` setting sends.
+    Applies when a real sender is configured (``EMAIL_ADAPTER`` smtp or resend);
+    the console adapter delivers nothing anyway. A warning, not a refusal to start:
+    the setting is a legitimate choice for an installation that never sends mail.
+    Returns whether it warned.
+    """
+    if settings.email_adapter == "console" or settings.require_email_verification:
+        return False
+    logger.warning(
+        "email_channel_without_verification",
+        email_adapter=settings.email_adapter,
+        detail=(
+            "a sender is configured but REQUIRE_EMAIL_VERIFICATION is off: accounts registered meanwhile are not"
+            " confirmed, so notification mail is withheld from them until REQUIRE_EMAIL_VERIFICATION=true and"
+            " the owner follows a verification link"
+        ),
+    )
+    return True
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Again: a server that reconfigured its loggers between import and startup
@@ -135,6 +162,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     setup_logging(settings.debug)
     logger.info("startup", app=settings.app_name, version=settings.app_version)
     warn_if_console_email_adapter()
+    warn_if_email_channel_without_verification()
 
     # Check for default secrets in production
     if not settings.debug:
