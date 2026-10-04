@@ -437,9 +437,11 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 **Testschritte**:
 1. Lisa klickt auf das Rollen-Dropdown neben Max
 2. Lisa wählt "Admin" aus dem Dropdown
-3. Änderung wird gespeichert (ggf. Bestätigungs-Dialog)
+3. Ein Bestätigungs-Dialog verlangt Lisas **eigenes** Passwort (Step-up, REQ-024 AK-57); Lisa gibt es ein und bestätigt
+4. Änderung wird gespeichert
 
 **Erwartete Ergebnisse**:
+- Ohne das Passwort wird die Rolle nicht geändert
 - Max' Rollen-Chip ändert sich zu "Admin" (rote Farbe)
 - Eine Erfolgs-Snackbar erscheint (oder visuelle Bestätigung der Änderung)
 - Max kann nun Admin-Funktionen ausführen (Tab "Einladungen" sichtbar bei nächster Anmeldung)
@@ -462,7 +464,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 **Testschritte**:
 1. Max klickt auf sein eigenes Rollen-Dropdown
-2. Max versucht, seine Rolle auf "Gärtner" zu ändern
+2. Max versucht, seine Rolle auf "Gärtner" zu ändern (bestätigt den Step-up-Dialog mit seinem eigenen Passwort)
 
 **Erwartete Ergebnisse**:
 - Aktion wird abgelehnt: Eine Fehlermeldung erscheint (z.B. Snackbar "Der letzte Admin kann nicht degradiert werden" o.ä.)
@@ -487,11 +489,11 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 **Testschritte**:
 1. Lisa klickt auf den Löschen-Button (Papierkorb-Icon) neben Anna
-2. Ein Bestätigungs-Dialog erscheint ("Mitglied entfernen" o.ä.)
-3. Lisa bestätigt die Aktion
+2. Ein Bestätigungs-Dialog erscheint ("Mitglied entfernen" o.ä.) und verlangt Lisas **eigenes** Passwort (Step-up, REQ-024 AK-57)
+3. Lisa gibt ihr Passwort ein und bestätigt die Aktion
 
 **Erwartete Ergebnisse**:
-- Bestätigungs-Dialog erscheint mit Annas Namen vor der Aktion
+- Bestätigungs-Dialog erscheint mit Annas Namen vor der Aktion; ohne gültiges Passwort wird Anna nicht entfernt
 - Nach Bestätigung: Snackbar "Mitglied entfernt" erscheint
 - Annas Zeile verschwindet aus der Mitgliederliste
 - Mitgliederzahl im Tenant-Switcher reduziert sich um 1
@@ -513,7 +515,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 - Keine anderen Admins vorhanden
 
 **Testschritte**:
-1. Nutzer (Admin) klickt auf Löschen-Button neben seinem eigenen Eintrag
+1. Nutzer (Admin) klickt auf Löschen-Button neben seinem eigenen Eintrag und bestätigt den Step-up-Dialog mit seinem eigenen Passwort
 
 **Erwartete Ergebnisse**:
 - Aktion wird abgelehnt: Fehlermeldung erscheint ("Letzter Admin kann nicht entfernt werden" o.ä.)

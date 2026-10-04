@@ -125,11 +125,12 @@ describe('adminPlatform endpoints — tenant members', () => {
     });
   });
 
-  it('changeTenantMemberRole patches member role', async () => {
+  it("changeTenantMemberRole patches member role with the admin's step-up (#2032)", async () => {
     client.patch.mockResolvedValue({ data: { key: 'm1' } });
-    await admin.changeTenantMemberRole('t1', 'm1', 'lead' as never);
+    await admin.changeTenantMemberRole('t1', 'm1', 'lead' as never, { current_password: 'pw' });
     expect(client.patch).toHaveBeenCalledWith('/admin/platform/tenants/t1/members/m1/role', {
       role: 'lead',
+      current_password: 'pw',
     });
   });
 });
@@ -156,11 +157,12 @@ describe('adminPlatform endpoints — user memberships', () => {
     });
   });
 
-  it('changeUserMembershipRole patches membership role', async () => {
+  it("changeUserMembershipRole patches membership role with the admin's step-up (#2032)", async () => {
     client.patch.mockResolvedValue({ data: { key: 'm1' } });
-    await admin.changeUserMembershipRole('u1', 'm1', 'grower' as never);
+    await admin.changeUserMembershipRole('u1', 'm1', 'grower' as never, { step_up_token: 'tok' });
     expect(client.patch).toHaveBeenCalledWith('/admin/platform/users/u1/memberships/m1/role', {
       role: 'grower',
+      step_up_token: 'tok',
     });
   });
 });

@@ -74,10 +74,13 @@ describe('stepUpReauth storage (#1815)', () => {
       'admin_account_erasure',
       'admin_account_update',
       'admin_membership_removal',
+      'admin_membership_role_change',
       'admin_tenant_update',
       'oidc_provider_change',
       'provider_unlink',
       'tenant_deletion',
+      'tenant_member_removal',
+      'tenant_member_role_change',
     ]);
   });
 
@@ -122,6 +125,9 @@ describe('isStepUpAction (#1847, #1857)', () => {
       'device_pairing',
       'provider_unlink',
       'admin_account_update',
+      'admin_membership_role_change',
+      'tenant_member_removal',
+      'tenant_member_role_change',
     ]) {
       expect(isStepUpAction(action)).toBe(true);
     }

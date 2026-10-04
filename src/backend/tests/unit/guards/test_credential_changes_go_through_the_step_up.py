@@ -75,6 +75,12 @@ _CREDENTIAL_REPO_CALLS = {
     # it the predicate lost update_provider — the member count caught it.
     ("_oidc_config_repo", "update_fields"),
     ("_oidc_config_repo", "delete"),
+    # #2032 — a membership's role or existence decides who may act in, and who is locked out of, a
+    # tenant: demoting a tenant's last lead and removing a member are lockouts of another account.
+    # Creation grants access and is the invitation/registration path; ``deactivate_all_for_tenant``
+    # belongs to the tenant-erasure class below.
+    ("_membership_repo", "update_fields"),
+    ("_membership_repo", "delete"),
 }
 
 #: Members that need no step-up of their own, with the reason read from the code.
@@ -144,6 +150,23 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "test_the_immediate_admin_erasure_starts_only_behind_the_step_up"
     ),
 }
+
+_MEMBERSHIP_CLASSIFIED: dict[tuple[str, str], str] = {
+    ("tenant_service.py", "TenantService.leave_tenant"): (
+        "a person leaving on their own: the act is the member's own, nobody is locked out by someone else, "
+        "and INV-1 refuses the last management holder; the session that leaves is the person's"
+    ),
+    ("tenant_service.py", "TenantService._settle_join_against_freeze"): (
+        "compensation of a creation made one statement earlier by the caller (_create_membership_unless_erasing): "
+        "takes back the membership it just inserted when the tenant froze meanwhile (#1825, #1924)"
+    ),
+    ("tenant_service.py", "TenantService.change_member_scopes"): (
+        "no route or other caller reaches it today (pinned by test_the_unrouted_scope_change_has_no_caller); "
+        "the scopes (axis 2) carry INV-1, and a route that wires it must pass the step-up like change_member_role "
+        "(#2032 decision recorded in REQ-024 AK-57) — this entry then leaves the list"
+    ),
+}
+_CLASSIFIED.update(_MEMBERSHIP_CLASSIFIED)
 
 #: Known members without a step-up yet -> the follow-up issue tracking each. Emptied
 #: by #1847 (API keys, device pairing, provider unlink) and #1857 (admin update).
@@ -305,7 +328,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
 EXPECTED_MEMBERS = (
-    26  # +3 with #1883: OidcProviderAdminService.create/update/delete_provider; +1 with #1987: _login_link;
+    33  # +7 with #2032: the membership writes (_MEMBERSHIP_CLASSIFIED and the four gated role/removal methods);
+    # +3 with #1883: OidcProviderAdminService.create/update/delete_provider; +1 with #1987: _login_link;
     # +1 with #2037: the verification-token write, now _issue_verification_link (#2046 moved it out of
     # _send_fresh_verification_link so the anonymous and the proven path share it)
 )
@@ -356,6 +380,11 @@ def test_the_gated_entries_are_gated() -> None:
         ("oidc_provider_admin_service.py", "OidcProviderAdminService.create_provider"),
         ("oidc_provider_admin_service.py", "OidcProviderAdminService.update_provider"),
         ("oidc_provider_admin_service.py", "OidcProviderAdminService.delete_provider"),
+        # #2032 — the role/removal lockouts, platform-admin and tenant-scoped.
+        ("tenant_service.py", "TenantService.admin_change_membership_role"),
+        ("tenant_service.py", "TenantService.admin_remove_membership"),
+        ("tenant_service.py", "TenantService.change_member_role"),
+        ("tenant_service.py", "TenantService.remove_member"),
     ):
         assert entry in found and found[entry][1], f"{entry} is not behind self._step_up_verifier"
 
@@ -404,6 +433,8 @@ def test_the_predicate_recognises_each_spelling() -> None:
     assert _why("def f(self):\n    self._auth_provider_repo.create(p)")
     assert _why("def f(self):\n    self._auth_provider_repo.delete(k)")
     assert _why("def f(self):\n    self._api_key_repo.create(k)")
+    assert _why("def f(self):\n    self._membership_repo.update_fields(k, {'role': r})")
+    assert _why("def f(self):\n    self._membership_repo.delete(k)")
     assert _why("def f(self):\n    store = self._require_device_pairing_store()\n    store.issue(c, u)")
     assert _why("def f(self):\n    self._device_pairing_code_store.issue(c, u)")
 
@@ -414,6 +445,8 @@ def test_the_predicate_ignores_reads_and_other_keys() -> None:
     assert not _why("def f(self):\n    send(to_email=e)")
     assert not _why("def f(self):\n    return UserProfile(email=u.email)")
     assert not _why("def f(self):\n    self._api_key_repo.delete(k)")
+    assert not _why("def f(self):\n    self._membership_repo.create(m)")
+    assert not _why("def f(self):\n    return self._membership_repo.get_by_key(k)")
     assert not _why("def f(self):\n    store = self._require_device_pairing_store()\n    store.consume(c)")
 
 
@@ -699,3 +732,23 @@ def test_a_helper_that_verifies_gates_its_callers() -> None:
     )
 
     assert _gated(source, "S.mint") is True
+
+
+def test_the_unrouted_scope_change_has_no_caller() -> None:
+    """The classification of ``change_member_scopes`` is a claim about the code — measure it.
+
+    It is classified above because nothing reaches it. The day a route or another service calls it, the
+    reason is false: this fails and the entry must become a step-up (and leave the list).
+    """
+    callers = sorted(
+        path.relative_to(APP).as_posix()
+        for path in APP.rglob("*.py")
+        if any(
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "change_member_scopes"
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+        )
+    )
+
+    assert callers == [], f"change_member_scopes is called now — it needs the step-up, not a classification: {callers}"

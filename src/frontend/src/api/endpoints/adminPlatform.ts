@@ -149,14 +149,20 @@ export async function removeTenantMember(
   );
 }
 
+/**
+ * Change a member's role (#2032): an actual change carries the **admin's own**
+ * step-up — `current_password`, or `step_up_token` / `step_up_code` for the act
+ * `admin_membership_role_change` bound to the membership's key; 401 without it.
+ */
 export async function changeTenantMemberRole(
   tenantKey: string,
   membershipKey: string,
   role: TenantRole,
+  stepUp: CredentialStepUp,
 ): Promise<AdminTenantMember> {
   const { data } = await apiClient.patch<AdminTenantMember>(
     `/admin/platform/tenants/${encodeURIComponent(tenantKey)}/members/${encodeURIComponent(membershipKey)}/role`,
-    { role },
+    { role, ...stepUp },
   );
   return data;
 }
@@ -191,14 +197,16 @@ export async function removeUserFromTenant(
   );
 }
 
+/** Change a user's role in a tenant (#2032): the same step-up body as {@link changeTenantMemberRole}. */
 export async function changeUserMembershipRole(
   userKey: string,
   membershipKey: string,
   role: TenantRole,
+  stepUp: CredentialStepUp,
 ): Promise<AdminUserMembership> {
   const { data } = await apiClient.patch<AdminUserMembership>(
     `/admin/platform/users/${encodeURIComponent(userKey)}/memberships/${encodeURIComponent(membershipKey)}/role`,
-    { role },
+    { role, ...stepUp },
   );
   return data;
 }

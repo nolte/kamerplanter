@@ -91,6 +91,10 @@ export default function AdminEditTenantPage() {
   // membership only (#1884: token and dialog are bound to its key).
   useStepUpResume('update-tenant');
   useStepUpResume('remove-member');
+  // #2032 — changing a member's role (demoting the last lead) passes it too, bound to the
+  // membership. The chosen role does not survive the identity-provider round trip either.
+  useStepUpResume('change-member-role');
+  const [roleChange, setRoleChange] = useState<{ member: AdminTenantMember; role: TenantRole } | null>(null);
   const [confirmActiveChange, setConfirmActiveChange] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<AdminTenantMember | null>(null);
 
@@ -250,15 +254,26 @@ export default function AdminEditTenantPage() {
     enqueueSnackbar(t('pages.auth.adminMemberRemoved'), { variant: 'success' });
   };
 
-  const handleRoleChange = async (m: AdminTenantMember, newRole: TenantRole) => {
-    if (!key) return;
-    try {
-      const updated = await changeTenantMemberRole(key, m.membership_key, newRole);
-      setMembers((prev) => prev.map((x) => (x.membership_key === m.membership_key ? updated : x)));
-      enqueueSnackbar(t('common.saved'), { variant: 'success' });
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    }
+  // Choosing another role only opens the confirmation (#2032): the select keeps showing the
+  // stored role until the admin's OWN step-up went through.
+  const handleRoleChange = (m: AdminTenantMember, newRole: TenantRole) => {
+    if (newRole === m.role) return;
+    setRoleChange({ member: m, role: newRole });
+  };
+
+  // A rejection propagates to the dialog, which shows it inside itself and stays open.
+  const handleConfirmRoleChange = async (credentials: StepUpConfirmation) => {
+    if (!key || !roleChange) return;
+    const { member, role } = roleChange;
+    const updated = await changeTenantMemberRole(
+      key,
+      member.membership_key,
+      role,
+      toCredentialStepUpBody(credentials),
+    );
+    setMembers((prev) => prev.map((x) => (x.membership_key === member.membership_key ? updated : x)));
+    setRoleChange(null);
+    enqueueSnackbar(t('common.saved'), { variant: 'success' });
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
@@ -504,6 +519,24 @@ export default function AdminEditTenantPage() {
               stepUpTarget={memberToRemove?.membership_key}
               onConfirm={handleRemoveMember}
               onCancel={() => setMemberToRemove(null)}
+            />
+            <StepUpConfirmDialog
+              open={roleChange !== null}
+              title={t('pages.auth.adminChangeRoleStepUpTitle')}
+              description={t('pages.auth.adminChangeRoleStepUpDescription', {
+                name: roleChange?.member.display_name ?? '',
+                tenant: tenant.name,
+                role: roleChange ? t(`enums.tenantRole.${roleChange.role}`) : '',
+              })}
+              passwordLabel={t('pages.auth.adminDeleteUserPasswordLabel')}
+              passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
+              confirmLabel={t('pages.auth.adminChangeRoleStepUpConfirm')}
+              confirmColor="primary"
+              testIdPrefix="change-member-role"
+              stepUpAction="admin_membership_role_change"
+              stepUpTarget={roleChange?.member.membership_key}
+              onConfirm={handleConfirmRoleChange}
+              onCancel={() => setRoleChange(null)}
             />
           </CardContent>
         </Card>

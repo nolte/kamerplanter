@@ -48,6 +48,9 @@ const STEP_UP_ACTION_SET: Readonly<Record<StepUpAction, true>> = {
   oidc_provider_change: true,
   admin_tenant_update: true,
   admin_membership_removal: true,
+  admin_membership_role_change: true,
+  tenant_member_removal: true,
+  tenant_member_role_change: true,
 };
 
 /**
@@ -69,6 +72,9 @@ const TARGETED_STEP_UP_ACTIONS: Readonly<Record<StepUpAction, boolean>> = {
   oidc_provider_change: true,
   admin_tenant_update: true,
   admin_membership_removal: true,
+  admin_membership_role_change: true,
+  tenant_member_removal: true,
+  tenant_member_role_change: true,
 };
 
 export function isTargetedStepUpAction(action: StepUpAction): boolean {

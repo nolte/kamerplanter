@@ -5006,7 +5006,13 @@ export type StepUpAction =
   // #2009 — a platform admin deactivating (or reactivating) a whole tenant.
   | 'admin_tenant_update'
   // #2009 — a platform admin removing a member from a tenant.
-  | 'admin_membership_removal';
+  | 'admin_membership_removal'
+  // #2032 — a platform admin changing a member's role (demoting a tenant's last lead).
+  | 'admin_membership_role_change'
+  // #2032 — a tenant's member administrator (the `management` scope) removing a member.
+  | 'tenant_member_removal'
+  // #2032 — a tenant's member administrator changing a member's role.
+  | 'tenant_member_role_change';
 
 /**
  * The step-up a credential change carries in its body (#1847, #1857, REQ-023
