@@ -113,8 +113,25 @@ class AdminAddMemberRequest(BaseModel):
     role: TenantRole = TenantRole.VIEWER
 
 
-class AdminUpdateMemberRoleRequest(BaseModel):
+class AdminUpdateMemberRoleRequest(CredentialStepUp):
+    """A member's new role; the step-up fields are the *admin's* own (#2032).
+
+    Needed only when the role actually changes (REQ-024 AK-57) — a role re-sent unchanged
+    needs none — and never written to the membership. ``current_password`` for an admin
+    with a local password; for one without, ``step_up_token`` / ``step_up_code`` obtained
+    for ``admin_membership_role_change`` with the membership's key.
+    """
+
     role: TenantRole
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"role": "viewer", "current_password": "<the admin's own current password>"},
+                {"role": "grower", "step_up_code": "48213907"},
+            ]
+        },
+    )
 
 
 class AdminUserMembershipResponse(BaseModel):

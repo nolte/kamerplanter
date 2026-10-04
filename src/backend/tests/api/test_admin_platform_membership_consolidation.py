@@ -347,6 +347,9 @@ class TestChangeRoleEquivalence:
         # Both responses carry the new role, in their own shape.
         assert resp_t.json()["role"] == "lead"
         assert resp_u.json()["role"] == "lead"
+        # … and both passed the same step-up, bound to the same membership (#2032, #1884).
+        assert tenant_view.step_up.actions == user_view.step_up.actions == ["admin_membership_role_change"]
+        assert tenant_view.step_up.targets == user_view.step_up.targets == ["m-1"]
 
 
 class TestRemoveMembershipEquivalence:

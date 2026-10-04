@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Body, Depends, Path
 
 from app.api.v1.tenants.schemas import (
     AcceptInvitationRequest,
@@ -13,6 +13,7 @@ from app.api.v1.tenants.schemas import (
     InvitationResponse,
     LinkInvitationRequest,
     MemberInfoResponse,
+    MemberRemovalRequest,
     MessageResponse,
     TenantCreateRequest,
     TenantDeleteRequest,
@@ -182,29 +183,76 @@ def list_members(
 @router.patch(
     "/{tenant_slug}/members/{membership_key}/role",
     response_model=MessageResponse,
+    responses=STEP_UP_RESPONSES,
 )
 def change_member_role(
     membership_key: Annotated[str, Path(description="Document key of the membership.")],
     body: ChangeRoleRequest,
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.MANAGEMENT)),
+    user: User = Depends(get_current_user),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     service: TenantService = Depends(get_tenant_service),
 ):
-    """Change a member's role. Admin only."""
-    service.change_member_role(ctx.tenant_key, membership_key, body.role, ctx.admin_scopes)
+    """Change a member's role. Admin only.
+
+    **Step-up (#2032, REQ-024 AK-57):** an actual change of the role — a member demoted or
+    promoted — passes the acting administrator's own step-up: the body carries
+    ``current_password`` (or ``step_up_token`` / ``step_up_code`` obtained for
+    ``tenant_member_role_change`` with the membership's key); 401 without it, 403 from an
+    API-key request, 429 ``STEP_UP_LOCKED``; nothing is written then. A role re-sent
+    unchanged needs none. The step-up fields are never written.
+    """
+    service.change_member_role(
+        ctx.tenant_key,
+        membership_key,
+        body.role,
+        ctx.admin_scopes,
+        requester=user,
+        current_password=body.current_password,
+        step_up_code=body.step_up_code,
+        step_up_token=body.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     return MessageResponse(message="Role updated")
 
 
 @router.delete(
     "/{tenant_slug}/members/{membership_key}",
     response_model=MessageResponse,
+    responses=STEP_UP_RESPONSES,
 )
 def remove_member(
     membership_key: Annotated[str, Path(description="Document key of the membership.")],
+    body: Annotated[MemberRemovalRequest | None, Body()] = None,
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.MANAGEMENT)),
+    user: User = Depends(get_current_user),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     service: TenantService = Depends(get_tenant_service),
 ):
-    """Remove a member from tenant. Admin only."""
-    service.remove_member(ctx.tenant_key, membership_key, ctx.admin_scopes)
+    """Remove a member from tenant. Admin only.
+
+    **Step-up (#2032, REQ-024 AK-57):** removing a member — also the tenant's last ``lead`` —
+    passes the acting administrator's own step-up: the body carries ``current_password`` (or
+    ``step_up_token`` / ``step_up_code`` obtained for ``tenant_member_removal`` with the
+    membership's key); 401 without it — also without a body —, 403 from an API-key request,
+    429 ``STEP_UP_LOCKED``; the membership stays then. The last ``management`` holder is
+    refused first (422, INV-1).
+    """
+    step_up = body or MemberRemovalRequest()
+    service.remove_member(
+        ctx.tenant_key,
+        membership_key,
+        ctx.admin_scopes,
+        requester=user,
+        current_password=step_up.current_password,
+        step_up_code=step_up.step_up_code,
+        step_up_token=step_up.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     return MessageResponse(message="Member removed")
 
 
