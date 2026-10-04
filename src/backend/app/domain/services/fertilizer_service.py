@@ -239,9 +239,9 @@ class FertilizerService:
 
     # ── Reverse lookup ─────────────────────────────────────────────────
 
-    def get_nutrient_plan_usage(self, key: FertilizerKey) -> list[dict]:
-        self.get_fertilizer(key)  # ensure exists
-        return self._repo.get_nutrient_plan_usage(key)
+    def get_nutrient_plan_usage(self, key: FertilizerKey, *, tenant_key: str) -> list[dict]:
+        self.get_fertilizer(key, tenant_key)  # exists and is visible to the caller
+        return self._repo.get_nutrient_plan_usage(key, tenant_key=tenant_key)
 
     # ── Area-based dosing (REQ-004 W-013, AP-11) ────────────────────────
 

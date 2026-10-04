@@ -223,4 +223,4 @@ def list_nutrient_plan_usage(
 ):
     """List the nutrient plans that use this fertilizer."""
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
-    return service.get_nutrient_plan_usage(key)
+    return service.get_nutrient_plan_usage(key, tenant_key=ctx.tenant_key)
