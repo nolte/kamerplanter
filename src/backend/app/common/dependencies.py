@@ -1098,6 +1098,8 @@ def get_tenant_service() -> TenantService:
         step_up_verifier=get_step_up_verifier(),
         # #1871 B3 — a location assignment is resolved through its site.
         site_anchors=get_site_repo(),
+        # #1924 — nobody is invited into the personal tenant of an account that asked to be erased.
+        erasure_repo=get_erasure_repo(),
     )
 
 

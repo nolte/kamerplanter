@@ -1,11 +1,14 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from arango.database import StandardDatabase
+from arango.exceptions import AQLQueryExecuteError
 
 from app.common.datetimes import ensure_aware_utc
 from app.common.enums import AdminScope
+from app.common.exceptions import WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
 
@@ -83,6 +86,11 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         return super().update(key, merged)
 
     def delete(self, key: str) -> bool:
+        self._remove_dependents(key)
+        return super().delete(key)
+
+    def _remove_dependents(self, key: str) -> None:
+        """Remove the edges and location assignments that hang off membership *key*."""
         membership_id = f"{col.MEMBERSHIPS}/{key}"
         # Clean up edges
         self.delete_edges(col.HAS_MEMBERSHIP, membership_id, direction="inbound")
@@ -94,7 +102,66 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
           REMOVE doc IN {col.LOCATION_ASSIGNMENTS}
         """
         self._db.aql.execute(query, bind_vars={"key": key})
-        return super().delete(key)
+
+    #: Attempts at the rollback below when a concurrent write on the deletion
+    #: record (its withdrawal or its claim) conflicts with the touch.
+    _ROLLBACK_ATTEMPTS = 3
+
+    def delete_while_tenant_frozen(self, key: str, tenant_key: str) -> bool:
+        """Remove membership *key* only while the tenant's deletion record is open, atomically (#1924).
+
+        One AQL statement reads the record, **writes** it (``updated_at``) and
+        removes the membership. The write is what makes the two decisions that
+        meet on a join exclusive: the erasure withdraws the record
+        (``delete_unclaimed``, a write on the same document) and then reads the
+        members again; a read-then-delete on the joiner's side would let the
+        joiner's delete land after that read, and the tenant would be kept for a
+        member nobody has any more. With the touch, the withdrawal and this
+        rollback cannot both succeed on the document: whichever commits first is
+        seen by the other — a rollback that commits first is seen by the
+        erasure's re-read, a withdrawal that commits first leaves this statement
+        nothing to match, and the membership stands.
+
+        Returns ``True`` when the membership was removed, ``False`` when no open
+        record exists any more (withdrawn, or never there) — the membership
+        stands then.
+
+        Raises:
+            WriteConflictError: the record kept conflicting with a concurrent
+                write for :attr:`_ROLLBACK_ATTEMPTS` attempts.
+        """
+        query = """
+        FOR record IN @@records
+          FILTER record._key == @record_key AND record.status != 'completed'
+          UPDATE record WITH { updated_at: @now } IN @@records
+          FOR member IN @@memberships
+            FILTER member._key == @key AND member.tenant_key == @tenant_key
+            REMOVE member IN @@memberships
+            RETURN OLD._key
+        """
+        for _attempt in range(self._ROLLBACK_ATTEMPTS):
+            try:
+                removed = list(
+                    self._db.aql.execute(
+                        query,
+                        bind_vars={
+                            "@records": col.TENANT_ERASURE_RECORDS,
+                            "@memberships": col.MEMBERSHIPS,
+                            "record_key": TenantErasureEngine.record_key(tenant_key),
+                            "key": key,
+                            "tenant_key": tenant_key,
+                            "now": datetime.now(UTC).isoformat(),
+                        },
+                    )
+                )
+            except AQLQueryExecuteError as exc:
+                if exc.error_code == 1200:
+                    continue
+                raise
+            if removed:
+                self._remove_dependents(key)
+            return bool(removed)
+        raise WriteConflictError(col.TENANT_ERASURE_RECORDS)
 
     def list_by_tenant(self, tenant_key: str) -> list[MemberInfo]:
         query = """
