@@ -159,7 +159,7 @@ class GetPlant(ToolBase):
         # it is what lets a model connect "my tomato" to a key. The list tools
         # deliberately skip it to avoid an N+1 across a whole page.
         try:
-            species = ctx.species_service.get_species(plant.species_key)
+            species = ctx.species_service.get_species(plant.species_key, tenant_key=ctx.tenant_key)
             data["species_name"] = getattr(species, "scientific_name", None)
             data["species_common_names"] = getattr(species, "common_names", None)
         except Exception:  # noqa: BLE001 — a missing catalogue entry must not fail the read

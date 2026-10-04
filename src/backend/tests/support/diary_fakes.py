@@ -359,7 +359,7 @@ class FakePlantInstanceService:
             raise NotFoundError("PlantInstance", key)
         return plant
 
-    def resolve_species(self, species_key: str) -> Species | None:
+    def resolve_species(self, species_key: str, *, tenant_key: str) -> Species | None:
         return self.species.get(species_key)
 
 

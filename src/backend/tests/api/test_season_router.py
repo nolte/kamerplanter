@@ -84,7 +84,7 @@ class _PlantRepoStub:
 class _SpeciesRepoStub:
     def get_by_key(self, key):  # noqa: ANN001, ANN201
         # Moderate frost sensitivity → half_hardy → yellow ampel (Fragaria-style).
-        return SimpleNamespace(frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
+        return SimpleNamespace(tenant_key="", frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
 
 
 class _SiteRepoStub:

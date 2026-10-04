@@ -112,7 +112,7 @@ def _plant(key: str, tenant_key: str) -> SimpleNamespace:
 class _SpeciesRepo:
     def get_by_key(self, key: str) -> Any:  # noqa: ARG002
         guide = SimpleNamespace(volume_ml_min=200, volume_ml_max=400, seasonal_adjustments=None)
-        return SimpleNamespace(waterlogging_tolerance=None, watering_guide=guide)
+        return SimpleNamespace(tenant_key="", waterlogging_tolerance=None, watering_guide=guide)
 
 
 def _volume_client() -> TestClient:

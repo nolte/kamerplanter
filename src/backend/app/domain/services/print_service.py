@@ -14,6 +14,7 @@ from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.care_reminder import CareDashboardEntry
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.nutrient_plan_service import NutrientPlanService
+from app.domain.services.species_visibility import readable_species
 
 logger = structlog.get_logger(__name__)
 
@@ -172,7 +173,7 @@ class PrintService:
             species_name = None
             if plant.species_key:
                 if plant.species_key not in species_cache:
-                    species = self._species_repo.get_by_key(plant.species_key)
+                    species = readable_species(self._species_repo, plant.species_key, tenant_key)
                     species_cache[plant.species_key] = (
                         species.common_names[0] if species and species.common_names else ""
                     )
@@ -267,7 +268,7 @@ class PrintService:
             species_data: dict = {}
             if plant.species_key:
                 if plant.species_key not in species_cache:
-                    species = self._species_repo.get_by_key(plant.species_key)
+                    species = readable_species(self._species_repo, plant.species_key, tenant_key)
                     if species:
                         species_data = {
                             "scientific_name": species.scientific_name,

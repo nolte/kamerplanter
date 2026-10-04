@@ -44,6 +44,7 @@ from app.common.dependencies import (
 )
 from app.common.log_privacy import log_tenant
 from app.config.settings import settings
+from app.domain.services.species_visibility import readable_species
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -76,7 +77,7 @@ def _evaluate(attachment_id: str, plant_instance_key: str, tenant_key: str, user
         return {"status": "abort", "reason": "plant_not_found"}
     if not plant.species_key:
         return {"status": "abort", "reason": "no_species"}
-    species = get_species_repo().get_by_key(plant.species_key)
+    species = readable_species(get_species_repo(), plant.species_key, tenant_key)
     if species is None:
         return {"status": "abort", "reason": "species_not_found"}
 
