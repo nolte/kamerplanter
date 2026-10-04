@@ -238,7 +238,14 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
 
     # ── Reverse lookup ─────────────────────────────────────────────────
 
-    def get_nutrient_plan_usage(self, key: FertilizerKey) -> list[dict]:
+    def get_nutrient_plan_usage(self, key: FertilizerKey, *, tenant_key: str) -> list[dict]:
+        """Plans that dose this fertilizer, restricted to the caller's own and the global ones (#2099).
+
+        The entries carry no tenant of their own, so the plan decides: a global
+        fertilizer is dosed by plans of every tenant, and only the plan's
+        ``tenant_key`` says whose they are.
+        """
+        plan_scope, scope_bind = tenant_union_predicate(tenant_key, doc_var="plan")
         query = f"""
         FOR entry IN {col.NUTRIENT_PLAN_PHASE_ENTRIES}
           LET matched_channels = (
@@ -258,7 +265,7 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
           )
           FILTER LENGTH(matched_channels) > 0
           LET plan = DOCUMENT(CONCAT("{col.NUTRIENT_PLANS}/", entry.plan_key))
-          FILTER plan != null
+          FILTER plan != null AND {plan_scope}
           COLLECT plan_key = entry.plan_key,
                   plan_name = plan.name
           INTO groups
@@ -273,5 +280,5 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
           )
           RETURN {{ key: plan_key, name: plan_name, phase_entries: phase_data }}
         """
-        cursor = self._db.aql.execute(query, bind_vars={"fert_key": key})
+        cursor = self._db.aql.execute(query, bind_vars={"fert_key": key, **scope_bind})
         return list(cursor)

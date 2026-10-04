@@ -62,7 +62,7 @@ class PrintService:
             NotFoundError: If the plan does not exist.
         """
         plan = self._nutrient_plan_service.get_plan(plan_key, tenant_key=tenant_key)
-        entries = self._nutrient_plan_service.get_phase_entries(plan_key)
+        entries = self._nutrient_plan_service.get_phase_entries(plan_key, tenant_key=tenant_key)
 
         # Build phase data with resolved fertilizer names
         phases_data: list[dict] = []

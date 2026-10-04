@@ -145,8 +145,7 @@ def list_entries(
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """List a nutrient plan's phase entries."""
-    service.get_plan(key, tenant_key=ctx.tenant_key)
-    entries = service.get_phase_entries(key)
+    entries = service.get_phase_entries(key, tenant_key=ctx.tenant_key)
     return [_entry_response(e) for e in entries]
 
 

@@ -5,7 +5,7 @@ from typing import Any
 import structlog
 
 from app.common.enums import AttachmentCategory, TaskOrigin, WorkflowTargetType
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.domain.engines.dependency_resolver import DependencyResolver
@@ -173,8 +173,21 @@ def _allowed(data: dict, allowed_fields: frozenset[str]) -> dict:
     return {field: value for field, value in data.items() if field in allowed_fields}
 
 
+#: Refusal for a write into a *shared* workflow: one with ``tenant_key == ""`` that is
+#: not a seeded system template — the generated activity plans ``ActivityPlanService``
+#: persists for every tenant of a species (#2101). Every tenant reads that one row, so
+#: an in-place write is a write on every tenant's plan. A 403 rather than the 422 of a
+#: system template because the cure differs: the caller is not asked to duplicate a
+#: seed, they are told the row is not theirs. The activity-plan editor never reaches
+#: this: it forks the plan on a write (#1003), and so does ``PUT`` on the workflow.
+SHARED_WORKFLOW_REFUSAL = (
+    "This workflow template is shared by every tenant and cannot be modified in place. "
+    "Duplicate it to get an editable copy of your own."
+)
+
+
 def _refuse_system_workflow(workflow: WorkflowTemplate) -> None:
-    """Stop a child write whose parent is a globally seeded system workflow.
+    """Stop a child write whose parent is a globally seeded system workflow or a shared plan.
 
     The one place the "system templates are read-only" rule is applied to a
     *resolved* parent, so the three child-write paths (task-template create,
@@ -185,6 +198,8 @@ def _refuse_system_workflow(workflow: WorkflowTemplate) -> None:
     """
     if workflow.is_system:
         raise ValidationError(SYSTEM_WORKFLOW_CHILD_REFUSAL)
+    if not workflow.tenant_key:
+        raise ForbiddenError(SHARED_WORKFLOW_REFUSAL)
 
 
 def _as_aware_utc(value: datetime | None) -> datetime | None:
@@ -266,7 +281,7 @@ class TaskService:
     def create_workflow_template(self, template: WorkflowTemplate) -> WorkflowTemplate:
         return self._repo.create_workflow_template(template)
 
-    def update_workflow_template(self, key: str, data: dict) -> WorkflowTemplate:
+    def update_workflow_template(self, key: str, data: dict, *, tenant_key: str) -> WorkflowTemplate:
         """Apply an allow-listed partial edit to a workflow template (#965).
 
         ``data`` is filtered through :data:`WORKFLOW_TEMPLATE_UPDATABLE_FIELDS`
@@ -275,19 +290,40 @@ class TaskService:
         into the global catalog) or ``is_system`` (clearing the very flag the
         guard below reads).
         """
-        wt = self.get_workflow_template(key)
+        wt = self.get_workflow_template(key, tenant_key=tenant_key)
         if wt.is_system:
             # Read access is hybrid-catalog-wide, so the router guard now admits
             # system templates; writes must stay blocked (mirrors delete below).
             raise ValidationError("Cannot modify system workflow templates.")
+        if not wt.tenant_key:
+            # A shared (generated) plan: every tenant reads this one row, so the
+            # edit lands on the caller's own copy, as the activity-plan editor's
+            # does (#1003, #2101). The shared row is never written.
+            # A generated plan already forked by this tenant is reused (the same lookup the
+            # read path and the activity-plan editor use), so a client that still holds the
+            # shared key does not mint a new copy per save.
+            existing_fork = (
+                self._repo.get_auto_generated_workflow_for_species(wt.species_key, tenant_key=tenant_key)
+                if wt.auto_generated and wt.species_key
+                else None
+            )
+            if existing_fork is not None and existing_fork.tenant_key == tenant_key:
+                wt = existing_fork
+            else:
+                wt, _ = self._copy_workflow_template(
+                    wt, name=wt.name, tenant_key=tenant_key, auto_generated=wt.auto_generated
+                )
+            key = wt.key or key
         for field, value in _allowed(data, WORKFLOW_TEMPLATE_UPDATABLE_FIELDS).items():
             setattr(wt, field, value)
         return self._repo.update_workflow_template(key, wt)
 
-    def delete_workflow_template(self, key: str) -> bool:
-        wt = self.get_workflow_template(key)
+    def delete_workflow_template(self, key: str, *, tenant_key: str) -> bool:
+        wt = self.get_workflow_template(key, tenant_key=tenant_key)
         if wt.is_system:
             raise ValidationError("Cannot delete system workflow templates.")
+        if not wt.tenant_key:
+            raise ForbiddenError(SHARED_WORKFLOW_REFUSAL)
         return self._repo.delete_workflow_template(key)
 
     def duplicate_workflow_template(self, key: str, new_name: str, tenant_key: str = "") -> WorkflowTemplate:
@@ -504,6 +540,18 @@ class TaskService:
         verify_tenant_read_access(tt, tenant_key, "TaskTemplate")
         return tt
 
+    @staticmethod
+    def _refuse_a_shared_task_template(template: TaskTemplate) -> None:
+        """A task template with no owner (``tenant_key == ""``) is shared, not editable (#2101).
+
+        ``verify_tenant_read_access`` admits it on purpose — the read side of the
+        hybrid catalogue — and until now the write side followed it, which is what
+        let any tenant rewrite the standalone templates migration ``v0035`` could
+        not attribute. Newly created templates are stamped with their owner.
+        """
+        if not template.tenant_key:
+            raise ForbiddenError(SHARED_WORKFLOW_REFUSAL)
+
     def _verify_workflow_template_reference(self, workflow_template_key: str | None, tenant_key: str) -> None:
         """Resolve a caller-supplied ``workflow_template_key`` before it is written (#965).
 
@@ -607,6 +655,7 @@ class TaskService:
         tt = self.get_task_template(key)
         verify_tenant_read_access(tt, tenant_key, "TaskTemplate")
         self._refuse_writing_into_a_system_workflow(tt.workflow_template_key)
+        self._refuse_a_shared_task_template(tt)
         fields = _allowed(data, TASK_TEMPLATE_UPDATABLE_FIELDS)
         if "workflow_template_key" in fields:
             self._verify_workflow_template_reference(fields["workflow_template_key"], tenant_key)
@@ -637,6 +686,7 @@ class TaskService:
         tt = self.get_task_template(key)
         verify_tenant_read_access(tt, tenant_key, "TaskTemplate")
         self._refuse_writing_into_a_system_workflow(tt.workflow_template_key)
+        self._refuse_a_shared_task_template(tt)
         return self._repo.delete_task_template(key)
 
     # ── Task Templates of an activity plan (tenant-anchored, #992) ──

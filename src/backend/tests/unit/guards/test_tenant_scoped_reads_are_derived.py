@@ -327,10 +327,22 @@ _OWN_COLLECTION_ACCESS = frozenset(
 #: Read from AST string constants, never from file text (#1456).
 _LITERAL_LOOP = re.compile(r"\bIN\s+([a-z_][a-z_0-9]*)\b")
 
+#: A **reverse lookup** inside a query: ``DOCUMENT(CONCAT("{col.X}/", row.fk))`` or
+#: ``DOCUMENT({col.X}, row.fk)``. It dereferences a collection by a key read off
+#: another row, so the row it returns is whatever that key names — including a
+#: document of another tenant (#2099: a global fertilizer's usage listed the plans
+#: of every tenant). Read from the f-string's own source, so the ``{col.X}`` hole
+#: is still visible. A bind-var spelling (``DOCUMENT(@col, …)``) is not matched —
+#: named, not discovered later.
+_REVERSE_LOOKUP = re.compile(r"DOCUMENT\(\s*(?:CONCAT\(\s*)?[\"']?\{col\.([A-Z][A-Z_0-9]*)\}")
+
 #: Measured on 2026-09-24. Pinned exactly: raising it means a new method took the
 #: tenant positionally instead of keyword-only; lowering it is the conversion
-#: this number exists to record.
-POSITIONAL_TENANT_COUNT = 102
+#: this number exists to record. 2026-10-04 (#2102): 102 -> 103 with no new method —
+#: the derivation began counting a traversal's vertex collection as touched, so
+#: three existing grant checks (``is_granted``, ``is_granted_to``,
+#: ``is_cultivar_granted_to``) became subject reads.
+POSITIONAL_TENANT_COUNT = 103
 
 #: Anti-vacuity floors, a margin below the measured 2026-09-24 inventory (see
 #: :class:`TestTheInventoryIsNotVacuous` for the printed counts).
@@ -361,6 +373,9 @@ class ReadMethod:
     all_tenants_flag: bool
     enforces_tenant_scope: bool
     builds_union_predicate: bool
+    #: Collections the body dereferences through a reverse lookup (see
+    #: :data:`_REVERSE_LOOKUP`), followed through same-class calls like ``collections``.
+    dereferenced: frozenset[str] = frozenset()
 
     @property
     def qualname(self) -> str:
@@ -537,6 +552,16 @@ def build_inventory(app_root: Path) -> Inventory:
     # name (``visible_fertilizer_labels(self._db, ...)``, the care repository's
     # AQL builders): their collections count for the caller. ``collections.py``
     # is the schema bootstrap, not a read path.
+    # A traversal ``FOR v IN 1..1 INBOUND @id <edge>`` returns the *vertices* the edge
+    # connects, and the query body names only the edge — the vertex collection never
+    # appears (#2102: ``has_phase_sequence`` handed out every tenant's species). The
+    # named graph declares which collections each edge joins, so that declaration is
+    # what makes a traversal's returned collection count as touched.
+    edge_vertices: dict[str, set[str]] = defaultdict(set)
+    for definition in col.GRAPH_EDGE_DEFINITIONS:
+        edge_vertices[definition["edge_collection"]] |= set(definition["from_vertex_collections"])
+        edge_vertices[definition["edge_collection"]] |= set(definition["to_vertex_collections"])
+
     helper_collections: dict[str, set[str]] = defaultdict(set)
     for path in sorted((app_root / bindings.DATA_ACCESS_REL).rglob("*.py")):
         if path.name == "collections.py":
@@ -556,6 +581,13 @@ def build_inventory(app_root: Path) -> Inventory:
             continue
         inventory.classes_seen += 1
         methods = {n.name: n for n in repo.node.body if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)}
+
+        def dereferences(fn: ast.AST) -> set[str]:
+            found: set[str] = set()
+            for node in ast.walk(fn):
+                if isinstance(node, ast.JoinedStr | ast.Constant):
+                    found.update(constants[m] for m in _REVERSE_LOOKUP.findall(ast.unparse(node)) if m in constants)
+            return found
 
         def direct(fn: ast.AST, repo=repo, methods=methods) -> tuple[set[str], bool, set[str], set[str]]:
             collections: set[str] = set()
@@ -585,10 +617,19 @@ def build_inventory(app_root: Path) -> Inventory:
             return collections, _writes_directly(fn, repository_writers), self_calls, callee_names
 
         facts = {name: direct(fn) for name, fn in methods.items()}
+        derefs = {name: dereferences(fn) for name, fn in methods.items()}
+
+        def dereferenced(name: str, seen: frozenset[str], methods=methods, facts=facts, derefs=derefs) -> set[str]:
+            found = set(derefs[name])
+            for other in facts[name][2] - seen:
+                found |= dereferenced(other, seen | {other})
+            return found
 
         def closure(name: str, seen: frozenset[str], facts=facts) -> tuple[set[str], bool, set[str]]:
             collections, writes, self_calls, callees = facts[name]
             collections, callees = set(collections), set(callees)
+            for edge in list(collections):
+                collections |= edge_vertices.get(edge, set())
             for other in self_calls - seen:
                 c2, w2, n2 = closure(other, seen | {other})
                 collections |= c2
@@ -619,6 +660,7 @@ def build_inventory(app_root: Path) -> Inventory:
                     enforces_tenant_scope=bool(callees & {"_enforce_tenant_scope", "_list_docs"})
                     or ("get_all" in callees and "all_tenants" in {a.arg for a in args.kwonlyargs}),
                     builds_union_predicate=bool(callees & PREDICATE_BUILDERS),
+                    dereferenced=frozenset(dereferenced(name, frozenset({name}))),
                 )
             )
     return inventory
@@ -655,7 +697,10 @@ def _anchor(method: ReadMethod, inventory: Inventory) -> str | None:
         *zip(method.keyword_only, method.keyword_annotations, strict=True),
     ]
     for parameter, annotation in parameters:
-        if parameter == "key":
+        if parameter == "key" and not (method.dereferenced & set(inventory.tenant_collections)):
+            # ``key`` names ONE document; a read that then dereferences another
+            # tenant-bearing collection by keys read off its rows returns rows the
+            # ``key`` says nothing about (#2099) — so it is not anchored by it.
             return "key (the document itself)"
         if parameter == "keys" and touched <= strict_owned:
             # A batch dereference of catalogue rows is the #952 disclosure shape:
@@ -753,6 +798,33 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "catalogue",
         "companion edges are written only by platform admins (PUT /companion-planting/...), and the "
         "routes resolve the anchor species tenant-aware first (SEC-005, #808)",
+    ),
+    # The six below became subjects in #2102, when a traversal's vertex collection began to
+    # count as touched (``edge_vertices`` in :func:`build_inventory`); each was read for
+    # whether a tenant-owned species can sit behind the edge it walks.
+    ("ArangoGraphRepository", "get_companion_counts"): Exclusion(
+        "catalogue",
+        "counts of the companion edges, which only platform admins write (require_platform_admin on the "
+        "companion routes) or seeds do; no app path stamps a tenant-owned species into them",
+    ),
+    ("ArangoGraphRepository", "get_species_by_family"): Exclusion(
+        "catalogue",
+        "belongs_to_family edges are written by seeds and migration v0010 only — no application path "
+        "stamps a tenant-owned species into the family graph, so every vertex reached is a global species",
+    ),
+    ("ArangoAquaponikRepository", "get_compatible_plants"): Exclusion(
+        "catalogue",
+        "fish-to-plant compatibility edges are written by seeds only (link_compatible_plant has no "
+        "application caller), so every plant species reached is a global one",
+    ),
+    ("ArangoFavoritesRepository", "find_edge"): Exclusion(
+        "account", "starts at the calling account's own user vertex (from_id): every edge is that account's favourite"
+    ),
+    ("ArangoFavoritesRepository", "list_edges"): Exclusion(
+        "account", "starts at the calling account's own user vertex (from_id): every edge is that account's favourite"
+    ),
+    ("ArangoOverwinteringProfileTemplateRepository", "count_subjects"): Exclusion(
+        "system", "a usage count of one template with no application caller; cross-tenant by nature, never returned"
     ),
     ("ArangoLifecycleRepository", "get_lifecycle_by_species"): Exclusion(
         "catalogue", f"lifecycle configs: {_CATALOGUE_WRITTEN_BY_ADMINS}; the species key only selects one"
@@ -1114,6 +1186,60 @@ class TestTheRuleFires:
         )
         hits = [v for v in findings(build_inventory(root), EXCLUSIONS) if v.method.name == "all_logs"]
         assert [(v.category, v.method.collections) for v in hits] == [("unscoped", frozenset({col.MAINTENANCE_LOGS}))]
+
+    #: The #2099 shape: ``key`` names a fertilizer, the query then dereferences the
+    #: plan of every entry by the key the entry carries.
+    _PLANTED_REVERSE = (
+        "\n    def plans_using(self, key: str) -> list[dict]:\n"
+        '        query = f"""FOR e IN {col.NUTRIENT_PLAN_PHASE_ENTRIES} '
+        'LET p = DOCUMENT(CONCAT(\'{col.NUTRIENT_PLANS}/\', e.plan_key)) RETURN p.name"""\n'
+        "        return list(self._db.aql.execute(query, bind_vars={'k': key}))\n"
+    )
+
+    def test_a_key_anchored_reverse_lookup_is_a_finding(self, tmp_path: Path) -> None:
+        """#2099: ``key`` is not an anchor for rows a ``DOCUMENT(CONCAT(col.X/…))`` fetches."""
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "fertilizer_repository.py"
+        target.write_text(target.read_text(encoding="utf-8") + self._PLANTED_REVERSE, encoding="utf-8")
+        hits = [v for v in findings(build_inventory(root), EXCLUSIONS) if v.method.name == "plans_using"]
+        assert [v.category for v in hits] == ["unscoped"]
+
+    def test_the_same_read_without_the_reverse_lookup_stays_anchored(self, tmp_path: Path) -> None:
+        """The counterpart: the rule is the lookup, not the ``key`` parameter."""
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "fertilizer_repository.py"
+        planted = self._PLANTED_REVERSE.replace(
+            "LET p = DOCUMENT(CONCAT('{col.NUTRIENT_PLANS}/', e.plan_key)) RETURN p.name", "RETURN e.plan_key"
+        )
+        assert planted != self._PLANTED_REVERSE
+        target.write_text(target.read_text(encoding="utf-8") + planted, encoding="utf-8")
+        verdicts = [v for v in _verdicts(build_inventory(root)) if v.method.name == "plans_using"]
+        assert [(v.passed, v.category) for v in verdicts] == [(True, "anchored")]
+
+    #: The #2102 shape: a traversal that names only the edge, so the vertex collection it
+    #: returns never appears in the body.
+    _PLANTED_TRAVERSAL = (
+        "\n    def species_of(self, seq_key: str) -> list[dict]:\n"
+        '        query = f"FOR v IN 1..1 INBOUND @id {col.HAS_PHASE_SEQUENCE} RETURN v.scientific_name"\n'
+        "        return list(self._db.aql.execute(query, bind_vars={'id': seq_key}))\n"
+    )
+
+    def test_a_traversal_that_returns_species_is_a_finding(self, tmp_path: Path) -> None:
+        """#2102: the edge names no species, the vertices it reaches are species."""
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "phase_sequence_repository.py"
+        target.write_text(target.read_text(encoding="utf-8") + self._PLANTED_TRAVERSAL, encoding="utf-8")
+        hits = [v for v in findings(build_inventory(root), EXCLUSIONS) if v.method.name == "species_of"]
+        assert [(v.category, col.SPECIES in v.method.collections) for v in hits] == [("unscoped", True)]
+
+    def test_the_same_traversal_with_a_tenant_is_not(self, tmp_path: Path) -> None:
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "phase_sequence_repository.py"
+        planted = self._PLANTED_TRAVERSAL.replace("seq_key: str)", "seq_key: str, *, tenant_key: str)")
+        assert planted != self._PLANTED_TRAVERSAL
+        target.write_text(target.read_text(encoding="utf-8") + planted, encoding="utf-8")
+        hits = [v for v in _verdicts(build_inventory(root)) if v.method.name == "species_of"]
+        assert [(v.passed, v.category) for v in hits] == [(True, "strict")]
 
     def test_a_hybrid_catalogue_key_does_not_anchor(self) -> None:
         inventory = _real_inventory()

@@ -65,12 +65,24 @@ class _TenantWithRole:
         self.role = role
 
 
+class _Membership:
+    def __init__(self, role: TenantRole) -> None:
+        self.role = role
+        self.is_active = True
+
+
 class _FakeTenantService:
-    def __init__(self, tenants):
+    def __init__(self, tenants, platform_role: TenantRole | None = None):
         self._tenants = tenants
+        self._platform_role = platform_role
 
     def list_my_tenants(self, user_key: str):
         return self._tenants
+
+    def get_membership(self, user_key: str, tenant_slug: str):
+        # Only the technical ``platform`` tenant is asked about (the platform-admin check).
+        assert tenant_slug == "platform"
+        return _Membership(self._platform_role) if self._platform_role else None
 
 
 _RAW = "kp_secretkey"
@@ -103,11 +115,11 @@ def _api_key(**overrides) -> ApiKey:
     return ApiKey(**base)
 
 
-def _authenticator(api_key, user, tenants, rate_limiter=None):
+def _authenticator(api_key, user, tenants, rate_limiter=None, platform_role=None):
     return McpAuthenticator(
         _FakeApiKeyRepo(api_key),
         _FakeUserRepo(user),
-        _FakeTenantService(tenants),
+        _FakeTenantService(tenants, platform_role),
         rate_limiter=rate_limiter,
     )
 
@@ -326,3 +338,32 @@ def test_authenticate_no_rate_limit_when_field_unset():
     for _ in range(5):
         auth.authenticate(_RAW, client_ip="10.0.0.1")
     assert redis.counters == {}  # limiter never consulted
+
+
+# ── #2103: the platform-admin bit that admits a tenant-less write tool ─────────
+def test_a_personal_tenant_lead_is_not_a_platform_admin(monkeypatch):
+    monkeypatch.setattr("app.common.auth.settings.kamerplanter_mode", "full")
+    auth = _authenticator(_api_key(), _personal_user(), [_TenantWithRole("home", "home", TenantRole.LEAD)])
+    assert auth.authenticate(_RAW).is_platform_admin is False
+
+
+def test_a_lead_of_the_platform_tenant_is_a_platform_admin(monkeypatch):
+    monkeypatch.setattr("app.common.auth.settings.kamerplanter_mode", "full")
+    auth = _authenticator(
+        _api_key(),
+        _personal_user(),
+        [_TenantWithRole("home", "home", TenantRole.LEAD)],
+        platform_role=TenantRole.LEAD,
+    )
+    assert auth.authenticate(_RAW).is_platform_admin is True
+
+
+def test_a_key_restricted_to_one_tenant_is_never_a_platform_admin(monkeypatch):
+    monkeypatch.setattr("app.common.auth.settings.kamerplanter_mode", "full")
+    auth = _authenticator(
+        _api_key(tenant_scope="home"),
+        _personal_user(),
+        [_TenantWithRole("home", "home", TenantRole.LEAD)],
+        platform_role=TenantRole.LEAD,
+    )
+    assert auth.authenticate(_RAW).is_platform_admin is False

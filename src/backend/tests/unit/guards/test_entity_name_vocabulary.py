@@ -63,6 +63,7 @@ ENTITY_NAME_ARGUMENTS: dict[str, tuple[int | None, str | None]] = {
     "verify_entities_ownership": (None, "entity_name"),
     "get_or_raise_by": (1, "entity_name"),
     "_authorize_tenant_owned_write": (None, "entity"),
+    "authorize_hybrid_catalogue_write": (None, "entity"),
     "_require_owned_site": (2, "entity_name"),
 }
 
@@ -112,6 +113,10 @@ DERIVED_ENTITY_SITES: dict[str, str] = {
     "app/domain/services/plant_instance_service.py::entity_name": (
         "``_require_owned_site``'s own parameter, forwarded to the shared "
         "anchor; its two call sites are checked through ENTITY_NAME_ARGUMENTS."
+    ),
+    "app/domain/services/catalogue_authorization.py::entity": (
+        "``authorize_hybrid_catalogue_write``'s own parameter; "
+        "its call sites are checked through ENTITY_NAME_ARGUMENTS."
     ),
     "app/domain/services/species_service.py::entity": (
         "``_authorize_tenant_owned_write``'s own parameter; call sites are checked through ENTITY_NAME_ARGUMENTS."

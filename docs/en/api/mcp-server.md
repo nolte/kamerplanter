@@ -277,7 +277,7 @@ Because the role applies per garden, the same key can write in your own garden a
 | Tool | Purpose |
 |------|---------|
 | `create_site` | Create a site root (apartment, garden, balcony, greenhouse, windowsill, grow tent) |
-| `assign_species_phase_sequence` | Bind a species to an **existing** phase sequence. Requires `mcp.setup` rather than just `mcp.write`, because species and sequences belong to the shared catalogue: a single binding changes the schedule of every plant of that species in *every* garden. *Defining* sequences stays deliberately a job for the web UI |
+| `assign_species_phase_sequence` | Bind a species to an **existing** phase sequence. Requires `mcp.setup` rather than just `mcp.write` **and the platform admin role** (the tool has no tenant; it is not listed for non-admins and is refused with `permission.denied`), because species and sequences belong to the shared catalogue: a single binding changes the schedule of every plant of that species in *every* garden. *Defining* sequences stays deliberately a job for the web UI |
 
 Every tool validates referenced keys (plant, site, location, slot) against the tenant resolved for that call. A foreign key from another tenant consistently returns `not_found` — never `permission.denied` — so no tool ever discloses the existence of another tenant's resources.
 

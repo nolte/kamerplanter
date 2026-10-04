@@ -77,7 +77,7 @@ def _services(*, entries, sequence_phases, current_phase, plan=None):
             # accepts a call the service rejects makes the test certify nothing.
             return plan if plan is not None else _Plan()
 
-        def get_phase_entries(self, plan_key):
+        def get_phase_entries(self, plan_key, *, tenant_key):
             return entries
 
     class _PhaseService:

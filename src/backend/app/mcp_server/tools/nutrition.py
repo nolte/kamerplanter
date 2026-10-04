@@ -142,7 +142,7 @@ class GetNutrientPlan(ToolBase):
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
         # Read access spans own + global plans; a foreign tenant's plan raises.
         plan = ctx.nutrient_plan_service.get_plan(args.plan_key, tenant_key=ctx.tenant_key)
-        entries = ctx.nutrient_plan_service.get_phase_entries(plan.key)
+        entries = ctx.nutrient_plan_service.get_phase_entries(plan.key, tenant_key=ctx.tenant_key)
         ordered = sorted(entries, key=lambda e: (e.sequence_order, e.week_start))
 
         data = _plan_summary(plan)
@@ -177,7 +177,7 @@ class GetPlantNutrientPlan(ToolBase):
                 links=[ctx.ui_link(f"/plants/{plant.key}")],
             )
 
-        entries = ctx.nutrient_plan_service.get_phase_entries(plan.key)
+        entries = ctx.nutrient_plan_service.get_phase_entries(plan.key, tenant_key=ctx.tenant_key)
         ordered = sorted(entries, key=lambda e: (e.sequence_order, e.week_start))
         data = _plan_summary(plan)
         data["plant_key"] = plant.key
@@ -438,7 +438,11 @@ class SetNutrientPlanPhaseTargets(WriteToolBase):
                 "so there is no way to spell 'set it back to null' by accident."
             )
 
-        entries = ctx.nutrient_plan_service.get_phase_entries(args.plan_key)
+        # The plan is resolved under the caller's tenant before its phases are read: the
+        # dry-run path runs this too, and a preview of a foreign plan is a read of it (#2104). It is a
+        # write tool, so the plan must be the caller's own: a global plan is refused here, as on execute.
+        ctx.nutrient_plan_service.get_plan(args.plan_key, tenant_key=ctx.tenant_key, for_write=True)
+        entries = ctx.nutrient_plan_service.get_phase_entries(args.plan_key, tenant_key=ctx.tenant_key)
         wanted = args.phase.strip()
         by_key = [e for e in entries if e.key == wanted]
         if by_key:
@@ -480,7 +484,7 @@ class ValidateNutrientPlanCoverage(ToolBase):
                 links=[ctx.ui_link(f"/plants/{plant.key}")],
             )
 
-        entries = ctx.nutrient_plan_service.get_phase_entries(plan.key)
+        entries = ctx.nutrient_plan_service.get_phase_entries(plan.key, tenant_key=ctx.tenant_key)
         plan_phases = {_phase_name(e) for e in entries}
         sequence_phases = self._sequence_phases(ctx, plant)
         current_phase = self._current_phase(ctx, plant)

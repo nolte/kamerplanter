@@ -7,7 +7,7 @@ Kategorie: Prozessmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB, Celery (Task Scheduling)
 Status: Entwurf
-Version: 3.2 (FreeStyle: Foto-Auftrag als erster maschineller Produzent)
+Version: 3.3 (§4: geteilte Workflow-Vorlagen nie an Ort und Stelle schreibbar, #2101); 3.2 (FreeStyle: Foto-Auftrag als erster maschineller Produzent)
 ```
 
 ## 1. Business Case
@@ -2465,6 +2465,7 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | Task-Zuweisung | Alle Rollen | Nur Leitung | Nur Leitung | — | `assigned_to` setzen ist Leitung (REQ-024 §1a.1); die Zuweisung schließt niemanden vom Erledigen aus (§3.5) |
 | Recurring-Tasks | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | Fachdaten: „(eigene)" entfernt |
 | WorkflowTemplates | Alle Rollen | Nur Leitung | Nur Leitung | Nur Leitung | Vorlagen pflegen ist Leitung (REQ-049 §2.3) |
+| WorkflowTemplates (geteilt, `tenant_key == ""`, kein System-Seed) | Alle Rollen | — | Ab Gärtner — **als eigene Kopie**: die erste Änderung legt dem Mandanten einen Fork an, die geteilte Vorlage bleibt unverändert | Nie | Phasen und Task-Templates einer geteilten Vorlage sind ebenfalls nie schreibbar (403); „Duplizieren" liefert die editierbare Kopie (#2101) |
 | Workflow-Instanziierung | — | Ab Gärtner | Ab Gärtner | — | — |
 | Workflow-Task-Hinzufügen | — | Ab Gärtner | Ab Gärtner | — | „(eigene Execution)" entfernt, §3.5 |
 
