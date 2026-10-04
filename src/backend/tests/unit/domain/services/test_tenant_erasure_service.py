@@ -24,6 +24,7 @@ from app.common.exceptions import (
     ValidationError,
     WriteConflictError,
 )
+from app.common.log_privacy import log_tenant_record_key
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from tests.support.tenant_erasure_doubles import (
@@ -69,7 +70,8 @@ class TestTheDeletionRunsTheInventory:
 
         result = service.run_tenant_erasure_task(RECORD, NOW)
 
-        assert result == {"record_key": RECORD, "outcome": "completed"}
+        # The worker logs a task result (#2020): the record key comes back in its log form.
+        assert result == {"record_key": log_tenant_record_key(RECORD), "outcome": "completed"}
         record = service._tenant_erasure_repo.get(RECORD)
         (plan,) = executor.plans
         assert plan.tenant_key == KEY

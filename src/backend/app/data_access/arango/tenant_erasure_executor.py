@@ -15,6 +15,7 @@ from typing import Any
 import structlog
 from arango.database import StandardDatabase, TransactionDatabase
 
+from app.common.log_privacy import log_tenant
 from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
 from app.domain.interfaces.tenant_erasure_executor import ITenantErasureExecutor
 from app.domain.models.tenant_erasure import (
@@ -249,7 +250,7 @@ class ArangoTenantErasureExecutor(ITenantErasureExecutor):
         report.unreached = self._residue(plan, entries, resolved, existing)
         logger.info(
             "tenant_erasure.arango_executed",
-            tenant_key=plan.tenant_key,
+            tenant=log_tenant(plan.tenant_key),
             outcomes={o.collection: o.affected for o in report.outcomes if o.affected},
             edges_removed=report.edges_removed,
             tenant_document_removed=report.tenant_document_removed,

@@ -1,4 +1,12 @@
-"""No log call hands a raw tenant key to the logger next to a subject reference (#1928, #1989).
+"""No log call hands a raw tenant key to the logger (#1928, #1989, #2019).
+
+**Since #2019 the rule has no subject condition.** #1928/#1989 forbade a raw tenant key
+only in a call that also names a subject. About 67 other calls passed a raw
+``tenant_key=`` alone, and some carried the same entity key as a subject line of the
+same flow (``attachment_id``, ``plant_instance_key``): a log reader joined
+``subject=sub_…`` to the raw tenant through that key (decision (a) of #2019, NFR-011
+L-1). Every log call now logs ``tenant=log_tenant(...)``; the file name keeps the
+history of the rule, the rule is the one below.
 
 The #1788 review (GDPR-05) removed the tenant key from
 ``tenant_erasure.personal_tenant_retained``: the tenant key sits on the
@@ -10,7 +18,7 @@ tenant and the tenant's rows to the subject — the join the salted
 instead (``ErasureEngine.log_tenant``, keyed with ``LOG_PSEUDONYM_SALT``).
 
 **The rule** (one detector, :func:`findings_in_source`, shared by the tree scan
-and the self-test): a log call that names a raw tenant **and** a subject.
+and the self-test): a log call that names a raw tenant — with or without a subject.
 
 * *A raw tenant* is a keyword named like a tenant — ``tenant``, ``tenant_key``,
   ``*_tenant_key``, ``tenant_slug``, ``tenant_keys`` — whose value is neither a
@@ -20,7 +28,8 @@ and the self-test): a log call that names a raw tenant **and** a subject.
   any other name (``owner=``, ``extra={...}``, ``**{"tenant": ...}``). A call
   ends that search: ``len(tenant_keys)`` is a count, ``log_tenant(k)`` the
   pseudonym.
-* *A subject* is a keyword ``subject``, ``*_subject``, ``user_key`` or an actor
+* *A subject* (no longer a condition of the rule; still reported in the findings, and
+  what the bound-logger tracking carries) is a keyword ``subject``, ``*_subject``, ``user_key`` or an actor
   keyword ``*ed_by`` (``contributed_by=``, ``requested_by=``), a
   ``log_subject(...)`` call anywhere in the call, or a local the enclosing
   function assigned from ``log_subject(...)``.
@@ -41,9 +50,8 @@ allow-list is empty.
 elsewhere, a tenant key under a name that is not tenant-like (``key=``,
 ``owner_key=``) or held in a local not named like a tenant, a subject handed in
 through a parameter not named like one, a logger reached under a name without
-``log``, and two log lines that share an entity key (``attachment_id``) — one
-with the subject, the other with the raw tenant. The ~80 log calls that pass a
-raw tenant key *without* a subject are out of this rule.
+``log``, and a tenant key logged under a name that is not tenant-like (the same limit as
+before, now without a subject condition).
 """
 
 from __future__ import annotations
@@ -88,8 +96,12 @@ def _raw_tenant_value(value: ast.expr) -> bool:
 
 def _tenant_references(node: ast.AST) -> list[str]:
     """Tenant-named names/attributes inside *node*, not looking into calls."""
-    if isinstance(node, ast.Call):
+    # A call yields a count or the pseudonym; a comparison and a conditional's test yield a
+    # truth value (``"tenant" if tenant_key is not None else "installation"``, #2019).
+    if isinstance(node, ast.Call | ast.Compare):
         return []
+    if isinstance(node, ast.IfExp):
+        return _tenant_references(node.body) + _tenant_references(node.orelse)
     if isinstance(node, ast.Name):
         return [node.id] if _TENANT_NAME.match(node.id) else []
     if isinstance(node, ast.Attribute):
@@ -177,7 +189,7 @@ class _Visitor(ast.NodeVisitor):
                 raw = raw + [f"bound {spelling}" for spelling in bound_raw]
                 names_subject = names_subject or bound_subject
             self.sites.append(self.rel)
-            if raw and names_subject:
+            if raw:
                 key = f"{self.rel}::{'.'.join(self.scope) or '<module>'}::{_event_name(node)}"
                 self.findings.append(f"{key} ({', '.join(raw)})")
         self.generic_visit(node)
@@ -206,11 +218,11 @@ def test_the_scan_sees_log_calls() -> None:
     assert sites > 500, f"only {sites} log calls seen"
 
 
-def test_no_log_call_carries_a_raw_tenant_key_beside_a_subject() -> None:
+def test_no_log_call_carries_a_raw_tenant_key() -> None:
     findings, _sites = _scan()
     unexplained = [f for f in findings if f.split(" (")[0] not in _ALLOWED]
     assert not unexplained, (
-        "a log call hands a raw tenant key to the logger next to a subject reference; log "
+        "a log call hands a raw tenant key to the logger (#2019: with or without a subject); log "
         "tenant=log_tenant(<key>) (app.common.log_privacy) or drop it where a count suffices:\n  "
         + "\n  ".join(unexplained)
     )
@@ -249,12 +261,20 @@ def test_allowlist_entries_still_exist() -> None:
         ('logger.info("e", subject=log_subject(u), tenant=log_tenant(tenant.key))', False),
         ('logger.info("e", subject=s, record_key=log_tenant_record_key(r.key))', False),
         ('logger.info("e", tenant_key="demo", subject=s)', False),
-        ('logger.info("e", tenant_key=tenant_key, removed=3)', False),
+        # #2019: no subject needed any more
+        ('logger.info("e", tenant_key=tenant_key, removed=3)', True),
+        ('logger.info("e", attachment_id=a, tenant_key=tenant.key)', True),
+        ('logger.info("e %s", tenant_key)', True),
+        ('logger.info("e", scope=tenant_key)', True),
+        ('logger.info("e", tenant=log_tenant(tenant_key), attachment_id=a)', False),
+        ('logger.info("e", scope="tenant" if tenant_key is not None else "installation")', False),
+        ('logger.info("e", scope=tenant_key if x else "installation")', True),
+        ('logger.info("e", has_tenant=tenant_key is None)', False),
         ('logger.info("e", subject=s, record_key=k)', False),
         ('logger.info("e", tenants=len(tenant_keys), subject=s)', False),
-        ('logger.info("e", tenant_key=k, sort_by=field)', False),
+        ('logger.info("e", tenant_key=k, sort_by=field)', True),
         ('def f():\n    log = logger.bind(subject=s, tenant=log_tenant(k))\n    log.info("e", removed=1)', False),
-        ('def f():\n    log = logger.bind(subject=s)\n\ndef g():\n    log.info("e", tenant_key=k)', False),
+        ('def f():\n    log = logger.bind(subject=s)\n\ndef g():\n    log.info("e", removed=1)', False),
         # not a log call
         ('audit.record("e", subject=s, tenant_key=k)', False),
         ('send("e", subject=s, tenant_key=k)', False),

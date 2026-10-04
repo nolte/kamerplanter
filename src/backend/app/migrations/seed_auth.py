@@ -5,7 +5,7 @@ import structlog
 from app.common.decoys import email_digest
 from app.common.dependencies import get_membership_repo, get_tenant_repo, get_user_repo
 from app.common.enums import AdminScope, TenantRole, TenantType
-from app.common.log_privacy import log_subject
+from app.common.log_privacy import log_subject, log_tenant
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.models.membership import Membership
@@ -54,7 +54,7 @@ def run_seed_auth() -> None:
     )
     created_tenant = tenant_repo.create(tenant)
     tenant_key = created_tenant.key or ""
-    logger.info("demo_tenant_created", slug=slug, key=tenant_key)
+    logger.info("demo_tenant_created", slug=slug, tenant=log_tenant(tenant_key))
 
     membership = Membership(
         user_key=user_key,
@@ -72,7 +72,7 @@ def run_seed_auth() -> None:
     logger.info(
         "demo_seed_complete",
         email_sha256=email_digest(demo["email"]),
-        tenant_slug=slug,
+        tenant=log_tenant(tenant_key),
     )
 
 

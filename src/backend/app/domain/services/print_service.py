@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import structlog
 
+from app.common.log_privacy import log_tenant
 from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.print_engine import PrintEngine
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
@@ -137,7 +138,7 @@ class PrintService:
         logger.info(
             "print_service.generate_nutrient_plan_pdf",
             plan_key=plan_key,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             phase_count=len(phases_data),
         )
 
@@ -217,7 +218,7 @@ class PrintService:
 
         logger.info(
             "print_service.generate_care_checklist_pdf",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             date=date,
             entry_count=len(entries),
         )
@@ -334,7 +335,7 @@ class PrintService:
 
         logger.info(
             "print_service.generate_plant_labels_pdf",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             plant_count=len(cards),
             layout=layout,
             fields=fields,

@@ -44,6 +44,7 @@ from app.common.dependencies import (
 )
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError
+from app.common.log_privacy import log_tenant
 from app.common.openapi_responses import CRUD_RESPONSES
 from app.core.permissions import Action
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
@@ -183,7 +184,7 @@ def _maybe_feed_reference(
     except Exception:  # noqa: BLE001 — a broker hiccup must not fail the upload
         logger.warning(
             "feed_user_reference_dispatch_failed",
-            tenant_key=ctx.tenant_key,
+            tenant=log_tenant(ctx.tenant_key),
             plant_instance_key=plant_instance_key,
         )
 

@@ -8,7 +8,7 @@ import asyncio
 
 import structlog
 
-from app.common.log_privacy import log_subject
+from app.common.log_privacy import log_subject, log_tenant
 from app.data_access.arango.base_repository import get_all_pages
 from app.tasks import celery_app
 
@@ -146,7 +146,7 @@ def dispatch_due_care_notifications() -> dict:
         except Exception:
             logger.exception(
                 "notification_dispatch_tenant_failed",
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
             )
 
     logger.info(
@@ -203,13 +203,13 @@ def escalate_overdue_notifications() -> dict:
             if escalated > 0:
                 logger.info(
                     "notification_escalation_tenant",
-                    tenant_key=tenant_key,
+                    tenant=log_tenant(tenant_key),
                     escalated=escalated,
                 )
         except Exception:
             logger.exception(
                 "notification_escalation_tenant_failed",
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
             )
 
     logger.info(

@@ -22,10 +22,16 @@ copy.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import logging
 import re
+import sys
+import threading
+import traceback
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from os import environ
+from types import TracebackType
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -135,6 +141,67 @@ def _redact_nested(value: Any, depth: int) -> None:
             _redact_nested(item, depth + 1)
 
 
+#: What :func:`shape_text_redactor` recognises, by shape alone (no key, no salt, no route
+#: table — a service that has none of those passes this instead of ``None``, #1926).
+#: Every quantifier is bounded and every scan starts at a run boundary, so a hostile text
+#: of any shape is masked in linear time.
+_URL_USERINFO = re.compile(r"(?<![A-Za-z0-9+.-])([A-Za-z][A-Za-z0-9+.-]{0,31}://)[^\s/?#'\"\\]{0,512}@")
+_HTTP_URL_TAIL = re.compile(
+    r"(?<![A-Za-z0-9+.:/-])(https?://[^\s'\"\\?#]{0,2048})[?#][^\s'\"\\]{0,2048}", re.IGNORECASE
+)
+_BARE_QUERY = re.compile(
+    r"(with url: /[^\s?'\"\\]{0,2048}|\b(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /[^\s?'\"\\]{0,2048})"
+    r"\?[^\s'\"\\]{1,2048}"
+)
+_PATH_CREDENTIAL_SHAPES = (
+    re.compile(r"(/bot)\d{1,32}(?::|%3[Aa])[\w-]{1,512}"),
+    re.compile(r"(/webhooks/)\d{1,32}/[\w-]{1,512}"),
+    re.compile(r"(/services/)T\w{1,64}/B\w{1,64}/\w{1,512}"),
+)
+_TOKEN_SEGMENT = re.compile(r"(?<=/)([A-Za-z0-9_:\-]{32,})((?:\.[A-Za-z0-9_:\-]{1,512}){0,8})")
+_HEX_RUN = re.compile(r"[0-9A-Fa-f]+")
+_EMAIL = re.compile(r"[\w.!$%*+^`{|}~-]{1,64}@[\w-]{1,63}(?:\.[\w-]{1,63})+")
+
+
+def _looks_like_a_token(segment: str) -> bool:
+    """A long path segment that is a generated secret rather than a name (letters and digits, or hex)."""
+    has_digit = any(char.isdigit() for char in segment)
+    if has_digit and any(char.isupper() for char in segment) and any(char.islower() for char in segment):
+        return True
+    if has_digit and _HEX_RUN.fullmatch(segment) is not None and any(char.isalpha() for char in segment):
+        return True
+    if not (segment.isascii() and segment.isalnum()):
+        return False
+    return has_digit or not segment.islower()
+
+
+def _mask_token_chain(match: re.Match[str]) -> str:
+    return _REDACTED if _looks_like_a_token(match.group(1)) else match.group(0)
+
+
+def shape_text_redactor(text: str, exceptions: Sequence[BaseException] = ()) -> str:
+    """*text* with every URL userinfo, URL query and fragment, path credential and e-mail address masked.
+
+    The default :data:`TextRedactor` of a service that has no redaction of its own
+    (``knowledge-service``, ``inference-service``, #1926). It recognises *shapes* only:
+    ``scheme://user:pw@host`` loses the userinfo, an ``http(s)`` URL its query and
+    fragment (where API keys and coordinates live), a bare request target in an HTTP
+    library's text its query, the named credential-in-path shapes (Telegram, Discord,
+    Slack) and any other long token-shaped path segment (with its dotted tail) become
+    ``[redacted]``, and an e-mail address becomes ``<email>``. What it cannot do is hide
+    free text — a question a person typed, a name — because that has no shape; the
+    *exceptions* argument is accepted for the :data:`TextRedactor` signature and not
+    used. The backend registers its own, keyed redaction instead.
+    """
+    text = _URL_USERINFO.sub(r"\1[redacted]@", text)
+    text = _HTTP_URL_TAIL.sub(r"\1?[redacted]", text)
+    text = _BARE_QUERY.sub(r"\1?[redacted]", text)
+    for pattern in _PATH_CREDENTIAL_SHAPES:
+        text = pattern.sub(rf"\1{_REDACTED}", text)
+    text = _TOKEN_SEGMENT.sub(_mask_token_chain, text)
+    return _EMAIL.sub("<email>", text)
+
+
 def _redact_text(text: str, exceptions: Sequence[BaseException]) -> str:
     """*text* through the service's redactor; fails closed to the placeholder."""
     if _text_redactor is None:
@@ -152,7 +219,13 @@ def _redact_strings(value: Any, exceptions: Sequence[BaseException], depth: int 
     if depth >= _MAX_DEPTH:
         return _REDACTED if isinstance(value, (dict, list, tuple)) else value
     if isinstance(value, dict):
-        return {key: _redact_strings(item, exceptions, depth + 1) for key, item in value.items()}
+        # Keys too (#1926): a dict keyed by a value (``{<address>: …}``) names it as plainly as a value does.
+        return {
+            (_redact_text(key, exceptions) if isinstance(key, str) else key): _redact_strings(
+                item, exceptions, depth + 1
+            )
+            for key, item in value.items()
+        }
     if isinstance(value, (list, tuple)):
         return [_redact_strings(item, exceptions, depth + 1) for item in value]
     return value
@@ -173,8 +246,9 @@ def _scrub_texts(event: MutableMapping[str, Any], exceptions: Sequence[BaseExcep
 
     ``exception.values[].value`` is ``str(exc)`` — a domain error names the
     record it is about, a connection error the URL it dialled. ``logentry`` is a
-    log record's format string, its arguments and the formatted line. Without a
-    redactor these are left as the SDK built them.
+    log record's format string, its arguments and the formatted line; ``extra``,
+    ``tags`` and ``contexts`` are walked with their keys. Without a redactor these
+    are left as the SDK built them.
     """
     if _text_redactor is None:
         return
@@ -188,9 +262,10 @@ def _scrub_texts(event: MutableMapping[str, Any], exceptions: Sequence[BaseExcep
                 logentry[field] = _redact_strings(logentry[field], exceptions)
     if isinstance(event.get("message"), str):
         event["message"] = _redact_text(event["message"], exceptions)
-    extra = event.get("extra")
-    if isinstance(extra, dict):
-        event["extra"] = _redact_strings(extra, exceptions)
+    for section in ("extra", "tags", "contexts"):
+        value = event.get(section)
+        if isinstance(value, dict):
+            event[section] = _redact_strings(value, exceptions)
 
 
 def _redact_path(path: str) -> str:
@@ -306,6 +381,108 @@ def _scrub_frames(event: MutableMapping[str, Any]) -> None:
             if isinstance(frame_vars, dict):
                 _redact_mapping(frame_vars)
                 frame["vars"] = _redact_strings(frame_vars, ())
+
+
+_TRACEBACK_WITHHELD = "<exception text withheld>"
+_HOOK_MARK = "_kp_redacting"
+_MUTE_LOCK = threading.RLock()
+
+
+def _render_uncaught(exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None) -> str:
+    """A traceback whose text went through the text redactor; fails closed to the class name."""
+    name = getattr(exc_type, "__name__", None) or type(exc).__name__
+    if exc is None:
+        return name
+    try:
+        rendered = "".join(traceback.format_exception(exc_type or type(exc), exc, tb))
+        return _redact_text(rendered, [exc]).rstrip("\n")
+    except Exception:
+        return f"{name}: {_TRACEBACK_WITHHELD}"
+
+
+def _write_stderr(text: str) -> None:
+    stream = sys.stderr or sys.__stderr__
+    if stream is None:
+        return
+    # A closed or broken stderr at crash time must not raise out of the hook.
+    with contextlib.suppress(Exception):
+        stream.write(text)
+        stream.flush()
+
+
+def _call_muted(hook: Callable[..., object], *args: object) -> None:
+    """Run a hook somebody else installed without letting it print.
+
+    The error tracker's hook (the Sentry SDK wraps ``sys.excepthook``) captures the
+    exception — through its own scrubbing — and then calls the interpreter's default
+    hook, which prints the raw traceback. The capture must still happen, the print not.
+    """
+    with _MUTE_LOCK:
+        saved = sys.stderr
+        sys.stderr = io.StringIO()
+        try:
+            hook(*args)
+        except BaseException:  # noqa: BLE001, S110 - the redacted print follows; re-raising would print raw text
+            pass
+        finally:
+            sys.stderr = saved
+
+
+def install_uncaught_exception_redaction() -> None:
+    """Print an exception that never becomes a log record through the text redactor (#1926). Idempotent.
+
+    ``sys.excepthook`` (an exception escaping the process entry), ``threading.excepthook``
+    (an uncaught exception in a thread) and ``sys.unraisablehook`` (an exception in a
+    finaliser) print the raw traceback to stderr, past every logging filter. Each is
+    replaced by one that prints the same traceback with the text redactor applied to
+    it. A hook installed before this call (the SDK's) still runs — muted, so it captures
+    without printing; call this *after* :func:`init_error_tracking`. With no text
+    redactor registered the text is printed as it is.
+    """
+    previous_except = sys.excepthook
+    if not getattr(previous_except, _HOOK_MARK, False):
+
+        def excepthook(exc_type: type[BaseException], exc: BaseException, tb: TracebackType | None) -> None:
+            if previous_except is not sys.__excepthook__:
+                _call_muted(previous_except, exc_type, exc, tb)
+            _write_stderr(_render_uncaught(exc_type, exc, tb or exc.__traceback__) + "\n")
+
+        setattr(excepthook, _HOOK_MARK, True)
+        sys.excepthook = excepthook
+
+    previous_thread = threading.excepthook
+    if not getattr(previous_thread, _HOOK_MARK, False):
+
+        def thread_hook(args: threading.ExceptHookArgs) -> None:
+            if previous_thread is not threading.__excepthook__:
+                _call_muted(previous_thread, args)
+            if args.exc_type is SystemExit:
+                return
+            name = args.thread.name if args.thread is not None else threading.get_ident()
+            body = _render_uncaught(args.exc_type, args.exc_value, args.exc_traceback)
+            _write_stderr(f"Exception in thread {name}:\n{body}\n")
+
+        setattr(thread_hook, _HOOK_MARK, True)
+        threading.excepthook = thread_hook
+
+    previous_unraisable = sys.unraisablehook
+    if not getattr(previous_unraisable, _HOOK_MARK, False):
+
+        def unraisable_hook(unraisable: Any) -> None:
+            if previous_unraisable is not sys.__unraisablehook__:
+                _call_muted(previous_unraisable, unraisable)
+            # The default hook prints ``repr(object)``, a runtime value: only what it is called.
+            target = unraisable.object
+            try:
+                where = getattr(target, "__qualname__", None) or type(target).__name__
+            except Exception:
+                where = type(target).__name__
+            label = unraisable.err_msg or "Exception ignored in"
+            body = _render_uncaught(unraisable.exc_type, unraisable.exc_value, unraisable.exc_traceback)
+            _write_stderr(f"{label}: {where}\n{body}\n")
+
+        setattr(unraisable_hook, _HOOK_MARK, True)
+        sys.unraisablehook = unraisable_hook
 
 
 def scrub_event(event: MutableMapping[str, Any], _hint: Mapping[str, Any] | None = None) -> MutableMapping[str, Any]:

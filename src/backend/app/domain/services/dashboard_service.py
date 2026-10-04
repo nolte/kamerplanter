@@ -29,6 +29,7 @@ from typing import Any
 
 import structlog
 
+from app.common.log_privacy import log_tenant
 from app.domain.interfaces.dashboard_repositories import (
     CareReminderDashboardRepository,
     PlantDashboardRepository,
@@ -159,7 +160,7 @@ class DashboardService:
             active = int(self._plant_repo.count_active_for_tenant(tenant_key) or 0)
             return total, active
         except Exception:
-            logger.exception("dashboard.plant_counts.failed", tenant_key=tenant_key)
+            logger.exception("dashboard.plant_counts.failed", tenant=log_tenant(tenant_key))
             return 0, 0
 
     def _task_counts(self, tenant_key: str, today: date) -> tuple[int, int]:
@@ -170,7 +171,7 @@ class DashboardService:
                 int(self._task_repo.count_overdue(tenant_key, today) or 0),
             )
         except Exception:
-            logger.exception("dashboard.task_counts.failed", tenant_key=tenant_key)
+            logger.exception("dashboard.task_counts.failed", tenant=log_tenant(tenant_key))
             return 0, 0
 
     def _tank_low_count(self, tenant_key: str) -> int:
@@ -180,7 +181,7 @@ class DashboardService:
         try:
             return int(self._tank_repo.count_below_threshold(tenant_key) or 0)
         except Exception:
-            logger.exception("dashboard.tank_low_count.failed", tenant_key=tenant_key)
+            logger.exception("dashboard.tank_low_count.failed", tenant=log_tenant(tenant_key))
             return 0
 
     def _care_due_count(self, tenant_key: str, today: date) -> int:
@@ -190,7 +191,7 @@ class DashboardService:
         try:
             return int(self._care_repo.count_due_on(tenant_key, today) or 0)
         except Exception:
-            logger.exception("dashboard.care_due_count.failed", tenant_key=tenant_key)
+            logger.exception("dashboard.care_due_count.failed", tenant=log_tenant(tenant_key))
             return 0
 
     def _upcoming_tasks(self, tenant_key: str, today: date, limit: int = 5) -> list[dict[str, Any]]:
@@ -201,7 +202,7 @@ class DashboardService:
             window_end = today + timedelta(days=7)
             return list(self._task_repo.list_upcoming(tenant_key, today, window_end, limit) or [])
         except Exception:
-            logger.exception("dashboard.upcoming_tasks.failed", tenant_key=tenant_key)
+            logger.exception("dashboard.upcoming_tasks.failed", tenant=log_tenant(tenant_key))
             return []
 
     def _active_plants(self, tenant_key: str, limit: int = PLANT_GRID_LIMIT) -> list[dict[str, Any]]:
@@ -209,7 +210,7 @@ class DashboardService:
         try:
             return list(self._plant_repo.list_active_for_tenant(tenant_key, limit) or [])
         except Exception:
-            logger.exception("dashboard.active_plants.failed", tenant_key=tenant_key)
+            logger.exception("dashboard.active_plants.failed", tenant=log_tenant(tenant_key))
             return []
 
     def _recent_activities(self, tenant_key: str, now: datetime, limit: int = 5) -> list[dict[str, Any]]:

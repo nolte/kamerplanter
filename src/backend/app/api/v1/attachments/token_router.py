@@ -25,6 +25,7 @@ from fastapi.responses import StreamingResponse
 from app.api.v1.attachments.response_headers import harden_download_headers
 from app.common.dependencies import get_object_storage
 from app.common.exceptions import InvalidTokenError, NotFoundError
+from app.common.log_privacy import log_tenant
 from app.common.openapi_responses import UNAUTHORIZED_RESPONSE
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 
@@ -65,7 +66,7 @@ async def redeem_token(
         raise InvalidTokenError("download token") from exc
 
     # Audit the redemption with the tenant binding — never log the token itself.
-    logger.info("attachment_token_download", tenant_key=tenant_key, attachment_id=payload.get("aid"))
+    logger.info("attachment_token_download", tenant=log_tenant(tenant_key), attachment_id=payload.get("aid"))
 
     headers = {"Cache-Control": "private, max-age=86400"}
     disposition = payload.get("disposition")

@@ -14,7 +14,7 @@ from app.common.enums import (
     TransitionTrigger,
 )
 from app.common.exceptions import NotFoundError, ValidationError
-from app.common.log_privacy import loggable_error
+from app.common.log_privacy import log_tenant, loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.data_access.arango.base_repository import get_all_pages
@@ -331,7 +331,7 @@ class PlantInstanceService:
                 "reference_resolver_unwired",
                 fields=unchecked,
                 plant_key=plant.key,
-                tenant_key=plant.tenant_key,
+                tenant=log_tenant(plant.tenant_key),
             )
         if previous is None or any(
             getattr(plant, field) != getattr(previous, field) for field in self._PLACEMENT_FIELDS
@@ -652,7 +652,7 @@ class PlantInstanceService:
             logger.error(
                 "clonal_pup_spawn_failed",
                 mother_key=mother.key,
-                tenant_key=mother.tenant_key,
+                tenant=log_tenant(mother.tenant_key),
                 species_key=mother.species_key,
                 phase_name=phase_name,
                 exc_info=True,
@@ -695,7 +695,7 @@ class PlantInstanceService:
             logger.warning(
                 "clonal_pup_spawn_skipped_existing_descendant",
                 mother_key=mother.key,
-                tenant_key=mother.tenant_key,
+                tenant=log_tenant(mother.tenant_key),
             )
             return None
 
@@ -746,7 +746,7 @@ class PlantInstanceService:
             "clonal_pup_spawned",
             mother_key=mother.key,
             pup_key=created.key,
-            tenant_key=mother.tenant_key,
+            tenant=log_tenant(mother.tenant_key),
             species_key=mother.species_key,
             pup_phase_key=created.current_phase_key,
         )
@@ -764,7 +764,9 @@ class PlantInstanceService:
         """
         assert mother.key is not None
         if pup.key is None:
-            logger.warning("clonal_pup_backfill_skipped_no_key", mother_key=mother.key, tenant_key=mother.tenant_key)
+            logger.warning(
+                "clonal_pup_backfill_skipped_no_key", mother_key=mother.key, tenant=log_tenant(mother.tenant_key)
+            )
             return
         if self._repo.has_descendants(mother.key):
             # Doc + edge both present — fully consistent, nothing to do.
@@ -777,7 +779,7 @@ class PlantInstanceService:
             "clonal_pup_lineage_backfilled",
             mother_key=mother.key,
             pup_key=pup.key,
-            tenant_key=mother.tenant_key,
+            tenant=log_tenant(mother.tenant_key),
         )
 
     def _record_clone_event(self, mother: PlantInstance, pup: PlantInstance, when: datetime) -> None:

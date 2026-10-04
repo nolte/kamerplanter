@@ -398,10 +398,15 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     `privacy/exports/<subject>/<export>.json`. They replace the tenant key of an
     attachment (`t/<tenant>/<category>/…`) with the tenant reference `ten_…`; category,
     date, ULID and file extension stay for debugging. The same reference appears as
-    `tenant=` on the invitation and tenant-deletion lines next to the subject
-    reference: the tenant key itself sits on the retained, pseudonymised rows and would
-    otherwise join the pseudonym back to your tenant. In log lines the erasure-record
-    key `ter_<tenant>` reads `ter_ten_…`.
+    `tenant=` on every log line that names a tenant — next to the subject reference or not,
+    because two lines of one flow often share an entity key (an attachment id) and would
+    join the two otherwise: the tenant key itself sits on the retained, pseudonymised rows
+    and would join the pseudonym back to your tenant. A dashboard or alert that filters on
+    `tenant_key=` has to filter on `tenant=` instead. In log lines the erasure-record
+    key `ter_<tenant>` reads `ter_ten_…` — also where it only appears inside a text, such as the
+    worker's `succeeded in …` line for the tenant-deletion task or a storage error that names
+    `t/<tenant>/…`. Fields named for the actor (`contributed_by`, `created_by`, …) never hold
+    the account key.
 
     `LOG_PSEUDONYM_SALT` keys only these log references (and the `requested_by_subject`
     provenance field on erasure and tenant-erasure records) — separate from
@@ -418,7 +423,11 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     (`scheme://user:password@…`) are masked as well. The same holds for credentials in the
     *path* of a URL — the bot token of a Telegram address, the token of a Discord or Slack
     webhook, the device token of a push endpoint — including the lines the HTTP library
-    writes itself on a connection error. When you subscribe to or unsubscribe from push
+    writes itself on a connection error. An Apprise address as you typed it into the
+    notification settings (`slack://…`, `tgram://…`, `pover://…`; for `gotify://`, `matrix://` and
+    `ntfy://` only the server stays) is masked the same way if it ever lands in a text, and so is a
+    signed token that consists of several dot-separated parts. The log of the optional `apprise`
+    package itself is kept at `WARNING`, because it writes request payloads below that. When you subscribe to or unsubscribe from push
     notifications, the log names only the push service, not your device's address.
     An unexpected error (a traceback)
     goes through the same cleanup: an error message from the application's own domain
@@ -433,7 +442,8 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     path with tenant slug and download token.
 
     IP addresses appear in the application's log lines at most truncated the R-03 way (IPv4 last octet
-    `0`, IPv6 `/48`), as `ip_prefix=`. That now also applies to the access logs: uvicorn
+    `0`, IPv6 `/48`), as `ip_prefix=`. The same holds for lines a library writes about the client: the rate limiter's
+    "ratelimit … exceeded" line carries the truncated address, not the full one. That now also applies to the access logs: uvicorn
     truncates the client address the same way and writes only the fixed route segments of
     the requested path (e.g. `/api/v1/t/{}/plants/{}`) — your tenant slug, your account key
     and a download token in the URL no longer appear there, nor does a query string. If the

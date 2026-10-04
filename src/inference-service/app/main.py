@@ -18,7 +18,12 @@ from app.confidence import cosine_to_confidence
 from app.config import settings
 from app.disease_classifier import DiseaseClassifier, DiseaseModelNotReadyError
 from app.embedder import Embedder, ModelNotReadyError
-from app.observability.error_tracking import init_error_tracking, resolve_release
+from app.observability.error_tracking import (
+    init_error_tracking,
+    install_uncaught_exception_redaction,
+    resolve_release,
+    shape_text_redactor,
+)
 from app.phenotype_engine import PhenotypeEngine, PhenotypeUnavailableError
 from app.schemas import (
     BatchEmbedResponse,
@@ -73,10 +78,14 @@ SERVICE_VERSION = "1.0.0"
 init_error_tracking(
     component="inference-service",
     release=resolve_release("kamerplanter-inference-service", SERVICE_VERSION),
-    # This service has no log-text redaction of its own to reuse (the backend's
-    # lives in ``app.common.log_privacy``); structure scrubbing still applies.
-    redact_text=None,
+    # The backend's keyed redaction lives in ``app.common.log_privacy`` and cannot be
+    # imported here; the shared shape-based one covers URL userinfo and queries,
+    # credential-bearing paths and addresses (#1926).
+    redact_text=shape_text_redactor,
 )
+# After the SDK has wrapped the interpreter's hooks: an exception that never becomes a
+# log record (startup, a thread, a finaliser) is printed redacted, not raw.
+install_uncaught_exception_redaction()
 
 _VECTORDB_MIGRATIONS_DIR = Path(__file__).resolve().parent / "vectordb" / "migrations"
 

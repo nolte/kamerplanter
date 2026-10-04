@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 
 import structlog
 
-from app.common.log_privacy import loggable_error
+from app.common.log_privacy import log_tenant, loggable_error
 from app.config.settings import settings
 from app.tasks import celery_app
 
@@ -70,8 +70,8 @@ def evaluate_forecast_frost_warnings(self) -> dict:  # noqa: ANN001 — Celery b
                 logger.warning(
                     "frost_forecast_tenant_mismatch",
                     site_key=config.site_key,
-                    config_tenant=config.tenant_key,
-                    site_tenant=site.tenant_key,
+                    config_tenant=log_tenant(config.tenant_key),
+                    site_tenant=log_tenant(site.tenant_key),
                 )
                 skipped += 1
                 continue

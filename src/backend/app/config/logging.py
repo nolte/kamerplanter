@@ -1,5 +1,6 @@
 import contextlib
 import io
+import ipaddress
 import logging
 import sys
 import threading
@@ -20,8 +21,10 @@ from app.common.log_privacy import (
 #: Libraries that log every outbound request with its full URL at INFO/DEBUG —
 #: query string included, which is where OpenWeatherMap (``appid``) and Perenual
 #: (``key``) carry their API key (#1795). httpcore and urllib3 (python-arango
-#: talks to ArangoDB through ``requests``) log request targets at DEBUG.
-_QUIET_LIBRARY_LOGGERS = ("httpx", "httpcore", "urllib3")
+#: talks to ArangoDB through ``requests``) log request targets at DEBUG. ``apprise``
+#: (an optional dependency of the notification channel) logs the request payload —
+#: ``{'token': …, 'user': …}`` — at DEBUG, measured on #1927.
+_QUIET_LIBRARY_LOGGERS = ("httpx", "httpcore", "urllib3", "apprise")
 #: The loggers that write those request lines themselves. A logger-level filter
 #: only sees records logged *on* that logger, not on its children, hence the
 #: concrete ``urllib3.connectionpool``.
@@ -79,6 +82,51 @@ class _AccessLogRedactionFilter(logging.Filter):
         record.args = (_loggable_client_addr(client_addr), method, loggable_path(str(path)), http_version, status_code)
         return True
 
+
+_SLOWAPI_LOGGER = "slowapi"
+#: slowapi's 429 line: ``ratelimit <limit> (<limit_key>) exceeded at endpoint: <scope>``.
+#: ``limit_key`` is whatever the limiter's key function returned — the resolved client
+#: address — and the line is logged at WARNING on every refused request (#2054).
+_RATELIMIT_EXCEEDED_MESSAGE = "ratelimit %s (%s) exceeded at endpoint: %s"
+_RATELIMIT_KEY_POSITION = 1
+
+
+def _loggable_limit_arg(value: object, *, is_key: bool) -> object:
+    """A slowapi log argument as a line may carry it: an address truncated, a key that is no address masked."""
+    if not isinstance(value, str):
+        return value
+    try:
+        ipaddress.ip_address(value)
+    except ValueError:
+        return "<redacted>" if is_key else value
+    return loggable_ip(value)
+
+
+class _ClientAddressFilter(logging.Filter):
+    """Shortens the client address slowapi puts in its own log lines (#2054, NFR-011 R-03).
+
+    The sink redaction masks e-mail addresses and URL parts but not IP addresses — an
+    infrastructure address in a connection error is what an operator needs — so a
+    third-party logger that names the *client* is held to the R-03 truncation here, on
+    its own logger. Every string argument of a ``slowapi`` record that is an IP
+    address is truncated; the key of the 429 line, the one position that holds the
+    client, is masked when it is not an address (a key function that returns an account
+    or an API key). Any other message is left alone.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if not isinstance(args, tuple):
+            return True
+        is_exceeded = record.msg == _RATELIMIT_EXCEEDED_MESSAGE
+        record.args = tuple(
+            _loggable_limit_arg(arg, is_key=is_exceeded and position == _RATELIMIT_KEY_POSITION)
+            for position, arg in enumerate(args)
+        )
+        return True
+
+
+_CLIENT_ADDRESS_FILTER = _ClientAddressFilter()
 
 #: Every attribute a plain ``LogRecord`` carries; anything else on a record came in
 #: through ``extra=`` (or a formatter's cache) and is read by a formatter that names it.
@@ -433,13 +481,15 @@ def harden_library_loggers() -> None:
     * a URL-redacting filter on the loggers that write those lines, so a later
       lowering of the level still leaks nothing;
     * a redacting filter on ``uvicorn.access``, whose lines carry the attachment
-      download token, the tenant slug and the full client address.
+      download token, the tenant slug and the full client address;
+    * a filter on ``slowapi``, whose 429 line names the client address (#2054).
     """
     for name in _QUIET_LIBRARY_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)
     for name in _URL_LOGGING_LOGGERS:
         logging.getLogger(name).addFilter(_URL_FILTER)
     logging.getLogger(_UVICORN_ACCESS_LOGGER).addFilter(_ACCESS_FILTER)
+    logging.getLogger(_SLOWAPI_LOGGER).addFilter(_CLIENT_ADDRESS_FILTER)
     install_sink_redaction()
 
 

@@ -324,7 +324,7 @@ class NotificationEngine:
 
         logger.info(
             "escalation_complete",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             escalated_count=escalated_count,
         )
 
