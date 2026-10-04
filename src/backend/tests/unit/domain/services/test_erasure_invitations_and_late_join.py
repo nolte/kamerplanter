@@ -671,8 +671,10 @@ class TestNoInvitationIntoAPersonalTenantWhoseOwnerAskedForErasure:
         tenants = Tenants()
         tenants.owner_asks_for_erasure()
 
-        with pytest.raises(ForbiddenError, match="asked for the account to be erased"):
+        with pytest.raises(ForbiddenError, match="No new members can be invited") as refused:
             tenants.invite(by_link=by_link)
+
+        assert "erase" not in str(refused.value).lower(), "the refusal must not tell an invitee about the erasure"
 
         assert tenants.invitations.stored == {}
 
@@ -683,7 +685,7 @@ class TestNoInvitationIntoAPersonalTenantWhoseOwnerAskedForErasure:
         token = tenants.invite(by_link=by_link)
         tenants.owner_asks_for_erasure()
 
-        with pytest.raises(ForbiddenError, match="asked for the account to be erased"):
+        with pytest.raises(ForbiddenError, match="No new members can be invited"):
             tenants.service.accept_invitation(token, JOINER)
 
         assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is None

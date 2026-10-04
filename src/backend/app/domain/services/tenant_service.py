@@ -1126,7 +1126,8 @@ class TenantService:
         asked for it to go. Every way in — both invitation types, creation and
         acceptance — asks here, so the predicate is written once. Only a
         ``PERSONAL`` tenant is the subject's own data decision; an organisation
-        the subject owns keeps inviting.
+        the subject owns keeps inviting. The refusal does not say why: whoever holds
+        a token is not one of the members the erasure notice went to.
         """
         if self._erasure_repo is None:
             return
@@ -1134,7 +1135,7 @@ class TenantService:
         if tenant is None or tenant.tenant_type != TenantType.PERSONAL:
             return
         if self._erasure_repo.find_active_for_user(tenant.owner_user_key) is not None:
-            raise ForbiddenError("The owner of this tenant has asked for the account to be erased.")
+            raise ForbiddenError("No new members can be invited into this tenant.")
 
     def _create_membership_unless_erasing(self, membership: Membership) -> Membership:
         """Insert a membership into an existing tenant, and take it back if the tenant froze meanwhile.
