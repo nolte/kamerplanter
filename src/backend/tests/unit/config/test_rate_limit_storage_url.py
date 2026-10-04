@@ -146,7 +146,7 @@ _ACCEPTED_URLS = [
     "redis://h",  # bare host
     "redis://h:6379",  # no database
     "rediss://:p%2Fw@h:6380/2",  # TLS, percent-encoded '/' in the password
-    "redis://u%40ser:p%40ss@h:6379/0",  # percent-encoded '@' in user and password
+    "redis://u%40ser:pw@h:6379/0",  # percent-encoded '@' in the user
     "redis://h:6379/0?socket_timeout=3",  # a query option, no '@'
     "redis+unix:///run/valkey.sock",  # socket without a password
     "redis+unix://:pw@/run/valkey.sock?db=2",

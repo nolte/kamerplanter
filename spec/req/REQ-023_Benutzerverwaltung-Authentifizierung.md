@@ -1045,8 +1045,8 @@ Link an das Postfach schicken lassen. Das ist eines von drei unabhängigen Budge
 für dasselbe Postfach: Reset (§3.2c, 3), anonymer Bestätigungslink (oben, 3) und
 dieser Weg (3) — zusammen bis zu 16 Mails pro Stunde an ein Postfach (gemessen über den
 Service mit den Produktions-Stores, #2062: 3 + 3 + 10, bei vier oder mehr Quellen für den
-Reset; kein Mail darüber hinaus innerhalb des Fensters), während eines Valkey-Ausfalls bis
-zu 16·P + 16 bei P Backend-Prozessen. Ein gemeinsames Budget über die drei Wege gibt es
+Reset; keine Mail darüber hinaus innerhalb des Fensters), während eines Valkey-Ausfalls bis
+zu 16·P + 16 bei P Backend-Prozessen (aus der früheren Rechnung abgeleitet, nicht gemessen). Ein gemeinsames Budget über die drei Wege gibt es
 bewusst nicht: Wer eine fremde Adresse registriert, verbräuchte damit den Reset der
 Inhaberin — dieselbe Aussperrung durch Dritte wie in §3.2c. Wer das Passwort hält, hält
 nicht unbedingt das Postfach: Wer eine fremde Adresse registriert (Squatting), kennt
