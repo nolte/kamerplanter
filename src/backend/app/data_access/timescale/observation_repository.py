@@ -6,6 +6,7 @@ from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
+from app.common.log_privacy import log_tenant
 from app.domain.interfaces.observation_repository import IObservationRepository
 from app.domain.models.observation import AggregatedReading, SensorReading
 
@@ -267,7 +268,7 @@ class TimescaleObservationRepository(IObservationRepository):
             count = cur.rowcount
             aggregates = self._purge_aggregates(cur, tenant_key)
             conn.commit()
-        logger.info("tenant_aggregates_deleted", tenant_key=tenant_key, buckets=aggregates)
+        logger.info("tenant_aggregates_deleted", tenant=log_tenant(tenant_key), buckets=aggregates)
         return count
 
     def is_available(self) -> bool:

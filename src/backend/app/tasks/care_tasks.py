@@ -1,6 +1,7 @@
 import structlog
 
 from app.common.datetimes import today_utc
+from app.common.log_privacy import log_tenant
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -91,13 +92,13 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
     try:
         unprofiled_plants = care_service._repo.count_plants_without_profile(tenant_key=tenant_key)
     except Exception:  # noqa: BLE001 — never fail a generation run over diagnostics
-        logger.error("care_profile_gap_count_failed", tenant_key=tenant_key, exc_info=True)
+        logger.error("care_profile_gap_count_failed", tenant=log_tenant(tenant_key), exc_info=True)
     else:
         if unprofiled_plants:
             logger.warning(
                 "plants_without_care_profile",
                 count=unprofiled_plants,
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
                 scope="tenant" if tenant_key is not None else "installation",
                 impact="these plants receive no REQ-022 reminder and are absent from created/skipped",
                 remedy="run scripts/audit_care_profiles.py, then the #1444 backfill migration",

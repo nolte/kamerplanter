@@ -33,6 +33,7 @@ import structlog.testing
 
 from app.common.enums import SiteType
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.log_privacy import log_tenant
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.site import Location, Site, Slot
 from app.domain.models.species import Species
@@ -746,7 +747,7 @@ def test_a_reference_that_goes_unchecked_because_of_an_unwired_collaborator_is_l
     assert len(warnings) == 1
     assert warnings[0]["log_level"] == "warning"
     assert sorted(warnings[0]["fields"]) == ["species_key", "substrate_key"]
-    assert warnings[0]["tenant_key"] == TENANT
+    assert warnings[0]["tenant"] == log_tenant(TENANT)  # the reference, never the key (#2019)
 
 
 def test_a_wired_service_logs_nothing_when_every_reference_resolves() -> None:

@@ -16,6 +16,7 @@ from app.common.enums import (
     TaskStatus,
 )
 from app.common.exceptions import DuplicateError, WriteConflictError
+from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership
 from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.care_reminder_engine import CareReminderEngine
@@ -300,7 +301,7 @@ def create_care_reminder_task(
         logger.info(
             "care_reminder_task_dedup_race_lost",
             entity_key=task.entity_key,
-            tenant_key=task.tenant_key,
+            tenant=log_tenant(task.tenant_key),
             task_name=task.name,
             conflict="unique_constraint",
         )
@@ -317,7 +318,7 @@ def create_care_reminder_task(
         logger.info(
             "care_reminder_task_dedup_race_lost",
             entity_key=task.entity_key,
-            tenant_key=task.tenant_key,
+            tenant=log_tenant(task.tenant_key),
             task_name=task.name,
             conflict="write_write",
         )

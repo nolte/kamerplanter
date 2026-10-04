@@ -398,9 +398,11 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     `privacy/exports/<subject>/<export>.json`. They replace the tenant key of an
     attachment (`t/<tenant>/<category>/…`) with the tenant reference `ten_…`; category,
     date, ULID and file extension stay for debugging. The same reference appears as
-    `tenant=` on the invitation and tenant-deletion lines next to the subject
-    reference: the tenant key itself sits on the retained, pseudonymised rows and would
-    otherwise join the pseudonym back to your tenant. In log lines the erasure-record
+    `tenant=` on every log line that names a tenant — next to the subject reference or not,
+    because two lines of one flow often share an entity key (an attachment id) and would
+    join the two otherwise: the tenant key itself sits on the retained, pseudonymised rows
+    and would join the pseudonym back to your tenant. A dashboard or alert that filters on
+    `tenant_key=` has to filter on `tenant=` instead. In log lines the erasure-record
     key `ter_<tenant>` reads `ter_ten_…` — also where it only appears inside a text, such as the
     worker's `succeeded in …` line for the tenant-deletion task or a storage error that names
     `t/<tenant>/…`. Fields named for the actor (`contributed_by`, `created_by`, …) never hold

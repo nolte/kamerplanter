@@ -424,10 +424,12 @@ lassen sie sich dagegen nicht verknüpfen.
     `privacy/exports/<subject>/<Export>.json`. Den Mandantenschlüssel eines Anhangs
     (`t/<Mandant>/<Kategorie>/…`) ersetzen sie durch die Mandanten-Referenz
     `ten_…`; Kategorie, Datum, ULID und Dateiendung bleiben für die Fehlersuche.
-    Dieselbe Referenz steht als `tenant=` auf den Einladungs- und Mandanten-Lösch-Zeilen
-    neben der Subjekt-Referenz: Der Mandantenschlüssel selbst hängt an den
-    aufbewahrten, pseudonymisierten Zeilen und würde das Pseudonym sonst wieder mit
-    deinem Mandanten verbinden. Aus dem Lösch-Nachweis-Schlüssel `ter_<Mandant>` wird
+    Dieselbe Referenz steht als `tenant=` auf jeder Protokollzeile, die einen Mandanten nennt —
+    mit oder ohne Subjekt-Referenz, denn zwei Zeilen eines Ablaufs teilen oft einen
+    Entitätsschlüssel (eine Anhangs-ID) und würden beide sonst verbinden: Der
+    Mandantenschlüssel selbst hängt an den aufbewahrten, pseudonymisierten Zeilen und
+    würde das Pseudonym sonst wieder mit deinem Mandanten verbinden. Ein Dashboard oder
+    Alarm, das auf `tenant_key=` filtert, muss auf `tenant=` umgestellt werden. Aus dem Lösch-Nachweis-Schlüssel `ter_<Mandant>` wird
     in Protokollzeilen `ter_ten_…` — auch dort, wo er nur innerhalb eines Textes steht, etwa in der
     Worker-Zeile `succeeded in …` des Mandanten-Lösch-Tasks oder in einer Speicher-Fehlermeldung,
     die `t/<Mandant>/…` nennt. Felder, die nach dem Akteur heißen (`contributed_by`, `created_by`, …),

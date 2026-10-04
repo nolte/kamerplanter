@@ -70,7 +70,7 @@ import structlog
 from app.common.datetimes import ensure_aware_utc, now_utc
 from app.common.enums import DiaryEnvironmentOrigin, DiaryEnvironmentStatus
 from app.common.exceptions import NotFoundError
-from app.common.log_privacy import loggable_error
+from app.common.log_privacy import log_tenant, loggable_error
 from app.config.settings import settings
 from app.domain.engines.live_state import reading_measured_at, sort_readings
 from app.domain.engines.sensor_metrics import is_air_temperature, is_humidity
@@ -170,7 +170,7 @@ class EnvironmentSnapshotService:
             logger.warning(
                 "diary_environment_capture_failed",
                 plant_key=plant_key,
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
                 error=loggable_error(exc),
             )
             return EnvironmentSnapshot(
