@@ -143,7 +143,10 @@ class SensorService:
         ``IObservationRepository.delete_by_sensor`` had existed with **zero**
         callers; this is the caller. The delete is ordered readings-first, so a
         failure there aborts before the document goes and the operation stays
-        retryable; the other order would strand the series permanently.
+        retryable; the other order would strand the series permanently. The
+        sensor is marked ``deletion_pending`` before the purge so that ingestion
+        refuses it from then on (#1944): the document outlives the purge by a few
+        statements, and a reading in that gap would re-create the series.
 
         A service assembled without an observation repository (the DI factory
         always supplies one — the null implementation when TimescaleDB is absent)
@@ -158,8 +161,16 @@ class SensorService:
         Returns:
             ``True`` when the document was removed.
         """
-        self.get_sensor_in_parent(key, parent_field=parent_field, parent_key=parent_key)
+        sensor = self.get_sensor_in_parent(key, parent_field=parent_field, parent_key=parent_key)
         if self._observation_repo is not None:
+            # Closed to new readings *before* the series is purged (#1944): the
+            # document still exists while the purge runs, so without the mark a
+            # reading arriving in between would re-create the series for a sensor
+            # that is about to go. A purge that fails leaves the mark, the
+            # document and a retryable delete; ingest stays refused meanwhile.
+            if not sensor.deletion_pending:
+                sensor.deletion_pending = True
+                self._repo.update(key, sensor)
             deleted = self._observation_repo.delete_by_sensor(key, tenant_key)
             logger.info("sensor_readings_deleted", sensor_key=key, readings=deleted)
         return self._repo.delete(key)

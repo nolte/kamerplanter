@@ -34,6 +34,20 @@ class IMembershipRepository(ABC):
     def delete(self, key: str) -> bool: ...
 
     @abstractmethod
+    def delete_while_tenant_frozen(self, key: str, tenant_key: str) -> bool:
+        """Remove membership *key* only while the tenant's deletion record is open, in one atomic step (#1924).
+
+        The rollback of a join that found the tenant frozen after its insert
+        (REQ-025 AK-IE-07). Atomic against the erasure's withdrawal of the
+        record, so exactly one of the two decisions stands. ``True`` when the
+        membership was removed; ``False`` when no open record exists any more —
+        the membership stands then.
+
+        Raises:
+            WriteConflictError: a concurrent write on the record kept conflicting.
+        """
+
+    @abstractmethod
     def list_by_tenant(self, tenant_key: str) -> list[MemberInfo]: ...
 
     @abstractmethod

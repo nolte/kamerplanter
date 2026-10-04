@@ -16,6 +16,11 @@ class Sensor(BaseModel):
     site_key: str | None = None
     location_key: str | None = None
     is_active: bool = True
+    #: Set when a delete began (``SensorService.delete_sensor``): the sensor takes no
+    #: further readings from then on, so a reading that races the readings purge cannot
+    #: re-create a series for a sensor on its way out (#1944). Cleared by nothing — the
+    #: delete either removes the document or is retried.
+    deletion_pending: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

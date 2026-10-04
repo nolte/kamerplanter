@@ -76,6 +76,7 @@ from app.domain.engines.watering_engine import WateringEngine
 from app.domain.interfaces.device_pairing_store import IDevicePairingCodeStore
 from app.domain.interfaces.device_pairing_throttle import IDevicePairingThrottleStore
 from app.domain.interfaces.email_service import IEmailService
+from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
@@ -87,6 +88,7 @@ from app.domain.services.fertilizer_service import FertilizerService
 from app.domain.services.harvest_service import HarvestService
 from app.domain.services.ipm_service import IpmService
 from app.domain.services.nutrient_plan_service import NutrientPlanService
+from app.domain.services.observation_service import ObservationService
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
@@ -123,7 +125,6 @@ if TYPE_CHECKING:
     from app.data_access.arango.data_export_repository import ArangoDataExportRepository
     from app.data_access.arango.email_change_repository import ArangoEmailChangeRepository
     from app.data_access.arango.erasure_executor import ArangoErasureExecutor
-    from app.data_access.arango.erasure_repository import ArangoErasureRepository
     from app.data_access.arango.favorites_repository import ArangoFavoritesRepository
     from app.data_access.arango.glossary_repository import (
         ArangoGlossaryTermCacheRepository,
@@ -204,7 +205,6 @@ if TYPE_CHECKING:
     from app.domain.services.location_type_service import LocationTypeService
     from app.domain.services.notification_propagation_service import NotificationPropagationService
     from app.domain.services.notification_service import NotificationService
-    from app.domain.services.observation_service import ObservationService
     from app.domain.services.oidc_provider_admin_service import OidcProviderAdminService
     from app.domain.services.onboarding_service import OnboardingService
     from app.domain.services.overwintering_materializer import OverwinteringMaterializer
@@ -1228,6 +1228,8 @@ def get_tenant_service() -> TenantService:
         step_up_verifier=get_step_up_verifier(),
         # #1871 B3 — a location assignment is resolved through its site.
         site_anchors=get_site_repo(),
+        # #1924 — nobody is invited into the personal tenant of an account that asked to be erased.
+        erasure_repo=get_erasure_repo(),
     )
 
 
@@ -1687,7 +1689,6 @@ def get_observation_repo() -> IObservationRepository:
 
 
 def get_observation_service() -> ObservationService:
-    from app.domain.services.observation_service import ObservationService
 
     # #1871 B6 — a sensor's tenant is its parent's (tank, site, or location via its site).
     return ObservationService(
@@ -1854,7 +1855,7 @@ def get_processing_restriction_repo() -> ArangoProcessingRestrictionRepository:
     return ArangoProcessingRestrictionRepository(get_db())
 
 
-def get_erasure_repo() -> ArangoErasureRepository:
+def get_erasure_repo() -> IErasureRepository:
     from app.data_access.arango.erasure_repository import ArangoErasureRepository
 
     return ArangoErasureRepository(get_db())

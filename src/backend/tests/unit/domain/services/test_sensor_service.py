@@ -256,6 +256,43 @@ class TestParentScopedWrites:
         assert observations.deleted == [("mine", "tenant-a")]
         assert repo.deleted == ["mine"]
 
+    def test_the_sensor_is_closed_to_readings_before_its_series_is_purged(self, scoped):
+        """#1944 — the document outlives the purge by a few statements; the mark refuses a reading in the gap."""
+        service, repo, observations = scoped
+        marked_when_purged: list[bool] = []
+        real = observations.delete_by_sensor
+
+        def purge(sensor_key: str, tenant_key: str) -> int:
+            marked_when_purged.append(repo.get(sensor_key).deletion_pending)  # type: ignore[union-attr]
+            return real(sensor_key, tenant_key)
+
+        observations.delete_by_sensor = purge  # type: ignore[method-assign]
+
+        service.delete_sensor("mine", parent_field="tank_key", parent_key="my-tank", tenant_key="tenant-a")
+
+        assert marked_when_purged == [True]
+
+    def test_a_failed_purge_leaves_the_marked_document_for_the_retry(self, scoped):
+        service, repo, observations = scoped
+
+        def failing(sensor_key: str, tenant_key: str) -> int:
+            raise RuntimeError("TimescaleDB unavailable")
+
+        observations.delete_by_sensor = failing  # type: ignore[method-assign]
+
+        with pytest.raises(RuntimeError):
+            service.delete_sensor("mine", parent_field="tank_key", parent_key="my-tank", tenant_key="tenant-a")
+
+        assert repo.deleted == [], "the document must stay: the series would be stranded without it"
+        assert repo.get("mine").deletion_pending is True  # type: ignore[union-attr]
+
+    def test_a_service_without_an_observation_repo_does_not_mark(self, scoped):
+        """Nothing to purge, nothing to close: the sensor is simply deleted."""
+        _service, repo, _observations = scoped
+        SensorService(repo, None).delete_sensor("mine", parent_field="tank_key", parent_key="my-tank", tenant_key="t")
+
+        assert repo.updated == []
+
     def test_a_refused_delete_touches_no_readings(self, scoped):
         """The guard runs first — a foreign key must not wipe anybody's series."""
         service, repo, observations = scoped

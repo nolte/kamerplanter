@@ -22,6 +22,7 @@ race needs, not by running two calls one after the other.
 
 from __future__ import annotations
 
+import itertools
 import threading
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -31,7 +32,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.common.enums import InvitationStatus, InvitationType, TenantRole, TenantType
-from app.common.exceptions import FeatureNotConfiguredError, ForbiddenError, ValidationError
+from app.common.exceptions import FeatureNotConfiguredError, ForbiddenError, ValidationError, WriteConflictError
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.data_export_engine import DataExportEngine
@@ -42,6 +43,7 @@ from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.models.invitation import Invitation
 from app.domain.models.membership import Membership
+from app.domain.models.privacy import ErasureRequest
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_erasure import TenantErasureRecord
 from app.domain.models.user import User
@@ -148,6 +150,8 @@ class FakeMembershipRepo:
         self.stored: dict[str, Membership] = {}
         self.inactive_accounts = set(inactive_accounts or ())
         self.before_create: Callable[[], None] | None = None
+        #: The tenant-erasure record store the atomic rollback reads (wired by ``Tenants``).
+        self.records: Any = None
         for membership in memberships:
             self.create(membership)
 
@@ -161,6 +165,15 @@ class FakeMembershipRepo:
 
     def delete(self, key: str) -> bool:
         return self.stored.pop(key, None) is not None
+
+    def delete_while_tenant_frozen(self, key: str, tenant_key: str) -> bool:
+        """The real statement: remove the membership only while the tenant's record is open."""
+        record = self.records.get(TenantErasureEngine.record_key(tenant_key))
+        membership = self.stored.get(key)
+        if record is None or record.status == "completed" or membership is None or membership.tenant_key != tenant_key:
+            return False
+        del self.stored[key]
+        return True
 
     def get_by_user_and_tenant(self, user_key: str, tenant_key: str) -> Membership | None:
         return next((m for m in self.stored.values() if (m.user_key, m.tenant_key) == (user_key, tenant_key)), None)
@@ -197,6 +210,18 @@ class HookedTenantErasureRepo(FakeTenantErasureRepository):
     def __init__(self) -> None:
         super().__init__()
         self.after_insert: Callable[[], None] | None = None
+        self.before_delete_unclaimed: Callable[[], None] | None = None
+        self.after_delete_unclaimed: Callable[[], None] | None = None
+
+    def delete_unclaimed(self, key: str) -> bool:
+        if self.before_delete_unclaimed is not None:
+            hook, self.before_delete_unclaimed = self.before_delete_unclaimed, None
+            hook()
+        removed = super().delete_unclaimed(key)
+        if self.after_delete_unclaimed is not None:
+            hook, self.after_delete_unclaimed = self.after_delete_unclaimed, None
+            hook()
+        return removed
 
     def create_with_key(self, record: TenantErasureRecord, key: str) -> TenantErasureRecord:
         created = super().create_with_key(record, key)
@@ -224,6 +249,8 @@ class Tenants:
         self.memberships = FakeMembershipRepo(*(members if members is not None else [_member(OWNER)]))
         self.invitations = FakeInvitationRepo()
         self.records = HookedTenantErasureRepo()
+        self.memberships.records = self.records
+        self.erasure_requests = FakeErasureRepo()
         self.runs: list[str] = []
         self.service = TenantService(
             tenant_repo=self.tenant_repo,  # type: ignore[arg-type]
@@ -237,6 +264,7 @@ class Tenants:
             tenant_erasure_repo=self.records,  # type: ignore[arg-type]
             observation_repo=MagicMock(),
             tombstone_salt=SALT,
+            erasure_repo=self.erasure_requests,  # type: ignore[arg-type]
         )
 
         def _run(record: TenantErasureRecord, now: datetime, *, raise_on_failure: bool) -> TenantErasureRecord:
@@ -254,6 +282,12 @@ class Tenants:
             else self.service.create_email_invitation(tenant_key, OWNER, "friend@example.org")
         )
         return link.token
+
+    def owner_asks_for_erasure(self) -> None:
+        """An open account-erasure request of the owner — what ``request_erasure`` leaves for the grace."""
+        self.erasure_requests.create(
+            ErasureRequest(user_key=OWNER, status="scheduled", requested_at=NOW, hard_delete_scheduled_at=NOW)
+        )
 
     def open_record(self, tenant_key: str = PERSONAL) -> None:
         FakeTenantErasureRepository.create_with_key(
@@ -527,6 +561,158 @@ class TestAJoinIntoAFreezingTenantIsRolledBack:
 
         assert membership.is_active
         assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is not None
+
+
+# ── #1924 (1): one outcome for a join that meets the second read ───
+
+
+class TestAJoinMeetingTheSecondReadEndsInExactlyOneOutcome:
+    """The doubles' version of the race the real-database test forces (``tests/integration``).
+
+    The joiner's insert lands right after the freeze; the erasure's second read
+    lists it. The joiner's own re-check then runs either *before* the erasure
+    withdraws the record (and takes the membership back), or *after* (and finds
+    nothing to take it back for).
+    """
+
+    def _joiner(self, tenants: Tenants) -> Membership:
+        """Step 2: the joiner's membership lands between the freeze and the second read."""
+        landed: list[Membership] = []
+
+        def _land() -> None:
+            landed.append(tenants.memberships.create(_member(JOINER, joined_at=NOW)))
+
+        tenants.records.after_insert = _land
+        tenants._landed = landed  # type: ignore[attr-defined]
+        return landed  # type: ignore[return-value]
+
+    def test_a_rollback_before_the_withdrawal_erases_the_tenant_instead_of_keeping_it_for_nobody(self):
+        tenants = Tenants()
+        tenants.memberships.inactive_accounts.add(OWNER)
+        landed = self._joiner(tenants)
+
+        def _joiner_rechecks() -> None:
+            # Step 4, between the erasure's decision to keep the tenant and its withdrawal.
+            with pytest.raises(ForbiddenError, match="being deleted"):
+                tenants.service._settle_join_against_freeze(landed[0])
+
+        tenants.records.before_delete_unclaimed = _joiner_rechecks
+
+        outcome = tenants.service.erase_personal_tenant_of(OWNER, PERSONAL, now=NOW)
+
+        assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is None
+        assert outcome.outcome == "erased", "kept for a joiner that was taken back: nobody can reach this tenant"
+        assert tenants.runs == [PERSONAL]
+
+    def test_a_withdrawal_before_the_rollback_keeps_the_tenant_and_the_joiner(self):
+        tenants = Tenants()
+        tenants.memberships.inactive_accounts.add(OWNER)
+        landed = self._joiner(tenants)
+        tenants.records.after_delete_unclaimed = lambda: tenants.service._settle_join_against_freeze(landed[0])
+
+        outcome = tenants.service.erase_personal_tenant_of(OWNER, PERSONAL, now=NOW)
+
+        joiner = tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL)
+        assert outcome.outcome == "retained_late_joiner"
+        assert joiner is not None and joiner.is_active, "the tenant is kept for a member that is gone"
+        assert tenants.runs == []
+
+    def test_a_rollback_that_keeps_conflicting_refuses_the_join_and_leaves_no_membership(self):
+        """Fail closed: after the repository gave up, no unchecked membership stays in a frozen tenant."""
+        tenants = Tenants()
+        tenants.open_record()
+        membership = tenants.memberships.create(_member(JOINER, joined_at=NOW))
+
+        def _conflict(key: str, tenant_key: str) -> bool:
+            raise WriteConflictError("tenant_erasure_records")
+
+        tenants.memberships.delete_while_tenant_frozen = _conflict  # type: ignore[method-assign]
+
+        with pytest.raises(WriteConflictError):
+            tenants.service._settle_join_against_freeze(membership)
+
+        assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is None
+
+    def test_a_joiner_that_is_taken_back_every_round_leaves_the_record_open_for_the_retry(self):
+        """The decision repeats a bounded number of times, then hands the open record to the daily retry."""
+        tenants = Tenants()
+        tenants.memberships.inactive_accounts.add(OWNER)
+        freeze, withdraw = tenants.records.create_with_key, tenants.records.delete_unclaimed
+        joined = itertools.count()
+
+        def _freeze_with_a_join(record: TenantErasureRecord, key: str) -> TenantErasureRecord:
+            created = freeze(record, key)
+            tenants.memberships.create(_member(f"u-late-{next(joined)}", joined_at=NOW))
+            return created
+
+        def _withdraw_and_take_the_joiner_back(key: str) -> bool:
+            removed = withdraw(key)
+            for membership in list(tenants.memberships.stored.values()):
+                if membership.user_key.startswith("u-late-"):
+                    tenants.memberships.delete(membership.key or "")
+            return removed
+
+        tenants.records.create_with_key = _freeze_with_a_join  # type: ignore[method-assign]
+        tenants.records.delete_unclaimed = _withdraw_and_take_the_joiner_back  # type: ignore[method-assign]
+
+        with pytest.raises(WriteConflictError):
+            tenants.service.erase_personal_tenant_of(OWNER, PERSONAL, now=NOW)
+
+        assert TenantErasureEngine.record_key(PERSONAL) in tenants.records.records, "the freeze must stay for the retry"
+        assert tenants.runs == []
+
+
+# ── #1924 (2): invitations during the grace ────────────────────────
+
+
+class TestNoInvitationIntoAPersonalTenantWhoseOwnerAskedForErasure:
+    @pytest.mark.parametrize("by_link", [True, False], ids=["link", "email"])
+    def test_creating_one_is_refused(self, by_link: bool):
+        tenants = Tenants()
+        tenants.owner_asks_for_erasure()
+
+        with pytest.raises(ForbiddenError, match="No new members can be invited") as refused:
+            tenants.invite(by_link=by_link)
+
+        assert "erase" not in str(refused.value).lower(), "the refusal must not tell an invitee about the erasure"
+
+        assert tenants.invitations.stored == {}
+
+    @pytest.mark.parametrize("by_link", [True, False], ids=["link", "email"])
+    def test_accepting_one_that_survived_the_request_time_revocation_is_refused(self, by_link: bool):
+        """The request-time revocation can fail or be raced; the token path must still refuse."""
+        tenants = Tenants()
+        token = tenants.invite(by_link=by_link)
+        tenants.owner_asks_for_erasure()
+
+        with pytest.raises(ForbiddenError, match="No new members can be invited"):
+            tenants.service.accept_invitation(token, JOINER)
+
+        assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is None
+        (invitation,) = tenants.invitations.stored.values()
+        assert invitation.status == InvitationStatus.PENDING, "a refused accept must not consume the invitation"
+
+    def test_an_organisation_the_same_owner_keeps_inviting(self):
+        club = Tenant(_key=SHARED, name="Club", slug="club", tenant_type=TenantType.ORGANIZATION, owner_user_key=OWNER)
+        tenants = Tenants(_personal_tenant(), club)
+        tenants.owner_asks_for_erasure()
+
+        token = tenants.invite(SHARED)
+
+        assert tenants.service.accept_invitation(token, JOINER).tenant_key == SHARED
+
+    def test_without_an_erasure_request_invitations_work_as_before(self):
+        tenants = Tenants()
+
+        token = tenants.invite()
+
+        assert tenants.service.accept_invitation(token, JOINER).is_active
+
+    def test_a_closed_request_does_not_block_a_later_invitation(self):
+        tenants = Tenants()
+        tenants.erasure_requests.create(ErasureRequest(user_key=OWNER, status="completed", requested_at=NOW))
+
+        assert tenants.invite()
 
 
 # ── #1843 ──────────────────────────────────────────────────────────
