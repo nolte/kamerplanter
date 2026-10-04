@@ -47,6 +47,7 @@ from _reach_common import (  # noqa: E402 — sibling import after the path inse
     BACKEND_SERVICE,
     DEFAULT_SUBJECT,
     STACK_SERVICES,
+    WORKER_SERVICE,
     Arango,
     ReachError,
     compose_command,
@@ -91,8 +92,14 @@ def up() -> None:
     (reach / "storage").mkdir(parents=True, exist_ok=True)
     (reach / "subjects").mkdir(parents=True, exist_ok=True)
     log(f"starting {', '.join(STACK_SERVICES)} as compose project {project_name()}")
+    # `up --wait` refuses a service without a healthcheck on current Compose
+    # versions ("has no healthcheck configured", exit 201 on a GitHub runner);
+    # the worker disables its inherited HTTP check. Start everything first, then
+    # wait only for the services that can report health.
+    run(compose_command("up", "-d", "--build", *STACK_SERVICES), timeout=UP_TIMEOUT_SECONDS + 600)
+    waited = [service for service in STACK_SERVICES if service != WORKER_SERVICE]
     run(
-        compose_command("up", "-d", "--build", "--wait", "--wait-timeout", str(UP_TIMEOUT_SECONDS), *STACK_SERVICES),
+        compose_command("up", "-d", "--wait", "--wait-timeout", str(UP_TIMEOUT_SECONDS), *waited),
         timeout=UP_TIMEOUT_SECONDS + 600,
     )
     stack = {
