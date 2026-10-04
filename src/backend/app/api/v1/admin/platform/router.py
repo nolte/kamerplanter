@@ -72,7 +72,7 @@ def list_security_audit(
     limit: Annotated[int, Query(ge=1, le=MAX_READ_LIMIT, description="Newest rows first, at most this many.")] = 100,
     _user: User = Depends(require_platform_admin),
     audit: SecurityAuditService = Depends(get_security_audit_service),
-):
+) -> list[SecurityAuditEntryResponse]:
     """The persistent security audit of membership, role and scope changes. Platform admin only.
 
     MT-014 (#2111): newest first, optionally of one tenant. Read-only; the rows are written

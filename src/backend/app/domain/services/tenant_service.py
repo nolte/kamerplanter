@@ -5,6 +5,7 @@ import hmac
 import re
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import structlog
 
@@ -1628,7 +1629,7 @@ class TenantService:
         ``<tenant_key>|<user_key>`` (#1884). It lives here, not on the routes, so both views pass the
         same check; the step-up arguments are keyword-only without a default, so a new caller cannot
         forget them. What cannot succeed is refused first and is not asked for a password: an unknown
-        tenant (404), a platform admin adding themselves to the platform tenant (400), a ``lead`` in
+        tenant (404), a platform admin adding themselves to the platform tenant (422), a ``lead`` in
         the platform tenant by someone who does not hold it (403, :meth:`_refuse_role_grant`), a tenant
         being erased (403), an account that is already a member (409). Without a valid step-up nothing
         is written; the written membership is recorded in the security audit (#2111).
@@ -2128,6 +2129,7 @@ class TenantService:
         before_scopes = [str(x) for x in old_scopes] if old_scopes is not None else None
         # What each action says about "before" and "after": a grant has only an after, a
         # removal only a before, a change both.
+        fields: dict[str, Any]
         if action in (SecurityAuditAction.MEMBERSHIP_REMOVED, SecurityAuditAction.MEMBERSHIP_LEFT):
             fields = {"old_role": now_role, "old_scopes": now_scopes}
         elif action == SecurityAuditAction.MEMBERSHIP_ROLE_CHANGED:

@@ -10,6 +10,7 @@ from __future__ import annotations
 import structlog
 
 from app.common.held_count import held_undated_count
+from app.config.settings import settings
 from app.data_access.arango.connection import ArangoConnection
 from app.data_access.arango.security_audit_repository import ArangoSecurityAuditRepository
 from app.domain.services.security_audit_service import SECURITY_AUDIT_RETENTION_DAYS
@@ -18,10 +19,10 @@ from app.tasks import celery_app
 logger = structlog.get_logger(__name__)
 
 
-@celery_app.task(name="security_audit.purge_expired")
+@celery_app.task(name="security_audit.purge_expired")  # type: ignore[untyped-decorator]
 def purge_expired_security_audit_log() -> int:
     """Remove ``security_audit_log`` rows older than the retention window (NFR-011 R-38)."""
-    repo = ArangoSecurityAuditRepository(ArangoConnection().db)
+    repo = ArangoSecurityAuditRepository(ArangoConnection(settings).db)
     removed = repo.delete_expired(retention_days=SECURITY_AUDIT_RETENTION_DAYS)
     # #1806 GDPR-003: rows without a readable ``created_at`` are never selected.
     held_undated = held_undated_count(repo.count_undated, task="security_audit.purge_expired")

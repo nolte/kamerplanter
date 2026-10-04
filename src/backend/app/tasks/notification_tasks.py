@@ -10,6 +10,7 @@ import structlog
 
 from app.common.log_privacy import log_subject, log_tenant
 from app.data_access.arango.base_repository import get_all_pages
+from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -44,7 +45,7 @@ class _ActiveMembers:
     asks for the pair ``("", tenant)`` and is refused like any non-member.
     """
 
-    def __init__(self, membership_repo) -> None:
+    def __init__(self, membership_repo: IMembershipRepository) -> None:
         self._repo = membership_repo
         self._answers: dict[tuple[str, str], bool] = {}
 

@@ -7,7 +7,9 @@ AQL only (NFR-006).
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
@@ -24,8 +26,8 @@ class ArangoSecurityAuditRepository(ISecurityAuditRepository):
         doc = entry.model_dump(by_alias=True, exclude_none=True, mode="json")
         doc.pop("_key", None)
         doc["created_at"] = (entry.created_at or datetime.now(UTC)).isoformat()
-        meta = self._db.collection(col.SECURITY_AUDIT_LOG).insert(doc)
-        return str(meta["_key"])  # type: ignore[index]
+        meta = cast(dict[str, Any], self._db.collection(col.SECURITY_AUDIT_LOG).insert(doc))
+        return str(meta["_key"])
 
     def list_recent(self, *, tenant_key: str | None = None, limit: int = 100) -> list[SecurityAuditEntry]:
         query = """
@@ -35,11 +37,9 @@ class ArangoSecurityAuditRepository(ISecurityAuditRepository):
           LIMIT @limit
           RETURN doc
         """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={"@collection": col.SECURITY_AUDIT_LOG, "tenant_key": tenant_key, "limit": limit},
-        )
-        return [SecurityAuditEntry(**doc) for doc in cursor]  # type: ignore[arg-type, union-attr]
+        bind_vars: dict[str, Any] = {"@collection": col.SECURITY_AUDIT_LOG, "tenant_key": tenant_key, "limit": limit}
+        cursor = cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars))
+        return [SecurityAuditEntry(**doc) for doc in cursor]
 
     def delete_expired(self, *, retention_days: int, now: datetime | None = None) -> int:
         cutoff = ((now or datetime.now(UTC)) - timedelta(days=retention_days)).isoformat()
@@ -52,15 +52,13 @@ class ArangoSecurityAuditRepository(ISecurityAuditRepository):
           COLLECT WITH COUNT INTO removed
           RETURN removed
         """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.SECURITY_AUDIT_LOG,
-                "cutoff": cutoff,
-                "cutoff_slack": instant_prefilter_bound(cutoff),
-            },
-        )
-        return int(next(iter(cursor), 0))  # type: ignore[call-overload]
+        bind_vars: dict[str, Any] = {
+            "@collection": col.SECURITY_AUDIT_LOG,
+            "cutoff": cutoff,
+            "cutoff_slack": instant_prefilter_bound(cutoff),
+        }
+        cursor = cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars))
+        return int(next(iter(cursor), 0))
 
     def count_undated(self) -> int:
         query = """
@@ -69,5 +67,5 @@ class ArangoSecurityAuditRepository(ISecurityAuditRepository):
           COLLECT WITH COUNT INTO held
           RETURN held
         """
-        cursor = self._db.aql.execute(query, bind_vars={"@collection": col.SECURITY_AUDIT_LOG})
-        return int(next(iter(cursor), 0))  # type: ignore[call-overload]
+        cursor = cast(Cursor, self._db.aql.execute(query, bind_vars={"@collection": col.SECURITY_AUDIT_LOG}))
+        return int(next(iter(cursor), 0))

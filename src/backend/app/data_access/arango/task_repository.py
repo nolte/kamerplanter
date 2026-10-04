@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 from datetime import UTC, date, datetime
+from typing import cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from arango.exceptions import DocumentInsertError, DocumentUpdateError
 
@@ -598,10 +600,11 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
           COLLECT WITH COUNT INTO cleared
           RETURN cleared
         """
-        cursor = self._db.aql.execute(
-            query, bind_vars={"tenant_key": tenant_key, "user_key": user_key, "now": self._now()}
+        cursor = cast(
+            Cursor,
+            self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key, "user_key": user_key, "now": self._now()}),
         )
-        return int(next(iter(cursor), 0))  # type: ignore[call-overload]
+        return int(next(iter(cursor), 0))
 
     def get_tasks_for_plant(
         self,
