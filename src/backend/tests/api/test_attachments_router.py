@@ -392,6 +392,122 @@ class TestDownloadHeaders:
         assert resp.headers["content-disposition"] == "attachment"
 
 
+def _make_png(width: int, height: int) -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", (width, height), (10, 120, 30)).save(buffer, format="PNG", optimize=True)
+    return buffer.getvalue()
+
+
+class TestPixelCeiling:
+    """#2108 — an image above the 40 MPx ceiling is refused before it is decoded."""
+
+    def test_a_144_megapixel_png_is_refused_with_413_before_any_decode(self, tmp_path, monkeypatch):
+        # 12 000 x 12 000 = 144 MPx: deliberately *below* Pillow's own 178 MPx
+        # DecompressionBombError, so Pillow alone lets it through (measured: a
+        # DecompressionBombWarning only). The encoded file is ~445 KB.
+        app, service, adapter = _build(tmp_path)
+        bomb = _make_png(12_000, 12_000)
+        assert len(bomb) < service.max_upload_bytes()
+
+        from PIL import ImageFile
+
+        decoded: list[tuple[int, int]] = []
+        original_load = ImageFile.ImageFile.load
+
+        def _refuse_decode(image):  # type: ignore[no-untyped-def]
+            decoded.append(image.size)
+            if image.size[0] * image.size[1] > 40_000_000:
+                raise AssertionError(f"decoded a {image.size} image")
+            return original_load(image)
+
+        monkeypatch.setattr(ImageFile.ImageFile, "load", _refuse_decode)
+        client = TestClient(app)
+        resp = client.post(_base(), files={"file": ("bomb.png", bomb, "image/png")}, data={"category": "diary"})
+
+        assert resp.status_code == 413, resp.text
+        assert resp.json()["error_code"] == "IMAGE_PIXEL_LIMIT_EXCEEDED"
+        assert decoded == []
+        assert list(tmp_path.rglob("*.png")) == []
+
+    def test_an_image_within_the_ceiling_still_uploads(self, tmp_path):
+        app, _service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        resp = client.post(
+            _base(), files={"file": ("ok.png", _make_png(640, 480), "image/png")}, data={"category": "diary"}
+        )
+        assert resp.status_code == 201, resp.text
+
+
+class TestThumbnailRegeneration:
+    """#2108 — a missing rendition dispatches one regeneration, not one per GET."""
+
+    def _upload(self, client: TestClient) -> str:
+        resp = client.post(_base(), files={"file": ("p.jpg", _make_jpeg(), "image/jpeg")}, data={"category": "diary"})
+        assert resp.status_code == 201, resp.text
+        return str(resp.json()["attachment_id"])
+
+    def test_five_gets_on_a_missing_rendition_dispatch_exactly_once(self, tmp_path):
+        # A record whose upload-time dispatch lies outside the window (an object
+        # stored before, a lost task): the record alone, no rendition.
+        app, service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        record = service._repo.create(
+            Attachment(
+                tenant_key="tenant_anna",
+                mime_type="image/jpeg",
+                byte_size=10,
+                sha256="0" * 64,
+                original_filename="p.jpg",
+                created_by="user_anna",
+                category="diary",
+                storage_key="t/tenant_anna/diary/2026/10/01JABCDEFGHJKMNPQRSTVWXYZ0.jpg",
+            )
+        )
+
+        import app.tasks.storage_tasks as storage_tasks
+
+        dispatched: list[tuple[object, ...]] = []
+        storage_tasks.generate_thumbnails.delay = lambda *a, **k: dispatched.append(a)  # type: ignore[assignment]
+
+        statuses = [client.get(_base(f"/{record.key}/thumbnails/512")).status_code for _ in range(5)]
+
+        assert statuses == [202] * 5
+        assert dispatched == [(record.key, "tenant_anna")]
+
+    def test_the_upload_dispatch_claims_the_window_for_the_gets_after_it(self, tmp_path):
+        app, _service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+
+        import app.tasks.storage_tasks as storage_tasks
+
+        dispatched: list[tuple[object, ...]] = []
+        storage_tasks.generate_thumbnails.delay = lambda *a, **k: dispatched.append(a)  # type: ignore[assignment]
+        attachment_id = self._upload(client)
+
+        statuses = [client.get(_base(f"/{attachment_id}/thumbnails/512")).status_code for _ in range(5)]
+
+        assert statuses == [202] * 5
+        assert dispatched == [(attachment_id, "tenant_anna")]
+
+    def test_a_rendition_that_failed_for_good_answers_404_and_dispatches_nothing(self, tmp_path):
+        app, service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        attachment_id = self._upload(client)
+        repo = service._repo
+        stored = repo.get(attachment_id, "tenant_anna")
+        repo._store[attachment_id] = stored.model_copy(update={"renditions_failed": True})
+
+        import app.tasks.storage_tasks as storage_tasks
+
+        dispatched: list[tuple[object, ...]] = []
+        storage_tasks.generate_thumbnails.delay = lambda *a, **k: dispatched.append(a)  # type: ignore[assignment]
+
+        resp = client.get(_base(f"/{attachment_id}/thumbnails/128"))
+
+        assert resp.status_code == 404
+        assert dispatched == []
+
+
 @pytest.fixture(autouse=True)
 def _restore_delay():
     """Restore the real Celery ``.delay`` after each test patched it."""

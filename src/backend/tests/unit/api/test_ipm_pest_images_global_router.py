@@ -17,6 +17,7 @@ from fastapi.responses import StreamingResponse
 from app.api.v1.ipm import pest_images_router
 from app.common.enums import PestImageStatus
 from app.common.exceptions import NotFoundError, ValidationError
+from app.data_access.external.rendition_dispatch_claims import MemoryRenditionDispatchClaims
 from app.domain.models.attachment import Attachment
 from app.domain.models.pest_image import PestImageContribution
 from app.domain.services.pest_image_service import PestImageContent
@@ -131,7 +132,9 @@ class TestGlobalThumbnail:
         service = _FakeService(content=_content(), thumbnail_missing=True)
 
         with patch("app.tasks.storage_tasks.generate_thumbnails.delay") as delay:
-            resp = await pest_images_router.get_promoted_pest_image_thumbnail("pic1", 512, _user=None, service=service)
+            resp = await pest_images_router.get_promoted_pest_image_thumbnail(
+                "pic1", 512, _user=None, service=service, claims=MemoryRenditionDispatchClaims()
+            )
 
         assert resp.status_code == 202
         # Lazy regeneration enqueued against the OWNING tenant.

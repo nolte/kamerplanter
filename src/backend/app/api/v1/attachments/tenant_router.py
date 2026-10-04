@@ -247,7 +247,12 @@ async def download_thumbnail(
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     service: AttachmentService = Depends(get_attachment_service),
 ):
-    """Serve a thumbnail rendition; lazily regenerates a missing rendition."""
+    """Serve a thumbnail rendition; lazily regenerates a missing rendition.
+
+    A missing rendition answers 202 and queues its generation at most once per
+    attachment and window; one that can never come (a type without renditions,
+    or a generation that failed for good) answers 404 (#2108).
+    """
     from app.common.exceptions import NotFoundError
 
     if size not in THUMBNAIL_SIZES:
@@ -259,11 +264,9 @@ async def download_thumbnail(
     try:
         stream = await service.open_thumbnail_stream(attachment, size)
     except NotFoundError:
-        # Lazy regeneration (NFR-013 §8.2): re-trigger the task and 202 the caller.
-        if can_render(attachment.mime_type):
-            from app.tasks.storage_tasks import generate_thumbnails
-
-            generate_thumbnails.delay(attachment_id, ctx.tenant_key)
+        # Lazy regeneration (NFR-013 §8.2), claimed once per window (#2108).
+        if not service.request_thumbnails(attachment):
+            raise NotFoundError("thumbnail", f"{attachment_id}/{size}") from None
         return Response(status_code=202)
     headers = {"Cache-Control": "private, max-age=86400"}
     # Thumbnails are always image/webp — nosniff, inline allowed (SEC-009).

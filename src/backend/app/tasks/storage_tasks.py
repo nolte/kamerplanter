@@ -7,6 +7,14 @@ with the ``{ulid}_t{size}.webp`` key (NFR-013 §8.2).
 
 The task is idempotent — re-running it overwrites the existing renditions and
 also supports lazy regeneration when a download finds a missing rendition.
+
+**Every dispatch goes through** :func:`request_thumbnails` (#2108). It queues the
+task at most once per attachment and window (an atomic claim, see
+``app.domain.interfaces.rendition_dispatch_claims``) and never for an object
+whose renditions failed for good. Before #2108 every thumbnail GET that met a
+missing rendition queued a full decode; the guard
+``tests/unit/guards/test_thumbnail_dispatches_are_claimed.py`` keeps
+``generate_thumbnails.delay`` inside :func:`request_thumbnails`.
 """
 
 from __future__ import annotations
@@ -16,15 +24,20 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 
 import structlog
+from PIL import UnidentifiedImageError
 
 from app.common.dependencies import get_attachment_repo, get_object_storage
+from app.common.exceptions import ImagePixelLimitError
 from app.common.log_privacy import log_tenant, loggable_error
 from app.config.settings import settings
 from app.domain.engines.storage.thumbnail_generator import (
     ThumbnailGenerator,
+    ThumbnailMetadataError,
     can_render,
     thumbnail_key,
 )
+from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
+from app.domain.models.attachment import Attachment
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -107,11 +120,50 @@ async def _object_exists(storage, key: str) -> bool:  # type: ignore[no-untyped-
     return True
 
 
+#: Failures a retry cannot cure: the same bytes fail the same way (#2108). The
+#: task gives up at once instead of decoding them three more times.
+_PERMANENT_FAILURES: tuple[type[BaseException], ...] = (
+    ImagePixelLimitError,
+    ThumbnailMetadataError,
+    UnidentifiedImageError,
+)
+
+
+def _mark_renditions_failed(attachment_id: str, tenant_key: str) -> None:
+    """Record on the attachment that no rendition will come, so its GETs answer 404 (#2108)."""
+    try:
+        repo = get_attachment_repo()
+        attachment = repo.get(attachment_id, tenant_key)
+        if attachment is not None:
+            repo.mark_renditions_failed(tenant_key, attachment.storage_key)
+    except Exception as exc:  # noqa: BLE001 — the marker is best effort; the claim window still bounds dispatches
+        logger.warning(
+            "thumbnail_failure_mark_failed",
+            attachment_id=attachment_id,
+            tenant=log_tenant(tenant_key),
+            error=loggable_error(exc),
+        )
+
+
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)  # type: ignore[misc]
 def generate_thumbnails(self, attachment_id: str, tenant_key: str) -> dict:  # type: ignore[no-untyped-def]
-    """Generate WEBP thumbnail renditions for an image attachment (NFR-013 §8.2)."""
+    """Generate WEBP thumbnail renditions for an image attachment (NFR-013 §8.2).
+
+    A permanent failure (#2108: above the pixel ceiling, undecodable, a rendition
+    that kept its metadata) and the last failed retry mark the attachment
+    ``renditions_failed`` instead of queueing yet another attempt.
+    """
     try:
         return asyncio.run(_generate(attachment_id, tenant_key))
+    except _PERMANENT_FAILURES as exc:
+        logger.warning(
+            "generate_thumbnails_failed_permanently",
+            attachment_id=attachment_id,
+            tenant=log_tenant(tenant_key),
+            error=loggable_error(exc),
+        )
+        _mark_renditions_failed(attachment_id, tenant_key)
+        return {"attachment_id": attachment_id, "generated": 0, "reason": "renditions_failed"}
     except Exception as exc:  # noqa: BLE001 — retry on any transient failure
         logger.error(
             "generate_thumbnails_failed",
@@ -119,7 +171,28 @@ def generate_thumbnails(self, attachment_id: str, tenant_key: str) -> dict:  # t
             tenant=log_tenant(tenant_key),
             error=loggable_error(exc),
         )
+        if (self.request.retries or 0) >= self.max_retries:
+            _mark_renditions_failed(attachment_id, tenant_key)
+            return {"attachment_id": attachment_id, "generated": 0, "reason": "renditions_failed"}
         raise self.retry(exc=exc) from exc
+
+
+def request_thumbnails(attachment: Attachment, claims: IRenditionDispatchClaims) -> bool:
+    """Queue the renditions of *attachment* at most once per window (#2108).
+
+    The only place under ``app/`` that dispatches :func:`generate_thumbnails`.
+
+    Returns:
+        ``True`` when a rendition can still come — queued now, or by an earlier
+        caller inside the window (the caller answers 202). ``False`` when none
+        ever will: a type the generator does not render, or renditions that
+        failed for good (the caller answers 404).
+    """
+    if not attachment.key or attachment.renditions_failed or not can_render(attachment.mime_type):
+        return False
+    if claims.claim(attachment.key):
+        generate_thumbnails.delay(attachment.key, attachment.tenant_key)
+    return True
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=300)  # type: ignore[misc]

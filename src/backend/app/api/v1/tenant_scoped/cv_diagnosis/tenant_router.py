@@ -10,11 +10,10 @@ creates an IPM inspection *suggestion* only — never a treatment (§0), so the
 Karenz gate is not engaged. Cross-tenant access fails closed with 404 (no oracle).
 """
 
-import io
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Path, Query, Request, UploadFile
-from PIL import Image, UnidentifiedImageError
+from PIL import UnidentifiedImageError
 
 from app.api.v1.tenant_scoped.cv_diagnosis.schemas import (
     ConfirmDiagnosisRequest,
@@ -30,6 +29,7 @@ from app.common.exceptions import (
     UnsupportedMediaTypeError,
     ValidationError,
 )
+from app.common.image_bounds import MAX_IMAGE_PIXELS, open_bounded_image
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.config.settings import settings
 from app.domain.models.tenant_context import TenantContext
@@ -41,8 +41,8 @@ router = APIRouter(prefix="/cv-diagnosis", tags=["cv-diagnosis"], responses=NOT_
 _ALLOWED_CONTENT_TYPES = frozenset({"image/jpeg", "image/png"})
 _UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB bounded-read chunk
 # SEC-004 decompression-bomb guard — reject implausibly large pixel counts even
-# when the encoded bytes are tiny.
-_MAX_IMAGE_PIXELS = 40_000_000  # ~6300 x 6300 px
+# when the encoded bytes are tiny. The ceiling is the shared one (#2108).
+_MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 
 def _parse_content_length(request: Request) -> int | None:
@@ -77,12 +77,11 @@ def _validate_image_bytes(image_data: bytes, max_bytes: int) -> None:
     if not is_supported_image(image_data):
         raise UnsupportedMediaTypeError(["image/jpeg", "image/png"])
     try:
-        with Image.open(io.BytesIO(image_data)) as img:
-            width, height = img.size
-            if width * height > _MAX_IMAGE_PIXELS:
-                raise PayloadTooLargeError(max_bytes)
+        # Above the ceiling ``open_bounded_image`` raises ImagePixelLimitError
+        # (413) from the header — before ``verify()`` reads anything.
+        with open_bounded_image(image_data, max_pixels=_MAX_IMAGE_PIXELS) as img:
             img.verify()
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+    except (UnidentifiedImageError, OSError) as exc:
         raise ValidationError(
             "The uploaded image could not be decoded.",
             details=[{"field": "image", "reason": "Undecodable image.", "code": "INVALID_IMAGE"}],

@@ -192,6 +192,8 @@ class _Attachment:
     def __init__(self, key: str, mime_type: str = "image/jpeg") -> None:
         self.key = key
         self.mime_type = mime_type
+        self.tenant_key = TENANT
+        self.renditions_failed = False
         self.storage_key = f"t/{TENANT}/diary/2026/08/{key}.jpg"
 
 
@@ -215,6 +217,9 @@ class _Attachments:
         #: a response that fails with ``payload.too_large`` says nothing about
         #: how many objects were read to produce it.
         self.thumbnail_reads: list[tuple[str, int]] = []
+        from app.data_access.external.rendition_dispatch_claims import MemoryRenditionDispatchClaims
+
+        self.claims = MemoryRenditionDispatchClaims()
 
     def add(self, key: str, *, mime_type: str = "image/jpeg", **sizes: bytes) -> None:
         self.records[key] = _Attachment(key, mime_type)
@@ -234,6 +239,13 @@ class _Attachments:
             raise NotFoundError("storage object", f"{attachment.storage_key}_t{size}.webp")
         self.thumbnail_reads.append((attachment.key, size))
         return _stream(raw)
+
+    def request_thumbnails(self, attachment: _Attachment) -> bool:
+        # The production gate itself (#2108), with a per-world in-process claim
+        # instead of Valkey — so the tests below reach the real task object.
+        from app.tasks.storage_tasks import request_thumbnails
+
+        return request_thumbnails(attachment, self.claims)  # type: ignore[arg-type]
 
     async def open_stream(self, attachment: _Attachment):
         self.original_reads.append(attachment.key)
