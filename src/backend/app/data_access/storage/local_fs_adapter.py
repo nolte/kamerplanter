@@ -41,7 +41,7 @@ from app.common.exceptions import NotFoundError
 from app.common.log_privacy import log_tenant
 from app.domain.engines.storage.exif_stripper import (
     is_unsupported_photo_format,
-    strip_exif,
+    strip_exif_of_stored_object,
 )
 from app.domain.engines.storage.export_bundle_key import loggable_storage_key
 from app.domain.engines.storage.thumbnail_generator import rendition_keys
@@ -453,6 +453,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
         rewritten = 0
         skipped_unsupported = 0
+        skipped_over_limit = 0
         for att in attachments:
             if not (att.mime_type or "").startswith("image/"):
                 continue
@@ -469,7 +470,18 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
             if not await asyncio.to_thread(path.exists):
                 continue
             data = await asyncio.to_thread(self._read_sync, path)
-            stripped = await asyncio.to_thread(strip_exif, data, att.mime_type)
+            stripped = await asyncio.to_thread(strip_exif_of_stored_object, data, att.mime_type)
+            if stripped is None:
+                # #2108 — above the stored-object pixel ceiling: left as it is,
+                # counted and logged so the audit shows the residual metadata.
+                skipped_over_limit += 1
+                logger.warning(
+                    "exif_strip_over_pixel_limit",
+                    backend=BACKEND_KEY,
+                    tenant=log_tenant(tenant_key),
+                    mime_type=att.mime_type,
+                )
+                continue
             await asyncio.to_thread(self._write_sync, path, stripped, att.mime_type, {})
             rewritten += 1
         logger.info(
@@ -479,6 +491,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
             scope=scope,
             rewritten=rewritten,
             skipped_unsupported=skipped_unsupported,
+            skipped_over_limit=skipped_over_limit,
         )
         return rewritten
 

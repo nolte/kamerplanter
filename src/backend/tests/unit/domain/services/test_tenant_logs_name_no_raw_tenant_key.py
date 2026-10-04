@@ -23,7 +23,7 @@ from app.config.settings import settings
 from app.domain.engines.erasure_engine import UNAVAILABLE_LOG_TENANT, ErasureEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from tests.support.tenant_erasure_doubles import authorized, delete_and_run, tenant, tenant_service_for_deletion
-from tests.unit.domain.services.test_erasure_invitations_and_late_join import JOINER, PERSONAL, Tenants
+from tests.unit.domain.services.test_erasure_invitations_and_late_join import JOINER, PERSONAL, Tenants, account
 
 LOG_SALT = "log-pseudonym-test-salt-not-a-secret-01234"
 #: Distinctive, so a substring hit cannot be a coincidence.
@@ -85,7 +85,7 @@ class TestInvitationLines:
         token = tenants.invite()
 
         with structlog.testing.capture_logs() as logs:
-            tenants.service.accept_invitation(token, JOINER)
+            tenants.service.accept_invitation(token, account(JOINER))
 
         accepted = next(event for event in logs if event["event"] == "invitation_accepted")
         assert accepted["tenant"] == log_tenant(PERSONAL)

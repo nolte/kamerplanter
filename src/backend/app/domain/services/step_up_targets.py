@@ -27,6 +27,8 @@ on a kind of target learns nothing about which targets of that kind exist (403 b
   platform tenant (which cannot be deactivated, #1021);
 * ``admin_membership_removal`` (#2009) — a platform admin; the membership exists;
 * ``admin_membership_role_change`` (#2032) — a platform admin; the membership exists;
+* ``admin_membership_add`` (#2106) — a platform admin; the target is ``<tenant_key>|<user_key>`` and
+  both exist (the membership itself does not yet);
 * ``tenant_member_removal`` / ``tenant_member_role_change`` (#2032) — the requester holds
   the ``management`` scope in the tenant the membership belongs to
   (``MembershipEngine.can_manage_members``, the predicate the routes' scope gate
@@ -117,6 +119,15 @@ class StepUpTargetAuthorizer:
             self._require_platform_admin(user_key)
             if self._memberships.get_by_key(target) is None:
                 raise NotFoundError("Membership", target)
+        elif action == "admin_membership_add":
+            self._require_platform_admin(user_key)
+            tenant_key, _, account_key = target.partition("|")
+            if not tenant_key or not account_key or "|" in account_key:
+                raise ValidationError("An admin_membership_add target is <tenant_key>|<user_key>.")
+            if self._tenants.get_by_key(tenant_key) is None:
+                raise NotFoundError("Tenant", tenant_key)
+            if self._users.get_by_key(account_key) is None:
+                raise NotFoundError("User", account_key)
         elif action in ("tenant_member_removal", "tenant_member_role_change"):
             self._authorize_tenant_member_act(user_key, target)
         else:  # pragma: no cover - a new targeted act must be given its rule here

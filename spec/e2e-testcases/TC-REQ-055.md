@@ -1367,13 +1367,14 @@ sind je Fall frisch zu erzeugen.
 1. Julia öffnet Monas Detailseite
 2. Julia durchsucht Tabs, Hauptnavigation und die Einstellungen → Module
 3. Julia öffnet „Wer darf das sehen?" und den Profil-Link
-4. Der Test öffnet im zweiten Kontext den Profil-Link
+4. Julia öffnet „Was soll Mona erzählen?" und stellt Gießen auf „Einmal pro Woche"
+5. Der Test öffnet im zweiten Kontext den Profil-Link
 
 **Erwartete Ergebnisse**:
 - Die Tabs „Profil" und „Verlauf" sind vorhanden, der Tab „Veröffentlicht" und die Seite „Pflanzen-Posts" fehlen
-- Weder „Mit Mastodon verknüpfen" noch „Was soll Mona erzählen?" erscheinen
+- „Mit Mastodon verknüpfen" erscheint nirgends; „Was soll Mona erzählen?" bleibt vorhanden, aber ohne Mastodon-Spalte — die Regeln steuern nur, was auf dem Profil erscheint (PS-SOC-004a)
 - Das Modul „Pflanzen-Posts" lässt sich in den Einstellungen nicht aktivieren oder steht nicht zur Auswahl
-- Das Profil funktioniert wie sonst; die Stufen werden gespeichert
+- Das Profil funktioniert wie sonst; die Stufen und die Gieß-Regel werden gespeichert
 - Ist zusätzlich die Funktion „öffentliche Profile" abgeschaltet, ist „Für alle im Netz auffindbar" deaktiviert und das Profil unter Link nicht erreichbar
 
 **Nachbedingungen**:

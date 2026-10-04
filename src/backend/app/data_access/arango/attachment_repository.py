@@ -1,8 +1,9 @@
 """NFR-013 §2.2 — ArangoDB repository for the ``attachments`` collection."""
 
 from datetime import UTC, date, datetime
-from typing import Any
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.common.enums import AttachmentCategory
@@ -282,6 +283,22 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         if doc is None:
             return None
         return Attachment(**self._from_doc(doc))
+
+    def mark_renditions_failed(self, tenant_key: str, storage_key: str) -> int:
+        """#2108 — set ``renditions_failed`` on every record of the tenant holding the object (AQL)."""
+        query = """
+        FOR att IN @@collection
+          FILTER att.tenant_key == @tenant_key AND att.storage_key == @storage_key
+          UPDATE att WITH { renditions_failed: true, updated_at: @now } IN @@collection
+          RETURN 1
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "tenant_key": tenant_key,
+            "storage_key": storage_key,
+            "now": datetime.now(UTC).isoformat(),
+        }
+        return len(list(cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars))))
 
     def find_by_user(
         self,

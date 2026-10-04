@@ -71,6 +71,15 @@ class IAttachmentRepository(ABC):
         """
 
     @abstractmethod
+    def mark_renditions_failed(self, tenant_key: str, storage_key: str) -> int:
+        """#2108 — record that no rendition can be produced for the object at ``storage_key``.
+
+        Sets ``renditions_failed`` on every record of ``tenant_key`` that holds
+        the object — renditions belong to the object, which several uploaders'
+        records may share (#1770). Returns the number of records marked.
+        """
+
+    @abstractmethod
     def find_by_user(
         self,
         tenant_key: str,

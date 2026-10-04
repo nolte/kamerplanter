@@ -16,12 +16,11 @@ the license-safe symptom/on-leaf path only.
 """
 
 import hashlib
-import io
 from collections.abc import Sequence
 
 import structlog
-from PIL import Image
 
+from app.common.image_bounds import image_dimensions
 from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.domain.calculators.image_preprocessor import strip_exif_and_normalize
@@ -181,8 +180,8 @@ class PestDatasetAcquisitionService:
     def _passes_quality(image_data: bytes) -> bool:
         """Reject too-small or extreme-aspect crops (insect images are tight)."""
         try:
-            with Image.open(io.BytesIO(image_data)) as img:
-                width, height = img.size
+            # #2108 — header only, refused above the 40 MPx decode ceiling.
+            width, height = image_dimensions(image_data)
         except Exception:
             return False
         if min(width, height) < settings.pest_reference_min_dimension:

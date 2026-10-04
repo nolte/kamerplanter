@@ -1,7 +1,8 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, Path, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Path, Request, Response, UploadFile
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.imports.schemas import ImportJobResponse
 from app.common.auth import get_active_tenant_context, get_current_user, get_is_platform_admin
 from app.common.dependencies import get_import_service
@@ -9,6 +10,7 @@ from app.common.enums import DuplicateStrategy, EntityType
 from app.common.exceptions import PayloadTooLargeError, UnsupportedMediaTypeError
 from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.config.settings import settings
 from app.domain.models.import_job import ImportJob
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.import_service import ImportService
@@ -87,7 +89,9 @@ def _job_response(job: ImportJob) -> ImportJobResponse:
 
 
 @router.post("/upload", response_model=ImportJobResponse, status_code=202)
+@limiter.limit(settings.rate_limit_upload, key_func=user_rate_limit_key)
 async def upload_csv(
+    request: Request,
     file: Annotated[UploadFile, File(description="CSV file to import (max 10 MB).")],
     entity_type: EntityType = Form(..., description="Master-data entity type the CSV rows describe."),
     duplicate_strategy: DuplicateStrategy = Form(
@@ -135,7 +139,9 @@ async def upload_csv(
 
 
 @router.post("/jobs/{key}/confirm", response_model=ImportJobResponse)
+@limiter.limit(settings.rate_limit_upload, key_func=user_rate_limit_key)
 def confirm_import(
+    request: Request,
     key: Annotated[str, Path(description="Document key of the import job.")],
     service: ImportService = Depends(get_import_service),
     ctx: TenantContext = Depends(get_active_tenant_context),

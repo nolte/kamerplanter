@@ -40,6 +40,7 @@ from app.domain.models.privacy import (
     ErasureStep,
     ProcessingRestriction,
 )
+from app.domain.models.security_audit import SecurityAuditEntry
 from app.domain.models.task import Task, TaskComment
 from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
@@ -85,6 +86,7 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "manual_overrides": ManualOverride,
     "tenants": Tenant,
     "mcp_audit_log": McpAuditLog,
+    "security_audit_log": SecurityAuditEntry,
     "mcp_idempotency_record": McpIdempotencyRecord,
     # #1719 — erased as the subject's data, so disclosed as well.
     "api_keys": ApiKey,

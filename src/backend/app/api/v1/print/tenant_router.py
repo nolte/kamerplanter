@@ -3,12 +3,14 @@
 from io import BytesIO
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from fastapi.responses import StreamingResponse
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_print_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.config.settings import settings
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.print_service import PrintService
 
@@ -27,7 +29,9 @@ ALLOWED_LABEL_FIELDS = {
 
 
 @router.get("/nutrient-plan/{plan_key}")
+@limiter.limit(settings.rate_limit_export, key_func=user_rate_limit_key)
 def export_nutrient_plan_pdf(
+    request: Request,
     plan_key: Annotated[str, Path(description="Document key of the nutrient plan.")],
     locale: str = Query("de", pattern="^(de|en)$", description="Document language: de or en."),
     ctx: TenantContext = Depends(get_current_tenant),
@@ -49,7 +53,9 @@ def export_nutrient_plan_pdf(
 
 
 @router.get("/care-checklist")
+@limiter.limit(settings.rate_limit_export, key_func=user_rate_limit_key)
 def export_care_checklist_pdf(
+    request: Request,
     date: str | None = Query(
         None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="Checklist date (YYYY-MM-DD); defaults to today."
     ),
@@ -74,7 +80,9 @@ def export_care_checklist_pdf(
 
 
 @router.get("/plant-labels")
+@limiter.limit(settings.rate_limit_export, key_func=user_rate_limit_key)
 def export_plant_labels_pdf(
+    request: Request,
     plant_keys: str = Query(..., description="Comma-separated PlantInstance keys"),
     fields: str = Query(
         "name,scientific_name,planted_date",

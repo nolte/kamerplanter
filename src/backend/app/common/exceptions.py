@@ -682,6 +682,22 @@ class FileTooLargeError(KamerplanterError):
         )
 
 
+class ImagePixelLimitError(KamerplanterError):
+    """#2108 — an image whose header declares more pixels than the decode ceiling.
+
+    Raised from the header alone, before any pixel is decoded
+    (``app.common.image_bounds``). The message names the ceiling, never the
+    image's own dimensions or content.
+    """
+
+    def __init__(self, max_pixels: int) -> None:
+        super().__init__(
+            message=f"Image exceeds the maximum of {max_pixels / 1_000_000:.0f} megapixels.",
+            error_code="IMAGE_PIXEL_LIMIT_EXCEEDED",
+            status_code=413,
+        )
+
+
 class VirusScanRejectedError(KamerplanterError):
     """NFR-013 §5.1 step 5 — the optional virus scan reported a finding."""
 

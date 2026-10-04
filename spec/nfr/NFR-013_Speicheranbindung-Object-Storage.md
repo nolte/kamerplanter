@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, Helm, Kubernetes 1.28+, S3-kompatibles Object Storage, ReadWriteMany-PVs
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.9 (#2124: Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb — v1.7 #1834 Objekt-Rekonziliation)
+Version: 1.9 (#2124: Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb — v1.7 #1834 Objekt-Rekonziliation); 1.8 (#2108/#2139: Pixelgrenze, HEIC/HEIF nicht mehr zulässig, Thumbnail-Auftrag je Fenster)
 Autor: Business Analyst - Agrotech
 Datum: 2026-04-27
 Tags: [storage, object-storage, s3, minio, local-fs, adapter, photos, attachments, dsgvo, multi-tenant]
@@ -22,6 +22,7 @@ Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachmen
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
 | 1.9 | 2026-10-04 | **Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb (#2124, MT-028):** Der Block `storage` in `helm/kamerplanter/values.yaml` war bis hierher wirkungslos (das Chart las ihn nicht; `storage.backend: s3` lieferte `local-fs` mit PVC). Jetzt leitet das Chart daraus die `STORAGE_*`-Variablen von Backend und Celery-Worker, das PVC `backend-attachments` (nur bei `local-fs`) und dessen Mounts ab; die S3-Credentials kommen als zwei `secretKeyRef` aus `credentialsRef` (Default-Schluessel jetzt `STORAGE_S3_ACCESS_KEY_ID` / `STORAGE_S3_SECRET_ACCESS_KEY`, wie in der Betriebsdoku). Neuer §10.1: Das Chart verweigert das Rendern von mehr als einer Backend- oder Worker-Replica auf einem `ReadWriteOnce`-Anhang-Volume (Ausweg: S3, RWX oder `storage.localFs.singleNode: true`). Das PVC traegt `Prune=false,Delete=false` fuer ArgoCD. Render-Vertraege in `scripts/ci/assert_chart_contracts.sh`. |
+| 1.8 | 2026-10-04 | **#2108 Pixelgrenze und Thumbnail-Verstärkung (MT-011):** §5.1 Schritt 5a — jedes Bild wird vor dem Dekodieren an seiner Kopfzeile gegen **40 Megapixel** geprüft (`app.common.image_bounds`, HTTP 413 `IMAGE_PIXEL_LIMIT_EXCEEDED`); die Grenze gilt für jede Bild-Dekodierung des Backends, ein Guard hält jedes `Image.open` in diesem Modul. Die EXIF-Bereinigung kodiert das dekodierte Bild neu statt es aus Pixel-Tupeln aufzubauen (gemessen 80 Byte je Pixel). Die DSGVO-Bereinigung gespeicherter Objekte nimmt bis 80 MPx an und zählt größere als `skipped_over_limit`. §8.2 — die Thumbnail-Erzeugung wird je Anhang höchstens einmal in 300 s angestoßen (Valkey `SET NX EX`), endgültig gescheiterte Erzeugung setzt `renditions_failed`, der Abruf antwortet dann 404 statt 202. **#2139 HEIC/HEIF (MT-043):** §5.2 — nicht mehr in der Foto-Whitelist; solange `STORAGE_STRIP_EXIF` aktiv ist, lehnt Schritt 4 jeden Bildtyp ab, den die Bereinigung nicht neu kodieren kann, auch per Kategorie-Override. |
 | 1.7 | 2026-10-02 | **#1834 Objekt-Rekonziliation umgesetzt (§6.6, AC-12):** Task `app.tasks.storage_tasks.reconcile_orphaned_storage_objects` (Beat täglich 04:10) listet `t/` über beide Adapter seitenweise (local-fs paginiert jetzt wie S3, Token = letzter Key; je Lauf höchstens `STORAGE_RECONCILE_MAX_OBJECTS_PER_RUN` Objekte, der Folgelauf setzt fort), bildet Renditionen über jede mögliche Original-Endung auf den haltenden Datensatz ab und meldet `found` / `young` / `eligible` / `would_delete` / `deleted` / `failed`. **Löschen ist per Default aus** (`STORAGE_RECONCILE_DELETE_ENABLED=false`, Betreiberentscheidung: erster Release nur Bericht); die Sicherheitsmarge ist `STORAGE_RECONCILE_MIN_AGE_HOURS` (Default 24, Untergrenze 1). Eine Notbremse (`STORAGE_RECONCILE_MAX_ORPHAN_FRACTION`, Default 0,5) verhindert das Löschen bei einem gültig, aber leer antwortenden Katalog. Bericht und Logzeilen des Laufs tragen nur Zählwerte, nie Mandant, Nutzer oder Objektpfad. Vier Pfade der Issue sind rot-zuerst gegen ArangoDB und den echten local-fs-Adapter belegt. |
 | 1.6 | 2026-09-26 | **Datenschutzplan-Entscheidung Q-O3 (Betreiberentscheidung, #1834):** Neuer §6.6 Objekt-Rekonziliation — ein periodischer Lauf listet Objekte im Storage, die kein `attachments`-Datensatz mehr hält, mit 24h-Sicherheitsmarge gegen den Schreib-vor-Datensatz-Zeitpunkt eines Uploads; für den ersten Release **nur Bericht, keine Löschung**. **AC-12** neu. |
 | 1.5 | 2026-09-25 | **Deduplizierung pro Hochlader (#1770):** Schritt 8 der Upload-Pipeline gibt einem zweiten Hochlader identischer Bytes nicht mehr den Datensatz des ersten zurück, sondern einen eigenen Datensatz über dasselbe gespeicherte Objekt; `storage_key` ist deshalb nicht mehr eindeutig (Migration v0062 entfernt den eindeutigen Index). Ein Objekt wird erst gelöscht, wenn kein Datensatz des Mandanten es mehr hält; die Quota zählt es einmal. |
@@ -321,8 +322,9 @@ Pflicht-Reihenfolge fuer jeden Upload:
 1. **Authentifizierung** (REQ-023) — gueltiges Access-Token
 2. **Autorisierung** (REQ-024) — `require_permission("attachment:create", scope=tenant)`
 3. **Quota-Pruefung** — pro-Tenant- und pro-Mandant-Limit
-4. **Mime-Type-Whitelist** — gegen `STORAGE_ALLOWED_MIME_TYPES`
+4. **Mime-Type-Whitelist** — gegen `STORAGE_ALLOWED_MIME_TYPES`. Solange `STORAGE_STRIP_EXIF` aktiv ist, wird ein Bildtyp, dessen Metadaten die EXIF-Bereinigung nicht entfernen kann (HEIC/HEIF, GIF), auch dann mit 415 abgelehnt, wenn ein Kategorie-Override ihn zulaesst (v1.8, #2139).
 5. **Magic-Byte-Validierung** — der erste Block wird gegen den deklarierten Mime-Type geprueft (Schutz vor maskierten Uploads)
+5a. **Pixelgrenze (Bilder)** — Breite × Hoehe aus der Kopfzeile, **bevor** ein Pixel dekodiert wird; ueber 40 Megapixel HTTP 413 `IMAGE_PIXEL_LIMIT_EXCEEDED` (v1.8, #2108). Gilt auch bei abgeschaltetem EXIF-Strip, weil die Thumbnail-Erzeugung jedes Bild dekodiert.
 6. **Groessenlimit** — gegen `STORAGE_MAX_FILE_SIZE_MB`
 7. **Optional Virus-Scan** — wenn `STORAGE_VIRUS_SCAN_ENABLED=true`, ClamAV-Wrapper-Aufruf, Block auf Findings
 8. **SHA-256-Hash-Berechnung** — Deduplizierung pro Tenant, Integritaet in `attachments`-Metadaten. Dedupliziert werden die **Bytes**, nicht der Datensatz (#1770): Hat derselbe Hochlader dieselben Bytes in derselben Kategorie schon hochgeladen, wird sein Datensatz zurückgegeben; sonst erhält er einen eigenen Datensatz, der auf das vorhandene Objekt zeigt. Ein Objekt samt Renditionen wird erst gelöscht, wenn kein Datensatz des Mandanten es mehr hält (Einzellöschung, Waisen-Bereinigung, DSGVO-Löschung nach REQ-025 AK-OS-08); die Quota zählt es einmal. Mandanten teilen nie.
@@ -336,7 +338,7 @@ Fehlschlaegt einer der Schritte 4–7, wird der Upload **vor** dem Schreiben ins
 
 | Kategorie | Erlaubte Mime-Types | Max-Groesse (Default) |
 |-----------|---------------------|------------------------|
-| `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `id_recognition`, `plant` | `image/jpeg`, `image/png`, `image/webp`, `image/heic` (server-seitige Konvertierung empfohlen) | 25 MB |
+| `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `id_recognition`, `plant` | `image/jpeg`, `image/png`, `image/webp` — HEIC/HEIF seit v1.8 nicht mehr (#2139): ohne `pillow-heif` nicht neu kodierbar, wurde samt GPS gespeichert; die App-Clients wandeln vor dem Upload in JPEG um | 25 MB |
 | `import` | `text/csv`, `application/vnd.ms-excel`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | 50 MB |
 | `export` | `application/pdf`, `text/csv`, `application/zip` | 200 MB |
 | `tenant_export` | `application/zip` | 5 GB |
@@ -541,7 +543,7 @@ Migration laeuft als Celery-Task mit Wiederaufnahmen, Fortschrittsanzeige und Au
 
 - Beim Upload werden bis zu **3 Thumbnail-Varianten** asynchron via Celery erzeugt (`128`, `512`, `1280` px lange Kante)
 - Thumbnails werden im selben Storage-Backend abgelegt: `t/{tenant_key}/{category}/{yyyy}/{mm}/{ulid}_t{size}.webp`
-- Verloren gegangene Thumbnails werden lazy beim ersten Zugriff regeneriert
+- Verloren gegangene Thumbnails werden lazy beim ersten Zugriff regeneriert — **je Anhang hoechstens ein Auftrag in 300 s** (v1.8, #2108): ein atomarer Claim in Valkey (`SET NX EX`, bei Ausfall je Prozess) statt eines Auftrags je Abruf. Scheitert die Erzeugung endgueltig (Pixelgrenze, nicht dekodierbar, Metadaten-Leck, oder nach dem letzten Wiederholversuch), setzt der Task `renditions_failed` auf jedem Datensatz des Mandanten, der das Objekt haelt; ein Abruf antwortet dann 404 statt 202.
 - **Thumbnails tragen niemals EXIF-Daten.** Die Erzeugung schreibt ausschliesslich Bilddaten in die WebP-Rendition; Aufnahmeort, Geraetekennung und Aufnahmezeit werden **nicht** uebernommen — auch dann nicht, wenn der Upload-Strip abgeschaltet ist (`STORAGE_STRIP_EXIF=false`) und die Originaldatei ihre EXIF-Daten behaelt. Das Keep-EXIF-Setting aus §6.4 — global heute, kategoriescharf erst spezifiziert (siehe dort) — betrifft ausschliesslich die **Originaldatei**. Diese Trennung ist die Grundlage dafuer, dass Renditions an Dritte ausgeliefert werden duerfen, wo das Original es nicht darf (REQ-050 §4.4, REQ-033 AC-S7) — sie muss beim Erzeugen aktiv sichergestellt und getestet werden, nicht als Nebenwirkung der Neukodierung angenommen.
 
 ### 8.3 Caching

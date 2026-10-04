@@ -179,6 +179,7 @@ if TYPE_CHECKING:
     from app.domain.interfaces.observation_repository import IObservationRepository
     from app.domain.interfaces.pest_media_source import PestMediaSource
     from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
+    from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
     from app.domain.models.species import Species
     from app.domain.models.substrate import SubstrateBatch
     from app.domain.services.activity_plan_service import ActivityPlanService
@@ -224,6 +225,7 @@ if TYPE_CHECKING:
     from app.domain.services.retention_service import RetentionService
     from app.domain.services.season_signal_resolver import SeasonSignalResolver
     from app.domain.services.season_state_service import SeasonStateService
+    from app.domain.services.security_audit_service import SecurityAuditService
     from app.domain.services.sensor_service import SensorService
     from app.domain.services.starter_kit_service import StarterKitService
     from app.domain.services.step_up_service import StepUpVerifier
@@ -1208,6 +1210,14 @@ def get_assignment_repo() -> ArangoLocationAssignmentRepository:
     return ArangoLocationAssignmentRepository(get_db())
 
 
+def get_security_audit_service() -> SecurityAuditService:
+    """MT-014 (#2111) — the persistent security audit of membership, role and scope changes."""
+    from app.data_access.arango.security_audit_repository import ArangoSecurityAuditRepository
+    from app.domain.services.security_audit_service import SecurityAuditService
+
+    return SecurityAuditService(ArangoSecurityAuditRepository(get_db()))
+
+
 def get_tenant_service() -> TenantService:
     return TenantService(
         tenant_repo=get_tenant_repo(),
@@ -1231,6 +1241,10 @@ def get_tenant_service() -> TenantService:
         site_anchors=get_site_repo(),
         # #1924 — nobody is invited into the personal tenant of an account that asked to be erased.
         erasure_repo=get_erasure_repo(),
+        # MT-014 (#2111) — every membership, role and scope change leaves a persistent audit row.
+        security_audit=get_security_audit_service(),
+        # #2114 — a membership that ends takes the member off the tenant's task assignments.
+        task_repo=get_task_repo(),
     )
 
 
@@ -2365,7 +2379,18 @@ def get_attachment_service() -> AttachmentService:
         storage=get_object_storage(),
         attachment_repo=get_attachment_repo(),
         settings=settings,
+        rendition_claims=get_rendition_dispatch_claims(),
     )
+
+
+def get_rendition_dispatch_claims() -> IRenditionDispatchClaims:
+    """#2108 — the thumbnail-dispatch claim, shared across replicas in Valkey.
+
+    Falls back to the process-wide in-process tier while Valkey is unreachable.
+    """
+    from app.data_access.external.rendition_dispatch_claims import RedisRenditionDispatchClaims
+
+    return RedisRenditionDispatchClaims(_get_redis_client())
 
 
 def get_reference_index_store() -> IReferenceIndexStore:

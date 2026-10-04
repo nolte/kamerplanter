@@ -93,6 +93,11 @@ class Attachment(BaseModel):
     # Populated on demand for gallery photos; ``None`` until the user triggers
     # an assessment. Re-running overwrites it.
     quality_assessment: QualityAssessment | None = None
+    #: #2108 — the thumbnail task gave up on this object for good (undecodable,
+    #: above the pixel ceiling, or out of retries). A thumbnail GET then answers
+    #: 404 instead of 202 and dispatches nothing. Absent on records written
+    #: before the field existed, which read as ``False``.
+    renditions_failed: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

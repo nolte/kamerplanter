@@ -10,6 +10,8 @@ import io
 
 from PIL import Image
 
+from app.common.image_bounds import open_bounded_image
+
 # Maximum edge length sent to the identification service. Pl@ntNet accepts
 # large images but downsizing keeps payloads small and stays well within limits.
 MAX_IMAGE_DIMENSION = 1024
@@ -35,9 +37,10 @@ def strip_exif_and_normalize(
 
     Raises:
         ValueError: when the bytes cannot be decoded as an image.
+        ImagePixelLimitError: above the 40 MPx decode ceiling (#2108).
     """
     try:
-        with Image.open(io.BytesIO(image_data)) as img:
+        with open_bounded_image(image_data) as img:
             img = img.convert("RGB")
 
             longest_edge = max(img.size)

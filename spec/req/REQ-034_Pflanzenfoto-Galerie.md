@@ -8,7 +8,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, React 19/TypeScript 5.9, MUI 7
 Status: Entwurf
 Prioritaet: Hoch
-Version: 1.2 (Erfassung §2.2 nach REQ-052 ausgelagert)
+Version: 1.3 (Foto-Whitelist ohne HEIC nach NFR-013 v1.8, #2139)
 Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `gallery`), NFR-013 v1.4 (Object Storage), REQ-013 v2.7 (PlantInstance), REQ-024 v1.7 (Rollen), REQ-025 v1.6 (DSGVO), REQ-029-A v1.3 (DINOv2-Referenz-Index)
 Autor: Business Analyst - Agrotech
 Datum: 2026-06-19
@@ -22,6 +22,7 @@ Betroffene Module: [backend.app.services.attachment, backend.app.domain.models.p
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.3 | 2026-10-04 | Erlaubte MIME-Types der Galerie folgen NFR-013 v1.8: kein `image/heic` mehr (#2139) — die serverseitige EXIF-Bereinigung kann es nicht neu kodieren; die Erfassung nach REQ-052 wandelt vorher in JPEG um. |
 | 1.1 | 2026-06-19 | **Security-Requirements-Review eingearbeitet.** SR-001: Consent-Purpose `reference_contribution` in REQ-025 v1.4 registriert (§4.4). SR-002: Permission-Vertrag auf den realen `Permission`-Enum (REQ-024 v1.5 §1a) umgestellt; neue Matrix-Zeile „Plant Instance Photos" (§6). SR-003: Provenienz-Felder + pgvector-Erasure-Phase 0.5 (REQ-029-A v1.2 §5.1, REQ-025 §3.5) (§5). SR-004: Galerie-Quota verbindlich (§3, O-01 aufgelöst). SR-005: Light-Modus-Auflösung des Reference-Hooks + Backlog-Limit gegen Index-Poisoning (§4). SR-006: interner Bildtransfer als ClusterIP/TLS-only gekennzeichnet (§4.2). SR-007: `POST /reference`-Vertrag in REQ-029-A v1.2 §3.3 definiert. O-04 auf „global pro Nutzer" entschieden. |
 | 1.0 | 2026-06-19 | Erstentwurf — Foto-Galerie pro Pflanzeninstanz auf NFR-013-Fundament, DINOv2-Hook, DSGVO-Klassifizierung. |
 
@@ -153,7 +154,7 @@ REQ-034 fuehrt eine **neue Storage-Kategorie** ein. Das ist die einzige Aenderun
 |-------------|------|
 | **Kategorie-Schluessel** | `plant` |
 | **Storage-Key-Schema** | `t/{tenant_key}/plant/{yyyy}/{mm}/{ulid}.{ext}` (NFR-013 §4.3, unveraendert) |
-| **Erlaubte MIME-Types** | `image/jpeg`, `image/png`, `image/webp`, `image/heic` (serverseitige Konvertierung empfohlen) — identisch zur Foto-Whitelist `diary`/`ipm`/`harvest` (NFR-013 §5.2) |
+| **Erlaubte MIME-Types** | `image/jpeg`, `image/png`, `image/webp` — identisch zur Foto-Whitelist `diary`/`ipm`/`harvest` (NFR-013 §5.2; HEIC/HEIF seit NFR-013 v1.8 nicht mehr, #2139) |
 | **Max-Groesse (Default)** | 25 MB (NFR-013-Default; ueber `STORAGE_ALLOWED_MIME_TYPES_PLANT` / `STORAGE_MAX_FILE_SIZE_MB` ueberschreibbar) |
 | **Quota (SR-004)** | `STORAGE_MAX_PHOTOS_PER_INSTANCE` (Default **50** Fotos/Pflanzeninstanz). Zusaetzlich greift die Tenant-Storage-Quota gemaess NFR-013 §5.1 Schritt 3 / NFR-012 §10 (Skalierungsstufe). Ueberschreitung ⇒ Upload abgelehnt (HTTP 409, vor dem Schreiben). |
 | **Thumbnails** | 128 / 512 / 1280 px (NFR-013 §8.2, unveraendert) |

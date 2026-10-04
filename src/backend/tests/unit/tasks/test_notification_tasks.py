@@ -26,6 +26,9 @@ def _mock_dependencies(monkeypatch):
     mock_deps.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_notification_preference_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_user_repo = MagicMock()  # type: ignore[attr-defined]
+    # #2114 — the beat asks the stored membership of (user, tenant); every task in this file belongs to
+    # an active member unless a test says otherwise (``test_notification_recipients_are_members.py``).
+    mock_deps.get_membership_repo = MagicMock()  # type: ignore[attr-defined]
 
     # Inject mock module
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)

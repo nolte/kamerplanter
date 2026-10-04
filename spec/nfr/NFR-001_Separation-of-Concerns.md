@@ -6,7 +6,7 @@ Kategorie: Architektur Unterkategorie: API-Design, Security, Deployment Fokus: B
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI, Docker
 Status: Genehmigt
 Priorität: Kritisch
-Version: 2.3
+Version: 2.4 (#2109: Budgets je Konto auf teuren Routen umgesetzt, `rate_limit_general` entfernt)
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [architecture, api-first, security, scalability, separation-of-concerns, layered-architecture, rate-limiting, csp, mqtt-security, audit-trail, dsgvo]
@@ -589,6 +589,17 @@ Die Begrenzung der Anfragerate (Rate Limiting) ist eine **verbindliche Anforderu
 | RL-003 | Bei Überschreitung MUSS HTTP 429 (Too Many Requests) mit `Retry-After`-Header zurückgegeben werden. | MUSS |
 | RL-004 | Login-Endpunkte MÜSSEN dem Login-Tier folgen (5 Versuche/15 Min pro IP). Dies ist ein Spezialfall des allgemeinen Rate Limitings; die detaillierte Account-Lockout-Logik ist in REQ-023 spezifiziert. | MUSS |
 | RL-005 | CSV-Upload MUSS zusätzlich eine maximale Dateigröße von 10 MB erzwingen. | MUSS |
+
+**Umsetzungsstand (v2.4, #2109).** Die Tier-Tabelle oben ist das Zielbild; umgesetzt sind:
+
+| Umgesetzt | Limit (Default) | Schlüssel | Routen |
+|---|---|---|---|
+| Uploads und CSV-Import | `RATE_LIMIT_UPLOAD` = 30/min | je Konto und Route (`user_rate_limit_key`; ohne aufgelöstes Konto die Client-IP) | jede Route mit `UploadFile`-Parameter, dazu `POST /import/jobs/{key}/confirm` |
+| Inferenz | `RATE_LIMIT_INFERENCE` = 20/min | je Konto und Route | CV-Diagnose, Schädlingserkennung (beide Routen), Pflanzenbestimmung, Referenzbeitrag — zusätzlich zu deren Tagesgrenzen |
+| PDF-Druck | `RATE_LIMIT_EXPORT` = 20/min | je Konto und Route | die drei Routen unter `/print` |
+| Anmelde-, Mail- und Health-Routen | `RATE_LIMIT_AUTH` u. a. | je Client-IP | wie in REQ-023 |
+
+Jede 429-Antwort trägt `Retry-After` (RL-003). Die Zählung liegt im geteilten Valkey (RL-002) und fällt bei dessen Ausfall auf eine Zählung je Prozess zurück. **Nicht umgesetzt:** ein allgemeines Lese-/Schreib-Tier je Konto (RL-001); die frühere Einstellung `rate_limit_general` („100/minute") wurde nie gelesen und ist entfernt. Welche Routen als teuer gelten, hält `tests/unit/guards/test_expensive_routes_carry_a_per_user_limit.py` fest (jede Route mit Datei-Upload oder einem Inferenz-/Druck-Dienst trägt ein Budget je Konto oder ist begründet ausgenommen); dass jede `rate_limit_*`-Einstellung gelesen wird, `test_rate_limit_settings_are_read.py`.
 
 **Technologie:** `slowapi` (FastAPI-kompatibel) + Redis-Backend
 
@@ -1671,5 +1682,6 @@ class WeatherStationAdapter:
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.4 | 2026-10-04 | **#2109 (MT-012) Budgets je Konto auf teuren Routen:** §6.3 hält den Umsetzungsstand fest. Upload-, Inferenz- und Druck-Routen zählen je Konto und Route (`RATE_LIMIT_UPLOAD` 30/min, `RATE_LIMIT_INFERENCE` 20/min, `RATE_LIMIT_EXPORT` 20/min, Schlüssel `user_rate_limit_key`); RL-003 (`Retry-After`) ist für jede 429-Antwort umgesetzt. Die nie gelesene Einstellung `rate_limit_general` ist entfernt statt verdrahtet — ein Konto-Default auf allen rund 800 Routen hätte jede Route neu bepreist. RL-001 (jede Route einem Tier zugeordnet) bleibt offen; Guards `test_expensive_routes_carry_a_per_user_limit`, `test_rate_limit_settings_are_read`. |
 | 2.1 | 2026-02-27 | IT-Security-Review-Findings eingearbeitet: §6.3 Rate Limiting formalisiert (SEC-H-002), §6.4 HTTP Security Headers (SEC-M-003), §6.5 Globale Eingabevalidierung (SEC-H-003), §6.6 MQTT-Security (SEC-H-006), §6.7 DSFA-Pflicht (SEC-K-005), §8.3 Sentry DSGVO-Konformität (SEC-M-005), §10.2 Audit-Trail verbindlich (SEC-H-007), §12 Akzeptanzkriterien erweitert |
 | 2.0 | 2026-02-25 | Produktionsreife Version, §6.1 Auth an REQ-023 delegiert |

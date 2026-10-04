@@ -225,6 +225,10 @@ Unlocking the instance (`AI_FEATURES_ENABLED=true`) is not sufficient on its own
 | S3-compatible storage | Backend + Celery Worker + external S3 endpoint | `STORAGE_BACKEND=s3` + `STORAGE_S3_ENDPOINT_URL`/`STORAGE_S3_REGION`/`STORAGE_S3_BUCKET` | `STORAGE_S3_ACCESS_KEY_ID`, `STORAGE_S3_SECRET_ACCESS_KEY` (from the External Secrets Operator) | no PVC needed | No |
 | Virus scanning (ClamAV REST wrapper) | External ClamAV service | `STORAGE_VIRUS_SCAN_ENABLED=true` + `STORAGE_VIRUS_SCAN_ENDPOINT` | — | external, not part of the chart | No |
 | Plant photo gallery <!-- REQ-034 --> | shares the object storage stack | No dedicated switch — `STORAGE_MAX_PHOTOS_PER_INSTANCE` caps the count | — | — | No |
+| Pixel ceiling for images <!-- NFR-013 §5.1 --> | Backend + Celery Worker | Always on, no switch: every upload and every image analysis refuses images above **40 megapixels** with `413` (`IMAGE_PIXEL_LIMIT_EXCEEDED`) before a single pixel is decoded | — | caps the memory of one image decode at about 160 MB (40 MPx RGBA) | No |
+| Image types without EXIF stripping (HEIC/HEIF, GIF) | Backend | Not admitted while `STORAGE_STRIP_EXIF=true` (default) — not even through `STORAGE_ALLOWED_MIME_TYPES_<CATEGORY>`; an upload answers `415` | — | — | No |
+| Thumbnail generation | Celery Worker | Always on: at most one job per attachment in five minutes (lock in Valkey, per process during an outage); thumbnails that failed for good answer `404` | — | — | No |
+| Per-account budgets for expensive routes | Backend + Valkey (counters) | `RATE_LIMIT_UPLOAD` (default `30/minute`: uploads, CSV import), `RATE_LIMIT_INFERENCE` (`20/minute`: CV diagnosis, pest detection, plant identification, reference contribution), `RATE_LIMIT_EXPORT` (`20/minute`: PDF printing) — per route and account; above that `429` with `Retry-After` | Valkey from `REDIS_URL` or `RATE_LIMIT_STORAGE_URL` (falls back to counting per process during an outage) | — | No |
 
 Details: [Configure Storage](../user-guide/object-storage.md), [Helm Charts — Storage Configuration](helm.md#storage-konfiguration-nfr-013).
 

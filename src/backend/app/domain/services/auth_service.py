@@ -587,20 +587,28 @@ class AuthService:
         )
         created = self._user_repo.create(user)
 
-        # Create local auth provider record
-        if created.key:
-            provider = AuthProvider(
-                user_key=created.key,
-                provider=AuthProviderType.LOCAL,
-                provider_user_id=created.key,
-                provider_email=email,
-                linked_at=datetime.now(UTC),
-            )
-            self._auth_provider_repo.create(provider)
+        # The user, its sign-in provider and its personal tenant are three writes. The tenant with its lead
+        # membership is one transaction of its own (#2118); the three together are made whole by taking back
+        # what was written when a later one fails: an account without its provider or personal tenant would
+        # be answered "registered" on the retry (the duplicate-suppression branch above) and never get one.
+        try:
+            # Create local auth provider record
+            if created.key:
+                provider = AuthProvider(
+                    user_key=created.key,
+                    provider=AuthProviderType.LOCAL,
+                    provider_user_id=created.key,
+                    provider_email=email,
+                    linked_at=datetime.now(UTC),
+                )
+                self._auth_provider_repo.create(provider)
 
-        # Create personal tenant
-        if self._tenant_service and created.key:
-            self._tenant_service.create_personal_tenant(created.key, display_name)
+            # Create personal tenant
+            if self._tenant_service and created.key:
+                self._tenant_service.create_personal_tenant(created.key, display_name)
+        except BaseException:
+            self._take_back_registration(created.key)
+            raise
 
         # Send verification email (only when required)
         if self._require_email_verification and verification_token:
@@ -1957,6 +1965,21 @@ class AuthService:
             )
         return None
 
+    def _take_back_registration(self, user_key: str | None) -> None:
+        """Remove the account a failed registration just created, with whatever hangs off it (#2118).
+
+        The narrow account delete (:meth:`IUserRepository.delete`: provider links, sessions, memberships and
+        the user document, the ``account_cascade`` slice of the erasure plan). A fresh account has nothing
+        else. It never masks the failure that got us here: if the take-back itself fails the account is
+        logged for the operator (no key, no exception text) and the original error is the one raised.
+        """
+        if not user_key:
+            return
+        try:
+            self._user_repo.delete(user_key)
+        except Exception as exc:  # noqa: BLE001 - the primary error is the one to raise
+            logger.error("registration_take_back_failed", error_type=type(exc).__name__)
+
     def _register_oauth_user(self, oauth_user: OAuthUserInfo) -> User:
         """Create a new user from OAuth info (no password).
 
@@ -1987,7 +2010,12 @@ class AuthService:
         )
         created = self._user_repo.create(user)
         if self._tenant_service and created.key:
-            self._tenant_service.create_personal_tenant(created.key, created.display_name)
+            try:
+                self._tenant_service.create_personal_tenant(created.key, created.display_name)
+            except BaseException:
+                # An account without its personal tenant would have no tenant context ever (#2118).
+                self._take_back_registration(created.key)
+                raise
         logger.info("oauth_user_registered", email_sha256=email_digest(oauth_user.email), provider=oauth_user.provider)
         return created
 

@@ -11,6 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, Path, Query, Request, Response, UploadFile
 
 from app.api.v1.attachments.permissions import require_attachment_permission
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.ipm.router import _application_response, _inspection_response
 from app.api.v1.ipm.schemas import (
     HarvestSafetyResponse,
@@ -26,6 +27,7 @@ from app.common.dependencies import get_ipm_service, get_pest_image_service
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, NotFoundError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.models.ipm import Inspection, TreatmentApplication
 from app.domain.models.tenant_context import TenantContext
@@ -274,6 +276,7 @@ def get_inspection_schedule(
 
 
 @router.post("/pests/{pest_key}/images", response_model=PestImageResponse, status_code=201)
+@limiter.limit(settings.rate_limit_upload, key_func=user_rate_limit_key)
 async def contribute_pest_image(
     pest_key: Annotated[str, Path(description="Document key of the global pest.")],
     request: Request,
