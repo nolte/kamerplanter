@@ -47,6 +47,12 @@ class McpPrincipal(BaseModel):
     #: tool without a ``tenant`` argument that is not a plain read.
     is_platform_admin: bool = False
     memberships: tuple[McpTenantMembership, ...] = Field(default_factory=tuple)
+    #: ``log_api_key`` of the key that authenticated this request — a salted
+    #: reference to the ``api_keys`` document, never the key or its hash (#2130).
+    api_key_ref: str | None = None
+    #: The client address truncated the NFR-011 R-03 way (``loggable_ip``) — what
+    #: the database keeps of an address long-term, never the full address (#2130).
+    client_ip_ref: str | None = None
 
     model_config = {"frozen": True}
 

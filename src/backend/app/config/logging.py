@@ -17,6 +17,7 @@ from app.common.log_privacy import (
     redact_text_in_flight,
     redacted_traceback,
 )
+from app.common.request_context import merge_request_telemetry
 
 #: Libraries that log every outbound request with its full URL at INFO/DEBUG —
 #: query string included, which is where OpenWeatherMap (``appid``) and Perenual
@@ -499,6 +500,9 @@ def setup_logging(debug: bool = False) -> None:
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
+            # Actor and tenant pseudonyms of the current request (#2130): bound by
+            # sync dependencies, so they cannot travel as contextvars.
+            merge_request_telemetry,
             structlog.stdlib.filter_by_level,
             structlog.stdlib.add_logger_name,
             structlog.stdlib.add_log_level,

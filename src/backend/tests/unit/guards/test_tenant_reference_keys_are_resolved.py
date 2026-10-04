@@ -319,6 +319,9 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "location_assignment.LocationAssignment.membership_key": _V,
     "location_assignment.LocationAssignment.location_key": _V,  # #1871 B3
     "mcp.McpAuditLog.service_account_key": _A,
+    # #2130: written by the audit logger from the call's validated input, read by
+    # nothing that resolves a record — a record of what was named, not a reference.
+    "mcp.McpAuditLog.entity_keys": _I,
     "mcp.McpIdempotencyRecord.service_account_key": _A,
     "mcp.McpIdempotencyRecord.idempotency_key": _I,
     "security_audit.SecurityAuditEntry.actor_user_key": _A,  # #2111: proof of who acted, never read back as a reference

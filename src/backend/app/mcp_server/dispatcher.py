@@ -35,9 +35,10 @@ from pydantic import ValidationError as PydanticValidationError
 from app.common.enums import McpPermission, McpToolStatus, TenantRole
 from app.common.error_ids import new_error_id
 from app.common.exceptions import ForbiddenError, KamerplanterError, NotFoundError, ValidationError
+from app.common.request_context import bind_tenant
 from app.core.permissions import assert_mcp_permission
 from app.domain.models.mcp import McpToolResponse
-from app.mcp_server.audit import MCPAuditLogger, hash_arguments
+from app.mcp_server.audit import MCPAuditLogger, entity_keys_of, hash_arguments
 from app.mcp_server.base import (
     INTERNAL_UNAVAILABLE,
     McpToolError,
@@ -97,8 +98,14 @@ class ToolDispatcher:
             )
             raise ValidationError(f"Invalid arguments for tool '{tool_name}': {exc.errors()}") from exc
 
+        # The record keys the call names, for every audit row from here on (#2130).
+        entity_keys = entity_keys_of(args)
+
         # 2. Acting-tenant binding (§4.3) — before any permission decision.
-        membership = self._resolve_membership(principal, tool, args, tool_name, input_hash)
+        membership = self._resolve_membership(principal, tool, args, tool_name, input_hash, entity_keys)
+        if membership is not None:
+            # This call's log lines and dispatched tasks name the tenant it acts in (#2130).
+            bind_tenant(membership.tenant_key)
 
         # 3. Permission binding against the role held in *that* tenant (§4.4).
         #    A tool with no tenant has no tenant role to bind to. A plain read of
@@ -115,6 +122,7 @@ class ToolDispatcher:
                 status=McpToolStatus.DENIED,
                 error_class="permission.denied",
                 membership=membership,
+                entity_keys=entity_keys,
             )
             raise ForbiddenError(
                 f"Tool '{tool_name}' changes data shared by every tenant; it needs the platform admin role."
@@ -136,6 +144,7 @@ class ToolDispatcher:
                 status=McpToolStatus.DENIED,
                 error_class="permission.denied",
                 membership=membership,
+                entity_keys=entity_keys,
             )
             raise
 
@@ -152,6 +161,7 @@ class ToolDispatcher:
                 duration_ms=int((perf_counter() - started) * 1000),
                 error_class=exc.error_code,
                 membership=membership,
+                entity_keys=entity_keys,
             )
             raise
         except Exception as exc:  # noqa: BLE001 — audit unexpected failures too
@@ -163,6 +173,7 @@ class ToolDispatcher:
                 duration_ms=int((perf_counter() - started) * 1000),
                 error_class=type(exc).__name__,
                 membership=membership,
+                entity_keys=entity_keys,
             )
             raise self._as_internal_tool_error(exc, tool_name) from exc
 
@@ -186,6 +197,7 @@ class ToolDispatcher:
             image_bytes=response.image_payload_bytes(),
             duration_ms=duration_ms,
             membership=membership,
+            entity_keys=entity_keys,
         )
         return response
 
@@ -196,6 +208,7 @@ class ToolDispatcher:
         args: Any,
         tool_name: str,
         input_hash: str,
+        entity_keys: dict[str, list[str]],
     ) -> McpTenantMembership | None:
         """Bind the call to exactly one tenant the principal is a member of (§4.3).
 
@@ -233,6 +246,7 @@ class ToolDispatcher:
             input_hash=input_hash,
             status=McpToolStatus.DENIED,
             error_class="not_found",
+            entity_keys=entity_keys,
         )
         raise NotFoundError("Tenant", requested)
 

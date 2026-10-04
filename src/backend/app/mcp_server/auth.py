@@ -28,6 +28,7 @@ from datetime import UTC, datetime
 
 from app.common.auth import is_platform_admin
 from app.common.exceptions import ForbiddenError, UnauthorizedError
+from app.common.log_privacy import log_api_key, loggable_ip
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.auth import api_key_scope_admits
@@ -124,6 +125,9 @@ class McpAuthenticator:
             # ``get_is_platform_admin``, #1817).
             is_platform_admin=not api_key.tenant_scope and is_platform_admin(self._tenant_service, user.key or ""),
             memberships=memberships,
+            # References for the audit row (#2130): which key, from which network.
+            api_key_ref=log_api_key(api_key.key),
+            client_ip_ref=loggable_ip(client_ip),
         )
 
     def _resolve_memberships(self, user_key: str, tenant_scope: str | None) -> tuple[McpTenantMembership, ...]:

@@ -7,7 +7,7 @@ Kategorie: Integration & KI
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Model Context Protocol SDK (Anthropic), ArangoDB, Redis, Pydantic v2
 Status: Teilweise umgesetzt (Framework, API-Key-Auth mit Mehrmandanten-Bindung, Audit, Streamable-HTTP-Transport, Bild-Content und 56 Werkzeuge; Rest des Werkzeugkatalogs und die stdio-Bruecke offen, siehe §4.1 und §9)
-Version: 1.8 (§4.4: mandantenlose Schreib-Werkzeuge = Plattform-Admin, #2103); 1.7 (Rollenvokabular §4.4 auf REQ-049 umgestellt)
+Version: 1.9 (§3/§4.6: Audit-Eintrag mit Korrelationsreferenzen — Key-Referenz, gekürzte Client-IP, Request-ID, Entity-Keys, #2130); 1.8 (§4.4: mandantenlose Schreib-Werkzeuge = Plattform-Admin, #2103); 1.7 (Rollenvokabular §4.4 auf REQ-049 umgestellt)
 Abhaengigkeit: REQ-001 v4.7 (Stammdaten), REQ-002 v4.3 (Standortverwaltung), REQ-006 v3.0 (Aufgabenplanung), REQ-013 v2.7 (Pflanzdurchlauf), REQ-014 v1.6 (Tankmanagement), REQ-019 v4.1 (Substratverwaltung), REQ-020 v1.6 (Onboarding), REQ-022 v2.8 (Pflegeerinnerungen), REQ-010 v1.4 (IPM), REQ-007 v2.6 (Erntemanagement), REQ-023 v1.13 (Service Accounts), REQ-024 v1.7 (RBAC Permission-Matrix), REQ-025 v1.6 (DSGVO), REQ-031 v2.0 (KI-Assistent / RAG), REQ-049 v1.4 (Rollenvokabular), REQ-050 v1.5 (KI-Analyse von Tagebuch-Eintraegen), NFR-013 v1.4 (Thumbnail-Renditions)
 ```
 
@@ -395,6 +395,10 @@ mcp_audit_log  (doc collection)
 +-- status                 # ok | denied | error | dry_run
 +-- error_class            # str | null
 +-- created_at             # ISO8601
++-- api_key_ref            # key_<16 hex>: HMAC des api_keys-Dokumentschlüssels (LOG_PSEUDONYM_SALT), nie Key/Hash (#2130)
++-- client_ip_ref          # Client-IP gekürzt wie NFR-011 R-03 (IPv4 /24, IPv6 /48) (#2130)
++-- request_id             # Request-ID der HTTP-Anfrage (Korrelation mit dem Log) (#2130)
++-- entity_keys            # {feld: [schlüssel]} aus *_key/*_keys der typisierten Eingabe, nur Schlüssel-Form (#2130)
 
 mcp_idempotency_record  (doc collection, TTL 24h)
 +-- _key                   # idempotency_key (auf Konto + Mandant + Tool gescoped)
@@ -727,6 +731,7 @@ Lange Operationen (z. B. zukuenftige `generate_growing_report`) nutzen MCP-Notif
 - Jeder Tool-Aufruf erzeugt einen `mcp_audit_log`-Eintrag.
 - `input_hash` statt Klartext-Args, um Aussage-Daten (z. B. Diary-Texte) nicht in Logs zu spiegeln.
 - Der Eintrag haelt fest, in **welchem Mandanten** der Aufruf stattfand. Scheitert ein Aufruf, bevor der Mandant gebunden ist (unbekannter Mandant, ungueltige Argumente), bleibt `tenant_key` leer statt geraten zu werden.
+- **Korrelation (#2130):** Der Eintrag trägt Referenzen, nie die Daten selbst — `api_key_ref` (welcher Key des Kontos; unterscheidet bei zwei Keys eines Service-Accounts den kompromittierten), `client_ip_ref` (gekürzt wie R-03, also nie mehr, als die Datenbank langfristig von einer Adresse hält), `request_id` (verbindet den Eintrag mit den Logzeilen derselben Anfrage) und `entity_keys` (die Datensatzschlüssel, die die typisierte Eingabe in `*_key`/`*_keys`-Feldern nennt; Werte ohne Schlüssel-Form und Freitext werden nie übernommen, AC-S5). Alle vier stehen im Art.-15-Export (`mcp_audit_log`); bei Kontolöschung wird `service_account_key` wie bisher zum Tombstone-Hash, die `api_key_ref` verweist danach auf kein Dokument mehr. Die 90-Tage-Frist gilt für die ganze Zeile.
 - Endpoint `GET /privacy/mcp-activity` (REQ-025 Erweiterung): Nutzer kann das Audit-Log seiner eigenen Keys und Service-Accounts abrufen — gefiltert auf das eigene Konto (AC-S1).
 - Audit-Log-Retention 90 Tage, danach Loeschung.
 - Idempotency-Records werden nach 24 h via ArangoDB-TTL automatisch entfernt.
