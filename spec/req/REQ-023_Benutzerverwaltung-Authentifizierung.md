@@ -210,7 +210,7 @@ Da Refresh Tokens als HttpOnly Cookie übertragen werden, sind zustandsändernde
 **Account-Linking:**
 Ein User kann mehrere Auth-Provider verknüpfen:
 - Matching erfolgt über **verifizierte E-Mail-Adresse**: Login mit Google (`max@example.com`) wird automatisch mit dem lokalen Account (`max@example.com`) verknüpft
-- Kein Auto-Link bei unverifizierter E-Mail (verhindert Account-Übernahme)
+- Kein Auto-Link bei unverifizierter E-Mail (verhindert Account-Übernahme). Die Seite des bestehenden Kontos ist der Bestätigungsnachweis (`email_confirmed_at`, `User.address_proven`), nicht `email_verified` allein: bei `REQUIRE_EMAIL_VERIFICATION=false` setzt die Registrierung das Flag ohne Bestätigung. Ein Konto ohne Nachweis (auch die Seed-Konten) wird nicht verknüpft; der Inhaber bestätigt die Adresse über den Link (§3.2b) und meldet sich danach über den Anbieter an.
 - User kann verknüpfte Provider jederzeit entfernen (mindestens eine Auth-Methode muss bestehen bleiben)
 - **Kein manuelles Verknüpfen:** ein zusätzlicher Provider entsteht nur über den Auto-Link beim Login mit ihm. Der dafür gedachte Endpunkt `POST /users/me/providers/{provider_slug}/link` existierte, hatte aber nie einen Aufrufer im Frontend und wurde mit #1416 entfernt (Betreiberentscheidung 2026-09-17). Wer den Auto-Link nicht erhält — etwa weil der Anbieter keinen `email_verified`-Anspruch liefert — meldet sich mit E-Mail und Passwort an; die beiden Konten bleiben getrennt.
 
