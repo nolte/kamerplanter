@@ -129,3 +129,8 @@ observe:
   - --tenant
   - reach-tenant
   timeout_seconds: 300
+approval:
+  approved_at: '2026-10-04T12:35:32Z'
+  approved_by: nolte
+  observation_digest: 573d28565bbf85a7a0e63f16b643b286a465e9b95507b793c5621a8000401c7a
+  mode: reconfirmed

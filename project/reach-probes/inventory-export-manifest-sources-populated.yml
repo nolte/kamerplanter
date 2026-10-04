@@ -86,3 +86,8 @@ observe:
   - --subject
   - reach-subject
   timeout_seconds: 300
+approval:
+  approved_at: '2026-10-04T12:35:32Z'
+  approved_by: nolte
+  observation_digest: 17281a965c090fdf0d4e4a3b73f6e4f4ab96d7690503b7c71280c6699879d8e4
+  mode: reconfirmed

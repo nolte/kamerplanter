@@ -1,7 +1,6 @@
 # Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: not yet recorded. This derivation carries no `approval:` block; the approval step
-# adds it in the SAME commit (a later commit to this file would be reported as weakened).
+# Approval: recorded under the operator's delegation of this batch to the orchestrating session (2026-10-04).
 #
 # Replaces inventory-erasure-plan-reaches-rows (#1951). The predecessor cites DELETE_STEPS (L405),
 # ANONYMIZE_COLLECTIONS (L80) and PSEUDONYMIZE_AUDIT_COLLECTIONS (L692); at HEAD they stand at
@@ -50,3 +49,8 @@ teardown: ['reach:stack:down']
 observe:
   argv: [python3, scripts/reach/observe_erasure_residue.py, --subject, reach-subject]
   timeout_seconds: 300
+approval:
+  approved_at: '2026-10-04T12:35:32Z'
+  approved_by: nolte
+  observation_digest: 584da5deab1a64e149f8a3f1e6fc9081a4ba4fb13aa522276966e372999ac96f
+  mode: derived
