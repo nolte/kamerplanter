@@ -6,7 +6,7 @@ Kategorie: Infrastruktur / Deployment Unterkategorie: Container-Orchestrierung, 
 Technologie: Python 3.14, ArangoDB, Kubernetes 1.28+, Helm, Docker, Traefik
 Status: Genehmigt
 Priorität: Kritisch
-Version: 2.2
+Version: 2.3
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [kubernetes, helm, docker, deployment, scaling, high-availability, ci-cd, network-policies, seccomp, container-security]
@@ -272,7 +272,7 @@ spec:
           initialDelaySeconds: 0
           periodSeconds: 5
           timeoutSeconds: 3
-          failureThreshold: 30  # 150 Sekunden max Startup-Zeit
+          failureThreshold: 30  # Skizze; das Chart nutzt 900 s, siehe Hinweis unten
 
         # Resource Management
         resources:
@@ -323,6 +323,8 @@ spec:
                   - backend
               topologyKey: kubernetes.io/hostname
 ```
+
+**Startup-Budget im Chart (#2125, v2.3):** Das Chart setzte bis v2.3 keinen `startupProbe`; die Liveness-Probe (15 s Verzoegerung, 10 s Periode, 3 Fehlschlaege) beendete den Backend-Container etwa 35 s nach dem Start. Der Lifespan fuehrt aber vor dem ersten `listen` `ensure_collections`, alle offenen Migrationen und die Seeds aus (gemessen 2026-10-04 auf leerer ArangoDB 3.12.12: ~6 s Import, ~33 s Datenbankarbeit), und eine Replica, die den Migrations-Lock belegt findet, wartet bis `BARRIER_TIMEOUT_SECONDS` (600 s, NFR-016). Verbindlich ist deshalb: Der Backend-Container hat einen `startupProbe` auf `/api/v1/health/live`, dessen Budget (`initialDelaySeconds + periodSeconds × failureThreshold`, im Chart 10 s × 90 = 900 s) **groesser** als `BARRIER_TIMEOUT_SECONDS` ist — die begrenzte Wartezeit der Anwendung, nicht das Kubelet, entscheidet ueber einen gescheiterten Start. Geprueft durch `tests/unit/guards/test_chart_backend_startup_budget.py` (liest die Code-Konstante) und `scripts/ci/assert_chart_contracts.sh`. Offen (Betreiberentscheidung): Migrationen und Seeds aus dem Lifespan in einen Helm-`pre-upgrade`-Job verlagern.
 
 **Health Check Endpoints (FastAPI)**:
 
@@ -1964,6 +1966,7 @@ helm dependency build <chart-path>
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.3 | 2026-10-04 | **Backend-`startupProbe` im Chart (#2125, MT-029):** Budget 900 s > `BARRIER_TIMEOUT_SECONDS` (600 s); Liveness beendete den migrierenden Lifespan zuvor nach ~35 s (§3.2 Hinweis). Verlagerung von Migrationen/Seeds in einen Pre-Upgrade-Job bleibt offen. |
 | 2.2 | 2026-10-04 | **Backup im Chart umgesetzt (#2122, MT-026):** neuer §8.0 — ArangoDB-`arangodump`-CronJob nach S3 (`backup.enabled`, Default aus), `LATEST`-Marker als messbarer RPO, Aufbewahrung ohne den letzten Dump zu loeschen, Restore-Runbook und protokollierte Wiederherstellungsuebung; §8.1/§8.2 als Vor-Helm-Skizze gekennzeichnet (die `k8s/...`-Pfade existieren nicht). |
 | 2.1 | 2026-02-27 | IT-Security-Review-Findings eingearbeitet: §3.2 `seccompProfile: RuntimeDefault` ergänzt (SEC-M-004), §7.1 Default-Deny-Policy + Frontend-Network-Policy + Egress für externe APIs hinzugefügt (SEC-M-004), §11 Security-Akzeptanzkriterien erweitert |
 | 2.0 | 2026-02-25 | Initiale produktionsreife Spezifikation |

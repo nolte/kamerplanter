@@ -418,13 +418,34 @@ controllers:
                 key: '{{ .Values.storage.s3.credentialsRef.secretAccessKeyKey }}'
                 optional: true
         probes:
-          liveness:
+          # #2125 — the lifespan runs ensure_collections, every pending migration
+          # and the seeds BEFORE uvicorn listens (measured 2026-10-04 on an empty
+          # ArangoDB: ~6 s import + ~33 s database work on a workstation), and a
+          # replica that finds the migration lock held waits up to
+          # BARRIER_TIMEOUT_SECONDS (600 s) for it. Liveness alone killed that
+          # start ~35 s in, and a killed migrator leaves its lock fresh, so the
+          # next start waited and was killed again. Liveness and readiness only
+          # begin once this probe succeeded; its budget (10 s x 90 = 900 s) must
+          # stay above the barrier so the application's own bounded wait, not
+          # the kubelet, decides that a start failed
+          # (tests/unit/guards/test_chart_backend_startup_budget.py).
+          startup:
             enabled: true
             custom: true
             spec:
               httpGet:
                 path: /api/v1/health/live
                 port: &backend-port 8000
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 90
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/v1/health/live
+                port: *backend-port
               initialDelaySeconds: 15
               periodSeconds: 10
               timeoutSeconds: 5

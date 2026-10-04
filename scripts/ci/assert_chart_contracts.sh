@@ -190,6 +190,18 @@ expect backup "ArangoDB admits the backup pod on 8529" \
   '["arangodb-backup"]'
 expect_refusal backup-without-bucket "backup.s3.bucket" --set backup.enabled=true
 
+# ---------------------------------------------------------------------------
+# #2125 — the backend starts under a startup probe, not under liveness.
+#
+# The lifespan migrates and seeds before uvicorn listens; liveness alone killed
+# it ~35 s in. The budget's relation to the migration barrier is held by
+# src/backend/tests/unit/guards/test_chart_backend_startup_budget.py (it reads
+# the code constant); here the render must carry the probe at all.
+# ---------------------------------------------------------------------------
+expect storage-default "the backend container renders a startupProbe on the liveness endpoint" \
+  "$(main_of backend) | .startupProbe | {\"path\": .httpGet.path, \"budget\": ((.initialDelaySeconds // 0) + .periodSeconds * .failureThreshold)}" \
+  '[{"path":"/api/v1/health/live","budget":900}]'
+
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2
   exit 1

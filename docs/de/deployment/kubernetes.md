@@ -257,6 +257,8 @@ helm upgrade kamerplanter \
 
 Die Backend- und Frontend-Deployments führen ein **Rolling Update** durch — es gibt keine Downtime, da die alten Pods erst beendet werden, wenn die neuen bereit sind.
 
+Ein neuer Backend-Pod führt vor dem ersten Request die offenen Datenbank-Migrationen und die Stammdaten-Seeds aus. Das dauert bei einer leeren Datenbank rund eine Minute, mit einer langen Migration oder wenn ein anderer Pod gerade migriert, auch mehrere Minuten. Ein `startupProbe` gibt dem Start bis zu 15 Minuten, bevor Kubernetes den Container neu startet; bis dahin bleibt der alte Pod im Dienst.
+
 ---
 
 ## Deinstallation
