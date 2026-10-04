@@ -34,6 +34,7 @@ from app.domain.models.calendar import (
 from app.domain.models.site import Site
 from app.domain.services.ical_generator import ICalGenerator
 from app.domain.services.planting_run_service import PlantingRunService
+from app.domain.services.species_visibility import readable_species
 
 logger = structlog.get_logger()
 
@@ -273,10 +274,8 @@ class CalendarService:
         """
         if not self._species_repo:
             return []
-        sp = self._species_repo.get_by_key(species_key)
+        sp = readable_species(self._species_repo, species_key, tenant_key)
         if sp is None:
-            return []
-        if sp.tenant_key not in ("", tenant_key) and not self._species_repo.is_granted_to(species_key, tenant_key):
             return []
 
         bars: list[SowingBar] = []
