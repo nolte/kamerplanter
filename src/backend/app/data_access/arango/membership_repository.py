@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
@@ -13,6 +13,41 @@ from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
+
+#: The rollback of a join, against a record **no run ever claimed** (the only state the
+#: erasure can still withdraw — ``ArangoTenantErasureRepository.delete_unclaimed``'s own
+#: condition): reads the record, writes it and removes the membership in one statement.
+_ROLLBACK_UNCLAIMED_AQL = """
+FOR record IN @@records
+  FILTER record._key == @record_key
+    AND record.origin == 'account_erasure'
+    AND record.status == 'in_progress'
+    AND record.last_attempt_at == null
+    AND (record.attempt_count == null OR record.attempt_count == 0)
+  UPDATE record WITH { updated_at: @now } IN @@records
+  FOR member IN @@memberships
+    FILTER member._key == @key AND member.tenant_key == @tenant_key
+    REMOVE member IN @@memberships
+    RETURN OLD._key
+"""
+
+#: The same rollback against a record a run **has claimed**: the erasure decided to erase,
+#: nothing to arbitrate, and the record is left untouched.
+_ROLLBACK_CLAIMED_AQL = """
+FOR record IN @@records
+  FILTER record._key == @record_key
+    AND record.status != 'completed'
+    AND NOT (
+      record.origin == 'account_erasure'
+      AND record.status == 'in_progress'
+      AND record.last_attempt_at == null
+      AND (record.attempt_count == null OR record.attempt_count == 0)
+    )
+  FOR member IN @@memberships
+    FILTER member._key == @key AND member.tenant_key == @tenant_key
+    REMOVE member IN @@memberships
+    RETURN OLD._key
+"""
 
 
 class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRepository):
@@ -109,13 +144,6 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
     #: record (its withdrawal or its claim) conflicts with the touch.
     _ROLLBACK_ATTEMPTS = 3
 
-    #: A record no run ever claimed — the only one the erasure can still withdraw
-    #: (``ArangoTenantErasureRepository.delete_unclaimed``'s own condition).
-    _UNCLAIMED = (
-        "record.origin == 'account_erasure' AND record.status == 'in_progress' "
-        "AND record.last_attempt_at == null AND (record.attempt_count == null OR record.attempt_count == 0)"
-    )
-
     def delete_while_tenant_frozen(self, key: str, tenant_key: str) -> bool:
         """Remove membership *key* only while the tenant's deletion record is open, atomically (#1924).
 
@@ -145,24 +173,7 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
             WriteConflictError: the record kept conflicting with a concurrent
                 write for :attr:`_ROLLBACK_ATTEMPTS` attempts.
         """
-        unclaimed = f"""
-        FOR record IN @@records
-          FILTER record._key == @record_key AND {self._UNCLAIMED}
-          UPDATE record WITH {{ updated_at: @now }} IN @@records
-          FOR member IN @@memberships
-            FILTER member._key == @key AND member.tenant_key == @tenant_key
-            REMOVE member IN @@memberships
-            RETURN OLD._key
-        """
-        claimed = f"""
-        FOR record IN @@records
-          FILTER record._key == @record_key AND record.status != 'completed' AND NOT ({self._UNCLAIMED})
-          FOR member IN @@memberships
-            FILTER member._key == @key AND member.tenant_key == @tenant_key
-            REMOVE member IN @@memberships
-            RETURN OLD._key
-        """
-        bind_vars = {
+        bind_vars: dict[str, Any] = {
             "@records": col.TENANT_ERASURE_RECORDS,
             "@memberships": col.MEMBERSHIPS,
             "record_key": TenantErasureEngine.record_key(tenant_key),
@@ -171,12 +182,20 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         }
         for _attempt in range(self._ROLLBACK_ATTEMPTS):
             try:
+                touched = cast(
+                    Cursor,
+                    self._db.aql.execute(
+                        _ROLLBACK_UNCLAIMED_AQL, bind_vars={**bind_vars, "now": datetime.now(UTC).isoformat()}
+                    ),
+                )
+                if list(touched):
+                    self._remove_dependents(key)
+                    return True
                 # Claimed after the first statement looked: the second sees it claimed.
-                for query, extra in ((unclaimed, {"now": datetime.now(UTC).isoformat()}), (claimed, {})):
-                    cursor = cast(Cursor, self._db.aql.execute(query, bind_vars={**bind_vars, **extra}))
-                    if list(cursor):
-                        self._remove_dependents(key)
-                        return True
+                claimed = cast(Cursor, self._db.aql.execute(_ROLLBACK_CLAIMED_AQL, bind_vars=bind_vars))
+                if list(claimed):
+                    self._remove_dependents(key)
+                    return True
                 return False
             except AQLQueryExecuteError as exc:
                 if exc.error_code != 1200:
