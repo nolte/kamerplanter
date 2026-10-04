@@ -153,6 +153,10 @@ networkpolicies:
     enabled: false
   backend:
     enabled: false
+  # #2129 — off with ``monitoring.enabled`` (the default) anyway; named so this
+  # overlay's "no KP policy" stays true if monitoring is switched on.
+  backend-metrics:
+    enabled: false
   celery-worker:
     enabled: false
   celery-beat:
@@ -213,3 +217,10 @@ valkey:
 
 ollama:
   enabled: false
+
+# -- #2129: this release runs no backend, so there is no metrics port to scrape.
+# Pinned off so ``monitoring.enabled`` in a shared values source cannot render a
+# ServiceMonitor for a Service this release does not have.
+serviceMonitor:
+  backend:
+    enabled: false

@@ -284,6 +284,15 @@ Beim Anlegen eines Tagebuch-Eintrags liest Kamerplanter die Sensorwerte, die die
 
 ---
 
+## Metriken (Prometheus) {#metriken-prometheus}
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `METRICS_PORT` | `0` | Nein | Port, auf dem das Backend `/metrics` im Prometheus-Format ausliefert. `0` startet keinen Listener. Das Helm-Chart setzt `9464`, sobald `monitoring.enabled` an ist. |
+| `METRICS_BIND_ADDRESS` | `0.0.0.0` | Nein | Adresse, an die sich der Metrik-Listener bindet. |
+
+Die Metriken laufen auf einem **eigenen Port**, nie als Route der API auf Port 8000. Der Weg von außen (Ingress → Frontend-nginx → Backend :8000) erreicht sie dadurch nicht; im Cluster lässt die NetworkPolicy nur den konfigurierten Prometheus zu. Die Zeitreihen tragen weder Mandant noch Person: `handler` ist das Routenmuster (`/api/v1/t/{tenant_slug}/…`), nie der aufgerufene Pfad. Details: [Helm — Metriken](../deployment/helm.md#metriken-prometheus).
+
 ## mDNS / Zeroconf Discovery
 
 | Variable | Standard | Pflicht | Beschreibung |

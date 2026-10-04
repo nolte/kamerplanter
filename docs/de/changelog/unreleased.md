@@ -37,6 +37,8 @@
 
 ### Infrastruktur
 
+- **Metriken (Prometheus):** Das Backend liefert `http_request_duration_seconds`, `http_requests_total`, `http_requests_in_progress` und Prozess-Metriken auf einem eigenen Port aus (`METRICS_PORT`, Standard `0` = aus; Issue #2129, MT-033, NFR-007 v1.1). Im Helm-Chart schaltet `monitoring.enabled: true` den Port 9464, einen `ServiceMonitor` (Prometheus Operator) und die NetworkPolicy `backend-metrics` ein, die nur die konfigurierten Prometheus-Pods auf diesen Port lässt. `/metrics` ist keine Route der API und über den Ingress nicht erreichbar. Labels: `method`, `handler` (Routenmuster, nie der Pfad), `status` — kein Mandant, keine Person. Neue Abhängigkeit `prometheus-client` (Apache-2.0, bündelt `decorator` unter BSD-2-Clause; Lizenz-Positivliste ergänzt).
+
 - MkDocs-Dokumentationsinfrastruktur mit Material Theme und DE/EN i18n (NFR-005)
 - ADR-001 bis ADR-006: Architektur-Entscheidungen dokumentiert
 - Skaffold-basierter Entwicklungsworkflow mit Kubernetes/Helm
@@ -55,6 +57,8 @@
 - Konto: Die Seite zur E-Mail-Bestätigung bietet auch im Fehlerfall (ungültiger oder abgelaufener Link) einen **Anmelden**-Button — vorher war diese Seite eine Sackgasse
 
 ### Backend
+
+- **Fehler-Tracking:** Ein Ereignis einer authentifizierten Anfrage trägt im Nutzer-Block die Pseudonyme `id=sub_…` und `tenant=ten_…` (Issue #2129, NFR-011 v1.37). Was das Sentry-SDK oder eine Integration selbst als Nutzer setzt, wird verworfen — auch in inference- und knowledge-service (gemeinsames Modul `kp_errortracking`).
 
 - **Betrieb (Logs, Celery, MCP):** Logzeilen einer Anfrage tragen jetzt neben `request_id` die Pseudonyme `actor` (Konto, `sub_…`) und `tenant` (Mandant, `ten_…`), sobald die Anfrage authentifiziert bzw. ihr Mandant aufgelöst ist (Issue #2130, MT-034, NFR-011 v1.37). Ein aus der Anfrage gestarteter Celery-Task übernimmt `request_id`, `actor` und `tenant` über Nachrichten-Header (`kp_request_id`, `kp_actor`, `kp_tenant` — nur die Pseudonyme, nie Schlüssel) und bindet sie zusammen mit `task_id` an jede seiner Logzeilen; nach dem Task werden sie wieder gelöst. Die MCP-Audit-Zeile (`mcp_audit_log`) trägt zusätzlich `api_key_ref` (gesalzene Referenz auf den verwendeten Schlüssel), `client_ip_ref` (gekürzt wie R-03), `request_id` und `entity_keys` (die Datensatzschlüssel aus den `*_key`-Feldern der Werkzeug-Eingabe); alle vier stehen im Art.-15-Export (REQ-033 v1.9). Eine explizit gesetzte `tenant=`-Angabe einer Zeile hat Vorrang. Dashboards, die Anfragen pro Mandant zählen wollen, können jetzt auf `tenant=` filtern.
 - **BREAKING (API):** Teure authentifizierte Routen haben jetzt ein Budget pro Konto (Issue #2109). Datei-Uploads (Anhänge, Pflanzen- und Aufgabenfotos, Schädlingsbilder, CSV-Import inklusive Bestätigung) erlauben `RATE_LIMIT_UPLOAD` (Standard `30/minute`), Inferenz-Routen (CV-Diagnose, Schädlingserkennung, Pflanzenbestimmung, Referenzbeitrag) `RATE_LIMIT_INFERENCE` (`20/minute`) und die PDF-Drucke unter `/print` `RATE_LIMIT_EXPORT` (`20/minute`) — jede Route zählt für sich. Darüber antwortet die API mit `429` und dem Header `Retry-After`, den jetzt jede `429`-Antwort trägt. Die Einstellung `RATE_LIMIT_GENERAL` entfällt: Sie wurde nie gelesen, obwohl die Referenz sie als Limit der allgemeinen Endpunkte beschrieb. Ist sie in deiner Umgebung gesetzt, kannst du sie löschen.

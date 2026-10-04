@@ -197,6 +197,45 @@ backup:
       accessKeyIdKey: AWS_ACCESS_KEY_ID
       secretAccessKeyKey: AWS_SECRET_ACCESS_KEY
 
+# -- Prometheus metrics of the backend (#2129, MT-033, NFR-007).
+#
+# ONE switch. With ``enabled: true`` the chart (a) sets METRICS_PORT on the
+# backend, which then serves ``/metrics`` on that port — its own listener, never
+# a route of the API on 8000, so the public ingress (-> frontend nginx -> backend
+# :8000) cannot reach it; (b) adds the ``metrics`` port to the backend Service;
+# (c) renders a ``ServiceMonitor`` (monitoring.coreos.com/v1 — the Prometheus
+# Operator CRD must exist, which is why the default is off); and (d) renders the
+# ``backend-metrics`` NetworkPolicy that admits exactly the Prometheus pods
+# below to that port and to nothing else. The backend's own policy still admits
+# only the frontend to :8000, so Prometheus cannot use the scrape path to reach
+# the API around nginx (#1159).
+#
+# The series carry no tenant and no person: ``handler`` is the route pattern
+# (``/api/v1/t/{tenant_slug}/…``), never the requested path. The per-tenant view
+# is the ``tenant=ten_…`` field of the log lines (#2130).
+#
+# Each consumer reads this block through a template string, which bjw-s common
+# >= 5.2 renders against the merged values (no own template files, HELM.md §2.1).
+# ``enabled`` renders ``"true"`` or ``""`` — never ``"false"``, which is truthy.
+#
+# The port is 9464 and written as a literal in three places — METRICS_PORT on
+# the backend, the Service's ``metrics`` port, the NetworkPolicy's port — because
+# a NetworkPolicy port rendered from a template is a string, which Kubernetes
+# reads as a *named* port. tests/unit/guards/test_chart_metrics_port_is_private.py
+# pins that the three agree and that nothing else admits the port.
+monitoring:
+  enabled: false
+  scrapeInterval: 30s
+  # Who may scrape: the namespace Prometheus runs in and the value of its pods'
+  # ``app.kubernetes.io/name`` label. Defaults fit kube-prometheus-stack in
+  # ``monitoring``; adjust both to the cluster. The ServiceMonitor's own label
+  # (what the operator's ``serviceMonitorSelector`` matches) too.
+  prometheus:
+    namespace: monitoring
+    podName: prometheus
+    serviceMonitorLabels:
+      release: kube-prometheus-stack
+
 # -- Default pod-level security context applied to all controllers (SEC-M-004)
 defaultPodOptions:
   securityContext:
@@ -326,6 +365,9 @@ controllers:
           # attributable to the release that introduced it.
           SENTRY_RELEASE: ""
           SENTRY_SAMPLE_RATE: "1.0"
+          # #2129 — the metrics listener; "0" starts none. Follows the
+          # ``monitoring`` block at the top of this file, never set it here.
+          METRICS_PORT: '{{ if .Values.monitoring.enabled }}9464{{ else }}0{{ end }}'
           # NetworkPolicy caveat: the external-egress rule below deliberately
           # EXCLUDES the RFC1918 ranges, so a self-hosted tracker on a private
           # address is unreachable until the operator adds an explicit egress
@@ -1556,6 +1598,10 @@ service:
     ports:
       http:
         port: 8000
+      # #2129 — only with ``monitoring.enabled``; see the ``monitoring`` block.
+      metrics:
+        enabled: '{{ if .Values.monitoring.enabled }}true{{ end }}'
+        port: 9464
   frontend:
     controller: frontend
     ports:
@@ -1831,6 +1877,22 @@ persistence:
 
 ingress: {}
 
+# -- #2129 ServiceMonitor for the backend's metrics port (Prometheus Operator).
+# Rendered only with ``monitoring.enabled``; see the ``monitoring`` block.
+serviceMonitor:
+  backend:
+    enabled: '{{ if .Values.monitoring.enabled }}true{{ end }}'
+    labels:
+      release: '{{ .Values.monitoring.prometheus.serviceMonitorLabels.release }}'
+    service:
+      identifier: backend
+    endpoints:
+      - port: metrics
+        scheme: http
+        path: /metrics
+        interval: '{{ .Values.monitoring.scrapeInterval }}'
+        scrapeTimeout: 10s
+
 # -- NetworkPolicies: restrict pod-to-pod traffic to least-privilege (SEC-M-005)
 networkpolicies:
   # Default-deny baseline (INF-S3): fail-closed fundament for the whole release.
@@ -2019,6 +2081,29 @@ networkpolicies:
               port: 587
             - protocol: TCP
               port: 465
+
+  # #2129 — Prometheus may scrape the backend's metrics port, and nothing else.
+  # Rendered only with ``monitoring.enabled``. Rules of all policies selecting a
+  # pod are a union: this adds exactly (Prometheus pods -> backend :metricsPort).
+  # It names a namespace AND a pod label, so neither another pod in the
+  # monitoring namespace nor a pod labelled like Prometheus elsewhere qualifies.
+  backend-metrics:
+    enabled: '{{ if .Values.monitoring.enabled }}true{{ end }}'
+    controller: backend
+    policyTypes:
+      - Ingress
+    rules:
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: '{{ .Values.monitoring.prometheus.namespace }}'
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: '{{ .Values.monitoring.prometheus.podName }}'
+          ports:
+            - protocol: TCP
+              port: 9464
 
   # Celery worker: no ingress needed, same egress as backend
   celery-worker:

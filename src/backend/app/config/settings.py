@@ -628,6 +628,14 @@ class Settings(BaseSettings):
     # enabled — the startup gate refuses to boot without it (AP-4, INF-S1/S2).
     internal_service_token: str = ""
 
+    # Prometheus metrics (#2129, NFR-007). A listener of its own, never a route of
+    # the API app: the public ingress reaches the API on port 8000 and must not
+    # reach the metrics. ``0`` (the default) starts no listener at all; the chart
+    # sets the port when ``monitoring.enabled`` is on and admits only the
+    # configured Prometheus to it (helm/kamerplanter/values.yaml, ``monitoring``).
+    metrics_port: int = Field(default=0, ge=0, le=65535)
+    metrics_bind_address: str = "0.0.0.0"  # noqa: S104 — the pod's own interface; the NetworkPolicy gates it
+
     # mDNS / Zeroconf Discovery
     mdns_enabled: bool = False  # Enable only for local/on-premise deployments (opt-in)
     # Auto-generated UUID prefix if empty; alphanumeric + hyphens only, max 64 chars

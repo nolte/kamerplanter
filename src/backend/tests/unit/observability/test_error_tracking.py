@@ -191,18 +191,56 @@ def test_breadcrumb_raw_query_and_fragment_are_withheld() -> None:
     assert data == {"url": "https://api.example.org/v1", "http.query": "[redacted]", "http.fragment": "[redacted]"}
 
 
-def test_user_context_keeps_only_the_join_keys() -> None:
-    event = {
-        "user": {
-            "id": "users/42",
-            "tenant": "acme",
-            "email": "grower@example.org",
-            "username": "grower",
-            "ip_address": "203.0.113.7",
-        }
-    }
+_SDK_USER = {
+    "id": "users/42",
+    "tenant": "acme",
+    "email": "grower@example.org",
+    "username": "grower",
+    "ip_address": "203.0.113.7",
+}
 
-    assert scrub_event(event)["user"] == {"id": "users/42", "tenant": "acme"}
+
+def test_a_user_block_the_sdk_set_never_leaves_the_process(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#2129: ``set_user`` with a raw key (``users/42``) or an address is dropped wholesale."""
+    from app.observability import error_tracking
+
+    monkeypatch.setattr(error_tracking, "_user_context", None)
+
+    assert "user" not in scrub_event({"user": dict(_SDK_USER)})
+
+
+def test_the_user_block_is_the_service_providers_join_keys_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.observability import error_tracking
+
+    monkeypatch.setattr(
+        error_tracking,
+        "_user_context",
+        lambda: {"id": "sub_0123456789abcdef", "tenant": "ten_0123456789abcdef", "email": "grower@example.org"},
+    )
+
+    scrubbed = scrub_event({"user": dict(_SDK_USER)})
+
+    assert scrubbed["user"] == {"id": "sub_0123456789abcdef", "tenant": "ten_0123456789abcdef"}
+
+
+@pytest.mark.parametrize(
+    "provider",
+    [
+        lambda: None,
+        lambda: {},
+        lambda: {"id": 42},
+        lambda: {"id": "x" * 65},
+        lambda: (_ for _ in ()).throw(RuntimeError("consent store down")),
+    ],
+)
+def test_a_provider_that_names_nobody_or_fails_yields_no_user_block(
+    monkeypatch: pytest.MonkeyPatch, provider: object
+) -> None:
+    from app.observability import error_tracking
+
+    monkeypatch.setattr(error_tracking, "_user_context", provider)
+
+    assert "user" not in scrub_event({"user": dict(_SDK_USER)})
 
 
 def test_stack_frame_locals_are_redacted() -> None:

@@ -607,6 +607,30 @@ ClamAV must run as a separate deployment in the cluster. The backend blocks an u
 
 ---
 
+## Metrics (Prometheus) {#metrics-prometheus}
+
+One switch: `monitoring.enabled: true`. The chart then sets `METRICS_PORT=9464` on the backend, adds the Service port `metrics`, renders a `ServiceMonitor` and the NetworkPolicy `backend-metrics`, which admits exactly the Prometheus pods to that port.
+
+```yaml
+monitoring:
+  enabled: true
+  scrapeInterval: 30s
+  prometheus:
+    namespace: monitoring          # namespace Prometheus runs in
+    podName: prometheus            # value of the Prometheus pods' app.kubernetes.io/name label
+    serviceMonitorLabels:
+      release: kube-prometheus-stack   # what the operator's serviceMonitorSelector expects
+```
+
+!!! warning "Prometheus Operator required"
+    The `ServiceMonitor` is a Prometheus Operator resource (`monitoring.coreos.com/v1`). Without its CRD in the cluster, an install with `monitoring` switched on fails. That is why the default is `false`.
+
+The metrics are **not public**: they run on a port of their own, never as a route of the API. The ingress sends `/` and `/api` to the frontend nginx, which forwards to port 8000 only. The backend policy still admits only the frontend on 8000, so Prometheus cannot use the scrape path to reach the API around nginx.
+
+Served are `http_request_duration_seconds` (histogram) and `http_requests_total` with the labels `method`, `handler` (route pattern, never the path; `unmatched` for a request no route matched) and `status`, `http_requests_in_progress`, and process metrics (memory, CPU, file descriptors). A tenant is deliberately **not** a label — it would multiply every series by the tenant count and disclose the tenant list to anyone allowed to scrape. For the per-tenant view, log lines carry `tenant=ten_…`.
+
+Not included yet: metrics of the Celery worker, and the recording and alerting rules (`PrometheusRule`) of NFR-007.
+
 ## See also
 
 - [Kubernetes Deployment](kubernetes.md) — Step-by-step guide
