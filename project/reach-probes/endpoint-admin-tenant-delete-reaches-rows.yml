@@ -115,7 +115,7 @@ expected:
   - dangling-edges/0
   - stamped-elsewhere/0
   - control-changed/0
-derived_from: blob:c134ebc8c19194f719a1346f6b927125dbc70d96
+derived_from: blob:0367a5efd2a96388e33a2d2b4e4ec9a8ae2bfa11
 environment:
 - reach:stack:up
 - reach:seed:erasure-tenant
@@ -130,7 +130,7 @@ observe:
   - reach-tenant
   timeout_seconds: 300
 approval:
-  approved_at: '2026-10-03T00:21:15Z'
+  approved_at: '2026-10-04T12:35:32Z'
   approved_by: nolte
   observation_digest: 573d28565bbf85a7a0e63f16b643b286a465e9b95507b793c5621a8000401c7a
   mode: reconfirmed

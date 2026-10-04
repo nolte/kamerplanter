@@ -72,7 +72,7 @@ expected:
   - edge/requested_email_change
   - edge/requested_erasure
   - edge/requested_export
-derived_from: blob:580db063831352c99d1717953b5df042814582b5
+derived_from: blob:7d44647ebcad3dd2b868327425031bbbc8268fd2
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -87,7 +87,7 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-10-02T13:12:55Z'
+  approved_at: '2026-10-04T12:35:32Z'
   approved_by: nolte
   observation_digest: 17281a965c090fdf0d4e4a3b73f6e4f4ab96d7690503b7c71280c6699879d8e4
   mode: reconfirmed
