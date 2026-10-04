@@ -850,6 +850,9 @@ controllers:
         args:
           - |
             set -eu
+            # The dump holds personal data; it leaves the node with the upload
+            # and is never left behind in a finished pod's volume.
+            trap 'rm -rf /backup/*' EXIT
             stamp="$(cat /backup/STAMP)"
             dest="backup:${BACKUP_S3_BUCKET}/${BACKUP_S3_PREFIX}"
             rclone copy "/backup/${stamp}" "${dest}/${stamp}"
@@ -1772,8 +1775,8 @@ persistence:
         dump:
           - path: /backup
         main:
+          # writable: the upload removes the dump when it exits
           - path: /backup
-            readOnly: true
 
   # arangodump and rclone both need a writable temp directory under
   # readOnlyRootFilesystem (arangodump aborts with "failed to create a temporary

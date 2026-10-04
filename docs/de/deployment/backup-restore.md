@@ -61,7 +61,7 @@ Ohne `backup.s3.bucket` bricht das Rendern mit einer Meldung ab — eine eingesc
 So arbeitet ein Lauf:
 
 1. Der Init-Container `dump` (dasselbe ArangoDB-Image wie die Datenbank) sichert die Anwendungsdatenbank mit dem Konto der Anwendung nach `/backup/<Zeitstempel>/`.
-2. Der Container `main` (rclone) lädt den Dump nach `s3://<bucket>/<prefix>/<Zeitstempel>/` und schreibt den Zeitstempel in `<prefix>/LATEST`.
+2. Der Container `main` (rclone) lädt den Dump nach `s3://<bucket>/<prefix>/<Zeitstempel>/` und schreibt den Zeitstempel in `<prefix>/LATEST`. Danach löscht er den Dump aus dem Arbeitsvolume des Pods — auch wenn der Upload scheitert —, damit keine Kopie der Daten auf dem Node liegen bleibt.
 3. Danach löscht er Dump-Verzeichnisse, die älter als `retentionDays` sind — nie das gerade geschriebene. Fällt die Sicherung länger aus, bleibt der letzte gute Dump also erhalten.
 
 Kein Passwort steht auf einer Kommandozeile; `arangodump` liest es selbst aus der Umgebung. Die Pods laufen ohne Root-Rechte mit schreibgeschütztem Dateisystem und eigener NetworkPolicy (ArangoDB, DNS und Port 443 nach außen).

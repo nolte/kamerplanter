@@ -70,3 +70,4 @@ capabilities dropped):
 | Account scope | `/_api/database/current`: 200 on `kamerplanter`, 401 ERR 11 on `_system` and on another database |
 | Application boot under the account (connect, `ensure_collections`, migrations, seeds) | exit 0, 38.5 s including import, 309 collections |
 | Rendered `dump` script with the account (`--include-system-collections true`) | exit 0, 309 collections, 3.2 MB |
+| Upload with the scratch clean-up (`trap 'rm -rf /backup/*' EXIT`) | exit 0, `backup … uploaded`, `LATEST` written, 0 entries left in the scratch volume |
