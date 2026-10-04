@@ -89,7 +89,12 @@ def _published(service: str, port: int) -> str:
 
 def up() -> None:
     reach = reach_dir()
-    (reach / "storage").mkdir(parents=True, exist_ok=True)
+    storage = reach / "storage"
+    storage.mkdir(parents=True, exist_ok=True)
+    # The containers' user is not the host user on a CI runner (uid 1000 against
+    # 1001): the bind-mounted object storage must be writable by both, or the API
+    # fails at start and the seed cannot create /data/attachments.
+    storage.chmod(0o777)
     (reach / "subjects").mkdir(parents=True, exist_ok=True)
     log(f"starting {', '.join(STACK_SERVICES)} as compose project {project_name()}")
     # `up --wait` refuses a service without a healthcheck on current Compose

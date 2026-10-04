@@ -49,3 +49,23 @@ def test_the_waiting_up_names_no_service_without_a_healthcheck(monkeypatch: pyte
     started = [c for c in ups if "--wait" not in c]
     assert started
     assert common.WORKER_SERVICE in started[0]
+
+
+def test_the_object_storage_is_writable_for_the_container_user(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+    """A runner's host uid is not the container's: a 0755 bind mount made the API and the seed fail with EACCES."""
+
+    def fake_run(command: list[str], **_: Any) -> Any:
+        if command[:3] == ["docker", "compose", "port"]:
+            return type("R", (), {"stdout": b"0.0.0.0:1234\n"})()
+        return type("R", (), {"stdout": b""})()
+
+    monkeypatch.setattr(stack, "compose_command", lambda *a: ["docker", "compose", *a])
+    monkeypatch.setattr(stack, "run", fake_run)
+    monkeypatch.setattr(stack, "reach_dir", lambda: tmp_path)
+    monkeypatch.setattr(stack, "wait_until", lambda *a, **k: None)
+    monkeypatch.setattr(stack, "Arango", lambda *_: type("A", (), {"request": lambda *a, **k: None})())
+    monkeypatch.setattr(stack, "stack_file", lambda: tmp_path / "stack.json")
+
+    stack.up()
+
+    assert (tmp_path / "storage").stat().st_mode & 0o777 == 0o777
