@@ -106,7 +106,7 @@ controllers:
           ARANGODB_HOST: "..."
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: "kamerplanter"
-          ARANGODB_USERNAME: "root"
+          ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'    # kamerplanter
           REDIS_URL: "redis://kamerplanter-valkey:6379/0"
           CORS_ORIGINS: '["..."]'
           DEBUG: "false"
@@ -158,8 +158,13 @@ controllers:
         image:
           repository: arangodb
           tag: "3.12.9"
-        envFrom:
-          - secret: kamerplanter-secrets    # ARANGO_ROOT_PASSWORD
+        env:
+          ARANGO_ROOT_PASSWORD:             # only ARANGO_ROOT_PASSWORD, not the whole Secret
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.database.arangodb.rootPasswordSecret }}'
+                key: ARANGO_ROOT_PASSWORD
+                optional: true
         resources:
           requests:
             cpu: 250m
@@ -172,8 +177,9 @@ controllers:
         - name: data
           accessMode: ReadWriteOnce
           size: 5Gi                 # Adjustable
-          globalMounts:
-            - path: /var/lib/arangodb3
+          advancedMounts:
+            main:
+              - path: /var/lib/arangodb3
 ```
 
 ### Services
@@ -253,9 +259,9 @@ valkey:
 | `ARANGODB_HOST` | Yes | — | Hostname of the ArangoDB service |
 | `ARANGODB_PORT` | Yes | `8529` | Port of the ArangoDB service |
 | `ARANGODB_DATABASE` | Yes | `kamerplanter` | Database name |
-| `ARANGODB_USERNAME` | Yes | `root` | Database user |
+| `ARANGODB_USERNAME` | Yes | `kamerplanter` | Database user — in the chart the application account from `database.arangodb.appUsername`, which the `app-user` container in the ArangoDB pod creates (read/write on the application database only). `root` restores the old behaviour. |
 | `ARANGODB_PASSWORD` | Yes | — | Database password. Comes from the `kamerplanter-secrets` secret (`envFrom`) in the chart, **not** from `env:`. |
-| `ARANGO_ROOT_PASSWORD` | Yes | — | ArangoDB root password, also from `kamerplanter-secrets`. Must match `ARANGODB_PASSWORD`. |
+| `ARANGO_ROOT_PASSWORD` | Yes | — | ArangoDB root password. Read by the ArangoDB pod only (Secret from `database.arangodb.rootPasswordSecret`, default `kamerplanter-secrets`). A value of its own, separate from `ARANGODB_PASSWORD`, is recommended. |
 | `JWT_SECRET_KEY` | Yes | — | JWT signing key, from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if the chart-internal default is left unchanged. |
 | `FERNET_KEY` | Yes | — | Encryption key for OIDC provider secrets, from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if empty or invalid — **also for the celery-worker controller**, which gets the same value as the backend via `envFrom` from `kamerplanter-secrets`; the backend and the celery worker must use the same key. |
 | `ERASURE_TOMBSTONE_SALT` | Yes | — | GDPR pseudonymization salt (≥ 32 characters) for the tombstone hash, the erasure request key and the tenant slug digest, from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if empty or too short. Must never change once accounts have been erased. |

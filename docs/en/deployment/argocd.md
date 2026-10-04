@@ -77,16 +77,9 @@ spec:
                   ARANGODB_HOST: kamerplanter-arangodb
                   ARANGODB_PORT: "8529"
                   ARANGODB_DATABASE: kamerplanter
-                  ARANGODB_USERNAME: root
                   REDIS_URL: redis://kamerplanter-valkey:6379/0
                   CORS_ORIGINS: '["https://plants.example.com"]'
                   KAMERPLANTER_MODE: light
-          arangodb:
-            containers:
-              main:
-                envFrom:                                        # (2)!
-                  - secretRef:
-                      name: kamerplanter-secrets
   destination:
     server: https://kubernetes.default.svc
     namespace: kamerplanter
@@ -98,8 +91,7 @@ spec:
       - CreateNamespace=true
 ```
 
-1. `ARANGODB_PASSWORD` is injected from the `kamerplanter-secrets` Secret.
-2. `ARANGO_ROOT_PASSWORD` is injected from the same Secret.
+1. `ARANGODB_PASSWORD` (the password of the application account `kamerplanter`) is injected from the `kamerplanter-secrets` Secret. The chart sets up the ArangoDB container and the application account itself — set no `envFrom` and no `ARANGODB_USERNAME` there (see [Database credentials](kubernetes.md#database-credentials)).
 
 !!! warning "Do not override `image.tag` in `valuesObject`"
 
@@ -183,16 +175,9 @@ spec:
                   ARANGODB_HOST: kamerplanter-arangodb
                   ARANGODB_PORT: "8529"
                   ARANGODB_DATABASE: kamerplanter
-                  ARANGODB_USERNAME: root
                   REDIS_URL: redis://kamerplanter-valkey:6379/0
                   CORS_ORIGINS: '["https://plants.example.com"]'
                   KAMERPLANTER_MODE: full
-          arangodb:
-            containers:
-              main:
-                envFrom:
-                  - secretRef:
-                      name: kamerplanter-secrets
 
         ingress:
           main:

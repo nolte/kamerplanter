@@ -107,7 +107,7 @@ controllers:
           ARANGODB_HOST: "..."
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: "kamerplanter"
-          ARANGODB_USERNAME: "root"
+          ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'    # kamerplanter
           REDIS_URL: "redis://kamerplanter-valkey:6379/0"
           CORS_ORIGINS: '["..."]'
           DEBUG: "false"
@@ -159,8 +159,13 @@ controllers:
         image:
           repository: arangodb
           tag: "3.12.9"
-        envFrom:
-          - secret: kamerplanter-secrets    # ARANGO_ROOT_PASSWORD
+        env:
+          ARANGO_ROOT_PASSWORD:             # nur ARANGO_ROOT_PASSWORD, nicht das ganze Secret
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.database.arangodb.rootPasswordSecret }}'
+                key: ARANGO_ROOT_PASSWORD
+                optional: true
         resources:
           requests:
             cpu: 250m
@@ -173,8 +178,9 @@ controllers:
         - name: data
           accessMode: ReadWriteOnce
           size: 5Gi                 # Anpassbar
-          globalMounts:
-            - path: /var/lib/arangodb3
+          advancedMounts:
+            main:
+              - path: /var/lib/arangodb3
 ```
 
 ### Services
@@ -254,9 +260,9 @@ valkey:
 | `ARANGODB_HOST` | Ja | — | Hostname des ArangoDB-Service |
 | `ARANGODB_PORT` | Ja | `8529` | Port des ArangoDB-Service |
 | `ARANGODB_DATABASE` | Ja | `kamerplanter` | Datenbankname |
-| `ARANGODB_USERNAME` | Ja | `root` | Datenbank-Benutzer |
+| `ARANGODB_USERNAME` | Ja | `kamerplanter` | Datenbank-Benutzer — im Chart das Anwendungskonto aus `database.arangodb.appUsername`, das der Container `app-user` im ArangoDB-Pod anlegt (Lese-/Schreibrecht nur auf der Anwendungsdatenbank). `root` stellt das alte Verhalten her. |
 | `ARANGODB_PASSWORD` | Ja | — | Datenbank-Passwort. Kommt im Chart aus dem Secret `kamerplanter-secrets` (`envFrom`), **nicht** aus `env:`. |
-| `ARANGO_ROOT_PASSWORD` | Ja | — | ArangoDB Root-Passwort, ebenfalls aus `kamerplanter-secrets`. Muss identisch mit `ARANGODB_PASSWORD` sein. |
+| `ARANGO_ROOT_PASSWORD` | Ja | — | ArangoDB-Root-Passwort. Liest nur der ArangoDB-Pod (Secret aus `database.arangodb.rootPasswordSecret`, Standard `kamerplanter-secrets`). Ein eigener Wert, getrennt von `ARANGODB_PASSWORD`, wird empfohlen. |
 | `JWT_SECRET_KEY` | Ja | — | JWT-Signierschlüssel, aus `kamerplanter-secrets`. Boot-Blocker bei `DEBUG=false`, wenn der Chart-interne Default unverändert bleibt. |
 | `FERNET_KEY` | Ja | — | Verschlüsselungsschlüssel für OIDC-Provider-Secrets, aus `kamerplanter-secrets`. Boot-Blocker bei `DEBUG=false`, wenn leer oder ungültig — **auch für den Celery-Worker-Controller**, der denselben Wert wie das Backend per `envFrom` aus `kamerplanter-secrets` bezieht; Backend und Celery-Worker müssen denselben Schlüssel verwenden. |
 | `ERASURE_TOMBSTONE_SALT` | Ja | — | DSGVO-Pseudonymisierungs-Salt (≥ 32 Zeichen) für Tombstone-Hash, Löschantrags-Schlüssel und Mandanten-Slug-Digest, aus `kamerplanter-secrets`. Boot-Blocker bei `DEBUG=false`, wenn leer oder zu kurz. Darf nach der ersten Kontolöschung nie mehr geändert werden. |

@@ -131,6 +131,25 @@ renderChecks:
     {{- fail "backup.enabled=true needs backup.s3.bucket (and the Secret named in backup.s3.credentialsRef). See docs/deployment/backup-restore.md (#2122)." -}}
     {{- end -}}
 
+# -- ArangoDB application account (#2126). The backend, celery-worker and
+# celery-beat connect with this account (their ARANGODB_USERNAME renders it), and
+# the arangodb `app-user` container provisions it with ARANGODB_PASSWORD from
+# kamerplanter-secrets: `rw` on the application database and its collections,
+# no access to `_system`. Until #2126 the application connected as root.
+#
+# Set to `root` to keep the old behaviour (the provisioner then does nothing).
+# What the chart cannot do for you: the backend still receives the whole
+# kamerplanter-secrets, so as long as ARANGO_ROOT_PASSWORD lives in that Secret
+# the backend can read it. Move it into a Secret of its own and give the
+# application account its own ARANGODB_PASSWORD — docs/deployment/kubernetes.md.
+database:
+  arangodb:
+    appUsername: kamerplanter
+    # Secret holding ARANGO_ROOT_PASSWORD, read by the arangodb pod only. The
+    # default keeps today's place; set a Secret of its own to take the root
+    # password out of what the backend receives.
+    rootPasswordSecret: kamerplanter-secrets
+
 # -- ArangoDB backup (#2122, NFR-002 §8, NFR-012 §9.1). OFF by default — an
 # enabled backup needs a bucket and credentials only the operator has.
 #
@@ -266,7 +285,9 @@ controllers:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
-          ARANGODB_USERNAME: root
+          # #2126 — the application account, provisioned by the arangodb
+          # `app-user` container; see `database.arangodb.appUsername`.
+          ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           # How many proxy addresses this deployment's own infrastructure appends
           # to X-Forwarded-For, counted from the right (#1151). Only the backend
@@ -594,9 +615,20 @@ controllers:
           allowPrivilegeEscalation: false
           capabilities:
             drop: ["ALL"]
-        envFrom:
-          - secret: kamerplanter-secrets
-        env: {}
+        # #2126 — exactly the root password, nothing else of the application
+        # Secret. Until #2126 this was `envFrom: kamerplanter-secrets`, which put
+        # JWT_SECRET_KEY, FERNET_KEY, INTERNAL_SERVICE_TOKEN and every mail/API
+        # key into the database pod. `optional` keeps the old behaviour for a
+        # Secret without the key (the image only reads it to initialise an
+        # empty volume). To separate the root password from the application
+        # Secret, set `database.arangodb.rootPasswordSecret` (docs: kubernetes.md).
+        env:
+          ARANGO_ROOT_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.database.arangodb.rootPasswordSecret }}'
+                key: ARANGO_ROOT_PASSWORD
+                optional: true
         probes:
           liveness:
             enabled: true
@@ -625,6 +657,103 @@ controllers:
           limits:
             cpu: "1"
             memory: 1Gi
+      # -- #2126 application account. Provisions — idempotently, on every pod
+      # start — the account the backend connects with: the application database
+      # (created if missing), the account with ARANGODB_PASSWORD, `rw` on that
+      # database and its collections, `none` on `_system`. Then it idles.
+      # It reads ARANGODB_USERNAME/ARANGODB_DATABASE from the backend's own env,
+      # so a backend overridden to `root` makes it provision nothing.
+      # Runs beside arangod because that is the one pod that holds the root
+      # password anyway; it reaches the server on localhost (no NetworkPolicy
+      # change), and passes no password on a command line (arangosh expands
+      # `@ARANGO_ROOT_PASSWORD@` from its environment). A failure is retried every
+      # 15 s and logged; it never blocks the database itself. Verified against
+      # ArangoDB 3.12.12 under this security context on 2026-10-04.
+      app-user:
+        image:
+          repository: arangodb
+          # Same image and tag as the server (client == server version).
+          tag: '{{ .Values.controllers.arangodb.containers.main.image.tag }}'
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -u
+            trap 'exit 0' TERM INT
+            provision() {
+              arangosh \
+                --server.endpoint tcp://127.0.0.1:8529 \
+                --server.username root \
+                --server.password @ARANGO_ROOT_PASSWORD@ \
+                --console.history false \
+                --quiet \
+                --javascript.execute-string "$(cat <<'JS'
+            const users = require('@arangodb/users');
+            const env = require('internal').env;
+            const name = env.ARANGODB_DATABASE;
+            const user = env.ARANGODB_USERNAME;
+            const password = env.ARANGODB_PASSWORD;
+            if (!name || !user || !password) {
+              throw new Error('ARANGODB_DATABASE, ARANGODB_USERNAME and ARANGODB_PASSWORD must be set');
+            }
+            if (user === 'root') {
+              print('app-user: the application connects as root, nothing to provision');
+            } else {
+              if (!db._databases().includes(name)) {
+                db._createDatabase(name);
+                print('app-user: created database ' + name);
+              }
+              if (users.exists(user)) {
+                users.update(user, password, true);
+              } else {
+                users.save(user, password, true);
+              }
+              users.grantDatabase(user, name, 'rw');
+              users.grantCollection(user, name, '*', 'rw');
+              users.grantDatabase(user, '_system', 'none');
+              print('app-user: ' + user + ' has rw on ' + name + ' and no access to _system');
+            }
+            JS
+            )"
+            }
+            until provision; do
+              echo "app-user: provisioning failed, retrying in 15s"
+              sleep 15 &
+              wait $!
+            done
+            while :; do
+              sleep 3600 &
+              wait $!
+            done
+        env:
+          ARANGODB_DATABASE: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_DATABASE $ }}'
+          ARANGODB_USERNAME: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME $ }}'
+          # Both optional: a missing key must never stop the database pod; the
+          # script then logs and retries.
+          ARANGODB_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kamerplanter-secrets
+                key: ARANGODB_PASSWORD
+                optional: true
+          ARANGO_ROOT_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.database.arangodb.rootPasswordSecret }}'
+                key: ARANGO_ROOT_PASSWORD
+                optional: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
     statefulset:
       volumeClaimTemplates:
         - name: data
@@ -632,8 +761,11 @@ controllers:
           size: 5Gi
           annotations:
             helm.sh/resource-policy: keep
-          globalMounts:
-            - path: /var/lib/arangodb3
+          # The database volume belongs to arangod alone, not to `app-user`
+          # (#2126). The claim template itself is unchanged.
+          advancedMounts:
+            main:
+              - path: /var/lib/arangodb3
 
   # -- #2122 ArangoDB backup CronJob — configured through the top-level
   # ``backup`` block; ``enabled`` renders to "true" or "" (see the storage
@@ -687,10 +819,10 @@ controllers:
         env:
           # The application's own connection — whatever account the backend
           # uses, the backup uses.
-          ARANGODB_HOST: '{{ .Values.controllers.backend.containers.main.env.ARANGODB_HOST }}'
-          ARANGODB_PORT: '{{ .Values.controllers.backend.containers.main.env.ARANGODB_PORT }}'
-          ARANGODB_DATABASE: '{{ .Values.controllers.backend.containers.main.env.ARANGODB_DATABASE }}'
-          ARANGODB_USERNAME: '{{ .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME }}'
+          ARANGODB_HOST: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_HOST $ }}'
+          ARANGODB_PORT: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_PORT $ }}'
+          ARANGODB_DATABASE: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_DATABASE $ }}'
+          ARANGODB_USERNAME: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME $ }}'
           ARANGODB_PASSWORD:
             valueFrom:
               secretKeyRef:
@@ -812,7 +944,9 @@ controllers:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
-          ARANGODB_USERNAME: root
+          # #2126 — the application account, provisioned by the arangodb
+          # `app-user` container; see `database.arangodb.appUsername`.
+          ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           # #777 — optional Sentry-protocol error tracking. Empty DSN => the SDK
           # is never initialised and the process is unchanged, so this block is
@@ -919,7 +1053,9 @@ controllers:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
-          ARANGODB_USERNAME: root
+          # #2126 — the application account, provisioned by the arangodb
+          # `app-user` container; see `database.arangodb.appUsername`.
+          ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           # #777 — optional Sentry-protocol error tracking. Empty DSN => the SDK
           # is never initialised and the process is unchanged, so this block is
@@ -1597,6 +1733,19 @@ persistence:
       arangodb:
         main:
           - path: /var/lib/arangodb3-apps
+
+  # -- #2126 arangosh in the `app-user` container needs a writable temp directory
+  # under readOnlyRootFilesystem (it aborts with "failed to create a temporary
+  # directory" without one — measured).
+  arangodb-app-user-tmp:
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 16Mi
+    advancedMounts:
+      arangodb:
+        app-user:
+          - path: /tmp
 
   # celery-beat writes --schedule=/tmp/celery-beat/celerybeat-schedule under
   # readOnlyRootFilesystem:true, so mount the writable emptyDir at that subdir

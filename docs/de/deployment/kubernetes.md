@@ -110,7 +110,7 @@ helm pull oci://ghcr.io/nolte/charts/kamerplanter --version 0.2.0
 ### 2. Pflicht-Secrets anlegen
 
 !!! danger "Ohne dieses Secret startet kein Backend-Pod"
-    Bevor du das Chart installierst, muss das Kubernetes-Secret `kamerplanter-secrets` existieren. Der Backend-Container liest `ARANGODB_PASSWORD`, `ARANGO_ROOT_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` und `LOG_PSEUDONYM_SALT` ausschließlich über `envFrom` aus diesem Secret — **nicht** aus `values.yaml`. Fehlt eines der fünf zuletzt genannten Werte (bzw. bleibt `ARANGODB_PASSWORD` beim Literal `rootpassword`), bricht der Backend-Start mit `SystemExit` ab, sobald `DEBUG=false` gesetzt ist (Fail-Fast-Gate, `src/backend/app/main.py`). `ARANGO_ROOT_PASSWORD` muss dabei identisch mit `ARANGODB_PASSWORD` sein — beide gehen an denselben ArangoDB-Container. Der Celery-Worker-Pod bezieht dasselbe Secret und prüft `LOG_PSEUDONYM_SALT` beim Start genauso streng; er bricht mit `SystemExit` ab, wenn der Wert fehlt oder kürzer als 32 Zeichen ist.
+    Bevor du das Chart installierst, muss das Kubernetes-Secret `kamerplanter-secrets` existieren. Der Backend-Container liest `ARANGODB_PASSWORD`, `ARANGO_ROOT_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` und `LOG_PSEUDONYM_SALT` ausschließlich über `envFrom` aus diesem Secret — **nicht** aus `values.yaml`. Fehlt eines der fünf zuletzt genannten Werte (bzw. bleibt `ARANGODB_PASSWORD` beim Literal `rootpassword`), bricht der Backend-Start mit `SystemExit` ab, sobald `DEBUG=false` gesetzt ist (Fail-Fast-Gate, `src/backend/app/main.py`). Der Celery-Worker-Pod bezieht dasselbe Secret und prüft `LOG_PSEUDONYM_SALT` beim Start genauso streng; er bricht mit `SystemExit` ab, wenn der Wert fehlt oder kürzer als 32 Zeichen ist.
 
 ```bash
 kubectl create namespace kamerplanter
@@ -124,6 +124,32 @@ kubectl create secret generic kamerplanter-secrets \
   --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)" \
   --from-literal=LOG_PSEUDONYM_SALT="$(openssl rand -hex 32)"
 ```
+
+#### Datenbank-Zugänge
+
+Die Anwendung verbindet sich nicht als `root` mit ArangoDB, sondern mit dem Konto `kamerplanter` (`database.arangodb.appUsername`). Ein Hilfscontainer `app-user` im ArangoDB-Pod legt es bei jedem Start an bzw. aktualisiert es: Passwort aus `ARANGODB_PASSWORD`, Lese- und Schreibrecht nur auf der Anwendungsdatenbank, kein Zugriff auf `_system`. Der ArangoDB-Container selbst erhält aus dem Secret nur `ARANGO_ROOT_PASSWORD`.
+
+- **`ARANGODB_PASSWORD`** ist das Passwort des Anwendungskontos. Wähle einen eigenen Wert, nicht das Root-Passwort.
+- **`ARANGO_ROOT_PASSWORD`** braucht nur der ArangoDB-Pod. Lege es in ein eigenes Secret, dann sieht das Backend das Root-Passwort nicht mehr (es liest `kamerplanter-secrets` vollständig per `envFrom`):
+
+```bash
+kubectl create secret generic kamerplanter-arangodb-root \
+  --namespace kamerplanter \
+  --from-literal=ARANGO_ROOT_PASSWORD="$(openssl rand -hex 32)"
+```
+
+```yaml title="values-production.yaml (Ausschnitt)"
+database:
+  arangodb:
+    rootPasswordSecret: kamerplanter-arangodb-root
+```
+
+!!! warning "Bestehende Installation: Root-Zugang in drei Schritten trennen"
+    ArangoDB liest `ARANGO_ROOT_PASSWORD` nur beim allerersten Start mit leerem Volume. Bei einer bestehenden Installation gilt deshalb:
+
+    1. **Upgrade:** Nach dem Upgrade legt `app-user` das Konto `kamerplanter` mit dem bisherigen `ARANGODB_PASSWORD` an, und Backend, Worker und Beat verbinden sich damit. Hast du in deinen Values `ARANGODB_USERNAME: root` oder ein `envFrom` am ArangoDB-Container gesetzt (frühere Fassung dieser Anleitung), entferne beides — sonst bleibt es beim Root-Zugang. Zurück zum alten Verhalten: `database.arangodb.appUsername: root`.
+    2. **Eigenes Anwendungspasswort:** Setze in `kamerplanter-secrets` einen neuen Wert für `ARANGODB_PASSWORD`, starte zuerst den ArangoDB-Pod neu (`app-user` übernimmt das Passwort) und danach Backend, Worker und Beat (`kubectl rollout restart`).
+    3. **Root-Passwort auslagern:** Lege `kamerplanter-arangodb-root` mit dem **aktuellen** Root-Passwort an, setze `database.arangodb.rootPasswordSecret` und entferne danach `ARANGO_ROOT_PASSWORD` aus `kamerplanter-secrets`. Willst du das Root-Passwort selbst ändern, ändere es zuerst in ArangoDB (`arangosh`) und dann im Secret.
 
 Vollständige Übersicht aller Pflicht-Secrets je aktivierter Funktion (z. B. `INTERNAL_SERVICE_TOKEN` sobald der KI-Assistent oder die Bilderkennung aktiv sind): [Konfigurationsmatrix — Pflicht-Secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
@@ -143,7 +169,6 @@ controllers:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
-          ARANGODB_USERNAME: root
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           CORS_ORIGINS: '["https://pflanzen.example.com"]'
           DEBUG: "false"
@@ -153,17 +178,14 @@ controllers:
     replicas: 2
 
   arangodb:
-    containers:
-      main:
-        envFrom:
-          - secret: kamerplanter-secrets    # (4)!
     statefulset:
       volumeClaimTemplates:
         - name: data
           accessMode: ReadWriteOnce
           size: 10Gi    # (5)!
-          globalMounts:
-            - path: /var/lib/arangodb3
+          advancedMounts:    # (4)!
+            main:
+              - path: /var/lib/arangodb3
 
 # Anhänge in S3 — Pflicht bei mehr als einer Backend-Replica
 storage:
@@ -194,7 +216,7 @@ ingress:
 1. Zwei Replicas für Rolling Updates ohne Downtime. **Nur mit S3** (`storage.backend: s3`, siehe unten) oder einem `ReadWriteMany`-Volume: Auf dem Standard-Volume `ReadWriteOnce` verweigert das Chart mehr als eine Backend-Replica, weil ein zweiter Pod auf einem anderen Node nie startet ([Storage-Konfiguration](helm.md#storage-konfiguration-nfr-013)).
 2. Zieht `ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` und `LOG_PSEUDONYM_SALT` aus dem im vorigen Schritt angelegten Secret — keine Klartext-Passwörter in `values.yaml`.
 3. `light` = ohne Login/Tenant-System, ein Nutzer. `full` (Standard im Chart) = mit JWT-Auth und Mandantenverwaltung. Details: [Betriebsprofile](betriebsprofile.md).
-4. `ARANGO_ROOT_PASSWORD` wird ebenfalls aus `kamerplanter-secrets` injiziert.
+4. Nur der ArangoDB-Container `main` mountet das Datenvolume, nicht der Hilfscontainer `app-user`. Das Root-Passwort und das Anwendungskonto stellt das Chart selbst ein (siehe [Datenbank-Zugänge](#datenbank-zugange)); setze hier kein `envFrom` und kein `ARANGODB_USERNAME`.
 5. Passe die Größe an deinen Bedarf an. Der Chart-Default für die ArangoDB-PVC liegt bei 5Gi.
 6. Dein gewünschter Hostname. Der Ingress-Controller muss darauf konfiguriert sein.
 

@@ -6,7 +6,7 @@ Kategorie: Infrastruktur / Deployment Unterkategorie: Container-Orchestrierung, 
 Technologie: Python 3.14, ArangoDB, Kubernetes 1.28+, Helm, Docker, Traefik
 Status: Genehmigt
 Priorität: Kritisch
-Version: 2.3
+Version: 2.4
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [kubernetes, helm, docker, deployment, scaling, high-availability, ci-cd, network-policies, seccomp, container-security]
@@ -608,6 +608,8 @@ stringData:
 1. **Sealed Secrets**: Verschlüsselte Secrets in Git
 2. **External Secrets Operator**: Synchronisierung aus Vault/AWS Secrets Manager
 3. **SOPS**: Verschlüsselung mit Age/PGP
+
+**Least Privilege fuer Datenbank-Zugaenge (#2126, v2.4):** Ein Pod erhaelt nur die Secret-Schluessel, die er braucht (`secretKeyRef` je Schluessel, kein `envFrom` eines geteilten Secrets an einen Datenbank-Pod). Die Anwendung verbindet sich **nicht als `root`**: Der ArangoDB-Pod liest nur `ARANGO_ROOT_PASSWORD` (Secret konfigurierbar ueber `database.arangodb.rootPasswordSecret`); ein Container `app-user` im selben Pod legt idempotent das Anwendungskonto (`database.arangodb.appUsername`, Default `kamerplanter`) mit `rw` nur auf der Anwendungsdatenbank und `none` auf `_system` an; Backend, Celery-Worker, Celery-Beat und das Backup nutzen dieses Konto. `ArangoConnection.connect` oeffnet dafuer die Anwendungsdatenbank direkt und geht nur bei *database not found* (ERR 1228) ueber `_system`. Gemessen 2026-10-04 (ArangoDB 3.12.12): vorher scheiterte ein solches Konto mit `DatabaseListError 401 ERR 11`, jetzt bootet die Anwendung inkl. aller Migrationen und Seeds darunter (`tests/integration/test_arango_app_scoped_account.py`). **Betreiberschritte** (im Chart nicht erzwingbar): eigenes `ARANGODB_PASSWORD` fuer das Anwendungskonto; `ARANGO_ROOT_PASSWORD` in ein eigenes Secret verschieben — solange es in `kamerplanter-secrets` liegt, sieht das Backend es per `envFrom` weiterhin. Anleitung: `docs/{de,en}/deployment/kubernetes.md`, Abschnitt Datenbank-Zugaenge.
 
 ---
 
@@ -1966,6 +1968,7 @@ helm dependency build <chart-path>
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.4 | 2026-10-04 | **Least-Privilege-Datenbankzugaenge (#2126, MT-030):** §3.7 — ArangoDB-Pod erhaelt nur `ARANGO_ROOT_PASSWORD` (vorher `envFrom` des ganzen Anwendungs-Secrets), Anwendungskonto mit `rw` nur auf der eigenen Datenbank statt `root`, Provisionierung im Chart (`app-user`), Betreiberschritte zur Trennung des Root-Passworts. |
 | 2.3 | 2026-10-04 | **Backend-`startupProbe` im Chart (#2125, MT-029):** Budget 900 s > `BARRIER_TIMEOUT_SECONDS` (600 s); Liveness beendete den migrierenden Lifespan zuvor nach ~35 s (§3.2 Hinweis). Verlagerung von Migrationen/Seeds in einen Pre-Upgrade-Job bleibt offen. |
 | 2.2 | 2026-10-04 | **Backup im Chart umgesetzt (#2122, MT-026):** neuer §8.0 — ArangoDB-`arangodump`-CronJob nach S3 (`backup.enabled`, Default aus), `LATEST`-Marker als messbarer RPO, Aufbewahrung ohne den letzten Dump zu loeschen, Restore-Runbook und protokollierte Wiederherstellungsuebung; §8.1/§8.2 als Vor-Helm-Skizze gekennzeichnet (die `k8s/...`-Pfade existieren nicht). |
 | 2.1 | 2026-02-27 | IT-Security-Review-Findings eingearbeitet: §3.2 `seccompProfile: RuntimeDefault` ergänzt (SEC-M-004), §7.1 Default-Deny-Policy + Frontend-Network-Policy + Egress für externe APIs hinzugefügt (SEC-M-004), §11 Security-Akzeptanzkriterien erweitert |

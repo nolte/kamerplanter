@@ -55,3 +55,18 @@
 
 **Verdict:** restore into an empty server works as documented; the recovery point is
 readable from `LATEST` without cluster access (RPO = now − LATEST).
+
+## Addendum — application account (#2126)
+
+After #2126 the backup dumps with the application account (`kamerplanter`, `rw` on
+the application database only), not root. Re-run against a fresh ArangoDB 3.12.12
+pod simulation (server + the chart's rendered `app-user` script in a second
+container sharing the network namespace, read-only root, uid 999, all
+capabilities dropped):
+
+| Step | Result |
+|---|---|
+| `app-user` while the server initialises | first attempt failed (`not connected`), retried after 15 s, then `created database kamerplanter` / `kamerplanter has rw on kamerplanter and no access to _system` |
+| Account scope | `/_api/database/current`: 200 on `kamerplanter`, 401 ERR 11 on `_system` and on another database |
+| Application boot under the account (connect, `ensure_collections`, migrations, seeds) | exit 0, 38.5 s including import, 309 collections |
+| Rendered `dump` script with the account (`--include-system-collections true`) | exit 0, 309 collections, 3.2 MB |

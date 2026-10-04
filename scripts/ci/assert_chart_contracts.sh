@@ -202,6 +202,54 @@ expect storage-default "the backend container renders a startupProbe on the live
   "$(main_of backend) | .startupProbe | {\"path\": .httpGet.path, \"budget\": ((.initialDelaySeconds // 0) + .periodSeconds * .failureThreshold)}" \
   '[{"path":"/api/v1/health/live","budget":900}]'
 
+# ---------------------------------------------------------------------------
+# #2126 — least-privilege database credentials.
+#
+# The ArangoDB pod used to receive the WHOLE application Secret by envFrom
+# (JWT_SECRET_KEY, FERNET_KEY, INTERNAL_SERVICE_TOKEN, mail/API keys), and the
+# application connected as root. Now the database container takes exactly its
+# root password, an `app-user` container in the same pod provisions an account
+# with rw on the application database only, and every client of the database
+# (backend, worker, beat, backup) uses that account.
+# ---------------------------------------------------------------------------
+sts_container() { printf 'select(.kind == "StatefulSet" and .metadata.name == "kamerplanter-arangodb") | .spec.template.spec.containers[] | select(.name == "%s")' "$1"; }
+secret_keys() { printf '%s | {"envFrom": (.envFrom // []), "keys": [.env[] | select(.valueFrom.secretKeyRef) | .valueFrom.secretKeyRef.key]}' "$1"; }
+
+expect storage-default "the database container takes its root password and nothing else of the application Secret" \
+  "$(secret_keys "$(sts_container main)")" '[{"envFrom":[],"keys":["ARANGO_ROOT_PASSWORD"]}]'
+expect storage-default "the app-user container takes the root password and the application password, nothing else" \
+  "$(secret_keys "$(sts_container app-user)")" '[{"envFrom":[],"keys":["ARANGODB_PASSWORD","ARANGO_ROOT_PASSWORD"]}]'
+# The data volume belongs to arangod alone; app-user gets only its scratch /tmp
+# (arangosh aborts without a writable temp directory — measured).
+expect storage-default "only arangod mounts the database volume; app-user mounts exactly a writable /tmp" \
+  "select(.kind == \"StatefulSet\" and .metadata.name == \"kamerplanter-arangodb\") | .spec.template.spec.containers[] | {\"c\": .name, \"m\": [.volumeMounts[] | .mountPath]}" \
+  '[{"c":"app-user","m":["/tmp"]},{"c":"main","m":["/var/lib/arangodb3-apps","/var/lib/arangodb3"]}]'
+expect storage-default "the app-user container passes no password on its command line" \
+  "$(sts_container app-user) | ((.command // []) + (.args // [])) | join(\" \") | test(\"server.password +[^@ ]\")" '[false]'
+for controller in backend celery-worker celery-beat; do
+  expect storage-default "${controller} connects with the application account, not root" \
+    "$(env_of "${controller}" ARANGODB_USERNAME)" '["kamerplanter"]'
+done
+expect storage-default "the app-user container provisions the account the backend uses" \
+  "$(sts_container app-user) | .env[] | select(.name == \"ARANGODB_USERNAME\") | .value" '["kamerplanter"]'
+expect backup "the backup dumps with the account the backend uses" \
+  "${backup_pod} | .initContainers[] | select(.name == \"dump\") | .env[] | select(.name == \"ARANGODB_USERNAME\") | .value" \
+  '["kamerplanter"]'
+
+# An operator who keeps root (escape hatch, documented) keeps it everywhere —
+# the provisioner then does nothing and the backup follows the backend.
+render root-account --set controllers.backend.containers.main.env.ARANGODB_USERNAME=root \
+  --set backup.enabled=true --set backup.s3.bucket=kp-backup-render
+expect root-account "a backend overridden to root makes the app-user container provision nothing" \
+  "$(sts_container app-user) | .env[] | select(.name == \"ARANGODB_USERNAME\") | .value" '["root"]'
+render root-secret --set database.arangodb.rootPasswordSecret=kamerplanter-arangodb-root
+expect root-secret "database.arangodb.rootPasswordSecret moves the root password to its own Secret, for both arangodb containers" \
+  "select(.kind == \"StatefulSet\" and .metadata.name == \"kamerplanter-arangodb\") | .spec.template.spec.containers[] | .env[] | select(.name == \"ARANGO_ROOT_PASSWORD\") | .valueFrom.secretKeyRef.name" \
+  '["kamerplanter-arangodb-root","kamerplanter-arangodb-root"]'
+expect root-account "a backend overridden to root makes the backup dump as root" \
+  "${backup_pod} | .initContainers[] | select(.name == \"dump\") | .env[] | select(.name == \"ARANGODB_USERNAME\") | .value" \
+  '["root"]'
+
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2
   exit 1
