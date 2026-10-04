@@ -85,6 +85,9 @@ Als Admin kannst du Mitglieder auf drei Wegen einladen:
 
 Das System sendet eine Einladungs-E-Mail. Nach Klick auf den Link im Mail wird der Nutzer deinem Tenant mit der vorgewählten Rolle hinzugefügt — egal ob er sich neu registriert oder bereits ein Konto hat.
 
+!!! warning "Die Einladung gilt nur für die eingeladene Adresse"
+    Eine E-Mail-Einladung kann nur das Konto annehmen, dessen E-Mail-Adresse die eingeladene ist **und** die bestätigt wurde. Wer den Link weiterleitet, verleiht damit niemandem die Mitgliedschaft: ein anderes Konto — oder dasselbe Konto mit noch unbestätigter Adresse — bekommt `403`, die Einladung bleibt offen und nichts wird angelegt. Bestätige die Adresse deines Kontos zuerst, wenn du eingeladen wirst, und melde dich mit dem Konto an, das diese Adresse trägt. Ein **Einladungslink** (Methode 2) ist dagegen zum Teilen gedacht und bleibt für jedes angemeldete Konto gültig. <!-- Issue #2115, REQ-024 AK-61 -->
+
 ### Methode 2: Einladungslink
 
 1. Navigiere zu **Einstellungen** > **Mitglieder** > **Einladungslink generieren**

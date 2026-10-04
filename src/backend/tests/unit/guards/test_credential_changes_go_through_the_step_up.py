@@ -170,8 +170,9 @@ _MEMBERSHIP_CLASSIFIED: dict[tuple[str, str], str] = {
 }
 _MEMBERSHIP_CLASSIFIED[("tenant_service.py", "TenantService.accept_invitation")] = (
     "the invitation token is the proof: it was created by a member administrator who passed the escalation "
-    "gate for the role it carries, and the accepting account chooses nothing; it grants no more than the "
-    "invitation says (REQ-024 §1a.2)"
+    "gate for the role it carries, and the accepting account chooses nothing; an e-mail invitation is bound to "
+    "its proven address (_require_invited_account, #2115); it grants no more than the invitation says "
+    "(REQ-024 §1a.2)"
 )
 _CLASSIFIED.update(_MEMBERSHIP_CLASSIFIED)
 

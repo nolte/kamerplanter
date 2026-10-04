@@ -2197,11 +2197,23 @@ class TenantService:
             raise NotFoundError("Invitation", invitation_key)
         return result
 
-    def accept_invitation(self, token: str, user_key: str) -> Membership:
+    def accept_invitation(self, token: str, account: User) -> Membership:
+        """Accept an invitation with the signed-in *account* (REQ-024 §1a.2).
+
+        **An e-mail invitation belongs to the address it was sent to (#2115, REQ-024 AK-61).**
+        The token alone used to be enough: a forwarded or intercepted link granted a membership,
+        up to ``lead``, to whoever opened it signed in. For an invitation of type ``email`` the
+        accepting account must carry the invited address **and** have proven it
+        (:attr:`User.address_proven` - the verified flag alone proves nothing, #1948); otherwise
+        403, before anything about the invitation (status, tenant, role) is told and with nothing
+        written. A link invitation is meant to be shared and stays open to any account.
+        """
+        user_key = account.key or ""
         token_hash = self._invitation_engine.hash_token(token)
         invitation = self._invitation_repo.get_by_token_hash(token_hash)
         if not invitation:
             raise NotFoundError("Invitation", "token")
+        self._require_invited_account(invitation, account)
 
         is_expired = self._invitation_engine.is_expired(invitation.expires_at)
         is_pending = invitation.status == InvitationStatus.PENDING
@@ -2261,6 +2273,23 @@ class TenantService:
             subject=log_subject(user_key),
         )
         return membership
+
+    @staticmethod
+    def _require_invited_account(invitation: Invitation, account: User) -> None:
+        """403 unless *account* may use *invitation* (#2115): an e-mail invitation needs its proven address.
+
+        One answer for "another address", "address not proven" and "an e-mail invitation that names no
+        address" (a malformed row is never admitted): whoever holds the token learns nothing about
+        which of the three applies, nor the invited address.
+        """
+        if invitation.invitation_type != InvitationType.EMAIL:
+            return
+        invited = (invitation.email or "").strip().lower()
+        if invited and account.email.strip().lower() == invited and account.address_proven:
+            return
+        raise ForbiddenError(
+            "This invitation was issued for another address, or the address of your account is not confirmed."
+        )
 
     # --- Location Assignments ---
 

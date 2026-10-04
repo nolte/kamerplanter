@@ -25,6 +25,7 @@ from app.domain.models.invitation import Invitation
 from app.domain.models.membership import Membership
 from app.domain.models.security_audit import SecurityAuditEntry
 from app.domain.models.tenant import Tenant
+from app.domain.models.user import User
 from app.domain.services.security_audit_service import SecurityAuditService
 from app.domain.services.tenant_service import TenantService
 from tests.support.step_up import STEP_UP_PASSED, PassedStepUpVerifier
@@ -250,7 +251,16 @@ def test_accepting_an_invitation_writes_the_accepting_account_and_the_invited_ro
     service._invitations.get_by_token_hash.return_value = invitation  # type: ignore[attr-defined]
     service._invitations.mark_accepted_if_pending.return_value = invitation  # type: ignore[attr-defined]
 
-    service.accept_invitation("raw-token", "joiner-1")
+    service.accept_invitation(
+        "raw-token",
+        User(
+            _key="joiner-1",
+            email="a@example.com",
+            display_name="J",
+            email_verified=True,
+            email_confirmed_at="2026-01-01T00:00:00+00:00",
+        ),
+    )
 
     row = _only(audit)
     assert (row.action, row.via) == (SecurityAuditAction.MEMBERSHIP_ADDED, SecurityAuditVia.INVITATION)

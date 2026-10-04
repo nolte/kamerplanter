@@ -85,6 +85,9 @@ As an admin you can invite members in three ways:
 
 The system sends an invitation email. After clicking the link in the email, the user is added to your tenant with the pre-selected role — whether they register fresh or already have an account.
 
+!!! warning "The invitation is valid for the invited address only"
+    An email invitation can only be accepted by the account whose email address is the invited one **and** has been confirmed. Forwarding the link does not hand the membership to anyone: another account — or the same account with a still unconfirmed address — gets `403`, the invitation stays open and nothing is created. When you are invited, confirm your account's address first and sign in with the account that carries it. An **invitation link** (method 2), by contrast, is meant to be shared and stays valid for any signed-in account. <!-- Issue #2115, REQ-024 AK-61 -->
+
 ### Method 2: Invitation Link
 
 1. Navigate to **Settings** > **Members** > **Generate Invitation Link**
