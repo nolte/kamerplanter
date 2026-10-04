@@ -69,6 +69,7 @@ def _build_service(*, slots: list, plant_specs: list[dict], run: PlantingRun | N
         plant_repo=plant_repo,
         engine=engine,
         site_repo=site_repo,
+        species_resolver=lambda key, *, tenant_key: None,  # readable (#1963: the stored species is resolved)
         rotation_validator=rotation,
         companion_engine=companion,
     )
@@ -183,6 +184,7 @@ class TestCreatePlantsChecks:
             plant_repo=plant_repo,
             engine=engine,
             site_repo=site_repo,
+            species_resolver=lambda key, *, tenant_key: None,  # readable (#1963)
         )
 
         result = service.create_plants(RUN_KEY)
