@@ -77,16 +77,9 @@ spec:
                   ARANGODB_HOST: kamerplanter-arangodb
                   ARANGODB_PORT: "8529"
                   ARANGODB_DATABASE: kamerplanter
-                  ARANGODB_USERNAME: root
                   REDIS_URL: redis://kamerplanter-valkey:6379/0
                   CORS_ORIGINS: '["https://pflanzen.example.com"]'
                   KAMERPLANTER_MODE: light
-          arangodb:
-            containers:
-              main:
-                envFrom:                                        # (2)!
-                  - secretRef:
-                      name: kamerplanter-secrets
   destination:
     server: https://kubernetes.default.svc
     namespace: kamerplanter
@@ -98,8 +91,7 @@ spec:
       - CreateNamespace=true
 ```
 
-1. `ARANGODB_PASSWORD` wird aus dem Secret `kamerplanter-secrets` injiziert.
-2. `ARANGO_ROOT_PASSWORD` wird aus demselben Secret injiziert.
+1. `ARANGODB_PASSWORD` (das Passwort des Anwendungskontos `kamerplanter`) wird aus dem Secret `kamerplanter-secrets` injiziert. Den ArangoDB-Container und das Anwendungskonto richtet das Chart selbst ein — setze dort kein `envFrom` und kein `ARANGODB_USERNAME` (siehe [Datenbank-Zugänge](kubernetes.md#datenbank-zugange)).
 
 !!! warning "Kein `image.tag` in `valuesObject` überschreiben"
 
@@ -184,16 +176,9 @@ spec:
                   ARANGODB_HOST: kamerplanter-arangodb
                   ARANGODB_PORT: "8529"
                   ARANGODB_DATABASE: kamerplanter
-                  ARANGODB_USERNAME: root
                   REDIS_URL: redis://kamerplanter-valkey:6379/0
                   CORS_ORIGINS: '["https://pflanzen.example.com"]'
                   KAMERPLANTER_MODE: full
-          arangodb:
-            containers:
-              main:
-                envFrom:
-                  - secretRef:
-                      name: kamerplanter-secrets
 
         ingress:
           main:
