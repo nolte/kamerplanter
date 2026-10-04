@@ -71,6 +71,11 @@ expect_refusal() {
 }
 
 # expect <render-name> <description> <yq stream over .[]> <expected compact JSON>
+#
+# Emit values taken FROM the selected nodes, never a literal: in yq,
+# `select(false) | "x"` still yields "x", so a contract ending in a literal
+# passes over an empty selection (measured on the first draft of the #2122
+# NetworkPolicy contract, which was green against the unchanged chart).
 expect() {
   local name="$1" description="$2" expression="$3" expected="$4" got
   got="$(yq e "[.[] | ${expression}] | to_json(0)" "${work}/${name}.yaml" 2>&1 || true)"
@@ -142,6 +147,48 @@ expect storage-s3-two-backends "S3 carries two backend replicas" "$(deploy backe
 render storage-single-node-two-backends --set controllers.backend.replicas=2 --set storage.localFs.singleNode=true
 expect storage-single-node-two-backends "an acknowledged single-node cluster may run two backends on ReadWriteOnce" \
   "$(deploy backend) | .spec.replicas" '[2]'
+
+# ---------------------------------------------------------------------------
+# #2122 — a real ArangoDB backup: `backup.enabled` renders an arangodump CronJob
+# that uploads to S3, off by default, never with a password on a command line.
+# ---------------------------------------------------------------------------
+cronjob='select(.kind == "CronJob" and .metadata.name == "kamerplanter-arangodb-backup")'
+backup_pod="${cronjob} | .spec.jobTemplate.spec.template.spec"
+
+expect storage-default "no backup CronJob unless backup.enabled" "${cronjob} | .metadata.name" '[]'
+
+render backup --set backup.enabled=true --set backup.s3.bucket=kp-backup-render
+expect backup "backup.enabled renders the CronJob on backup.schedule, one run at a time" \
+  "${cronjob} | {\"schedule\": .spec.schedule, \"concurrency\": .spec.concurrencyPolicy}" \
+  '[{"schedule":"15 2 * * *","concurrency":"Forbid"}]'
+# Client and server version must match: the dump image follows the database's.
+expect backup "the dump runs the database's own arangodb image" \
+  "${backup_pod} | .initContainers[] | select(.name == \"dump\") | .image" \
+  "[$(yq e '[.[] | select(.kind == "StatefulSet" and .metadata.name == "kamerplanter-arangodb") | .spec.template.spec.containers[] | select(.name == "main") | .image] | to_json(0)' "${work}/backup.yaml" | sed 's/^\[//; s/\]$//')]"
+expect backup "the dump invokes arangodump against the application database" \
+  "${backup_pod} | .initContainers[] | select(.name == \"dump\") | .args[0] | test(\"arangodump[\\s\\S]*--server.database\")" \
+  '[true]'
+# A password on a command line is readable from /proc by anything sharing the
+# PID namespace and lands in process listings; the tools expand @VAR@ themselves.
+expect backup "no backup container passes a password on its command line" \
+  "${backup_pod} | (.initContainers + .containers)[] | ((.command // []) + (.args // [])) | join(\" \") | test(\"server.password +[^@ ]\")" \
+  '[false,false]'
+expect backup "the dump password is the one scoped key, not the whole Secret" \
+  "${backup_pod} | (.initContainers + .containers)[] | {\"envFrom\": (.envFrom // []), \"keys\": [.env[] | select(.valueFrom.secretKeyRef) | .valueFrom.secretKeyRef.key]}" \
+  '[{"envFrom":[],"keys":["ARANGODB_PASSWORD"]},{"envFrom":[],"keys":["AWS_ACCESS_KEY_ID","AWS_SECRET_ACCESS_KEY"]}]'
+expect backup "the upload targets backup.s3.bucket with the retention from values" \
+  "${backup_pod} | .containers[] | select(.name == \"main\") | .env[] | select(.name == \"BACKUP_S3_BUCKET\" or .name == \"BACKUP_RETENTION_DAYS\") | .name + \"=\" + .value" \
+  '["BACKUP_RETENTION_DAYS=30","BACKUP_S3_BUCKET=kp-backup-render"]'
+expect backup "every backup container runs non-root on a read-only root filesystem" \
+  "${backup_pod} | ([.securityContext.runAsNonRoot] + [(.initContainers + .containers)[] | .securityContext.readOnlyRootFilesystem])[]" \
+  '[true,true,true]'
+expect backup "the backup pod has its own NetworkPolicy" \
+  "select(.kind == \"NetworkPolicy\" and .metadata.name == \"kamerplanter-arangodb-backup\") | .spec.podSelector.matchLabels[\"app.kubernetes.io/controller\"]" \
+  '["arangodb-backup"]'
+expect backup "ArangoDB admits the backup pod on 8529" \
+  "select(.kind == \"NetworkPolicy\" and .metadata.name == \"kamerplanter-arangodb\") | .spec.ingress[] | .from[] | .podSelector.matchLabels[\"app.kubernetes.io/controller\"] | select(. == \"arangodb-backup\")" \
+  '["arangodb-backup"]'
+expect_refusal backup-without-bucket "backup.s3.bucket" --set backup.enabled=true
 
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2

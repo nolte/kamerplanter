@@ -124,6 +124,59 @@ renderChecks:
     {{- end -}}
     {{- end -}}
     {{- end -}}
+  # #2122 — an enabled backup without a bucket would run every night and fail
+  # every night; refuse it at render time instead.
+  backupTarget: >-
+    {{- if and .Values.backup.enabled (empty .Values.backup.s3.bucket) -}}
+    {{- fail "backup.enabled=true needs backup.s3.bucket (and the Secret named in backup.s3.credentialsRef). See docs/deployment/backup-restore.md (#2122)." -}}
+    {{- end -}}
+
+# -- ArangoDB backup (#2122, NFR-002 §8, NFR-012 §9.1). OFF by default — an
+# enabled backup needs a bucket and credentials only the operator has.
+#
+# A CronJob (controller ``arangodb-backup``) runs ``arangodump`` of the
+# application database into a scratch volume (init container, the SAME arangodb
+# image and tag as the database, so client and server versions cannot drift),
+# then ``rclone`` copies the dump to ``s3://<bucket>/<prefix>/<UTC stamp>/`` and
+# writes ``<prefix>/LATEST`` with that stamp — the recovery point, readable
+# without a cluster (RPO = now − LATEST). Retention deletes dump directories
+# older than ``retentionDays``, never the one the run just wrote, so a backup
+# outage cannot age the last good dump away.
+#
+# Credentials: the dump reads ``ARANGODB_USERNAME`` / ``ARANGODB_PASSWORD`` — the
+# application account, which can read its own database; the root password is
+# not in this pod. The S3 keys come key by key from ``s3.credentialsRef``. No
+# password is ever on a command line: arangodump expands ``@ARANGODB_PASSWORD@``
+# from its own environment.
+#
+# Encryption: ``s3.serverSideEncryption`` (``AES256`` or ``aws:kms`` with
+# ``s3.kmsKeyId``) is requested on every upload; the bucket's own default
+# encryption and versioning are the operator's to set.
+#
+# What this does NOT back up: attachments (with ``storage.backend: s3`` use
+# bucket versioning / replication, NFR-013 §7.1; with local-fs a CSI
+# VolumeSnapshot of the ``backend-attachments`` claim) and TimescaleDB (not part
+# of this chart's production values). Restore: docs/deployment/backup-restore.md.
+backup:
+  enabled: false
+  schedule: "15 2 * * *"
+  retentionDays: 30
+  # Node-disk scratch for one dump; size it above the compressed database.
+  scratchSize: 10Gi
+  s3:
+    # rclone's S3 provider name: AWS, Minio, Ceph, Cloudflare, Other, ...
+    provider: AWS
+    endpointUrl: https://s3.eu-central-1.amazonaws.com
+    region: eu-central-1
+    bucket: ""
+    prefix: kamerplanter/arangodb
+    forcePathStyle: false
+    serverSideEncryption: AES256   # "" | AES256 | aws:kms
+    kmsKeyId: ""
+    credentialsRef:
+      secretName: kamerplanter-backup-s3
+      accessKeyIdKey: AWS_ACCESS_KEY_ID
+      secretAccessKeyKey: AWS_SECRET_ACCESS_KEY
 
 # -- Default pod-level security context applied to all controllers (SEC-M-004)
 defaultPodOptions:
@@ -560,6 +613,142 @@ controllers:
             helm.sh/resource-policy: keep
           globalMounts:
             - path: /var/lib/arangodb3
+
+  # -- #2122 ArangoDB backup CronJob — configured through the top-level
+  # ``backup`` block; ``enabled`` renders to "true" or "" (see the storage
+  # persistence for why not "false").
+  arangodb-backup:
+    enabled: '{{ if .Values.backup.enabled }}true{{ end }}'
+    type: cronjob
+    cronjob:
+      schedule: '{{ .Values.backup.schedule }}'
+      concurrencyPolicy: Forbid
+      successfulJobsHistory: 3
+      failedJobsHistory: 3
+      backoffLimit: 2
+      activeDeadlineSeconds: 7200
+    pod:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+    initContainers:
+      dump:
+        image:
+          repository: arangodb
+          # The database's own tag (client == server version); Renovate bumps
+          # the arangodb controller above and this follows.
+          tag: '{{ .Values.controllers.arangodb.containers.main.image.tag }}'
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -eu
+            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            arangodump \
+              --server.endpoint "tcp://${ARANGODB_HOST}:${ARANGODB_PORT}" \
+              --server.username "${ARANGODB_USERNAME}" \
+              --server.password @ARANGODB_PASSWORD@ \
+              --server.database "${ARANGODB_DATABASE}" \
+              --include-system-collections true \
+              --compress-output true \
+              --output-directory "/backup/${stamp}"
+            printf '%s\n' "${stamp}" > /backup/STAMP
+        env:
+          # The application's own connection — whatever account the backend
+          # uses, the backup uses.
+          ARANGODB_HOST: '{{ .Values.controllers.backend.containers.main.env.ARANGODB_HOST }}'
+          ARANGODB_PORT: '{{ .Values.controllers.backend.containers.main.env.ARANGODB_PORT }}'
+          ARANGODB_DATABASE: '{{ .Values.controllers.backend.containers.main.env.ARANGODB_DATABASE }}'
+          ARANGODB_USERNAME: '{{ .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME }}'
+          ARANGODB_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kamerplanter-secrets
+                key: ARANGODB_PASSWORD
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+    containers:
+      main:
+        image:
+          repository: rclone/rclone
+          tag: "1.71.2"
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -eu
+            stamp="$(cat /backup/STAMP)"
+            dest="backup:${BACKUP_S3_BUCKET}/${BACKUP_S3_PREFIX}"
+            rclone copy "/backup/${stamp}" "${dest}/${stamp}"
+            printf '%s\n' "${stamp}" | rclone rcat "${dest}/LATEST"
+            echo "backup ${stamp} uploaded"
+            if [ "${BACKUP_RETENTION_DAYS}" -gt 0 ]; then
+              cutoff="$(date -u -d "@$(( $(date -u +%s) - BACKUP_RETENTION_DAYS * 86400 ))" +%Y%m%dT%H%M%SZ)"
+              rclone lsf --dirs-only "${dest}" | sed 's#/$##' | while read -r old; do
+                case "${old}" in
+                  [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z) ;;
+                  *) continue ;;
+                esac
+                if [ "${old}" != "${stamp}" ] && [ "${old}" \< "${cutoff}" ]; then
+                  rclone purge "${dest}/${old}"
+                  echo "backup ${old} expired (older than ${BACKUP_RETENTION_DAYS} days)"
+                fi
+              done
+            fi
+        env:
+          HOME: /tmp
+          RCLONE_CONFIG: /tmp/rclone.conf
+          BACKUP_S3_BUCKET: '{{ .Values.backup.s3.bucket }}'
+          BACKUP_S3_PREFIX: '{{ .Values.backup.s3.prefix }}'
+          BACKUP_RETENTION_DAYS: '{{ .Values.backup.retentionDays }}'
+          # rclone remote "backup:" configured entirely from the environment.
+          RCLONE_CONFIG_BACKUP_TYPE: s3
+          RCLONE_CONFIG_BACKUP_PROVIDER: '{{ .Values.backup.s3.provider }}'
+          RCLONE_CONFIG_BACKUP_ENDPOINT: '{{ .Values.backup.s3.endpointUrl }}'
+          RCLONE_CONFIG_BACKUP_REGION: '{{ .Values.backup.s3.region }}'
+          RCLONE_CONFIG_BACKUP_FORCE_PATH_STYLE: '{{ .Values.backup.s3.forcePathStyle }}'
+          RCLONE_CONFIG_BACKUP_SERVER_SIDE_ENCRYPTION: '{{ .Values.backup.s3.serverSideEncryption }}'
+          RCLONE_CONFIG_BACKUP_SSE_KMS_KEY_ID: '{{ .Values.backup.s3.kmsKeyId }}'
+          # The bucket must exist; the backup key needs no CreateBucket right.
+          RCLONE_CONFIG_BACKUP_NO_CHECK_BUCKET: "true"
+          RCLONE_CONFIG_BACKUP_ENV_AUTH: "false"
+          RCLONE_CONFIG_BACKUP_ACCESS_KEY_ID:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.backup.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.backup.s3.credentialsRef.accessKeyIdKey }}'
+          RCLONE_CONFIG_BACKUP_SECRET_ACCESS_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.backup.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.backup.s3.credentialsRef.secretAccessKeyKey }}'
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
 
   celery-worker:
     type: deployment
@@ -1401,6 +1590,36 @@ persistence:
         main:
           - path: /tmp/celery-beat
 
+  # -- #2122 backup scratch: the dump lives here between the two containers of one
+  # run and goes with the pod. On node disk, not memory — a dump is the size of
+  # the database.
+  arangodb-backup-scratch:
+    enabled: '{{ if .Values.backup.enabled }}true{{ end }}'
+    type: emptyDir
+    sizeLimit: '{{ .Values.backup.scratchSize }}'
+    advancedMounts:
+      arangodb-backup:
+        dump:
+          - path: /backup
+        main:
+          - path: /backup
+            readOnly: true
+
+  # arangodump and rclone both need a writable temp directory under
+  # readOnlyRootFilesystem (arangodump aborts with "failed to create a temporary
+  # directory" without one — measured).
+  arangodb-backup-tmp:
+    enabled: '{{ if .Values.backup.enabled }}true{{ end }}'
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      arangodb-backup:
+        dump:
+          - path: /tmp
+        main:
+          - path: /tmp
+
   # -- REQ-029-A inference-service writable /tmp (readOnlyRootFilesystem support,
   # onnxruntime scratch). Disabled by default; operator enables it together with
   # the inference-service controller. The vectordb store uses its statefulset
@@ -1747,7 +1966,8 @@ networkpolicies:
             - protocol: TCP
               port: 53
 
-  # ArangoDB: accept from backend + celery-worker, no egress needed
+  # ArangoDB: accept from backend + celery-worker (+ the backup CronJob when
+  # enabled, #2122), no egress needed
   arangodb:
     controller: arangodb
     policyTypes:
@@ -1762,6 +1982,9 @@ networkpolicies:
             - podSelector:
                 matchLabels:
                   app.kubernetes.io/controller: celery-worker
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: arangodb-backup
           ports:
             - protocol: TCP
               port: 8529
@@ -1777,6 +2000,48 @@ networkpolicies:
               port: 53
             - protocol: TCP
               port: 53
+
+  # -- #2122 ArangoDB backup CronJob: no ingress; egress to ArangoDB, DNS and the
+  # S3 endpoint on 443. Like the backend's external rule, RFC1918 and link-local
+  # are excluded, so an in-cluster / private S3 target (MinIO, Ceph RGW) needs an
+  # extra egress rule in your values.
+  arangodb-backup:
+    enabled: '{{ if .Values.backup.enabled }}true{{ end }}'
+    controller: arangodb-backup
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress: []
+      egress:
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: arangodb
+          ports:
+            - protocol: TCP
+              port: 8529
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+        - to:
+            - ipBlock:
+                cidr: 0.0.0.0/0
+                except:
+                  - 10.0.0.0/8
+                  - 172.16.0.0/12
+                  - 192.168.0.0/16
+                  - 169.254.0.0/16
+          ports:
+            - protocol: TCP
+              port: 443
 
   # Valkey (Redis-wire cache + Celery broker, subchart): accept ingress only from
   # backend + celery-worker + celery-beat on 6379, egress DNS only. The valkey

@@ -6,7 +6,7 @@ Kategorie: Infrastruktur / Deployment Unterkategorie: Container-Orchestrierung, 
 Technologie: Python 3.14, ArangoDB, Kubernetes 1.28+, Helm, Docker, Traefik
 Status: Genehmigt
 Priorität: Kritisch
-Version: 2.1
+Version: 2.2
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [kubernetes, helm, docker, deployment, scaling, high-availability, ci-cd, network-policies, seccomp, container-security]
@@ -1299,6 +1299,14 @@ roleRef:
 
 ## 8. Disaster Recovery & Backup
 
+### 8.0 Umsetzung im Chart (#2122, v2.2)
+
+Die Beispiele in §8.1 und §8.2 sind eine Skizze aus der Zeit vor dem Helm-Chart: Die dort genannten Pfade (`k8s/backup/velero-schedule.yaml`, `k8s/arangodb/backup-cronjob.yaml`) existieren nicht — wie alle `k8s/...`-Pfade dieses Dokuments; ausgeliefert wird `helm/kamerplanter`. Verbindlich umgesetzt ist:
+
+- **ArangoDB-Backup als CronJob im Chart** (Controller `arangodb-backup`, Schalter `backup.enabled`, Default aus): Init-Container `arangodump` (dasselbe ArangoDB-Image wie die Datenbank) mit dem Anwendungskonto, Upload per `rclone` nach `s3://<bucket>/<prefix>/<UTC-Zeitstempel>/`, Datei `<prefix>/LATEST` als messbarer Wiederherstellungspunkt (RPO = jetzt − LATEST), serverseitige Verschluesselung (`AES256` / `aws:kms`), Aufbewahrung `retentionDays` ohne den gerade geschriebenen Dump je zu loeschen. Kein Passwort auf einer Kommandozeile (`@ARANGODB_PASSWORD@` wird vom Werkzeug selbst expandiert), eigene NetworkPolicy, `readOnlyRootFilesystem`, kein Root. Render-Vertraege in `scripts/ci/assert_chart_contracts.sh`.
+- **Wiederherstellung**: Runbook `docs/{de,en}/deployment/backup-restore.md` (leerer Namespace, `arangorestore` im ArangoDB-Container mit `@ARANGO_ROOT_PASSWORD@`); am 2026-10-04 durchgespielt, Protokoll `test-reports/backup-restore/2026-10-04-arangodb-restore-drill.md` (309 Collections, identische Dokumentanzahl und Indizes).
+- **Nicht Teil des Chart-Backups**: Anhaenge (bei `s3` Bucket-Versionierung, bei `local-fs` CSI-VolumeSnapshot — NFR-013 §7.1), `kamerplanter-secrets` (getrennt sichern; ohne denselben `FERNET_KEY` bleiben verschluesselte Felder unlesbar), TimescaleDB (nicht in den Produktions-Values). Velero (§8.1) bleibt eine Option des Betreibers, keine Voraussetzung.
+
 ### 8.1 Velero (Backup & Restore)
 
 ```yaml
@@ -1956,5 +1964,6 @@ helm dependency build <chart-path>
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.2 | 2026-10-04 | **Backup im Chart umgesetzt (#2122, MT-026):** neuer §8.0 — ArangoDB-`arangodump`-CronJob nach S3 (`backup.enabled`, Default aus), `LATEST`-Marker als messbarer RPO, Aufbewahrung ohne den letzten Dump zu loeschen, Restore-Runbook und protokollierte Wiederherstellungsuebung; §8.1/§8.2 als Vor-Helm-Skizze gekennzeichnet (die `k8s/...`-Pfade existieren nicht). |
 | 2.1 | 2026-02-27 | IT-Security-Review-Findings eingearbeitet: §3.2 `seccompProfile: RuntimeDefault` ergänzt (SEC-M-004), §7.1 Default-Deny-Policy + Frontend-Network-Policy + Egress für externe APIs hinzugefügt (SEC-M-004), §11 Security-Akzeptanzkriterien erweitert |
 | 2.0 | 2026-02-25 | Initiale produktionsreife Spezifikation |
