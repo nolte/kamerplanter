@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -103,7 +105,135 @@ from app.domain.services.watering_log_service import WateringLogService
 from app.domain.services.watering_service import WateringService
 
 if TYPE_CHECKING:
+    from app.data_access.arango.activity_repository import ArangoActivityRepository
+    from app.data_access.arango.actuator_repository import ArangoActuatorRepository
+    from app.data_access.arango.ai_repository import (
+        ArangoAiAuditRepository,
+        ArangoAiConversationRepository,
+        ArangoAiProviderRepository,
+        ArangoAiTipCacheRepository,
+    )
+    from app.data_access.arango.api_key_repository import ArangoApiKeyRepository
+    from app.data_access.arango.aquaponik_repository import ArangoAquaponikRepository
+    from app.data_access.arango.attachment_repository import ArangoAttachmentRepository
+    from app.data_access.arango.calendar_feed_repository import ArangoCalendarFeedRepository
+    from app.data_access.arango.calendar_source_repository import ArangoCalendarSourceRepository
+    from app.data_access.arango.climate_normal_repository import ArangoClimateNormalRepository
+    from app.data_access.arango.consent_repository import ArangoConsentRepository
+    from app.data_access.arango.data_export_repository import ArangoDataExportRepository
+    from app.data_access.arango.email_change_repository import ArangoEmailChangeRepository
+    from app.data_access.arango.erasure_executor import ArangoErasureExecutor
+    from app.data_access.arango.erasure_repository import ArangoErasureRepository
+    from app.data_access.arango.favorites_repository import ArangoFavoritesRepository
+    from app.data_access.arango.glossary_repository import (
+        ArangoGlossaryTermCacheRepository,
+        ArangoGlossaryTermRepository,
+    )
+    from app.data_access.arango.ha_publish_repository import ArangoHaPublishRepository
+    from app.data_access.arango.hardiness_zone_repository import ArangoHardinessZoneRepository
+    from app.data_access.arango.identification_repository import ArangoIdentificationRepository
+    from app.data_access.arango.import_job_repository import ArangoImportJobRepository
+    from app.data_access.arango.inventree_repository import ArangoInvenTreeRepository
+    from app.data_access.arango.irrigation_demand_repository import ArangoIrrigationDemandRepository
+    from app.data_access.arango.legal_retention_repository import ArangoLegalRetentionRepository
+    from app.data_access.arango.location_type_repository import ArangoLocationTypeRepository
+    from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository, ArangoMcpIdempotencyRepository
+    from app.data_access.arango.notification_preference_repository import ArangoNotificationPreferenceRepository
+    from app.data_access.arango.notification_repository import ArangoNotificationRepository
+    from app.data_access.arango.onboarding_state_repository import ArangoOnboardingStateRepository
+    from app.data_access.arango.personal_data_repository import ArangoPersonalDataRepository
+    from app.data_access.arango.pest_detection_repository import ArangoPestDetectionRepository
+    from app.data_access.arango.pest_image_repository import ArangoPestImageRepository
+    from app.data_access.arango.phase_sequence_repository import ArangoPhaseSequenceRepository
+    from app.data_access.arango.plant_diagnosis_repository import ArangoPlantDiagnosisRepository
+    from app.data_access.arango.plant_diary_repository import ArangoPlantDiaryRepository
+    from app.data_access.arango.processing_restriction_repository import ArangoProcessingRestrictionRepository
+    from app.data_access.arango.reference_image_repository import ArangoReferenceImageRepository
+    from app.data_access.arango.season_state_repository import ArangoSeasonStateRepository
+    from app.data_access.arango.sensor_repository import ArangoSensorRepository
+    from app.data_access.arango.starter_kit_repository import ArangoStarterKitRepository
+    from app.data_access.arango.system_settings_repository import ArangoSystemSettingsRepository
+    from app.data_access.arango.tenant_erasure_executor import ArangoTenantErasureExecutor
+    from app.data_access.arango.tenant_erasure_repository import ArangoTenantErasureRepository
+    from app.data_access.arango.weather_forecast_repository import ArangoWeatherForecastRepository
+    from app.data_access.arango.weather_source_config_repository import ArangoWeatherSourceConfigRepository
+    from app.data_access.external.ha_client import HomeAssistantClient
+    from app.data_access.external.knowledge_service_adapter import HttpKnowledgeServiceAdapter
+    from app.data_access.external.knowledge_service_client import KnowledgeServiceClient
     from app.data_access.external.latched_redis import LatchedRedis
+    from app.data_access.external.local_cv_diagnosis_adapter import LocalCvDiagnosisAdapter
+    from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
+    from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
+    from app.data_access.external.registration_notice_store import RedisRegistrationNoticeStore
+    from app.data_access.external.unknown_account_store import RedisUnknownAccountStore
+    from app.data_access.timescale.connection import TimescaleConnection
+    from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine
+    from app.domain.engines.consent_engine import ConsentEngine
+    from app.domain.engines.data_export_engine import DataExportEngine
+    from app.domain.engines.encryption_engine import EncryptionEngine
+    from app.domain.engines.erasure_engine import ErasureEngine
+    from app.domain.engines.oauth_engine import OAuthEngine
+    from app.domain.guards.consent_guard import ConsentGuard
+    from app.domain.interfaces.auth_provider import IAuthProvider
+    from app.domain.interfaces.observation_repository import IObservationRepository
+    from app.domain.interfaces.pest_media_source import PestMediaSource
+    from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
+    from app.domain.models.species import Species
+    from app.domain.services.activity_plan_service import ActivityPlanService
+    from app.domain.services.activity_service import ActivityService
+    from app.domain.services.actuator_service import ActuatorService
+    from app.domain.services.ai_assistant_service import AiAssistantService
+    from app.domain.services.ai_audit_logger import AiAuditLogger
+    from app.domain.services.ai_context_builder import AiContextBuilder
+    from app.domain.services.api_key_controls import ApiKeyRateLimiter
+    from app.domain.services.aquaponik_service import AquaponikService
+    from app.domain.services.attachment_service import AttachmentService
+    from app.domain.services.calendar_service import CalendarService
+    from app.domain.services.cv_diagnosis_service import CvDiagnosisService
+    from app.domain.services.dashboard_service import DashboardService
+    from app.domain.services.data_subject_service import DataSubjectService
+    from app.domain.services.diagnose_service import DiagnoseService
+    from app.domain.services.environment_snapshot_service import EnvironmentSnapshotService
+    from app.domain.services.favorites_service import FavoritesService
+    from app.domain.services.glossary_service import GlossaryService
+    from app.domain.services.ha_publish_service import HaPublishService
+    from app.domain.services.hardiness_zone_service import HardinessZoneService
+    from app.domain.services.identification_service import IdentificationService
+    from app.domain.services.import_service import ImportService
+    from app.domain.services.inventree_service import InvenTreeService
+    from app.domain.services.location_type_service import LocationTypeService
+    from app.domain.services.notification_propagation_service import NotificationPropagationService
+    from app.domain.services.notification_service import NotificationService
+    from app.domain.services.observation_service import ObservationService
+    from app.domain.services.oidc_provider_admin_service import OidcProviderAdminService
+    from app.domain.services.onboarding_service import OnboardingService
+    from app.domain.services.overwintering_materializer import OverwinteringMaterializer
+    from app.domain.services.pest_dataset_acquisition import PestDatasetAcquisitionService
+    from app.domain.services.pest_detection_service import PestDetectionService
+    from app.domain.services.pest_image_service import PestImageService
+    from app.domain.services.pest_prototype_orphan_sweep import PestPrototypeOrphanSweepService
+    from app.domain.services.phase_sequence_binder import PhaseSequenceBinder
+    from app.domain.services.phase_sequence_service import PhaseSequenceService
+    from app.domain.services.plant_diary_service import PlantDiaryService
+    from app.domain.services.plant_photo_service import PlantPhotoService
+    from app.domain.services.print_service import PrintService
+    from app.domain.services.privacy_service import PrivacyService
+    from app.domain.services.quarter_climate_service import QuarterClimateService
+    from app.domain.services.reference_image_service import ReferenceImageService
+    from app.domain.services.retention_service import RetentionService
+    from app.domain.services.season_signal_resolver import SeasonSignalResolver
+    from app.domain.services.season_state_service import SeasonStateService
+    from app.domain.services.sensor_service import SensorService
+    from app.domain.services.starter_kit_service import StarterKitService
+    from app.domain.services.step_up_service import StepUpVerifier
+    from app.domain.services.system_settings_service import SystemSettingsService
+    from app.domain.services.task_entity_guard import TaskEntityGuard
+    from app.domain.services.user_preference_service import UserPreferenceService
+    from app.domain.services.weather_settings_service import EffectiveWeatherSettings, WeatherSettingsService
+    from app.domain.services.weather_source_service import WeatherSourceService
+    from app.mcp_server.auth import McpAuthenticator
+    from app.mcp_server.dispatcher import ToolDispatcher
+    from app.mcp_server.session import McpSessionStore
 
 _connection: ArangoConnection | None = None
 _timescale_connection = None
@@ -117,7 +247,7 @@ def get_connection() -> ArangoConnection:
     return _connection
 
 
-def get_timescale_connection():
+def get_timescale_connection() -> TimescaleConnection | None:
     from app.data_access.timescale.connection import TimescaleConnection
 
     global _timescale_connection
@@ -132,28 +262,28 @@ def get_db() -> StandardDatabase:
     return get_connection().db
 
 
-def get_aquaponik_repo():
+def get_aquaponik_repo() -> ArangoAquaponikRepository:
     """REQ-026 aquaponics repository (systems + fish/water child collections)."""
     from app.data_access.arango.aquaponik_repository import ArangoAquaponikRepository
 
     return ArangoAquaponikRepository(get_db())
 
 
-def get_aquaponik_service():
+def get_aquaponik_service() -> AquaponikService:
     """REQ-026 aquaponics service with its domain engines."""
     from app.domain.services.aquaponik_service import AquaponikService
 
     return AquaponikService(get_aquaponik_repo())
 
 
-def get_actuator_repo():
+def get_actuator_repo() -> ArangoActuatorRepository:
     """REQ-018 environment-control repository (actuators + child collections)."""
     from app.data_access.arango.actuator_repository import ArangoActuatorRepository
 
     return ArangoActuatorRepository(get_db())
 
 
-def get_actuator_service():
+def get_actuator_service() -> ActuatorService:
     """REQ-018 environment-control service with control engine + HA graceful degradation."""
     from app.domain.services.actuator_service import ActuatorService
 
@@ -167,14 +297,14 @@ def get_actuator_service():
     )
 
 
-def get_inventree_repo():
+def get_inventree_repo() -> ArangoInvenTreeRepository:
     """REQ-016 InvenTree integration repository (connections/refs/txns/equipment)."""
     from app.data_access.arango.inventree_repository import ArangoInvenTreeRepository
 
     return ArangoInvenTreeRepository(get_db())
 
 
-def get_inventree_service():
+def get_inventree_service() -> InvenTreeService:
     """REQ-016 InvenTree integration service (Fernet-encrypted token, SSRF-guarded)."""
     from app.domain.services.inventree_service import InvenTreeService
 
@@ -229,7 +359,7 @@ def get_graph_repo() -> ArangoGraphRepository:
     return ArangoGraphRepository(get_db())
 
 
-def get_phase_sequence_binder():
+def get_phase_sequence_binder() -> PhaseSequenceBinder:
     """Construct the species → phase-sequence binder (#1006).
 
     Imported lazily for the same reason ``get_phase_sequence_repo`` is defined lazily
@@ -344,7 +474,7 @@ def _cascade_plant_photo_cleanup(plant) -> None:  # type: ignore[no-untyped-def]
     run_async(service.delete_all_photos(plant, plant.tenant_key))
 
 
-def get_plant_photo_service():
+def get_plant_photo_service() -> PlantPhotoService:
     """REQ-034 §2.1 / §4a — plant-instance photo gallery service."""
     from app.domain.services.plant_photo_service import PlantPhotoService
 
@@ -396,13 +526,13 @@ def get_planting_run_repo() -> ArangoPlantingRunRepository:
     return ArangoPlantingRunRepository(get_db())
 
 
-def get_plant_diary_repo():
+def get_plant_diary_repo() -> ArangoPlantDiaryRepository:
     from app.data_access.arango.plant_diary_repository import ArangoPlantDiaryRepository
 
     return ArangoPlantDiaryRepository(get_db())
 
 
-def get_diary_analysis_consent_checker():
+def get_diary_analysis_consent_checker() -> Callable[[str], bool]:
     """REQ-050 §7.1 — the real probe for the ``diary_ai_analysis`` purpose.
 
     Reads the REQ-025 consent store through :class:`ConsentGuard`, so a purpose
@@ -437,7 +567,7 @@ def get_diary_analysis_consent_checker():
     return _consent_granted
 
 
-def get_environment_snapshot_service():
+def get_environment_snapshot_service() -> EnvironmentSnapshotService:
     """REQ-013 §2.3a — resolves a plant's live environment for a diary entry.
 
     Every optional collaborator is passed even though the chain tolerates their
@@ -462,7 +592,7 @@ def get_environment_snapshot_service():
     )
 
 
-def get_plant_diary_service():
+def get_plant_diary_service() -> PlantDiaryService:
     from app.domain.services.plant_diary_service import PlantDiaryService
 
     return PlantDiaryService(
@@ -550,7 +680,7 @@ def get_tank_service() -> TankService:
     )
 
 
-def get_task_entity_guard():
+def get_task_entity_guard() -> TaskEntityGuard:
     """Guard that anchors a task's entity binding in the caller's tenant (#1102).
 
     Bundles the four services behind one dependency rather than putting four more
@@ -658,13 +788,13 @@ def get_ipm_service() -> IpmService:
     )
 
 
-def get_pest_image_repo():
+def get_pest_image_repo() -> ArangoPestImageRepository:
     from app.data_access.arango.pest_image_repository import ArangoPestImageRepository
 
     return ArangoPestImageRepository(get_db())
 
 
-def get_pest_image_service():
+def get_pest_image_service() -> PestImageService:
     from app.domain.services.pest_image_service import PestImageService
 
     return PestImageService(
@@ -719,7 +849,7 @@ def get_recurrence_engine() -> RecurrenceEngine:
     return RecurrenceEngine()
 
 
-def get_notification_propagation_service():
+def get_notification_propagation_service() -> NotificationPropagationService:
     """REQ-030 §4.2 in-app source→notification coupling (Issue #742).
 
     Repository-only, synchronous: the coupling maintains persisted notification
@@ -794,19 +924,19 @@ def get_email_service() -> IEmailService:
     return ConsoleEmailAdapter()
 
 
-def get_oauth_engine():
+def get_oauth_engine() -> OAuthEngine:
     from app.domain.engines.oauth_engine import OAuthEngine
 
     return OAuthEngine()
 
 
-def get_encryption_engine():
+def get_encryption_engine() -> EncryptionEngine:
     from app.domain.engines.encryption_engine import EncryptionEngine
 
     return EncryptionEngine(settings.fernet_key)
 
 
-def get_oidc_provider_admin_service():
+def get_oidc_provider_admin_service() -> OidcProviderAdminService:
     """#1883 — the write side of ``/admin/oidc-providers``, behind the admin's step-up."""
     from app.domain.services.oidc_provider_admin_service import OidcProviderAdminService
 
@@ -819,13 +949,13 @@ def get_oidc_provider_admin_service():
     )
 
 
-def get_oauth_state_store():
+def get_oauth_state_store() -> RedisOAuthStateStore:
     from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
 
     return RedisOAuthStateStore(settings.redis_url)
 
 
-def get_unknown_account_store():
+def get_unknown_account_store() -> RedisUnknownAccountStore:
     """SEC-H-010 lockout counter for addresses that have no account.
 
     Redis-backed so replicas share one counter; degrades to the process-wide
@@ -934,7 +1064,7 @@ def get_device_pairing_throttle_store() -> IDevicePairingThrottleStore:
     return RedisDevicePairingThrottleStore(_get_redis_client())
 
 
-def get_step_up_verifier():
+def get_step_up_verifier() -> StepUpVerifier:
     """#1816 — the one throttled step-up every irreversible account action passes (and #1815's mailed code).
 
     Valkey-backed so replicas share one counter; degrades to the process-wide
@@ -972,7 +1102,7 @@ def get_step_up_verifier():
     )
 
 
-def get_registration_notice_store():
+def get_registration_notice_store() -> RedisRegistrationNoticeStore:
     """REQ-023 §3.2 suppression window of the duplicate-registration notice.
 
     Redis-backed so all workers share one window per recipient; degrades to the
@@ -985,13 +1115,13 @@ def get_registration_notice_store():
     return RedisRegistrationNoticeStore(_get_redis_client())
 
 
-def get_api_key_repo():
+def get_api_key_repo() -> ArangoApiKeyRepository:
     from app.data_access.arango.api_key_repository import ArangoApiKeyRepository
 
     return ArangoApiKeyRepository(get_db())
 
 
-def get_auth_provider():
+def get_auth_provider() -> IAuthProvider:
     if settings.kamerplanter_mode == "light":
         from app.domain.engines.light_auth_provider import LightAuthProvider
 
@@ -1044,7 +1174,7 @@ def get_auth_service() -> AuthService:
     )
 
 
-def get_api_key_rate_limiter():
+def get_api_key_rate_limiter() -> ApiKeyRateLimiter:
     """The per-API-key rate limiter both key-accepting surfaces enforce through (SEC-004, #1850)."""
     from app.domain.services.api_key_controls import ApiKeyRateLimiter
 
@@ -1101,21 +1231,21 @@ def get_tenant_service() -> TenantService:
     )
 
 
-def get_tenant_erasure_executor():
+def get_tenant_erasure_executor() -> ArangoTenantErasureExecutor:
     """REQ-024 / REQ-025 — the ArangoDB executor of the declared tenant-erasure inventory (#1769)."""
     from app.data_access.arango.tenant_erasure_executor import ArangoTenantErasureExecutor
 
     return ArangoTenantErasureExecutor(get_db())
 
 
-def get_tenant_erasure_repo():
+def get_tenant_erasure_repo() -> ArangoTenantErasureRepository:
     """The persisted proof and retry state of a tenant deletion (#1769)."""
     from app.data_access.arango.tenant_erasure_repository import ArangoTenantErasureRepository
 
     return ArangoTenantErasureRepository(get_db())
 
 
-def get_personal_data_repo():
+def get_personal_data_repo() -> ArangoPersonalDataRepository:
     """REQ-025 Art. 15 — read side of the declared personal-data manifest."""
     from app.data_access.arango.personal_data_repository import ArangoPersonalDataRepository
 
@@ -1125,19 +1255,19 @@ def get_personal_data_repo():
 # ── REQ-033 MCP server dependencies ────────────────────────────────
 
 
-def get_mcp_audit_repo():
+def get_mcp_audit_repo() -> ArangoMcpAuditRepository:
     from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository
 
     return ArangoMcpAuditRepository(get_db())
 
 
-def get_mcp_idempotency_repo():
+def get_mcp_idempotency_repo() -> ArangoMcpIdempotencyRepository:
     from app.data_access.arango.mcp_repository import ArangoMcpIdempotencyRepository
 
     return ArangoMcpIdempotencyRepository(get_db())
 
 
-def get_mcp_authenticator():
+def get_mcp_authenticator() -> McpAuthenticator:
     from app.mcp_server.auth import McpAuthenticator
 
     return McpAuthenticator(
@@ -1148,14 +1278,14 @@ def get_mcp_authenticator():
     )
 
 
-def get_mcp_session_store():
+def get_mcp_session_store() -> McpSessionStore:
     """Streamable-HTTP session store for the MCP transport (REQ-033 §4.3a)."""
     from app.mcp_server.session import McpSessionStore
 
     return McpSessionStore(_get_redis_client())
 
 
-def get_mcp_dispatcher():
+def get_mcp_dispatcher() -> ToolDispatcher:
     from app.mcp_server.audit import MCPAuditLogger
     from app.mcp_server.dispatcher import ToolDispatcher
     from app.mcp_server.idempotency import IdempotencyStore
@@ -1176,37 +1306,37 @@ def get_mcp_dispatcher():
 # ── REQ-020 Onboarding dependencies ────────────────────────────────
 
 
-def get_favorites_repo():
+def get_favorites_repo() -> ArangoFavoritesRepository:
     from app.data_access.arango.favorites_repository import ArangoFavoritesRepository
 
     return ArangoFavoritesRepository(get_db())
 
 
-def get_favorites_service():
+def get_favorites_service() -> FavoritesService:
     from app.domain.services.favorites_service import FavoritesService
 
     return FavoritesService(get_favorites_repo(), get_nutrient_plan_repo())
 
 
-def get_starter_kit_repo():
+def get_starter_kit_repo() -> ArangoStarterKitRepository:
     from app.data_access.arango.starter_kit_repository import ArangoStarterKitRepository
 
     return ArangoStarterKitRepository(get_db())
 
 
-def get_starter_kit_service():
+def get_starter_kit_service() -> StarterKitService:
     from app.domain.services.starter_kit_service import StarterKitService
 
     return StarterKitService(get_starter_kit_repo(), get_species_repo())
 
 
-def get_onboarding_state_repo():
+def get_onboarding_state_repo() -> ArangoOnboardingStateRepository:
     from app.data_access.arango.onboarding_state_repository import ArangoOnboardingStateRepository
 
     return ArangoOnboardingStateRepository(get_db())
 
 
-def get_onboarding_service():
+def get_onboarding_service() -> OnboardingService:
     from app.domain.services.onboarding_service import OnboardingService
 
     return OnboardingService(
@@ -1217,7 +1347,7 @@ def get_onboarding_service():
     )
 
 
-def get_user_preference_service():
+def get_user_preference_service() -> UserPreferenceService:
     from app.domain.services.user_preference_service import UserPreferenceService
 
     return UserPreferenceService(get_db())
@@ -1269,19 +1399,19 @@ def get_care_reminder_service() -> CareReminderService:
 # ── REQ-047 Season & overwintering automation dependencies ─────────
 
 
-def get_season_state_repo():
+def get_season_state_repo() -> ArangoSeasonStateRepository:
     from app.data_access.arango.season_state_repository import ArangoSeasonStateRepository
 
     return ArangoSeasonStateRepository(get_db())
 
 
-def get_season_signal_resolver():
+def get_season_signal_resolver() -> SeasonSignalResolver:
     from app.domain.services.season_signal_resolver import SeasonSignalResolver
 
     return SeasonSignalResolver(get_weather_forecast_repo(), get_climate_normal_repo())
 
 
-def get_overwintering_materializer():
+def get_overwintering_materializer() -> OverwinteringMaterializer:
     from app.domain.services.overwintering_materializer import OverwinteringMaterializer
 
     return OverwinteringMaterializer(
@@ -1292,7 +1422,7 @@ def get_overwintering_materializer():
     )
 
 
-def get_season_state_service():
+def get_season_state_service() -> SeasonStateService:
     from app.domain.engines.season_state_engine import SeasonStateEngine
     from app.domain.services.dormancy_care_activator import DormancyCareActivator
     from app.domain.services.season_phase_coupler import SeasonPhaseCoupler
@@ -1313,7 +1443,7 @@ def get_season_state_service():
     )
 
 
-def get_quarter_climate_service():
+def get_quarter_climate_service() -> QuarterClimateService:
     """REQ-047 §3.7.3 / AC-22 — winter-quarter climate warning service."""
     from app.domain.services.quarter_climate_service import QuarterClimateService
 
@@ -1330,13 +1460,13 @@ def get_quarter_climate_service():
 # ── Phase Sequence dependencies ────────────────────────────────────
 
 
-def get_phase_sequence_repo():
+def get_phase_sequence_repo() -> ArangoPhaseSequenceRepository:
     from app.data_access.arango.phase_sequence_repository import ArangoPhaseSequenceRepository
 
     return ArangoPhaseSequenceRepository(get_db())
 
 
-def get_phase_sequence_service():
+def get_phase_sequence_service() -> PhaseSequenceService:
     from app.domain.services.phase_sequence_service import PhaseSequenceService
 
     return PhaseSequenceService(get_phase_sequence_repo())
@@ -1345,7 +1475,7 @@ def get_phase_sequence_service():
 # ── REQ-032 Print dependencies ──────────────────────────────────────
 
 
-def get_print_service():
+def get_print_service() -> PrintService:
     from app.domain.services.print_service import PrintService
 
     return PrintService(
@@ -1362,13 +1492,13 @@ def get_print_service():
 # ── REQ-012 Import dependencies ──────────────────────────────────────
 
 
-def get_import_job_repo():
+def get_import_job_repo() -> ArangoImportJobRepository:
     from app.data_access.arango.import_job_repository import ArangoImportJobRepository
 
     return ArangoImportJobRepository(get_db())
 
 
-def get_import_service():
+def get_import_service() -> ImportService:
     from app.domain.services.import_service import ImportService
 
     return ImportService(
@@ -1382,25 +1512,25 @@ def get_import_service():
 # ── REQ-015 Calendar dependencies ───────────────────────────────────
 
 
-def get_calendar_feed_repo():
+def get_calendar_feed_repo() -> ArangoCalendarFeedRepository:
     from app.data_access.arango.calendar_feed_repository import ArangoCalendarFeedRepository
 
     return ArangoCalendarFeedRepository(get_db())
 
 
-def get_calendar_aggregation_engine():
+def get_calendar_aggregation_engine() -> CalendarAggregationEngine:
     from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine
 
     return CalendarAggregationEngine()
 
 
-def get_calendar_source_repo():
+def get_calendar_source_repo() -> ArangoCalendarSourceRepository:
     from app.data_access.arango.calendar_source_repository import ArangoCalendarSourceRepository
 
     return ArangoCalendarSourceRepository(get_db())
 
 
-def get_calendar_service():
+def get_calendar_service() -> CalendarService:
     from app.domain.services.calendar_service import CalendarService
 
     return CalendarService(
@@ -1416,7 +1546,7 @@ def get_calendar_service():
 # ── REQ-005 Sensor dependencies ───────────────────────────────────
 
 
-def get_sensor_repo():
+def get_sensor_repo() -> ArangoSensorRepository:
     from app.data_access.arango.sensor_repository import ArangoSensorRepository
 
     return ArangoSensorRepository(get_db())
@@ -1425,31 +1555,31 @@ def get_sensor_repo():
 # ── REQ-046 Weather data source dependencies ──────────────────────
 
 
-def get_weather_forecast_repo():
+def get_weather_forecast_repo() -> ArangoWeatherForecastRepository:
     from app.data_access.arango.weather_forecast_repository import ArangoWeatherForecastRepository
 
     return ArangoWeatherForecastRepository(get_db())
 
 
-def get_weather_source_config_repo():
+def get_weather_source_config_repo() -> ArangoWeatherSourceConfigRepository:
     from app.data_access.arango.weather_source_config_repository import ArangoWeatherSourceConfigRepository
 
     return ArangoWeatherSourceConfigRepository(get_db())
 
 
-def get_climate_normal_repo():
+def get_climate_normal_repo() -> ArangoClimateNormalRepository:
     from app.data_access.arango.climate_normal_repository import ArangoClimateNormalRepository
 
     return ArangoClimateNormalRepository(get_db())
 
 
-def get_hardiness_zone_repo():
+def get_hardiness_zone_repo() -> ArangoHardinessZoneRepository:
     from app.data_access.arango.hardiness_zone_repository import ArangoHardinessZoneRepository
 
     return ArangoHardinessZoneRepository(get_db())
 
 
-def get_hardiness_zone_service():
+def get_hardiness_zone_service() -> HardinessZoneService:
     from app.domain.services.climate_normal_fetcher import ClimateNormalFetcher
     from app.domain.services.hardiness_zone_service import HardinessZoneService
 
@@ -1462,26 +1592,26 @@ def get_hardiness_zone_service():
     )
 
 
-def get_irrigation_demand_repo():
+def get_irrigation_demand_repo() -> ArangoIrrigationDemandRepository:
     from app.data_access.arango.irrigation_demand_repository import ArangoIrrigationDemandRepository
 
     return ArangoIrrigationDemandRepository(get_db())
 
 
-def get_weather_settings_service():
+def get_weather_settings_service() -> WeatherSettingsService:
     from app.domain.services.weather_settings_service import WeatherSettingsService
 
     return WeatherSettingsService(get_system_settings_repo(), get_encryption_engine())
 
 
-def _effective_weather_settings():
+def _effective_weather_settings() -> EffectiveWeatherSettings:
     """Callable injected into the resolver / source service so both use the
     DB-backed effective provider config (base URL, timeout, enable flags, global
     OWM fallback key) instead of the raw env defaults."""
     return get_weather_settings_service().get_effective_weather_settings()
 
 
-def get_weather_source_service():
+def get_weather_source_service() -> WeatherSourceService:
     from app.domain.services.weather_source_service import WeatherSourceService
 
     encryption = get_encryption_engine()
@@ -1495,25 +1625,25 @@ def get_weather_source_service():
     )
 
 
-def get_system_settings_repo():
+def get_system_settings_repo() -> ArangoSystemSettingsRepository:
     from app.data_access.arango.system_settings_repository import ArangoSystemSettingsRepository
 
     return ArangoSystemSettingsRepository(get_db())
 
 
-def get_system_settings_service():
+def get_system_settings_service() -> SystemSettingsService:
     from app.domain.services.system_settings_service import SystemSettingsService
 
     return SystemSettingsService(get_system_settings_repo())
 
 
-def get_ha_publish_repo():
+def get_ha_publish_repo() -> ArangoHaPublishRepository:
     from app.data_access.arango.ha_publish_repository import ArangoHaPublishRepository
 
     return ArangoHaPublishRepository(get_db())
 
 
-def get_ha_publish_service():
+def get_ha_publish_service() -> HaPublishService:
     from app.domain.services.ha_publish_service import HaPublishService
 
     return HaPublishService(
@@ -1521,7 +1651,7 @@ def get_ha_publish_service():
     )
 
 
-def get_ha_client():
+def get_ha_client() -> HomeAssistantClient | None:
     from app.data_access.external.ha_client import HomeAssistantClient
 
     try:
@@ -1545,7 +1675,7 @@ def get_ha_client():
     )
 
 
-def get_observation_repo():
+def get_observation_repo() -> IObservationRepository:
     conn = get_timescale_connection()
     if conn is None:
         from app.data_access.timescale.null_observation_repository import NullObservationRepository
@@ -1556,7 +1686,7 @@ def get_observation_repo():
     return TimescaleObservationRepository(conn.pool)
 
 
-def get_observation_service():
+def get_observation_service() -> ObservationService:
     from app.domain.services.observation_service import ObservationService
 
     # #1871 B6 — a sensor's tenant is its parent's (tank, site, or location via its site).
@@ -1565,7 +1695,7 @@ def get_observation_service():
     )
 
 
-def get_sensor_service():
+def get_sensor_service() -> SensorService:
     from app.domain.services.sensor_service import SensorService
 
     return SensorService(
@@ -1583,13 +1713,13 @@ def get_sensor_service():
 # ── REQ-002 LocationType dependencies ───────────────────────────────
 
 
-def get_location_type_repo():
+def get_location_type_repo() -> ArangoLocationTypeRepository:
     from app.data_access.arango.location_type_repository import ArangoLocationTypeRepository
 
     return ArangoLocationTypeRepository(get_db())
 
 
-def get_location_type_service():
+def get_location_type_service() -> LocationTypeService:
     from app.domain.services.location_type_service import LocationTypeService
 
     return LocationTypeService(get_location_type_repo())
@@ -1598,19 +1728,19 @@ def get_location_type_service():
 # ── Activity dependencies ──────────────────────────────────────────
 
 
-def get_activity_repo():
+def get_activity_repo() -> ArangoActivityRepository:
     from app.data_access.arango.activity_repository import ArangoActivityRepository
 
     return ArangoActivityRepository(get_db())
 
 
-def get_activity_service():
+def get_activity_service() -> ActivityService:
     from app.domain.services.activity_service import ActivityService
 
     return ActivityService(get_activity_repo())
 
 
-def get_activity_plan_service():
+def get_activity_plan_service() -> ActivityPlanService:
     from app.domain.engines.activity_plan_engine import ActivityPlanEngine
     from app.domain.services.activity_plan_service import ActivityPlanService
 
@@ -1629,13 +1759,13 @@ def get_activity_plan_service():
 # ── REQ-030 Notification dependencies ────────────────────────────────
 
 
-def get_notification_repo():
+def get_notification_repo() -> ArangoNotificationRepository:
     from app.data_access.arango.notification_repository import ArangoNotificationRepository
 
     return ArangoNotificationRepository(get_db())
 
 
-def get_notification_preference_repo():
+def get_notification_preference_repo() -> ArangoNotificationPreferenceRepository:
     from app.data_access.arango.notification_preference_repository import (
         ArangoNotificationPreferenceRepository,
     )
@@ -1680,7 +1810,7 @@ def _throttle_redis_client_for(redis_url: str) -> LatchedRedis:
     return LatchedRedis(redis.Redis.from_url(redis_url, decode_responses=True, **bounded_redis_client_options()))
 
 
-def get_notification_service():
+def get_notification_service() -> NotificationService:
     from app.domain.engines.notification_channel_registry import NotificationChannelRegistry
     from app.domain.engines.notification_engine import NotificationEngine
     from app.domain.services.notification_service import NotificationService
@@ -1702,7 +1832,7 @@ def get_notification_service():
 # ── REQ-025 Privacy dependencies ─────────────────────────────────
 
 
-def get_data_export_repo():
+def get_data_export_repo() -> ArangoDataExportRepository:
     from app.data_access.arango.data_export_repository import (
         ArangoDataExportRepository,
     )
@@ -1710,13 +1840,13 @@ def get_data_export_repo():
     return ArangoDataExportRepository(get_db())
 
 
-def get_consent_repo():
+def get_consent_repo() -> ArangoConsentRepository:
     from app.data_access.arango.consent_repository import ArangoConsentRepository
 
     return ArangoConsentRepository(get_db())
 
 
-def get_processing_restriction_repo():
+def get_processing_restriction_repo() -> ArangoProcessingRestrictionRepository:
     from app.data_access.arango.processing_restriction_repository import (
         ArangoProcessingRestrictionRepository,
     )
@@ -1724,13 +1854,13 @@ def get_processing_restriction_repo():
     return ArangoProcessingRestrictionRepository(get_db())
 
 
-def get_erasure_repo():
+def get_erasure_repo() -> ArangoErasureRepository:
     from app.data_access.arango.erasure_repository import ArangoErasureRepository
 
     return ArangoErasureRepository(get_db())
 
 
-def get_email_change_repo():
+def get_email_change_repo() -> ArangoEmailChangeRepository:
     from app.data_access.arango.email_change_repository import (
         ArangoEmailChangeRepository,
     )
@@ -1738,19 +1868,19 @@ def get_email_change_repo():
     return ArangoEmailChangeRepository(get_db())
 
 
-def get_data_export_engine():
+def get_data_export_engine() -> DataExportEngine:
     from app.domain.engines.data_export_engine import DataExportEngine
 
     return DataExportEngine()
 
 
-def get_erasure_engine():
+def get_erasure_engine() -> ErasureEngine:
     from app.domain.engines.erasure_engine import ErasureEngine
 
     return ErasureEngine()
 
 
-def get_consent_engine():
+def get_consent_engine() -> ConsentEngine:
     from app.domain.engines.consent_engine import ConsentEngine
 
     return ConsentEngine()
@@ -1759,7 +1889,7 @@ def get_consent_engine():
 # ── REQ-029 Plant identification dependencies ────────────────────
 
 
-def get_identification_repo():
+def get_identification_repo() -> ArangoIdentificationRepository:
     from app.data_access.arango.identification_repository import (
         ArangoIdentificationRepository,
     )
@@ -1767,7 +1897,7 @@ def get_identification_repo():
     return ArangoIdentificationRepository(get_db())
 
 
-def get_identification_service():
+def get_identification_service() -> IdentificationService:
     from app.domain.engines.consent_engine import ConsentEngine
     from app.domain.engines.identification_engine import IdentificationEngine
     from app.domain.services.identification_rate_limiter import IdentificationRateLimiter
@@ -1794,7 +1924,7 @@ def get_identification_service():
 # ── REQ-044 Pest detection dependencies ─────────────────────────
 
 
-def get_pest_detection_repo():
+def get_pest_detection_repo() -> ArangoPestDetectionRepository:
     from app.data_access.arango.pest_detection_repository import (
         ArangoPestDetectionRepository,
     )
@@ -1802,7 +1932,7 @@ def get_pest_detection_repo():
     return ArangoPestDetectionRepository(get_db())
 
 
-def get_pest_detection_service():
+def get_pest_detection_service() -> PestDetectionService:
     from app.domain.engines.consent_engine import ConsentEngine
     from app.domain.engines.pest_detection_engine import PestDetectionEngine
     from app.domain.services.pest_detection_registry import PestDetectionAdapterRegistry
@@ -1823,7 +1953,7 @@ def get_pest_detection_service():
 # ── REQ-038 CV disease diagnosis dependencies ───────────────────
 
 
-def get_plant_diagnosis_repo():
+def get_plant_diagnosis_repo() -> ArangoPlantDiagnosisRepository:
     from app.data_access.arango.plant_diagnosis_repository import (
         ArangoPlantDiagnosisRepository,
     )
@@ -1831,7 +1961,7 @@ def get_plant_diagnosis_repo():
     return ArangoPlantDiagnosisRepository(get_db())
 
 
-def get_cv_diagnosis_service():
+def get_cv_diagnosis_service() -> CvDiagnosisService:
     from app.domain.engines.consent_engine import ConsentEngine
     from app.domain.engines.cv_diagnosis_engine import CvDiagnosisEngine
     from app.domain.services.cv_diagnosis_service import CvDiagnosisService
@@ -1853,25 +1983,25 @@ def get_cv_diagnosis_service():
     )
 
 
-def _get_cv_diagnosis_adapter():
+def _get_cv_diagnosis_adapter() -> LocalCvDiagnosisAdapter:
     from app.data_access.external.local_cv_diagnosis_adapter import LocalCvDiagnosisAdapter
 
     return LocalCvDiagnosisAdapter()
 
 
-def get_retention_service():
+def get_retention_service() -> RetentionService:
     from app.domain.services.retention_service import RetentionService
 
     return RetentionService()
 
 
-def get_data_subject_service():
+def get_data_subject_service() -> DataSubjectService:
     from app.domain.services.data_subject_service import DataSubjectService
 
     return DataSubjectService(get_privacy_service())
 
 
-def get_privacy_service():
+def get_privacy_service() -> PrivacyService:
     from app.domain.services.privacy_service import PrivacyService
 
     return PrivacyService(
@@ -1912,14 +2042,14 @@ def get_privacy_service():
     )
 
 
-def get_legal_retention_repo():
+def get_legal_retention_repo() -> ArangoLegalRetentionRepository:
     """NFR-011 R-16..R-18 / R-06a — the purge of what a tenant deletion keeps (#1789, #1793)."""
     from app.data_access.arango.legal_retention_repository import ArangoLegalRetentionRepository
 
     return ArangoLegalRetentionRepository(get_db())
 
 
-def get_erasure_executor():
+def get_erasure_executor() -> ArangoErasureExecutor:
     """REQ-025 Art. 17 — the ArangoDB executor of the declared erasure plan (#1664)."""
     from app.data_access.arango.erasure_executor import ArangoErasureExecutor
 
@@ -1929,7 +2059,7 @@ def get_erasure_executor():
 # ── Knowledge Service client ─────────────────────────────────────
 
 
-def get_knowledge_client():
+def get_knowledge_client() -> KnowledgeServiceClient | None:
     """Return a KnowledgeServiceClient or None if disabled."""
     if not settings.knowledge_service_enabled:
         return None
@@ -1942,62 +2072,62 @@ def get_knowledge_client():
 # ── REQ-031 KI-Assistent dependencies ────────────────────────────
 
 
-def get_knowledge_service_adapter():
+def get_knowledge_service_adapter() -> HttpKnowledgeServiceAdapter:
     """Async ``IKnowledgeService`` adapter (circuit-breaker, REQ-031 §4.1)."""
     from app.data_access.external.knowledge_service_adapter import HttpKnowledgeServiceAdapter
 
     return HttpKnowledgeServiceAdapter(base_url=settings.knowledge_service_url)
 
 
-def get_ai_tip_cache_repo():
+def get_ai_tip_cache_repo() -> ArangoAiTipCacheRepository:
     from app.data_access.arango.ai_repository import ArangoAiTipCacheRepository
 
     return ArangoAiTipCacheRepository(get_db())
 
 
-def get_ai_conversation_repo():
+def get_ai_conversation_repo() -> ArangoAiConversationRepository:
     from app.data_access.arango.ai_repository import ArangoAiConversationRepository
 
     return ArangoAiConversationRepository(get_db())
 
 
-def get_ai_provider_repo():
+def get_ai_provider_repo() -> ArangoAiProviderRepository:
     from app.data_access.arango.ai_repository import ArangoAiProviderRepository
 
     return ArangoAiProviderRepository(get_db())
 
 
-def get_ai_audit_repo():
+def get_ai_audit_repo() -> ArangoAiAuditRepository:
     from app.data_access.arango.ai_repository import ArangoAiAuditRepository
 
     return ArangoAiAuditRepository(get_db())
 
 
-def get_ai_audit_logger():
+def get_ai_audit_logger() -> AiAuditLogger:
     from app.domain.services.ai_audit_logger import AiAuditLogger
 
     return AiAuditLogger(get_ai_audit_repo())
 
 
-def get_ai_consent_guard():
+def get_ai_consent_guard() -> ConsentGuard:
     from app.domain.guards.consent_guard import ConsentGuard
 
     return ConsentGuard(get_consent_repo())
 
 
-def get_ai_context_builder():
+def get_ai_context_builder() -> AiContextBuilder:
     """AiContextBuilder wired with parent/family resolvers (ADR-002)."""
     from app.domain.services.ai_context_builder import AiContextBuilder
 
     species_repo = get_species_repo()
 
-    def _resolve_parent(parent_key: str):
+    def _resolve_parent(parent_key: str) -> Species | None:
         return species_repo.get_by_key(parent_key)
 
     return AiContextBuilder(parent_resolver=_resolve_parent, family_resolver=get_family_name_resolver())
 
 
-def get_ai_assistant_service():
+def get_ai_assistant_service() -> AiAssistantService:
     """REQ-031 §4.3 — the KI orchestration service."""
     from app.domain.services.ai_assistant_service import AiAssistantService
 
@@ -2018,19 +2148,19 @@ def get_ai_assistant_service():
 # ── REQ-035 KI terminology glossary dependencies ─────────────────
 
 
-def get_glossary_term_repo():
+def get_glossary_term_repo() -> ArangoGlossaryTermRepository:
     from app.data_access.arango.glossary_repository import ArangoGlossaryTermRepository
 
     return ArangoGlossaryTermRepository(get_db())
 
 
-def get_glossary_cache_repo():
+def get_glossary_cache_repo() -> ArangoGlossaryTermCacheRepository:
     from app.data_access.arango.glossary_repository import ArangoGlossaryTermCacheRepository
 
     return ArangoGlossaryTermCacheRepository(get_db())
 
 
-def get_glossary_service():
+def get_glossary_service() -> GlossaryService:
     """REQ-035 §4.1 — the cache-first glossary term-explanation service.
 
     Consumes the REQ-031 foundation: the async KnowledgeServiceAdapter (with its
@@ -2059,7 +2189,7 @@ def get_glossary_service():
 # ── REQ-036 KI-Diagnose dependencies ─────────────────────────────
 
 
-def get_diagnose_service():
+def get_diagnose_service() -> DiagnoseService:
     """REQ-036 §4.2 — the structured KI diagnosis service (stateless, IPM-bridged)."""
     from app.domain.engines.diagnosis_analysis_engine import DiagnosisAnalysisEngine
     from app.domain.services.diagnose_service import DiagnoseService
@@ -2076,7 +2206,7 @@ def get_diagnose_service():
     )
 
 
-def get_dashboard_service():
+def get_dashboard_service() -> DashboardService:
     """REQ-009 dashboard aggregation service."""
     from app.domain.services.dashboard_service import DashboardService
 
@@ -2091,7 +2221,7 @@ def get_dashboard_service():
 # ── REQ-029 KI-Bilderkennung dependencies ────────────────────────
 
 
-def get_reference_image_repo():
+def get_reference_image_repo() -> ArangoReferenceImageRepository:
     from app.data_access.arango.reference_image_repository import (
         ArangoReferenceImageRepository,
     )
@@ -2099,20 +2229,20 @@ def get_reference_image_repo():
     return ArangoReferenceImageRepository(get_db())
 
 
-def get_pest_inference_client():
+def get_pest_inference_client() -> PestDetectionInferenceClient:
     """REQ-044 — HTTP client for the self-hosted pest-inference service."""
     from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
 
     return PestDetectionInferenceClient(settings.inference_service_url)
 
 
-def _build_pest_media_source(source_key: str):
+def _build_pest_media_source(source_key: str) -> PestMediaSource:
     """REQ-044 WP-3 — instantiate one pest media source by its settings key."""
     from app.data_access.external.gbif_pest_media_source import GBIFPestMediaSource
     from app.data_access.external.idigbio_media_client import IDigBioMediaClient
     from app.data_access.external.inaturalist_media_client import INaturalistMediaClient
 
-    factories = {
+    factories: dict[str, Callable[[], PestMediaSource]] = {
         GBIFPestMediaSource.source_key: GBIFPestMediaSource,
         INaturalistMediaClient.source_key: INaturalistMediaClient,
         IDigBioMediaClient.source_key: IDigBioMediaClient,
@@ -2123,7 +2253,7 @@ def _build_pest_media_source(source_key: str):
     return factory()
 
 
-def get_pest_media_sources(source_keys: list[str] | None = None):
+def get_pest_media_sources(source_keys: list[str] | None = None) -> list[PestMediaSource]:
     """REQ-044 WP-3 — build the configured pest media sources in priority order.
 
     ``source_keys`` overrides ``settings.pest_reference_sources`` (e.g. the CLI
@@ -2133,7 +2263,7 @@ def get_pest_media_sources(source_keys: list[str] | None = None):
     return [_build_pest_media_source(key) for key in keys]
 
 
-def get_pest_dataset_acquisition_service(source_keys: list[str] | None = None):
+def get_pest_dataset_acquisition_service(source_keys: list[str] | None = None) -> PestDatasetAcquisitionService:
     """REQ-044 WP-3 — cold-start few-shot prototype acquisition (no credentials)."""
     from app.domain.services.pest_dataset_acquisition import PestDatasetAcquisitionService
 
@@ -2143,7 +2273,7 @@ def get_pest_dataset_acquisition_service(source_keys: list[str] | None = None):
     )
 
 
-def get_reference_image_service():
+def get_reference_image_service() -> ReferenceImageService:
     """REQ-029-A §4 — reference-image acquisition pipeline (DINOv2 index).
 
     Also serves the interactive user-contribution path (issue #447), which needs
@@ -2179,13 +2309,13 @@ def get_reference_image_service():
 # ── NFR-013 Object storage dependencies ───────────────────────────
 
 
-def get_attachment_repo():
+def get_attachment_repo() -> ArangoAttachmentRepository:
     from app.data_access.arango.attachment_repository import ArangoAttachmentRepository
 
     return ArangoAttachmentRepository(get_db())
 
 
-def get_attachment_service():
+def get_attachment_service() -> AttachmentService:
     from app.domain.services.attachment_service import AttachmentService
 
     return AttachmentService(
@@ -2234,7 +2364,7 @@ def get_reference_index_store() -> IReferenceIndexStore:
     return NoopReferenceIndexStore(marker=get_system_settings_repo())
 
 
-def get_pest_prototype_store():
+def get_pest_prototype_store() -> IPestPrototypeStore:
     """REQ-025 / REQ-024 — the store the erasure deletes contributed pest prototypes through (#1759).
 
     * ``pest_detection_enabled`` or ``inference_service_enabled`` set — the
@@ -2258,7 +2388,7 @@ def get_pest_prototype_store():
     return NoopPestPrototypeStore(marker=get_system_settings_repo())
 
 
-def get_pest_prototype_orphan_sweep_service():
+def get_pest_prototype_orphan_sweep_service() -> PestPrototypeOrphanSweepService:
     """#1771 — deletes contributed pest prototypes whose contribution document is gone."""
     from app.domain.services.pest_prototype_orphan_sweep import PestPrototypeOrphanSweepService
 

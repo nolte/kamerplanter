@@ -30,6 +30,7 @@ longer matches a route fails — the obsolescence rule `check_layer_imports` and
 `check_route_role_guards` already follow.
 """
 
+import ast
 import enum
 import inspect
 import pathlib
@@ -47,6 +48,8 @@ from tests.unit.api._write_call_graph import (
     CallGraph,
     call_graph,
     direct_writers,
+    external_unresolved_call_count,
+    genuine_unresolved_call_count,
     persists,
     reachable_keyword_arguments,
     unresolved_call_count,
@@ -2447,6 +2450,10 @@ def control_dict_loop(repos: dict[str, InventedRepository]):
 }
 
 
+#: The genuine-gap ceiling of `test_the_unresolved_receiver_count_does_not_grow` (#2039); baseline 2839.
+_GENUINE_UNRESOLVED_CEILING = 2900
+
+
 class TestTheDetectorTypesWhatIsWrittenDown:
     """Spellings of an annotated receiver the detector read as untyped (unresolved-count headroom).
 
@@ -2958,14 +2965,83 @@ class TestPersistingReadsAreSweptLikeWrites:
     def test_the_unresolved_receiver_count_does_not_grow(self):
         """The blind spot, bounded — the one thing this detector cannot report on itself.
 
-        A call whose receiver carries no type is where a write can hide. Measured
-        at this head: 9244 of them across the tree, and only those whose name is in
-        the repository write vocabulary are followed. The ceiling is not a quality
-        target; it is a tripwire, so that a refactor which un-annotates a layer
-        shows up here instead of as a quietly shrinking set of findings.
+        A call whose receiver carries no type is where a write can hide. Only
+        those whose name is in the repository write vocabulary are followed.
+
+        **What the ceiling counts (operator decision, #2039): genuine gaps only.**
+        ``unresolved_call_count()`` is the sum of two different things and used
+        to be the tripwire as a whole: receivers nothing types (a missing
+        annotation someone can add — *genuine*) and receivers typed as, or
+        reached from, something outside this tree (``structlog``'s logger,
+        ``self._db.aql``, ``datetime.now()``, a ``dict``) — *external*, where
+        typing can never resolve the call. A tripwire over the sum could not
+        move on the work it exists to reward: typing an external receiver left
+        it unchanged and 7925 of the 10764 were external.
+
+        Baseline, measured 2026-10-04 on develop fec68ae88 after annotating the
+        ``get_*`` providers of ``app/common/dependencies.py``: 10764 unresolved =
+        2839 genuine + 7925 external (before the providers were annotated: 10859
+        = 2944 + 7915). The ceiling is the genuine baseline plus 61 of headroom,
+        not a quality target: a refactor that un-annotates a layer shows up
+        here instead of as a quietly shrinking set of findings.
         """
-        assert unresolved_call_count() < 11000, (
-            f"{unresolved_call_count()} attribute calls resolve to no receiver type, up from the 9244 "
-            "measured on 2026-09-16. The detector is guessing on more of the tree than it was; check "
-            "what stopped carrying annotations before trusting a green run."
+        assert genuine_unresolved_call_count() < _GENUINE_UNRESOLVED_CEILING, (
+            f"{genuine_unresolved_call_count()} attribute calls resolve to no receiver type and no external "
+            "owner, up from the 2839 measured on 2026-10-04. The detector is guessing on more of the tree "
+            "than it was; check what stopped carrying annotations before trusting a green run."
         )
+        assert genuine_unresolved_call_count() + external_unresolved_call_count() == unresolved_call_count()
+
+    def test_the_split_sees_external_and_untyped_receivers_apart(self, tmp_path: pathlib.Path):
+        """Non-vacuity of the split: each receiver kind lands in its own bucket."""
+        source = """
+import datetime
+import structlog
+
+logger = structlog.get_logger()
+
+
+def external_module(x):
+    return datetime.date.today().isoformat()
+
+
+def external_logger(x):
+    logger.info("x")
+
+
+def external_typed(value: dict):
+    value.update({})
+
+
+def untyped_parameter(entry):
+    entry.save()
+
+
+def untyped_any(entry: object):
+    entry.save()
+"""
+        target = tmp_path / "domain" / "split_spellings.py"
+        target.parent.mkdir(parents=True)
+        target.write_text(source, encoding="utf-8")
+        graph = CallGraph()
+        graph.parse_tree(tmp_path)
+        graph.link()
+
+        def bucket(name: str) -> tuple[int, int]:
+            function = graph.by_id[f"app.domain.split_spellings::{name}"]
+            external = sum(
+                1
+                for call in function._call_nodes
+                if isinstance(call.func, ast.Attribute)
+                and not graph._call_targets(call, function)
+                and graph._is_external_receiver(call.func.value, function)
+            )
+            return external, len(function.unresolved) - external
+
+        assert bucket("external_module") == (2, 0)
+        assert bucket("external_logger") == (1, 0)
+        assert bucket("external_typed") == (1, 0)
+        assert bucket("untyped_parameter") == (0, 1)
+        assert bucket("untyped_any") == (0, 1)
+        assert graph.genuine_unresolved_calls == 2
+        assert graph.external_unresolved_calls == 4
