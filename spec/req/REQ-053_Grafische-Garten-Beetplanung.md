@@ -1048,6 +1048,7 @@ Edges: `has_garden_object` (sites → garden_objects). `belongs_to_tenant` wird 
   "name": "Tomaten Hochbeet 3 · 2026",
   "run_type": "monoculture",
   "status": "planned", "plan_role": "main_crop", "rotation_override_reason": null,
+  "reserved_area_m2": null, "planned_from": null, "planned_until": null,
   "location_key": "loc_b03",
   "planned_quantity": 6,
   "planned_start_date": "2026-05-15",
@@ -1062,6 +1063,8 @@ Edges: `has_garden_object` (sites → garden_objects). `belongs_to_tenant` wird 
   ]
 }
 ```
+
+Neu am Run (REQ-054 O-04): `reserved_area_m2`, `planned_from`, `planned_until` — eine **flächige** Reservierung eines Beets, bevor Slots berechnet sind (vom Anbauplaner gesetzt, im Bepflanzen-Dialog durch Slots ersetzt); V-08 und die Kapazitätsprüfung behandeln sie wie belegte Slots derselben Fläche.
 
 Edge `run_planned_at` (planting_runs → slots): `{ "entry_key": "entry_1", "planned_species_key": "sp_…", "sequence": 3, "planned_from": "2026-05-15", "planned_until": "2026-10-15", "planned_at": "…" }`.
 

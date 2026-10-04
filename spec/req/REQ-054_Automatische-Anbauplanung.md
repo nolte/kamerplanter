@@ -8,7 +8,7 @@ Fokus: Nutzpflanze (Freiland, Gewächshaus, Hochbeet, Kübel)
 Technologie: Python 3.14+, FastAPI, Celery, ArangoDB, React 19, TypeScript 6, MUI 9
 Status: Entwurf
 Priorität: Mittel (nach REQ-053 MVP)
-Version: 1.0
+Version: 1.1 (alle offenen Punkte O-01…O-08 entschieden)
 Datum: 2026-10-04
 Tags: [crop-planning, optimisation, crop-rotation, companion-planting, explainability, proposal]
 Abhängigkeit: REQ-053 v1.2 (Beete mit Geometrie und Fläche, `care_events`, `season_state`, Zeitfenster-Reservierung `run_planned_at`, Beet-Validator GP-FR-131, `NutrientDemand`/`nitrogen_fixing`/`PlanRole` §16.3, `rotation_exempt`, Layout-Rechner GP-FR-062), REQ-001 v4.x (`rotation_after.benefit_score`, `shares_pest_risk`, BotanicalFamily), REQ-002 v4.4 (`CropRotationPlan`, `optimization_goal`), REQ-013 v2.7 (PlantingRun `planned`, Entries, Sukzession), REQ-028 (`compatible_with`/`incompatible_with` mit Score/Severity, `adjacent_to`), REQ-015/REQ-015-A (Aussaatkalender: Saat-/Pflanz-/Erntefenster je Art und Site), REQ-046/REQ-039 (Frostdaten, Klimazone), REQ-007 (Ertrags-Historie `yield_per_m2_g`), REQ-024 v1.7 (Mandant), REQ-049 v1.4 (Rollenvokabular), REQ-042 (Modul-Sichtbarkeit), REQ-031 (KI-Assistent — nur als optionale Erklärschicht), NFR-006 (Fehlerformat), NFR-007 (Observability)
@@ -19,6 +19,7 @@ Wird benötigt von: —
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.1 | 2026-10-04 | **Alle offenen Punkte entschieden** (Betreiber, §17): `Species.light_requirement` über die Steckbrief-Pipeline (O-01); Flächenbedarf `spacing × row_spacing`, Fallback `spacing²` (O-02); Reviews jetzt, fünf Goldfälle vor Welle P1 (O-03); `PlantingRun.reserved_area_m2`, Positionen erst im Dialog (O-04); Lesen für alle Rollen (O-05); Zeitfenster frostdaten-basiert mit Monats-Fallback (O-06); Mehrjahresplanung bleibt COULD (O-07); Retention: mit dem Request, verworfene Vorschläge 1 Jahr — NFR-011 R-27 (O-08). |
 | 1.0 | 2026-10-04 | Erstfassung. Beantwortet die Frage, ob eine automatische Beetbelegung vorgesehen ist (bisher: nein — REQ-053 §29 führt „Automatische Fruchtfolge-/Mischkulturplanung" als WON'T, REQ-002 trägt ein `optimization_goal` ohne Algorithmus, REQ-001 §2.4 empfiehlt eine Rotationsfolge nur für **ein** Beet). Definiert das Planungsproblem als Zuordnung Pflanzenbedarf × Beete × Zeitfenster mit harten Restriktionen (§6), gewichteter Zielfunktion (§7), deterministischem Verfahren mit Erklärung je Zuordnung (§8), Vorschlag-statt-Ausführung (§9) und der Historie der letzten Jahre als Pflichteingang (§5). |
 
 ---
@@ -148,8 +149,8 @@ Hat ein Beet keine Historie im Rückblick, bewertet der Planer die Fruchtfolge d
 - Kompatibilität: `compatible_with.compatibility_score` (0–1), `incompatible_with.severity` (`mild|moderate|severe`), Familien-Fallback (REQ-028).
 - Zehrerstufe: `Species.nutrient_demand`, `nitrogen_fixing` (REQ-053 §16.3).
 - Zeitfenster: REQ-015-A je Site/Klimazone (Frostdaten REQ-046).
-- Flächenbedarf: `Species.spacing_cm`, `row_spacing_cm`, `mature_width_cm` → m² je Pflanze über `compute_layout`-Kapazität (REQ-053 GP-FR-073).
-- Standortansprüche: `Species.light_requirement` (**neu**, O-01), `greenhouse_recommended`, `container_suitable`, `frost_sensitivity`, `hardiness_zones` (vorhanden).
+- Flächenbedarf (O-02, entschieden): m² je Pflanze = `spacing_cm × row_spacing_cm / 10 000`; fehlt `row_spacing_cm`, gilt `spacing_cm²`; Rechner ist `slot_capacity_calculator.calculate_plants_per_m2(spacing, row_spacing, strategy)` aus REQ-053 GP-FR-073 — der Planer führt keine eigene Flächenformel.
+- Standortansprüche: `Species.light_requirement ∈ {full_sun, partial_shade, shade_tolerant}` (**neu**, O-01 entschieden: Schema `species.schema.yaml` + `plant_info.schema.yaml`, Steckbrief-Abschnitt „Standort/Licht", `plant-info-to-seed-yaml` extrahiert, `seed-data-validator` prüft; bis zur Befüllung ist `site_fit` für die Lichtkomponente neutral und der Vorschlag nennt `notes[species_missing_light_requirement]`), `greenhouse_recommended`, `container_suitable`, `frost_sensitivity`, `hardiness_zones` (vorhanden).
 
 ---
 
@@ -159,7 +160,7 @@ Hat ein Beet keine Historie im Rückblick, bewertet der Planer die Fruchtfolge d
 |----|-------------|--------|------------------------|
 | H-01 | **Anbaupause:** Im Beet stand in den letzten `rotation_pause_years(Familie)` Jahren keine Art derselben Familie (inkl. Gründüngung derselben Familie); `rotation_reset_at` setzt die Historie zurück; `rotation_exempt`-Beete sind für Hauptkulturen gesperrt, außer die Art ist dort bereits die Dauerkultur | REQ-053 GP-FR-131, K-004 | Beet für diese Art ausgeschlossen |
 | H-02 | **Fläche:** Σ Flächenbedarf der Belegungen eines Beets im selben Zeitfenster ≤ `area_m2 × usable_fraction` (Standard 0,9, REQ-002 Luftzirkulation) | REQ-053, REQ-002 | Bedarf wird geteilt (mehrere Beete) oder bleibt Rest |
-| H-03 | **Zeitfenster:** Belegung liegt innerhalb des von REQ-015-A für Site und Art erlaubten Pflanz-/Saat- bis Erntefensters; zwei Belegungen eines Beets überlappen nicht (Vor-/Nachkultur mit ≥ `turnaround_days` 7 Tage Abstand) | REQ-015-A, REQ-053 GP-FR-065 | Fenster verschieben oder Beet ausschließen |
+| H-03 | **Zeitfenster:** Belegung liegt innerhalb des für Site und Art erlaubten Pflanz-/Saat- bis Erntefensters. Ableitung in Tagen (O-06, entschieden): **frostdaten-basiert** — Start = `Site.last_frost_date_avg + Species.sowing_outdoor_after_last_frost_days` (bzw. Vorkultur-Pflanztermin), Ende = Kulturdauer aus den Phasenprofilen (`typical_duration_days` bis zur Erntephase) oder `Site.first_frost_date_avg` für frostempfindliche Arten, je nachdem was früher liegt; fehlen Frostdaten, gelten Monatsanfang/-ende aus `direct_sow_months`/`harvest_months` (REQ-015-A) mit Kennzeichnung `window_source = month_fallback`; zwei Belegungen eines Beets überlappen nicht (Vor-/Nachkultur mit ≥ `turnaround_days` 7 Tage Abstand) | REQ-015-A, REQ-053 GP-FR-065 | Fenster verschieben oder Beet ausschließen |
 | H-04 | **Bestehende Reservierungen:** aktive Runs und `run_planned_at` anderer Vorschläge/Runs blockieren überlappende Fenster | REQ-053 V-08 | wie H-03 |
 | H-05 | **Standort-Eignung:** `frost_sensitivity = high` nur in Beeten mit Frostschutz (`greenhouse_bed`, `cold_frame`) oder mit Pflanztermin nach `last_frost_date_avg`; `greenhouse_recommended = true` **weich** (§7); `container_suitable = false` nicht in `planter`; `light_requirement = full_sun` nicht in `sun_exposure = shade` (bei `unknown` weich) | REQ-001, REQ-046, REQ-053 | Beet ausgeschlossen |
 | H-06 | **Inkompatibilität `severe`:** keine zwei Arten mit `incompatible_with.severity = severe` im selben Beet oder in benachbarten Beeten im selben Fenster | REQ-028 | Beet ausgeschlossen |
@@ -223,7 +224,7 @@ Liegen für eine Art ≥ 3 Ertragsereignisse auf Beeten der Site vor (REQ-007 `y
 | AP-FR-006 | MUST | Große Läufe (> 30 Beete oder > 40 Bedarfe) laufen als Celery-Task mit Fortschritt; kleine synchron. Die API entscheidet anhand der Größe (`mode = sync \| async` in der Antwort). |
 | AP-FR-007 | SHOULD | Nutzer-Fixierungen und bereits angenommene Belegungen eines früheren Vorschlags werden beim Neurechnen als fest übernommen („Rest neu planen"). |
 | AP-FR-008 | SHOULD | Vor-/Nachkultur: Der Planer darf je Beet zwei Fenster belegen (z. B. Salat bis Juni, dann Buschbohne), wenn REQ-015-A beide Fenster erlaubt und H-03 eingehalten ist; Vorkultur zählt in der Fruchtfolge als eigenes Jahr-Ereignis mit Familie. |
-| AP-FR-009 | COULD | Mehrjahresplanung: drei aufeinanderfolgende Saisons in einem Lauf (Rotationsfolge je Beet), spätere Jahre nur als Familien-Empfehlung, nicht als Arten. |
+| AP-FR-009 | COULD | Mehrjahresplanung: drei aufeinanderfolgende Saisons in einem Lauf (Rotationsfolge je Beet), spätere Jahre nur als Familien-Empfehlung, nicht als Arten. (O-07, entschieden: bleibt COULD; Entscheidung nach einer Saison Nutzung — bis dahin deckt REQ-053 GP-FR-133 den Bedarf.) |
 | AP-FR-010 | COULD | Solver-Backend (z. B. OR-Tools CP-SAT, Apache-2.0) hinter derselben `plan()`-Schnittstelle, wenn die Belastungsgrenze (§14) in der Messung gerissen wird. |
 
 ### 8.2 Erklärung
@@ -339,7 +340,7 @@ Liegen für eine Art ≥ 3 Ertragsereignisse auf Beeten der Site vor (REQ-007 `y
 |---------|--------|--------|
 | `PlantingRun` (`planned`) je Belegung | `location_key`, `planned_start_date = window.from`, `plan_role = main_crop`, `source = crop_planner`, `proposal_key`, `rotation_override_reason` bei Warnung | REQ-013, REQ-053 |
 | `PlantingRunEntry` | `species_key`, `cultivar_key`, `quantity`, `spacing_cm`/`row_spacing_cm` aus Steckbrief, `layout_strategy = rows` (Standard) | REQ-053 GP-FR-060 |
-| `run_planned_at` | nach `compute_layout` beim ersten Öffnen des Bepflanzen-Dialogs (Positionen gehören nicht zum Planer) — bis dahin reserviert der Run das Beet **flächig** über `planned_from/until` am Run (neu: `PlantingRun.reserved_area_m2`) | REQ-053 GP-FR-065 |
+| `run_planned_at` | nach `compute_layout` beim ersten Öffnen des Bepflanzen-Dialogs (Positionen gehören nicht zum Planer). **Bis dahin (O-04, entschieden)** reserviert der Run das Beet **flächig**: neue Felder `PlantingRun.reserved_area_m2`, `planned_from`, `planned_until`; REQ-053 V-08 und H-02/H-04 dieses Dokuments zählen eine flächige Reservierung wie belegte Slots derselben Fläche. Beim Layout im Dialog wird `reserved_area_m2` durch die erzeugten Slots ersetzt (`reserved_area_m2 = null`). | REQ-053 GP-FR-065, REQ-013 |
 | `CropRotationPlan` je Beet/Jahr | `plan_role`, `planned_species_keys`, `nutrient_demand` (aus Arten), `optimization_goal` ← Profil, `proposal_key` | REQ-002 |
 
 ---
@@ -388,7 +389,8 @@ Prüfreihenfolge wie REQ-053 §22.1.
 | Bedarfsliste | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | Rechnen: Ab Gärtner |
 | Vorschlag | Alle Rollen | (durch Rechnen) | Ab Gärtner (Belegung verschieben) | Nur Leitung | Annehmen: Ab Gärtner; Verwerfen: eigene ab Gärtner, fremde Nur Leitung |
 
-- Vorschläge enthalten keine personenbezogenen Daten außer `created_by`/`computed_by`/`accepted_by` (Kaskade → `_anonymized`, NFR-011-Zeile R-27, Frist: mit dem Request; verworfene Vorschläge 1 Jahr, dann Hard-Delete).
+- Lesen ist für **alle Rollen** offen (O-05, entschieden): Entwürfe sind im Gemeinschaftsgarten Diskussionsgrundlage, keine Geheimsache; angenommene Pläne sind ohnehin als Runs sichtbar.
+- Vorschläge enthalten keine personenbezogenen Daten außer `created_by`/`computed_by`/`accepted_by` (Kaskade → `_anonymized`). **Retention (O-08, entschieden, NFR-011 R-27):** Bedarfslisten und ihre Vorschläge werden mit dem Request gelöscht; verworfene Vorschläge (`discarded`, `infeasible`) nach 1 Jahr hart gelöscht; angenommene Vorschläge bleiben als Begründung der Runs 5 Jahre (wie `care_events` R-25), danach werden Nutzer-Keys anonymisiert und das Dokument bleibt.
 - Optionale KI-Erklärung (AP-FR-013) nur mit Einwilligung `ai_cloud_processing` (REQ-031) bzw. lokal; Eingabe ist das Breakdown ohne Nutzerfelder.
 - Modul `crop_planner` in REQ-042; Navigation unter „Standorte → Gartenplan → Saison planen" (kein eigener Hauptmenüpunkt); abhängig vom Modul `garden_planner`.
 
@@ -438,18 +440,20 @@ Prüfreihenfolge wie REQ-053 §22.1.
 
 ---
 
-## 17. Offene Fragen
+## 17. Offene Fragen — entschieden am 2026-10-04
 
-| ID | Frage | Vorschlag | Entscheider |
-|----|-------|-----------|-------------|
-| O-01 | `Species.light_requirement` (`full_sun \| partial_shade \| shade_tolerant`) fehlt im Schema — Quelle? | Steckbrief-Pipeline erweitern (wie REQ-053 O-11); bis dahin `site_fit` neutral | Betreiber |
-| O-02 | Flächenbedarf je Pflanze: aus `spacing_cm × row_spacing_cm` (Reihen) oder `spacing²` (Raster)? Für den Planer zählt nur m² | `spacing × row_spacing`, fehlt `row_spacing` → `spacing²`; Rechner aus REQ-053 GP-FR-073 | Entwickler |
-| O-03 | Startgewichte §7.3 und Heuristiken §7.2 (Zehrer-Zyklus-Werte, Pest-Strafen) fachlich prüfen; fünf Goldfälle erstellen | `agrobiology-requirements-reviewer` + `outdoor-garden-planner-reviewer` auf dieses Dokument | Betreiber (Reviews beauftragen) |
-| O-04 | Reservierung „flächig" vor Positionsberechnung: neues Feld `PlantingRun.reserved_area_m2` oder sofort `compute_layout` beim Annehmen? | Feld; Positionen erst im Dialog (Nutzer wählt Layout) | Betreiber |
-| O-05 | Dürfen Beobachter Vorschläge sehen? Sie enthalten Planungsabsichten der Leitung (Gemeinschaftsgarten) | ja, Lesen „Alle Rollen" (Transparenz wie bei REQ-053 Historie) | Betreiber |
-| O-06 | Zeitfenster-Quelle: REQ-015-A liefert Monate; der Planer braucht Tage — Umrechnung Monatsanfang/-ende oder Frostdaten-basiert? | Frostdaten-basiert (`last_frost_date_avg` + `sowing_outdoor_after_last_frost_days`), Fallback Monatsgrenzen | Entwickler |
-| O-07 | Mehrjahresplanung (AP-FR-009) jemals gewollt, oder reicht Folgekultur-Empfehlung je Beet (REQ-053 GP-FR-133)? | COULD lassen, nach einer Saison Nutzung entscheiden | Betreiber |
-| O-08 | NFR-011-Zeile R-27 (Requests/Proposals): Frist? | mit dem Request löschen; verworfene Vorschläge 1 Jahr | Betreiber |
+| ID | Frage | Entscheidung | Eingearbeitet |
+|----|-------|--------------|---------------|
+| O-01 | Quelle für `Species.light_requirement` | **Steckbrief-Pipeline erweitern**; bis dahin Lichtkomponente neutral + Hinweis | §5.5, Issue 2 |
+| O-02 | Flächenbedarf je Pflanze | **`spacing × row_spacing`, Fallback `spacing²`**, über den REQ-053-Kapazitätsrechner | §5.5 |
+| O-03 | Absicherung der Gewichte/Heuristiken | **Agrobiologie- und Outdoor-Review jetzt; fünf Goldfälle vor Welle P1** | §7, AP-NFR-004, Issue 1 |
+| O-04 | Reservierung vor Positionsberechnung | **`PlantingRun.reserved_area_m2` + `planned_from/until`; Positionen erst im Dialog** | §10.4, REQ-013-Änderung |
+| O-05 | Lesen durch Beobachter | **Ja, alle Rollen** | §13 |
+| O-06 | Zeitfenster in Tagen | **Frostdaten-basiert, Fallback Monatsgrenzen** (`window_source`) | H-03 |
+| O-07 | Mehrjahresplanung | **COULD, Entscheidung nach einer Saison** | AP-FR-009 |
+| O-08 | Retention | **Mit dem Request; verworfene 1 Jahr; angenommene 5 Jahre** — NFR-011 R-27 | §13 |
+
+Es gibt keine offenen Fragen mehr, die die Umsetzung blockieren; die fachliche Prüfung der Startwerte (O-03) läuft als Review und mündet in v1.2.
 
 ---
 
