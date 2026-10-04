@@ -497,7 +497,7 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 - **Account-Modell D:** Nutzer verknüpft einen selbst angelegten Bot-Account mit genau einer Pflanze oder einen Garten-Account mit dem Mandanten; keine automatische Kontoerstellung, kein zentraler Kamerplanter-Bot.
 - **Privacy strukturell:** Allowlist je Ereignistyp (`public_safe/optional/never`), Standort nur als gewählte Stufe (nie aus Koordinaten), opake EXIF-freie Medien-URLs, `unlisted` als Capability-Link, Veröffentlichungsfenster gegen Anwesenheitsprofile, Cannabis-Profile per Default gesperrt (KCanG § 6), KI nicht im MVP und nie faktenerfindend.
 - **Casual-first:** Profil in 3 Schritten mit Vorschau und „Link kopieren" ohne Social-Begriffe (verbindliche Begriffsliste Anhang M), Tabs „Profil"/„Verlauf" für alle sichtbar, Mastodon-Teil hinter Modul `social`.
-- **v1.3:** IT-Security-Review (1 kritisch: sitzungsungebundener OAuth-Callback → Sitzungsbindung + Bestätigung) und Casual-User-Review eingearbeitet, alle 20 offenen Punkte und 4 Kern-ADRs entschieden, 85 Akzeptanzkriterien, 28 Abuse Cases, 12 ADR-Kandidaten, TC-REQ-055 mit 45 Browser-Testfällen, 41 Issue-Kandidaten in 7 Wellen.
+- **v1.5:** IT-Security-Review (1 kritisch: sitzungsungebundener OAuth-Callback → Sitzungsbindung + Bestätigung) und Casual-User-Review eingearbeitet, zwei Pre-Merge-Reviews (20 Konsistenzbefunde) aufgelöst, alle 20 offenen Punkte und 4 Kern-ADRs entschieden, 85 Akzeptanzkriterien, 28 Abuse Cases, 12 ADR-Kandidaten, TC-REQ-055 mit 45 Browser-Testfällen, 41 Issue-Kandidaten in 7 Wellen.
 
 ---
 
