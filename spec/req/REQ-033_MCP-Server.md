@@ -7,7 +7,7 @@ Kategorie: Integration & KI
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Model Context Protocol SDK (Anthropic), ArangoDB, Redis, Pydantic v2
 Status: Teilweise umgesetzt (Framework, API-Key-Auth mit Mehrmandanten-Bindung, Audit, Streamable-HTTP-Transport, Bild-Content und 56 Werkzeuge; Rest des Werkzeugkatalogs und die stdio-Bruecke offen, siehe §4.1 und §9)
-Version: 1.7 (Rollenvokabular §4.4 auf REQ-049 umgestellt)
+Version: 1.8 (§4.4: mandantenlose Schreib-Werkzeuge = Plattform-Admin, #2103); 1.7 (Rollenvokabular §4.4 auf REQ-049 umgestellt)
 Abhaengigkeit: REQ-001 v4.7 (Stammdaten), REQ-002 v4.3 (Standortverwaltung), REQ-006 v3.0 (Aufgabenplanung), REQ-013 v2.7 (Pflanzdurchlauf), REQ-014 v1.6 (Tankmanagement), REQ-019 v4.1 (Substratverwaltung), REQ-020 v1.6 (Onboarding), REQ-022 v2.8 (Pflegeerinnerungen), REQ-010 v1.4 (IPM), REQ-007 v2.6 (Erntemanagement), REQ-023 v1.13 (Service Accounts), REQ-024 v1.7 (RBAC Permission-Matrix), REQ-025 v1.6 (DSGVO), REQ-031 v2.0 (KI-Assistent / RAG), REQ-049 v1.4 (Rollenvokabular), REQ-050 v1.5 (KI-Analyse von Tagebuch-Eintraegen), NFR-013 v1.4 (Thumbnail-Renditions)
 ```
 
@@ -711,6 +711,8 @@ fachlichen Rolle ab; die Zusatzberechtigungen `management` und `technical` (REQ-
 Weboberfläche (REQ-049 §2.3) — nicht der Personalhoheit.
 
 **Die Rolle gilt pro Mandant, nicht pro Key.** Derselbe persoenliche Key kann im eigenen Garten Leitung sein und im Gemeinschaftsgarten Beobachter. Deshalb bindet der Dispatcher erst den Mandanten und prueft **danach** die Permission (§4.3 Schritt 5); die umgekehrte Reihenfolge wuerde die staerkste Rolle ueberall gewaehren. Ein Nutzer erhaelt ueber MCP damit exakt die Rechte, die er in der Weboberflaeche in genau diesem Garten auch haette — nicht mehr.
+
+**Mandantenlose Werkzeuge.** Ein Werkzeug ohne `tenant`-Argument hat keine Mandanten-Rolle, an die die Permission gebunden werden koennte. Ein reines **Lese**-Werkzeug (globale Stammdaten) wird auf der staerksten Rolle zugelassen, die das Konto irgendwo haelt — lesen darf jedes Mitglied. Ein mandantenloses Werkzeug, das **schreibt** (heute `assign_species_phase_sequence`), ist dagegen **Plattform-Admin** vorbehalten (REQ-049 §2.5), wie sein REST-Gegenstueck: die staerkste Rolle ueberall ist `lead` im eigenen persoenlichen Mandanten, und die gibt keine Hoheit ueber Daten, die jeder Mandant liest. Ein Key, der auf einen Mandanten beschraenkt ist, ist nie Plattform-Admin. `tools/list` blendet solche Werkzeuge fuer alle anderen aus, der Aufruf endet mit `permission.denied` und einer Audit-Zeile `DENIED` (#2103).
 
 **Werkzeug-Uebersicht (`tools/list`)** zeigt die Vereinigung ueber alle Mitgliedschaften, denn ein Werkzeug zu verbergen, das der Nutzer irgendwo verwenden darf, waere falsch. Verbindlich ist die Pruefung beim Aufruf: ein gelistetes Werkzeug kann fuer einen Mandanten, in dem der Nutzer nur Beobachter ist, weiterhin mit `permission.denied` abgelehnt werden.
 

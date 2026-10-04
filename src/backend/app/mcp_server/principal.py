@@ -41,6 +41,11 @@ class McpPrincipal(BaseModel):
     account_key: str
     display_name: str
     is_service_account: bool = False
+    #: A ``lead`` of the technical ``platform`` tenant, resolved once by the
+    #: authenticator through the same predicate the REST API uses — and never
+    #: for a key restricted to one tenant (#2103). The only thing that admits a
+    #: tool without a ``tenant`` argument that is not a plain read.
+    is_platform_admin: bool = False
     memberships: tuple[McpTenantMembership, ...] = Field(default_factory=tuple)
 
     model_config = {"frozen": True}

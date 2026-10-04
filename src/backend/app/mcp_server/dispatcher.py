@@ -32,7 +32,7 @@ from typing import Any
 import structlog
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.enums import McpToolStatus, TenantRole
+from app.common.enums import McpPermission, McpToolStatus, TenantRole
 from app.common.error_ids import new_error_id
 from app.common.exceptions import ForbiddenError, KamerplanterError, NotFoundError, ValidationError
 from app.core.permissions import assert_mcp_permission
@@ -101,10 +101,31 @@ class ToolDispatcher:
         membership = self._resolve_membership(principal, tool, args, tool_name, input_hash)
 
         # 3. Permission binding against the role held in *that* tenant (§4.4).
-        #    A global tool has no tenant role to bind to, so it is admitted on the
-        #    strongest role the principal holds anywhere; global tools are
-        #    read-only catalogue lookups that every member may perform.
-        effective_role = membership.role if membership is not None else _strongest_role(principal)
+        #    A tool with no tenant has no tenant role to bind to. A plain read of
+        #    global catalogue data is admitted on the strongest role the principal
+        #    holds anywhere — every member may read it. A tool that WRITES global
+        #    data is a platform admin's, as its REST counterpart is: the strongest
+        #    role anywhere is ``lead`` of the caller's own personal tenant, which
+        #    says nothing about authority over data every tenant shares (#2103).
+        if membership is None and tool.permission != McpPermission.READ and not principal.is_platform_admin:
+            self._audit.record(
+                principal,
+                tool_name=tool_name,
+                input_hash=input_hash,
+                status=McpToolStatus.DENIED,
+                error_class="permission.denied",
+                membership=membership,
+            )
+            raise ForbiddenError(
+                f"Tool '{tool_name}' changes data shared by every tenant; it needs the platform admin role."
+            )
+        effective_role = (
+            membership.role
+            if membership is not None
+            else TenantRole.LEAD
+            if principal.is_platform_admin
+            else _strongest_role(principal)
+        )
         try:
             assert_mcp_permission(effective_role, tool.permission)
         except ForbiddenError:
@@ -310,8 +331,10 @@ class ToolDispatcher:
 def _strongest_role(principal: McpPrincipal) -> TenantRole:
     """The most permissive role the principal holds in any tenant.
 
-    Only used to admit tenant-agnostic tools, which read global catalogue data
-    (species and friends) that carries no tenant and is visible to every member.
+    Only used to admit tenant-agnostic **read** tools, which read global catalogue
+    data (species and friends) that carries no tenant and is visible to every member.
+    It must never admit a write: ``lead`` of a personal tenant is the strongest role
+    every account holds, and it grants no authority over shared data (#2103).
     """
 
     roles = principal.roles()
