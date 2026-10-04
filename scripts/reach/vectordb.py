@@ -291,17 +291,35 @@ def up() -> None:
         compose += ["-f", str(repo_root() / name)]
     compose += ["-f", str(override_file()), "--profile", COMPOSE_PROFILE]
     log(f"recreating {BACKEND_SERVICE} and {WORKER_SERVICE} wired to {INFERENCE_ALIAS}")
-    run(
-        [
-            *compose, "up", "-d", "--no-deps", "--no-build", "--force-recreate",
-            "--wait", "--wait-timeout", str(BACKEND_RECREATE_TIMEOUT_SECONDS),
-            BACKEND_SERVICE, WORKER_SERVICE,
-        ],
-        timeout=BACKEND_RECREATE_TIMEOUT_SECONDS + 60,
-    )  # fmt: skip
+    _recreate_backend(compose)
     _repoint_api(compose)
     record_file().write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     log(f"reference index {container} and inference-service {inference} up; backend services wired")
+
+
+def _recreate_backend(compose: list[str]) -> None:
+    """Recreate the API and its worker, waiting only for the API.
+
+    ``up --wait`` refuses a service without a healthcheck on current Compose
+    versions ("has no healthcheck configured"); the worker disables its inherited
+    HTTP check, so it is recreated first and only the API is waited for.
+    """
+    both = [*compose, "up", "-d", "--no-deps", "--no-build", "--force-recreate"]
+    run([*both, BACKEND_SERVICE, WORKER_SERVICE], timeout=BACKEND_RECREATE_TIMEOUT_SECONDS + 60)
+    run(
+        [
+            *compose,
+            "up",
+            "-d",
+            "--no-deps",
+            "--no-build",
+            "--wait",
+            "--wait-timeout",
+            str(BACKEND_RECREATE_TIMEOUT_SECONDS),
+            BACKEND_SERVICE,
+        ],
+        timeout=BACKEND_RECREATE_TIMEOUT_SECONDS + 60,
+    )
 
 
 def _repoint_api(compose: list[str]) -> None:
