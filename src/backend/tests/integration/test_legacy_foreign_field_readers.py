@@ -16,7 +16,7 @@ What the measurement found, per field (see the inventory in the PR body):
   scientific name) and the irrigation task (reads its crop coefficient).
 * ``equipment.location_key``, ``location_assignments.location_key`` and
   ``watering_logs.slot_keys`` are never dereferenced by a reader — they are only echoed
-  as a string — so for them the repair is the migration (v0080) that restores the
+  as a string — so for them the repair is the migration (v0081) that restores the
   agreement between field and edge.
 * ``feeds_from`` has no mirrored field at all.
 
@@ -47,7 +47,7 @@ from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.species_service import SpeciesService
 from app.migrations.support.legacy_foreign_fields import COUNT_QUERIES
-from app.migrations.versions.v0080_null_foreign_reference_fields import migration
+from app.migrations.versions.v0081_null_foreign_reference_fields import migration
 from app.tasks.irrigation_tasks import _resolve_species_kc
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
@@ -262,7 +262,7 @@ def test_the_irrigation_task_reads_only_a_species_the_tenant_can_read(legacy) ->
     assert _resolve_species_kc(granted_run, run_repo, species_repo)[0] == 0.7
 
 
-# -- the fields no reader dereferences: v0080 restores field/edge agreement ------
+# -- the fields no reader dereferences: v0081 restores field/edge agreement ------
 
 
 def _counts(db) -> dict[str, dict[str, int]]:

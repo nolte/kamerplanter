@@ -1,11 +1,11 @@
-"""v0080 (#1963): a dry run only reads, report-only classes never write, a missing collection is skipped."""
+"""v0081 (#1963): a dry run only reads, report-only classes never write, a missing collection is skipped."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from app.migrations.support.legacy_foreign_fields import CLASSES, COUNT_QUERIES, REQUIRED_COLLECTIONS
-from app.migrations.versions.v0080_null_foreign_reference_fields import migration
+from app.migrations.versions.v0081_null_foreign_reference_fields import migration
 
 
 class _Db:

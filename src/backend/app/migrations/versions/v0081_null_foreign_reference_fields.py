@@ -1,4 +1,4 @@
-"""v0080 — clear the foreign reference fields v0067 left behind (#1963).
+"""v0081 — clear the foreign reference fields v0067 left behind (#1963).
 
 v0067 (#1878) drops a cross-tenant edge and leaves the source document untouched,
 because the document mirrors the same key in a field of its own. After it the edge
@@ -50,7 +50,7 @@ _BATCH = 500
 
 
 class NullForeignReferenceFieldsMigration(Migration):
-    version = "0080"
+    version = "0081"
     name = "null_foreign_reference_fields"
     description = (
         "Null equipment.location_key and drop watering_logs.slot_keys entries that name another tenant's "
