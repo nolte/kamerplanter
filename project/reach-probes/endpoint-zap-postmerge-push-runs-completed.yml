@@ -1,0 +1,45 @@
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: not yet recorded. This derivation carries no `approval:` block; the approval step
+# adds it in the SAME commit (a later commit to this file would be reported as weakened).
+#
+# Replaces endpoint-zap-postmerge-push-runs (#1976). That probe counted the newest 300
+# push runs of the lane and read an empty conclusion (a run still in flight) as "did not
+# execute": the lane's scans last twenty to thirty minutes, so the value moved with the
+# clock (299 while the newest push was still scanning, 300 afterwards) for a lane that
+# had run every time. A re-derivation of the old probe could not record the corrected
+# observation, because the declaration (the workflow file) had not changed; this is a new
+# probe under a new id.
+#
+# Spec row "Scan lane never executes" (T0). Queries the platform's run record for the
+# newest 300 COMPLETED runs the declared trigger (push to develop) started and counts
+# those that executed; skipped, cancelled and startup_failure runs do not count, runs
+# still in flight are not part of the sample (their number goes to stderr). A listing
+# shorter than the platform's own total is not probed, never a low count. The workflow
+# file is never read. Needs an authenticated `gh` for this repository.
+# A T0 result says the lane ran, never that it works.
+id: endpoint-zap-postmerge-push-runs-completed
+summary: runs of the post-merge ZAP lane, among its newest 300 completed push-triggered develop runs, that executed
+declaration:
+  source: endpoint
+  path: .github/workflows/security-zap-postmerge.yml
+  location: 'on.push.branches: develop (L117)'
+tier: T0
+expected:
+  kind: count
+  value: 300
+  unit: runs executed
+derived_from: blob:569027fde61a00c5b23b419451099e80c38c85e0
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_workflow_runs.py
+  - --workflow
+  - security-zap-postmerge.yml
+  - --event
+  - push
+  - --branch
+  - develop
+  - --limit
+  - '300'
+  timeout_seconds: 120
