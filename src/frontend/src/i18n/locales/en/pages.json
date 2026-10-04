@@ -601,7 +601,7 @@
           "enabled": "Provider active",
           "enabledHelper": "A new provider starts switched off. Only once it is active does it appear on the sign-in page. Switching it on or off is confirmed with your own credentials.",
           "iconUrl": "Icon URL (optional)",
-          "iconUrlHelper": "Address of an image for the sign-in page. This needs no confirmation.",
+          "iconUrlHelper": "Address of an image for this provider. Only images from this site or a data: URL are shown; the security policy blocks images from other servers. This needs no confirmation.",
           "advanced": "Advanced: fixed endpoints and default tenant",
           "advancedHint": "Only needed when the provider offers no discovery document. You can set these when you create the provider; the interface does not show them later because the API does not return them.",
           "authorizationUrl": "Authorization URL",

@@ -601,7 +601,7 @@
           "enabled": "Provider aktiv",
           "enabledHelper": "Ein neuer Provider startet abgeschaltet. Erst wenn er aktiv ist, erscheint er auf der Anmeldeseite. Das Ein- oder Abschalten bestätigst du mit deinem eigenen Zugang.",
           "iconUrl": "Icon-URL (optional)",
-          "iconUrlHelper": "Adresse eines Bildes für die Anmeldeseite. Dafür ist keine Bestätigung nötig.",
+          "iconUrlHelper": "Adresse eines Bildes für diesen Provider. Angezeigt werden nur Bilder von dieser Seite oder eine data:-URL; die Sicherheitsrichtlinie blockiert Bilder anderer Server. Dafür ist keine Bestätigung nötig.",
           "advanced": "Erweitert: feste Endpunkte und Standard-Mandant",
           "advancedHint": "Nur nötig, wenn der Provider kein Discovery-Dokument anbietet. Diese Angaben lassen sich beim Anlegen setzen; die Oberfläche zeigt sie später nicht an, weil die Schnittstelle sie nicht zurückgibt.",
           "authorizationUrl": "Autorisierungs-URL",

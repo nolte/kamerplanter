@@ -225,6 +225,7 @@ export default function OidcProviderFormDialog({
       <DialogContent>
         <Box
           component="form"
+          id="oidc-provider-form"
           noValidate
           onSubmit={(e) => {
             e.preventDefault();
@@ -470,7 +471,8 @@ export default function OidcProviderFormDialog({
         </Button>
         <Button
           variant="contained"
-          onClick={handleSubmit}
+          type="submit"
+          form="oidc-provider-form"
           disabled={pending || (isEdit && !hasChanges)}
           loading={pending}
           data-testid="oidc-form-submit"

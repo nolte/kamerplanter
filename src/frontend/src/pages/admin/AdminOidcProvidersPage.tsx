@@ -437,7 +437,12 @@ function ProviderCard({ provider, testing, onEdit, onDelete, onTest }: ProviderC
           onClick={onTest}
           disabled={testing}
           startIcon={testing ? <CircularProgress size={16} /> : <FactCheckIcon />}
-          aria-label={t('pages.admin.oidc.actions.test', { name: provider.display_name })}
+          aria-busy={testing}
+          aria-label={
+            testing
+              ? `${t('pages.admin.oidc.actions.test', { name: provider.display_name })} – ${t('pages.admin.oidc.actions.testRunning')}`
+              : t('pages.admin.oidc.actions.test', { name: provider.display_name })
+          }
           data-testid={`oidc-test-${provider.key}`}
         >
           {testing ? t('pages.admin.oidc.actions.testRunning') : t('pages.admin.oidc.actions.testLabel')}
