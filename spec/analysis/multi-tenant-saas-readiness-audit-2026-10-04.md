@@ -3,7 +3,7 @@
 | Feld | Wert |
 |---|---|
 | Datum | 2026-10-04 |
-| Stand | `develop` @ `cb26b6265` (Worktree `chore/saas-permissions-audit`) |
+| Stand | Analyse auf `develop` @ `cb26b6265`; Bericht committet auf `6586eeb39` (zwei Spec-Commits #2091/#2094 dazwischen, keine `src/`-Änderung — alle Zeilenangaben gelten für beide Stände) (Worktree `chore/saas-permissions-audit`) |
 | Methode | Read-only Code-Audit (keine Änderung am Quellcode, kein Testlauf, kein Cluster-Zugriff). 8 parallele Teil-Audits (Identity/Tenant, Repositories A–M + ArangoDB, Repositories N–Z + Ownership, API/IDOR/Tests, Jobs/Cache/MCP/Integrationen, Frontend/Storage/Observability/Rate-Limits, Privacy/Lifecycle/Requirements, Infrastruktur/Backup/Skalierung), anschließend eigenhändige Gegenprüfung aller P0-Befunde am Code. |
 | Status-Vokabular | `CONFIRMED` = Codepfad gelesen und nachvollzogen · `LIKELY` = aus Konfiguration/Struktur abgeleitet · `POTENTIAL` = bedingt (hängt von Daten oder künftigem Aufrufer ab) · `UNKNOWN`/`AUDIT-GAP` = nicht klärbar ohne Laufzeit |
 | Korrektur zum Auftragstext | Der Auftrag nennt „Go Backend, Vue.js“. Der tatsächliche Stack ist **Python 3.14 / FastAPI / Celery** (Backend), **React 19 / TypeScript / MUI 9 / Redux Toolkit** (Frontend), **ArangoDB** (primär, Graph), **TimescaleDB** (Sensor-Zeitreihen), **Valkey** (Cache/Broker), Helm-Chart auf bjw-s/common. Das Audit folgt — wie vom Auftrag verlangt — dem Code. |
@@ -44,19 +44,19 @@ Alle Pfade sind relativ zu `src/backend/app/` (Backend), `src/frontend/src/` (Fr
 | 7 | **Light→Full nicht implementiert**: System-User bleibt aktiv, im Light-Modus ohne Authentifizierung geminte API-Keys (lead + management + technical) bleiben nach dem Wechsel gültig. | `domain/services/onboarding_service.py:358` (`TODO: REQ-027`), `api/v1/auth/router.py:817-818`, `auth_service.py:2192` | MT-009 |
 | 8 | **Kein Backup im Repo**; NFR-002 §8 referenziert `k8s/backup/*`, das nicht existiert. Tenant-Löschung ist sofort und irreversibel. | `helm/` (0 Treffer `CronJob|arangodump|velero`), `tenant_service.py:382-441` | MT-026, MT-027 |
 | 9 | **Eine Home-Assistant-Instanz für alle Tenants**; jedes Mitglied (auch Viewer) listet die komplette HA-Entity-Inventur und kann beliebige Entity-Zustände mit dem Betreiber-Token lesen. | `common/dependencies.py:1656-1677`, `api/v1/tenant_scoped/weather/tenant_router.py:236-252`, `api/v1/tanks/tenant_router.py:102-108`, `api/v1/locations/tenant_router.py:132-149` | MT-015 |
-| 10 | **Memory-DoS** über Upload: Bild-Decode ohne Pixel-Obergrenze (`putdata(list(src.getdata()))`), während die Geschwister `cv_diagnosis`/`recognition` 40 MPx begrenzen. | `domain/engines/storage/exif_stripper.py:~95-105`, `thumbnail_generator.py:127,190` vs. `api/v1/tenant_scoped/cv_diagnosis/tenant_router.py:45,82` | MT-011 |
+| 10 | **Memory-DoS** über Upload: Bild-Decode ohne eigene Pixel-Obergrenze — Pillows Default greift erst bei ~178 MPx (`DecompressionBombError`), und `putdata(list(src.getdata()))` materialisiert jedes Pixel als Python-Tuple; die Geschwister `cv_diagnosis`/`recognition` begrenzen auf 40 MPx. | `domain/engines/storage/exif_stripper.py:~95-105`, `thumbnail_generator.py:127,190` vs. `api/v1/tenant_scoped/cv_diagnosis/tenant_router.py:45,82` | MT-011 |
 
 ### Wichtigste Erkenntnisse
 
 1. **Die Isolationsarchitektur ist richtig gebaut**: ein Resolver, ein Prädikat-Helfer (`tenant_scope.py`), ein Ownership-Verifier (`tenant_ownership.py`), Guards auf Router-Ebene statt pro Handler, Rolle aus der Membership im *aufgelösten* Tenant. Die Fehlerklasse der gefundenen Defekte ist durchgängig **„Rand des Hybrid-Katalogs“** (global ∪ tenant) und **„Reverse-Lookup vom globalen Anker“** — nicht „Tenant-Filter vergessen“.
 2. **Das Messwerkzeug hat die Lücke, nicht der Guard**: Die drei AST-Guards (`test_keyed_writes_resolve_a_tenant`, `test_tenant_reference_keys_are_resolved`, `test_tenant_scoped_reads_are_derived`) prüfen *dass* ein Key mit Tenant übergeben wird, nicht *was* die Übergabe bedeutet. Check-then-Act mit Hybrid-Lese-Zulassung vor ungescoptem Write (MT-002/003) und Traversals, deren Rückgabe-Collection nicht als „touched“ zählt (MT-004), passieren sie.
-3. **„Implementiert, aber inert“** kommt viermal vor: Tenant-Suspension, `max_members`, Light→Full-Übernahme, `has_permission`/`assert_permission` (toter Code neben dem echten Gate). Alle vier sind in Spec/Docstring als wirksam beschrieben.
+3. **„Implementiert, aber inert“** kommt fünfmal vor: Tenant-Suspension, `max_members`, Light→Full-Übernahme, `has_permission`/`assert_permission` (toter Code neben dem echten Gate) und drei Beat-Tasks (`check_auto_transitions`, `check_dormancy_triggers`, `update_vernalization_progress`), die weder geplant noch dispatcht werden (MT-051). Alle fünf sind in Spec/Docstring als wirksam beschrieben.
 4. **Anwendungsschicht ≠ Infrastrukturschicht**: Die App ist (bis auf einen RWO-PVC) replica-sicher; Daten-, Backup-, Scheduling- und Observability-Schicht sind Single-Tenant-förmig.
 5. **Specs decken SaaS nicht ab**: kein Requirement für Tenant-Zustände, Suspension-Semantik, Quoten, Registrierungsmodus, Tenant-Export; NFR-012 behandelt nur Infrastruktur-Dimensionierung.
 
 ### Empfehlung
 
-**Kategorie B — Ja, mit gezielten Architekturmaßnahmen.** Phase 0 (9 Maßnahmen, alle S–M) schließt die Isolations- und Autorisierungsdefekte; Phase 1 (17 Maßnahmen) härtet strukturell (Prädikat in den Service, Indizes, Audit-Trail, Rate-Limits); erst danach **Plant Identity / Plant Social**; Phase 2 (SaaS-Infrastruktur) und Phase 4 (Entitlements) können parallel bzw. später laufen. Details §21–§26.
+**Kategorie B — Ja, mit gezielten Architekturmaßnahmen.** Phase 0 (9 Maßnahmen, je XS–M) schließt die Isolations- und Autorisierungsdefekte; Phase 1 (16 Maßnahmen) härtet strukturell (Prädikat in den Service, Indizes, Audit-Trail, Rate-Limits); erst danach **Plant Identity / Plant Social**; Phase 2 (SaaS-Infrastruktur) und Phase 4 (Entitlements) können parallel bzw. später laufen. Details §21–§26.
 
 ---
 
@@ -571,7 +571,7 @@ Chart = ein `bjw-s.common.loader.all` (`templates/common.yaml:1`), alles über `
 | REQ-03 | P2 | REQ-024 §1a.4 Z. 260, 1658; CLAUDE.md Z. 77 (`platform viewer`) | `platform_viewer` nirgends implementiert (`auth.py:553`: nur LEAD) | Falsche Erwartung an Read-only-Admin | Implementieren oder als offen markieren; CLAUDE.md korrigieren |
 | REQ-04 | P2 | REQ-024 AK-56 Z. 1594 | AK beschreibt nur Step-up, nicht die **Wirkung** der Deaktivierung | AK grün, Feature inert | Neues AK: Mitglied eines Tenants mit `is_active=false` → 403 auf Pfad, Header, MCP; API-Key-Scope abgelehnt + Negativtest |
 | REQ-05 | P3 | REQ-049 §2.6 Z. 137 (`user`) vs. REQ-023 Z. 306 / Code `human` | Vokabular-Drift im Vokabular-Dokument | Filter/Migrationen | `human` eintragen |
-| REQ-06 | P3 | CLAUDE.md Z. 93 („Consent-checking middleware“), Z. 103 („role (admin/grower/viewer)“), Z. 77 vs. Code | Interne Widersprüche in der Steuerdatei; „Assignment-based write control“ veraltet | Agenten übernehmen falsche Begriffe | Z. 103 → `viewer/grower/lead` + `admin_scopes`; „Guard in der Service-Schicht“; Assignment = Zuständigkeitsanzeige |
+| REQ-06 | P3 | CLAUDE.md Z. 81 („Consent-checking middleware“), Z. 103 („role (admin/grower/viewer)“), Z. 77 vs. Code | Interne Widersprüche in der Steuerdatei; „Assignment-based write control“ veraltet | Agenten übernehmen falsche Begriffe | Z. 103 → `viewer/grower/lead` + `admin_scopes`; „Guard in der Service-Schicht“; Assignment = Zuständigkeitsanzeige |
 | REQ-07 | P3 | REQ-037, -038, -043, -044, -046 — kein Abschnitt „Authentifizierung & Autorisierung“ (REQ-049 §3.3) | Für `irrigation_demands`, `weather_source_configs` etc. nicht spezifiziert, wer anlegen/ändern/löschen darf | Implementierung nach Gefühl | Standardblock wie REQ-018 §4 ergänzen; REQ-046: TECHNICAL-Scope |
 | REQ-08 | P3 | REQ-024 Z. 554 (`max_members: Optional[int]`, null = unbegrenzt) vs. Modell `int ge=1` Default 1; REQ-049 AK-19 (Personal-Tenant nimmt weiteres Mitglied auf) | Feld unterschiedlich typisiert, nirgends erzwungen, für Personal-Tenants widersprüchlich | MT-037 | AK „Beitritt über `max_members` → 422“; Personal-Limit festlegen oder streichen |
 | REQ-09 | P3 | NFR-012 (nur Infra), REQ-024 Z. 1674 „Billing zukünftig“, NFR-013 O-03 → nicht existierende Quota-Tabelle | Kein Requirement für Tenant-Zustände, Suspension-Semantik, Quoten pro Plan, Registrierungsmodus, Tenant-Export | SaaS-Entscheidungen landen ad hoc im Code | Neues REQ „Mandanten-Lebenszyklus & Kontingente“ (MT-050) |
@@ -654,7 +654,7 @@ Konventionen: **Aufwand** XS (< ½ Tag) · S (½–1 Tag) · M (2–3 Tage) · L
 **Problem:** `_strongest_role(principal)` admittiert tenant-lose Tools mit der stärksten Rolle irgendwo; jeder Nutzer ist `lead` seines Personal-Tenants → `mcp.setup` für jeden Key; `assign_species_phase_sequence` schreibt ohne Owner-/Admin-Prüfung. CONFIRMED.
 **Ist-Zustand:** `mcp_server/dispatcher.py:107, 310-320`; `tools/phases.py:628-661`; `phase_service.assign_phase_sequence` (`:167-197`) ohne Prüfung; REST-Pendant `lifecycle_configs/router.py` = `require_platform_admin`.
 **Soll-Zustand:** `_strongest_role` nur für `McpPermission.READ` zulässig; jedes Tool mit `GlobalWriteToolInput` (kein `tenant`-Argument, Permission WRITE/SETUP) verlangt `principal.is_platform_admin` (Membership `lead` in `platform`, kein gescopter Key); alternativ: Tool entfernen. Zusätzlich im Service: Species-Owner prüfen (tenant-eigene Species nur durch Owner-Tenant, globale nur Admin).
-**Betroffene Komponenten:** `mcp_server/dispatcher.py`, `mcp_server/principal.py`, `mcp_server/tools/phases.py` (+ Inventur aller `GlobalWriteToolInput`-Tools: ipm-Katalog, catalogs, substrates, tenants), `domain/services/phase_service.py`, `core/permissions.py`.
+**Betroffene Komponenten:** `mcp_server/dispatcher.py`, `mcp_server/principal.py`, `mcp_server/tools/phases.py` (heute das **einzige** Tool mit `GlobalWriteToolInput`: `grep -rn GlobalWriteToolInput mcp_server/tools` → nur `phases.py:62/632`; alle anderen WRITE/SETUP-Tools erben `TenantToolInput` und sind tenant-gebunden — die Dispatcher-Regel schützt künftige Tools), `domain/services/phase_service.py`, `core/permissions.py`.
 **Änderung:** `McpPrincipal.is_platform_admin` aus `is_platform_admin(tenant_service, account_key)` ableiten (nicht bei `tenant_scope`); Dispatcher: `if membership is None and tool.permission != READ and not principal.is_platform_admin: raise permission.denied`.
 **Abhängigkeiten:** keine.
 **Risiko bei Nichtumsetzung:** Jeder Key-Inhaber manipuliert die Lifecycle-Engine aller Tenants.
@@ -725,7 +725,7 @@ Konventionen: **Aufwand** XS (< ½ Tag) · S (½–1 Tag) · M (2–3 Tage) · L
 **Ziel:** Die Tenant-Prüfung eines Writes liegt im Service, nicht im Router-Handler, so dass ein neuer Handler/MCP-Tool sie nicht vergessen kann.
 **Problem:** ~35 Service-Signaturen mit `tenant_key: str = ""`/`None`; Writes laden intern `self.get_X(key)` ohne Tenant und verlassen sich auf einen vorgeschalteten Router-Aufruf (Check-then-Act, Drift-Klasse #948/#1402). `verify_tenant_ownership` ist No-op ohne `tenant_key`-Attribut; `verify_tenant_read_access` kehrt bei leerem Tenant ohne Prüfung zurück. LIKELY (heute konsistent, kein mechanischer Schutz).
 **Ist-Zustand:** `site_service.py:35-49, 70-81, 139-181`; `planting_run_service.py:110-113, 297-349, 476-478, 760, 807, 936, 1096, 1160, 1317`; `tank_service.py:61-64, 127-190, 220-225, 282, 352-374`; `nutrient_plan_service.py:57-71, 77, 128-134, 164`; analog fertilizer/feeding/watering_log/succession/harvest/import/calendar; `common/tenant_guard.py:9, 23`; `plant_ownership.py:98-100` (musste Leer-Entscheidung selbst treffen); tote ungescopte Methoden `plant_instance_repository.get_by_slot:116`, `tank_repository.get_tanks_for_location:334`, `weather_forecast_repository.get:77`, `watering_log_repository:367-392`, `aquaponik.link_tank/link_growbed`; `HARVEST_OBSERVATIONS` in `OWNERSHIP_VERIFIABLE_COLLECTIONS` ohne Modellfeld (`tenant_ownership.py:46`); `Location.tenant_key`/`Slot.tenant_key` nie geschrieben (`site.py:43/67`).
-**Soll-Zustand:** Jede Service-Methode, die per Key lädt und schreibt, nimmt `*, tenant_key: str` ohne Default und prüft selbst (Vorbild `task_service.get_task:990`, `overwintering_profile_service`, `post_harvest_service`); Router-Doppelaufruf entfällt; `verify_tenant_ownership` wirft `TypeError` bei fehlendem Attribut und `NotFoundError` bei leerem Tenant (System-Kontext muss explizit `all_tenants=True`-Analogon nennen); tote Methoden entfernt; `HARVEST_OBSERVATIONS` aus Allowlist (oder plant-verankerter Guard); `Location.tenant_key`/`Slot.tenant_key` entfernt oder als Property auf Site; Backfill-Liste bereinigt.
+**Soll-Zustand:** Jede Service-Methode, die per Key lädt und schreibt, nimmt `*, tenant_key: str` ohne Default und prüft selbst (Vorbild `task_service.get_task:990`; `overwintering_profile_service.get_profile:116` und `post_harvest_service.get_batch:60` sind Pflicht ohne Default, aber positional — auf keyword-only umstellen); Router-Doppelaufruf entfällt; `verify_tenant_ownership` wirft `TypeError` bei fehlendem Attribut und `NotFoundError` bei leerem Tenant (System-Kontext muss explizit `all_tenants=True`-Analogon nennen); tote Methoden entfernt; `HARVEST_OBSERVATIONS` aus Allowlist (oder plant-verankerter Guard); `Location.tenant_key`/`Slot.tenant_key` entfernt oder als Property auf Site; Backfill-Liste bereinigt.
 **Betroffene Komponenten:** s. Ist-Zustand; `domain/interfaces/*`; `data_access/arango/tenant_ownership.py`; `migrations/backfill_tenant_key.py`.
 **Änderung:** Paketweise pro Service (site → run → tank → plan → fertilizer → rest), jeweils mit AST-Guard-Erweiterung.
 **Abhängigkeiten:** MT-002 (Fertilizer als erstes Paket).
@@ -737,14 +737,14 @@ Konventionen: **Aufwand** XS (< ½ Tag) · S (½–1 Tag) · M (2–3 Tage) · L
 #### MT-011 — Bild-Decode-Bombe und Thumbnail-Amplifikation
 **Kategorie:** Security · **Priorität:** P1 · **Aufwand:** S · **Breaking Change:** Nein · **Migration:** Nein
 **Ziel:** Kein Upload kann API-Replica oder Worker per Speicher erschöpfen; kein GET flutet die Queue.
-**Problem:** EXIF-Stripper und Thumbnail-Task öffnen Bilder ohne Pixel-Obergrenze (`putdata(list(src.getdata()))` materialisiert jedes Pixel); Geschwister `cv_diagnosis`/`recognition` haben `_MAX_IMAGE_PIXELS=40M`. Fehlende Rendition → bei jedem GET `generate_thumbnails.delay()` ohne Dedup. CONFIRMED.
+**Problem:** EXIF-Stripper und Thumbnail-Task öffnen Bilder ohne eigene Pixel-Obergrenze; es gilt nur Pillows Default `Image.MAX_IMAGE_PIXELS` (~89 MPx Warnung, ~178 MPx `DecompressionBombError`, letzterer nicht in `except (OSError, ValueError)` → 500). Die Lücke ist das Fenster 40–178 MPx **plus** `putdata(list(src.getdata()))`, das jedes Pixel als Python-Tuple materialisiert (ein 144-MPx-Bild → mehrere GB). Geschwister `cv_diagnosis`/`recognition` haben `_MAX_IMAGE_PIXELS=40M`. Fehlende Rendition → bei jedem GET `generate_thumbnails.delay()` ohne Dedup. CONFIRMED.
 **Ist-Zustand:** `domain/engines/storage/exif_stripper.py:~95-105`, `thumbnail_generator.py:127,190` vs. `api/v1/tenant_scoped/cv_diagnosis/tenant_router.py:45,82`; `attachments/tenant_router.py:259-267`, `tasks/storage_tasks.py:110-124`.
 **Soll-Zustand:** Gemeinsame Konstante `MAX_IMAGE_PIXELS` (40 MPx) in einem Modul; `Image.open` → `img.size`-Check vor Decode, `Image.MAX_IMAGE_PIXELS` gesetzt, `DecompressionBombError` → 413; `putdata(list(...))` durch `img.copy()`/`Image.frombytes` mit `info={}` ersetzen; Redis-Lock `thumb:{attachment_id}` (SETNX, TTL) vor `delay`; nach 3 Fehlschlägen `renditions_failed` am Attachment → GET 404 statt 202.
 **Betroffene Komponenten:** `domain/engines/storage/exif_stripper.py`, `thumbnail_generator.py`, `api/v1/attachments/tenant_router.py`, `tasks/storage_tasks.py`, `cv_diagnosis`/`recognition` (Konstante teilen).
 **Änderung:** s. o.
 **Abhängigkeiten:** keine.
 **Risiko bei Nichtumsetzung:** Memory-DoS (mehrere GB pro Request) durch einen Grower; mit Amplifikation Worker-Ausfall für alle Tenants.
-**Tests:** Unit: 12 000×12 000-PNG (klein komprimiert) → 413 ohne Decode; Guard: jede `Image.open`-Stelle unter `app/` liegt hinter dem Pixel-Check; Unit: 5× GET bei fehlender Rendition → genau 1 `delay`.
+**Tests:** Unit: 12 000×12 000-PNG (144 MPx, klein komprimiert — bewusst **unter** Pillows 178-MPx-Default, sonst ist der Negativtest am alten Stand schon „grün“) → 413 ohne Decode; Guard: jede `Image.open`-Stelle unter `app/` liegt hinter dem Pixel-Check; Unit: 5× GET bei fehlender Rendition → genau 1 `delay`.
 **Acceptance Criteria:** wie Tests; bestehende Uploads ≤ 40 MPx unverändert.
 **Definition of Done:** Tests grün; `docs/de/deployment/konfigurationsmatrix.md` nennt die Grenze.
 
@@ -927,7 +927,7 @@ Konventionen: **Aufwand** XS (< ½ Tag) · S (½–1 Tag) · M (2–3 Tage) · L
 **Ziel:** Specs behaupten nichts, was der Code nicht tut; Vokabular ist einheitlich.
 **Problem:** REQ-01..REQ-15 aus §20.
 **Ist-Zustand:** s. §20.
-**Soll-Zustand:** REQ-023 §5a `lead`+`management`; REQ-027 Status „Nicht implementiert“ + AK Light-Keys; REQ-024 `platform_viewer` implementieren oder als offen markieren, AK-56 Wirkungs-AK, `max_members`-AK; REQ-049 §2.6 `human`; CLAUDE.md Z. 77/93/103 korrigieren (Rollen, „Guard in Service-Schicht“, Assignment = Zuständigkeit); REQ-037/038/043/044/046 Authz-Block; REQ-025 §3.1.2 Nr. 1 Personal-Tenant; NFR-011 R-14 Status; NFR-002 §8 / NFR-012 §9.1 / NFR-013 §7 Status „nicht implementiert“ bis MT-026; NFR-001 §6.1 `tenant_roles` informativ; `.claude/reference/claude-md-offload.md` Decision 9 aktualisieren; `docs/de/reference/roles-and-permissions.md`.
+**Soll-Zustand:** REQ-023 §5a `lead`+`management`; REQ-027 Status „Nicht implementiert“ + AK Light-Keys; REQ-024 `platform_viewer` implementieren oder als offen markieren, AK-56 Wirkungs-AK, `max_members`-AK; REQ-049 §2.6 `human`; CLAUDE.md Z. 77/81/103 korrigieren (Rollen, „Guard in Service-Schicht“, Assignment = Zuständigkeit); REQ-037/038/043/044/046 Authz-Block; REQ-025 §3.1.2 Nr. 1 Personal-Tenant; NFR-011 R-14 Status; NFR-002 §8 / NFR-012 §9.1 / NFR-013 §7 Status „nicht implementiert“ bis MT-026; NFR-001 §6.1 `tenant_roles` informativ; `.claude/reference/claude-md-offload.md` Decision 9 aktualisieren; `docs/de/reference/roles-and-permissions.md`.
 **Betroffene Komponenten:** `spec/req/*`, `spec/nfr/*`, `CLAUDE.md`, `.claude/reference/claude-md-offload.md`, `docs/de/reference/`.
 **Abhängigkeiten:** Entscheidungen aus MT-007/009/037.
 **Risiko bei Nichtumsetzung:** Agenten und Entwickler bauen gegen falsche Annahmen (Memory-Muster „Diagnose im Issue kann falsch sein“).
@@ -1019,7 +1019,7 @@ Konventionen: **Aufwand** XS (< ½ Tag) · S (½–1 Tag) · M (2–3 Tage) · L
 **Ist-Zustand:** `tasks/__init__.py:182-221`; `notification_tasks.py:65,250`; `phase_transitions.py:171`; `season_tasks.py:94`; `tank_maintenance_tasks.py:150,223`; `actuator_tasks.py:68,122`.
 **Soll-Zustand:** Queues `critical` (retention, frost, notifications, actuators), `default`, `bulk` (dataset/image/ai) via `task_routes`; Worker-Deployment pro Queue; `task_time_limit`/`soft_time_limit` global; `acks_late=True` nur idempotente Tasks; `broker_transport_options.visibility_timeout`; Beat-Tasks: `FOR t IN tenants` → Sub-Task pro Tenant (natürliche Isolation + Parallelität); AQL-Filter (`status IN […] AND due_date >= @start`); Bulk-Loads statt N+1.
 **Betroffene Komponenten:** `tasks/__init__.py`, alle Beat-Module, `helm/values.yaml` (Worker-Deployments), Repositories (`list_due_care_tasks(window, tenant_key)`).
-**Abhängigkeiten:** MT-021 (Indizes).
+**Abhängigkeiten:** MT-021 (Indizes); MT-033 für die Queue-Length-HPA (nicht für die Queue-Trennung selbst).
 **Risiko bei Nichtumsetzung:** Ein Dataset-Job stoppt Erinnerungen/Erasure/Frost aller Tenants; Worker-OOM ab ~1k Tenants; Doppelausführung > 1 h.
 **Tests:** Guard: jede `@shared_task` in `app/tasks` hat eine Route; Unit: AQL-Aufrufe pro Pflanze = 0 in `check_auto_transitions`; `celery inspect active_queues` als Reach-Probe.
 **Acceptance Criteria:** wie Tests; Worker-Speicher unabhängig von Gesamt-Pflanzenzahl.
@@ -1273,7 +1273,7 @@ flowchart LR
 
   MT002 --> MT010
   MT008 --> MT009
-  MT014 --> MT008
+  MT008 -.structlog sofort, persistentes Audit nach.-> MT014
   MT014 --> MT019
   MT016 --> MT015
   MT001 & MT002 & MT003 & MT004 & MT005 & MT006 & MT007 --> MT024
@@ -1287,7 +1287,7 @@ flowchart LR
   MT028 & MT029 & MT033 --> MT031
   MT033 --> MT032
   MT013 --> MT049
-  MT037 --> MT049
+  MT049 -.Quelle des Limits.-> MT037
   MT027 & MT036 & MT042 & MT049 --> MT050
   MT024 & MT010 & MT011 & MT012 & MT013 & MT014 & MT016 & MT020 & MT043 --> MT046
   MT046 --> MT047 --> MT048
@@ -1312,7 +1312,7 @@ Phase 1 — Multi-Tenant-Härtung (P1, ~4–6 Wochen, 16 Tickets)
 
 Phase 2 — SaaS-Infrastruktur & Lifecycle (P1/P2, ~6–8 Wochen, 18 Tickets; parallel zu Phase 3 möglich)
   Zuerst: MT-028 MT-026 MT-027 MT-029 MT-030 MT-032
-  Dann:   MT-031 MT-033 MT-034 MT-035 MT-036 MT-037 MT-038 MT-039 MT-040 MT-041 MT-043 MT-044
+  Dann:   MT-031 MT-033 MT-034 MT-035 MT-036 MT-037 MT-038 MT-039 MT-040 MT-041 MT-043
   Später: MT-042
   → Gate 3 — SaaS Ready (zusammen mit Phase 4)
 
@@ -1323,7 +1323,7 @@ Phase 4 — SaaS-Entitlements (P2)
   MT-049 MT-050
   → Gate 3 komplett
 
-Hygiene (P3, jederzeit, einzeln): MT-045 (9 Teile) MT-051 MT-052 MT-053 MT-054 MT-055 MT-056
+Hygiene (P3, jederzeit, einzeln): MT-044 MT-045 (9 Teile) MT-051 MT-052 MT-053 MT-054 MT-055 MT-056
 
 Gate 4 — Public SaaS Ready: externer Pentest (ZAP/Nuclei von advisory → required), Privacy-Review (MT-039/040 entschieden), Lasttest 10k Tenants, Runbooks (Backup/Restore, Incident, Suspension), Abuse-Monitoring (MT-033 Top-N), DR-Drill.
 ```
@@ -1479,7 +1479,7 @@ Für Maßnahmen-Tickets als Vorbild zu nennen:
 - **Router-Level-Guard**: `common/plant_ownership.py::require_owned_plant` — erbt auf jede neue Route, refusiert `""` explizit.
 - **Hybrid-Katalog-Write**: `domain/services/substrate_service.py:194-216` (`_authorize_write`), `species_service.py:109-117` (`_authorize_tenant_owned_write`).
 - **Strikt tenant-gebundenes Repository**: `data_access/arango/attachment_repository.py` (alle Methoden PFLICHT, SHA-Dedup pro Tenant), `inventree_repository.py` (Flag + `_require_tenant_key` + Allowlist), `repositories/propagation_repository.py` (By-Key-Vergleich + `PRUNE`).
-- **Keyword-only Service-Prädikat**: `task_service.get_task:990`, `overwintering_profile_service.py:116-120`, `post_harvest_service.get_batch:60`.
+- **Service-Prädikat ohne Default**: keyword-only `task_service.get_task:990` (`*, tenant_key`); positional, aber Pflicht ohne Default: `overwintering_profile_service.get_profile:116`, `post_harvest_service.get_batch:60` — MT-010 fordert die keyword-only-Form, die beiden letzten wären vom neuen Guard mit umzustellen.
 - **Tenant-eigene Integration mit Fernet + SSRF**: `inventree_service`/`inventree_adapter`, `weather_source_config_repository.py:43` (`upsert` verweigert leeren Tenant).
 - **Per-User-Budget fail-closed**: `identification_rate_limiter.py:58`.
 - **Inventar per Konstruktion vollständig**: `tenant_erasure_engine.py:11-22` + `tests/unit/guards/test_tenant_erasure_inventory_is_complete.py`.
