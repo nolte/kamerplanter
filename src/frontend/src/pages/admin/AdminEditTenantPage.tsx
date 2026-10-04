@@ -94,6 +94,9 @@ export default function AdminEditTenantPage() {
   // #2032 — changing a member's role (demoting the last lead) passes it too, bound to the
   // membership. The chosen role does not survive the identity-provider round trip either.
   useStepUpResume('change-member-role');
+  // #2106 — adding an account to the tenant passes it too, bound to `<tenant>|<user>`; the chosen
+  // user and role do not survive the identity-provider round trip either.
+  useStepUpResume('add-member');
   const [roleChange, setRoleChange] = useState<{ member: AdminTenantMember; role: TenantRole } | null>(null);
   const [confirmActiveChange, setConfirmActiveChange] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<AdminTenantMember | null>(null);
@@ -105,7 +108,7 @@ export default function AdminEditTenantPage() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [selectedRole, setSelectedRole] = useState<TenantRole>('viewer');
-  const [adding, setAdding] = useState(false);
+  const [confirmAdd, setConfirmAdd] = useState(false);
 
   const isPlatform = tenant?.is_platform === true;
 
@@ -226,21 +229,26 @@ export default function AdminEditTenantPage() {
     navigate('/settings#platform');
   };
 
-  const handleAddMember = async () => {
+  // Adding a member only opens the confirmation (#2106): nothing is written until the admin's OWN
+  // step-up went through. A rejection propagates to the dialog, which shows it and stays open.
+  const handleAddMember = () => {
     if (!key || !selectedUser) return;
-    setAdding(true);
-    try {
-      const m = await addTenantMember(key, { user_key: selectedUser.key, role: selectedRole });
-      setMembers((prev) => [...prev, m]);
-      setSelectedUser(null);
-      setSelectedRole('viewer');
-      setShowAddMember(false);
-      enqueueSnackbar(t('pages.auth.adminMemberAdded'), { variant: 'success' });
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    } finally {
-      setAdding(false);
-    }
+    setConfirmAdd(true);
+  };
+
+  const handleConfirmAddMember = async (credentials: StepUpConfirmation) => {
+    if (!key || !selectedUser) return;
+    const m = await addTenantMember(
+      key,
+      { user_key: selectedUser.key, role: selectedRole },
+      toCredentialStepUpBody(credentials),
+    );
+    setMembers((prev) => [...prev, m]);
+    setSelectedUser(null);
+    setSelectedRole('viewer');
+    setShowAddMember(false);
+    setConfirmAdd(false);
+    enqueueSnackbar(t('pages.auth.adminMemberAdded'), { variant: 'success' });
   };
 
   // Removing a member passes the admin's OWN step-up (#2009); the dialog shows a
@@ -437,8 +445,8 @@ export default function AdminEditTenantPage() {
                     <MenuItem value="viewer">{t('enums.tenantRole.viewer')}</MenuItem>
                   </Select>
                 </FormControl>
-                <Button variant="contained" size="small" onClick={handleAddMember} disabled={adding || !selectedUser}
-                  startIcon={adding ? <CircularProgress size={14} /> : undefined} sx={{ mt: 0.25 }} data-testid="add-member-submit-btn">
+                <Button variant="contained" size="small" onClick={handleAddMember} disabled={!selectedUser}
+                  sx={{ mt: 0.25 }} data-testid="add-member-submit-btn">
                   {t('common.add')}
                 </Button>
                 <Button size="small" onClick={() => { setShowAddMember(false); setSelectedUser(null); }} sx={{ mt: 0.25 }}>
@@ -504,6 +512,24 @@ export default function AdminEditTenantPage() {
                 </Table>
               </TableContainer>
             )}
+            <StepUpConfirmDialog
+              open={confirmAdd && selectedUser !== null}
+              title={t('pages.auth.adminAddMemberStepUpTitle')}
+              description={t('pages.auth.adminAddMemberStepUpDescription', {
+                name: selectedUser?.display_name ?? '',
+                tenant: tenant.name,
+                role: t(`enums.tenantRole.${selectedRole}`),
+              })}
+              passwordLabel={t('pages.auth.adminDeleteUserPasswordLabel')}
+              passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
+              confirmLabel={t('pages.auth.adminAddMemberStepUpConfirm')}
+              confirmColor="primary"
+              testIdPrefix="add-member"
+              stepUpAction="admin_membership_add"
+              stepUpTarget={selectedUser ? `${tenant.key}|${selectedUser.key}` : undefined}
+              onConfirm={handleConfirmAddMember}
+              onCancel={() => setConfirmAdd(false)}
+            />
             <StepUpConfirmDialog
               open={memberToRemove !== null}
               title={t('pages.auth.adminRemoveMemberStepUpTitle')}

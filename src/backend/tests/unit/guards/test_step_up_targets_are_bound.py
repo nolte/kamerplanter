@@ -37,8 +37,9 @@ _ENTRIES = {"verify", "issue_code", "admit_reauth", "issue_reauth_token"}
 #: Call sites measured when this guard was written (#1884) — a change is a signal to
 #: read: a new site must bind its target, a vanished one may mean the predicate went blind.
 #: 11 at #1884; 13 since #2009 (``TenantService.admin_update_tenant`` / ``admin_remove_membership``);
-#: 16 since #2032 (``admin_change_membership_role``, ``change_member_role``, ``remove_member``).
-EXPECTED_CALL_SITES = 16
+#: 16 since #2032 (``admin_change_membership_role``, ``change_member_role``, ``remove_member``);
+#: 17 since #2106 (``admin_add_membership``).
+EXPECTED_CALL_SITES = 17
 
 
 def _receiver_spelling(node: ast.expr) -> str:

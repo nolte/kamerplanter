@@ -27,6 +27,7 @@ from app.common.exceptions import (
 from app.common.log_privacy import log_tenant_record_key
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
+from tests.support.step_up import STEP_UP_PASSED
 from tests.support.tenant_erasure_doubles import (
     SALT,
     FakeTenantErasureRepository,
@@ -325,7 +326,14 @@ class TestNoDeletionThatBreaksTheInstallationOrLeaksAccess:
         service = tenant_service_for_deletion(record_repo=repo)
 
         with pytest.raises(ForbiddenError):
-            service.admin_add_membership(KEY, "user-9", TenantRole.GROWER, actor_user_key="admin-9")
+            service.admin_add_membership(
+                KEY,
+                "user-9",
+                TenantRole.GROWER,
+                requester=MagicMock(key="admin-9"),
+                client_ip=None,
+                **STEP_UP_PASSED,
+            )
         service._membership_repo.create.assert_not_called()
 
     def test_the_retry_feeds_the_persisted_parent_keys_back(self) -> None:

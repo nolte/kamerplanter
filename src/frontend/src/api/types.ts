@@ -5012,7 +5012,9 @@ export type StepUpAction =
   // #2032 — a tenant's member administrator (the `management` scope) removing a member.
   | 'tenant_member_removal'
   // #2032 — a tenant's member administrator changing a member's role.
-  | 'tenant_member_role_change';
+  | 'tenant_member_role_change'
+  // #2106 — a platform admin adding an account to a tenant (bound to `<tenant_key>|<user_key>`).
+  | 'admin_membership_add';
 
 /**
  * The step-up a credential change carries in its body (#1847, #1857, REQ-023

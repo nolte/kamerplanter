@@ -51,10 +51,6 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "creation of a new organisation: the founder is its lead by construction; is_platform is seeded, not "
         "request-settable (REQ-024 AK-20), so the new tenant is never the platform tenant"
     ),
-    ("tenant_service.py", "TenantService.admin_add_membership"): (
-        "platform-admin path: the router requires require_platform_admin (an active lead in the platform tenant) "
-        "and a platform admin may grant any role in any tenant, the platform tenant included"
-    ),
     ("tenant_service.py", "TenantService.admin_change_membership_role"): (
         "platform-admin path: both routes require require_platform_admin and a platform admin may change any "
         "role in any tenant; the acting admin's step-up is checked here (#2032)"
@@ -176,6 +172,9 @@ def test_the_tenant_scoped_grants_are_gated() -> None:
         ("tenant_service.py", "TenantService.change_member_role"),
         ("tenant_service.py", "TenantService.create_email_invitation"),
         ("tenant_service.py", "TenantService.create_link_invitation"),
+        # #2106 - the platform-admin add meets the same rule behind its route's gate: ``lead`` in the
+        # platform tenant is handed out only by someone who holds it. The entry that classified it is gone.
+        ("tenant_service.py", "TenantService.admin_add_membership"),
     ):
         assert entry in found and found[entry][1], f"{entry} does not call self.{_GATE}"
 

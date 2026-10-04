@@ -73,8 +73,8 @@ class SecurityAuditService:
         entry.key = self._repo.record(entry)
         logger.warning(
             "security_audit_recorded",
-            action=str(action),
-            via=str(via),
+            action=action.value,
+            via=via.value,
             actor=log_subject(actor_user_key),
             target=log_subject(target_user_key),
             tenant=log_tenant(tenant_key),

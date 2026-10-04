@@ -1593,7 +1593,17 @@ class TenantService:
     # deliberately do not take ``actor_scopes``.
 
     def admin_add_membership(
-        self, tenant_key: str, user_key: str, role: TenantRole, *, actor_user_key: str
+        self,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        *,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> Membership:
         """Add a user to a tenant on the platform-admin path.
 
@@ -1601,6 +1611,18 @@ class TenantService:
         ``POST .../users/{uk}/memberships``. The membership row and its two graph
         edges are created by :meth:`IMembershipRepository.create`, so the edge
         management the two router copies duplicated now lives in one place.
+
+        **Step-up (#2106, REQ-024 AK-59).** Giving an account access to a tenant - in the
+        ``platform`` tenant with ``lead``, the platform-admin role - is as consequential as taking
+        it away, so it passes the admin's *own* step-up (``requester``: the password, the fresh
+        re-authentication or the mailed code; an API key is 403, 429 when locked), bound to the pair
+        ``<tenant_key>|<user_key>`` (#1884). It lives here, not on the routes, so both views pass the
+        same check; the step-up arguments are keyword-only without a default, so a new caller cannot
+        forget them. What cannot succeed is refused first and is not asked for a password: an unknown
+        tenant (404), a platform admin adding themselves to the platform tenant (400), a ``lead`` in
+        the platform tenant by someone who does not hold it (403, :meth:`_refuse_role_grant`), a tenant
+        being erased (403), an account that is already a member (409). Without a valid step-up nothing
+        is written; the written membership is recorded in the security audit (#2111).
 
         Raises :class:`NotFoundError` when the tenant is unknown and
         :class:`DuplicateError` when the user is already a member. The *user's*
@@ -1611,10 +1633,34 @@ class TenantService:
         if not tenant:
             raise NotFoundError("Tenant", tenant_key)
 
+        if tenant.is_platform and user_key == requester.key:
+            raise ValidationError("A platform administrator cannot add themselves to the platform tenant.")
+        # Behind the route's ``require_platform_admin``, the same rule the tenant-scoped grants meet (#2078):
+        # ``lead`` in the platform tenant is handed out only by someone who holds it.
+        self._refuse_role_grant(
+            tenant_key=tenant_key,
+            actor_user_key=requester.key or "",
+            target_role=role,
+            current_role=None,
+            is_own_membership=False,
+        )
         self._refuse_while_erasing(tenant_key)
         existing = self._membership_repo.get_by_user_and_tenant(user_key, tenant_key)
         if existing:
             raise DuplicateError("memberships", "user_key+tenant_key", "already a member")
+
+        self._step_up_verifier.verify(
+            requester,
+            action="admin_membership_add",
+            # #1884 - a factor obtained to add this account to this tenant confirms this pair only.
+            target=f"{tenant_key}|{user_key}",
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
 
         membership = Membership(
             user_key=user_key,
@@ -1627,7 +1673,7 @@ class TenantService:
         self._audit_membership(
             action=SecurityAuditAction.MEMBERSHIP_ADDED,
             via=SecurityAuditVia.PLATFORM_ADMIN,
-            actor_user_key=actor_user_key,
+            actor_user_key=requester.key or "",
             target_user_key=user_key,
             tenant_key=tenant_key,
             membership=created,

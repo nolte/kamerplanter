@@ -274,6 +274,7 @@ class _World:
         ("admin_tenant_update", "t-1"),
         ("admin_membership_removal", "m-1"),
         ("admin_membership_role_change", "m-1"),
+        ("admin_membership_add", "t-1|u-2"),
     ],
 )
 def test_a_platform_admin_obtains_a_factor_for_an_existing_target(action: str, target: str) -> None:
@@ -296,6 +297,8 @@ def test_a_platform_admin_obtains_a_factor_for_an_existing_target(action: str, t
         ("admin_membership_removal", "m-404"),
         ("admin_membership_role_change", "m-1"),
         ("admin_membership_role_change", "m-404"),
+        ("admin_membership_add", "t-1|u-2"),
+        ("admin_membership_add", "t-404|u-404"),
     ],
 )
 def test_who_is_no_platform_admin_is_refused_before_existence_is_told(action: str, target: str) -> None:
@@ -320,6 +323,12 @@ def test_who_is_no_platform_admin_is_refused_before_existence_is_told(action: st
         ("admin_tenant_update", "platform", ForbiddenError),
         ("admin_membership_removal", "m-404", NotFoundError),
         ("admin_membership_role_change", "m-404", NotFoundError),
+        ("admin_membership_add", "t-404|u-2", NotFoundError),
+        ("admin_membership_add", "t-1|u-404", NotFoundError),
+        ("admin_membership_add", "t-1", ValidationError),
+        ("admin_membership_add", "t-1|", ValidationError),
+        ("admin_membership_add", "|u-2", ValidationError),
+        ("admin_membership_add", "t-1|u-2|extra", ValidationError),
     ],
 )
 def test_a_target_the_act_would_refuse_gets_no_factor(action: str, target: str, error: type[Exception]) -> None:
@@ -333,7 +342,12 @@ def test_a_tenant_lead_with_management_obtains_a_factor_for_its_own_tenant() -> 
 
 @pytest.mark.parametrize(
     ("action", "target"),
-    [("admin_tenant_update", "t-1"), ("admin_membership_removal", "m-1"), ("admin_membership_role_change", "m-1")],
+    [
+        ("admin_tenant_update", "t-1"),
+        ("admin_membership_removal", "m-1"),
+        ("admin_membership_role_change", "m-1"),
+        ("admin_membership_add", "t-1|u-2"),
+    ],
 )
 def test_a_tenant_lead_obtains_no_factor_for_the_platform_admin_acts_on_its_tenant(action: str, target: str) -> None:
     """#2009 — deactivating a tenant and the admin removal are platform-admin acts, not tenant management."""

@@ -110,11 +110,15 @@ describe('adminPlatform endpoints — tenant members', () => {
     expect(client.get).toHaveBeenCalledWith('/admin/platform/tenants/t1/members');
   });
 
-  it('addTenantMember posts member to tenant', async () => {
+  it("addTenantMember posts member to tenant with the admin's step-up (#2106)", async () => {
     client.post.mockResolvedValue({ data: { key: 'm1' } });
     const payload = { user_key: 'u1', role: 'grower' } as never;
-    await admin.addTenantMember('t1', payload);
-    expect(client.post).toHaveBeenCalledWith('/admin/platform/tenants/t1/members', payload);
+    await admin.addTenantMember('t1', payload, { current_password: 'pw' });
+    expect(client.post).toHaveBeenCalledWith('/admin/platform/tenants/t1/members', {
+      user_key: 'u1',
+      role: 'grower',
+      current_password: 'pw',
+    });
   });
 
   it("removeTenantMember deletes member from tenant with the admin's step-up (#2009)", async () => {
@@ -142,11 +146,15 @@ describe('adminPlatform endpoints — user memberships', () => {
     expect(client.get).toHaveBeenCalledWith('/admin/platform/users/u1/memberships');
   });
 
-  it('addUserToTenant posts membership for user', async () => {
+  it("addUserToTenant posts membership for user with the admin's step-up (#2106)", async () => {
     client.post.mockResolvedValue({ data: { key: 'm1' } });
     const payload = { tenant_key: 't1', role: 'viewer' } as never;
-    await admin.addUserToTenant('u1', payload);
-    expect(client.post).toHaveBeenCalledWith('/admin/platform/users/u1/memberships', payload);
+    await admin.addUserToTenant('u1', payload, { step_up_code: '12345678' });
+    expect(client.post).toHaveBeenCalledWith('/admin/platform/users/u1/memberships', {
+      tenant_key: 't1',
+      role: 'viewer',
+      step_up_code: '12345678',
+    });
   });
 
   it("removeUserFromTenant deletes membership for user with the admin's step-up (#2009)", async () => {

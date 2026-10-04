@@ -108,9 +108,26 @@ class AdminMembershipRemovalRequest(CredentialStepUp):
     )
 
 
-class AdminAddMemberRequest(BaseModel):
+class AdminAddMemberRequest(CredentialStepUp):
+    """The account to add and its role; the step-up fields are the *admin's* own (#2106).
+
+    Adding an account to a tenant — the ``platform`` tenant with ``lead`` makes it a platform
+    admin — passes the admin's step-up (REQ-024 AK-59): ``current_password`` for an admin with a
+    local password; for one without, ``step_up_token`` / ``step_up_code`` obtained for
+    ``admin_membership_add`` with ``<tenant_key>|<user_key>`` as the target. Never written anywhere.
+    """
+
     user_key: str
     role: TenantRole = TenantRole.VIEWER
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"user_key": "u-4711", "role": "grower", "current_password": "<the admin's own current password>"},
+                {"user_key": "u-4711", "role": "viewer", "step_up_code": "48213907"},
+            ]
+        },
+    )
 
 
 class AdminUpdateMemberRoleRequest(CredentialStepUp):
@@ -144,7 +161,12 @@ class AdminUserMembershipResponse(BaseModel):
     joined_at: datetime | None
 
 
-class AdminAddUserToTenantRequest(BaseModel):
+class AdminAddUserToTenantRequest(CredentialStepUp):
+    """The tenant to add the path's account to and its role; the step-up fields are the *admin's* own (#2106).
+
+    The same step-up as :class:`AdminAddMemberRequest`, bound to ``<tenant_key>|<user_key>``.
+    """
+
     # tenant-body-ok: the tenant is the OBJECT of this operation, not the
     # isolation container of the caller. `POST /admin/platform/users/{key}/
     # tenants` is a platform-admin endpoint (`Depends(require_platform_admin)`,
@@ -154,6 +176,15 @@ class AdminAddUserToTenantRequest(BaseModel):
     # across all of them — so the body is the only place it can come from.
     tenant_key: str
     role: TenantRole = TenantRole.VIEWER
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"tenant_key": "t-17", "role": "grower", "current_password": "<the admin's own current password>"},
+                {"tenant_key": "t-17", "role": "viewer", "step_up_code": "48213907"},
+            ]
+        },
+    )
 
 
 class SecurityAuditEntryResponse(BaseModel):

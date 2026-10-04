@@ -97,7 +97,7 @@ def _only(audit: _AuditRepo) -> SecurityAuditEntry:
 def test_the_admin_add_writes_who_added_whom_with_which_role() -> None:
     service, audit, _ = _service()
 
-    service.admin_add_membership("t1", "target-1", TenantRole.LEAD, actor_user_key="admin-1")
+    service.admin_add_membership("t1", "target-1", TenantRole.LEAD, **_STEP_UP)
 
     row = _only(audit)
     assert (row.action, row.via) == (SecurityAuditAction.MEMBERSHIP_ADDED, SecurityAuditVia.PLATFORM_ADMIN)
@@ -262,7 +262,7 @@ def test_a_failing_audit_write_is_not_swallowed() -> None:
     audit.record = MagicMock(side_effect=RuntimeError("audit store down"))  # type: ignore[method-assign]
 
     with pytest.raises(RuntimeError, match="audit store down"):
-        service.admin_add_membership("t1", "target-1", TenantRole.VIEWER, actor_user_key="admin-1")
+        service.admin_add_membership("t1", "target-1", TenantRole.VIEWER, **_STEP_UP)
 
 
 def test_the_row_carries_the_request_id_and_the_log_line_no_raw_key() -> None:
@@ -270,7 +270,7 @@ def test_the_row_carries_the_request_id_and_the_log_line_no_raw_key() -> None:
     structlog.contextvars.bind_contextvars(request_id="req-123")
     try:
         with capture_logs() as logs:
-            service.admin_add_membership("t1", "target-1", TenantRole.VIEWER, actor_user_key="admin-1")
+            service.admin_add_membership("t1", "target-1", TenantRole.VIEWER, **_STEP_UP)
     finally:
         structlog.contextvars.clear_contextvars()
 

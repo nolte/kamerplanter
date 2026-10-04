@@ -492,11 +492,14 @@ def list_tenant_members(
     "/tenants/{tenant_key}/members",
     response_model=AdminTenantMemberResponse,
     status_code=201,
+    responses=STEP_UP_RESPONSES,
 )
 def add_tenant_member(
     tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
     body: AdminAddMemberRequest,
     admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     tenant_service: TenantService = Depends(get_tenant_service),
     user_service: UserService = Depends(get_user_service),
 ):
@@ -507,10 +510,26 @@ def add_tenant_member(
     membership row and its two graph edges are created once, in the service. The
     user is loaded here (404 when unknown) because the member-centric response
     needs its name and email.
+
+    **Step-up (#2106, REQ-024 AK-59):** adding an account to a tenant — the ``platform`` tenant
+    with ``lead`` makes it a platform admin — passes the admin's own step-up: the body carries
+    ``current_password`` (or ``step_up_token`` / ``step_up_code`` obtained for
+    ``admin_membership_add`` with ``<tenant_key>|<user_key>`` as the target); 401 without it,
+    403 from an API-key request, 429 ``STEP_UP_LOCKED``; nothing is written then. A platform
+    admin cannot add themselves to the platform tenant (400). Every add writes a security-audit
+    row (#2111). The step-up fields are never written.
     """
     user = user_service.get_user(body.user_key)
     membership = tenant_service.admin_add_membership(
-        tenant_key, body.user_key, body.role, actor_user_key=admin.key or ""
+        tenant_key,
+        body.user_key,
+        body.role,
+        requester=admin,
+        current_password=body.current_password,
+        step_up_code=body.step_up_code,
+        step_up_token=body.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
     )
     return AdminTenantMemberResponse(
         membership_key=membership.key or "",
@@ -652,11 +671,14 @@ def list_user_memberships(
     "/users/{user_key}/memberships",
     response_model=AdminUserMembershipResponse,
     status_code=201,
+    responses=STEP_UP_RESPONSES,
 )
 def add_user_to_tenant(
     user_key: Annotated[str, Path(description="Document key of the user.")],
     body: AdminAddUserToTenantRequest,
     admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     tenant_service: TenantService = Depends(get_tenant_service),
     user_service: UserService = Depends(get_user_service),
 ):
@@ -666,11 +688,24 @@ def add_user_to_tenant(
     implementation shared with the tenant-perspective ``add_tenant_member``. The
     user (path entity, 404) and the tenant (response name/slug, 404) are loaded
     here; the membership and its edges are created once, in the service.
+
+    **Step-up (#2106, REQ-024 AK-59):** the same as the tenant perspective — the body carries the
+    admin's own ``current_password`` (or ``step_up_token`` / ``step_up_code`` for
+    ``admin_membership_add`` with ``<tenant_key>|<user_key>``); 401 without it, 403 from an
+    API-key request, 429 ``STEP_UP_LOCKED``; nothing is written then.
     """
     user_service.get_user(user_key)
     tenant = tenant_service.get_tenant(body.tenant_key)
     membership = tenant_service.admin_add_membership(
-        body.tenant_key, user_key, body.role, actor_user_key=admin.key or ""
+        body.tenant_key,
+        user_key,
+        body.role,
+        requester=admin,
+        current_password=body.current_password,
+        step_up_code=body.step_up_code,
+        step_up_token=body.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
     )
     return AdminUserMembershipResponse(
         membership_key=membership.key or "",
