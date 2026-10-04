@@ -140,6 +140,16 @@ _ACCEPTED_URLS = [
     "redis://[::1]:6379/0",
     "redis://:p%40ss@h:6379/0",  # percent-encoded '@' in the password
     "redis+unix://:pw@/run/valkey.sock",
+    # The positive matrix of #2062: every other shape an operator writes, each measured to build.
+    "redis://user:pw@h:6379/0",  # ACL user and password
+    "redis://:pw@h/0",  # no port
+    "redis://h",  # bare host
+    "redis://h:6379",  # no database
+    "rediss://:p%2Fw@h:6380/2",  # TLS, percent-encoded '/' in the password
+    "redis://u%40ser:p%40ss@h:6379/0",  # percent-encoded '@' in user and password
+    "redis://h:6379/0?socket_timeout=3",  # a query option, no '@'
+    "redis+unix:///run/valkey.sock",  # socket without a password
+    "redis+unix://:pw@/run/valkey.sock?db=2",
 ]
 
 
@@ -190,3 +200,34 @@ def test_an_empty_redis_url_loads_but_gives_the_limiter_nothing_to_count_in(monk
     assert loaded.redis_url == ""
     with pytest.raises(rate_limit.RateLimitStorageConfigError):
         rate_limit.build_rate_limiter(_rate_limit_key)
+
+
+@pytest.mark.parametrize("variable", [_VARIABLE, "REDIS_URL"])
+@pytest.mark.parametrize("value", ["redis://h:6379/0?client_name=a@b", "redis://h:6379/a@b", "redis://h:6379/0#a@b"])
+def test_an_at_sign_after_the_authority_is_refused_although_redis_py_would_read_it(
+    monkeypatch: pytest.MonkeyPatch, variable: str, value: str
+) -> None:
+    """The deliberate boundary of the check (#2062): ``@`` in path, query or fragment is refused.
+
+    redis-py reads ``redis://h:6379/0?client_name=a@b`` as host ``h``. The same rule
+    cannot tell it from ``redis://hunter2/x@h:6379`` — a password whose unencoded
+    ``/`` ended the authority — where the *password* becomes the host name, and the
+    DNS error of a connection attempt then quotes it. The form that is safe to accept
+    and the form that leaks differ only in what the operator meant, so the check
+    refuses both and tells the operator to percent-encode; the cost is one rare URL.
+    """
+    monkeypatch.setenv(variable, value)
+
+    with pytest.raises(SettingsError) as raised:
+        load_settings()
+
+    assert variable in str(raised.value)
+    assert "percent-encode" in str(raised.value)
+
+
+def test_the_look_alike_of_a_valid_url_puts_the_password_into_the_host() -> None:
+    """Pins the measurement the boundary above rests on."""
+    from urllib.parse import urlsplit
+
+    assert urlsplit("redis://h:6379/0?client_name=a@b").hostname == "h"
+    assert urlsplit("redis://hunter2/x@h:6379").hostname == "hunter2"
