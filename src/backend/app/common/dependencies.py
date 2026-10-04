@@ -103,7 +103,9 @@ from app.domain.services.watering_log_service import WateringLogService
 from app.domain.services.watering_service import WateringService
 
 if TYPE_CHECKING:
+    from app.data_access.arango.erasure_repository import ArangoErasureRepository
     from app.data_access.external.latched_redis import LatchedRedis
+    from app.domain.services.observation_service import ObservationService as _ObservationService
 
 _connection: ArangoConnection | None = None
 _timescale_connection = None
@@ -1558,7 +1560,7 @@ def get_observation_repo():
     return TimescaleObservationRepository(conn.pool)
 
 
-def get_observation_service():
+def get_observation_service() -> _ObservationService:
     from app.domain.services.observation_service import ObservationService
 
     # #1871 B6 — a sensor's tenant is its parent's (tank, site, or location via its site).
@@ -1726,7 +1728,7 @@ def get_processing_restriction_repo():
     return ArangoProcessingRestrictionRepository(get_db())
 
 
-def get_erasure_repo():
+def get_erasure_repo() -> ArangoErasureRepository:
     from app.data_access.arango.erasure_repository import ArangoErasureRepository
 
     return ArangoErasureRepository(get_db())

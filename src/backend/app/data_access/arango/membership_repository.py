@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
+from typing import cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from arango.exceptions import AQLQueryExecuteError
 
@@ -141,7 +143,8 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         """
         for _attempt in range(self._ROLLBACK_ATTEMPTS):
             try:
-                removed = list(
+                cursor = cast(
+                    Cursor,
                     self._db.aql.execute(
                         query,
                         bind_vars={
@@ -152,8 +155,9 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
                             "tenant_key": tenant_key,
                             "now": datetime.now(UTC).isoformat(),
                         },
-                    )
+                    ),
                 )
+                removed = list(cursor)
             except AQLQueryExecuteError as exc:
                 if exc.error_code == 1200:
                     continue
