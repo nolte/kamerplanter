@@ -11,7 +11,7 @@ Priorität: Mittel (nach REQ-051 v1.2; unabhängig von REQ-053/054)
 Version: 1.3 (Präzisierungen aus der TC-Ableitung)
 Datum: 2026-10-04
 Tags: [plant-identity, timeline, events, social, mastodon, fediverse, activitypub, publishing-policy, privacy, moderation, anti-spam, ai-content]
-Abhängigkeit: REQ-013 v2.7 (PlantInstance, `PlantDiaryEntry`), REQ-051 v1.2 (Tagebuch — Eintragstypen, Fotos, Mandantentrennung), REQ-052 v1.0 + NFR-013 v1.4 (Bilderfassung, `attachments`, Renditions, EXIF-Strip), REQ-034 (Foto-Galerie, `caption`), REQ-003 (Phasen-Zustandsmaschine), REQ-006/REQ-053 (`care_events`), REQ-007 (Ernte), REQ-010/REQ-043/REQ-044 (IPM, Diagnose, Behandlung), REQ-005 (Sensorprovenienz), REQ-018 (Home Assistant), REQ-023 v2.x (Auth, Authlib-OAuth-Muster, Token-Speicherung), REQ-024 v1.7 (Mandant, Rollen), REQ-049 v1.4 (Rollenvokabular), REQ-025 v1.6 + NFR-011 (DSGVO, Aufbewahrung, Consent), REQ-027 (Light-Modus), REQ-031 v2.x / REQ-050 v1.5 (KI-Betriebsmodelle), REQ-042 v1.1 (Modulkatalog), REQ-021 (Navigation), NFR-006 (Fehlerformat), NFR-007 (Observability), NFR-017 (Mehrsprachigkeit), UI-NFR-001 (Mobile-First), UI-NFR-002 (WCAG)
+Abhängigkeit: REQ-013 v2.7 (PlantInstance, `PlantDiaryEntry`), REQ-051 v1.3 (Tagebuch — Eintragstypen, `milestone_kind`, Fotos, Mandantentrennung), REQ-001 v4.9 (`regulatory_class`), REQ-030 v1.8 (`social.*`-Typen), REQ-052 v1.0 + NFR-013 v1.4 (Bilderfassung, `attachments`, Renditions, EXIF-Strip), REQ-034 (Foto-Galerie, `caption`), REQ-003 (Phasen-Zustandsmaschine), REQ-006/REQ-053 (`care_events`), REQ-007 (Ernte), REQ-010/REQ-043/REQ-044 (IPM, Diagnose, Behandlung), REQ-005 (Sensorprovenienz), REQ-018 (Home Assistant), REQ-023 v2.x (Auth, Authlib-OAuth-Muster, Token-Speicherung), REQ-024 v1.7 (Mandant, Rollen), REQ-049 v1.4 (Rollenvokabular), REQ-025 v1.29 + NFR-011 v1.34 (DSGVO, Aufbewahrung R-28…R-37, Consent `social_publishing`), REQ-027 (Light-Modus), REQ-031 v2.x / REQ-050 v1.5 (KI-Betriebsmodelle), REQ-042 v1.2 (Modul `social`), REQ-021 (Navigation), NFR-006 (Fehlerformat), NFR-007 (Observability), NFR-017 (Mehrsprachigkeit), UI-NFR-001 (Mobile-First), UI-NFR-002 (WCAG)
 Wird benötigt von: — (künftig: REQ-05x „Öffentliche Garten-Profile", „Plant Stories", ActivityPub-native Identität)
 ```
 
@@ -947,7 +947,7 @@ class SocialProvider(ABC):
 
 ### 17.5 Cannabis (ZG-001, ZG-005)
 
-Entschieden (O-05): Erkennung im MVP über die Gattung `Cannabis` in den Stammdaten; ein Feld `regulatory_class` wird als Folge-Issue für REQ-001 angelegt (Anhang K Nr. 6); die Rechtsprüfung zu KCanG § 6 bleibt Betreiberaufgabe und ist im Opt-in-Hinweis genannt.
+Entschieden (O-05): REQ-001 v4.9 führt `Species.regulatory_class: Optional[Literal['cannabis']]`; die Sperre greift, wenn das Feld `cannabis` ist **oder** (Fallback bis zur Seed-Pflege) `scientific_name` mit `Cannabis ` beginnt; die Rechtsprüfung zu KCanG § 6 bleibt Betreiberaufgabe und ist im Opt-in-Hinweis genannt.
 
 **PS-PRI-040 (MUST, MVP)** Für Pflanzeninstanzen, deren Art als Cannabis klassifiziert ist, sind `visibility ≠ internal` und jede `SocialConnection` **standardmäßig gesperrt** (422 `identity.regulated_species`) mit Erklärung (KCanG § 6 Werbe- und Sponsoringverbot für Konsumcannabis und Anbauvereinigungen) **und** dem Hinweis „Wenn das ein Irrtum ist, melde es" (Kontakt des Betreibers, V-13). Der Betreiber kann die Sperre instanzweit aufheben (`SOCIAL_ALLOW_REGULATED_SPECIES=true`, mit Hinweis auf eigene Rechtsprüfung); Timeline und interne Identität sind nicht betroffen.
 
@@ -1977,7 +1977,7 @@ Alle Punkte sind entschieden (Betreiber, 2026-10-04). Spalte „Verifikation" ne
 | O-10 | Edge `has_identity` | **Nein** im MVP; erst bei Plant Collections als Projektion | §22.1 | — |
 | O-11 | Nutzerdefinierte Vorlagen | **COULD**, nach Feedback | §22.7 | — |
 | O-12 | Generisches Audit-Log | **Eigenes Spec-Issue**; `social_audit_events` so geschnitten, dass es migrierbar ist | §22.8 | — |
-| O-13 | REQ-053-Migrationsnummern (v0072–v0077 vs. Code v0081) | **REQ-053 korrigieren** (Anhang K Nr. 5); REQ-055 nennt keine festen Nummern | §22.9 | — |
+| O-13 | REQ-053-Migrationsnummern (v0072–v0077 vs. Code v0081) | **Bereits erledigt**: REQ-053 v1.2b nutzt logische Platzhalter M1…M6 (GP-NFR-015); REQ-055 nennt keine festen Nummern | §22.9 | — |
 | O-14 | Domain-Event-Bus | **Nicht jetzt**; Outbox genügt mit einem Konsumenten (ADR-PS-06) | §24.1 | — |
 | O-15 | Muster für Tagesmetriken | **Umsetzung prüft** `dashboard_repositories.py`/REQ-045 vor Welle 3; sonst `social_metrics_daily` | PS-NFR-020 | Welle 3 |
 | O-16 | E-Mail-Infrastruktur für automatische Kontoerstellung | **Nur mit eigener Instanz und Catch-all**; Teil von ADR-PS-09 (post-MVP) | ADR-PS-09 | bei ADR-PS-09 |
@@ -2133,10 +2133,10 @@ Titel englisch; Labels `feature`, `spec:REQ-055`, Bereich; Größe S/M/L; Reihen
 |---|-------|-----|-------|
 | 1 | spec(REQ-055): security + casual-user + agrobiology reviews of plant identity / plant social requirements | §33, §20 | M |
 | 2 | spec(REQ-055): derive TC-REQ-055 browser test cases from acceptance criteria | PS-ACC-07x | M |
-| 3 | spec(REQ-051): v1.3 add optional `milestone_kind` to PlantDiaryEntry (new_leaf, flower, fruit, recovered, first_root, germination, repot, other) | PS-EVT-013 | S |
-| 4 | spec(REQ-042/REQ-025/NFR-011): register module `social`, consent purpose `social_publishing`, retention rows R-28…R-33 | PS-UX-001, PS-PRI-050/053 | S |
-| 5 | spec(REQ-053): re-number migration references (v0072–v0077 collide with v0081) | O-13 | S |
-| 6 | spec(REQ-001): regulatory_class on Species (cannabis) or documented genus match; legal note KCanG §6 | O-05 | S |
+| 3 | spec(REQ-051): v1.3 add optional `milestone_kind` to PlantDiaryEntry — ✅ erledigt 2026-10-04 (REQ-051 v1.3 §8) | PS-EVT-013 | S |
+| 4 | spec(REQ-042/REQ-025/NFR-011/REQ-030): register module `social`, consent purpose `social_publishing`, retention rows R-28…R-37, notification types `social.*` — ✅ erledigt 2026-10-04 (REQ-042 v1.2, REQ-025 v1.29, NFR-011 v1.34, REQ-030 v1.8) | PS-UX-001, PS-PRI-050/053, PS-SOC-081 | S |
+| 5 | spec(REQ-053): re-number migration references — ✅ bereits erledigt in REQ-053 v1.2b (logische Platzhalter M1…M6, GP-NFR-015) | O-13 | S |
+| 6 | spec(REQ-001): `regulatory_class` on Species — ✅ erledigt 2026-10-04 (REQ-001 v4.9); Seed-Pflege für Gattung *Cannabis* bleibt Umsetzungsaufgabe (Welle 2) | O-05 | S |
 
 **Welle 1 — Ereignisindex**
 

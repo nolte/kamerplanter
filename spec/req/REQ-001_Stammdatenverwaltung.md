@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.8 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
+Version: 4.9 (`Species.regulatory_class` aus REQ-055)
 Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (parent_species_key für KI-Fallback), NFR-011 v1.5 (R-24 Promotion-Audit-Retention; bis NFR-011 v1.4 als R-19 geführt)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.9 | 2026-10-04 | **`Species.regulatory_class` (REQ-055 O-05):** Additives optionales Feld `regulatory_class: Optional[Literal['cannabis']]` (`None` = unreguliert). Zweck: Funktionen mit Außenwirkung — zuerst öffentliche Pflanzenprofile und Social-Veröffentlichung (REQ-055 PS-PRI-040, KCanG § 6 Werbe- und Sponsoringverbot) — sperren sich für Arten dieser Klasse per Default; der Betreiber kann die Sperre instanzweit aufheben. Gepflegt im Seed (`species.yaml`) für die Gattung *Cannabis*; bis zur Seed-Pflege gilt als Fallback der Gattungsabgleich auf `scientific_name` beginnend mit `Cannabis ` (REQ-055 §17.5). Kein Einfluss auf Stammdatensichtbarkeit (die bleibt beim Tenant-Overlay §2), keine Migration (Feld fehlt = unreguliert). Weitere Klassen (z. B. invasive Arten, Artenschutz) sind bewusst nicht vorweggenommen. (v4.8 — Rechte-Vokabular REQ-049 — hatte keinen eigenen Eintrag.) |
 | 4.7 | 2026-07-19 | **Seed↔Phase-Sequence-Tracking (#611 WS1, Audit #576/#586):** (1) `LifecycleConfig.growth_determinacy: Optional[GrowthDeterminacy]` (`determinate`/`indeterminate`/`semi_determinate`) im Body **nachgezogen** — das Feld existierte bereits in `species.schema.yaml`/`_defs.schema.yaml`, im `LifecycleConfig`-Model, in `species.yaml/lifecycle_overrides` und in REQ-003 §E4, war aber nie in REQ-001 geführt (selbst ein „not-carried-through"-Spec-Gap). Neuer `GrowthDeterminacy`-Enum. (2) **Lifecycle-Resolution-Pflichtfelder** explizit gemacht: `cultivation_cycle_type`, `flowering_strategy` und `growth_determinacy` sind verbindliche **Resolution-Inputs je Species** (nicht optionale Metadaten) — sie speisen den attributgetriebenen Phase-Sequence-Resolver (REQ-003 §D14), `resolve_effective_cycle` und die REQ-047-Überwinterungs-Kopplung. Fehlen sie, fällt die Art auf das strukturell falsche `indoor_default`-Blankett. Reine Spec-Schärfung, keine Code-/Migration-Änderung. |
 | 4.6 | 2026-07-19 | **`cultivation_flexible`-Flag (ADR-006 E6, #615):** Additives Boolean `Species.cultivation_flexible` (default `false`) — Fähigkeits-Signal „diese Art kann fakultativ annuell ODER perennial kultiviert werden" (frostzarte Staude überwintert vs. neu gekauft, einjährig gezogene Erdbeere). Drückt die *Fähigkeit* aus, nicht den Wert (der Default bleibt `cycle_type`/`cultivation_cycle_type`, #297 unangetastet). Master-Data-gepflegt aus `species.yaml/lifecycle_overrides` (Steckbrief-belegte Kohorte), in `SpeciesResponse` exponiert; die Pflanz-Anlage-Maske gated damit die per-Instanz-Kulturführungs-Wahl (ADR-006 E1/#539). Non-breaking, keine Migration nötig. |
 | 4.5 | 2026-07-02 | **Spec-Audit D-Umsetzung (WP-1/WP-3/WP-4):** Die in v4.4 angekündigten Felder sind nun tatsächlich im Body definiert. `GrowthHabit`-Enum real erweitert (12 Werte: +`subshrub`, `grass`, `succulent`, `bulb_geophyte`, `fern`, `aquatic`, `epiphyte`) — beide `growth_habit`-Literal-Stellen mitgezogen. `LifecycleConfig.cultivation_cycle_type: Optional[CycleType]` (Kultur-Praxis vs. botanisch) + abgeleitetes `grown_as_annual`-Flag. Neuer Enum `FloweringStrategy` (`monocarpic`/`polycarpic`) + `LifecycleConfig.flowering_strategy` (Voraussetzung für monokarpe Terminal-Transition REQ-003 §D6, Bulb-Geophyt-Zyklus §D7). Alle Felder optional, non-breaking. Quelle: Spec-Audit-Findings D6/D7 + `.audits/datenmodell-pflanzeneigenschaften-plan.md` WP-1/3/4. |
@@ -95,6 +96,8 @@ Zusätzlich erfasst das System:
     # Freiland-/Gartenplanung (Quelle: Outdoor-Garden-Planner Review G-001)
     - `frost_sensitivity: Optional[Literal['hardy', 'half_hardy', 'tender']]` (hardy = übersteht Frost, half_hardy = leichter Frost ok, tender = frostfrei halten)
     - `hardiness_detail: Optional[str]` (z.B. "Winterhart bis -15°C, Wurzelschutz empfohlen")
+    <!-- Quelle: REQ-055 O-05 -->
+    - `regulatory_class: Optional[Literal['cannabis']]` (Regulierungsklasse mit Außenwirkung; `None` = unreguliert; sperrt per Default öffentliche Profile und Social-Veröffentlichung, REQ-055 PS-PRI-040)
     - `sowing_indoor_weeks_before_last_frost: Optional[int]` (Voranzucht: Wochen vor letztem Frost, z.B. 8 für Tomaten)
     - `sowing_outdoor_after_last_frost_days: Optional[int]` (Direktsaat: Tage nach letztem Frost, z.B. 0 für Erbsen, 14 für Bohnen)
     - `direct_sow_months: Optional[list[int]]` (Monate für Direktsaat, z.B. [3,4,5] für Möhren)
@@ -1065,6 +1068,11 @@ class SpeciesDefinition(BaseModel):
     )
     hardiness_detail: Optional[str] = Field(
         None, description="z.B. 'Winterhart bis -15°C, Wurzelschutz empfohlen'"
+    )
+
+    # Regulierung mit Außenwirkung (Quelle: REQ-055 O-05, KCanG § 6)
+    regulatory_class: Optional[Literal['cannabis']] = Field(
+        None, description="None = unreguliert; 'cannabis' sperrt per Default öffentliche Profile und Social-Veröffentlichung (REQ-055 PS-PRI-040)"
     )
     sowing_indoor_weeks_before_last_frost: Optional[int] = Field(
         None, ge=1, le=20, description="Voranzucht: Wochen vor letztem Frost, z.B. 8 für Tomaten"
