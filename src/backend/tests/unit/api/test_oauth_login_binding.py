@@ -25,6 +25,7 @@ verifies them since #1936) and records the ``redirect_uri`` it receives.
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -287,6 +288,7 @@ def test_the_owner_of_an_ambiguous_legacy_link_is_linked_afresh_through_the_veri
     """Not locked out: the auto-link path adds a link bound to the configuration, beside the legacy one."""
     world = _oidc_world((None, "sub-x", None))
     world.users.rows[world.key].email_verified = True
+    world.users.rows[world.key].email_confirmed_at = datetime(2026, 1, 1, tzinfo=UTC)
 
     _query, callback = _sign_in(world, "corp-b", sub="sub-x", email=world.email, email_verified=True)
 
