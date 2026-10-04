@@ -294,22 +294,22 @@ class ErasureEngine:
             ),
         ),
         AnonymizationRule(
-            # The personal tenant (``tenant_service.create_personal_tenant``)
-            # carries the subject as owner and takes ``name``/``slug`` from the
-            # display name. Deleting it would cascade into records a retention
-            # obligation keeps (a harvest in it: CanG, NFR-011 R-16), so the
-            # tenant is kept and stops naming anyone: owner replaced, name and
-            # slug rewritten to ``anonymized_rename_value(tombstone, key)`` —
-            # unique per row (``slug`` has a unique index) and derived from the
-            # salted tombstone, so nobody can register it first. Until the
-            # #1700 review it was ``anonymized-<key>``: Arango keys are
-            # guessable, a display name "Anonymized <key>" took the slug, and
-            # the erasure transaction aborted on the unique index on every
-            # retry. An organisation tenant the subject founded keeps
-            # its name — it is the group's, not the subject's — and loses only
-            # the owner reference. ``owner_user_key`` confers no permission
-            # (authority is the membership role, REQ-049), so there is nothing
-            # to transfer.
+            # Covers the tenants that outlive the account: the account erasure
+            # erases the subject's *personal* tenant through the tenant-erasure
+            # inventory before this plan, whoever else is a member (erasure
+            # together, REQ-025 §3.1.3, #1824). Left here: an organisation tenant
+            # the subject founded (keeps its name, the group's and not the
+            # subject's, and loses only the owner reference) and a personal
+            # tenant that a member who joined after the freeze keeps (AK-IE-07).
+            # That one carries the subject as owner and takes ``name``/``slug``
+            # from the display name; deleting it would cascade into records a
+            # retention obligation keeps (CanG, NFR-011 R-16), so owner, name and
+            # slug become ``anonymized_rename_value(tombstone, key)``: unique per
+            # row (``slug`` has a unique index), derived from the salted
+            # tombstone so nobody can register it first (``anonymized-<key>``
+            # aborted the transaction on that index until #1700).
+            # ``owner_user_key`` confers no permission (REQ-049), so there is
+            # nothing to transfer.
             collection="tenants",
             user_field="owner_user_key",
             anonymized_value=ANONYMIZED_MARKER,
