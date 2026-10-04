@@ -93,6 +93,20 @@ env_of() { printf '%s | .env[] | select(.name == "%s") | .value' "$(main_of "$1"
 attachments_pvc='select(.kind == "PersistentVolumeClaim" and .metadata.name == "kamerplanter")'
 
 # ---------------------------------------------------------------------------
+# Every values profile in the chart renders. A profile that switches controllers
+# off (the ki / recognition overlays) still carries every persistence item and
+# every string template of values.yaml, and bjw-s refuses a persistence item
+# whose controller is disabled — so a new item must follow its controller's
+# switch, or every such overlay (in this repository or in a GitOps repository)
+# stops rendering. Measured on the first draft of the #2126 `app-user` scratch
+# volume: skaffold's ki render failed with "No enabled controller found with
+# identifier 'arangodb'".
+# ---------------------------------------------------------------------------
+for profile in "${CHART}"/values-*.yaml; do
+  render "profile-$(basename "${profile}" .yaml)" -f "${profile}"
+done
+
+# ---------------------------------------------------------------------------
 # #2124 — attachment storage: `storage.backend` is the one switch.
 #
 # The `backend-attachments` volume is mounted by the backend AND the

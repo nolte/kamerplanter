@@ -1739,9 +1739,12 @@ persistence:
 
   # -- #2126 arangosh in the `app-user` container needs a writable temp directory
   # under readOnlyRootFilesystem (it aborts with "failed to create a temporary
-  # directory" without one — measured).
+  # directory" without one — measured). Follows the arangodb controller's own
+  # switch: bjw-s refuses a persistence item whose controller is disabled, and a
+  # release that runs without the database (the ki / recognition overlays) must
+  # not have to know this item exists.
   arangodb-app-user-tmp:
-    enabled: true
+    enabled: '{{ if ne (toString .Values.controllers.arangodb.enabled) "false" }}true{{ end }}'
     type: emptyDir
     medium: Memory
     sizeLimit: 16Mi
