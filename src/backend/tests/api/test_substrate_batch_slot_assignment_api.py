@@ -32,7 +32,7 @@ class _TenantService:
         self._role = role
 
     def get_personal_tenant(self, user_key: str) -> SimpleNamespace:
-        return SimpleNamespace(key="t_a", slug="personal-a")
+        return SimpleNamespace(key="t_a", slug="personal-a", is_active=True)
 
     def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace | None:
         if tenant_key == "t_a":
@@ -43,7 +43,7 @@ class _TenantService:
         tenants = {"personal-a": "t_a", "club-b": "t_b"}
         if slug not in tenants:
             raise NotFoundError("Tenant", slug)
-        return SimpleNamespace(key=tenants[slug], slug=slug)
+        return SimpleNamespace(key=tenants[slug], slug=slug, is_active=True)
 
 
 @pytest.fixture

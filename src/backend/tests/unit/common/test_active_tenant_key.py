@@ -25,7 +25,7 @@ def _user() -> SimpleNamespace:
 
 def test_resolves_the_callers_personal_tenant():
     tenant_service = MagicMock()
-    tenant_service.get_personal_tenant.return_value = SimpleNamespace(key="tenant_personal_1")
+    tenant_service.get_personal_tenant.return_value = SimpleNamespace(key="tenant_personal_1", is_active=True)
 
     result = auth_mod.get_active_tenant_key(user=_user(), tenant_service=tenant_service)
 

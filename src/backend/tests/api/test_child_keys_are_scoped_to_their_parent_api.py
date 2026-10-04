@@ -36,7 +36,7 @@ class _TenantService:
     def get_tenant_by_slug(self, slug: str) -> SimpleNamespace:
         if slug != "club-a":
             raise NotFoundError("Tenant", slug)
-        return SimpleNamespace(key="t_a", slug="club-a")
+        return SimpleNamespace(key="t_a", slug="club-a", is_active=True)
 
     def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace | None:
         if tenant_key == "t_a":

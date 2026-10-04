@@ -39,9 +39,9 @@ from app.common.enums import AdminScope, TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
 
-_PERSONAL = SimpleNamespace(key="tenant_personal_1", slug="user-1-garden")
-_ORG = SimpleNamespace(key="tenant_org_1", slug="green-club")
-_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="foreign-club")
+_PERSONAL = SimpleNamespace(key="tenant_personal_1", slug="user-1-garden", is_active=True)
+_ORG = SimpleNamespace(key="tenant_org_1", slug="green-club", is_active=True)
+_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="foreign-club", is_active=True)
 
 
 class _FakeTenantService:

@@ -141,7 +141,7 @@ class _InvitingTenantService:
         self.created: list[str] = []
 
     def get_tenant_by_slug(self, slug: str) -> SimpleNamespace:
-        return SimpleNamespace(key="system-tenant", slug=slug)
+        return SimpleNamespace(key="system-tenant", slug=slug, is_active=True)
 
     def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace:
         return SimpleNamespace(role=TenantRole.LEAD, admin_scopes=[AdminScope.MANAGEMENT], is_active=True)
