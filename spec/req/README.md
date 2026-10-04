@@ -489,7 +489,7 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 - **Harte Regeln sind nicht verhandelbar** (Anbaupause je Familie, Fläche, Zeitfenster, Frost, `severe`-Inkompatibilität); weiche Ziele mit Gewichten und Profilen (`balanced`, `soil_health`, `pest_control`, `yield`, `low_effort`). Eine Fixierung übersteuert sichtbar, nie still.
 - **Erklärbar je Zuordnung:** Breakdown (Kriterium, Beitrag, Gewicht), regelbasierter Satz, drei verworfene Alternativen mit Hauptunterschied. Kein LLM als Planer (D-01); deterministisch mit Seed, Goldfälle als Regressionsschutz.
 - **Historie ist Pflichteingang:** Beete ohne Rückblick werden als blind geplant markiert; nacherfasste Vorjahre zählen.
-- 15 Akzeptanzkriterien, 8 offene Punkte (u. a. `Species.light_requirement` fehlt im Schema), 9 Issue-Kandidaten; Roadmap hängt an REQ-053 Wellen 0–6.
+- **v1.2 nach Agrobiologie- und Persona-Review:** Teilplan mit least-bad-Angebot statt Totalausfall, Vor-/Nachkultur und Gründüngung im MVP, Bodengefahren als harte Regel, Frost-Sicherheitsdatum statt Mittelwert, Score-Aggregation nach Flächenanteil, Geltungsbereich mit Schreibrecht je Beet. 27 Akzeptanzkriterien, alle offenen Punkte entschieden, 10 Issue-Kandidaten; Goldfälle im Review-Bericht. Roadmap hängt an REQ-053 Wellen 0–6.
 
 ---
 
