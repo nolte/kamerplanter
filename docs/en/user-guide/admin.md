@@ -90,10 +90,26 @@ The **Admin > Statistics** section provides an overview of:
 
 Here you configure federated authentication providers (e.g. Google, GitHub, corporate OIDC instances). These settings apply platform-wide to all tenants.
 
-!!! info "API only: OIDC providers"
-    There is no page for this in the user interface. As a platform admin you create, change, test and delete providers through the REST API under `/api/v1/admin/oidc-providers`. Creating, repointing to a different issuer and deleting require you to confirm your admin sign-in again. <!-- #1906 -->
+You manage them on a page of their own: open **Settings > Platform Mode** and click **Manage OIDC providers** in the "Sign-in providers (OIDC)" card (address `/admin/oidc-providers`). The card only appears for platform admins. On the page you can:
 
-    An admin page for providers is not built yet; this section therefore describes the API route.
+- see every provider with its type, issuer URL, client ID, scopes, whether it is active and when its discovery document was last fetched
+- **add** a provider (**Add provider**)
+- **edit** a provider (pencil icon)
+- **test** a provider (**Test**): it fetches the discovery document and reports four findings — scopes, provider type, signing keys and issuer — each as "OK", "Failed" or "Not applicable", with the reason the server names. The test needs no confirmation.
+- **delete** a provider (trash icon)
+
+A new provider starts **switched off**. It only shows up on the sign-in page once you switch it on.
+
+!!! warning "Anything that affects who may sign in asks you to confirm again"
+    A provider decides whom a sign-in belongs to: whoever can point a provider at a server of their own can sign in as any account whose address that server claims. So adding, deleting and every change except the display name and the icon asks you to confirm with your own credentials: your current password — or, without a local password, a fresh sign-in at your provider or the confirmation code that arrives by e-mail. When deleting, you also type the provider's short name. Switching a provider on **or off** needs the confirmation too: a disabled provider can no longer re-authenticate anyone, and the accounts linked only through it would fall back to the weaker e-mailed code. The form tells you before you submit whether your change needs the confirmation. A signed-in session with a personal API key cannot change providers at all.
+
+    Known edge case: if you sign in **only** through the very provider you want to repair, and it is broken right now, you cannot sign in there again. Set yourself a local password beforehand. <!-- #1883, #1906 -->
+
+!!! info "The client secret is write-only"
+    The client secret is stored encrypted and never shown again — not in the list, not in the edit form. When you edit a provider, leave **New client secret** empty to keep the stored one; a new secret needs your confirmation. <!-- #1906 -->
+
+!!! info "Fixed endpoints and the default tenant are set when you add the provider"
+    **Advanced** in the add form takes fixed addresses for authorization, token, userinfo and key set, and the default tenant that new federated accounts join. The interface does not show them afterwards because the interface to the server does not return them; to change them later, use the REST API under `/api/v1/admin/oidc-providers` (`PUT`). The short name (slug) cannot be changed after adding either: it is part of the callback URL. <!-- #1906 -->
 
 !!! info "Register the callback URL with the provider"
     Register exactly `{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback` as the provider's callback URL (redirect URI) — with the public address from `APP_BASE_URL` and the provider's short name (slug), e.g. `https://garden.example/api/v1/auth/oauth/google/callback`. Sign-in and the fresh sign-in that confirms an action use the same URL. While `APP_BASE_URL` is still the default `http://localhost:5173`, the provider refuses the sign-in. <!-- #1865 -->
@@ -109,7 +125,7 @@ Here you configure federated authentication providers (e.g. Google, GitHub, corp
 
 
 !!! info "`https` addresses only; key fetch with a cache and limits"
-    The API accepts `issuer_url`, `authorization_url`, `token_url`, `userinfo_url` and `jwks_url` (optional: pins the provider's key endpoint) only as `https` addresses and answers anything else with `422`. Only with `DEBUG=true` is `http` to `localhost`, `127.0.0.1` or `::1` allowed (local development against a provider on the same machine). A configuration you stored with `http` before this rule stays stored but is no longer contacted at sign-in: the sign-in ends with `provider_error` until you change the address to `https` — the test (`POST /api/v1/admin/oidc-providers/{key}/test`) names the reason. An update that repeats the old `http` field unchanged is answered with `422` too.
+    The form and the API accept `issuer_url`, `authorization_url`, `token_url`, `userinfo_url` and `jwks_url` (optional: pins the provider's key endpoint) only as `https` addresses and answers anything else with `422`. Only with `DEBUG=true` is `http` to `localhost`, `127.0.0.1` or `::1` allowed (local development against a provider on the same machine). A configuration you stored with `http` before this rule stays stored but is no longer contacted at sign-in: the sign-in ends with `provider_error` until you change the address to `https` — the test (`POST /api/v1/admin/oidc-providers/{key}/test`) names the reason. An update that repeats the old `http` field unchanged is answered with `422` too.
 
     The server does not fetch the provider's keys on every sign-in: it keeps them per provider for ten minutes in the memory of each worker and fetches them again when an ID token names an unknown key (`kid`) — at most once every ten seconds per provider. A fetch failure is remembered for 30 seconds only; after that the server tries again. Responses over 256 KiB are discarded, and a single unusable key in the set is skipped. If the provider's discovery document names a `jwks_uri` on an internal address (metadata service, private network), the server does not fetch it; a provider on your own network may publish its key set only on its own host — otherwise enter it yourself as `jwks_url`. In addition, sign-in refuses an ID token that is not valid yet (`nbf`, 30 seconds of tolerance, reason `nbf`) or was issued more than ten minutes ago (`iat`). <!-- #1987 -->
 
@@ -121,11 +137,6 @@ Here you configure federated authentication providers (e.g. Google, GitHub, corp
 !!! info "Deleting and re-creating at the same time"
     A sign-in that is running while you delete a provider and create another under the same slug no longer writes a link or an account into the new provider: it ends with `provider_error` (`reason=configuration_changed`). Links now also carry the key of their configuration; older ones without a key are matched by slug as before. Creating a provider stores it switched off first, removes the slug's orphans and then switches it on; if two admins create the same slug at the same time, the second fails with `409` without deleting any of the first's links. <!-- #1987 -->
 
-!!! warning "Creating, repointing and deleting a provider asks you to confirm again"
-    A provider decides whom a sign-in belongs to: whoever can point a provider at a server of their own can sign in as any account whose address that server claims. So `POST /api/v1/admin/oidc-providers` and `PUT` and `DELETE` on `/api/v1/admin/oidc-providers/{key}` require your current password (`current_password`) — or, without a local password, a fresh sign-in or the confirmation code for the action `oidc_provider_change` with the configuration's key as the target (`new:<slug>` when creating). An API key can no longer change providers. Only the display name and the icon need no confirmation — switching a provider on **or off** needs it too: a disabled provider can no longer re-authenticate anyone, and the accounts linked only through it would fall back to the weaker e-mailed code.
-
-    Known edge case: if you sign in **only** through the very provider you want to repair, and it is broken right now, you cannot sign in there again. Set yourself a local password beforehand. <!-- #1883 -->
-
 !!! warning "The provider type is limited to four values"
     Only `google`, `github`, `apple` and `oidc` are valid — lower-case. Anything else, including `GitHub` or `GITHUB`, is rejected with `422` on create and on update.
 
@@ -133,7 +144,7 @@ Here you configure federated authentication providers (e.g. Google, GitHub, corp
 
     `oidc` is the right value for any provider without special handling of its own (Keycloak, Authentik, Azure AD, Okta); its endpoints then come from the discovery document.
 
-    For providers stored before this check existed, `POST /api/v1/admin/oidc-providers/{key}/test` reports the finding in its `provider_type_check` field (`ok`, `provider_type`, `known_provider_types`, `detail`). Existing entries are **not** rewritten automatically — correct them with `PUT`.
+    For providers stored before this check existed, `POST /api/v1/admin/oidc-providers/{key}/test` reports the finding in its `provider_type_check` field (`ok`, `provider_type`, `known_provider_types`, `detail`). Existing entries are **not** rewritten automatically — correct them in the edit form (or with `PUT`).
 
 !!! warning "GitHub requires the `user:email` scope"
     A provider of type `github` whose scope list contains neither `user:email` nor the parent scope `user` is rejected with `422` on create and on update.
