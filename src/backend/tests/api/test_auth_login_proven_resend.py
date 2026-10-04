@@ -569,7 +569,11 @@ class TestTheDeferredSendReReadsTheAccount:
     ) -> None:
         def _verify() -> None:
             world.repo.users[PENDING] = world.repo.users[PENDING].model_copy(
-                update={"email_verified": True, "email_verification_token": None}
+                update={
+                    "email_verified": True,
+                    "email_confirmed_at": datetime.now(UTC),
+                    "email_verification_token": None,
+                }
             )
 
         world.on_response_sent.append(_verify)

@@ -677,7 +677,13 @@ class PrivacyService:
         # that moved it in between wins; this one gives its claim back.
         try:
             moved = self._user_repo.move_email(
-                change.user_key, old_email, {"email": str(change.new_email), "email_verified": True}
+                change.user_key,
+                old_email,
+                {
+                    "email": str(change.new_email),
+                    "email_verified": True,
+                    "email_confirmed_at": datetime.now(UTC).isoformat(),
+                },
             )
         except DuplicateError, WriteConflictError:
             # The new address was registered meanwhile (1210), or a concurrent write
@@ -790,6 +796,7 @@ class PrivacyService:
                 {
                     "email": previous,
                     "email_verified": True,
+                    "email_confirmed_at": now.isoformat(),
                     "password_reset_token": None,
                     "password_reset_expires": None,
                 },

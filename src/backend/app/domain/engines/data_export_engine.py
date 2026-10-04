@@ -50,6 +50,7 @@ class DataExportEngine:
                 "locale",
                 "timezone",
                 "email_verified",
+                "email_confirmed_at",
                 "is_active",
                 "created_at",
                 "last_login_at",
