@@ -368,13 +368,14 @@ controllers:
 
 Kamerplanter stores all binary data (photos, imports, exports) through an interchangeable storage adapter. You choose the backend and the associated Kubernetes persistence with the `storage` block in your values: the chart derives the `STORAGE_*` variables of the backend and the Celery worker, the PVC and its mounts from it.
 
-!!! warning "Before #2124 the `storage` block had no effect"
+!!! warning "Older chart versions did not read the `storage` block"
     Older chart versions did not read the `storage` block: `storage.backend: s3` still shipped `local-fs` with a PVC. If you set up S3 with your own `env` entries (`STORAGE_BACKEND`, `STORAGE_S3_*`) and an extra `envFrom`, those entries keep working — they override the values derived from `storage`. Switch to `storage.backend: s3` on your next upgrade; otherwise the chart keeps creating the (then unused) PVC.
 
 !!! danger "Shared operation: S3 is mandatory"
     The `backend-attachments` PVC is mounted by the backend **and** the Celery worker. A `ReadWriteOnce` volume attaches to exactly one node: a second pod scheduled onto another node stays in `ContainerCreating` with `Multi-Attach error`. For more than one backend or worker replica — and for any multi-tenant operation on a cluster with several nodes — use `storage.backend: s3`. The chart refuses to render when `controllers.backend.replicas` or `controllers.celery-worker.replicas` is greater than 1 and the attachments live on a `ReadWriteOnce` volume. Ways out without S3: `ReadWriteMany` with an RWX-capable StorageClass, or — only on a cluster with exactly one node — `storage.localFs.singleNode: true`.
 
     Even with a single replica on a multi-node cluster, the backend and the worker must run on the same node, and a rolling update (`maxSurge: 1`) only starts the new backend pod if it lands on that node.
+    <!-- #2124 -->
 
 ### Local Filesystem (Default)
 
