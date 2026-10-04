@@ -1,0 +1,37 @@
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: not yet recorded. This derivation carries no `approval:` block; the approval step
+# adds it in the SAME commit (a later commit to this file would be reported as weakened).
+#
+# Replaces requirement-req025-art17-storage-cleanup-reaches-files (#1951). The predecessor moved from a whole-file anchor to
+# section anchors in #1904 (08e64b743) while REQ-025 had changed as a file since the derivation
+# the runner had on record (a71a245e0); the runner reads that move as a baseline reset and
+# reports the predecessor weakened, so it is not executed. The state cannot be cleared in place:
+# measured on a copy, even a real change of a cited section followed by a re-derive stays
+# weakened ("its previous derivation was no re-derivation either"), because every later move
+# is held to the weakened one. A new file under a new id has no such history.
+# Unchanged against the predecessor: expected, observe, tier, environment, teardown, the
+# locators and their digests (the cited sections are byte-identical at HEAD, so derived_from
+# keeps its value). Changed: the id, and the line numbers in `location`, which had drifted.
+id: requirement-req025-art17-storage-cleanup-reaches-files-v2
+summary: subject's seeded stored files after erasure — hard-deleted or anonymise-and-strip, per STORAGE_CLEANUP_RULES scope
+declaration:
+  source: requirement
+  path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+  location: §3.1.1 ErasureEngine.STORAGE_CLEANUP_RULES (L287); §3.5 Phase 0 (L1106); AK-OS-01..04 (L1459-1462)
+  sections:
+  - heading: 3.1.1
+    digest: 4d7fcededcc5f66e8bc2ea464c0be33a8b8ad77b2174dcd8dab66cd3fe78ca47
+  - heading: '3.5'
+    digest: 05c138c6ff154f56a2a78cd44046a20fda70aeeb41510fae30aa9697891ca81c
+tier: T2
+expected:
+  kind: set
+  unit: per-category outcome of the seeded stored file after erasure finalisation, for categories a STORAGE_CLEANUP_RULES scope names
+  values: [stripped/diary, stripped/ipm, stripped/harvest, stripped/post_harvest, stripped/task, stripped/plant, deleted/pest_reference]
+derived_from: sections:dd0c30272118e034872c8c0a7779b7e11f236de905423c360da204750344f0f5
+environment: ['reach:stack:up', 'reach:seed:privacy-subject', 'reach:seed:stored-files', 'reach:erasure:finalise-for-subject']
+teardown: ['reach:stack:down']
+observe:
+  argv: [python3, scripts/reach/observe_storage_residue.py, --subject, reach-subject]
+  timeout_seconds: 120

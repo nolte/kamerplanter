@@ -1,0 +1,51 @@
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: not yet recorded. This derivation carries no `approval:` block; the approval step
+# adds it in the SAME commit (a later commit to this file would be reported as weakened).
+#
+# Replaces requirement-req025-art17-reference-index-cleanup (#1951). The predecessor moved from a whole-file anchor to
+# section anchors in #1904 (08e64b743) while REQ-025 had changed as a file since the derivation
+# the runner had on record (a71a245e0); the runner reads that move as a baseline reset and
+# reports the predecessor weakened, so it is not executed. The state cannot be cleared in place:
+# measured on a copy, even a real change of a cited section followed by a re-derive stays
+# weakened ("its previous derivation was no re-derivation either"), because every later move
+# is held to the weakened one. A new file under a new id has no such history.
+# Unchanged against the predecessor: expected, observe, tier, environment, teardown, the
+# locators and their digests (the cited sections are byte-identical at HEAD, so derived_from
+# keeps its value). Changed: the id, and the line numbers in `location`, which had drifted.
+#
+# What the cited rows say, as read for this derivation (REQ-025 at HEAD): AK-OS-05 deletes every
+# DINOv2 embedding of `species_embeddings` with `source == 'user_contributed'` and
+# `contributed_by == user_key` in Phase 0.5, before the edges, and keeps curated references
+# (`source != 'user_contributed'`); AK-OS-05a requires the binding that actually removes vectors
+# (InferenceServiceReferenceIndexStore, bound with INFERENCE_SERVICE_ENABLED) and makes the no-op
+# binding refuse once a contribution was written. This probe runs the real binding against a
+# seeded contributed embedding and a curated control row and observes both sides of the filter:
+# the contributed row erased, the curated row kept. The no-op refusal of AK-OS-05a is not measured
+# here (it is listed in _not-constructible.yml as requirement-req025-art17-reference-index-noop-honesty).
+id: requirement-req025-art17-reference-index-cleanup-v2
+summary: subject's user-contributed DINOv2 embedding and the curated control row, in pgvector, after erasure through the real (non-no-op) binding
+declaration:
+  source: requirement
+  path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+  location: §3.1.1 ErasureEngine.REFERENCE_INDEX_CLEANUP_RULES (L287); §3.5 Phase 0.5 (L1150); AK-OS-05 (L1465); AK-OS-05a (L1466)
+  sections:
+  - heading: 3.1.1
+    digest: 4d7fcededcc5f66e8bc2ea464c0be33a8b8ad77b2174dcd8dab66cd3fe78ca47
+  - heading: '3.5'
+    digest: 05c138c6ff154f56a2a78cd44046a20fda70aeeb41510fae30aa9697891ca81c
+  - row: AK-OS-05
+    digest: 9c3304764cd8b196dbc0a53fc1004d53ea0c94305914472a91b3ab965f941518
+  - row: AK-OS-05a
+    digest: 9866368ad6174833eda31ce0e3268eadae2fcd0bd1457eea6f2bb1e3d6ca31d9
+tier: T2
+expected:
+  kind: set
+  unit: pgvector species_embeddings state after erasure finalisation
+  values: [erased/species_embeddings, kept/curated]
+derived_from: sections:66a81f8ab8c20a2928360202bd5f654cd178f20254c503a6d7f3b943e49a7857
+environment: ['reach:stack:up', 'reach:vectordb:up', 'reach:seed:privacy-subject', 'reach:seed:reference-embedding', 'reach:erasure:finalise-for-subject']
+teardown: ['reach:vectordb:down', 'reach:stack:down']
+observe:
+  argv: [python3, scripts/reach/observe_reference_index.py, --subject, reach-subject]
+  timeout_seconds: 120

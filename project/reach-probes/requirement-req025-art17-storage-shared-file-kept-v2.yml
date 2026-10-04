@@ -1,0 +1,35 @@
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: not yet recorded. This derivation carries no `approval:` block; the approval step
+# adds it in the SAME commit (a later commit to this file would be reported as weakened).
+#
+# Replaces requirement-req025-art17-storage-shared-file-kept (#1951). The predecessor moved from a whole-file anchor to
+# section anchors in #1904 (08e64b743) while REQ-025 had changed as a file since the derivation
+# the runner had on record (a71a245e0); the runner reads that move as a baseline reset and
+# reports the predecessor weakened, so it is not executed. The state cannot be cleared in place:
+# measured on a copy, even a real change of a cited section followed by a re-derive stays
+# weakened ("its previous derivation was no re-derivation either"), because every later move
+# is held to the weakened one. A new file under a new id has no such history.
+# Unchanged against the predecessor: expected, observe, tier, environment, teardown, the
+# locators and their digests (the cited sections are byte-identical at HEAD, so derived_from
+# keeps its value). Changed: the id, and the line numbers in `location`, which had drifted.
+id: requirement-req025-art17-storage-shared-file-kept-v2
+summary: a photo the subject and a co-holder both uploaded, after the subject's erasure — the co-holder's file and record stay, the subject's record is gone, the subject's unshared photo is deleted
+declaration:
+  source: requirement
+  path: spec/req/REQ-025_Datenschutz-Betroffenenrechte.md
+  location: AK-OS-08 (L1473)
+  sections:
+  - row: AK-OS-08
+    digest: 2497c5e43fbe3f57e263bf1270ca46047323cb85fd3a461d162d8d8cd014b48b
+tier: T2
+expected:
+  kind: set
+  unit: state of the shared object, its records and the subject's control object after erasure finalisation
+  values: [control-file/deleted, holder-file/present, holder-link/present, subject-link/absent]
+derived_from: sections:efd75928c8831dd462fd35ad79469bfec01a56bf8f3dc91751a598f5dbaaccfe
+environment: ['reach:stack:up', 'reach:seed:privacy-subject', 'reach:seed:shared-file', 'reach:erasure:finalise-for-subject']
+teardown: ['reach:stack:down']
+observe:
+  argv: [python3, scripts/reach/observe_shared_file.py, --subject, reach-subject]
+  timeout_seconds: 120
