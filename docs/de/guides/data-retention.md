@@ -19,12 +19,12 @@ Grundlage: DSGVO Art. 5 Abs. 1 lit. e. <!-- NFR-011 -->
 | R-04 | Consent Records | 3 Jahre nach Widerruf | Hard-Delete (`retention.purge_expired_consent_records`, täglich 04:35 UTC); die IP-Adresse wird nach 7 Tagen anonymisiert (R-04a, `retention.anonymize_consent_ips`, 04:40 UTC) | Art. 7(1) Nachweispflicht |
 | R-05 | Export-Dateien (Art. 15/20 DSGVO) | 72 Stunden nach Fertigstellung | Datei zuerst löschen, danach Status auf `expired` | Zweckentfall |
 | R-06 | Löschungs-Audit (abgeschlossene Anträge) | 3 Jahre nach Abschluss | Hard-Delete (`retention.purge_expired_erasure_records`, täglich 04:30 UTC) | Art. 5(2) Rechenschaftspflicht |
-| R-07 | E-Mail-Änderungsanfragen | 24 Stunden nach Erstellung | Status auf `expired` setzen (kein Hard-Delete) | Zweckentfall |
+| R-07 | E-Mail-Änderungsanfragen | 24 Stunden nach Erstellung | Status auf `expired` setzen und denselben Datensatz im selben Lauf hart löschen | Zweckentfall |
 | R-07a | Rückgängig-Fenster einer bestätigten E-Mail-Änderung | 7 Tage nach der Bestätigung | `previous_email`, Hash des Rückgängig-Tokens und dessen Ablaufzeitpunkt nullen | Zweckentfall — der Rückgängig-Link ist abgelaufen |
 | R-11 | Abgelaufene Refresh Tokens | Sofort nach Ablauf | Hard-Delete (TTL-Index) | Zweckentfall |
-| R-12 | Abgelaufene Einladungen | 30 Tage nach Ablauf | **Teilweise implementiert:** Status wird auf `expired` gesetzt, eine Löschung nach 30 Tagen findet nicht statt | Zweckentfall |
+| R-12 | Abgelaufene Einladungen | 30 Tage nach Ablauf | Status auf `expired` setzen, nach 30 Tagen Hard-Delete (`app.tasks.tenant_tasks.cleanup_expired_invitations`, täglich 02:00 UTC) | Zweckentfall |
 
-Jede Frist außer R-11 und R-12 wird über genau eine Einstellung gelesen (siehe
+Jede Frist außer R-11 wird über genau eine Einstellung gelesen (siehe
 [Umgebungsvariablen](../reference/environment-variables.md#datenschutz-dsgvo-req-025-nfr-011)
 für die genauen Namen). Für R-01, R-05 und R-07 gab es bis zu dieser Änderung bereits
 dokumentierte, ältere Variablennamen, die aber nichts bewirkten — der Code nutzte feste
@@ -88,8 +88,8 @@ protokolliert nur die Anzahl der entfernten Anträge, nie eine Konto- oder Antra
 Der stündliche Task `retention.expire_email_change_requests` (Minute 15) setzt eine noch
 unbestätigte E-Mail-Änderungsanfrage `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` Stunden nach
 der Anfrage (Standard 24 Stunden, Minimum 1 Stunde; der ältere Name
-`PRIVACY_EMAIL_CHANGE_TTL_HOURS` bleibt als Alias gültig) auf den Status `expired`. Ein
-Hard-Delete des Datensatzes findet dabei nicht statt.
+`PRIVACY_EMAIL_CHANGE_TTL_HOURS` bleibt als Alias gültig) auf den Status `expired` und
+löscht sie im selben Lauf hart; die neue Adresse bleibt also nicht liegen.
 
 ### Rückgängig-Fenster einer bestätigten E-Mail-Änderung (R-07a)
 
@@ -104,8 +104,9 @@ Derselbe stündliche Task wie bei R-07 (`retention.expire_email_change_requests`
 15) schließt das Fenster in demselben Lauf: Er nullt bei jedem Datensatz, dessen
 `revert_token_hash` gesetzt und dessen `revert_expires_at` erreicht oder nicht lesbar ist,
 alle drei Felder — konservativ, ein Datensatz mit unlesbarem Ablaufzeitpunkt gilt also als
-abgelaufen. Der Rückgängig-Link funktioniert danach nicht mehr; ein Hard-Delete des
-gesamten Datensatzes findet weiterhin nicht statt (siehe R-07).
+abgelaufen. Der Rückgängig-Link funktioniert danach nicht mehr; das Restdokument
+(`new_email`, Zeitstempel) löscht derselbe Lauf als R-07b hart, sobald das gespeicherte
+`revert_expires_at` abgelaufen ist.
 
 ---
 
@@ -655,7 +656,7 @@ bis zu einen Tag überziehen, also länger speichern als deklariert.
 | R-07 | `retention.expire_email_change_requests` | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` |
 | R-07a | `retention.expire_email_change_requests` (derselbe Lauf) | stündlich, Minute 15 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` |
 | R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | stündlich, Minute 10 | Ablaufzeitpunkt des Tokens |
-| R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | täglich, 02:00 | Ablaufzeitpunkt der Einladung (nur Status `expired`) |
+| R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | täglich, 02:00 | Ablaufzeitpunkt der Einladung (Status `expired`), danach `RETENTION_INVITATION_RETENTION_DAYS` bis zum Hard-Delete |
 | R-16, R-17, R-18 | `retention.purge_expired_legal_retention_rows` | täglich, 04:45 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS`, `RETENTION_TREATMENT_MIN_RETENTION_YEARS`, `RETENTION_INSPECTION_MIN_RETENTION_YEARS` |
 | R-06a | `retention.purge_expired_tenant_erasure_records` | täglich, 04:50 | fest 5 Jahre (Deckelung) bzw. Ende der aufbewahrten Daten des Mandanten |
 

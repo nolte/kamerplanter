@@ -223,3 +223,36 @@ class TestTheCutoffIsUtc:
 
         assert retention.erasure_record_purge_cutoff(self.PLUS_TWO).isoformat() == "2025-09-25T04:30:00+00:00"
         assert retention.unverified_account_cutoff(self.PLUS_TWO).isoformat() == "2026-09-18T04:30:00+00:00"
+
+
+class TestAFailingHeldCountNeverFailsTheR06Purge:
+    """#1955: the held count runs after the delete; its failure must not fail the task."""
+
+    async def test_a_raising_count_still_reports_the_deletion(self):
+        repo = MagicMock()
+        repo.delete_completed_before.return_value = 3
+        repo.count_completed_without_tombstone_before.side_effect = ConnectionError("db down")
+        service = _service(repo)
+
+        with structlog.testing.capture_logs() as logs:
+            result = await service.purge_expired_erasure_records(now=NOW)
+
+        assert result.purged == 3
+        assert result.held_without_tombstone is None, "unknown, not zero"
+        done = [e for e in logs if e["event"] == "retention.purge_expired_erasure_records.completed"]
+        assert len(done) == 1
+        assert done[0]["purged"] == 3
+        assert any(e["event"] == "held_undated_count_failed" for e in logs)
+
+    def test_the_celery_task_finishes_and_reports_the_deletion(self):
+        repo = MagicMock()
+        repo.delete_completed_before.return_value = 2
+        repo.count_completed_without_tombstone_before.side_effect = TimeoutError("slow")
+        service = _service(repo)
+
+        from app.tasks.retention_tasks import purge_expired_erasure_records
+
+        with patch("app.common.dependencies.get_privacy_service", return_value=service):
+            result = purge_expired_erasure_records()
+
+        assert result == {"purged": 2, "held_without_tombstone": None}

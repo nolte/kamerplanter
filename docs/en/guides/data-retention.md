@@ -18,12 +18,12 @@ Basis: GDPR Art. 5(1)(e). <!-- NFR-011 -->
 | R-04 | Consent records | 3 years after revocation | Hard-delete (`retention.purge_expired_consent_records`, daily at 04:35 UTC); the IP address is anonymized after 7 days (R-04a, `retention.anonymize_consent_ips`, 04:40 UTC) | Art. 7(1) accountability |
 | R-05 | Export files (GDPR Art. 15/20) | 72 hours after completion | Delete file first, then set status to `expired` | Purpose lapse |
 | R-06 | Erasure audit (completed requests) | 3 years after completion | Hard-delete (`retention.purge_expired_erasure_records`, daily at 04:30 UTC) | Art. 5(2) accountability |
-| R-07 | Email change requests | 24 hours after creation | Set status to `expired` (no hard-delete) | Purpose lapse |
+| R-07 | Email change requests | 24 hours after creation | Set status to `expired` and hard-delete the same record in the same run | Purpose lapse |
 | R-07a | Revert window of a confirmed email change | 7 days after confirmation | Clear `previous_email`, the revert token's hash, and its expiry | Purpose lapse — the revert link has expired |
 | R-11 | Expired refresh tokens | Immediately on expiry | Hard-delete (TTL index) | Purpose lapse |
-| R-12 | Expired invitations | 30 days after expiry | **Partially implemented:** status is set to `expired`; deletion after 30 days does not happen | Purpose lapse |
+| R-12 | Expired invitations | 30 days after expiry | Set status to `expired`, hard-delete after 30 days (`app.tasks.tenant_tasks.cleanup_expired_invitations`, daily at 02:00 UTC) | Purpose lapse |
 
-Every period except R-11 and R-12 is read from exactly one setting (see
+Every period except R-11 is read from exactly one setting (see
 [Environment Variables](../reference/environment-variables.md#datenschutz-dsgvo-req-025-nfr-011)
 for the exact names). For R-01, R-05 and R-07 there were already documented, older
 variable names before this change, but they had no effect — the code used fixed values.
@@ -85,8 +85,8 @@ never an account or request key.
 The hourly `retention.expire_email_change_requests` task (minute 15) sets a still
 unconfirmed email-change request to `expired` `RETENTION_EMAIL_CHANGE_RETENTION_HOURS`
 hours after the request (default 24 hours, minimum 1 hour; the older name
-`PRIVACY_EMAIL_CHANGE_TTL_HOURS` remains valid as an alias). The record is not
-hard-deleted.
+`PRIVACY_EMAIL_CHANGE_TTL_HOURS` remains valid as an alias) and hard-deletes it in the
+same run, so the new address is not kept.
 
 ### Revert Window of a Confirmed Email Change (R-07a)
 
@@ -101,8 +101,8 @@ The same hourly task as R-07 (`retention.expire_email_change_requests`, minute 1
 closes the window in the same run: for every record whose `revert_token_hash` is set and
 whose `revert_expires_at` has passed or is unreadable, it clears all three fields —
 conservatively, so a record with an unreadable expiry is treated as expired. The revert
-link no longer works afterwards; the record as a whole is still not hard-deleted (see
-R-07).
+link no longer works afterwards; the same run hard-deletes the rest of the record
+(`new_email`, timestamps) as R-07b once the stored `revert_expires_at` has passed.
 
 ---
 
@@ -617,7 +617,7 @@ keeping the record longer than declared.
 | R-07 | `retention.expire_email_change_requests` | hourly, minute 15 | `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` |
 | R-07a | `retention.expire_email_change_requests` (same run) | hourly, minute 15 | `RETENTION_EMAIL_CHANGE_REVERT_DAYS` |
 | R-11 | `app.tasks.auth_tasks.cleanup_expired_tokens` | hourly, minute 10 | Expiry of the token |
-| R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | daily, 02:00 | Expiry of the invitation (status `expired` only) |
+| R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | daily, 02:00 | Expiry of the invitation (status `expired`), then `RETENTION_INVITATION_RETENTION_DAYS` until the hard-delete |
 | R-16, R-17, R-18 | `retention.purge_expired_legal_retention_rows` | daily, 04:45 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS`, `RETENTION_TREATMENT_MIN_RETENTION_YEARS`, `RETENTION_INSPECTION_MIN_RETENTION_YEARS` |
 | R-06a | `retention.purge_expired_tenant_erasure_records` | daily, 04:50 | fixed 5 years (cap), or the end of the tenant's retained data |
 

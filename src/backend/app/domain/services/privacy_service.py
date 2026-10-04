@@ -133,7 +133,8 @@ class ErasureRecordPurgeResult:
     purged: int
     #: Completed records past the period still carrying a plaintext ``user_key``;
     #: kept, because they may be the only trace of an unfulfilled Art. 17 duty.
-    held_without_tombstone: int
+    #: ``None`` when the count itself failed: unknown, never reported as zero (#1955).
+    held_without_tombstone: int | None
 
 
 class ExportBundleUnavailableError(RuntimeError):
@@ -3508,7 +3509,12 @@ class PrivacyService:
         """
         cutoff = self._retention.erasure_record_purge_cutoff(now).isoformat()
         purged = self._erasure_repo.delete_completed_before(cutoff)
-        held = self._erasure_repo.count_completed_without_tombstone_before(cutoff)
+        # #1955: report-only count, run after the deletion — its failure must not
+        # fail the task (a retry would repeat work that is already done).
+        held = held_undated_count(
+            lambda: self._erasure_repo.count_completed_without_tombstone_before(cutoff),
+            task="purge_expired_erasure_records",
+        )
         if held:
             logger.error("retention.erasure_records.completed_without_tombstone", held=held)
         logger.info(
