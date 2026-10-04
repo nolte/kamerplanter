@@ -850,7 +850,9 @@ class AuthService:
         if user.email_verification_expires and user.email_verification_expires < datetime.now(UTC):
             raise InvalidTokenError("verification token")
 
+        confirmed_at = datetime.now(UTC)
         user.email_verified = True
+        user.email_confirmed_at = confirmed_at
         user.email_verification_token = None
         user.email_verification_expires = None
         if user.key:
@@ -858,6 +860,7 @@ class AuthService:
                 user.key,
                 {
                     "email_verified": True,
+                    "email_confirmed_at": confirmed_at,
                     "email_verification_token": None,
                     "email_verification_expires": None,
                 },
@@ -961,10 +964,15 @@ class AuthService:
 
     @staticmethod
     def _needs_verification_mail(user: User) -> bool:
-        """Whether a verification link is the thing standing between ``user`` and a local sign-in (#2037)."""
+        """Whether a verification link is what ``user`` still needs: a sign-in (#2037) or a proof (#1948).
+
+        An account registered while verification was off is ``email_verified`` yet
+        carries no ``email_confirmed_at``: it signs in, but no mail goes to the
+        address until the link has been followed.
+        """
         return (
             user.is_active
-            and not user.email_verified
+            and (not user.email_verified or user.email_confirmed_at is None)
             and bool(user.password_hash)
             and allows_interactive_auth(user)
             and not is_tombstone_email(user.email)
@@ -1955,6 +1963,8 @@ class AuthService:
             email=oauth_user.email,
             display_name=oauth_user.display_name,
             email_verified=oauth_user.email_verified is True,
+            # The provider's assertion is the proof (#1948); silence is not.
+            email_confirmed_at=datetime.now(UTC) if oauth_user.email_verified is True else None,
             avatar_url=oauth_user.avatar_url,
         )
         created = self._user_repo.create(user)

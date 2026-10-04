@@ -69,7 +69,13 @@ class _UserRepo:
 
 
 def _user(**kw) -> User:
-    base = {"_key": "u1", "email": ACCOUNT, "display_name": "Owner", "email_verified": True}
+    base = {
+        "_key": "u1",
+        "email": ACCOUNT,
+        "display_name": "Owner",
+        "email_verified": True,
+        "email_confirmed_at": datetime.now(UTC),
+    }
     base.update(kw)
     return User(**base)
 
@@ -250,3 +256,15 @@ async def test_a_failing_account_lookup_sends_no_mail_and_does_not_abort_other_c
 
     assert mail.recipients == []
     assert result["channels_failed"] == ["email"]
+
+
+async def test_verified_flag_without_the_proof_gets_nothing_even_with_a_typed_in_recipient(mail):
+    """#1948 — ``email_verified`` is also stamped by a registration made with verification off."""
+    engine, service, _ = _build(_user(email_confirmed_at=None))
+    _put_preferences_as_the_route_does(service, {"email": STRANGER})
+
+    result = await engine.notify("u1", "t1", _notification())
+
+    assert result["channels_sent"] == []
+    assert mail.recipients == []
+    assert engine.resolve_email_recipient("u1") is None
