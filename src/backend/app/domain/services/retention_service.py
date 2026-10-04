@@ -72,6 +72,7 @@ class RetentionService:
         email_change_revert_days: int | None = None,
         ip_anonymisation_after_days: int | None = None,
         unverified_account_days: int | None = None,
+        unverified_local_reap_enabled: bool | None = None,
         erasure_record_retention_years: int | None = None,
         consent_retention_years: int | None = None,
         consent_ip_anonymization_days: int | None = None,
@@ -110,6 +111,11 @@ class RetentionService:
             unverified_account_days
             if unverified_account_days is not None
             else settings.retention_unverified_account_days
+        )
+        self._unverified_local_reap_enabled = (
+            unverified_local_reap_enabled
+            if unverified_local_reap_enabled is not None
+            else settings.retention_unverified_local_reap_enabled
         )
         self._erasure_record_retention_years = (
             erasure_record_retention_years
@@ -361,6 +367,11 @@ class RetentionService:
     @property
     def unverified_account_days(self) -> int:
         return self._unverified_account_days
+
+    @property
+    def unverified_local_reap_enabled(self) -> bool:
+        """Whether R-02 erases abandoned local registrations too (#2010); ``False`` until the operator releases it."""
+        return self._unverified_local_reap_enabled
 
     @property
     def erasure_record_retention_years(self) -> int:

@@ -241,6 +241,25 @@ class TestTheOtherMembersAreToldWhenTheErasureIsRequested:
         assert _sent(email_service) == []
         assert not privacy._erasure_repo.stored
 
+    @pytest.mark.asyncio
+    async def test_the_cleanup_never_erases_an_account_that_signed_in_since_the_candidate_list(self):
+        """#2010 — the widened selector reads ``last_login_at``; the erasure re-checks it."""
+        tenants, privacy, email_service = _shared()
+        privacy._user_repo.get_by_key.side_effect = lambda key: User(
+            _key=key,
+            email=f"{key}@example.org",
+            display_name=key,
+            email_verified=False,
+            last_login_at=NOW,
+            is_active=True,
+        )
+
+        result = await privacy.erase_account_now(OWNER, origin="unverified_cleanup", now=NOW)
+
+        assert result is None
+        assert tenants.runs == []
+        assert not privacy._erasure_repo.stored
+
 
 class TestThePersonalTenantGoesWithTheAccountWhoeverIsMember:
     @pytest.mark.asyncio

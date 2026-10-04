@@ -86,4 +86,5 @@ class IUserRepository(ABC):
         """Number of user documents; ``active_only`` counts ``is_active`` ones (#1019)."""
 
     @abstractmethod
-    def get_unverified_before(self, cutoff_iso: str) -> list[User]: ...
+    def get_unverified_before(self, cutoff_iso: str, *, include_local_registrations: bool = False) -> list[User]:
+        """R-02 candidates; ``include_local_registrations`` narrows the provider exclusion to federated ones (#2010)."""

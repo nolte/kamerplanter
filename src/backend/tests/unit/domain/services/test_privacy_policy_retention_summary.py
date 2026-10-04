@@ -198,6 +198,20 @@ class TestTheLatestMomentAndTheRuleStatus:
         assert "never removed" in row.exception_note
         assert all(r.exception_note is None for c, r in self._rows().items() if c != "unverified_accounts")
 
+    def test_r02_is_partial_until_the_operator_releases_the_local_registrations(self):
+        """#2010: the public summary does not promise a deletion the task only counts."""
+        unreleased = {r.rule_id: r for r in _full_policy(RetentionService()).retention_summary}["R-02"]
+        released = {
+            r.rule_id: r for r in _full_policy(RetentionService(unverified_local_reap_enabled=True)).retention_summary
+        }["R-02"]
+
+        assert unreleased.enforcement_status == "partial"
+        assert unreleased.exception_note is not None
+        assert "not yet removed" in unreleased.exception_note
+        assert released.enforcement_status == "enforced"
+        assert released.exception_note is not None
+        assert "not yet removed" not in released.exception_note
+
     def test_r04_r07_and_r11_are_listed(self):
         rows = self._rows()
         by_rule = {row.rule_id: row for row in rows.values()}

@@ -45,18 +45,38 @@ def cleanup_unverified_accounts() -> dict:
     once the configuration is fixed. Any other failure is per account:
     counted, logged without the key (#1700), and the loop moves on.
 
+    **Locally registered accounts (#2010).** Registration writes a ``LOCAL`` provider
+    row, so the default selector never reaches an abandoned local registration. The
+    run counts how many it would erase (``local_registrations_pending``, also logged)
+    and erases them only once ``RETENTION_UNVERIFIED_LOCAL_REAP_ENABLED`` is set
+    (the operator's release after reading the count). If that count fails, the run
+    keeps the narrow selector.
+
     Returns:
-        ``{"removed", "failed", "deferred", "skipped", "blocked"}`` counts, plus
-        ``reason`` when blocked.
+        ``{"removed", "failed", "deferred", "skipped", "blocked", "held_undated",
+        "local_registrations_pending"}`` counts, plus ``reason`` when blocked.
     """
     from app.common.async_bridge import run_async
     from app.common.dependencies import get_privacy_service, get_retention_service, get_user_repo
     from app.common.exceptions import FeatureNotConfiguredError
     from app.common.held_count import held_undated_count
 
-    cutoff = get_retention_service().unverified_account_cutoff(datetime.now(UTC)).isoformat()
+    retention = get_retention_service()
+    cutoff = retention.unverified_account_cutoff(datetime.now(UTC)).isoformat()
     user_repo = get_user_repo()
-    candidates = [user.key for user in user_repo.get_unverified_before(cutoff) if user.key]
+    # #2010 dry run: how many abandoned *local* registrations (a LOCAL provider row
+    # counts as linked for the default selector) the released run would erase. Counted
+    # on every run, erased only when the operator has released it. A failing count
+    # keeps the narrow selector: widening is never done on an error path.
+    pending = held_undated_count(
+        lambda: user_repo.count_unverified_local_registrations_before(cutoff), task="cleanup_unverified_accounts"
+    )
+    widen = retention.unverified_local_reap_enabled is True and pending is not None
+    if pending:
+        logger.warning("unverified_local_registrations_pending", pending=pending, released=widen)
+    candidates = [
+        user.key for user in user_repo.get_unverified_before(cutoff, include_local_registrations=widen) if user.key
+    ]
     # #1806 GDPR-003: accounts the selector skips because their age is unreadable
     # are held for ever; say how many instead of staying silent (the R-06
     # ``held_without_tombstone`` convention).
@@ -66,7 +86,11 @@ def cleanup_unverified_accounts() -> dict:
         "deferred": 0,
         "skipped": 0,
         "blocked": 0,
-        "held_undated": held_undated_count(user_repo.count_unverified_undated, task="cleanup_unverified_accounts"),
+        "held_undated": held_undated_count(
+            lambda: user_repo.count_unverified_undated(include_local_registrations=widen),
+            task="cleanup_unverified_accounts",
+        ),
+        "local_registrations_pending": pending,
     }
     if not candidates:
         logger.info("cleanup_unverified_accounts", **result)

@@ -27,7 +27,14 @@ from app.data_access.arango.user_repository import ArangoUserRepository
 
 
 def _query_source() -> str:
-    return inspect.getsource(ArangoUserRepository.get_unverified_before)
+    # The selector, its dry-run count and its held counter share one predicate builder (#2010);
+    # the selector's own call site supplies the age condition.
+    from app.data_access.arango import user_repository
+
+    return (
+        inspect.getsource(ArangoUserRepository.get_unverified_before)
+        + inspect.getsource(user_repository).split("class ArangoUserRepository")[0]
+    )
 
 
 class TestTheReaperQueryExcludesFederatedAccounts:
@@ -61,3 +68,23 @@ class TestTheReaperQueryExcludesFederatedAccounts:
         assert "doc.email_verified == false" in source
         # An instant comparison (#1784): as text, ``…:00.5Z`` sorts before ``…:00+00:00``.
         assert "DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)" in source
+
+
+class TestTheLocalWideningKeepsEveryOtherGuard:
+    """#2010: ``include_local_registrations`` narrows only the provider exclusion."""
+
+    def test_the_widened_exclusion_still_correlates_and_filters_on_the_provider(self):
+        source = _query_source()
+        assert "provider.provider != @local_provider" in source
+        assert re.search(r"FILTER\s+provider\.user_key\s*==\s*doc\._key", source)
+        assert re.search(r"FILTER\s+linked\s*==\s*0", source)
+
+    def test_the_widened_selector_never_reaches_a_service_account(self):
+        assert "doc.account_type != 'service'" in _query_source()
+
+    def test_the_default_is_the_narrow_selector(self):
+        parameter = inspect.signature(ArangoUserRepository.get_unverified_before).parameters[
+            "include_local_registrations"
+        ]
+        assert parameter.default is False
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY

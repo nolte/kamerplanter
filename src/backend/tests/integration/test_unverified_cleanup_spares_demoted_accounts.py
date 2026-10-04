@@ -109,20 +109,26 @@ def _client(repo: ArangoUserRepository) -> TestClient:
     return TestClient(app, raise_server_exceptions=False)
 
 
-def _run_the_beat(repo: ArangoUserRepository) -> list[str]:
-    """The real cleanup task over the real repository; returns the accounts it erased."""
+def _run_the_beat_with_result(repo: ArangoUserRepository, *, reap_local: bool = False) -> tuple[list[str], dict]:
+    """The real cleanup task over the real repository; the accounts it erased and its report."""
     erase = AsyncMock(return_value=SimpleNamespace(status="completed"))
     privacy = MagicMock()
     privacy.erase_account_now = erase
     retention = MagicMock()
     retention.unverified_account_cutoff.return_value = CUTOFF
+    retention.unverified_local_reap_enabled = reap_local
     with (
         patch("app.common.dependencies.get_user_repo", return_value=repo),
         patch("app.common.dependencies.get_privacy_service", return_value=privacy),
         patch("app.common.dependencies.get_retention_service", return_value=retention),
     ):
-        cleanup_unverified_accounts.run()
-    return [call.args[0] for call in erase.await_args_list]
+        result = cleanup_unverified_accounts.run()
+    return [call.args[0] for call in erase.await_args_list], result
+
+
+def _run_the_beat(repo: ArangoUserRepository) -> list[str]:
+    """The real cleanup task over the real repository; returns the accounts it erased."""
+    return _run_the_beat_with_result(repo)[0]
 
 
 def test_a_verified_account_an_admin_demoted_is_not_erased_by_the_next_run(db):
@@ -175,13 +181,86 @@ def test_an_account_that_ever_signed_in_is_spared_even_without_a_marker(db):
 
 
 def test_a_locally_registered_account_is_not_selected_at_all_today(db):
-    """Measured, not assumed (#1992 review): registration writes a LOCAL ``auth_providers`` row, and the
-    selector counts *any* provider row as linked. So the demote-then-reap chain of the issue reaches
-    provider-less accounts (seeds, imports, legacy), not a normally registered local account. Pinned so a
-    later narrowing of the selector to federated providers is a conscious change that re-reads #1992."""
+    """The DEFAULT selector (#2010): registration writes a LOCAL ``auth_providers`` row, and this selector
+    counts *any* provider row as linked, so it still reaches provider-less accounts only. The widened
+    selector below (``include_local_registrations=True``) is what the operator releases after the dry run;
+    until then this default stays what it was, and the task only counts what the widened one would erase."""
     db.collection(col.USERS).insert(_doc("registered", verified=False))
     db.collection(col.AUTH_PROVIDERS).insert(
         {"_key": "local-registered", "user_key": "registered", "provider": "local", "provider_user_id": "registered"}
     )
 
     assert ArangoUserRepository(db).get_unverified_before(CUTOFF.isoformat()) == []
+
+
+def _provider(db, user: str, provider: str) -> None:
+    db.collection(col.AUTH_PROVIDERS).insert(
+        {"_key": f"{provider}-{user}", "user_key": user, "provider": provider, "provider_user_id": user}
+    )
+
+
+def _seed_the_local_registration_class(db) -> None:
+    """One account per member of the class the widened selector must tell apart."""
+    users = db.collection(col.USERS)
+    users.insert(_doc("registered", verified=False))  # local only: the abandoned registration
+    users.insert(_doc("seed", verified=False))  # provider-less: reached by the default selector too
+    users.insert(_doc("linked", verified=False))  # local + federated: someone can sign in with Google
+    users.insert(_doc("federated", verified=False))  # federated only
+    users.insert({**_doc("in-use", verified=False), "last_login_at": LONG_AGO})
+    users.insert({**_doc("demoted", verified=False), "email_verified_lowered_at": LONG_AGO})
+    users.insert({**_doc("machine", verified=False), "account_type": "service"})
+    users.insert({**_doc("young", verified=False), "created_at": "2030-01-01T00:00:00+00:00"})
+    users.insert({**_doc("undated", verified=False), "created_at": "not a date"})
+    for user in ("registered", "linked", "in-use", "demoted", "machine", "young", "undated"):
+        _provider(db, user, "local")
+    _provider(db, "linked", "google")
+    _provider(db, "federated", "github")
+
+
+def test_the_widened_selector_reaches_a_local_registration_and_nothing_a_person_can_still_use(db):
+    _seed_the_local_registration_class(db)
+    repo = ArangoUserRepository(db)
+
+    default = sorted(user.key for user in repo.get_unverified_before(CUTOFF.isoformat()))
+    widened = sorted(
+        user.key for user in repo.get_unverified_before(CUTOFF.isoformat(), include_local_registrations=True)
+    )
+
+    assert default == ["seed"]
+    assert widened == ["registered", "seed"]
+
+
+def test_the_dry_run_counts_exactly_what_the_widening_adds(db):
+    _seed_the_local_registration_class(db)
+    repo = ArangoUserRepository(db)
+
+    assert repo.count_unverified_local_registrations_before(CUTOFF.isoformat()) == 1
+
+
+def test_the_held_counter_follows_the_selector_it_belongs_to(db):
+    _seed_the_local_registration_class(db)
+    repo = ArangoUserRepository(db)
+
+    assert repo.count_unverified_undated() == 0, "the default selector never saw the local-only account"
+    assert repo.count_unverified_undated(include_local_registrations=True) == 1
+
+
+def test_the_beat_counts_but_erases_no_local_registration_until_the_operator_releases_it(db):
+    _seed_the_local_registration_class(db)
+    repo = ArangoUserRepository(db)
+
+    erased, result = _run_the_beat_with_result(repo)
+
+    assert erased == ["seed"]
+    assert result["local_registrations_pending"] == 1
+    assert db.collection(col.USERS).get("registered") is not None
+
+
+def test_a_released_run_erases_the_local_registration_too(db):
+    _seed_the_local_registration_class(db)
+    repo = ArangoUserRepository(db)
+
+    erased, result = _run_the_beat_with_result(repo, reap_local=True)
+
+    assert sorted(erased) == ["registered", "seed"]
+    assert result["local_registrations_pending"] == 1
