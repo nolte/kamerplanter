@@ -83,6 +83,7 @@ _READERS: dict[str, tuple[str, str]] = {
     "app/domain/services/watering_service.py:WateringService.suggest_volume": (_RESOLVES, ""),
     "app/mcp_server/tools/plant_reads.py:GetPlant.run": (_RESOLVES, ""),
     "app/mcp_server/tools/species.py:GetSpeciesInfo.run": (_RESOLVES, ""),
+    "app/mcp_server/tools/phases.py:AssignSpeciesPhaseSequence._resolve": (_RESOLVES, ""),
     "app/tasks/reference_contribution_tasks.py:_evaluate": (_RESOLVES, ""),
     "app/domain/engines/companion_planting_engine.py:CompanionPlantingEngine.check_compatibility": (
         _LISTED,
