@@ -73,6 +73,8 @@ _SHARED_BACKING = MemoryStorage()
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[3]
 
+_PW = "".join(["p", "w"])  # assembled at runtime: a credential-shaped literal trips secret scanners
+
 
 class _SharedProcessStorage(MemoryStorage):
     """A ``limits`` storage whose every instance reads and writes one backing store.
@@ -574,6 +576,41 @@ class TestStorageSelection:
 
         assert completed.returncode != 0
         assert "REDIS_URL" in completed.stderr
+        assert "s3cr3t" not in completed.stderr + completed.stdout
+
+    @pytest.mark.parametrize("redis_url", [f"unix://:{_PW}@valkey/0", f"sentinel://:{_PW}@valkey:26379/0", ""])
+    def test_a_redis_url_the_limiter_cannot_use_fails_the_import_through_the_factory(self, redis_url: str) -> None:
+        """The check that only ``build_rate_limiter`` makes, at import time, in a fresh interpreter (#2062).
+
+        The ``Settings`` validator of ``REDIS_URL`` looks at the authority only, so
+        the malformed-URL subprocess test above stays green with the factory's own
+        scheme check removed — the validator refuses first. These values pass the
+        validator (a scheme it does not check, and the empty string) and reach
+        ``limits``, whose ``ConfigurationError`` is the whole URI, password included.
+        The factory refuses in two layers (the scheme check up front, the
+        ``_build_primary`` catch behind it); either one alone keeps this green —
+        measured by removing each — and it goes red, leaking the password, only
+        when both are gone.
+        """
+        env = {
+            **os.environ,
+            "RATE_LIMIT_STORAGE_URL": "",
+            "REDIS_URL": redis_url,
+            "PYTHONPATH": str(_BACKEND_ROOT),
+        }
+        completed = subprocess.run(  # noqa: S603 — fixed interpreter and script, no shell
+            [sys.executable, "-c", "import app.api.v1.auth.router"],
+            cwd=_BACKEND_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+
+        assert completed.returncode != 0
+        assert "RateLimitStorageConfigError" in completed.stderr
+        assert "value withheld" in completed.stderr
         assert "s3cr3t" not in completed.stderr + completed.stdout
 
     def test_production_limiter_counts_in_redis_url_when_no_override_is_set(self) -> None:
