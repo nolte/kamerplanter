@@ -465,7 +465,9 @@ lassen sie sich dagegen nicht verknüpfen.
     Mandanten-Kürzel und Download-Token.
 
     IP-Adressen stehen in Protokollzeilen der Anwendung höchstens in der R-03-Kürzung (IPv4 letztes
-    Oktett `0`, IPv6 `/48`), als `ip_prefix=`. Das gilt inzwischen auch für die
+    Oktett `0`, IPv6 `/48`), als `ip_prefix=`. Dasselbe gilt für Zeilen, die eine Bibliothek über
+    den Client schreibt: Die Zeile „ratelimit … exceeded“ des Ratenbegrenzers trägt die gekürzte
+    Adresse, nicht die volle. Das gilt inzwischen auch für die
     Zugriffsprotokolle: uvicorn kürzt die Client-Adresse auf dieselbe Weise und schreibt
     vom aufgerufenen Pfad nur die festen Routen-Segmente (z. B. `/api/v1/t/{}/plants/{}`)
     — dein Mandanten-Kürzel, dein Kontoschlüssel und ein Download-Token in der URL stehen

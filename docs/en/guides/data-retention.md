@@ -442,7 +442,8 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     path with tenant slug and download token.
 
     IP addresses appear in the application's log lines at most truncated the R-03 way (IPv4 last octet
-    `0`, IPv6 `/48`), as `ip_prefix=`. That now also applies to the access logs: uvicorn
+    `0`, IPv6 `/48`), as `ip_prefix=`. The same holds for lines a library writes about the client: the rate limiter's
+    "ratelimit … exceeded" line carries the truncated address, not the full one. That now also applies to the access logs: uvicorn
     truncates the client address the same way and writes only the fixed route segments of
     the requested path (e.g. `/api/v1/t/{}/plants/{}`) — your tenant slug, your account key
     and a download token in the URL no longer appear there, nor does a query string. If the
