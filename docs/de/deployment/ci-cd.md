@@ -44,6 +44,7 @@ feature/* ──► develop ──► (Release-Tag v*) ──► main
 | `release-lag.yml` | Zeitplan, täglich 09:00 UTC (+ manuell) | Meldet, wenn `develop` Commits trägt, die kein **veröffentlichtes** Release enthält |
 | `renovate-health.yml` | Zeitplan, täglich 09:20 UTC (+ manuell) | Liest das Dependency Dashboard (#12) und meldet, wenn Renovate ein Problem berichtet oder die Manager-Inventur abweicht |
 | `lane-inputs.yml` | wöchentlich auf `develop`, manuell | Misst, welche Dateien die gefilterten Jobs lesen, vergleicht mit `.github/lane-inputs/` und schlägt Abweichungen als Bot-Pull-Request vor ([Details](#lane-inputs)) |
+| `reach-audit.yml` | wöchentlich (sonntags 02:43 UTC), manuell | Führt die Capability-Reach-Audit einschließlich der T2-Proben mit vollem Stack auf einem Runner aus; beratend, kein Merge-Gate ([Details](#reach-audit)) |
 
 ---
 
@@ -506,6 +507,35 @@ python -m pytest -q tests/unit/guards/test_lane_filters_cover_measured_inputs.py
 ```
 
 Ein Lauf auf einem anderen Branch als `develop` misst diesen Branch und meldet nur, was er vorschlagen würde; einen Pull Request öffnet er nicht.
+
+---
+
+## Capability-Reach-Audit (`reach-audit.yml`) {#reach-audit}
+
+Die Reach-Audit fragt bei jeder deklarierten Fähigkeit, ob sie wirklich erreicht, was sie verspricht: Sie führt die freigegebenen Proben unter `project/reach-probes/` aus und stuft jede Fähigkeit als *reached*, *partially reached*, *not reached* oder *not probed* ein. Die **T2**-Proben brauchen den vollen Stack mit Seed-Daten (einen Docker-Compose-Stack und den Bau des Reranker-Images). Dieser Workflow führt sie auf einem GitHub-Runner aus, damit du den Stack nicht auf deinem Rechner starten musst.
+
+Der Workflow ist **beratend**: Er läuft wöchentlich und auf Abruf, nie bei Pull Requests, und er ist kein Pflicht-Check.
+
+### Starten
+
+```bash
+gh workflow run reach-audit.yml                       # T0, T1 und T2
+gh workflow run reach-audit.yml -f include_t2=false   # nur T0 und T1
+```
+
+Ein kalter Lauf baut zwei Images (den Backend-Stack und den Reranker mit Modell-Download) und kann deutlich über eine Stunde dauern; ein warmer Lauf braucht rund 15 Minuten.
+
+### Was das Ergebnis bedeutet
+
+Der Job schreibt den Bericht `.audits/capability-reach/<Datum>.md` und lädt ihn als Artefakt `capability-reach-report` hoch; die Job-Zusammenfassung nennt, was Aufmerksamkeit braucht.
+
+- **Der Job ist rot**, wenn eine Probe *not reached* gemessen hat, wenn eine Umgebung (Stack, Seed, Reranker) nicht hochkam, wenn eine Probe *weakened* oder ungültig ist oder wenn der Runner selbst scheiterte.
+- **Der Job bleibt grün und nennt eine Warnung** bei einer *veralteten* Probe (ihre Deklaration hat sich nach der Ableitung geändert), bei einer Fähigkeit, für die sich keine Probe bauen ließ (*not constructible*), und bei *partially reached*. Das sind Abdeckungslücken, keine Defekte. Eine veraltete Probe bearbeitest du nicht von Hand: Du bestätigst sie neu oder leitest sie mit dem Skill `capability-reach-audit` neu ab.
+
+Die Überschrift des Berichts zählt die Einträge, die **nicht geprüft** wurden. Lies diese Zahl zuerst: Sie sagt, wie viel der deklarierten Fläche die Audit nicht gemessen hat.
+
+!!! note "Der Runner gehört nicht zu diesem Repository"
+    `reach_audit.py` stammt aus `nolte/claude-shared` und wird im Workflow auf einem festen Commit ausgecheckt. Den Commit zu ändern ist eine bewusste Ein-Zeilen-Änderung in `reach-audit.yml`.
 
 ---
 

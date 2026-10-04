@@ -1,0 +1,226 @@
+name: Capability Reach Audit
+
+# WHAT THIS RUNS, AND WHY IT RUNS HERE.
+#
+# The capability reach audit (spec/project/capability-reach-audit/ in
+# nolte/claude-shared, #1680) executes the approved probes under
+# `project/reach-probes/` and classifies each declared capability as reached,
+# partially reached, not reached or not probed. Until this workflow nothing in
+# `.github/workflows/` ran `reach_audit.py`: the probes were approved, committed
+# and executed only when an operator ran them by hand — a declared probe that no
+# workflow ever runs. The T2 probes need a Docker host with the full-mode stack,
+# which is why the operator wanted them on a runner and not on a workstation.
+#
+# NOT A MERGE GATE, ON PURPOSE. The spec says so in its own words ("Not a merge
+# gate. This is a periodic, whole-system measurement"), so this workflow has no
+# `push` and no `pull_request` trigger, is not a required check and never will
+# be one by editing a comment here. It runs weekly and on demand:
+#
+#   gh workflow run reach-audit.yml                       # T0, T1 and T2
+#   gh workflow run reach-audit.yml -f include_t2=false   # T0 and T1 only
+#
+# HOW THE RUNNER ARRIVES. `reach_audit.py` is not in this repository. It is one
+# standard-library file (plus PyYAML and jsonschema) in the public repository
+# nolte/claude-shared, checked out here at ONE PINNED FULL COMMIT SHA and copied
+# out of the workspace before the audit starts, so that the checkout is neither
+# part of the audited tree nor of any Docker build context. The pin is the
+# commit that last changed the runner (#675, the section-anchor / re-confirmation
+# revision; `git diff 58c007f95 develop -- plugins/nolte-engineering/skills/
+# capability-reach-audit` was empty on 2026-10-04). Moving it is a deliberate edit
+# of one line, read like any other dependency bump; Renovate does not track a
+# `ref:` of a second repository, and this comment says so instead of implying it.
+#
+# WHAT THE JOB NEEDS FROM THE RUNNER, measured by reading the targets in
+# `.taskfiles/reach.yaml` and `scripts/reach/` on 2026-10-04:
+#   * `task` (go-task, same pin as the other workflows) — the probes call
+#     `task reach:stack:up`, `reach:seed:*`, `reach:erasure:*`, `reach:ranking:up`,
+#     `reach:vectordb:up`, `reach:sweep:*`, and the runner invokes them by name;
+#   * Docker with Compose >= 2.24 (`!reset` in docker-compose.reach.yml). The
+#     ubuntu-latest image carries a newer Compose; the first step prints it;
+#   * python3 for the helpers, which use the standard library only;
+#   * a full clone (`fetch-depth: 0`): change detection walks the history of every
+#     probe and anchors commit-anchored probes in it. A shallow clone would turn
+#     every probe into `derived_from ... not in the history of HEAD`;
+#   * network egress to Docker Hub / PyPI and to Hugging Face: `reach:ranking:up`
+#     builds `docker/reranker-service` (target bge-reranker-v2-m3), whose build
+#     downloads the ONNX model;
+#   * `actions: read` for ONE T0 probe: `scripts/reach/observe_workflow_runs.py`
+#     lists the runs of security-zap-postmerge.yml through `gh api`. The token
+#     arrives as GH_TOKEN in `env:`; no `${{ }}` is interpolated into a script.
+# No secret beyond the job's own GITHUB_TOKEN is read. The stack is the E2E
+# stack's full-mode services with throw-away test credentials generated per
+# working copy (scripts/e2e_fernet_key.py).
+#
+# WHAT THE EXIT CODE AND THE REPORT MEAN (runner-exit-codes.md of the skill).
+#   0  report written, no finding. NOT a pass by itself: `not reached` and
+#      `not probed` are classes inside a report that exits 0.
+#   1  runtime error (unreadable probe set, git failure) — job red.
+#   2  usage error or non-local target — job red.
+#   3  no probe file; nothing was executed — job red (not a clean result).
+#   4  report written with findings: a weakened or invalid probe, an approval
+#      mismatch, a contradiction, a manifest defect — job red.
+#   5  PyYAML / jsonschema missing — job red.
+# Because exit 0 hides a probe that measured `not reached` and a T2 environment
+# that did not come up, `scripts/ci/reach_report_verdict.py` reads the report the
+# runner wrote and fails the job for exactly those, and for any `not probed`
+# reason that is not a documented coverage fact (it fails closed). It does not
+# fail for a STALE probe (`declaration changed since derivation`), for a
+# manifest entry that is `not constructible`, or for `partially reached`: those
+# are coverage facts the skill states as "not an error" and are listed in the
+# job summary with their reasons. Nothing here is `continue-on-error`.
+#
+# WHAT THE FIRST RUN WILL SHOW. A T0 + T1 run on the develop tip of 2026-10-04
+# reported "Not probed: 24 of 26 entries" with exit 0; 8 of the 16 T2 probes are
+# STALE (the declarations router.py, erasure_engine.py, data_export_engine.py and
+# tenant_erasure_engine.py changed after the probes were derived), and 8 entries
+# are not constructible. With T2 requested the 8 non-stale T2 probes execute and
+# the 8 stale ones stay `not probed` with a warning each. The job is therefore
+# green when the 10 executable probes reach and amber-by-warning otherwise; it
+# turns red when an executable probe does not reach, an environment fails, or a
+# probe is weakened. Re-confirming or re-deriving the stale probes is operator
+# work (`capability-reach-audit` skill), never an edit of a probe file.
+
+on:
+  schedule:
+    # Weekly, Sunday 02:43 UTC: off the :00 minute and clear of the nightlies
+    # (nuclei 00:00, ZAP 01:00, e2e 01:30) so the runner minutes do not queue.
+    - cron: '43 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      include_t2:
+        description: 'Also execute the T2 probes (full stack with seeded data). Off: T0 and T1 only.'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# One audit at a time: a second run would start a second reach stack on the same
+# runner pool for no extra information, and a cancelled run leaves no state a
+# successor needs (the runner VM is discarded).
+concurrency:
+  group: reach-audit
+  cancel-in-progress: false
+
+jobs:
+  reach:
+    name: Reach audit
+    runs-on: ubuntu-latest
+    # A HANG CEILING, not a budget, and not a measurement of CI (no run has
+    # happened yet). Reasoned from what is measured:
+    #   * warm, on a workstation, 2026-10-03: ten T2 probes from the first
+    #     execution (00:21:39Z) to the last (00:33:40Z) took about 12 minutes;
+    #   * cold, the in-tool bounds of the two image builds are what dominate:
+    #     `ranking.py up` bounds the reranker build at 3000 s and `stack.py up`
+    #     bounds the stack start at 840 s (+600 s for the build) — 74 minutes if
+    #     both ran to their own limit, 12 more for the eight warm probes;
+    #   * e2e-nightly.yml, which builds the same backend images, uses 120.
+    # 120 minutes leaves the two builds their own limits and ends a genuine hang
+    # (a container that never becomes healthy under a wait the tool did not
+    # bound) well before the 6-hour default. Replace with the measured p95 after
+    # three real runs, as backend-guards.yml does for its lane.
+    timeout-minutes: 120
+    permissions:
+      contents: read # checkout of this repository and of the public runner repository
+      actions: read # the ZAP T0 probe lists workflow runs through `gh api`
+    env:
+      # Wall-clock bound the RUNNER puts on each environment or teardown target.
+      # Its default (900 s) is shorter than the reranker image build the T1 probe
+      # waits for (3000 s in ranking.py), so a cold runner would report
+      # `environment target failed (timed out)` for a build that was still
+      # progressing. 3300 s = that build bound plus 300 s of start-up.
+      REACH_ENVIRONMENT_TIMEOUT_SECONDS: '3300'
+      # `schedule` has no inputs: T2 is part of the weekly run.
+      INCLUDE_T2: ${{ github.event_name == 'schedule' || inputs.include_t2 }}
+    steps:
+      - name: Checkout the audited repository (full history)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout the runner (nolte/claude-shared, pinned commit)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: nolte/claude-shared
+          # THE runner pin: the full commit that last changed reach_audit.py
+          # (feat(nolte-engineering): anchor reach probes on cited sections and
+          # add re-confirmation, #675). Public repository, read with the job's
+          # own token; nothing is written to it.
+          ref: 58c007f9591cab56479db6d6f9816087478a4188
+          path: .reach-runner-src
+          sparse-checkout: plugins/nolte-engineering/skills/capability-reach-audit/scripts
+          persist-credentials: false
+
+      - name: Stage the runner outside the workspace
+        run: |
+          mkdir -p "$RUNNER_TEMP/reach-runner"
+          cp .reach-runner-src/plugins/nolte-engineering/skills/capability-reach-audit/scripts/reach_audit.py \
+            "$RUNNER_TEMP/reach-runner/reach_audit.py"
+          rm -rf .reach-runner-src
+          git status --porcelain --untracked-files=all
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+
+      - name: Set up Task
+        uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
+        with:
+          version: 3.52.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install the runner's own dependencies
+        # Class (b) of NFR-009 §2.3.1: runner-only, the output is a verdict, so
+        # an `==` pin is the bound (test_workflow_install_bounds.py).
+        run: python3 -m pip install --user 'PyYAML==6.0.3' 'jsonschema==4.26.0'
+
+      - name: Environment facts
+        run: |
+          docker version --format 'docker server {{.Server.Version}}'
+          docker compose version
+          task --version
+          df -h /
+
+      - name: Run the reach audit
+        id: audit
+        shell: bash
+        env:
+          # The ZAP T0 probe lists workflow runs through `gh api`; `actions: read`
+          # on the job is what makes this token sufficient.
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          args=(--repo . --environment-timeout "$REACH_ENVIRONMENT_TIMEOUT_SECONDS")
+          if [ "$INCLUDE_T2" = "true" ]; then
+            args+=(--include-t2)
+          fi
+          # `pipefail` (shell: bash) keeps the runner's own exit code through tee.
+          python3 "$RUNNER_TEMP/reach-runner/reach_audit.py" "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/reach-runner.out"
+
+      - name: Judge the report
+        # After the runner's own exit code has failed the job, the report may
+        # still exist (exit 4) and its summary is still worth reading; with exit
+        # 0 this is the half of the verdict the exit code does not carry.
+        if: always() && steps.audit.conclusion != 'skipped'
+        run: |
+          python3 scripts/ci/reach_report_verdict.py \
+            --runner-output "$RUNNER_TEMP/reach-runner.out" \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: capability-reach-report
+          path: |
+            .audits/capability-reach/
+            ${{ runner.temp }}/reach-runner.out
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Disk after the run
+        if: always()
+        run: df -h /
