@@ -25,6 +25,7 @@ def _task_module(monkeypatch):
     mock_deps.get_ha_client = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_observation_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_sensor_repo = MagicMock()  # type: ignore[attr-defined]
+    mock_deps.get_observation_service = MagicMock()  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     import app.tasks.sensor_ingestion_tasks as module
@@ -77,24 +78,72 @@ class TestIngestHaReadings:
 
         obs_repo = MagicMock()
         obs_repo.is_available.return_value = True
-        obs_repo.insert_batch.return_value = 1
         deps.get_observation_repo.return_value = obs_repo
+        service = MagicMock()
+        service.owning_tenant_key.return_value = "t1"
+        service.record_readings_batch.return_value = 1
+        deps.get_observation_service.return_value = service
 
         sensor_repo = MagicMock()
         db = MagicMock()
+        # A sensor document carries no tenant_key: its owner is its parent's (#1944).
         db.aql.execute.return_value = iter(
-            [{"_key": "s1", "tenant_key": "t1", "metric_type": "temperature", "ha_entity_id": "sensor.temp"}]
+            [{"_key": "s1", "metric_type": "temperature", "ha_entity_id": "sensor.temp", "site_key": "site-1"}]
         )
         sensor_repo._db = db
         deps.get_sensor_repo.return_value = sensor_repo
 
         result = module.ingest_ha_readings()
 
-        assert result == {"status": "ok", "inserted": 1, "errors": 0}
-        obs_repo.insert_batch.assert_called_once()
-        readings = obs_repo.insert_batch.call_args.args[0]
+        assert result == {"status": "ok", "inserted": 1, "errors": 0, "skipped": 0}
+        service.record_readings_batch.assert_called_once()
+        (sensor_key, readings), kwargs = service.record_readings_batch.call_args
+        assert (sensor_key, kwargs) == ("s1", {"tenant_key": "t1"})
         assert readings[0].value == 21.5
         assert readings[0].source == "ha_auto"
+        assert readings[0].tenant_key == "t1", "the reading must carry the tenant the sensor's parent belongs to"
+
+    def test_the_poll_skips_what_the_service_refuses_and_counts_it(self, _task_module, monkeypatch):
+        """No owner (no parent, or a delete began) and a sensor erased during the wait are skipped, not errors."""
+        from app.common.exceptions import NotFoundError
+
+        module, deps = _task_module
+        _enable_timescaledb(monkeypatch, module)
+        ha_client = MagicMock()
+        ha_client.get_state.return_value = {"value": 1.0, "unit": None}
+        deps.get_ha_client.return_value = ha_client
+        obs_repo = MagicMock()
+        obs_repo.is_available.return_value = True
+        deps.get_observation_repo.return_value = obs_repo
+        service = MagicMock()
+        service.owning_tenant_key.side_effect = [None, "t1", "t1"]
+        service.record_readings_batch.side_effect = [NotFoundError("Sensor", "s2"), 1]
+        deps.get_observation_service.return_value = service
+        sensor_repo = MagicMock()
+        sensor_repo._db.aql.execute.return_value = iter(
+            [{"_key": key, "ha_entity_id": f"sensor.{key}", "metric_type": "t"} for key in ("s1", "s2", "s3")]
+        )
+        deps.get_sensor_repo.return_value = sensor_repo
+
+        result = module.ingest_ha_readings()
+
+        assert result == {"status": "ok", "inserted": 1, "errors": 0, "skipped": 2}
+
+    def test_the_poll_does_not_select_a_sensor_whose_delete_began(self, _task_module, monkeypatch):
+        module, deps = _task_module
+        _enable_timescaledb(monkeypatch, module)
+        deps.get_ha_client.return_value = MagicMock()
+        obs_repo = MagicMock()
+        obs_repo.is_available.return_value = True
+        deps.get_observation_repo.return_value = obs_repo
+        sensor_repo = MagicMock()
+        sensor_repo._db.aql.execute.return_value = iter([])
+        deps.get_sensor_repo.return_value = sensor_repo
+
+        module.ingest_ha_readings()
+
+        query = sensor_repo._db.aql.execute.call_args.args[0]
+        assert "deletion_pending != true" in query
 
     def test_counts_ha_errors_without_crashing(self, _task_module, monkeypatch):
         module, deps = _task_module
@@ -107,16 +156,19 @@ class TestIngestHaReadings:
         obs_repo = MagicMock()
         obs_repo.is_available.return_value = True
         deps.get_observation_repo.return_value = obs_repo
+        service = MagicMock()
+        service.owning_tenant_key.return_value = "t1"
+        deps.get_observation_service.return_value = service
 
         sensor_repo = MagicMock()
         db = MagicMock()
         db.aql.execute.return_value = iter(
-            [{"_key": "s1", "tenant_key": "t1", "metric_type": "temperature", "ha_entity_id": "sensor.temp"}]
+            [{"_key": "s1", "metric_type": "temperature", "ha_entity_id": "sensor.temp"}]
         )
         sensor_repo._db = db
         deps.get_sensor_repo.return_value = sensor_repo
 
         result = module.ingest_ha_readings()
 
-        assert result == {"status": "ok", "inserted": 0, "errors": 1}
-        obs_repo.insert_batch.assert_not_called()
+        assert result == {"status": "ok", "inserted": 0, "errors": 1, "skipped": 0}
+        service.record_readings_batch.assert_not_called()
