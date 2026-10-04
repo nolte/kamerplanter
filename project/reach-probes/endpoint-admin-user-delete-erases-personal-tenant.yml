@@ -1,26 +1,22 @@
 # Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
+# Approval: not yet recorded. This re-derivation carries no `approval:` block; the approval step
+# adds it in the SAME commit (a later commit to this file would be reported as weakened).
 #
-# Re-derived after #1846 (#1813/#1814/#1816, squash 9cacdb752): router.py's delete_user now
-# takes a step-up body (confirm_email = the target's e-mail, password = the admin's own current
-# password), refuses an API key (403) and goes through PrivacyService.erase_account_by_admin,
-# which calls erase_account_now with origin platform_admin, step_up and a salted
-# requested_by_subject. derived_from moves to 9cacdb752. The act script
-# scripts/reach/admin_delete_subject.py already sends that body over a bearer session (no API
-# key) since #1846; targets unchanged.
-# Observe step and expectation unchanged: erase_account_now's personal-tenant phase (#1788)
-# and the tenant-erasure inventory are untouched by #1846. delete_user's docstring still does
-# not name the personal-tenant step; the explicit declaration stays NFR-011 §6 AK-PT-01.
+# Re-derived for #1968: since #1962 (#1824, erasure together) an account erasure erases the
+# subject's personal tenant also when other active members use it, so the earlier wording
+# "every personal tenant the subject used alone" described a subset of the behaviour. The
+# declaration text now states the rule as it is. derived_from moves to the current content of
+# router.py (delete_user, the 202 / asynchronous erasure of #1949). expected, observe, tier,
+# environment and teardown are unchanged: the seeded personal tenant has the subject as its only
+# member, so the measured rows are those of the inventory, which does not depend on the member
+# count; the "other members" branch itself is not exercised by this probe.
 id: endpoint-admin-user-delete-erases-personal-tenant
-summary: collections of the executing tenant-erasure inventory left without the subject's sole-owned personal tenant's rows
-  after the platform-admin user delete
+summary: collections of the executing tenant-erasure inventory left without the rows of the subject's personal tenant after the platform-admin user delete (seeded with the subject as the tenant's only member)
 declaration:
   source: endpoint
   path: src/backend/app/api/v1/admin/platform/router.py
-  location: 'DELETE /admin/platform/users/{key} (delete_user) — erases every personal tenant the subject used alone through
-    the tenant-erasure inventory before the ArangoDB plan runs (TenantService.erase_personal_tenant_of, origin account_erasure,
-    #1788)'
+  location: 'DELETE /admin/platform/users/{key} (delete_user) — erases every personal tenant of the subject through the tenant-erasure inventory before the ArangoDB plan runs, also when other active members use it (erasure together, REQ-025 §3.1.3, #1824); only a tenant a member joined after the erasure froze it is kept (TenantService.erase_personal_tenant_of, origin account_erasure, #1788)'
 tier: T2
 expected:
   kind: set
@@ -122,7 +118,7 @@ expected:
   - dangling-edges/0
   - stamped-elsewhere/0
   - control-changed/0
-derived_from: blob:c134ebc8c19194f719a1346f6b927125dbc70d96
+derived_from: blob:0367a5efd2a96388e33a2d2b4e4ec9a8ae2bfa11
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -137,8 +133,3 @@ observe:
   - --tenant
   - reach-personal-tenant
   timeout_seconds: 300
-approval:
-  approved_at: '2026-10-03T00:21:15Z'
-  approved_by: nolte
-  observation_digest: 888ee4b15ca04b4436986ed2b7620ca3e4546f01409998fadbcddba4452d81b1
-  mode: reconfirmed
