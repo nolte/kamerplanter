@@ -55,6 +55,7 @@ from app.domain.models.invitation import Invitation, InvitationLink
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
 from app.domain.models.privacy import PersonalTenantErasure, PersonalTenantErasurePreview
+from app.domain.models.security_audit import SecurityAuditEntry
 from app.domain.models.tenant import Tenant, TenantWithRole
 from app.domain.models.tenant_erasure import (
     TenantDeletionConfirmation,
@@ -180,28 +181,7 @@ class TenantService:
             owner_user_key=user_key,
             max_members=1,
         )
-        tenant = self._tenant_repo.create(tenant)
-
-        membership = Membership(
-            user_key=user_key,
-            tenant_key=tenant.key,
-            # REQ-049 §6: the founder gets the top domain role and both
-            # administrative scopes — a tenant whose creator could not invite
-            # anyone would be stranded from the first second.
-            role=TenantRole.LEAD,
-            admin_scopes=[AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
-            is_active=True,
-            joined_at=datetime.now(UTC).isoformat(),
-        )
-        created = self._membership_repo.create(membership)
-        self._audit_membership(
-            action=SecurityAuditAction.MEMBERSHIP_ADDED,
-            via=SecurityAuditVia.REGISTRATION,
-            actor_user_key=user_key,
-            target_user_key=user_key,
-            tenant_key=tenant.key or "",
-            membership=created,
-        )
+        tenant = self._found_tenant(tenant, user_key, via=SecurityAuditVia.REGISTRATION)
 
         logger.info("personal_tenant_created", subject=log_subject(user_key), tenant=log_tenant(tenant.key))
         return tenant
@@ -229,31 +209,54 @@ class TenantService:
             owner_user_key=user_key,
             max_members=max_members,
         )
-        tenant = self._tenant_repo.create(tenant)
+        tenant = self._found_tenant(tenant, user_key, via=SecurityAuditVia.TENANT_CREATION)
 
+        logger.info("organization_created", subject=log_subject(user_key), tenant=log_tenant(tenant.key))
+        return tenant
+
+    def _found_tenant(self, tenant: Tenant, user_key: str, *, via: SecurityAuditVia) -> Tenant:
+        """Write a new tenant, its founder's lead membership, both edges and the audit row atomically (#2118).
+
+        REQ-049 §6: the founder gets the top domain role and both administrative scopes - a tenant whose
+        creator could not invite anyone would be stranded from the first second. The four writes (and the
+        security-audit row of #2111) are one transaction in :meth:`ITenantRepository.create_with_lead_membership`:
+        written one by one, a failure between two of them left a tenant nobody could reach or delete, its
+        slug taken. The one gate of the audit for a founding (the class guard
+        ``test_membership_mutations_write_the_security_audit`` holds that every membership-creating method
+        reaches it).
+        """
         membership = Membership(
             user_key=user_key,
-            tenant_key=tenant.key,
-            # REQ-049 §6: the founder gets the top domain role and both
-            # administrative scopes — a tenant whose creator could not invite
-            # anyone would be stranded from the first second.
+            tenant_key="",  # the tenant's own key, set by the repository once the tenant exists
             role=TenantRole.LEAD,
             admin_scopes=[AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
             is_active=True,
             joined_at=datetime.now(UTC).isoformat(),
         )
-        created = self._membership_repo.create(membership)
-        self._audit_membership(
-            action=SecurityAuditAction.MEMBERSHIP_ADDED,
-            via=SecurityAuditVia.TENANT_CREATION,
-            actor_user_key=user_key,
-            target_user_key=user_key,
-            tenant_key=tenant.key or "",
-            membership=created,
-        )
+        written: list[SecurityAuditEntry] = []
+        audit = self._security_audit
 
-        logger.info("organization_created", subject=log_subject(user_key), tenant=log_tenant(tenant.key))
-        return tenant
+        def build_audit_row(stored_tenant: Tenant, stored_membership: Membership) -> SecurityAuditEntry:
+            assert audit is not None  # only handed to the repository when it is wired
+            entry = audit.membership_entry(
+                action=SecurityAuditAction.MEMBERSHIP_ADDED,
+                via=via,
+                actor_user_key=user_key,
+                target_user_key=user_key,
+                tenant_key=stored_tenant.key or "",
+                membership_key=stored_membership.key,
+                new_role=str(stored_membership.role),
+                new_scopes=[str(scope) for scope in stored_membership.admin_scopes],
+            )
+            written.append(entry)
+            return entry
+
+        stored_tenant, _founder = self._tenant_repo.create_with_lead_membership(
+            tenant, membership, audit=build_audit_row if audit is not None else None
+        )
+        for entry in written:
+            audit.announce(entry)  # type: ignore[union-attr]  # ``written`` is only filled when audit is wired
+        return stored_tenant
 
     def get_tenant(self, tenant_key: str) -> Tenant:
         tenant = self._tenant_repo.get_by_key(tenant_key)

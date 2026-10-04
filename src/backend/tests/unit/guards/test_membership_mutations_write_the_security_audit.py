@@ -12,10 +12,13 @@ member when its own body
 * calls ``create`` / ``delete`` / ``update_fields`` / ``delete_while_tenant_frozen`` on a
   receiver whose dotted name contains ``membership`` (``self._membership_repo.create(...)``,
   ``memberships.delete(...)``), or
-* calls ``self._create_membership_unless_erasing(...)`` (the insert helper two doors share).
+* calls ``self._create_membership_unless_erasing(...)`` (the insert helper two doors share), or
+* calls ``<anything>.create_with_lead_membership(...)`` (founding a tenant with its founder, #2118).
 
 Every member must call ``self._audit_membership(...)`` (the one write path into the
-:class:`~app.domain.services.security_audit_service.SecurityAuditService`) or be classified in
+:class:`~app.domain.services.security_audit_service.SecurityAuditService`), or - when it founds a tenant,
+whose row is written inside the founding transaction - build the row with ``<audit>.membership_entry(...)``;
+otherwise it must be classified in
 :data:`_CLASSIFIED` with the reason it needs none. A classification that no longer names a live
 member fails, so the list cannot go stale and excuse the next copy.
 
@@ -37,7 +40,10 @@ SERVICES = APP / "domain" / "services"
 
 _MUTATORS = {"create", "delete", "update_fields", "delete_while_tenant_frozen"}
 _HELPER = "_create_membership_unless_erasing"
+_FOUNDING = "create_with_lead_membership"
 _GATE = "_audit_membership"
+#: A founding writes its row inside the transaction that creates the tenant: the row is *built* here.
+_FOUNDING_GATE = "membership_entry"
 
 _CLASSIFIED: dict[tuple[str, str], str] = {
     ("tenant_service.py", "TenantService._create_membership_unless_erasing"): (
@@ -88,6 +94,8 @@ def _why_member(function: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
             reasons.append(f"{receiver}.{node.func.attr}(...)")
         elif node.func.attr == _HELPER and receiver == "self":
             reasons.append(f"self.{_HELPER}(...)")
+        elif node.func.attr == _FOUNDING:
+            reasons.append(f"{receiver}.{_FOUNDING}(...)")
     return reasons
 
 
@@ -95,9 +103,10 @@ def _calls_the_gate(function: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     return any(
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "self"
-        and node.func.attr == _GATE
+        and (
+            (isinstance(node.func.value, ast.Name) and node.func.value.id == "self" and node.func.attr == _GATE)
+            or node.func.attr == _FOUNDING_GATE
+        )
         for node in _own_nodes(function)
     )
 
@@ -130,7 +139,7 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: The class size measured when this guard was written (#2111). A change in either direction is a
 #: signal to read, not to update blindly: a new member needs the gate or a classification, a
 #: vanished one may mean the predicate went blind.
-EXPECTED_MEMBERS = 12
+EXPECTED_MEMBERS = 11
 
 
 def test_every_membership_mutation_writes_the_audit_or_is_classified() -> None:
@@ -155,7 +164,7 @@ def test_the_predicate_sees_the_class() -> None:
 
     assert len(found) == EXPECTED_MEMBERS, sorted(found)
     for known in (
-        ("tenant_service.py", "TenantService.create_personal_tenant"),
+        ("tenant_service.py", "TenantService._found_tenant"),
         ("tenant_service.py", "TenantService.admin_add_membership"),
         ("tenant_service.py", "TenantService.admin_change_membership_role"),
         ("tenant_service.py", "TenantService.admin_remove_membership"),
@@ -347,6 +356,17 @@ def test_the_predicate_ignores_reads_and_other_repositories() -> None:
     assert not _why("def f(self):\n    self._invitation_repo.create(i)")
     assert not _why("def f(self):\n    self._tenant_repo.delete(k)")
     assert not _why("def f(other):\n    other._create_membership_unless_erasing(m)")
+
+
+def test_the_founding_spelling_is_a_member_and_its_gate_is_the_row_builder() -> None:
+    assert _why("def f(self):\n    self._tenant_repo.create_with_lead_membership(t, m)")
+
+    def gated(source: str) -> bool:
+        (function,) = [n for n in ast.walk(ast.parse(source)) if isinstance(n, ast.FunctionDef)]
+        return _calls_the_gate(function)
+
+    assert gated("def f(audit):\n    audit.membership_entry(action=a)")
+    assert not gated("def f(audit):\n    audit.announce(e)")
 
 
 def test_the_gate_detection_sees_only_a_call_on_self() -> None:

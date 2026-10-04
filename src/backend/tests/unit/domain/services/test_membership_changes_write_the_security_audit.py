@@ -61,6 +61,7 @@ def _membership(role: TenantRole = TenantRole.GROWER, scopes: list[AdminScope] |
 
 def _service(membership: Membership | None = None) -> tuple[TenantService, _AuditRepo, MagicMock]:
     audit = _AuditRepo()
+    audit_rows = audit.rows
     memberships = MagicMock()
     stored = membership or _membership()
     memberships.get_by_key.return_value = stored
@@ -73,6 +74,16 @@ def _service(membership: Membership | None = None) -> tuple[TenantService, _Audi
     tenants.get_by_key.return_value = Tenant(_key="t1", name="Garden", slug="garden", owner_user_key="o")
     tenants.get_by_slug.return_value = None
     tenants.create.side_effect = lambda t: t.model_copy(update={"key": "t-new"})
+
+    def found(tenant, membership, *, audit=None):
+        """The transactional founding, as the real repository does it: both stored, the row built from them."""
+        stored_tenant = tenant.model_copy(update={"key": "t-new"})
+        stored_membership = membership.model_copy(update={"key": "m-new", "tenant_key": "t-new"})
+        if audit is not None:
+            audit_rows.append(audit(stored_tenant, stored_membership))
+        return stored_tenant, stored_membership
+
+    tenants.create_with_lead_membership.side_effect = found
     tenants.count_organizations_by_owner.return_value = 0
     invitations = MagicMock()
     service = TenantService(

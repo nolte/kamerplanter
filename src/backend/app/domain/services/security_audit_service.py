@@ -56,7 +56,43 @@ class SecurityAuditService:
         new_scopes: list[str] | None = None,
     ) -> SecurityAuditEntry:
         """Append one row and write the structlog line beside it."""
-        entry = SecurityAuditEntry(
+        entry = self.membership_entry(
+            action=action,
+            via=via,
+            actor_user_key=actor_user_key,
+            target_user_key=target_user_key,
+            tenant_key=tenant_key,
+            membership_key=membership_key,
+            old_role=old_role,
+            new_role=new_role,
+            old_scopes=old_scopes,
+            new_scopes=new_scopes,
+        )
+        entry.key = self._repo.record(entry)
+        self.announce(entry)
+        return entry
+
+    @staticmethod
+    def membership_entry(
+        *,
+        action: SecurityAuditAction,
+        via: SecurityAuditVia,
+        actor_user_key: str,
+        target_user_key: str,
+        tenant_key: str,
+        membership_key: str | None = None,
+        old_role: str | None = None,
+        new_role: str | None = None,
+        old_scopes: list[str] | None = None,
+        new_scopes: list[str] | None = None,
+    ) -> SecurityAuditEntry:
+        """The row of one membership change, **not yet written** (#2118).
+
+        Split from the write so a founder's row can be written inside the transaction that creates the
+        tenant it names (``ITenantRepository.create_with_lead_membership``): a tenant that exists without its
+        audit row, or the reverse, is what the transaction rules out.
+        """
+        return SecurityAuditEntry(
             action=action,
             via=via,
             actor_user_key=actor_user_key,
@@ -70,18 +106,20 @@ class SecurityAuditService:
             request_id=_current_request_id(),
             created_at=datetime.now(UTC),
         )
-        entry.key = self._repo.record(entry)
+
+    @staticmethod
+    def announce(entry: SecurityAuditEntry) -> None:
+        """The structlog line of a written row (pseudonymised: no account or tenant key)."""
         logger.warning(
             "security_audit_recorded",
-            action=action.value,
-            via=via.value,
-            actor=log_subject(actor_user_key),
-            target=log_subject(target_user_key),
-            tenant=log_tenant(tenant_key),
-            old_role=old_role,
-            new_role=new_role,
+            action=SecurityAuditAction(entry.action).value,
+            via=SecurityAuditVia(entry.via).value,
+            actor=log_subject(entry.actor_user_key),
+            target=log_subject(entry.target_user_key),
+            tenant=log_tenant(entry.tenant_key),
+            old_role=entry.old_role,
+            new_role=entry.new_role,
         )
-        return entry
 
     def list_recent(self, *, tenant_key: str | None = None, limit: int = 100) -> list[SecurityAuditEntry]:
         return self._repo.list_recent(tenant_key=tenant_key, limit=max(1, min(limit, MAX_READ_LIMIT)))

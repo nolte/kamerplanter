@@ -379,10 +379,11 @@ _INTENTIONAL_PERSISTING_READS: dict[str, tuple[str, frozenset[str]]] = {
                 "::ArangoErasureExecutor._anonymize",
                 "module-level query write _REWRITE_REFERENCE in app.data_access.arango.erasure_executor"
                 "::ArangoErasureExecutor._pseudonymize",
-                # #2111 — the new account's own personal tenant gives it a lead membership,
-                # which the registration records in the security audit (``_register_oauth_user``).
-                "self._db.collection(col.SECURITY_AUDIT_LOG).insert() in app.data_access.arango."
-                "security_audit_repository::ArangoSecurityAuditRepository.record",
+                # #2111/#2118 — the new account's own personal tenant, its lead membership, both edges and
+                # the security-audit row of that membership are one transaction
+                # (``ArangoTenantRepository.create_with_lead_membership``, via ``_register_oauth_user``).
+                "transaction.collection(collection).insert() in app.data_access.arango.tenant_repository"
+                "::ArangoTenantRepository._insert_in",
                 "self.collection.delete() in app.data_access.arango.base_repository::BaseArangoRepository._delete_doc",
                 "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
                 "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc",
