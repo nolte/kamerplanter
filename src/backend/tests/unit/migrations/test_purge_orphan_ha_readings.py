@@ -10,6 +10,12 @@ from app.migrations import purge_orphan_ha_readings as cmd
 from tests.unit.domain.services.test_legacy_reading_cleanup import FakeSensors, FakeStore
 
 
+@pytest.fixture(autouse=True)
+def _leave_logging_alone(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``main`` configures structlog for the process; in a test session that would leak into every later log capture."""
+    monkeypatch.setattr("app.config.logging.setup_logging", lambda *a, **k: None)
+
+
 def _wire(monkeypatch: pytest.MonkeyPatch, store: FakeStore | None, sensors: FakeSensors) -> None:
     monkeypatch.setattr(cmd, "_build", lambda: (store, sensors))
 

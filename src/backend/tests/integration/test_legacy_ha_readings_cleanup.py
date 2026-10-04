@@ -78,6 +78,11 @@ def timescale():
     pool.close()
 
 
+@pytest.fixture(autouse=True)
+def _leave_logging_alone(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.config.logging.setup_logging", lambda *a, **k: None)
+
+
 class Directory:
     """The production sensor directory shape, over the real repositories."""
 
