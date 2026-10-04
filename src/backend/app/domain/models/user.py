@@ -96,6 +96,16 @@ class User(BaseModel):
     model_config = {"populate_by_name": True}
 
     @property
+    def address_proven(self) -> bool:
+        """Whether the owner of the address proved it — the only trust signal for acting on the address.
+
+        ``email_verified`` alone proves nothing (registration stamps it with
+        ``REQUIRE_EMAIL_VERIFICATION=false``), and a lowered flag (#1992) leaves the
+        proof behind: both must hold.
+        """
+        return self.email_verified and self.email_confirmed_at is not None
+
+    @property
     def api_key_tenant_scope(self) -> str | None:
         """The authenticating API key's tenant restriction, ``None`` for a session (#1817)."""
         return self._api_key_tenant_scope
