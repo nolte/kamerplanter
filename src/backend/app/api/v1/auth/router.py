@@ -35,6 +35,7 @@ from app.common.auth import (
     get_authenticated_with_api_key,
     get_refresh_token_from_cookie,
     require_account_principal,
+    resolved_principal_key,
 )
 from app.common.dependencies import get_auth_service, get_mcp_authenticator, get_oidc_config_repo
 from app.common.error_handlers import app_error_response
@@ -97,6 +98,24 @@ def _rate_limit_key(request: Request) -> str:
     direct call (and every ``TestClient`` caller that sets no header) gets.
     """
     return resolve_client_ip(request) or get_remote_address(request)
+
+
+def user_rate_limit_key(request: Request) -> str:
+    """Bucket a rate limit on the authenticated account, on the address only without one (#2109).
+
+    For the expensive authenticated routes (``settings.rate_limit_upload`` /
+    ``_inference`` / ``_export``): an address is shared by everyone behind one
+    NAT, while the cost these routes bound is spent by an account. slowapi runs
+    the check when the route function is called, after FastAPI resolved its
+    dependencies, so the principal ``get_current_user`` stored on the request is
+    there to read (:func:`app.common.auth.resolved_principal_key`). A request
+    whose route resolved no principal falls back to :func:`_rate_limit_key`. The
+    two key spaces are prefixed so an account key can never equal an address.
+    """
+    principal = resolved_principal_key(request)
+    if principal is not None:
+        return f"user:{principal}"
+    return f"ip:{_rate_limit_key(request)}"
 
 
 #: The one IP limiter every ``@limiter.limit`` in the API shares. Its counters live

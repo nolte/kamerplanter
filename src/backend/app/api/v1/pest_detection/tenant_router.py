@@ -12,8 +12,9 @@ treatment (§0) — at most an IPM inspection is suggested.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Path, Query, UploadFile
+from fastapi import APIRouter, Depends, Form, Path, Query, Request, UploadFile
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.pest_detection.schemas import (
     CreateInspectionResponse,
     FeedbackRequest,
@@ -25,6 +26,7 @@ from app.common.dependencies import get_pest_detection_service
 from app.common.enums import CaptureDevice, TenantRole
 from app.common.exceptions import UnsupportedMediaTypeError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.pest_detection_service import PestDetectionService
@@ -44,7 +46,9 @@ def pest_detection_status(
 
 
 @router.post("/detect", response_model=PestDetectionResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def detect_pests_global(
+    request: Request,
     image: UploadFile,
     language: str = Form("de", description="Language code for the returned finding labels and disclaimer."),
     capture_device: CaptureDevice = Form(
@@ -98,7 +102,9 @@ async def detect_pests_global(
 
 
 @router.post("/plants/{plant_key}/detect", response_model=PestDetectionResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def detect_pests(
+    request: Request,
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     image: UploadFile,
     language: str = Form("de", description="Language code for the returned finding labels and disclaimer."),

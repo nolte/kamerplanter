@@ -179,6 +179,7 @@ if TYPE_CHECKING:
     from app.domain.interfaces.observation_repository import IObservationRepository
     from app.domain.interfaces.pest_media_source import PestMediaSource
     from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
+    from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
     from app.domain.models.species import Species
     from app.domain.models.substrate import SubstrateBatch
     from app.domain.services.activity_plan_service import ActivityPlanService
@@ -2378,7 +2379,18 @@ def get_attachment_service() -> AttachmentService:
         storage=get_object_storage(),
         attachment_repo=get_attachment_repo(),
         settings=settings,
+        rendition_claims=get_rendition_dispatch_claims(),
     )
+
+
+def get_rendition_dispatch_claims() -> IRenditionDispatchClaims:
+    """#2108 — the thumbnail-dispatch claim, shared across replicas in Valkey.
+
+    Falls back to the process-wide in-process tier while Valkey is unreachable.
+    """
+    from app.data_access.external.rendition_dispatch_claims import RedisRenditionDispatchClaims
+
+    return RedisRenditionDispatchClaims(_get_redis_client())
 
 
 def get_reference_index_store() -> IReferenceIndexStore:

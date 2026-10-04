@@ -15,13 +15,13 @@ Runs synchronously (invoked from a Celery task, WS-4).
 """
 
 import hashlib
-import io
 
 import structlog
-from PIL import Image, UnidentifiedImageError
+from PIL import UnidentifiedImageError
 
 from app.common.datetimes import now_utc
-from app.common.exceptions import ValidationError
+from app.common.exceptions import ImagePixelLimitError, ValidationError
+from app.common.image_bounds import image_dimensions
 from app.common.log_privacy import log_subject, log_tenant, loggable_error
 from app.config.settings import settings
 from app.domain.interfaces.reference_contribution_marker import IReferenceContributionMarker
@@ -314,9 +314,8 @@ class ReferenceImageService:
     def _passes_quality(self, image_data: bytes) -> bool:
         """Reject images below the minimum resolution or with extreme aspect."""
         try:
-            with Image.open(io.BytesIO(image_data)) as img:
-                width, height = img.size
-        except (UnidentifiedImageError, OSError):  # fmt: skip
+            width, height = image_dimensions(image_data)
+        except (UnidentifiedImageError, OSError, ImagePixelLimitError):  # fmt: skip
             return False
         if min(width, height) < settings.reference_image_min_dimension:
             return False

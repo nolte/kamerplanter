@@ -42,6 +42,7 @@ import structlog
 from PIL import Image
 
 from app.common.exceptions import KamerplanterError
+from app.common.image_bounds import open_bounded_image
 
 logger = structlog.get_logger()
 
@@ -124,7 +125,7 @@ def metadata_keys(data: bytes) -> list[str]:
     re-assert the property on bytes they did not produce themselves.
     """
     try:
-        with Image.open(io.BytesIO(data)) as image:
+        with open_bounded_image(data) as image:
             return sorted(key for key in image.info if key in _METADATA_INFO_KEYS)
     except (OSError, ValueError) as exc:
         # Undecodable bytes cannot be asserted about; the caller (generator)
@@ -182,12 +183,14 @@ class ThumbnailGenerator:
                 metadata block. No thumbnail is returned in that case — a
                 rendition that may leave the instance is never emitted on a
                 "probably clean" basis.
+            ImagePixelLimitError: the original declares more pixels than the
+                decode ceiling (#2108); refused from its header, nothing decoded.
         """
         if not can_render(mime_type):
             return []
 
         thumbnails: list[Thumbnail] = []
-        with Image.open(io.BytesIO(data)) as src:
+        with open_bounded_image(data) as src:
             src.load()
             image = src.convert("RGB") if src.mode not in ("RGB", "RGBA") else src
             for size in self._sizes:

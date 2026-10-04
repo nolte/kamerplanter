@@ -340,6 +340,12 @@ services:
       # above and leaving an order of magnitude over the observed peak.
       RATE_LIMIT_AUTH: "200/minute"
       RATE_LIMIT_TOKEN_REFRESH: "600/minute"
+      # Per-account budgets on the expensive routes (#2109). The suite runs as one
+      # account from one address and uploads, prints and runs inference far more
+      # often per minute than a person; ten times the production budget, as above.
+      RATE_LIMIT_UPLOAD: "300/minute"
+      RATE_LIMIT_INFERENCE: "200/minute"
+      RATE_LIMIT_EXPORT: "200/minute"
       # A *second* account, with platform-admin rights (#1155). Not the demo
       # user: much of this suite asserts what an ordinary member is refused, and
       # promoting the single account those cases share would leave every one of

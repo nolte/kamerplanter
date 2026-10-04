@@ -13,8 +13,9 @@ pixel data so dropping the EXIF orientation tag does not rotate the image.
 import io
 
 import structlog
-from PIL import Image, ImageOps
+from PIL import ImageOps
 
+from app.common.image_bounds import open_bounded_image
 from app.common.log_privacy import loggable_error
 
 logger = structlog.get_logger()
@@ -48,9 +49,10 @@ def strip_exif(image_data: bytes) -> bytes:
 
     Raises:
         ValueError: If the image cannot be decoded.
+        ImagePixelLimitError: above the 40 MPx decode ceiling (#2108).
     """
     try:
-        with Image.open(io.BytesIO(image_data)) as img:
+        with open_bounded_image(image_data) as img:
             source_format = (img.format or "").upper()
             oriented = ImageOps.exif_transpose(img)
             rgb = oriented.convert("RGB")

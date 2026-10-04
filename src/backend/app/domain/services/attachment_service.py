@@ -10,8 +10,12 @@ Upload pipeline order (NFR-013 §5.1) — every guard runs *before* any bytes ar
 written, so a rejected upload never leaves orphan objects:
 
   1. Quota check ............ StorageQuotaExceededError (409)
-  2. MIME whitelist ......... InvalidFileTypeError (415)
+  2. MIME whitelist ......... InvalidFileTypeError (415) — while EXIF
+                              stripping is on, also for an image type the
+                              strip cannot re-encode (HEIC/HEIF, GIF; #2139)
   3. Magic-byte validation .. InvalidFileTypeError (415)
+     Pixel ceiling (images) .. ImagePixelLimitError (413) — from the header,
+                               before anything is decoded (#2108)
   4. Size limit ............. FileTooLargeError (413)
   5. Optional virus scan .... VirusScanRejectedError (422)
   6. SHA-256 + dedup ........ the uploader's own record for these bytes is
@@ -43,10 +47,11 @@ from app.common.exceptions import (
     ValidationError,
     VirusScanRejectedError,
 )
+from app.common.image_bounds import image_dimensions
 from app.common.log_privacy import log_subject, log_tenant
 from app.common.url_safety import validate_server_side_url
 from app.config.settings import Settings
-from app.domain.engines.storage.exif_stripper import ExifStripper
+from app.domain.engines.storage.exif_stripper import ExifStripper, is_strippable_format
 from app.domain.engines.storage.magic_byte_validator import _SNIFF_LEN, MagicByteValidator
 from app.domain.engines.storage.storage_key_builder import StorageKeyBuilder
 from app.domain.engines.storage.thumbnail_generator import (
@@ -57,6 +62,7 @@ from app.domain.engines.storage.thumbnail_generator import (
 )
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
 from app.domain.models.attachment import Attachment
 
 logger = structlog.get_logger()
@@ -93,6 +99,7 @@ class AttachmentService:
         exif_stripper: ExifStripper | None = None,
         thumbnail_generator: ThumbnailGenerator | None = None,
         key_builder: StorageKeyBuilder | None = None,
+        rendition_claims: IRenditionDispatchClaims | None = None,
     ) -> None:
         self._storage = storage
         self._repo = attachment_repo
@@ -101,6 +108,15 @@ class AttachmentService:
         self._exif = exif_stripper or ExifStripper()
         self._thumbnails = thumbnail_generator or ThumbnailGenerator()
         self._keys = key_builder or StorageKeyBuilder()
+        # #2108 — the thumbnail-dispatch claim. Production passes the shared
+        # Valkey store (``get_attachment_service``); a service built without one
+        # still dispatches at most once per attachment and window for its own
+        # lifetime.
+        if rendition_claims is None:
+            from app.data_access.external.rendition_dispatch_claims import MemoryRenditionDispatchClaims
+
+            rendition_claims = MemoryRenditionDispatchClaims()
+        self._rendition_claims = rendition_claims
 
     # --- Upload ------------------------------------------------------
 
@@ -136,6 +152,10 @@ class AttachmentService:
 
         # 2. MIME whitelist (category-resolved).
         allowed = self._settings.allowed_mime_types_for_category(category.value)
+        if self._settings.storage_strip_exif:
+            # #2139 — an image type the strip cannot re-encode would be stored
+            # with its EXIF/GPS block, whatever a per-category override admits.
+            allowed = [m for m in allowed if not m.startswith("image/") or is_strippable_format(m)]
         if mime_type not in allowed:
             raise InvalidFileTypeError(mime_type, allowed)
 
@@ -144,6 +164,12 @@ class AttachmentService:
         #    body for text/csv sniffing (SEC-008).
         if not self._magic.is_valid(data[:_SNIFF_LEN], mime_type):
             raise InvalidFileTypeError(mime_type, allowed)
+
+        #    Pixel ceiling (#2108): read from the header, before anything —
+        #    the EXIF strip, the thumbnail task — decodes the image. Also when
+        #    EXIF stripping is disabled: the thumbnail task decodes regardless.
+        if mime_type.startswith("image/"):
+            self._enforce_pixel_ceiling(data)
 
         # 4. Size limit.
         if len(data) > max_bytes:
@@ -237,7 +263,7 @@ class AttachmentService:
 
         # 11. Trigger thumbnail generation (images only).
         if can_render(mime_type):
-            self._dispatch_thumbnails(created.key, tenant_key)
+            self._dispatch_thumbnails(created)
 
         return created
 
@@ -304,8 +330,20 @@ class AttachmentService:
         # first record's task is rendering them). Only a restored object needs
         # new ones.
         if restored and can_render(held.mime_type):
-            self._dispatch_thumbnails(created.key, tenant_key)
+            self._dispatch_thumbnails(created)
         return created
+
+    @staticmethod
+    def _enforce_pixel_ceiling(data: bytes) -> None:
+        """Raise ``ImagePixelLimitError`` (413) for an image above the decode ceiling.
+
+        A header Pillow cannot read is left to the steps that follow: the EXIF
+        strip passes such bytes through unchanged, as it did before #2108.
+        """
+        try:
+            image_dimensions(data)
+        except OSError, ValueError:
+            return
 
     def _stored_body(self, data: bytes, mime_type: str) -> bytes:
         """The bytes the pipeline stores for *data*: EXIF-stripped images unless disabled."""
@@ -378,14 +416,21 @@ class AttachmentService:
             finding = payload.get("finding", "malware detected") if isinstance(payload, dict) else "malware detected"
             raise VirusScanRejectedError(str(finding))
 
-    def _dispatch_thumbnails(self, attachment_id: str | None, tenant_key: str) -> None:
-        if not attachment_id:
-            return
+    def _dispatch_thumbnails(self, attachment: Attachment) -> None:
+        self.request_thumbnails(attachment)
+
+    def request_thumbnails(self, attachment: Attachment) -> bool:
+        """Queue the renditions of *attachment* at most once per window (#2108).
+
+        ``True`` when a rendition can still come (the caller answers 202),
+        ``False`` when none ever will (404) — see
+        :func:`app.tasks.storage_tasks.request_thumbnails`.
+        """
         # Lazy import avoids a hard import cycle (tasks import dependencies which
         # import services) and keeps Celery optional at service-construction time.
-        from app.tasks.storage_tasks import generate_thumbnails
+        from app.tasks.storage_tasks import request_thumbnails
 
-        generate_thumbnails.delay(attachment_id, tenant_key)
+        return request_thumbnails(attachment, self._rendition_claims)
 
     # --- Serve -------------------------------------------------------
 

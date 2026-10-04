@@ -133,6 +133,18 @@ def _resolve_principal(
     return user
 
 
+def resolved_principal_key(request: Request) -> str | None:
+    """The key of the principal this request already resolved, or ``None`` (#2109).
+
+    Reads what :func:`_resolve_principal` stored — it never resolves anything
+    itself — so a rate-limit key function that runs after the route's
+    dependencies can bucket on the account without authenticating twice.
+    """
+    cached = getattr(request.state, _PRINCIPAL_STATE, None)
+    user = cached[1] if isinstance(cached, tuple) and len(cached) == 2 else None
+    return user.key if isinstance(user, User) and user.key else None
+
+
 def get_refresh_token_from_cookie(
     kp_refresh: str | None = Cookie(default=None, description="HttpOnly refresh-token cookie set by the login flow."),
 ) -> str:

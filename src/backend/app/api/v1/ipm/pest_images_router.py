@@ -29,10 +29,11 @@ from fastapi.responses import StreamingResponse
 
 from app.api.v1.attachments.response_headers import harden_download_headers
 from app.common.auth import get_current_user
-from app.common.dependencies import get_pest_image_service
+from app.common.dependencies import get_pest_image_service, get_rendition_dispatch_claims
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
-from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
+from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES
+from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
 from app.domain.models.user import User
 from app.domain.services.pest_image_service import PestImageService
 
@@ -70,10 +71,12 @@ async def get_promoted_pest_image_thumbnail(
     size: Annotated[int, Path(description="Requested thumbnail edge length in pixels.")],
     _user: User = Depends(get_current_user),
     service: PestImageService = Depends(get_pest_image_service),
+    claims: IRenditionDispatchClaims = Depends(get_rendition_dispatch_claims),
 ):
     """Stream a thumbnail rendition of a globally-promoted pest image.
 
-    404 for any non-promoted / unknown contribution; 202 + lazy regeneration
+    404 for any non-promoted / unknown contribution and for a rendition that can
+    never come (#2108); 202 + lazy regeneration, queued at most once per window,
     when the rendition is not yet materialised.
     """
     if size not in THUMBNAIL_SIZES:
@@ -90,11 +93,12 @@ async def get_promoted_pest_image_thumbnail(
     try:
         stream = await service.open_content_thumbnail_stream(content, size)
     except NotFoundError:
-        # Lazy regeneration (NFR-013 §8.2): re-trigger the task and 202 the caller.
-        if can_render(attachment.mime_type):
-            from app.tasks.storage_tasks import generate_thumbnails
+        # Lazy regeneration (NFR-013 §8.2), claimed once per window (#2108). The
+        # task runs against the attachment's own (owning) tenant.
+        from app.tasks.storage_tasks import request_thumbnails
 
-            generate_thumbnails.delay(attachment.key, content.contribution.tenant_key)
+        if not request_thumbnails(attachment, claims):
+            raise NotFoundError("storage object", f"{contribution_id}/{size}") from None
         return Response(status_code=202)
 
     headers = {"Cache-Control": "public, max-age=86400"}

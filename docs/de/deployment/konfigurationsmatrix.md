@@ -225,6 +225,10 @@ Instanzweite Freischaltung (`AI_FEATURES_ENABLED=true`) reicht allein nicht: Ein
 | S3-kompatibler Speicher | Backend + Celery Worker + externer S3-Endpunkt | `STORAGE_BACKEND=s3` + `STORAGE_S3_ENDPOINT_URL`/`STORAGE_S3_REGION`/`STORAGE_S3_BUCKET` | `STORAGE_S3_ACCESS_KEY_ID`, `STORAGE_S3_SECRET_ACCESS_KEY` (aus External Secrets Operator) | kein PVC nötig | Nein |
 | Virenscan (ClamAV-REST-Wrapper) | Externer ClamAV-Dienst | `STORAGE_VIRUS_SCAN_ENABLED=true` + `STORAGE_VIRUS_SCAN_ENDPOINT` | — | extern, nicht Teil des Charts | Nein |
 | Pflanzenfoto-Galerie <!-- REQ-034 --> | teilt den Object-Storage-Stack | Kein eigener Schalter — `STORAGE_MAX_PHOTOS_PER_INSTANCE` begrenzt die Anzahl | — | — | Nein |
+| Pixelgrenze für Bilder <!-- NFR-013 §5.1 --> | Backend + Celery Worker | Immer aktiv, kein Schalter: Bilder über **40 Megapixel** lehnt jeder Upload und jede Bild-Analyse mit `413` (`IMAGE_PIXEL_LIMIT_EXCEEDED`) ab, bevor ein Pixel dekodiert wird | — | begrenzt den Arbeitsspeicher einer Bild-Dekodierung auf rund 160 MB (40 MPx RGBA) | Nein |
+| Bildtypen ohne EXIF-Bereinigung (HEIC/HEIF, GIF) | Backend | Nicht zulässig, solange `STORAGE_STRIP_EXIF=true` (Default) — auch nicht per `STORAGE_ALLOWED_MIME_TYPES_<KATEGORIE>`; ein Upload antwortet mit `415` | — | — | Nein |
+| Vorschaubild-Erzeugung | Celery Worker | Immer aktiv: höchstens ein Auftrag je Anhang in fünf Minuten (Sperre in Valkey, bei Ausfall je Prozess); endgültig gescheiterte Vorschaubilder antworten mit `404` | — | — | Nein |
+| Budgets je Konto für teure Routen | Backend + Valkey (Zähler) | `RATE_LIMIT_UPLOAD` (Default `30/minute`: Uploads, CSV-Import), `RATE_LIMIT_INFERENCE` (`20/minute`: CV-Diagnose, Schädlingserkennung, Pflanzenbestimmung, Referenzbeitrag), `RATE_LIMIT_EXPORT` (`20/minute`: PDF-Druck) — je Route und Konto; darüber `429` mit `Retry-After` | Valkey aus `REDIS_URL` bzw. `RATE_LIMIT_STORAGE_URL` (fällt bei Ausfall auf eine Zählung je Prozess zurück) | — | Nein |
 
 Details: [Speicher konfigurieren](../user-guide/object-storage.md), [Helm Charts — Storage-Konfiguration](helm.md#storage-konfiguration-nfr-013).
 

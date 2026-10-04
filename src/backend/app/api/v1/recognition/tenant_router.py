@@ -22,12 +22,12 @@ leave the installation — so a grower without consent is refused, and an observ
 with consent is refused too.
 """
 
-import io
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Path, Query, Request, UploadFile
-from PIL import Image, UnidentifiedImageError
+from PIL import UnidentifiedImageError
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.recognition.schemas import (
     HistoryEntryResponse,
     IdentifyResponse,
@@ -46,6 +46,7 @@ from app.common.exceptions import (
     UnsupportedMediaTypeError,
     ValidationError,
 )
+from app.common.image_bounds import MAX_IMAGE_PIXELS, open_bounded_image
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.config.settings import settings
 from app.domain.interfaces.plant_identification_adapter import PlantOrgan
@@ -61,9 +62,9 @@ _ALLOWED_CONTENT_TYPES = frozenset({"image/jpeg", "image/png"})
 # Chunk size for the bounded streaming upload read (1 MiB).
 _UPLOAD_CHUNK_SIZE = 1024 * 1024
 
-# SEC-004 — decompression-bomb guard: reject images whose pixel count is
-# implausible for a plant photo even when the encoded bytes are tiny.
-_MAX_IMAGE_PIXELS = 40_000_000  # ~6300 x 6300 px
+# SEC-004 decompression-bomb guard — reject implausibly large pixel counts even
+# when the encoded bytes are tiny. The ceiling is the shared one (#2108).
+_MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 
 def _parse_organ(value: str) -> PlantOrgan:
@@ -112,12 +113,11 @@ def _validate_reference_image(image_data: bytes, max_bytes: int) -> None:
     if not is_supported_image(image_data):
         raise UnsupportedMediaTypeError(["image/jpeg", "image/png"])
     try:
-        with Image.open(io.BytesIO(image_data)) as img:
-            width, height = img.size
-            if width * height > _MAX_IMAGE_PIXELS:
-                raise PayloadTooLargeError(max_bytes)
+        # Above the ceiling ``open_bounded_image`` raises ImagePixelLimitError
+        # (413) from the header — before ``verify()`` reads anything.
+        with open_bounded_image(image_data, max_pixels=_MAX_IMAGE_PIXELS) as img:
             img.verify()
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+    except (UnidentifiedImageError, OSError) as exc:
         raise ValidationError(
             "The uploaded image could not be decoded.",
             details=[{"field": "image", "reason": "Undecodable image.", "code": "INVALID_IMAGE"}],
@@ -125,7 +125,9 @@ def _validate_reference_image(image_data: bytes, max_bytes: int) -> None:
 
 
 @router.post("/identify", response_model=IdentifyResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def identify_plant(
+    request: Request,
     image: UploadFile,
     organ: str = Form("auto", description="leaf, flower, fruit, bark, habit, auto"),
     language: str = Form("de", description="Preferred language for the returned suggestions (ISO code)."),
@@ -162,6 +164,7 @@ async def identify_plant(
 
 
 @router.post("/reference", response_model=ReferenceContributionResponse, status_code=202)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def contribute_reference(
     request: Request,
     image: UploadFile,
