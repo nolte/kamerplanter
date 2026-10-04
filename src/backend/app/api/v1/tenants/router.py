@@ -202,12 +202,18 @@ def change_member_role(
     ``tenant_member_role_change`` with the membership's key); 401 without it, 403 from an
     API-key request, 429 ``STEP_UP_LOCKED``; nothing is written then. A role re-sent
     unchanged needs none. The step-up fields are never written.
+
+    **Escalation (#2078, REQ-024 AK-58):** 403 when a member raises their *own* role, and
+    when anyone but a platform admin grants ``lead`` in the ``platform`` tenant (there it is the
+    platform role) — checked before the step-up, nothing written. The invitation routes apply
+    the same rule to the role they hand out.
     """
     service.change_member_role(
         ctx.tenant_key,
         membership_key,
         body.role,
         ctx.admin_scopes,
+        actor_user_key=ctx.user_key,
         requester=user,
         current_password=body.current_password,
         step_up_code=body.step_up_code,

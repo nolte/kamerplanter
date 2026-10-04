@@ -135,6 +135,9 @@ The full permission overview — including platform roles, service accounts, and
 !!! note "Changing a role and removing a member ask for your own confirmation"
     Whoever changes a member's role or removes a member enters **their own** current password for it — with no local password, they sign in again at their identity provider instead, or, only when they sign in exclusively through GitHub or Apple, have a code e-mailed. Reason: the role decides what someone may change and delete in the tenant, and removing a member locks that person out — the last lead too. Re-sending a role unchanged needs no confirmation. Deleting a plot attribution does not: it locks nobody out of the tenant.
 
+!!! warning "You cannot raise your own role"
+    Even with the management scope you cannot raise the role of your **own** membership — lowering it stays possible. In the technical `platform` tenant the lead role is the platform role; there, only someone who holds it hands it out, by role change as by invitation. In every other tenant the management scope may still appoint a lead. <!-- Issue #2078, REQ-024 AK-58 -->
+
 ---
 
 ## Attributing Plots

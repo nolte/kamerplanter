@@ -5,6 +5,8 @@ cases exist to hold that independence in place: someone with only ``TECHNICAL``
 cannot touch the member list, and a viewer with ``MANAGEMENT`` can.
 """
 
+import pytest
+
 from app.common.enums import AdminScope, TenantRole
 from app.domain.engines.membership_engine import MembershipEngine
 
@@ -110,3 +112,60 @@ class TestValidateNotLastManager:
 
     def test_safe_when_there_are_no_managers_and_the_target_is_not_one(self):
         assert MembershipEngine.validate_not_last_manager(0, False) is True
+
+
+class TestRoleGrantRefusal:
+    """#2078 — a grant is refused when it raises one's own role or hands out the platform role without holding it."""
+
+    @staticmethod
+    def _refusal(**overrides):
+        arguments = {
+            "target_role": TenantRole.GROWER,
+            "current_role": TenantRole.VIEWER,
+            "is_own_membership": False,
+            "tenant_is_platform": False,
+            "actor_role": TenantRole.VIEWER,
+        } | overrides
+        return MembershipEngine.role_grant_refusal(**arguments)
+
+    def test_an_ordinary_grant_to_someone_else_stands(self):
+        assert self._refusal() is None
+
+    def test_the_secretary_still_appoints_a_lead_in_an_ordinary_tenant(self):
+        # REQ-049 §2.4: no rank ceiling outside the platform tenant.
+        assert self._refusal(target_role=TenantRole.LEAD) is None
+
+    @pytest.mark.parametrize(
+        ("current", "target"),
+        [
+            (TenantRole.VIEWER, TenantRole.GROWER),
+            (TenantRole.VIEWER, TenantRole.LEAD),
+            (TenantRole.GROWER, TenantRole.LEAD),
+        ],
+    )
+    def test_nobody_raises_their_own_role(self, current, target):
+        assert self._refusal(is_own_membership=True, current_role=current, target_role=target) is not None
+
+    @pytest.mark.parametrize(
+        ("current", "target"),
+        [
+            (TenantRole.LEAD, TenantRole.GROWER),
+            (TenantRole.GROWER, TenantRole.VIEWER),
+            (TenantRole.GROWER, TenantRole.GROWER),
+        ],
+    )
+    def test_a_member_may_lower_or_keep_their_own_role(self, current, target):
+        assert self._refusal(is_own_membership=True, current_role=current, target_role=target) is None
+
+    def test_lead_in_the_platform_tenant_needs_a_lead_to_grant_it(self):
+        for actor in (TenantRole.VIEWER, TenantRole.GROWER, None):
+            assert self._refusal(tenant_is_platform=True, target_role=TenantRole.LEAD, actor_role=actor) is not None
+        assert self._refusal(tenant_is_platform=True, target_role=TenantRole.LEAD, actor_role=TenantRole.LEAD) is None
+
+    def test_roles_below_lead_in_the_platform_tenant_are_not_restricted(self):
+        for target in (TenantRole.VIEWER, TenantRole.GROWER):
+            assert self._refusal(tenant_is_platform=True, target_role=target, actor_role=TenantRole.VIEWER) is None
+
+    def test_an_invitation_has_no_current_role_and_only_the_platform_rule_applies(self):
+        assert self._refusal(current_role=None, target_role=TenantRole.LEAD) is None
+        assert self._refusal(current_role=None, target_role=TenantRole.LEAD, tenant_is_platform=True) is not None
