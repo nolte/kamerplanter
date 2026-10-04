@@ -426,6 +426,8 @@ def retry_after_seconds(request: Request, exc: RateLimitExceeded) -> int:
     was counted in; the whole window length when they cannot be read (another
     limiter counted it, or the storage failed). Never below one second.
     """
+    if exc.limit is None:  # pragma: no cover — slowapi always names the exhausted limit
+        return 60
     window = int(exc.limit.limit.get_expiry())
     limiter = getattr(request.app.state, "limiter", None)
     view = getattr(request.state, "view_rate_limit", None)
