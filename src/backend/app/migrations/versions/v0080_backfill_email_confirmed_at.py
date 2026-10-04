@@ -29,7 +29,9 @@ defect being repaired; there is no value to restore.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
+from typing import Any, cast
 
 import structlog
 from arango.database import StandardDatabase
@@ -62,11 +64,11 @@ class BackfillEmailConfirmedAtMigration(Migration):
     def up(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:
         if not db.has_collection(col.USERS):
             return MigrationReport(version=self.version, name=self.name, scanned=0, changed=0, dry_run=dry_run)
-        if dry_run:
-            rows = next(iter(db.aql.execute(_COUNT_QUERY, bind_vars={"@collection": col.USERS})), 0)
-        else:
-            stamp = datetime.now(UTC).isoformat()
-            rows = next(iter(db.aql.execute(_STAMP_QUERY, bind_vars={"@collection": col.USERS, "stamp": stamp})), 0)
+        binds: dict[str, Any] = {"@collection": col.USERS}
+        if not dry_run:
+            binds["stamp"] = datetime.now(UTC).isoformat()
+        cursor = db.aql.execute(_COUNT_QUERY if dry_run else _STAMP_QUERY, bind_vars=binds)
+        rows = next(iter(cast(Iterable[int], cursor)), 0)
         logger.info("backfill_email_confirmed_at", dry_run=dry_run, accounts=rows)
         return MigrationReport(
             version=self.version,
