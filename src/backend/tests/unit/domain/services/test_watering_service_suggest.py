@@ -87,7 +87,7 @@ def _plant(**kw):
 
 def _species(waterlogging_tolerance=None, vol_min=200, vol_max=400):
     guide = SimpleNamespace(volume_ml_min=vol_min, volume_ml_max=vol_max, seasonal_adjustments=None)
-    return SimpleNamespace(waterlogging_tolerance=waterlogging_tolerance, watering_guide=guide)
+    return SimpleNamespace(tenant_key="", waterlogging_tolerance=waterlogging_tolerance, watering_guide=guide)
 
 
 def _service(plant, species, *, location_key="loc1", sensor_service=None):

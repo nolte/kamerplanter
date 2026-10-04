@@ -25,6 +25,7 @@ import structlog
 
 from app.common.enums import GrowthHabit, RootType, WinterHardinessLight
 from app.domain.engines.winter_hardiness_engine import derive_winter_path, evaluate_winter_hardiness
+from app.domain.services.species_visibility import readable_species
 
 if TYPE_CHECKING:
     from app.domain.interfaces.overwintering_profile_repository import IOverwinteringProfileRepository
@@ -80,7 +81,7 @@ class OverwinteringMaterializer:
                 termination_type=plant.termination_type.value,
             )
             return None
-        species = self._species_repo.get_by_key(plant.species_key)
+        species = readable_species(self._species_repo, plant.species_key, plant.tenant_key)
         if species is None:
             return None
 
