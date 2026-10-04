@@ -57,6 +57,7 @@ from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.plant_diary_service import PlantDiaryService
 from app.domain.services.plant_instance_service import PlantInstanceService
 from app.domain.services.planting_run_service import PlantingRunService
+from app.domain.services.species_visibility import readable_species
 
 router = APIRouter(prefix="/planting-runs", tags=["planting-runs"], responses=NOT_FOUND_RESPONSE)
 
@@ -236,7 +237,7 @@ def get_phase_timeline(
     service.get_run(key, tenant_key=ctx.tenant_key)
     timelines = service.get_phase_timeline(key)
     for tl in timelines:
-        sp = species_repo.get_by_key(tl["species_key"])
+        sp = readable_species(species_repo, tl["species_key"], ctx.tenant_key)
         if sp:
             tl["species_name"] = sp.scientific_name
     return timelines
@@ -307,7 +308,8 @@ def list_plants(
         if not species_key:
             return None
         if species_key not in species_cache:
-            sp = species_repo.get_by_key(species_key)
+            # #2082: a legacy plant may carry another tenant's private species key.
+            sp = readable_species(species_repo, species_key, ctx.tenant_key)
             species_cache[species_key] = (
                 SpeciesSummary(scientific_name=sp.scientific_name, common_names=sp.common_names) if sp else None
             )

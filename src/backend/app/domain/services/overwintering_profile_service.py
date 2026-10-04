@@ -44,6 +44,7 @@ from app.domain.models.overwintering_profile_template import OverwinteringProfil
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.site import Location
 from app.domain.services.location_ownership import find_owned_location, resolve_owned_location
+from app.domain.services.species_visibility import readable_species
 
 _ENTITY = "OverwinteringProfile"
 
@@ -276,7 +277,7 @@ class OverwinteringProfileService:
         site_overwinterable = resolve_frost_exposure(location, site)
         if not plant.species_key:
             return None, site_overwinterable
-        species = self._species_repo.get_by_key(plant.species_key)
+        species = readable_species(self._species_repo, plant.species_key, tenant_key)
         if species is None:
             return None, site_overwinterable
         species_zone = species.hardiness_zones[0] if species.hardiness_zones else None
@@ -783,7 +784,7 @@ class OverwinteringProfileService:
                 location_key = run.location_key
 
         if species_key and self._species_repo is not None:
-            species = self._species_repo.get_by_key(species_key)
+            species = readable_species(self._species_repo, species_key, tenant_key)
             if species is not None:
                 labels["species_scientific_name"] = species.scientific_name
                 labels["species_common_name"] = species.common_names[0] if species.common_names else None

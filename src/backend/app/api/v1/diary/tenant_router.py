@@ -85,7 +85,7 @@ class _PlantContext:
 
     def species_name(self, species_key: str) -> str | None:
         if species_key not in self._species:
-            species = self._service.resolve_species(species_key)
+            species = self._service.resolve_species(species_key, tenant_key=self._tenant_key)
             name: str | None = None
             if species is not None:
                 name = species.scientific_name or (species.common_names[0] if species.common_names else None)

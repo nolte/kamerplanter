@@ -47,6 +47,7 @@ from app.domain.models.attachment import CAPTION_MAX_LENGTH, Attachment, Quality
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.identification_service import IdentificationService
+from app.domain.services.species_visibility import readable_species
 
 logger = structlog.get_logger()
 
@@ -362,7 +363,7 @@ class PlantPhotoService:
         # is_plant + top-1 confidence only (§4a.2).
         expected_scientific_name: str | None = None
         if plant.species_key:
-            species = self._species.get_by_key(plant.species_key)
+            species = readable_species(self._species, plant.species_key, tenant_key)
             if species is not None:
                 expected_scientific_name = species.scientific_name
 
