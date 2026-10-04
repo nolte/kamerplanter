@@ -299,9 +299,20 @@ class TaskService:
             # A shared (generated) plan: every tenant reads this one row, so the
             # edit lands on the caller's own copy, as the activity-plan editor's
             # does (#1003, #2101). The shared row is never written.
-            wt, _ = self._copy_workflow_template(
-                wt, name=wt.name, tenant_key=tenant_key, auto_generated=wt.auto_generated
+            # A generated plan already forked by this tenant is reused (the same lookup the
+            # read path and the activity-plan editor use), so a client that still holds the
+            # shared key does not mint a new copy per save.
+            existing_fork = (
+                self._repo.get_auto_generated_workflow_for_species(wt.species_key, tenant_key=tenant_key)
+                if wt.auto_generated and wt.species_key
+                else None
             )
+            if existing_fork is not None and existing_fork.tenant_key == tenant_key:
+                wt = existing_fork
+            else:
+                wt, _ = self._copy_workflow_template(
+                    wt, name=wt.name, tenant_key=tenant_key, auto_generated=wt.auto_generated
+                )
             key = wt.key or key
         for field, value in _allowed(data, WORKFLOW_TEMPLATE_UPDATABLE_FIELDS).items():
             setattr(wt, field, value)

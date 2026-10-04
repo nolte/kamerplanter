@@ -69,6 +69,15 @@ def test_a_put_on_a_shared_plan_forks_it_for_the_caller(env) -> None:
     assert shared["name"].startswith("Plan ") and shared["tenant_key"] == ""
 
 
+def test_a_second_put_on_the_shared_key_reuses_the_callers_fork(env) -> None:
+    wf, _, _ = _plan(env)
+    env.caller.as_b()
+    first = env.client.put(f"{BASE}/workflows/{wf}", json={"name": "One"}).json()
+    second = env.client.put(f"{BASE}/workflows/{wf}", json={"name": "Two"}).json()
+    assert first["key"] == second["key"] != wf
+    assert second["name"] == "Two"
+
+
 def test_a_delete_on_a_shared_plan_is_forbidden(env) -> None:
     wf, _, _ = _plan(env)
     env.caller.as_b()
