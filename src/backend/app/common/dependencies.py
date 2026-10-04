@@ -1775,18 +1775,30 @@ def get_notification_preference_repo() -> ArangoNotificationPreferenceRepository
 
 
 def _get_redis_client():
-    """Get a Redis client for notification dedup and caching."""
+    """Get a Redis client for the request-path stores, notification dedup and caching.
+
+    Bounded like the limiter's storage (:func:`bounded_redis_client_options`):
+    0.5 s per connect and per socket read, no retry. The redis-py default is 5 s,
+    and a Valkey that accepts TCP and never answers held every caller on its
+    request path — the device-pairing throttle and code store, the API-key
+    limiter, the MCP session store, the identification limiter — for five seconds
+    per Valkey call (measured, #2062). Every one of them already treats a Valkey
+    error as an outage (a local tier or fail-closed), so a shorter wait changes
+    how long an outage costs, not what it means.
+    """
     import redis
 
-    return redis.Redis.from_url(settings.redis_url, decode_responses=True)
+    from app.common.rate_limit import bounded_redis_client_options
+
+    return redis.Redis.from_url(settings.redis_url, decode_responses=True, **bounded_redis_client_options())
 
 
 def _get_throttle_redis_client() -> LatchedRedis:
     """The Valkey client of the sign-in routes' mail budgets and the unknown-account counter (#2045 SEC-001).
 
     These stores sit on anonymous request paths and fall back to an in-process
-    tier when Valkey fails. With the redis-py defaults of
-    :func:`_get_redis_client` (5 s per socket operation) a Valkey that accepts
+    tier when Valkey fails. With the redis-py defaults (5 s per socket operation;
+    :func:`_get_redis_client` used them until #2062) a Valkey that accepts
     TCP and never answers held every password-reset request and every
     unverified-login refusal for about 5 s — measured. This client waits one
     0.5 s socket timeout per connection attempt and address and never retries,
