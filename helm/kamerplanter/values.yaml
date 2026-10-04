@@ -38,19 +38,30 @@
 # controllers. That change belongs in that repository; this comment is the
 # invariant it has to satisfy, kept next to the values that enforce it here.
 
-# -- NFR-013 Object-storage configuration (§4.1, §10).
+# -- NFR-013 Object-storage configuration (§4.1, §10) — THE storage switch (#2124).
 #
-# This block is the operator-facing source of truth for the storage backend.
-# The bjw-s common chart consumes ``controllers``/``persistence`` literally
-# (values.yaml is not templated), so the concrete wiring lives there:
-#   * ``STORAGE_*`` env vars on the backend + celery-worker controllers
-#   * the ``backend-uploads`` PVC mounted at ``storage.localFs.root`` (local-fs)
-# Keep this block and that wiring in sync when changing the backend.
+# This block is the one place an operator chooses where attachments live. Since
+# bjw-s common 5.2 every string in these values is rendered as a template, and
+# the backend + celery-worker controllers and the ``backend-attachments``
+# persistence below read this block through ``{{ .Values.storage.* }}``
+# expressions. Until #2124 nothing read it: setting ``backend: s3`` here still
+# deployed local-fs with a volume — a switch the docs described and the chart
+# ignored.
+#
+#   * ``local-fs`` (default): the ``backend-attachments`` claim is rendered and
+#     mounted at ``localFs.root`` in the backend and the celery-worker.
+#   * ``s3``: no claim, no mount; the backend + worker get ``STORAGE_BACKEND=s3``,
+#     the ``s3.*`` parameters and the two credential keys from
+#     ``s3.credentialsRef``. **Required for shared (multi-node / SaaS)
+#     operation**, see ``localFs.singleNode``.
 #
 # SECRETS (NFR-013 §4.1): the S3 access key / secret are NEVER placed in
-# values.yaml, a ConfigMap or Git. They are resolved from a Secret produced by
-# the External Secrets Operator (``s3.credentialsRef``) and injected via
-# ``envFrom`` — see the commented example on the backend controller.
+# values.yaml, a ConfigMap or Git. They come from the Secret named in
+# ``s3.credentialsRef`` (e.g. produced by the External Secrets Operator) and are
+# injected key by key via ``secretKeyRef`` — only those two keys, not the whole
+# Secret. The references are ``optional`` so that a local-fs release, which has
+# no such Secret, still starts; with ``backend: s3`` and the Secret missing, the
+# storage health check fails readiness (the rollout stops, the old pods serve).
 storage:
   backend: local-fs   # local-fs | s3
   maxFileSizeMb: 25
@@ -63,13 +74,18 @@ storage:
     root: /data/attachments
     pvc:
       size: 20Gi
-      # ReadWriteMany is required once the backend runs with >1 replica AND the
-      # celery-worker shares the volume (thumbnail generation). With a single
-      # backend replica + single worker on the same node, ReadWriteOnce is fine
-      # but limits horizontal scaling — prefer RWX on a CSI that supports it
-      # (Longhorn, NFS, CephFS).
+      # The claim is mounted by the backend AND the celery-worker. A
+      # ReadWriteOnce volume attaches to ONE node: a second pod scheduled onto
+      # another node stays in ContainerCreating with `Multi-Attach error`. So more
+      # than one backend or worker replica on local-fs needs ReadWriteMany on a
+      # CSI that supports it (Longhorn RWX, NFS, CephFS) — or S3. The render
+      # refuses the combination (``renderChecks.attachmentVolume`` below).
       accessMode: ReadWriteOnce
       storageClass: ""   # "" = cluster default StorageClass
+    # Set to true ONLY on a single-node cluster: there every pod shares the one
+    # node, so ReadWriteOnce carries several replicas. On more than one node it
+    # does not, whatever this flag says.
+    singleNode: false
 
   s3:
     endpointUrl: https://s3.eu-central-1.amazonaws.com
@@ -78,11 +94,106 @@ storage:
     usePathStyle: false
     forceTls: true
     kmsKeyId: ""
-    # External Secrets Operator reference — the operator syncs the upstream
-    # secret store into a Kubernetes Secret with these keys. NEVER inline the
-    # values here (NFR-013 §4.1).
+    # A private / in-cluster endpoint (MinIO, Ceph RGW) is refused by the
+    # admin "test connection" probe unless this is true (SEC-002). The
+    # backend's NetworkPolicy also excludes RFC1918 egress — an in-cluster
+    # endpoint additionally needs an egress rule in your values.
+    allowPrivateEndpoint: false
+    # Name and keys of the Secret holding the S3 credentials (synced by the
+    # External Secrets Operator or created by hand). NEVER inline the values.
     credentialsRef:
       secretName: storage-s3-credentials
+      accessKeyIdKey: STORAGE_S3_ACCESS_KEY_ID
+      secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
+
+# -- Render-time checks (#2124). bjw-s renders every string in these values as a
+# template, and ``fail`` aborts ``helm template`` / ``helm upgrade`` / the ArgoCD
+# render with the message — before anything reaches the cluster. The checks
+# render to an empty string when they pass and are read by nothing else.
+renderChecks:
+  attachmentVolume: >-
+    {{- $storage := .Values.storage -}}
+    {{- if not (has $storage.backend (list "local-fs" "s3")) -}}
+    {{- fail (printf "storage.backend must be local-fs or s3, got %q" (toString $storage.backend)) -}}
+    {{- end -}}
+    {{- if and (eq $storage.backend "local-fs") (ne $storage.localFs.pvc.accessMode "ReadWriteMany") (not $storage.localFs.singleNode) -}}
+    {{- range $name := list "backend" "celery-worker" -}}
+    {{- $controller := index $.Values.controllers $name | default dict -}}
+    {{- if and (ne (toString $controller.enabled) "false") (gt (int (default 1 $controller.replicas)) 1) -}}
+    {{- fail (printf "controllers.%s.replicas=%d with storage.backend=local-fs on a %s attachment volume: the volume attaches to one node, so a second pod on another node never starts (Multi-Attach error). Use storage.backend=s3 (required for shared operation), or storage.localFs.pvc.accessMode=ReadWriteMany with an RWX storage class, or - on a cluster with exactly one node - storage.localFs.singleNode=true. See docs/deployment/helm.md#storage-konfiguration-nfr-013 (#2124)." $name (int $controller.replicas) $storage.localFs.pvc.accessMode) -}}
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
+  # #2122 — an enabled backup without a bucket would run every night and fail
+  # every night; refuse it at render time instead.
+  backupTarget: >-
+    {{- if and .Values.backup.enabled (empty .Values.backup.s3.bucket) -}}
+    {{- fail "backup.enabled=true needs backup.s3.bucket (and the Secret named in backup.s3.credentialsRef). See docs/deployment/backup-restore.md (#2122)." -}}
+    {{- end -}}
+
+# -- ArangoDB application account (#2126). The backend, celery-worker and
+# celery-beat connect with this account (their ARANGODB_USERNAME renders it), and
+# the arangodb `app-user` container provisions it with ARANGODB_PASSWORD from
+# kamerplanter-secrets: `rw` on the application database and its collections,
+# no access to `_system`. Until #2126 the application connected as root.
+#
+# Set to `root` to keep the old behaviour (the provisioner then does nothing).
+# What the chart cannot do for you: the backend still receives the whole
+# kamerplanter-secrets, so as long as ARANGO_ROOT_PASSWORD lives in that Secret
+# the backend can read it. Move it into a Secret of its own and give the
+# application account its own ARANGODB_PASSWORD — docs/deployment/kubernetes.md.
+database:
+  arangodb:
+    appUsername: kamerplanter
+    # Secret holding ARANGO_ROOT_PASSWORD, read by the arangodb pod only. The
+    # default keeps today's place; set a Secret of its own to take the root
+    # password out of what the backend receives.
+    rootPasswordSecret: kamerplanter-secrets
+
+# -- ArangoDB backup (#2122, NFR-002 §8, NFR-012 §9.1). OFF by default — an
+# enabled backup needs a bucket and credentials only the operator has.
+#
+# A CronJob (controller ``arangodb-backup``) runs ``arangodump`` of the
+# application database into a scratch volume (init container, the SAME arangodb
+# image and tag as the database, so client and server versions cannot drift),
+# then ``rclone`` copies the dump to ``s3://<bucket>/<prefix>/<UTC stamp>/`` and
+# writes ``<prefix>/LATEST`` with that stamp — the recovery point, readable
+# without a cluster (RPO = now − LATEST). Retention deletes dump directories
+# older than ``retentionDays``, never the one the run just wrote, so a backup
+# outage cannot age the last good dump away.
+#
+# Credentials: the dump reads ``ARANGODB_USERNAME`` / ``ARANGODB_PASSWORD`` — the
+# application account, which can read its own database; the root password is
+# not in this pod. The S3 keys come key by key from ``s3.credentialsRef``. No
+# password is ever on a command line: arangodump expands ``@ARANGODB_PASSWORD@``
+# from its own environment.
+#
+# Encryption: ``s3.serverSideEncryption`` (``AES256`` or ``aws:kms`` with
+# ``s3.kmsKeyId``) is requested on every upload; the bucket's own default
+# encryption and versioning are the operator's to set.
+#
+# What this does NOT back up: attachments (with ``storage.backend: s3`` use
+# bucket versioning / replication, NFR-013 §7.1; with local-fs a CSI
+# VolumeSnapshot of the ``backend-attachments`` claim) and TimescaleDB (not part
+# of this chart's production values). Restore: docs/deployment/backup-restore.md.
+backup:
+  enabled: false
+  schedule: "15 2 * * *"
+  retentionDays: 30
+  # Node-disk scratch for one dump; size it above the compressed database.
+  scratchSize: 10Gi
+  s3:
+    # rclone's S3 provider name: AWS, Minio, Ceph, Cloudflare, Other, ...
+    provider: AWS
+    endpointUrl: https://s3.eu-central-1.amazonaws.com
+    region: eu-central-1
+    bucket: ""
+    prefix: kamerplanter/arangodb
+    forcePathStyle: false
+    serverSideEncryption: AES256   # "" | AES256 | aws:kms
+    kmsKeyId: ""
+    credentialsRef:
+      secretName: kamerplanter-backup-s3
       accessKeyIdKey: AWS_ACCESS_KEY_ID
       secretAccessKeyKey: AWS_SECRET_ACCESS_KEY
 
@@ -174,7 +285,9 @@ controllers:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
-          ARANGODB_USERNAME: root
+          # #2126 — the application account, provisioned by the arangodb
+          # `app-user` container; see `database.arangodb.appUsername`.
+          ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           # How many proxy addresses this deployment's own infrastructure appends
           # to X-Forwarded-For, counted from the right (#1151). Only the backend
@@ -293,37 +406,67 @@ controllers:
           MCP_IDEMPOTENCY_TTL_HOURS: "24"
           # mcp_audit_log retention; the floor is set by NFR-011, not by taste.
           MCP_AUDIT_RETENTION_DAYS: "90"
-          # NFR-013 Object storage (§4.1). Defaults target the local-fs backend
-          # whose root MUST match the backend-uploads PVC mount below. Switch to
-          # s3 by setting STORAGE_BACKEND=s3 + the STORAGE_S3_* values and adding
-          # the credentials via envFrom from the ESO-synced Secret (see comment).
-          STORAGE_BACKEND: "local-fs"
-          STORAGE_LOCAL_FS_ROOT: /data/attachments
-          STORAGE_MAX_FILE_SIZE_MB: "25"
-          STORAGE_PRESIGN_TTL_SECONDS: "900"
-          STORAGE_VIRUS_SCAN_ENABLED: "false"
-          # -- S3 backend (uncomment + set STORAGE_BACKEND=s3 to enable):
-          # STORAGE_S3_ENDPOINT_URL: https://s3.eu-central-1.amazonaws.com
-          # STORAGE_S3_REGION: eu-central-1
-          # STORAGE_S3_BUCKET: kamerplanter-prod
-          # STORAGE_S3_USE_PATH_STYLE: "false"
-          # STORAGE_S3_FORCE_TLS: "true"
-          # STORAGE_S3_KMS_KEY_ID: ""
-          # -- S3 credentials come ONLY from the External Secrets Operator —
-          # never inline them here (NFR-013 §4.1). Provide a Secret named
-          # ``storage-s3-credentials`` (keys STORAGE_S3_ACCESS_KEY_ID /
-          # STORAGE_S3_SECRET_ACCESS_KEY) and reference it via envFrom:
-          #   envFrom:
-          #     - secret: kamerplanter-secrets
-          #     - secret: storage-s3-credentials
+          # NFR-013 Object storage (§4.1) — rendered from the top-level
+          # ``storage`` block (#2124); set the backend THERE, not here. The
+          # celery-worker carries the same lines and must stay identical.
+          STORAGE_BACKEND: '{{ .Values.storage.backend }}'
+          STORAGE_LOCAL_FS_ROOT: '{{ .Values.storage.localFs.root }}'
+          STORAGE_MAX_FILE_SIZE_MB: '{{ .Values.storage.maxFileSizeMb }}'
+          STORAGE_PRESIGN_TTL_SECONDS: '{{ .Values.storage.presignTtlSeconds }}'
+          STORAGE_VIRUS_SCAN_ENABLED: '{{ .Values.storage.virusScan.enabled }}'
+          STORAGE_VIRUS_SCAN_ENDPOINT: '{{ .Values.storage.virusScan.endpoint }}'
+          # The S3 parameters are empty (= the application defaults) unless the
+          # backend is s3; the two booleans always carry the configured value.
+          STORAGE_S3_ENDPOINT_URL: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.endpointUrl }}{{ end }}'
+          STORAGE_S3_REGION: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.region }}{{ end }}'
+          STORAGE_S3_BUCKET: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.bucket }}{{ end }}'
+          STORAGE_S3_KMS_KEY_ID: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.kmsKeyId }}{{ end }}'
+          STORAGE_S3_USE_PATH_STYLE: '{{ .Values.storage.s3.usePathStyle }}'
+          STORAGE_S3_FORCE_TLS: '{{ .Values.storage.s3.forceTls }}'
+          STORAGE_S3_ALLOW_PRIVATE_ENDPOINT: '{{ .Values.storage.s3.allowPrivateEndpoint }}'
+          # S3 credentials: only these two keys of the Secret named in
+          # storage.s3.credentialsRef, never inlined (NFR-013 §4.1).
+          STORAGE_S3_ACCESS_KEY_ID:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.storage.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.storage.s3.credentialsRef.accessKeyIdKey }}'
+                optional: true
+          STORAGE_S3_SECRET_ACCESS_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.storage.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.storage.s3.credentialsRef.secretAccessKeyKey }}'
+                optional: true
         probes:
-          liveness:
+          # #2125 — the lifespan runs ensure_collections, every pending migration
+          # and the seeds BEFORE uvicorn listens (measured 2026-10-04 on an empty
+          # ArangoDB: ~6 s import + ~33 s database work on a workstation), and a
+          # replica that finds the migration lock held waits up to
+          # BARRIER_TIMEOUT_SECONDS (600 s) for it. Liveness alone killed that
+          # start ~35 s in, and a killed migrator leaves its lock fresh, so the
+          # next start waited and was killed again. Liveness and readiness only
+          # begin once this probe succeeded; its budget (10 s x 90 = 900 s) must
+          # stay above the barrier so the application's own bounded wait, not
+          # the kubelet, decides that a start failed
+          # (tests/unit/guards/test_chart_backend_startup_budget.py).
+          startup:
             enabled: true
             custom: true
             spec:
               httpGet:
                 path: /api/v1/health/live
                 port: &backend-port 8000
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 90
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/v1/health/live
+                port: *backend-port
               initialDelaySeconds: 15
               periodSeconds: 10
               timeoutSeconds: 5
@@ -472,9 +615,20 @@ controllers:
           allowPrivilegeEscalation: false
           capabilities:
             drop: ["ALL"]
-        envFrom:
-          - secret: kamerplanter-secrets
-        env: {}
+        # #2126 — exactly the root password, nothing else of the application
+        # Secret. Until #2126 this was `envFrom: kamerplanter-secrets`, which put
+        # JWT_SECRET_KEY, FERNET_KEY, INTERNAL_SERVICE_TOKEN and every mail/API
+        # key into the database pod. `optional` keeps the old behaviour for a
+        # Secret without the key (the image only reads it to initialise an
+        # empty volume). To separate the root password from the application
+        # Secret, set `database.arangodb.rootPasswordSecret` (docs: kubernetes.md).
+        env:
+          ARANGO_ROOT_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.database.arangodb.rootPasswordSecret }}'
+                key: ARANGO_ROOT_PASSWORD
+                optional: true
         probes:
           liveness:
             enabled: true
@@ -503,6 +657,103 @@ controllers:
           limits:
             cpu: "1"
             memory: 1Gi
+      # -- #2126 application account. Provisions — idempotently, on every pod
+      # start — the account the backend connects with: the application database
+      # (created if missing), the account with ARANGODB_PASSWORD, `rw` on that
+      # database and its collections, `none` on `_system`. Then it idles.
+      # It reads ARANGODB_USERNAME/ARANGODB_DATABASE from the backend's own env,
+      # so a backend overridden to `root` makes it provision nothing.
+      # Runs beside arangod because that is the one pod that holds the root
+      # password anyway; it reaches the server on localhost (no NetworkPolicy
+      # change), and passes no password on a command line (arangosh expands
+      # `@ARANGO_ROOT_PASSWORD@` from its environment). A failure is retried every
+      # 15 s and logged; it never blocks the database itself. Verified against
+      # ArangoDB 3.12.12 under this security context on 2026-10-04.
+      app-user:
+        image:
+          repository: arangodb
+          # Same image and tag as the server (client == server version).
+          tag: '{{ .Values.controllers.arangodb.containers.main.image.tag }}'
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -u
+            trap 'exit 0' TERM INT
+            provision() {
+              arangosh \
+                --server.endpoint tcp://127.0.0.1:8529 \
+                --server.username root \
+                --server.password @ARANGO_ROOT_PASSWORD@ \
+                --console.history false \
+                --quiet \
+                --javascript.execute-string "$(cat <<'JS'
+            const users = require('@arangodb/users');
+            const env = require('internal').env;
+            const name = env.ARANGODB_DATABASE;
+            const user = env.ARANGODB_USERNAME;
+            const password = env.ARANGODB_PASSWORD;
+            if (!name || !user || !password) {
+              throw new Error('ARANGODB_DATABASE, ARANGODB_USERNAME and ARANGODB_PASSWORD must be set');
+            }
+            if (user === 'root') {
+              print('app-user: the application connects as root, nothing to provision');
+            } else {
+              if (!db._databases().includes(name)) {
+                db._createDatabase(name);
+                print('app-user: created database ' + name);
+              }
+              if (users.exists(user)) {
+                users.update(user, password, true);
+              } else {
+                users.save(user, password, true);
+              }
+              users.grantDatabase(user, name, 'rw');
+              users.grantCollection(user, name, '*', 'rw');
+              users.grantDatabase(user, '_system', 'none');
+              print('app-user: ' + user + ' has rw on ' + name + ' and no access to _system');
+            }
+            JS
+            )"
+            }
+            until provision; do
+              echo "app-user: provisioning failed, retrying in 15s"
+              sleep 15 &
+              wait $!
+            done
+            while :; do
+              sleep 3600 &
+              wait $!
+            done
+        env:
+          ARANGODB_DATABASE: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_DATABASE $ }}'
+          ARANGODB_USERNAME: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME $ }}'
+          # Both optional: a missing key must never stop the database pod; the
+          # script then logs and retries.
+          ARANGODB_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kamerplanter-secrets
+                key: ARANGODB_PASSWORD
+                optional: true
+          ARANGO_ROOT_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.database.arangodb.rootPasswordSecret }}'
+                key: ARANGO_ROOT_PASSWORD
+                optional: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
     statefulset:
       volumeClaimTemplates:
         - name: data
@@ -510,8 +761,150 @@ controllers:
           size: 5Gi
           annotations:
             helm.sh/resource-policy: keep
-          globalMounts:
-            - path: /var/lib/arangodb3
+          # The database volume belongs to arangod alone, not to `app-user`
+          # (#2126). The claim template itself is unchanged.
+          advancedMounts:
+            main:
+              - path: /var/lib/arangodb3
+
+  # -- #2122 ArangoDB backup CronJob — configured through the top-level
+  # ``backup`` block; ``enabled`` renders to "true" or "" (see the storage
+  # persistence for why not "false").
+  arangodb-backup:
+    enabled: '{{ if .Values.backup.enabled }}true{{ end }}'
+    type: cronjob
+    cronjob:
+      schedule: '{{ .Values.backup.schedule }}'
+      concurrencyPolicy: Forbid
+      successfulJobsHistory: 3
+      failedJobsHistory: 3
+      backoffLimit: 2
+      activeDeadlineSeconds: 7200
+    pod:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+    initContainers:
+      dump:
+        image:
+          repository: arangodb
+          # The database's own tag (client == server version); Renovate bumps
+          # the arangodb controller above and this follows.
+          tag: '{{ .Values.controllers.arangodb.containers.main.image.tag }}'
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -eu
+            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            arangodump \
+              --server.endpoint "tcp://${ARANGODB_HOST}:${ARANGODB_PORT}" \
+              --server.username "${ARANGODB_USERNAME}" \
+              --server.password @ARANGODB_PASSWORD@ \
+              --server.database "${ARANGODB_DATABASE}" \
+              --include-system-collections true \
+              --compress-output true \
+              --output-directory "/backup/${stamp}"
+            printf '%s\n' "${stamp}" > /backup/STAMP
+        env:
+          # The application's own connection — whatever account the backend
+          # uses, the backup uses.
+          ARANGODB_HOST: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_HOST $ }}'
+          ARANGODB_PORT: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_PORT $ }}'
+          ARANGODB_DATABASE: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_DATABASE $ }}'
+          ARANGODB_USERNAME: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME $ }}'
+          ARANGODB_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kamerplanter-secrets
+                key: ARANGODB_PASSWORD
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+    containers:
+      main:
+        image:
+          repository: rclone/rclone
+          tag: "1.75.1"
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -eu
+            # The dump holds personal data; it leaves the node with the upload
+            # and is never left behind in a finished pod's volume.
+            trap 'rm -rf /backup/*' EXIT
+            stamp="$(cat /backup/STAMP)"
+            dest="backup:${BACKUP_S3_BUCKET}/${BACKUP_S3_PREFIX}"
+            rclone copy "/backup/${stamp}" "${dest}/${stamp}"
+            printf '%s\n' "${stamp}" | rclone rcat "${dest}/LATEST"
+            echo "backup ${stamp} uploaded"
+            if [ "${BACKUP_RETENTION_DAYS}" -gt 0 ]; then
+              cutoff="$(date -u -d "@$(( $(date -u +%s) - BACKUP_RETENTION_DAYS * 86400 ))" +%Y%m%dT%H%M%SZ)"
+              rclone lsf --dirs-only "${dest}" | sed 's#/$##' | while read -r old; do
+                case "${old}" in
+                  [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z) ;;
+                  *) continue ;;
+                esac
+                if [ "${old}" != "${stamp}" ] && [ "${old}" \< "${cutoff}" ]; then
+                  rclone purge "${dest}/${old}"
+                  echo "backup ${old} expired (older than ${BACKUP_RETENTION_DAYS} days)"
+                fi
+              done
+            fi
+        env:
+          HOME: /tmp
+          RCLONE_CONFIG: /tmp/rclone.conf
+          BACKUP_S3_BUCKET: '{{ .Values.backup.s3.bucket }}'
+          BACKUP_S3_PREFIX: '{{ .Values.backup.s3.prefix }}'
+          BACKUP_RETENTION_DAYS: '{{ .Values.backup.retentionDays }}'
+          # rclone remote "backup:" configured entirely from the environment.
+          RCLONE_CONFIG_BACKUP_TYPE: s3
+          RCLONE_CONFIG_BACKUP_PROVIDER: '{{ .Values.backup.s3.provider }}'
+          RCLONE_CONFIG_BACKUP_ENDPOINT: '{{ .Values.backup.s3.endpointUrl }}'
+          RCLONE_CONFIG_BACKUP_REGION: '{{ .Values.backup.s3.region }}'
+          RCLONE_CONFIG_BACKUP_FORCE_PATH_STYLE: '{{ .Values.backup.s3.forcePathStyle }}'
+          RCLONE_CONFIG_BACKUP_SERVER_SIDE_ENCRYPTION: '{{ .Values.backup.s3.serverSideEncryption }}'
+          RCLONE_CONFIG_BACKUP_SSE_KMS_KEY_ID: '{{ .Values.backup.s3.kmsKeyId }}'
+          # The bucket must exist; the backup key needs no CreateBucket right.
+          RCLONE_CONFIG_BACKUP_NO_CHECK_BUCKET: "true"
+          RCLONE_CONFIG_BACKUP_ENV_AUTH: "false"
+          RCLONE_CONFIG_BACKUP_ACCESS_KEY_ID:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.backup.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.backup.s3.credentialsRef.accessKeyIdKey }}'
+          RCLONE_CONFIG_BACKUP_SECRET_ACCESS_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.backup.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.backup.s3.credentialsRef.secretAccessKeyKey }}'
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
 
   celery-worker:
     type: deployment
@@ -554,7 +947,9 @@ controllers:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
-          ARANGODB_USERNAME: root
+          # #2126 — the application account, provisioned by the arangodb
+          # `app-user` container; see `database.arangodb.appUsername`.
+          ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           # #777 — optional Sentry-protocol error tracking. Empty DSN => the SDK
           # is never initialised and the process is unchanged, so this block is
@@ -577,12 +972,32 @@ controllers:
           # changes, not one.
           # NFR-013 — the worker generates thumbnails (§8.2) and runs the DSGVO
           # storage erasure (§6.2), so it MUST see the same backend + volume as
-          # the backend pod. Keep these in sync with the backend controller.
-          STORAGE_BACKEND: "local-fs"
-          STORAGE_LOCAL_FS_ROOT: /data/attachments
-          STORAGE_MAX_FILE_SIZE_MB: "25"
-          # For the s3 backend, add the same STORAGE_S3_* vars + an envFrom on
-          # the ESO-synced ``storage-s3-credentials`` Secret (see backend).
+          # the backend pod: these lines are the backend's, verbatim (#2124).
+          STORAGE_BACKEND: '{{ .Values.storage.backend }}'
+          STORAGE_LOCAL_FS_ROOT: '{{ .Values.storage.localFs.root }}'
+          STORAGE_MAX_FILE_SIZE_MB: '{{ .Values.storage.maxFileSizeMb }}'
+          STORAGE_PRESIGN_TTL_SECONDS: '{{ .Values.storage.presignTtlSeconds }}'
+          STORAGE_VIRUS_SCAN_ENABLED: '{{ .Values.storage.virusScan.enabled }}'
+          STORAGE_VIRUS_SCAN_ENDPOINT: '{{ .Values.storage.virusScan.endpoint }}'
+          STORAGE_S3_ENDPOINT_URL: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.endpointUrl }}{{ end }}'
+          STORAGE_S3_REGION: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.region }}{{ end }}'
+          STORAGE_S3_BUCKET: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.bucket }}{{ end }}'
+          STORAGE_S3_KMS_KEY_ID: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.kmsKeyId }}{{ end }}'
+          STORAGE_S3_USE_PATH_STYLE: '{{ .Values.storage.s3.usePathStyle }}'
+          STORAGE_S3_FORCE_TLS: '{{ .Values.storage.s3.forceTls }}'
+          STORAGE_S3_ALLOW_PRIVATE_ENDPOINT: '{{ .Values.storage.s3.allowPrivateEndpoint }}'
+          STORAGE_S3_ACCESS_KEY_ID:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.storage.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.storage.s3.credentialsRef.accessKeyIdKey }}'
+                optional: true
+          STORAGE_S3_SECRET_ACCESS_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.storage.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.storage.s3.credentialsRef.secretAccessKeyKey }}'
+                optional: true
         probes:
           liveness:
             enabled: true
@@ -641,7 +1056,9 @@ controllers:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
-          ARANGODB_USERNAME: root
+          # #2126 — the application account, provisioned by the arangodb
+          # `app-user` container; see `database.arangodb.appUsername`.
+          ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           # #777 — optional Sentry-protocol error tracking. Empty DSN => the SDK
           # is never initialised and the process is unchanged, so this block is
@@ -1248,25 +1665,36 @@ persistence:
           - path: /data/uploads
 
   # -- NFR-013 local-fs object storage (§3.1, §10). Persistent PVC at
-  # STORAGE_LOCAL_FS_ROOT (/data/attachments). Shared by the backend (uploads /
-  # streaming) and the celery-worker (thumbnail generation §8.2, DSGVO erasure
-  # §6.2). Use ReadWriteMany once the backend scales beyond one replica; with a
-  # single backend + worker on the same node ReadWriteOnce suffices. The
-  # ``storage.localFs.pvc`` block above documents the operator-facing values.
-  # ``retain: true`` protects attachment data from accidental ``helm uninstall``.
+  # ``storage.localFs.root``, shared by the backend (uploads / streaming) and the
+  # celery-worker (thumbnail generation §8.2, DSGVO erasure §6.2). Every field
+  # is rendered from the top-level ``storage`` block (#2124): the claim exists
+  # only with ``storage.backend: local-fs``.
+  #
+  # ``enabled`` renders to "true" or to "" — not to "false", because bjw-s tests
+  # the value for truth and the non-empty string "false" is true.
+  #
+  # Kept data on purpose: ``retain: true`` (``helm.sh/resource-policy: keep``)
+  # survives ``helm uninstall``, and the ArgoCD sync options keep a prune — e.g.
+  # after switching to ``storage.backend: s3``, which drops the claim from the
+  # render — or an Application deletion from deleting the attachments. Migrate
+  # them first (``python -m scripts.storage.migrate --from local-fs --to s3``),
+  # then delete the claim by hand.
   backend-attachments:
-    enabled: true
+    enabled: '{{ if eq .Values.storage.backend "local-fs" }}true{{ end }}'
     type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 20Gi
+    accessMode: '{{ .Values.storage.localFs.pvc.accessMode }}'
+    size: '{{ .Values.storage.localFs.pvc.size }}'
+    storageClass: '{{ .Values.storage.localFs.pvc.storageClass }}'
     retain: true
+    annotations:
+      argocd.argoproj.io/sync-options: Prune=false,Delete=false
     advancedMounts:
       backend:
         main:
-          - path: /data/attachments
+          - path: '{{ .Values.storage.localFs.root }}'
       celery-worker:
         main:
-          - path: /data/attachments
+          - path: '{{ .Values.storage.localFs.root }}'
 
   # -- Fontconfig writable cache (suppresses "No writable cache directories" warning)
   backend-fontconfig:
@@ -1309,6 +1737,22 @@ persistence:
         main:
           - path: /var/lib/arangodb3-apps
 
+  # -- #2126 arangosh in the `app-user` container needs a writable temp directory
+  # under readOnlyRootFilesystem (it aborts with "failed to create a temporary
+  # directory" without one — measured). Follows the arangodb controller's own
+  # switch: bjw-s refuses a persistence item whose controller is disabled, and a
+  # release that runs without the database (the ki / recognition overlays) must
+  # not have to know this item exists.
+  arangodb-app-user-tmp:
+    enabled: '{{ if ne (toString .Values.controllers.arangodb.enabled) "false" }}true{{ end }}'
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 16Mi
+    advancedMounts:
+      arangodb:
+        app-user:
+          - path: /tmp
+
   # celery-beat writes --schedule=/tmp/celery-beat/celerybeat-schedule under
   # readOnlyRootFilesystem:true, so mount the writable emptyDir at that subdir
   # (not all of /tmp).
@@ -1321,6 +1765,36 @@ persistence:
       celery-beat:
         main:
           - path: /tmp/celery-beat
+
+  # -- #2122 backup scratch: the dump lives here between the two containers of one
+  # run and goes with the pod. On node disk, not memory — a dump is the size of
+  # the database.
+  arangodb-backup-scratch:
+    enabled: '{{ if .Values.backup.enabled }}true{{ end }}'
+    type: emptyDir
+    sizeLimit: '{{ .Values.backup.scratchSize }}'
+    advancedMounts:
+      arangodb-backup:
+        dump:
+          - path: /backup
+        main:
+          # writable: the upload removes the dump when it exits
+          - path: /backup
+
+  # arangodump and rclone both need a writable temp directory under
+  # readOnlyRootFilesystem (arangodump aborts with "failed to create a temporary
+  # directory" without one — measured).
+  arangodb-backup-tmp:
+    enabled: '{{ if .Values.backup.enabled }}true{{ end }}'
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      arangodb-backup:
+        dump:
+          - path: /tmp
+        main:
+          - path: /tmp
 
   # -- REQ-029-A inference-service writable /tmp (readOnlyRootFilesystem support,
   # onnxruntime scratch). Disabled by default; operator enables it together with
@@ -1668,7 +2142,8 @@ networkpolicies:
             - protocol: TCP
               port: 53
 
-  # ArangoDB: accept from backend + celery-worker, no egress needed
+  # ArangoDB: accept from backend + celery-worker (+ the backup CronJob when
+  # enabled, #2122), no egress needed
   arangodb:
     controller: arangodb
     policyTypes:
@@ -1683,6 +2158,9 @@ networkpolicies:
             - podSelector:
                 matchLabels:
                   app.kubernetes.io/controller: celery-worker
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: arangodb-backup
           ports:
             - protocol: TCP
               port: 8529
@@ -1698,6 +2176,48 @@ networkpolicies:
               port: 53
             - protocol: TCP
               port: 53
+
+  # -- #2122 ArangoDB backup CronJob: no ingress; egress to ArangoDB, DNS and the
+  # S3 endpoint on 443. Like the backend's external rule, RFC1918 and link-local
+  # are excluded, so an in-cluster / private S3 target (MinIO, Ceph RGW) needs an
+  # extra egress rule in your values.
+  arangodb-backup:
+    enabled: '{{ if .Values.backup.enabled }}true{{ end }}'
+    controller: arangodb-backup
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress: []
+      egress:
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: arangodb
+          ports:
+            - protocol: TCP
+              port: 8529
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+        - to:
+            - ipBlock:
+                cidr: 0.0.0.0/0
+                except:
+                  - 10.0.0.0/8
+                  - 172.16.0.0/12
+                  - 192.168.0.0/16
+                  - 169.254.0.0/16
+          ports:
+            - protocol: TCP
+              port: 443
 
   # Valkey (Redis-wire cache + Celery broker, subchart): accept ingress only from
   # backend + celery-worker + celery-beat on 6379, egress DNS only. The valkey

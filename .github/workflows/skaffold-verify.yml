@@ -35,6 +35,7 @@ on:
       # (#1313).
       - "scripts/ci/skaffold_render_verify.sh"
       - "scripts/ci/assert_rendered_manifests.sh"
+      - "scripts/ci/assert_chart_contracts.sh"
       # WHAT THIS JOB READS, MEASURED (scripts/ci/lane_inputs.py, #1596; re-recorded
       # 2026-09-23 on the review round of #1682): 3 641 tracked paths. `skaffold
       # diagnose` resolves the dependencies of EVERY build artifact, and the
@@ -169,6 +170,14 @@ jobs:
         # which common 5.2.1 turns into invalid YAML, which is how the masking
         # was finally noticed.
         run: scripts/ci/skaffold_render_verify.sh rendered-manifests.yaml
+
+      - name: Assert the chart's render-time contracts
+        # Contracts that only a render can show, because the values express them
+        # as templates bjw-s evaluates (#2124 storage switch and multi-replica
+        # refusal, and the further blocks in the script). Same script as
+        # `task verify:chart`. Needs helm (above) and mikefarah yq, which the
+        # ubuntu runner image ships.
+        run: scripts/ci/assert_chart_contracts.sh helm/kamerplanter
 
       - name: Upload rendered manifests
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
