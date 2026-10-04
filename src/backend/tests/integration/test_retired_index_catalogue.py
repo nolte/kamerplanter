@@ -43,34 +43,49 @@ def _boot(database) -> None:
     run_pending_migrations(database)
 
 
+#: What the older images' ``ensure_collections`` created, spelled out rather than read
+#: from the catalogue under test (measured on 3.12.8 with each image's own
+#: ``collections.py``): ``(collection, fields, sparse)``, every one unique.
+_OLDER_IMAGE_INDEXES = [
+    (col.HARVEST_BATCHES, ["batch_id"], False),  # before v0030
+    (col.SPECIES, ["scientific_name_normalized"], False),  # before v0041
+    (col.AUTH_PROVIDERS, ["provider", "provider_user_id"], False),  # before v0064
+    (col.FERTILIZERS, ["product_name", "brand"], False),  # before v0069
+    (col.TANKS, ["name"], False),  # before v0075
+    (col.ACTIVITIES, ["name"], False),  # before v0076
+    (col.WORKFLOW_TEMPLATES, ["name"], False),  # before v0077
+    (col.PLANT_INSTANCES, ["instance_id"], False),  # before v0079
+    (col.HARVEST_BATCHES, ["batch_id"], True),  # v0030 .. before v0079
+    (col.SLOTS, ["slot_id"], False),  # before v0079
+]
+
+
 def _older_image_creates(database, *, index_type: str) -> None:
-    """The legacy index calls of the images before each retirement."""
-    for entry in RETIRED_INDEXES:
-        database.collection(entry.collection).add_index(
-            {
-                "type": index_type,
-                "fields": list(entry.legacy.fields),
-                "unique": entry.legacy.unique,
-                "sparse": entry.legacy.sparse,
-            }
-        )
+    for name, fields, sparse in _OLDER_IMAGE_INDEXES:
+        # The sparse label index is younger than June: never hash-typed.
+        kind = "persistent" if sparse else index_type
+        database.collection(name).add_index({"type": kind, "fields": fields, "unique": True, "sparse": sparse})
+
+
+def _present(database, name: str, fields: list[str], sparse: bool) -> bool:
+    return any(
+        i.get("fields") == fields and i.get("unique") and bool(i.get("sparse")) == sparse
+        for i in database.collection(name).indexes()
+    )
 
 
 @pytest.mark.parametrize("index_type", ["persistent", "hash"])
-def test_every_catalogued_index_an_older_image_recreates_is_retired_by_the_next_boot(db, index_type: str) -> None:
+def test_every_index_an_older_image_recreates_is_retired_by_the_next_boot(db, index_type: str) -> None:
     _older_image_creates(db, index_type=index_type)
-    recreated = [
-        e.label for e in RETIRED_INDEXES if any(e.legacy.matches(i) for i in db.collection(e.collection).indexes())
-    ]
-    assert len(recreated) == len(RETIRED_INDEXES)
+    assert all(_present(db, *spec) for spec in _OLDER_IMAGE_INDEXES)
 
     _boot(db)
 
+    survivors = [spec for spec in _OLDER_IMAGE_INDEXES if _present(db, *spec)]
+    assert survivors == []
     for entry in RETIRED_INDEXES:
-        rows = db.collection(entry.collection).indexes()
-        assert not [i for i in rows if entry.legacy.matches(i)], entry.label
-        assert [i for i in rows if entry.replacement.matches(i)], entry.label
-    assert retired_indexes.last_enforcement().re_retired == tuple(e.label for e in RETIRED_INDEXES)
+        assert [i for i in db.collection(entry.collection).indexes() if entry.replacement.matches(i)], entry.label
+    assert len(retired_indexes.last_enforcement().re_retired) == len(_OLDER_IMAGE_INDEXES)
 
 
 def test_the_retired_tank_constraint_is_gone_again_for_a_second_tenant(db) -> None:

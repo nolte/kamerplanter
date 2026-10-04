@@ -110,13 +110,19 @@ class RetiredIndex:
 #: import a version module).
 _LEGACY_PROVIDER_LINK_FIELDS: Final[tuple[str, ...]] = ("provider", "provider_user_id")
 
+#: Today's lot label index (#2065). The dense label index v0030/v0073 retired points
+#: here too, not at the sparse collection-wide index v0079 retired in turn.
+_HARVEST_BATCH_ID_INDEX: Final[IndexShape] = IndexShape(
+    fields=tuple(col.HARVEST_BATCH_ID_INDEX_FIELDS), unique=True, sparse=True
+)
+
 #: Every retired index shape whose re-creation by an older image re-imposes a
 #: constraint the application no longer wants. Ordered by the first retiring version.
 RETIRED_INDEXES: Final[tuple[RetiredIndex, ...]] = (
     RetiredIndex(
         collection=col.HARVEST_BATCHES,
-        legacy=IndexShape(fields=("batch_id",), unique=True, sparse=False),
-        replacement=IndexShape(fields=("batch_id",), unique=True, sparse=True),
+        legacy=IndexShape(fields=tuple(col.LEGACY_HARVEST_BATCH_ID_INDEX_FIELDS), unique=True, sparse=False),
+        replacement=_HARVEST_BATCH_ID_INDEX,
         retired_by=("0030", "0073"),
     ),
     RetiredIndex(
@@ -154,6 +160,24 @@ RETIRED_INDEXES: Final[tuple[RetiredIndex, ...]] = (
         legacy=IndexShape(fields=tuple(col.LEGACY_WORKFLOW_TEMPLATE_NAME_INDEX_FIELDS), unique=True),
         replacement=IndexShape(fields=tuple(col.WORKFLOW_TEMPLATE_NAME_INDEX_FIELDS), unique=True),
         retired_by=("0077",),
+    ),
+    RetiredIndex(
+        collection=col.PLANT_INSTANCES,
+        legacy=IndexShape(fields=tuple(col.LEGACY_PLANT_INSTANCE_ID_INDEX_FIELDS), unique=True),
+        replacement=IndexShape(fields=tuple(col.PLANT_INSTANCE_ID_INDEX_FIELDS), unique=True),
+        retired_by=("0079",),
+    ),
+    RetiredIndex(
+        collection=col.HARVEST_BATCHES,
+        legacy=IndexShape(fields=tuple(col.LEGACY_HARVEST_BATCH_ID_INDEX_FIELDS), unique=True, sparse=True),
+        replacement=_HARVEST_BATCH_ID_INDEX,
+        retired_by=("0079",),
+    ),
+    RetiredIndex(
+        collection=col.SLOTS,
+        legacy=IndexShape(fields=tuple(col.LEGACY_SLOT_ID_INDEX_FIELDS), unique=True),
+        replacement=IndexShape(fields=tuple(col.SLOT_ID_INDEX_FIELDS), unique=True),
+        retired_by=("0079",),
     ),
 )
 

@@ -769,6 +769,9 @@ class TestUniqueConflictExtraction:
             ("... over 'tenant_key'; conflicting key: 1", "tenant_key"),
             # A leading field that is not the tenant scope is kept as before.
             ("... over 'user_key, tenant_key'; conflicting key: 1", "user_key"),
+            # A slot's scope is its location (#2065): the label is the conflict.
+            ("... over 'location_key, slot_id'; conflicting key: 1", "slot_id"),
+            ("... over 'membership_key, location_key'; conflicting key: 1", "membership_key"),
         ],
     )
     def test_a_tenant_scope_is_not_named_as_the_conflicting_field(self, message, field):

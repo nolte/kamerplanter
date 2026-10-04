@@ -802,11 +802,6 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "account", "the MCP audit trail across the service accounts one user owns (REQ-033 §4.6)"
     ),
     # ── probe ──────────────────────────────────────────────────────────────
-    ("ArangoHarvestRepository", "batch_id_exists"): Exclusion(
-        "probe",
-        "the batch_id unique index is global, so the id generator must ask globally; the boolean "
-        "only steers HarvestService._generate_batch_id and is never returned",
-    ),
     ("ArangoPlantingRunRepository", "verify_entry_references"): Exclusion(
         "probe",
         "runs the owned-reference check of an unsaved entry against the entry's own tenant_key and "

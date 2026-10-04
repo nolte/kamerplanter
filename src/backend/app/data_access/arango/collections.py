@@ -1994,6 +1994,35 @@ WORKFLOW_TEMPLATE_NAME_INDEX_FIELDS = ["tenant_key", "name"]
 #: the server reports it as ``persistent`` or (pre-June volumes) ``hash``.
 LEGACY_WORKFLOW_TEMPLATE_NAME_INDEX_FIELDS = ["name"]
 
+#: Fields of the plant instance id index (#2065): an ``instance_id`` is unique **per
+#: tenant**. Onboarding derives it from the global species (``onb-<species_key>-<n>``),
+#: so with the collection-wide index the second tenant to onboard a species had its
+#: plants refused, and a caller-chosen id another tenant used answered ``409`` — the
+#: existence of another tenant's plant. ``v0079`` retires the legacy index.
+PLANT_INSTANCE_ID_INDEX_FIELDS = ["tenant_key", "instance_id"]
+
+#: The pre-#2065 collection-wide index; ``v0079`` drops it (``persistent`` or ``hash``).
+LEGACY_PLANT_INSTANCE_ID_INDEX_FIELDS = ["instance_id"]
+
+#: Fields of the slot id index (#2065): a ``slot_id`` is unique **per location**. A
+#: slot carries no tenant of its own (``Slot.tenant_key`` stays empty, #1397); its
+#: location is the parent that belongs to exactly one tenant, and the id itself names
+#: a position in it (``TENT01_A1``). ``location_key`` is the scope, so it comes first,
+#: like ``tenant_key`` in the other compound indexes.
+SLOT_ID_INDEX_FIELDS = ["location_key", "slot_id"]
+
+#: The pre-#2065 collection-wide index; ``v0079`` drops it (``persistent`` or ``hash``).
+LEGACY_SLOT_ID_INDEX_FIELDS = ["slot_id"]
+
+#: Fields of the harvest lot label index (#2065): a ``batch_id`` is unique **per
+#: tenant**. **Sparse** as since #740: an unlabelled batch (``null``) stays outside the
+#: constraint — a sparse compound index skips a row where any field is ``null``.
+HARVEST_BATCH_ID_INDEX_FIELDS = ["tenant_key", "batch_id"]
+
+#: The collection-wide label index (sparse since v0030, dense before); ``v0079``
+#: drops the sparse one, v0030/v0073 dropped the dense one.
+LEGACY_HARVEST_BATCH_ID_INDEX_FIELDS = ["batch_id"]
+
 #: The identity a seed gives a harvest indicator (#1956, #2001):
 #: ``(species, indicator_type, measurement_unit)`` — see
 #: ``ArangoHarvestRepository.find_indicator``. **Sparse**, so a legacy species-less
@@ -2091,10 +2120,13 @@ def ensure_collections(db: StandardDatabase) -> None:
     families_col.add_persistent_index(fields=["name"], unique=True)
 
     slots_col = db.collection(SLOTS)
-    slots_col.add_persistent_index(fields=["slot_id"], unique=True)
+    # Per location since #2065; v0079 drops the legacy collection-wide index. Always
+    # creatable on a legacy volume: the old, stricter index implies it holds.
+    slots_col.add_persistent_index(fields=SLOT_ID_INDEX_FIELDS, unique=True)
 
     plants_col = db.collection(PLANT_INSTANCES)
-    plants_col.add_persistent_index(fields=["instance_id"], unique=True)
+    # Per tenant since #2065; v0079 drops the legacy collection-wide index.
+    plants_col.add_persistent_index(fields=PLANT_INSTANCE_ID_INDEX_FIELDS, unique=True)
 
     mappings_col = db.collection(EXTERNAL_MAPPINGS)
     mappings_col.add_persistent_index(fields=["internal_collection", "internal_key", "source_key"], unique=True)
@@ -2160,8 +2192,9 @@ def ensure_collections(db: StandardDatabase) -> None:
     harvest_batches_col.add_persistent_index(fields=["plant_key"], unique=False)
     # sparse: batch_id is an optional user-facing lot label; only real values must
     # be unique. Without sparse, a second unlabelled batch (null/absent) would
-    # collide on the missing key (#740). Migration v0030 promotes existing volumes.
-    harvest_batches_col.add_persistent_index(fields=["batch_id"], unique=True, sparse=True)
+    # collide on the missing key (#740). Per tenant since #2065; v0079 drops the
+    # collection-wide index (v0030 made it sparse, v0073 retired its hash twin).
+    harvest_batches_col.add_persistent_index(fields=HARVEST_BATCH_ID_INDEX_FIELDS, unique=True, sparse=True)
 
     # REQ-008 Post-Harvest indexes
     post_harvest_batches_col = db.collection(POST_HARVEST_BATCHES)

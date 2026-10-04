@@ -111,10 +111,23 @@ class TestTheTree:
         )
 
     def test_the_measured_population(self) -> None:
-        """13 dropping versions on 2026-10-04 — a scan that finds none is broken, not clean."""
+        """14 dropping versions on 2026-10-04 — a scan that finds none is broken, not clean."""
         dropping = {v for v, src in _version_sources().items() if drops_an_index(src)}
-        assert {"0026", "0030", "0041", "0064", "0069", "0072", "0073", "0074", "0075", "0076", "0077"} <= dropping
-        assert len(dropping) >= 13
+        assert {
+            "0026",
+            "0030",
+            "0041",
+            "0064",
+            "0069",
+            "0072",
+            "0073",
+            "0074",
+            "0075",
+            "0076",
+            "0077",
+            "0079",
+        } <= dropping
+        assert len(dropping) >= 14
 
     def test_no_entry_names_a_migration_that_drops_nothing(self) -> None:
         sources = _version_sources()

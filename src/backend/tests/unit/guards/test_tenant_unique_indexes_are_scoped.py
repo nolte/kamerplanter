@@ -70,12 +70,6 @@ OPEN: dict[tuple[str, tuple[str, ...]], str] = {
         "hybrid catalogue; #1162 scoped scientific_name_normalized to the tenant but left the raw "
         "scientific_name index collection-wide (#2063)"
     ),
-    (col.PLANT_INSTANCES, ("instance_id",)): (
-        "caller-supplied id; onboarding derives it as onb-<species_key>-<n> from a global species, "
-        "so two tenants onboarding the same species collide (#2065)"
-    ),
-    (col.HARVEST_BATCHES, ("batch_id",)): "caller-supplied lot label (#2065)",
-    (col.SLOTS, ("slot_id",)): "caller-supplied slot label such as TENT01_A1 (#2065)",
 }
 
 
@@ -204,6 +198,23 @@ def test_hybrid_catalogue_names_are_scoped_to_the_tenant(collection: str, fields
     unique = bootstrap_unique_indexes()
     assert (collection, tuple(fields)) in unique
     assert (collection, ("name",)) not in unique
+
+
+@pytest.mark.parametrize(
+    ("collection", "fields", "legacy"),
+    [
+        (col.PLANT_INSTANCES, col.PLANT_INSTANCE_ID_INDEX_FIELDS, ("instance_id",)),
+        (col.HARVEST_BATCHES, col.HARVEST_BATCH_ID_INDEX_FIELDS, ("batch_id",)),
+        (col.SLOTS, col.SLOT_ID_INDEX_FIELDS, ("slot_id",)),
+    ],
+)
+def test_generated_and_chosen_identifiers_are_scoped_to_their_owner(
+    collection: str, fields: list[str], legacy: tuple[str, ...]
+) -> None:
+    """#2065: two tenants may hold the same instance id, lot label and slot label (v0079)."""
+    unique = bootstrap_unique_indexes()
+    assert (collection, tuple(fields)) in unique
+    assert (collection, legacy) not in unique
 
 
 def test_the_care_dedup_key_carries_the_tenant() -> None:

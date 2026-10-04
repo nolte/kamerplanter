@@ -56,8 +56,8 @@ class _FakeHarvestRepo:
         self.created.append(batch)
         return batch
 
-    def batch_id_exists(self, batch_id: str) -> bool:
-        return any(b.batch_id == batch_id for b in self.created)
+    def batch_id_exists(self, batch_id: str, *, tenant_key: str) -> bool:
+        return any(b.batch_id == batch_id and b.tenant_key == tenant_key for b in self.created)
 
 
 def _build_harvest_service(karenz_periods: list[dict]) -> tuple[HarvestService, _FakeHarvestRepo]:

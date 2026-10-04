@@ -366,10 +366,11 @@ class BaseArangoRepository[TModel: BaseModel]:
     )
     _FIELD_NAME_RE: ClassVar[re.Pattern[str]] = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
 
-    #: The tenant scope of a compound unique index. It bounds the constraint and is
-    #: never what the caller collided on; naming it would tell the caller its own
-    #: internal tenant key and point the client at no form field (#2029).
-    _UNIQUE_SCOPE_FIELD: ClassVar[str] = "tenant_key"
+    #: The scope of a compound unique index: the tenant, or the owning location of a
+    #: slot (``(location_key, slot_id)``, #2065). It bounds the constraint and is
+    #: never what the caller collided on; naming it would tell the caller an internal
+    #: key and point the client at no form field (#2029).
+    _UNIQUE_SCOPE_FIELDS: ClassVar[frozenset[str]] = frozenset({"tenant_key", "location_key"})
 
     @classmethod
     def _extract_unique_field(cls, error_message: str | None) -> str | None:
@@ -380,9 +381,9 @@ class BaseArangoRepository[TModel: BaseModel]:
             unique constraint violated - in index 42 of type persistent
             over '["batch_id"]'; conflicting key: '...'
 
-        Returns the first indexed field that is not the tenant scope
-        (``tenant_key``) — for ``(tenant_key, name)`` that is ``name`` — or the
-        tenant scope itself when it is the only field. ``None`` when the message
+        Returns the first indexed field that is not a scope
+        (:attr:`_UNIQUE_SCOPE_FIELDS`) — for ``(tenant_key, name)`` that is ``name`` — or
+        the first field when every field is a scope. ``None`` when the message
         does not follow the recognised shape (so callers can fall back gracefully).
         """
         if not error_message:
@@ -394,7 +395,7 @@ class BaseArangoRepository[TModel: BaseModel]:
         names: list[str] = cls._FIELD_NAME_RE.findall(listed)
         if not names:
             return None
-        return next((name for name in names if name != cls._UNIQUE_SCOPE_FIELD), names[0])
+        return next((name for name in names if name not in cls._UNIQUE_SCOPE_FIELDS), names[0])
 
     @classmethod
     def _describe_unique_conflict(

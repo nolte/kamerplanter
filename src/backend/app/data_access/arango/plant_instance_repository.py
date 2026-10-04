@@ -48,12 +48,12 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
     # ── Basic CRUD ────────────────────────────────────────────────────
 
     def get_by_instance_id(self, instance_id: str, *, tenant_key: str) -> PlantInstance | None:
-        """Look up a plant by its (globally unique) ``instance_id``.
+        """Look up a plant by its ``instance_id`` within ``tenant_key``.
 
-        ``instance_id`` carries a unique index, so a bare lookup already returns at
-        most one document. When ``tenant_key`` is given the match is additionally
-        constrained to that tenant (SEC-001, defence in depth) so a caller can never
-        act on another tenant's instance even if an id were to collide.
+        ``instance_id`` is unique per tenant since #2065 (``(tenant_key,
+        instance_id)``): two tenants may hold the same id, so the tenant filter is
+        what makes the answer unique. An empty ``tenant_key`` drops the filter and
+        returns the first match of any tenant.
         """
         extra = [("tenant_key", "==", tenant_key)] if tenant_key else None
         return self.find_one_by_field("instance_id", instance_id, extra_filters=extra)

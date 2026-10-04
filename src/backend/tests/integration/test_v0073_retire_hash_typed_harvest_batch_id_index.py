@@ -2,8 +2,9 @@
 
 The legacy index is created exactly as ``ensure_collections`` created it until
 2026-06-07 (``{"type": "hash", ...}``); the database itself comes from today's
-``ensure_collections``, so the unique+sparse replacement is present as on a
-migrated volume.
+``ensure_collections`` plus the collection-wide unique+sparse index v0030 left on
+every migrated volume — v0073's replacement. Since #2065 the bootstrap creates
+``(tenant_key, batch_id)`` instead, and v0079 retires the sparse one after v0073.
 """
 
 from __future__ import annotations
@@ -28,6 +29,9 @@ _DB_NAME = run_database_name("v0073_hash_batch_id_index")
 @pytest.fixture
 def db():
     system, database = create_database(_DB_NAME)
+    database.collection(col.HARVEST_BATCHES).add_index(
+        {"type": "persistent", "fields": ["batch_id"], "unique": True, "sparse": True}
+    )
     yield database
     system.delete_database(_DB_NAME)
 

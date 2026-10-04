@@ -116,6 +116,13 @@ class _NoopCollection:
             # v0030 (#740): harvest_batches.batch_id is bootstrapped unique+sparse on a
             # fresh volume, so the promotion migration finds it present → no-op.
             {"type": "persistent", "fields": ["batch_id"], "unique": True, "sparse": True},
+            # v0079 (#2065): instance_id, batch_id and slot_id are bootstrapped scoped to
+            # their owner on a fresh volume, so the cutover finds every replacement present.
+            # The collection-wide shapes above stay listed for the shipped migrations
+            # that look for them (the v0026/v0041 reasoning).
+            {"type": "persistent", "fields": col.PLANT_INSTANCE_ID_INDEX_FIELDS, "unique": True},
+            {"type": "persistent", "fields": col.HARVEST_BATCH_ID_INDEX_FIELDS, "unique": True, "sparse": True},
+            {"type": "persistent", "fields": col.SLOT_ID_INDEX_FIELDS, "unique": True},
             # v0031: user_preferences/onboarding_states.user_key is bootstrapped
             # unique+sparse on a fresh volume, so the dedup+promotion migration finds
             # it present → no-op.
