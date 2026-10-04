@@ -61,7 +61,7 @@ class _Tenants:
     def get_tenant_by_slug(self, slug: str) -> SimpleNamespace:
         if slug != "own":
             raise NotFoundError("Tenant", slug)
-        return SimpleNamespace(key=OWN, slug="own")
+        return SimpleNamespace(key=OWN, slug="own", is_active=True)
 
     def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace | None:
         return SimpleNamespace(role=TenantRole.LEAD, admin_scopes=[], is_active=True) if tenant_key == OWN else None

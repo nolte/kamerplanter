@@ -88,8 +88,8 @@ class _TenantService:
     """The key's owner is an active lead in both clubs — the defect's precondition."""
 
     _tenants = {
-        "club-a": SimpleNamespace(key="tenant_a", slug="club-a"),
-        "club-b": SimpleNamespace(key="tenant_b", slug="club-b"),
+        "club-a": SimpleNamespace(key="tenant_a", slug="club-a", is_active=True),
+        "club-b": SimpleNamespace(key="tenant_b", slug="club-b", is_active=True),
     }
 
     def get_tenant_by_slug(self, slug: str) -> SimpleNamespace:

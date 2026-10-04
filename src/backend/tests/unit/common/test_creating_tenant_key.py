@@ -52,7 +52,7 @@ def _service(tenant_repo: MagicMock) -> TenantService:
 
 def test_get_creating_tenant_key_returns_personal_tenant_key():
     tenant_service = MagicMock()
-    tenant_service.get_personal_tenant.return_value = SimpleNamespace(key="tenant_personal_1")
+    tenant_service.get_personal_tenant.return_value = SimpleNamespace(key="tenant_personal_1", is_active=True)
 
     result = auth_mod.get_creating_tenant_key(user=_user(), tenant_service=tenant_service)
 

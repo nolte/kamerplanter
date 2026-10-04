@@ -36,6 +36,9 @@ Im Bereich **Admin > Mandanten** kannst du:
 - Mandanten-Kontingente und Limits einsehen
 - Mitglieder eines Mandanten stellvertretend verwalten
 
+!!! info "Ein deaktivierter Mandant sperrt alle Mitglieder aus"
+    Deaktivierst du einen Mandanten, erreicht ihn kein Mitglied mehr — weder in der App noch über einen API-Schlüssel oder einen MCP-Client. Für die Mitglieder sieht er dann aus wie ein Mandant, den es nicht gibt. War es ihr persönlicher Garten, sehen sie nur noch den gemeinsamen Pflanzenkatalog. Die Mitgliedschaften und alle Daten bleiben erhalten: Reaktivierst du den Mandanten, haben alle Mitglieder sofort wieder ihren bisherigen Zugriff mit derselben Rolle. Du selbst verwaltest einen deaktivierten Mandanten weiterhin hier im Admin-Bereich. <!-- Issue #2105 -->
+
 !!! danger "Mandanten löschen ist irreversibel"
     Das Löschen eines Mandanten deaktiviert zuerst sofort alle Mitgliedschaften und entfernt dann die dazu beigetragenen Erkennungsvektoren, den Dateispeicher (Fotos, Anhänge) und sämtliche fachlichen Daten des Mandanten — Standorte, Pflanzen, Pflanzdurchläufe, Tagebucheinträge, Aufgaben, Tanks, Sensoren und alle weiteren Standort-gebundenen Daten — sowie zuletzt den Mandanten-Datensatz selbst. Ausgenommen ist Ernte- und Behandlungsdokumentation, die aus gesetzlichen Gründen (CanG, Pflanzenschutzgesetz) einige Jahre aufbewahrt werden muss: Diese Datensätze bleiben erhalten, werden aber pseudonymisiert. Diese Aktion kann nicht rückgängig gemacht werden. Erstelle vorher einen Daten-Export für den betroffenen Mandanten. <!-- Issue #1769 -->
 

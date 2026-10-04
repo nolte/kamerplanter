@@ -209,19 +209,32 @@ def _membership_for_slug(
     tenant on the key owner's memberships alone — the defect this closes, where
     a key scoped to tenant A acted in any tenant B its owner was a member of.
 
+    A **deactivated** tenant (``is_active == false``, set by a platform admin
+    through ``PATCH /admin/platform/tenants/{key}``, REQ-024 AK-56) resolves for
+    nobody (#2105). Its memberships stay stored and active — reactivating the
+    tenant restores every member's access unchanged — but while it is
+    deactivated it answers exactly like a slug that names no tenant. Until #2105
+    only ``GET /tenants`` hid it; every member who knew the slug kept reading and
+    writing through the path and the header. Platform administration is not
+    affected: it addresses tenants by key on ``/admin/platform/...`` behind
+    :func:`require_platform_admin`, which never passes through here.
+
     Raises:
-        ForbiddenError: The slug names a tenant that does not exist, one the
-            caller holds no *active* membership in, or one the API key's scope
-            does not admit — refused with the same :data:`_ACTIVE_TENANT_DENIED`
-            message, so the cases are one answer. Notably **not** the 404
-            ``get_tenant_by_slug`` raises: that body named the entity type *and*
-            echoed the probed slug, so it answered "does this tenant exist?" for
-            any authenticated caller.
+        ForbiddenError: The slug names a tenant that does not exist, a
+            deactivated one, one the caller holds no *active* membership in, or
+            one the API key's scope does not admit — refused with the same
+            :data:`_ACTIVE_TENANT_DENIED` message, so the cases are one answer.
+            Notably **not** the 404 ``get_tenant_by_slug`` raises: that body
+            named the entity type *and* echoed the probed slug, so it answered
+            "does this tenant exist?" for any authenticated caller.
     """
     try:
         tenant = tenant_service.get_tenant_by_slug(slug)
     except NotFoundError as exc:
         raise ForbiddenError(_ACTIVE_TENANT_DENIED) from exc
+
+    if not tenant.is_active:
+        raise ForbiddenError(_ACTIVE_TENANT_DENIED)
 
     if not api_key_scope_admits(key_scope, tenant_key=tenant.key or ""):
         raise ForbiddenError(_ACTIVE_TENANT_DENIED)
@@ -330,7 +343,8 @@ def _resolve_active_tenant(
 
     * **No header** (absent, empty or whitespace-only — see
       :func:`get_active_tenant_key` for why blank counts as absent): the caller's
-      personal tenant, ``""`` when they have none. Unvalidated, exactly as before
+      personal tenant, ``""`` when they have none or it is deactivated (#2105).
+      Otherwise unvalidated, exactly as before
       #1091 — a user's own personal tenant needs no membership proof, and the
       fallback must stay fail-open-to-*narrow* (global-only), never an error.
       A **service account** has no personal fallback at all and resolves to ``""``
@@ -369,6 +383,12 @@ def _resolve_active_tenant(
         if user.account_type == "service":
             return _ActiveTenant(key="", tenant=None, membership=lambda: None)
         personal = tenant_service.get_personal_tenant(user_key)
+        # A deactivated personal tenant (#2105) is no fallback: the request
+        # narrows to global scope — the same fail-open-to-narrow answer a user
+        # without a personal tenant gets — rather than reading and writing a
+        # tenant a platform admin switched off.
+        if personal is not None and not personal.is_active:
+            personal = None
         # An API key restricted to one tenant (#1817) keeps the personal fallback
         # only when that *is* its tenant. The fallback names a tenant without a
         # slug, so it never passes :func:`_membership_for_slug`; without this a

@@ -29,9 +29,9 @@ from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError, KamerplanterError, NotFoundError
 from app.domain.models.user import User
 
-_SCOPED = SimpleNamespace(key="tenant_a", slug="club-a")
-_OTHER = SimpleNamespace(key="tenant_b", slug="club-b")
-_PERSONAL = SimpleNamespace(key="tenant_p", slug="personal-owner")
+_SCOPED = SimpleNamespace(key="tenant_a", slug="club-a", is_active=True)
+_OTHER = SimpleNamespace(key="tenant_b", slug="club-b", is_active=True)
+_PERSONAL = SimpleNamespace(key="tenant_p", slug="personal-owner", is_active=True)
 
 
 def _membership(role: TenantRole = TenantRole.LEAD) -> SimpleNamespace:

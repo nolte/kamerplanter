@@ -90,9 +90,9 @@ _USER = "user_1"
 #: the "anonymous / no context" class that must resolve to ``""`` (global-only).
 _USER_WITHOUT_TENANT = "user_without_tenant"
 
-_PERSONAL = SimpleNamespace(key="tenant_personal_1", slug="user-1-garden")
-_ORG = SimpleNamespace(key="tenant_org_1", slug="green-club")
-_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="foreign-club")
+_PERSONAL = SimpleNamespace(key="tenant_personal_1", slug="user-1-garden", is_active=True)
+_ORG = SimpleNamespace(key="tenant_org_1", slug="green-club", is_active=True)
+_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="foreign-club", is_active=True)
 
 _ORG_HEADER = {ACTIVE_TENANT_HEADER: _ORG.slug}
 

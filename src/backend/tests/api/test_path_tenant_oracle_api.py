@@ -38,8 +38,8 @@ from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
 from app.domain.models.site import Site
 
-_OWN = SimpleNamespace(key="tenant_own", slug="green-club")
-_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="foreign-club")
+_OWN = SimpleNamespace(key="tenant_own", slug="green-club", is_active=True)
+_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="foreign-club", is_active=True)
 
 #: A slug that resolves to nothing. Used verbatim in the "does it leak?" checks.
 _UNKNOWN_SLUG = "competitor-gmbh"

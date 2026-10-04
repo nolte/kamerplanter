@@ -61,8 +61,8 @@ from app.domain.services.plant_instance_service import PlantInstanceService
 
 _USER = "user_1"
 _SERVICE = "svc_1"
-_OWN = SimpleNamespace(key="tenant_own", slug="my-garden")
-_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="other-garden")
+_OWN = SimpleNamespace(key="tenant_own", slug="my-garden", is_active=True)
+_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="other-garden", is_active=True)
 
 _OWN_HEADER = {ACTIVE_TENANT_HEADER: _OWN.slug}
 
