@@ -59,10 +59,18 @@ OWNER = "u-owner"
 OWNER_EMAIL = "owner@example.org"
 OWNER_PASSWORD = "correct-horse-battery-staple"
 JOINER = "u-joiner"
+#: The address ``Tenants.invite(by_link=False)`` invites. Accepting is bound to it for an e-mail invitation
+#: (#2115), so the accounts that accept here carry it, proven.
+INVITED_EMAIL = "friend@example.org"
 FRIEND = "u-friend"
 PERSONAL = "t-personal"
 SHARED = "t-club"
 NOW = datetime(2026, 9, 30, 10, 0, tzinfo=UTC)
+
+
+def account(key: str) -> User:
+    """An account that holds the invited address and has proven it - the one that may accept (#2115)."""
+    return User(_key=key, email=INVITED_EMAIL, display_name=key, email_verified=True, email_confirmed_at=NOW)
 
 
 @pytest.fixture(autouse=True)
@@ -279,7 +287,7 @@ class Tenants:
         link = (
             self.service.create_link_invitation(tenant_key, OWNER)
             if by_link
-            else self.service.create_email_invitation(tenant_key, OWNER, "friend@example.org")
+            else self.service.create_email_invitation(tenant_key, OWNER, INVITED_EMAIL)
         )
         return link.token
 
@@ -365,7 +373,7 @@ class TestInvitationsAreRevokedWhenTheErasureIsRequested:
         assert tenants.records.records == {}
         for token in (link_token, email_token):
             with pytest.raises(ValidationError, match="no longer pending"):
-                tenants.service.accept_invitation(token, JOINER)
+                tenants.service.accept_invitation(token, account(JOINER))
         assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is None
 
     @pytest.mark.asyncio
@@ -387,14 +395,14 @@ class TestInvitationsAreRevokedWhenTheErasureIsRequested:
 
         assert seen == [InvitationStatus.REVOKED], "revoked at request time, not by the tenant erasure"
         with pytest.raises((ValidationError, ForbiddenError)):
-            tenants.service.accept_invitation(token, JOINER)
+            tenants.service.accept_invitation(token, account(JOINER))
 
     def test_only_pending_invitations_into_the_subjects_personal_tenants_are_touched(self):
         club = Tenant(_key=SHARED, name="Club", slug="club", tenant_type=TenantType.ORGANIZATION, owner_user_key=OWNER)
         tenants = Tenants(_personal_tenant(), club, _personal_tenant("t-other", owner="u-else"))
         tenants.invite(PERSONAL)
         accepted_token = tenants.invite(PERSONAL)
-        tenants.service.accept_invitation(accepted_token, "u-early")
+        tenants.service.accept_invitation(accepted_token, account("u-early"))
         club_token = tenants.invite(SHARED)
         foreign_token = tenants.invite("t-other")
 
@@ -408,8 +416,8 @@ class TestInvitationsAreRevokedWhenTheErasureIsRequested:
             (SHARED, InvitationStatus.PENDING),
             ("t-other", InvitationStatus.PENDING),
         }
-        assert tenants.service.accept_invitation(club_token, JOINER).tenant_key == SHARED
-        assert tenants.service.accept_invitation(foreign_token, JOINER).tenant_key == "t-other"
+        assert tenants.service.accept_invitation(club_token, account(JOINER)).tenant_key == SHARED
+        assert tenants.service.accept_invitation(foreign_token, account(JOINER)).tenant_key == "t-other"
 
     def test_the_hard_delete_revokes_again_as_a_backstop(self):
         """An invitation created during the grace (by another manager) is void before the decision."""
@@ -545,7 +553,7 @@ class TestAJoinIntoAFreezingTenantIsRolledBack:
         tenants.memberships.before_create = tenants.open_record
 
         with pytest.raises(ForbiddenError, match="being deleted"):
-            tenants.service.accept_invitation(token, JOINER)
+            tenants.service.accept_invitation(token, account(JOINER))
 
         assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is None, (
             "an active membership was left in a tenant that is being erased"
@@ -557,7 +565,7 @@ class TestAJoinIntoAFreezingTenantIsRolledBack:
         tenants = Tenants()
         token = tenants.invite()
 
-        membership = tenants.service.accept_invitation(token, JOINER)
+        membership = tenants.service.accept_invitation(token, account(JOINER))
 
         assert membership.is_active
         assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is not None
@@ -686,7 +694,7 @@ class TestNoInvitationIntoAPersonalTenantWhoseOwnerAskedForErasure:
         tenants.owner_asks_for_erasure()
 
         with pytest.raises(ForbiddenError, match="No new members can be invited"):
-            tenants.service.accept_invitation(token, JOINER)
+            tenants.service.accept_invitation(token, account(JOINER))
 
         assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is None
         (invitation,) = tenants.invitations.stored.values()
@@ -699,14 +707,14 @@ class TestNoInvitationIntoAPersonalTenantWhoseOwnerAskedForErasure:
 
         token = tenants.invite(SHARED)
 
-        assert tenants.service.accept_invitation(token, JOINER).tenant_key == SHARED
+        assert tenants.service.accept_invitation(token, account(JOINER)).tenant_key == SHARED
 
     def test_without_an_erasure_request_invitations_work_as_before(self):
         tenants = Tenants()
 
         token = tenants.invite()
 
-        assert tenants.service.accept_invitation(token, JOINER).is_active
+        assert tenants.service.accept_invitation(token, account(JOINER)).is_active
 
     def test_a_closed_request_does_not_block_a_later_invitation(self):
         tenants = Tenants()
@@ -826,7 +834,7 @@ class TestARevocationRacingAnAcceptWins:
         tenants.invitations.mark_accepted_if_pending = _revoked_meanwhile  # type: ignore[method-assign]
 
         with pytest.raises(ValidationError, match="no longer pending"):
-            tenants.service.accept_invitation(token, JOINER)
+            tenants.service.accept_invitation(token, account(JOINER))
 
         assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is None
         (invitation,) = tenants.invitations.stored.values()
@@ -838,7 +846,7 @@ class TestARevocationRacingAnAcceptWins:
         token = tenants.invite()
         tenants.memberships.before_create = lambda: tenants.invitations.revoke_pending_for_tenant(PERSONAL)
 
-        membership = tenants.service.accept_invitation(token, JOINER)
+        membership = tenants.service.accept_invitation(token, account(JOINER))
 
         assert membership.is_active
         (invitation,) = tenants.invitations.stored.values()
@@ -897,7 +905,7 @@ class TestNoTransientMemberIsCounted:
         tenants.invitations.mark_accepted_if_pending = _revoked_first  # type: ignore[method-assign]
 
         with pytest.raises(ValidationError, match="no longer pending"):
-            tenants.service.accept_invitation(token, JOINER)
+            tenants.service.accept_invitation(token, account(JOINER))
 
         assert created == [], "a membership existed, however briefly, for a revoked invitation"
 
@@ -912,7 +920,7 @@ class TestNoTransientMemberIsCounted:
         tenants.invitations.mark_accepted_if_pending = _conflict  # type: ignore[method-assign]
 
         with pytest.raises(RuntimeError):
-            tenants.service.accept_invitation(token, JOINER)
+            tenants.service.accept_invitation(token, account(JOINER))
 
         assert tenants.memberships.get_by_user_and_tenant(JOINER, PERSONAL) is None
 

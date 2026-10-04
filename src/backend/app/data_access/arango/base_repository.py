@@ -758,6 +758,25 @@ class BaseArangoRepository[TModel: BaseModel]:
                 data[field] = self._now()
         return data
 
+    def insert_payload(
+        self,
+        model: BaseModel,
+        *,
+        default_now_fields: tuple[str, ...] = (),
+    ) -> dict[str, Any]:
+        """The document :meth:`create` would insert, for a transactional writer in a *sibling* repository.
+
+        :meth:`_insert_payload` is protected on purpose - a repository writes its own collection. A writer
+        that must put documents of two collections into one stream transaction (#2118: a tenant and its
+        lead membership) needs the other repository's validate-and-stamp preamble without a second copy of
+        it, so the preamble has this public face. It performs no write.
+        """
+        return self._insert_payload(model, default_now_fields=default_now_fields)
+
+    def wrap_document(self, doc: dict[str, Any]) -> Any:
+        """A raw document of this repository as its bound model (the sibling-writer face of :meth:`_wrap`)."""
+        return self._wrap(self._from_doc(doc))
+
     def _insert_doc(
         self,
         model: BaseModel,

@@ -335,7 +335,7 @@ Content-Type: application/json
 }
 ```
 
-`action` benennt, wofür der Code gelten soll — eine der Aktionen aus der Tabelle unten (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`, `oidc_provider_change`, `admin_tenant_update`, `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change`). Der Code bestätigt **ausschließlich** diese eine Aktion — ein für die Passwortänderung angeforderter Code wird bei einem Löschversuch abgelehnt, ohne dabei verbraucht zu werden. Die zugeschickte E-Mail nennt in Klartext, wofür der Code gilt, aber nie das Ziel.
+`action` benennt, wofür der Code gelten soll — eine der Aktionen aus der Tabelle unten (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`, `oidc_provider_change`, `admin_tenant_update`, `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change`, `admin_membership_add`). Der Code bestätigt **ausschließlich** diese eine Aktion — ein für die Passwortänderung angeforderter Code wird bei einem Löschversuch abgelehnt, ohne dabei verbraucht zu werden. Die zugeschickte E-Mail nennt in Klartext, wofür der Code gilt, aber nie das Ziel.
 
 **Ziel der Aktion (`target`).** Wirkt die Aktion auf etwas anderes als dein eigenes Konto, nennt `target` dieses Ziel — sonst antwortet die Route mit `422`; bei einer Aktion auf das eigene Konto führt ein `target` ebenfalls zu `422`: <!-- #1884 -->
 
@@ -347,6 +347,7 @@ Content-Type: application/json
 | `oidc_provider_change` | Schlüssel der OIDC-Konfiguration, beim Anlegen `new:<slug>` |
 | `admin_tenant_update` | Schlüssel des Mandanten |
 | `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change` | Schlüssel der Mitgliedschaft (`membership_key`) |
+| `admin_membership_add` | Mandant und Konto, getrennt durch `\|`: `<tenant_key>\|<user_key>` (die Mitgliedschaft gibt es noch nicht) |
 
 Code und `step_up_token` gelten dann nur für dieses Ziel: Ein für Konto A angeforderter Code wird bei Konto B abgelehnt und dabei nicht verbraucht. Die Route prüft das Ziel schon beim Ausstellen — es muss existieren, und du musst darauf handeln dürfen (`403`, wenn nicht; `404`, wenn es nicht existiert; `409`, wenn der Slug beim Anlegen einer OIDC-Konfiguration schon vergeben ist).
 

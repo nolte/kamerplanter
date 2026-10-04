@@ -1747,6 +1747,27 @@ class McpToolStatus(StrEnum):
     DRY_RUN = "dry_run"
 
 
+class SecurityAuditAction(StrEnum):
+    """What a persistent security-audit row records (MT-014, #2111, NFR-011 R-38)."""
+
+    MEMBERSHIP_ADDED = "membership_added"
+    MEMBERSHIP_ROLE_CHANGED = "membership_role_changed"
+    MEMBERSHIP_SCOPES_CHANGED = "membership_scopes_changed"
+    MEMBERSHIP_REMOVED = "membership_removed"
+    MEMBERSHIP_LEFT = "membership_left"
+
+
+class SecurityAuditVia(StrEnum):
+    """The door a recorded change came through - who acted in what capacity."""
+
+    PLATFORM_ADMIN = "platform_admin"
+    TENANT_ADMIN = "tenant_admin"
+    INVITATION = "invitation"
+    SELF = "self"
+    REGISTRATION = "registration"
+    TENANT_CREATION = "tenant_creation"
+
+
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {
     CalendarEventCategory.TRAINING: "#4CAF50",
     CalendarEventCategory.PRUNING: "#8BC34A",

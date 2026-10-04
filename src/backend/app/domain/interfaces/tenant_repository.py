@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
+from app.domain.models.membership import Membership
+from app.domain.models.security_audit import SecurityAuditEntry
 from app.domain.models.tenant import Tenant
 
 
@@ -12,6 +15,25 @@ class ITenantRepository(ABC):
 
     @abstractmethod
     def create(self, tenant: Tenant) -> Tenant: ...
+
+    @abstractmethod
+    def create_with_lead_membership(
+        self,
+        tenant: Tenant,
+        membership: Membership,
+        *,
+        audit: Callable[[Tenant, Membership], SecurityAuditEntry] | None = None,
+    ) -> tuple[Tenant, Membership]:
+        """Found a tenant: tenant, founder membership, both edges and the audit row, atomically (#2118).
+
+        The tenant document, the membership (its ``tenant_key`` is set to the new tenant's key), the
+        ``has_membership`` and ``membership_in`` edges and, when ``audit`` is given, the security-audit row
+        it builds from the stored tenant and membership are written in **one** transaction: either all of
+        them exist or none does. Written one by one, a failure between two of them left a tenant nobody could
+        reach or delete (its slug taken, no member), or a membership without edges.
+
+        Raises the same domain conflicts :meth:`create` does (``DuplicateError`` for a taken slug).
+        """
 
     @abstractmethod
     def update_fields(self, key: str, fields: dict) -> Tenant | None:

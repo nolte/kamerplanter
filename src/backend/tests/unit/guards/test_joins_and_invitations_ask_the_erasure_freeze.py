@@ -37,6 +37,7 @@ _EXCLUDED = ("migrations",)
 _MEMBERSHIP_GATE = "_create_membership_unless_erasing"
 _INVITATION_GATE = "_refuse_invitation_while_owner_erasing"
 _INVITATION_WRITES = frozenset({"create", "mark_accepted_if_pending"})
+_FOUNDING = "create_with_lead_membership"
 
 
 def _receiver_name(call: ast.Call) -> str | None:
@@ -79,6 +80,10 @@ def _membership_findings(tree: ast.Module, label: str) -> tuple[list[str], int]:
     problems: list[str] = []
     sites = 0
     for function in _functions(tree):
+        # #2118 - a tenant is founded with its founder's membership in one transaction
+        # (``create_with_lead_membership``): a membership of a tenant that did not exist a moment ago, which
+        # nobody can be erasing. Counted as a site, never a violation.
+        sites += len(_method_calls(function, "tenant_repo", {_FOUNDING}))
         inserts = _method_calls(function, "membership_repo", {"create"})
         if not inserts:
             continue
@@ -127,7 +132,7 @@ def test_every_membership_insert_into_an_existing_tenant_goes_through_the_freeze
         "a membership is inserted without TenantService._create_membership_unless_erasing — "
         "it can land in a tenant whose erasure is frozen (REQ-025 AK-IE-07):\n" + "\n".join(problems)
     )
-    assert sites >= 3, f"the sweep saw {sites} membership inserts; the gate and the two tenant bootstraps exist today"
+    assert sites >= 2, f"the sweep saw {sites} membership inserts; the gate and the tenant founding exist today"
 
 
 def test_every_invitation_write_asks_whether_the_owner_asked_for_erasure():
@@ -178,6 +183,17 @@ def test_the_membership_sweep_spares_the_gate_and_a_join_of_a_tenant_just_create
         """
     )
     assert _membership_findings(good, "good.py") == ([], 2)
+
+
+def test_the_membership_sweep_counts_a_founding_and_does_not_flag_it():
+    founding = _parse(
+        """
+        class S:
+            def found(self, t, m):
+                return self._tenant_repo.create_with_lead_membership(t, m)
+        """
+    )
+    assert _membership_findings(founding, "founding.py") == ([], 1)
 
 
 def test_the_invitation_sweep_flags_a_create_and_an_accept_that_skip_the_owner_check():

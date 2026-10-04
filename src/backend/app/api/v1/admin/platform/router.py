@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Path
+from fastapi import APIRouter, Body, Depends, Path, Query
 
 from app.api.v1.admin.platform.schemas import (
     AdminAddMemberRequest,
@@ -15,6 +15,7 @@ from app.api.v1.admin.platform.schemas import (
     AdminUserResponse,
     AdminUserTenantRole,
     AdminUserUpdate,
+    SecurityAuditEntryResponse,
 )
 from app.api.v1.auth.schemas import CREDENTIAL_STEP_UP_FIELDS
 from app.api.v1.privacy.schemas import (
@@ -26,11 +27,17 @@ from app.api.v1.privacy.schemas import (
 )
 from app.api.v1.tenants.schemas import TenantDeleteRequest, TenantDeletionAcceptedResponse
 from app.common.auth import get_authenticated_with_api_key, require_platform_admin
-from app.common.dependencies import get_privacy_service, get_tenant_service, get_user_service
+from app.common.dependencies import (
+    get_privacy_service,
+    get_security_audit_service,
+    get_tenant_service,
+    get_user_service,
+)
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
 from app.common.request_ip import resolve_client_ip
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
+from app.domain.services.security_audit_service import MAX_READ_LIMIT, SecurityAuditService
 from app.domain.services.tenant_service import TenantService
 from app.domain.services.user_service import UserService
 
@@ -57,6 +64,24 @@ def get_platform_stats(
         active_tenants=tenant_service.count_tenants(active_only=True),
         total_memberships=tenant_service.count_memberships(),
     )
+
+
+@router.get("/security-audit", response_model=list[SecurityAuditEntryResponse])
+def list_security_audit(
+    tenant_key: Annotated[str | None, Query(description="Only the rows of this tenant (document key).")] = None,
+    limit: Annotated[int, Query(ge=1, le=MAX_READ_LIMIT, description="Newest rows first, at most this many.")] = 100,
+    _user: User = Depends(require_platform_admin),
+    audit: SecurityAuditService = Depends(get_security_audit_service),
+) -> list[SecurityAuditEntryResponse]:
+    """The persistent security audit of membership, role and scope changes. Platform admin only.
+
+    MT-014 (#2111): newest first, optionally of one tenant. Read-only; the rows are written
+    by the services that change a membership and kept for two years (NFR-011 R-38).
+    """
+    return [
+        SecurityAuditEntryResponse.model_validate(entry.model_dump(mode="json"))
+        for entry in audit.list_recent(tenant_key=tenant_key, limit=limit)
+    ]
 
 
 @router.get("/tenants", response_model=list[AdminTenantResponse])
@@ -467,11 +492,14 @@ def list_tenant_members(
     "/tenants/{tenant_key}/members",
     response_model=AdminTenantMemberResponse,
     status_code=201,
+    responses=STEP_UP_RESPONSES,
 )
 def add_tenant_member(
     tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
     body: AdminAddMemberRequest,
-    _user: User = Depends(require_platform_admin),
+    admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     tenant_service: TenantService = Depends(get_tenant_service),
     user_service: UserService = Depends(get_user_service),
 ):
@@ -482,9 +510,27 @@ def add_tenant_member(
     membership row and its two graph edges are created once, in the service. The
     user is loaded here (404 when unknown) because the member-centric response
     needs its name and email.
+
+    **Step-up (#2106, REQ-024 AK-59):** adding an account to a tenant — the ``platform`` tenant
+    with ``lead`` makes it a platform admin — passes the admin's own step-up: the body carries
+    ``current_password`` (or ``step_up_token`` / ``step_up_code`` obtained for
+    ``admin_membership_add`` with ``<tenant_key>|<user_key>`` as the target); 401 without it,
+    403 from an API-key request, 429 ``STEP_UP_LOCKED``; nothing is written then. A platform
+    admin cannot add themselves to the platform tenant (400). Every add writes a security-audit
+    row (#2111). The step-up fields are never written.
     """
     user = user_service.get_user(body.user_key)
-    membership = tenant_service.admin_add_membership(tenant_key, body.user_key, body.role)
+    membership = tenant_service.admin_add_membership(
+        tenant_key,
+        body.user_key,
+        body.role,
+        requester=admin,
+        current_password=body.current_password,
+        step_up_code=body.step_up_code,
+        step_up_token=body.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     return AdminTenantMemberResponse(
         membership_key=membership.key or "",
         user_key=body.user_key,
@@ -625,11 +671,14 @@ def list_user_memberships(
     "/users/{user_key}/memberships",
     response_model=AdminUserMembershipResponse,
     status_code=201,
+    responses=STEP_UP_RESPONSES,
 )
 def add_user_to_tenant(
     user_key: Annotated[str, Path(description="Document key of the user.")],
     body: AdminAddUserToTenantRequest,
-    _user: User = Depends(require_platform_admin),
+    admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     tenant_service: TenantService = Depends(get_tenant_service),
     user_service: UserService = Depends(get_user_service),
 ):
@@ -639,10 +688,25 @@ def add_user_to_tenant(
     implementation shared with the tenant-perspective ``add_tenant_member``. The
     user (path entity, 404) and the tenant (response name/slug, 404) are loaded
     here; the membership and its edges are created once, in the service.
+
+    **Step-up (#2106, REQ-024 AK-59):** the same as the tenant perspective — the body carries the
+    admin's own ``current_password`` (or ``step_up_token`` / ``step_up_code`` for
+    ``admin_membership_add`` with ``<tenant_key>|<user_key>``); 401 without it, 403 from an
+    API-key request, 429 ``STEP_UP_LOCKED``; nothing is written then.
     """
     user_service.get_user(user_key)
     tenant = tenant_service.get_tenant(body.tenant_key)
-    membership = tenant_service.admin_add_membership(body.tenant_key, user_key, body.role)
+    membership = tenant_service.admin_add_membership(
+        body.tenant_key,
+        user_key,
+        body.role,
+        requester=admin,
+        current_password=body.current_password,
+        step_up_code=body.step_up_code,
+        step_up_token=body.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     return AdminUserMembershipResponse(
         membership_key=membership.key or "",
         tenant_key=body.tenant_key,

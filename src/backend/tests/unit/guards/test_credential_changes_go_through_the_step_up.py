@@ -62,6 +62,8 @@ _CREDENTIAL_KEYS = {
 _ACCOUNT_MODELS = {"User"}
 #: Constructing one of these opens an identity change.
 _IDENTITY_CHANGE_MODELS = {"EmailChangeRequest"}
+#: #2106 - the one helper that inserts a membership into an *existing* tenant (REQ-025 AK-IE-07).
+_MEMBERSHIP_INSERT = "_create_membership_unless_erasing"
 _CREDENTIAL_REPO_CALLS = {
     ("_auth_provider_repo", "create"),
     ("_auth_provider_repo", "delete"),
@@ -166,6 +168,12 @@ _MEMBERSHIP_CLASSIFIED: dict[tuple[str, str], str] = {
         "(#2032 decision recorded in REQ-024 AK-57) — this entry then leaves the list"
     ),
 }
+_MEMBERSHIP_CLASSIFIED[("tenant_service.py", "TenantService.accept_invitation")] = (
+    "the invitation token is the proof: it was created by a member administrator who passed the escalation "
+    "gate for the role it carries, and the accepting account chooses nothing; an e-mail invitation is bound to "
+    "its proven address (_require_invited_account, #2115); it grants no more than the invitation says "
+    "(REQ-024 §1a.2)"
+)
 _CLASSIFIED.update(_MEMBERSHIP_CLASSIFIED)
 
 #: Known members without a step-up yet -> the follow-up issue tracking each. Emptied
@@ -240,6 +248,10 @@ def _why_member(function: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
                 receiver = _receiver_attr(func.value)
                 if (receiver, func.attr) in _CREDENTIAL_REPO_CALLS:
                     reasons.append(f"calls self.{receiver}.{func.attr}")
+                # #2106 - a membership created for an existing tenant (the insert helper both
+                # admin_add_membership and accept_invitation go through) gives an account access.
+                if isinstance(func.value, ast.Name) and func.value.id == "self" and func.attr == _MEMBERSHIP_INSERT:
+                    reasons.append(f"calls self.{func.attr}")
                 if receiver == "_user_repo" and func.attr == "update_fields":
                     # Review SEC-004 (c): a field set the source does not spell out
                     # can carry any credential key; a literal dict is read above.
@@ -328,7 +340,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
 EXPECTED_MEMBERS = (
-    33  # +7 with #2032: the membership writes (_MEMBERSHIP_CLASSIFIED and the four gated role/removal methods);
+    35  # +2 with #2106: admin_add_membership (gated) and accept_invitation (classified), both via the insert helper;
+    # +7 with #2032: the membership writes (_MEMBERSHIP_CLASSIFIED and the four gated role/removal methods);
     # +3 with #1883: OidcProviderAdminService.create/update/delete_provider; +1 with #1987: _login_link;
     # +1 with #2037: the verification-token write, now _issue_verification_link (#2046 moved it out of
     # _send_fresh_verification_link so the anonymous and the proven path share it)
@@ -385,6 +398,8 @@ def test_the_gated_entries_are_gated() -> None:
         ("tenant_service.py", "TenantService.admin_remove_membership"),
         ("tenant_service.py", "TenantService.change_member_role"),
         ("tenant_service.py", "TenantService.remove_member"),
+        # #2106 - the platform admin's add.
+        ("tenant_service.py", "TenantService.admin_add_membership"),
     ):
         assert entry in found and found[entry][1], f"{entry} is not behind self._step_up_verifier"
 

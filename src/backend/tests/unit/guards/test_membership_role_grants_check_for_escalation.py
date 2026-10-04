@@ -43,17 +43,10 @@ _ROLE_MODELS = {"Membership", "Invitation"}
 _GATE = "_refuse_role_grant"
 
 _CLASSIFIED: dict[tuple[str, str], str] = {
-    ("tenant_service.py", "TenantService.create_personal_tenant"): (
-        "creation of the account's own new tenant: the founder is its lead by construction; a personal tenant "
-        "is never the platform tenant, and there is no existing membership to raise"
-    ),
-    ("tenant_service.py", "TenantService.create_organization"): (
-        "creation of a new organisation: the founder is its lead by construction; is_platform is seeded, not "
-        "request-settable (REQ-024 AK-20), so the new tenant is never the platform tenant"
-    ),
-    ("tenant_service.py", "TenantService.admin_add_membership"): (
-        "platform-admin path: the router requires require_platform_admin (an active lead in the platform tenant) "
-        "and a platform admin may grant any role in any tenant, the platform tenant included"
+    ("tenant_service.py", "TenantService._found_tenant"): (
+        "founding a new tenant (create_personal_tenant, create_organization): the founder is its lead by "
+        "construction; a personal tenant or a new organisation is never the platform tenant (is_platform is "
+        "seeded, not request-settable, REQ-024 AK-20), and there is no existing membership to raise"
     ),
     ("tenant_service.py", "TenantService.admin_change_membership_role"): (
         "platform-admin path: both routes require require_platform_admin and a platform admin may change any "
@@ -137,7 +130,7 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: The class size measured when this guard was written (#2078). A change in either direction is a
 #: signal to read, not to update blindly: a new member needs the gate or a classification, a
 #: vanished one may mean the predicate went blind.
-EXPECTED_MEMBERS = 8
+EXPECTED_MEMBERS = 7  # 8 until #2118 merged the two founding functions into ``_found_tenant``
 
 
 def test_every_role_grant_checks_for_escalation_or_is_classified() -> None:
@@ -176,6 +169,9 @@ def test_the_tenant_scoped_grants_are_gated() -> None:
         ("tenant_service.py", "TenantService.change_member_role"),
         ("tenant_service.py", "TenantService.create_email_invitation"),
         ("tenant_service.py", "TenantService.create_link_invitation"),
+        # #2106 - the platform-admin add meets the same rule behind its route's gate: ``lead`` in the
+        # platform tenant is handed out only by someone who holds it. The entry that classified it is gone.
+        ("tenant_service.py", "TenantService.admin_add_membership"),
     ):
         assert entry in found and found[entry][1], f"{entry} does not call self.{_GATE}"
 

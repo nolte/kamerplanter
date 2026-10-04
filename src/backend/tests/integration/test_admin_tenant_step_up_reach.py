@@ -166,6 +166,43 @@ def test_the_last_lead_stays_without_the_admins_step_up_and_is_removed_with_it(d
     assert not _membership_intact(db, lead)
 
 
+# ── #2106: adding an account to a tenant ─────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.param("/api/v1/admin/platform/tenants/" + TENANT + "/members", id="tenant view"),
+        pytest.param("/api/v1/admin/platform/users/u-newcomer/memberships", id="user view"),
+    ],
+)
+def test_nobody_is_added_without_the_admins_step_up_and_is_added_with_it(db, path: str):
+    db.collection(col.USERS).insert(
+        {"_key": "u-newcomer", "email": "newcomer@example.com", "display_name": "Newcomer", "is_active": True}
+    )
+    client, _lead = _client(db)
+    body = (
+        {"user_key": "u-newcomer", "role": "grower"} if "tenants" in path else {"tenant_key": TENANT, "role": "grower"}
+    )
+
+    def memberships_of_newcomer() -> list[dict]:
+        return [m for m in db.collection(col.MEMBERSHIPS).all() if m["user_key"] == "u-newcomer"]
+
+    refused = client.post(path, json=body)
+
+    assert refused.status_code == 401, refused.text
+    assert memberships_of_newcomer() == []
+    assert [e for e in db.collection(col.HAS_MEMBERSHIP).all() if e["_from"] == "users/u-newcomer"] == []
+
+    # The control: the same request with the admin's own password goes through, with both edges.
+    accepted = client.post(path, json={**body, "current_password": PASSWORD})
+    assert accepted.status_code == 201, accepted.text
+    (stored,) = memberships_of_newcomer()
+    assert stored["role"] == "grower"
+    assert "current_password" not in stored
+    assert _membership_intact(db, stored["_key"])
+
+
 # ── #2032: the role of a member, and the tenant administrator's own routes ───
 
 

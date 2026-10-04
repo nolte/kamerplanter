@@ -211,7 +211,13 @@ class TestStrategies:
         plan = _plan()
         _run(db, plan)
         for rule in plan.pseudonymize_audit:
-            patches = [b["patch"] for _, b in db.calls if b["@collection"] == rule.collection and "patch" in b]
+            # A collection that names two accounts (``security_audit_log``: actor and target, #2111) has
+            # one rule - and one patch - per field, so the patches are matched by the rule's own field.
+            patches = [
+                b["patch"]
+                for _, b in db.calls
+                if b["@collection"] == rule.collection and "patch" in b and rule.user_field in b["patch"]
+            ]
             expected = {rule.user_field: TOMBSTONE, **dict.fromkeys(rule.clear_fields, "")}
             assert patches == [expected]
 

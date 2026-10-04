@@ -218,8 +218,10 @@ def _seed(database, plan: ErasurePlan) -> dict[str, dict[str, list[str]]]:
     for audit_rule in plan.pseudonymize_audit:
         _ensure(database, audit_rule.collection)
         for owner in (SUBJECT, OTHER):
+            # One row per rule, keyed by its field: a collection that names two accounts
+            # (``security_audit_log``: actor and target, #2111) has two rules and must not collide.
             doc = {
-                "_key": _row_key(audit_rule.collection, owner),
+                "_key": _row_key(audit_rule.collection, owner, f"-{audit_rule.user_field}"),
                 audit_rule.user_field: owner,
                 "marker": f"marker-{audit_rule.collection}-{owner}",
             }
@@ -339,7 +341,10 @@ def _retained_rows(plan: ErasurePlan, owner: str) -> list[str]:
     the collection" is no longer one category.
     """
     ids = [f"{rule.collection}/{_row_key(rule.collection, owner, f'-{rule.user_field}')}" for rule in plan.anonymize]
-    ids += [f"{rule.collection}/{_row_key(rule.collection, owner)}" for rule in plan.pseudonymize_audit]
+    ids += [
+        f"{rule.collection}/{_row_key(rule.collection, owner, f'-{rule.user_field}')}"
+        for rule in plan.pseudonymize_audit
+    ]
     return list(dict.fromkeys(ids))
 
 
@@ -397,12 +402,12 @@ def test_each_rule_writes_its_declared_replacement(database, erased):
 def test_the_erasure_audit_rows_carry_the_tombstone_hash(database, erased):
     tombstone = ErasureEngine.compute_tombstone_hash(SUBJECT, SALT)
     for rule in erased.plan.pseudonymize_audit:
-        rows = erased.seeded[SUBJECT][rule.collection]
-        assert rows, f"no audit row seeded for {rule.collection}"
-        for doc_id in rows:
-            doc = _read(database, doc_id)
-            assert doc is not None, f"{doc_id} is an audit record and must be retained"
-            assert doc[rule.user_field] == tombstone
+        # The row seeded for THIS rule (a collection may carry one rule per account field, #2111).
+        doc_id = f"{rule.collection}/{_row_key(rule.collection, SUBJECT, f'-{rule.user_field}')}"
+        assert doc_id in erased.seeded[SUBJECT][rule.collection], f"no audit row seeded for {rule.collection}"
+        doc = _read(database, doc_id)
+        assert doc is not None, f"{doc_id} is an audit record and must be retained"
+        assert doc[rule.user_field] == tombstone
 
 
 def test_every_row_of_the_other_user_is_unchanged(database, erased):

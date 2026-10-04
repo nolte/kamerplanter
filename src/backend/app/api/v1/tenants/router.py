@@ -375,8 +375,13 @@ def accept_invitation(
     user: User = Depends(require_account_principal),
     service: TenantService = Depends(get_tenant_service),
 ):
-    """Accept an invitation using its token."""
-    service.accept_invitation(body.token, user.key)
+    """Accept an invitation using its token.
+
+    **An e-mail invitation is bound to its address (#2115, REQ-024 AK-61):** 403 unless the signed-in
+    account carries the invited address and has confirmed it; the invitation then stays pending and nothing
+    is written. A link invitation is open to any signed-in account.
+    """
+    service.accept_invitation(body.token, user)
     return MessageResponse(message="Invitation accepted")
 
 

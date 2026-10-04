@@ -23,8 +23,9 @@ Grundlage: DSGVO Art. 5 Abs. 1 lit. e. <!-- NFR-011 -->
 | R-07a | Rückgängig-Fenster einer bestätigten E-Mail-Änderung | 7 Tage nach der Bestätigung | `previous_email`, Hash des Rückgängig-Tokens und dessen Ablaufzeitpunkt nullen | Zweckentfall — der Rückgängig-Link ist abgelaufen |
 | R-11 | Abgelaufene Refresh Tokens | Sofort nach Ablauf | Hard-Delete (TTL-Index) | Zweckentfall |
 | R-12 | Abgelaufene Einladungen | 30 Tage nach Ablauf | Status auf `expired` setzen, nach 30 Tagen Hard-Delete (`app.tasks.tenant_tasks.cleanup_expired_invitations`, täglich 02:00 UTC) | Zweckentfall |
+| R-38 | Sicherheits-Audit (Mitgliedschafts-, Rollen- und Scope-Änderungen) | 730 Tage (2 Jahre) nach Anlage, fest | Hard-Delete (`security_audit.purge_expired`, täglich 02:55 UTC); bei einer Kontolöschung werden die Kontoschlüssel der Zeile zu Tombstone-Hashes, bei einer Mandantenlöschung bleibt sie bestehen | Art. 32 DSGVO (Nachweis von Zugriffsänderungen), Art. 5(2) |
 
-Jede Frist außer R-11 wird über genau eine Einstellung gelesen (siehe
+Jede Frist außer R-11 (TTL-Index), R-06a und R-38 (fest) wird über genau eine Einstellung gelesen (siehe
 [Umgebungsvariablen](../reference/environment-variables.md#datenschutz-dsgvo-req-025-nfr-011)
 für die genauen Namen). Für R-01, R-05 und R-07 gab es bis zu dieser Änderung bereits
 dokumentierte, ältere Variablennamen, die aber nichts bewirkten — der Code nutzte feste
@@ -682,6 +683,7 @@ bis zu einen Tag überziehen, also länger speichern als deklariert.
 | R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | täglich, 02:00 | Ablaufzeitpunkt der Einladung (Status `expired`), danach `RETENTION_INVITATION_RETENTION_DAYS` bis zum Hard-Delete |
 | R-16, R-17, R-18 | `retention.purge_expired_legal_retention_rows` | täglich, 04:45 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS`, `RETENTION_TREATMENT_MIN_RETENTION_YEARS`, `RETENTION_INSPECTION_MIN_RETENTION_YEARS` |
 | R-06a | `retention.purge_expired_tenant_erasure_records` | täglich, 04:50 | fest 5 Jahre (Deckelung) bzw. Ende der aufbewahrten Daten des Mandanten |
+| R-38 | `security_audit.purge_expired` | täglich, 02:55 | fest 730 Tage ab Anlage der Zeile |
 
 Jeder Task protokolliert seinen Lauf strukturiert (structlog) unter seinem eigenen
 Ereignisnamen mit Zählern, zum Beispiel:

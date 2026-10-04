@@ -306,6 +306,9 @@ class TestAddMembershipEquivalence:
             "is_active": True,
             "admin_scopes": [],
         }
+        # … behind the same step-up act, bound to the same ``<tenant>|<user>`` pair (#2106) …
+        assert tenant_view.step_up.actions == user_view.step_up.actions == ["admin_membership_add"]
+        assert tenant_view.step_up.targets == user_view.step_up.targets == ["t-1|u-1"]
         # … and the same two graph edges (identity kinds/endpoints).
         assert tenant_view.membership_repo.edges == user_view.membership_repo.edges
         assert tenant_view.membership_repo.edges == [

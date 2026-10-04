@@ -1078,6 +1078,9 @@
       "adminChangeRoleStepUpTitle": "Rollenwechsel bestätigen",
       "adminChangeRoleStepUpDescription": "Du änderst die Rolle von „{{name}}“ in der Organisation „{{tenant}}“ auf „{{role}}“. Die Rolle bestimmt, was die Person in der Organisation ändern und löschen darf – ist sie die letzte Leitung, hat die Organisation danach keine mehr. Deshalb bestätigst du das mit deinem eigenen Zugang.",
       "adminChangeRoleStepUpConfirm": "Rolle ändern",
+      "adminAddMemberStepUpTitle": "Mitglied hinzufügen bestätigen",
+      "adminAddMemberStepUpDescription": "Du fügst „{{name}}“ der Organisation „{{tenant}}“ als „{{role}}“ hinzu. Die Rolle bestimmt, was die Person in der Organisation ändern und löschen darf – eine Leitung kann auch die Organisation löschen. Deshalb bestätigst du das mit deinem eigenen Zugang.",
+      "adminAddMemberStepUpConfirm": "Mitglied hinzufügen",
       "providerUnlinked": "Anmeldeweg entfernt"
     },
     "tenants": {

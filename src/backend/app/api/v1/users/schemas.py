@@ -77,7 +77,8 @@ class StepUpCodeRequest(BaseModel):
             "key (GET /users/me/providers), oidc_provider_change the configuration's key or new:<slug> for "
             "one being created, admin_tenant_update the tenant's key, admin_membership_removal, "
             "admin_membership_role_change, tenant_member_removal and tenant_member_role_change the "
-            "membership's key. It must exist and be the requester's to act on (403/404). The "
+            "membership's key, admin_membership_add the pair <tenant_key>|<user_key> (#2106). It must "
+            "exist and be the requester's to act on (403/404). The "
             "confirmation is bound to it and is refused for any other target."
         ),
     )
@@ -107,7 +108,8 @@ class StepUpReauthRequest(BaseModel):
             "key (GET /users/me/providers), oidc_provider_change the configuration's key or new:<slug> for "
             "one being created, admin_tenant_update the tenant's key, admin_membership_removal, "
             "admin_membership_role_change, tenant_member_removal and tenant_member_role_change the "
-            "membership's key. It must exist and be the requester's to act on (403/404). The "
+            "membership's key, admin_membership_add the pair <tenant_key>|<user_key> (#2106). It must "
+            "exist and be the requester's to act on (403/404). The "
             "confirmation is bound to it and is refused for any other target."
         ),
     )

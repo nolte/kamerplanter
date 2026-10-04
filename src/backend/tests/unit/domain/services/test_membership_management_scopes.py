@@ -108,7 +108,7 @@ class TestLastManagerGuard:
         service, repo = _service(_membership(_MANAGER), manager_count=1)
 
         with pytest.raises(ValidationError, match="management"):
-            service.change_member_scopes("t1", "m1", new_scopes=_NONE, actor_scopes=_MANAGER)
+            service.change_member_scopes("t1", "m1", new_scopes=_NONE, actor_scopes=_MANAGER, actor_user_key="u9")
         repo.update_fields.assert_not_called()
 
     def test_the_domain_role_may_still_be_demoted_freely(self):

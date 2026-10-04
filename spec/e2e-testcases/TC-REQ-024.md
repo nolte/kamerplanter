@@ -675,6 +675,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 - Erfolgs-Meldung erscheint: "Einladung angenommen! Du bist jetzt Mitglied."
 - Nutzer wird zum Dashboard des Tenants "Gemeinschaftsgarten Sonnenschein" weitergeleitet
 - Im Tenant-Switcher erscheint "Gemeinschaftsgarten Sonnenschein" als neuer Tenant
+- Das annehmende Konto trägt die **eingeladene, bestätigte** E-Mail-Adresse (REQ-024 AK-61); ein anderes Konto — oder dasselbe mit unbestätigter Adresse — bekommt `403`, die Einladung bleibt offen, es entsteht keine Mitgliedschaft
 
 **Nachbedingungen**:
 - Nutzer ist Mitglied im Tenant mit der vordefinierten Rolle (z.B. "viewer")
