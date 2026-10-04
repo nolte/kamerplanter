@@ -8,10 +8,12 @@ Before #2113 three secrets were stored as typed:
   bot tokens / webhook secrets are part of the URL.
 
 The code now writes Fernet ciphertext (``ha_access_token_encrypted``,
-``plantnet_api_key_encrypted``, ``urls_encrypted``) and re-encrypts a plaintext
-value lazily the first time it is read. The lazy path alone would leave every
-value nobody reads — the preferences of an inactive account — in clear for good,
-so this migration does the whole collection once.
+``plantnet_api_key_encrypted``, ``urls_encrypted``) and a save re-encrypts a value
+it finds in clear. A read never writes: the GET routes that reach these readers
+must not persist (``tests/unit/api/test_write_route_gates.py``), so a lazy
+re-encryption on read is not available — and it would have left every value
+nobody reads (the preferences of an inactive account) in clear for good anyway.
+This migration encrypts the whole collection once, at startup.
 
 **What it changes.** Per secret, a stored plaintext value (under the legacy name,
 or under the ``_encrypted`` name while it is not a Fernet token — what a debug
@@ -30,7 +32,8 @@ second run, with nothing left to encrypt, 0.02 s.
 **Without a key** (``FERNET_KEY`` empty — debug only; the API and the worker refuse
 to start without one otherwise) nothing can be encrypted: the migration writes
 nothing, reports ``skipped: no_fernet_key`` and is recorded — it does not block
-the migrations after it. The lazy path re-encrypts on read once a key is set.
+the migrations after it. Once a key is set, the next save of each document
+encrypts it.
 
 **Idempotent (M-3).** A Fernet token no longer matches; a second run changes
 nothing. **Dry run (M-5)** counts and writes nothing. **Not reversible (M-6):**
@@ -109,7 +112,7 @@ class EncryptIntegrationSecretsMigration(Migration):
     name = "encrypt_integration_secrets"
     description = (
         "Fernet-encrypt the Home Assistant token, the Pl@ntNet key and the Apprise URLs stored in clear "
-        "before #2113; skipped without a FERNET_KEY (the lazy re-encryption on read covers it later)."
+        "before #2113; skipped without a FERNET_KEY (the next save encrypts such a value once a key is set)."
     )
     reversible = False
 

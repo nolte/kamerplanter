@@ -121,7 +121,7 @@ def open_config(config: dict[str, Any], encryption: EncryptionEngine) -> dict[st
     """The in-memory form of a stored Apprise channel config: ``urls_encrypted`` → ``urls``.
 
     A row stored before #2113 carries plaintext ``urls`` and no ciphertext; it is
-    returned as stored (the repository re-encrypts it). A token the configured key
+    returned as stored (v0083, or its next save, seals it). A token the configured key
     cannot open is left out and counted in the log, never shown.
     """
     if URLS_ENCRYPTED not in config:

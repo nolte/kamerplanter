@@ -4,11 +4,11 @@ Against a real ArangoDB, through the same providers the API uses
 (``app.common.dependencies``): the Home Assistant long-lived token, the Pl@ntNet
 key and the Apprise URLs must never appear in the stored document in clear, the
 internal readers must still get the plaintext, a value stored before #2113 is
-re-encrypted the first time it is read (lazy, race-safe, idempotent), and a
-delete must actually remove the stored secret — before #2113 the system-settings
-upsert *merged* nested objects, so ``delete_ha_settings`` and
-``delete_global_openweathermap_key`` returned success and left the secret in
-the document (measured 2026-10-05).
+encrypted by migration v0083 (idempotent) or by its next save — a read never
+writes. A delete must actually remove the stored secret: before #2113 the
+system-settings upsert *merged* nested objects, so ``delete_ha_settings`` and
+``delete_global_openweathermap_key`` returned success and left the secret in the
+document (measured 2026-10-05).
 
 Every credential-shaped value is assembled at runtime (BACKEND.md §16.3).
 """
@@ -181,7 +181,12 @@ def test_deleting_the_storage_settings_removes_the_override(db: StandardDatabase
     assert stored.get("storage", {}) == {}
 
 
-# ── values stored before #2113: lazily re-encrypted on read ───────────────
+# ── values stored before #2113: read without a write, sealed by the next save ──
+#
+# A read never writes: the GET routes that reach these readers must not persist
+# (tests/unit/api/test_write_route_gates.py). v0083 encrypts every legacy value at
+# startup; a value still in clear (a debug instance without a key when v0083 ran)
+# is served as stored and encrypted by its next save.
 
 
 def _seed_legacy_settings(db: StandardDatabase) -> None:
@@ -195,12 +200,23 @@ def _seed_legacy_settings(db: StandardDatabase) -> None:
     )
 
 
-def test_a_legacy_plaintext_ha_token_and_plantnet_key_are_encrypted_on_first_read(db: StandardDatabase) -> None:
+def test_a_legacy_plaintext_value_is_read_and_the_read_writes_nothing(db: StandardDatabase) -> None:
     _seed_legacy_settings(db)
+    rev = db.collection(col.SYSTEM_SETTINGS).get(SINGLETON_KEY)["_rev"]
     service = dependencies.get_system_settings_service()
 
     assert service.get_effective_ha_settings()["ha_access_token"] == HA_TOKEN
     assert service.get_effective_plantnet_api_key() == PLANTNET_KEY
+    assert service.get_ha_settings_with_source()["source_ha_access_token"] == "db"
+
+    assert db.collection(col.SYSTEM_SETTINGS).get(SINGLETON_KEY)["_rev"] == rev
+
+
+def test_the_next_save_encrypts_a_legacy_value_and_removes_the_legacy_key(db: StandardDatabase) -> None:
+    _seed_legacy_settings(db)
+    service = dependencies.get_system_settings_service()
+
+    service.update_ha_settings(ha_url="http://ha.other:8123", ha_access_token=None, ha_timeout=None)
 
     raw = _raw(db, col.SYSTEM_SETTINGS, SINGLETON_KEY)
     assert HA_TOKEN not in raw
@@ -208,27 +224,14 @@ def test_a_legacy_plaintext_ha_token_and_plantnet_key_are_encrypted_on_first_rea
     stored = db.collection(col.SYSTEM_SETTINGS).get(SINGLETON_KEY)
     assert "ha_access_token" not in stored["home_assistant"]
     assert "plantnet_api_key" not in stored["plant_identification"]
-    # Nothing beside the two secrets was touched.
     assert stored["weather_providers"] == {"dwd_enabled": True}
-    assert stored["home_assistant"]["ha_url"] == "http://ha.example:8123"
-
-
-def test_the_lazy_re_encryption_is_idempotent(db: StandardDatabase) -> None:
-    _seed_legacy_settings(db)
-    service = dependencies.get_system_settings_service()
-    service.get_effective_ha_settings()
-    first = db.collection(col.SYSTEM_SETTINGS).get(SINGLETON_KEY)
-
-    service.get_effective_ha_settings()
-    service.get_ha_settings_with_source()
-    service.get_plantnet_settings_with_source()
-
-    second = db.collection(col.SYSTEM_SETTINGS).get(SINGLETON_KEY)
-    assert second["_rev"] == first["_rev"]
     assert service.get_effective_ha_settings()["ha_access_token"] == HA_TOKEN
+    assert service.get_effective_plantnet_api_key() == PLANTNET_KEY
 
 
-def test_legacy_plaintext_apprise_urls_are_encrypted_on_first_read(db: StandardDatabase) -> None:
+def test_legacy_plaintext_apprise_urls_are_read_without_a_write_and_sealed_by_the_next_save(
+    db: StandardDatabase,
+) -> None:
     db.collection(NOTIFICATION_PREFERENCES).insert(
         {
             "_key": "notifpref_u2113",
@@ -239,18 +242,24 @@ def test_legacy_plaintext_apprise_urls_are_encrypted_on_first_read(db: StandardD
             },
         }
     )
+    rev = db.collection(NOTIFICATION_PREFERENCES).get("notifpref_u2113")["_rev"]
     repo = dependencies.get_notification_preference_repo()
 
     stored = repo.get_by_user("u2113")
 
     assert stored is not None
     assert stored.channels["apprise"].config["urls"] == [APPRISE_URL]
+    assert db.collection(NOTIFICATION_PREFERENCES).get("notifpref_u2113")["_rev"] == rev
+
+    repo.upsert(stored)
+
     raw_doc = db.collection(NOTIFICATION_PREFERENCES).get("notifpref_u2113")
     assert APPRISE_URL not in json.dumps(raw_doc)
-    assert raw_doc["channels"]["email"] == {"enabled": True, "priority": 0, "config": {"digest": True}}
-    rev = raw_doc["_rev"]
-    assert repo.get_by_user("u2113") is not None
-    assert db.collection(NOTIFICATION_PREFERENCES).get("notifpref_u2113")["_rev"] == rev
+    assert "urls" not in raw_doc["channels"]["apprise"]["config"]
+    assert raw_doc["channels"]["email"]["config"] == {"digest": True}
+    reread = repo.get_by_user("u2113")
+    assert reread is not None
+    assert reread.channels["apprise"].config["urls"] == [APPRISE_URL]
 
 
 # ── the one-shot migration ────────────────────────────────────────────────

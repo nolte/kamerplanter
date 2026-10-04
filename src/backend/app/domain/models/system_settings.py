@@ -6,9 +6,9 @@ from pydantic import BaseModel, Field, model_validator
 #: #2113 — the plaintext field names these secrets were stored under before they
 #: were encrypted. A document written before #2113 (or before v0083 ran) still
 #: carries them; the model reads such a value into the ``_encrypted`` field, where
-#: ``SystemSettingsService`` recognises it as not-yet-ciphertext and re-encrypts it
-#: (``EncryptionEngine.decrypt`` passes a non-token value through as legacy
-#: plaintext). Used by the migration and the lazy re-encryption, too.
+#: ``EncryptionEngine.decrypt`` passes a non-token value through as legacy plaintext
+#: and ``SystemSettingsService._save`` encrypts it on the next save. The model
+#: dropping the legacy name is what removes it from the document on that save.
 LEGACY_HA_ACCESS_TOKEN_FIELD = "ha_access_token"
 LEGACY_PLANTNET_API_KEY_FIELD = "plantnet_api_key"
 

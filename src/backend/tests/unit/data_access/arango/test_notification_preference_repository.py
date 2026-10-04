@@ -110,7 +110,7 @@ class TestListUsersWithDigestEnabled:
 
 
 class TestAppriseUrlsSealed:
-    """#2113 — the stored form carries ciphertext only; the reader decrypts; legacy rows are re-encrypted."""
+    """#2113 — the stored form carries ciphertext only; the reader decrypts; a read never writes."""
 
     URL = "tgram://" + "123456789:" + "AAbot2113" + "Unit/4711"
 
@@ -151,18 +151,15 @@ class TestAppriseUrlsSealed:
         assert coll.update.call_args.kwargs["keep_none"] is False
         assert self.URL not in str(payload)
 
-    def test_a_legacy_row_is_re_encrypted_on_read(self, keyed, mock_db):
+    def test_a_legacy_row_is_read_without_a_write(self, keyed, mock_db):
+        """A read never writes (the preferences GET must not persist); v0083 or the next save seals it."""
         mock_db.collection.return_value.get.return_value = _doc(
             channels={"apprise": {"enabled": True, "config": {"urls": [self.URL]}}}
         )
-        mock_db.aql.execute.return_value = iter([True])
 
-        result = keyed.get_by_user("u1")
-
-        assert result.channels["apprise"].config["urls"] == [self.URL]
-        bind = mock_db.aql.execute.call_args.kwargs["bind_vars"]
-        assert bind["plaintext"] == [self.URL]
-        assert self.URL not in str(bind["ciphertext"])
+        assert keyed.get_by_user("u1").channels["apprise"].config["urls"] == [self.URL]
+        mock_db.aql.execute.assert_not_called()
+        mock_db.collection.return_value.update.assert_not_called()
 
     def test_without_a_key_a_legacy_row_is_not_rewritten(self, repo, mock_db):
         mock_db.collection.return_value.get.return_value = _doc(

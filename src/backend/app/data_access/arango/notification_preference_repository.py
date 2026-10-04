@@ -3,16 +3,16 @@
 #2113 — the Apprise URLs are sealed here, on the one path every preference write
 and read takes: ``upsert`` stores ``channels.apprise.config.urls`` as Fernet
 ciphertext under ``urls_encrypted`` (and removes a plaintext ``urls`` the merge
-would otherwise keep), the readers decrypt it back into ``urls`` for the channel
-that sends, and ``get_by_user`` re-encrypts a row stored in clear before #2113
-(one conditional statement; migration v0083 does the same for every row once).
+would otherwise keep), and the readers decrypt it back into ``urls`` for the
+channel that sends. Rows stored in clear before #2113 are encrypted once by
+migration v0083; a read never writes (``GET …/notifications/preferences`` must not
+persist), so a row still in clear is served as stored and sealed by its next save.
 The domain model never sees the ciphertext; the API masks the plaintext
 (``app.domain.engines.apprise_url_secrets``).
 """
 
-from collections.abc import Iterable
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 
 import structlog
 from arango.database import StandardDatabase
@@ -29,17 +29,6 @@ logger = structlog.get_logger()
 
 # Collection constant
 NOTIFICATION_PREFERENCES = "notification_preferences"
-
-#: #2113 — swap a plaintext Apprise URL list for its ciphertext, only while the
-#: document still holds exactly that list; removes the plaintext key.
-_SEAL_LEGACY_URLS_QUERY = """
-FOR doc IN @@collection
-  FILTER doc._key == @key
-  FILTER doc.channels.apprise.config.urls == @plaintext
-  UPDATE doc WITH { channels: { apprise: { config: { urls_encrypted: @ciphertext, urls: null } } } }
-    IN @@collection OPTIONS { keepNull: false, mergeObjects: true }
-  RETURN true
-"""
 
 
 class ArangoNotificationPreferenceRepository(
@@ -65,27 +54,6 @@ class ArangoNotificationPreferenceRepository(
             doc = {**doc, "channels": {**channels, APPRISE_CHANNEL: opened}}
         return NotificationPreferences(**self._from_doc(dict(doc)))
 
-    def _seal_legacy_urls(self, key: str, doc: dict[str, Any]) -> None:
-        """Re-encrypt an Apprise URL list stored in clear before #2113 (lazy, race-safe, idempotent)."""
-        if not self._encryption.enabled:
-            return
-        config = ((doc.get("channels") or {}).get(APPRISE_CHANNEL) or {}).get("config") or {}
-        plaintext = config.get(URLS)
-        if not isinstance(plaintext, list):
-            return
-        sealed = seal_config({URLS: plaintext}, self._encryption)[URLS_ENCRYPTED]
-        cursor = self._db.aql.execute(
-            _SEAL_LEGACY_URLS_QUERY,
-            bind_vars={
-                "@collection": NOTIFICATION_PREFERENCES,
-                "key": key,
-                "plaintext": plaintext,
-                "ciphertext": sealed,
-            },
-        )
-        if any(cast(Iterable[bool], cursor)):
-            logger.info("stored_secret_encrypted", setting="apprise_urls", url_count=len(sealed))
-
     @staticmethod
     def _make_key(user_key: str) -> str:
         """Build deterministic document key from user_key."""
@@ -97,7 +65,6 @@ class ArangoNotificationPreferenceRepository(
         doc = self.collection.get(key)
         if doc is None:
             return None
-        self._seal_legacy_urls(key, doc)
         return self._opened(doc)
 
     def upsert(self, preferences: NotificationPreferences) -> NotificationPreferences:

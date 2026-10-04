@@ -1,6 +1,4 @@
-from collections.abc import Iterable
 from datetime import UTC, datetime
-from typing import cast
 
 from arango.database import StandardDatabase
 
@@ -59,20 +57,6 @@ IN @@collection
 """
 
 
-#: #2113 — replace one secret stored in clear (under its ``_encrypted`` name or
-#: the legacy plaintext name) by its ciphertext, only while it still holds that
-#: plaintext. ``keepNull: false`` removes the legacy attribute.
-_REPLACE_PLAINTEXT_SECRET_QUERY = """
-FOR doc IN @@collection
-  FILTER doc._key == @key
-  LET current = doc[@block][@field] != null ? doc[@block][@field] : doc[@block][@legacy]
-  FILTER current == @plaintext
-  UPDATE doc WITH { [@block]: { [@field]: @ciphertext, [@legacy]: null } } IN @@collection
-    OPTIONS { keepNull: false, mergeObjects: true }
-  RETURN true
-"""
-
-
 #: Fields only their own single-statement writers set. ``upsert`` is the admin
 #: settings' read-modify-write; carrying these back would reset a run the sweep
 #: recorded between the read and the write (code review of #1771).
@@ -120,32 +104,6 @@ class ArangoSystemSettingsRepository(
             result = self.collection.insert(data, return_new=True)
 
         return SystemSettings(**result["new"])
-
-    def replace_plaintext_secret(
-        self, *, block: str, field: str, legacy_field: str, plaintext: str, ciphertext: str
-    ) -> bool:
-        """Swap one secret stored in clear for its ciphertext — only if it is still that value (#2113).
-
-        The lazy re-encryption on read. One conditional statement rather than a
-        read-modify-write ``upsert``: it touches ``<block>.<field>`` and removes
-        ``<block>.<legacy_field>``, nothing else, so a concurrent admin save of
-        any other setting is not overwritten, and a save of *this* secret between
-        the read and the write wins (the condition no longer matches). Returns
-        whether it wrote.
-        """
-        cursor = self._db.aql.execute(
-            _REPLACE_PLAINTEXT_SECRET_QUERY,
-            bind_vars={
-                "@collection": col.SYSTEM_SETTINGS,
-                "key": SINGLETON_KEY,
-                "block": block,
-                "field": field,
-                "legacy": legacy_field,
-                "plaintext": plaintext,
-                "ciphertext": ciphertext,
-            },
-        )
-        return any(cast(Iterable[bool], cursor))
 
     def record_reference_contributions(self, now: datetime) -> None:
         if self.reference_contributions_since() is not None:
