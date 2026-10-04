@@ -138,7 +138,7 @@ class TestTheRouteOperand:
         assert mine == theirs
 
     def test_the_measured_candidate_count(self) -> None:
-        """805 mounted ``/api/v1`` operations.
+        """806 mounted ``/api/v1`` operations.
 
         Pinned deliberately. The candidate *count* moves with every triage
         decision and is not pinned anywhere; the denominator moving is a route
@@ -180,9 +180,13 @@ class TestTheRouteOperand:
         +1: ``POST /auth/resend-verification`` (#2037) — a fresh verification mail for an
         unverified account; consumed by ``resendVerification`` in
         ``src/frontend/src/api/endpoints/auth.ts``.
+
+        +1: ``GET /admin/platform/security-audit`` (#2111) — the platform admin's read of the persistent
+        security audit; no page consumes it yet (a reported candidate of ``check_route_consumers.py``, read
+        through the API directly).
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 805
+        assert len(checker.collect_operations(app)) == 806
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.
