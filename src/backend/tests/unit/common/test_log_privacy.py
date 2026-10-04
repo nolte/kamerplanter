@@ -390,6 +390,15 @@ def test_a_plain_address_is_still_masked_after_the_reorder(salted: str) -> None:
         "/",
         "aB1",
         "/abcdef0123",
+        # #1927 / #2020: dotted chains, Apprise-native URLs, tenant keys in text
+        "/" + "A1" * 16 + ".a",
+        "/" + "A1" * 16 + ("." + "b" * 600),
+        "slack://",
+        "gotify://a/",
+        "gotify://" + "a" * 254 + "/",
+        "ter_",
+        "t/",
+        "t/k/",
     ],
 )
 def test_the_review_patterns_stay_linear(salted: str, unit: str) -> None:

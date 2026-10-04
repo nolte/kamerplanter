@@ -444,7 +444,12 @@ lassen sie sich dagegen nicht verknüpfen.
     (`schema://nutzer:passwort@…`) werden ebenfalls maskiert. Dasselbe gilt für
     Zugangsdaten im *Pfad* einer URL — das Bot-Token einer Telegram-Adresse, das Token
     eines Discord- oder Slack-Webhooks, das Geräte-Token eines Push-Endpunkts —, auch in
-    den Zeilen, die die HTTP-Bibliothek bei einem Verbindungsfehler selbst schreibt. Beim
+    den Zeilen, die die HTTP-Bibliothek bei einem Verbindungsfehler selbst schreibt. Eine Apprise-Adresse, wie du sie in den
+    Benachrichtigungs-Einstellungen eingetragen hast (`slack://…`, `tgram://…`, `pover://…`; bei
+    `gotify://`, `matrix://` und `ntfy://` bleibt nur der Server stehen), wird ebenso maskiert,
+    falls sie je in einem Text landet, und ebenso ein signiertes Token aus mehreren durch Punkte
+    getrennten Teilen. Das Protokoll des optionalen Pakets `apprise` selbst steht auf `WARNING`, weil
+    es darunter Anfrage-Nutzlasten schreibt. Beim
     An- und Abmelden von Push-Benachrichtigungen steht im Protokoll nur der Name des
     Push-Dienstes, nicht die Adresse deines Geräts. Ein unerwarteter Fehler
     (ein Traceback) läuft durch dieselbe Bereinigung: Eine Fehlermeldung aus der

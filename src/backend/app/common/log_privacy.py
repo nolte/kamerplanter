@@ -44,6 +44,7 @@ from urllib.parse import urlsplit
 
 from app.common.decoys import email_digest
 from app.common.exceptions import KamerplanterError
+from app.common.url_safety import APPRISE_ALLOWED_SCHEMES
 from app.config.settings import settings
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.storage.export_bundle_key import mask_export_bundle_keys
@@ -102,9 +103,30 @@ _PATH_CREDENTIAL_SHAPES = (
 )
 #: A path segment that is long enough and made of token characters only — the
 #: shape of a credential no pattern above names (a Web Push endpoint's path is
-#: the device's push token, a generic webhook's its secret). Whether a match is
-#: masked is decided by :func:`_looks_like_a_token`.
-_TOKEN_SEGMENT = re.compile(r"(?<=/)[A-Za-z0-9_:\-]{32,}")
+#: the device's push token, a generic webhook's its secret) — plus the dotted
+#: parts that follow it (``<body>.<signature>``, a JWT's three parts, #1927).
+#: Whether a match is masked is decided by :func:`_looks_like_a_token` on the
+#: segment; a chain is masked whole once its first segment is, never in part. The
+#: dotted tail is bounded (8 parts of at most 512 characters), so the scan is linear.
+_TOKEN_SEGMENT = re.compile(r"(?<=/)([A-Za-z0-9_:\-]{32,})((?:\.[A-Za-z0-9_:\-]{1,512}){0,8})")
+#: Apprise-native URLs as a user configures them (#1927): ``slack://<a>/<b>/<c>``,
+#: ``pover://<user>@<app>``, ``tgram://<bot>:<token>/<chat>``, ``gotify://host/<token>``.
+#: The schemes are the allow-list of ``app.common.url_safety`` (the only ones the
+#: channel delivers to). For the schemes whose first part *is* the credential
+#: everything after the scheme is masked; for the schemes that name a server first
+#: (:data:`_APPRISE_HOST_FIRST_SCHEMES`) the authority stays — an operator needs the
+#: host — and the path, which is the token or the topic, is masked. A scheme added to
+#: the allow-list later falls into the first group, the safe one.
+_APPRISE_HOST_FIRST_SCHEMES = frozenset({"gotify", "gotifys", "matrix", "matrixs", "ntfy", "ntfys"})
+_APPRISE_TOKEN_FIRST_SCHEMES = APPRISE_ALLOWED_SCHEMES - _APPRISE_HOST_FIRST_SCHEMES
+_APPRISE_TOKEN_URL = re.compile(
+    r"(?<![A-Za-z0-9+.-])(" + "|".join(sorted(map(re.escape, _APPRISE_TOKEN_FIRST_SCHEMES))) + r")://[^\s'\"\\]{1,512}"
+)
+_APPRISE_HOST_URL = re.compile(
+    r"(?<![A-Za-z0-9+.-])("
+    + "|".join(sorted(map(re.escape, _APPRISE_HOST_FIRST_SCHEMES)))
+    + r")://([^\s/?#'\"\\]{1,255})([/?#][^\s'\"\\]{0,512})?"
+)
 _HEX_RUN = re.compile(r"[0-9A-Fa-f]+")
 #: A tenant key inside free text (#2020), in the two spellings the app writes it:
 #: an erasure record key ``ter_<tenant_key>`` (the tenant-erasure task returns
@@ -201,18 +223,34 @@ def loggable_error(error: BaseException | str, *, user_key: str | None = None) -
 
 
 def _looks_like_a_token(segment: str) -> bool:
-    """Whether a long path segment is a credential rather than a name (#1879).
+    """Whether a long path segment is a credential rather than a name (#1879, #1927).
 
     A generated secret mixes upper case, lower case and digits, or is a run of
     hex digits; a file, route or migration name
-    (``v0056_backfill_user_key_on_three_models``) does neither.
+    (``v0056_backfill_user_key_on_three_models``) does neither. A segment of
+    letters and digits only (no ``_ - :`` separating words) is a token in the
+    alphabets generators use besides those two: base36 (lower case and digits),
+    base32 (upper case and digits) and mixed case without a digit — everything
+    but a plain lower-case run, which is a word.
     """
     has_digit = any(char.isdigit() for char in segment)
-    if not has_digit:
-        return False
-    if any(char.isupper() for char in segment) and any(char.islower() for char in segment):
+    if has_digit and any(char.isupper() for char in segment) and any(char.islower() for char in segment):
         return True
-    return _HEX_RUN.fullmatch(segment) is not None and any(char.isalpha() for char in segment)
+    if has_digit and _HEX_RUN.fullmatch(segment) is not None and any(char.isalpha() for char in segment):
+        return True
+    if not (segment.isascii() and segment.isalnum()):
+        return False
+    return has_digit or not segment.islower()
+
+
+def _mask_token_chain(match: re.Match[str]) -> str:
+    return "<redacted>" if _looks_like_a_token(match.group(1)) else match.group(0)
+
+
+def _mask_apprise_urls(text: str) -> str:
+    """Apprise-native URLs masked after the scheme; the host of a server-first scheme stays (#1927)."""
+    text = _APPRISE_TOKEN_URL.sub(r"\1://<redacted>", text)
+    return _APPRISE_HOST_URL.sub(lambda m: f"{m.group(1)}://{m.group(2)}" + ("/<redacted>" if m.group(3) else ""), text)
 
 
 def mask_path_credentials(text: str) -> str:
@@ -221,13 +259,15 @@ def mask_path_credentials(text: str) -> str:
     The named shapes (:data:`_PATH_CREDENTIAL_SHAPES`) keep their leading
     segment — ``/bot<redacted>/sendMessage``, ``/api/webhooks/<redacted>`` — so
     an operator still sees which API failed; any other token-shaped segment
-    (:data:`_TOKEN_SEGMENT`) becomes ``<redacted>``. Part of every text
+    (:data:`_TOKEN_SEGMENT`, with the dotted parts that follow it) becomes
+    ``<redacted>``, and an Apprise-native URL (``slack://…``, ``gotify://host/…``,
+    #1927) is masked after its scheme or its host. Part of every text
     redaction of this module (:func:`loggable_error`, :func:`loggable_text`,
     :func:`loggable_url_text`), so it holds at the sink, not per call site.
     """
     for pattern in _PATH_CREDENTIAL_SHAPES:
         text = pattern.sub(r"\1<redacted>", text)
-    return _TOKEN_SEGMENT.sub(lambda m: "<redacted>" if _looks_like_a_token(m.group()) else m.group(), text)
+    return _TOKEN_SEGMENT.sub(_mask_token_chain, _mask_apprise_urls(text))
 
 
 def _tenant_reference_of(key: str) -> str:

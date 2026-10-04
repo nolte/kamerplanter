@@ -20,8 +20,10 @@ from app.common.log_privacy import (
 #: Libraries that log every outbound request with its full URL at INFO/DEBUG —
 #: query string included, which is where OpenWeatherMap (``appid``) and Perenual
 #: (``key``) carry their API key (#1795). httpcore and urllib3 (python-arango
-#: talks to ArangoDB through ``requests``) log request targets at DEBUG.
-_QUIET_LIBRARY_LOGGERS = ("httpx", "httpcore", "urllib3")
+#: talks to ArangoDB through ``requests``) log request targets at DEBUG. ``apprise``
+#: (an optional dependency of the notification channel) logs the request payload —
+#: ``{'token': …, 'user': …}`` — at DEBUG, measured on #1927.
+_QUIET_LIBRARY_LOGGERS = ("httpx", "httpcore", "urllib3", "apprise")
 #: The loggers that write those request lines themselves. A logger-level filter
 #: only sees records logged *on* that logger, not on its children, hence the
 #: concrete ``urllib3.connectionpool``.

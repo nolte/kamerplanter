@@ -423,7 +423,11 @@ naming anyone. They cannot be linked to the pseudonymised erasure audit, though.
     (`scheme://user:password@…`) are masked as well. The same holds for credentials in the
     *path* of a URL — the bot token of a Telegram address, the token of a Discord or Slack
     webhook, the device token of a push endpoint — including the lines the HTTP library
-    writes itself on a connection error. When you subscribe to or unsubscribe from push
+    writes itself on a connection error. An Apprise address as you typed it into the
+    notification settings (`slack://…`, `tgram://…`, `pover://…`; for `gotify://`, `matrix://` and
+    `ntfy://` only the server stays) is masked the same way if it ever lands in a text, and so is a
+    signed token that consists of several dot-separated parts. The log of the optional `apprise`
+    package itself is kept at `WARNING`, because it writes request payloads below that. When you subscribe to or unsubscribe from push
     notifications, the log names only the push service, not your device's address.
     An unexpected error (a traceback)
     goes through the same cleanup: an error message from the application's own domain
