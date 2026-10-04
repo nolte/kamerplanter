@@ -60,6 +60,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import PeopleIcon from '@mui/icons-material/People';
 import ApartmentIcon from '@mui/icons-material/Apartment';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -1820,6 +1821,28 @@ export default function AccountSettingsPage() {
                   ))}
                 </Box>
               )}
+
+              {/* #1906: sign-in providers (OIDC) — its own page, platform admin only */}
+              <Card variant="outlined" data-testid="admin-oidc-card">
+                <CardContent
+                  sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { sm: 'center' }, gap: 2 }}
+                >
+                  <VpnKeyIcon color="primary" aria-hidden />
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="h6" component="h3">{t('pages.admin.oidc.navCardTitle')}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {t('pages.admin.oidc.navCardDescription')}
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="outlined"
+                    onClick={() => navigate('/admin/oidc-providers')}
+                    data-testid="admin-oidc-open"
+                  >
+                    {t('pages.admin.oidc.navCardOpen')}
+                  </Button>
+                </CardContent>
+              </Card>
 
               {/* Organizations & Users in 2-col grid on large, stacked on small */}
               <Box sx={GRID_2COL}>

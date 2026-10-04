@@ -531,6 +531,9 @@ describe('AccountSettingsPage — platform tab', () => {
     expect(await screen.findByText('Light Mode')).toBeInTheDocument();
     // Admin stats load lazily once the platform tab is shown.
     await waitFor(() => expect(screen.getByText('3')).toBeInTheDocument());
+    // #1906 — the way into the OIDC provider page sits with the other admin surfaces.
+    expect(screen.getByTestId('admin-oidc-card')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-oidc-open')).toBeEnabled();
   });
 
   it('hides admin data when the stats request is forbidden', async () => {
@@ -556,6 +559,8 @@ describe('AccountSettingsPage — platform tab', () => {
     // Mode cards still render; admin stat numbers do not.
     expect(await screen.findByText('Light Mode')).toBeInTheDocument();
     expect(screen.queryByText('Active Users')).not.toBeInTheDocument();
+    // …and neither does the way into the platform-admin-only provider page (#1906).
+    expect(screen.queryByTestId('admin-oidc-card')).not.toBeInTheDocument();
   });
 });
 

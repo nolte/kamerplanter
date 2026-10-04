@@ -2,7 +2,7 @@
 req_id: REQ-023
 title: Benutzerverwaltung & Authentifizierung
 category: Plattform & Sicherheit
-test_count: 76
+test_count: 79
 coverage_areas:
   - Registrierungsseite (/register)
   - Login-Seite (/login)
@@ -18,6 +18,7 @@ coverage_areas:
   - Kontoeinstellungen — Tab Plattform-Modus (/settings/account?tab=platform)
   - Kontoeinstellungen — Tab Konto (/settings/account?tab=account)
   - Platform-Admin-Panel (Service Accounts, Tenant-Notfallverwaltung)
+  - OIDC-Provider-Verwaltung (/admin/oidc-providers, #1906)
   - Tenant-Settings Service Accounts (/t/{slug}/settings/service-accounts)
   - Route Guards (ProtectedRoute, PublicOnlyRoute)
 generated: 2026-03-21
@@ -1869,6 +1870,79 @@ Die folgenden Testfälle decken den QR-Kopplungsdialog ab (REQ-023 §3.8/§4.6, 
 
 ---
 
+### TC-023-077: OIDC-Provider anlegen (Step-up, Secret nie sichtbar)
+
+**Requirement**: REQ-023 §4.1 AdminOidcProvidersPage, §3.9 (#1906, #1883)
+**Priority**: Critical
+**Category**: Happy Path
+
+**Vorbedingungen**:
+- Nutzer ist Plattform-Admin, Full-Modus, Tab "Plattform-Modus" der Kontoeinstellungen
+- Es ist noch kein Provider mit dem Kurznamen `keycloak-home` angelegt
+
+**Testschritte**:
+1. Admin klickt in der Karte "Anmelde-Provider (OIDC)" auf "OIDC-Provider verwalten"
+2. Admin klickt "Provider hinzufügen" und füllt Kurzname `keycloak-home`, Anzeigename, Aussteller-URL (https), Client-ID und Client-Secret aus
+3. Admin klickt "Weiter zur Bestätigung"
+4. Der Bestätigungs-Dialog verlangt das **eigene** Passwort des Admins; Admin gibt es ein und bestätigt
+
+**Erwartete Ergebnisse**:
+- Vor Schritt 4 wird nichts gespeichert (die Liste bleibt unverändert)
+- Das Client-Secret-Feld ist ein Passwortfeld; nach dem Anlegen erscheint das Secret nirgends auf der Seite
+- Eine Erfolgs-Snackbar erscheint, der neue Provider steht abgeschaltet in der Liste
+- Mit falschem Passwort bleibt der Dialog offen und zeigt die Ablehnung
+
+**Tags**: [REQ-023, oidc, admin, step-up, secret]
+
+---
+
+### TC-023-078: OIDC-Provider ändern (Step-up nur bei Anmelde-relevanten Feldern)
+
+**Requirement**: REQ-023 §3.9 (#1883, Entscheidung D6), §4.1 (#1906)
+**Priority**: Critical
+**Category**: Zustandswechsel
+
+**Vorbedingungen**:
+- Nutzer ist Plattform-Admin; ein Provider ist angelegt und aktiv
+
+**Testschritte**:
+1. Admin öffnet "Bearbeiten" des Providers und ändert nur den Anzeigenamen und die Icon-URL
+2. Admin speichert
+3. Admin öffnet "Bearbeiten" erneut und ändert die Aussteller-URL (oder schaltet "Provider aktiv" aus)
+4. Admin klickt "Weiter zur Bestätigung" und bestätigt mit dem eigenen Passwort
+
+**Erwartete Ergebnisse**:
+- Schritt 2 speichert ohne Dialog; der Hinweis im Formular nennt, dass keine Bestätigung nötig ist
+- Schritt 3 zeigt den Hinweis, dass die Änderung bestätigt werden muss; erst nach Schritt 4 wird sie gespeichert
+- Das Feld "Neues Client-Secret" bleibt leer; ein Kurzname lässt sich nicht ändern
+
+**Tags**: [REQ-023, oidc, admin, step-up, bearbeiten]
+
+---
+
+### TC-023-079: OIDC-Provider testen und löschen
+
+**Requirement**: REQ-023 §4.1, §3.9 (#1906, #1883, #1987)
+**Priority**: High
+**Category**: Happy Path
+
+**Vorbedingungen**:
+- Nutzer ist Plattform-Admin; ein Provider ist angelegt
+
+**Testschritte**:
+1. Admin klickt "Testen" beim Provider
+2. Admin schließt das Ergebnis und klickt das Papierkorb-Symbol
+3. Admin tippt den Kurznamen des Providers und sein eigenes Passwort ein und bestätigt
+
+**Erwartete Ergebnisse**:
+- Das Testergebnis nennt die Discovery-Meldung und je Prüfung (Scopes, Provider-Typ, Signaturschlüssel, Aussteller) "In Ordnung", "Fehlgeschlagen" oder "Nicht anwendbar" mit der Begründung des Servers; der Test verlangt keine Bestätigung
+- Der Löschen-Dialog nennt, dass alle über den Provider entstandenen Verknüpfungen mitgelöscht werden; ohne den Kurznamen bleibt "Provider löschen" deaktiviert
+- Nach der Bestätigung verschwindet der Provider aus der Liste
+
+**Tags**: [REQ-023, oidc, admin, test, loeschen]
+
+---
+
 ## Coverage-Matrix
 
 | Spec-Abschnitt | Beschreibung | Testfall-IDs |
@@ -1941,5 +2015,6 @@ Die folgenden Testfälle decken den QR-Kopplungsdialog ab (REQ-023 §3.8/§4.6, 
 | FK-06 | API-Key-Liste mit allen Spalten | TC-023-037 |
 | FK-07 | Neuer API-Key einmalig angezeigt | TC-023-038 |
 | FK-08 | Key revoken mit Bestätigungs-Dialog | TC-023-040 bis 042 |
+| FK-09 | OIDC-Provider-Seite: Step-up je nach Feld, Secret nie sichtbar | TC-023-077 bis TC-023-079 |
 | SK-05 | Passwort-Reset: kein Hinweis ob E-Mail existiert | TC-023-020, 021 |
 | SEC-H-009 | Registrierung: kein Hinweis ob E-Mail bereits vorhanden | TC-023-005 |
