@@ -483,6 +483,16 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 
 ---
 
+## 🧮 REQ-054: Automatische Anbauplanung
+**Fokus:** Aus einer Pflanzenliste und der Beet-Historie der letzten Jahre eine erklärbare, optimierte Beetbelegung je Saison vorschlagen · **Baut auf:** REQ-053 (Beete, Historie, Zeitfenster-Reservierung), REQ-001/REQ-002 (Rotationsgraph; `CropRotationPlan.optimization_goal` bekommt erstmals einen Konsumenten), REQ-028 (Mischkultur), REQ-015-A (Zeitfenster)
+- **Vorschlag, nie Ausführung:** Der Planer legt nichts an; angenommene Zuordnungen werden geplante Runs mit Zeitfenster und `CropRotationPlan`-Einträge.
+- **Harte Regeln sind nicht verhandelbar** (Anbaupause je Familie, Fläche, Zeitfenster, Frost, `severe`-Inkompatibilität); weiche Ziele mit Gewichten und Profilen (`balanced`, `soil_health`, `pest_control`, `yield`, `low_effort`). Eine Fixierung übersteuert sichtbar, nie still.
+- **Erklärbar je Zuordnung:** Breakdown (Kriterium, Beitrag, Gewicht), regelbasierter Satz, drei verworfene Alternativen mit Hauptunterschied. Kein LLM als Planer (D-01); deterministisch mit Seed, Goldfälle als Regressionsschutz.
+- **Historie ist Pflichteingang:** Beete ohne Rückblick werden als blind geplant markiert; nacherfasste Vorjahre zählen.
+- 15 Akzeptanzkriterien, 8 offene Punkte (u. a. `Species.light_requirement` fehlt im Schema), 9 Issue-Kandidaten; Roadmap hängt an REQ-053 Wellen 0–6.
+
+---
+
 ## Technologie-Stack
 
 ### Backend
