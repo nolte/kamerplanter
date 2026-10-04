@@ -48,7 +48,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.domain.models.task import TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.domain.services.task_service import TaskService
 from tests.conftest import wire_or_raise
@@ -103,7 +103,9 @@ def _service(template: TaskTemplate | None = None) -> tuple[TaskService, MagicMo
 
 
 def _template(**overrides) -> TaskTemplate:
-    return TaskTemplate(_key="tt-1", name="Giessen", **overrides)
+    # Owned by the caller unless a test says otherwise: an owner-less template is a
+    # shared one and not writable (#2101).
+    return TaskTemplate(_key="tt-1", name="Giessen", **{"tenant_key": TENANT_KEY, **overrides})
 
 
 class TestASystemWorkflowRefusesTaskTemplateChildren:
@@ -140,7 +142,7 @@ class TestASystemWorkflowRefusesTaskTemplateChildren:
                 tenant_key=TENANT_KEY,
             )
         with pytest.raises(ValidationError) as parent:
-            service.update_workflow_template(SYSTEM_WORKFLOW, {"name": "Hijacked"})
+            service.update_workflow_template(SYSTEM_WORKFLOW, {"name": "Hijacked"}, tenant_key=TENANT_KEY)
 
         assert child.value.status_code == parent.value.status_code == 422
         assert child.value.error_code == parent.value.error_code == "VALIDATION_ERROR"
@@ -328,24 +330,24 @@ class TestTheTenantsOwnWorkflowStillAcceptsChildren:
         repo.update_task_template.assert_called_once()
         repo.delete_task_template.assert_called_once()
 
-    def test_a_global_standalone_template_is_left_editable(self) -> None:
-        """A standalone template backfilled to the global catalogue (``tenant_key
-        == ""``) stays writable by every tenant — #324's positive direction.
+    def test_a_global_standalone_template_is_not_editable(self) -> None:
+        """A standalone template with no owner (``tenant_key == ""``) is shared, not editable (#2101).
 
-        This is the documented limitation of item 1's backfill: a template that
-        predates the ownership field and was never attached to a workflow has no
-        stored owner to recover, so ``v0035`` lands it in the global catalogue.
-        Refusing it here would hide a row that was editable before and break the
-        #324 guarantee. Newly created standalone templates are stamped with the
-        caller's tenant and are therefore *not* global — they are covered by
-        ``TestForeignTenantTaskTemplatesAreRefused``.
+        Migration ``v0035`` lands the templates it could not attribute in the global
+        catalogue. This test used to pin them **editable** by every tenant — the
+        positive direction of #324 — and thereby certified the defect: the read side
+        of the hybrid catalogue admits ``""``, the write side must not. Newly created
+        templates are stamped with their owner and stay editable by it
+        (``test_the_callers_own_task_template_is_still_editable_and_deletable``).
         """
-        service, repo = _service(_template())  # tenant_key defaults to "" (global)
+        service, repo = _service(_template(tenant_key=""))
 
-        assert service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY).name == "Umbenannt"
-        service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
-        repo.update_task_template.assert_called_once()
-        repo.delete_task_template.assert_called_once()
+        with pytest.raises(ForbiddenError):
+            service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
+        with pytest.raises(ForbiddenError):
+            service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
+        repo.update_task_template.assert_not_called()
+        repo.delete_task_template.assert_not_called()
 
     def test_a_phase_with_no_parent_workflow_is_left_alone(self) -> None:
         """An unparented phase has nothing to anchor on; the guard must not 404 it."""

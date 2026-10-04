@@ -61,6 +61,7 @@ class _NutrientService:
         self._entries = entries or []
         self._plant_plan = plant_plan
         self.seen_tenant = None
+        self.seen_entries_tenant = None
 
     def list_plans(self, offset=0, limit=50, tenant_key=""):
         self.seen_tenant = tenant_key
@@ -73,7 +74,9 @@ class _NutrientService:
                 return p
         raise NotFoundError("NutrientPlan", key)
 
-    def get_phase_entries(self, plan_key):
+    def get_phase_entries(self, plan_key, *, tenant_key):
+        # Mirrors the real signature: required and keyword-only since #2104.
+        self.seen_entries_tenant = tenant_key
         return self._entries
 
     def get_plant_plan(self, plant_key, *, tenant_key):
@@ -124,6 +127,8 @@ async def test_get_nutrient_plan_returns_phases_in_sequence_order():
     resp = await GetNutrientPlan().run(_ctx(nutrient_plan_service=svc), GetNutrientPlan.Input(plan_key="np1"))
 
     assert [p["phase_name"] for p in resp.data["phases"]] == ["vegetative", "flowering"]
+    # The entries are read under the caller's tenant, not off a bare plan key (#2104).
+    assert svc.seen_entries_tenant == "home"
     first = resp.data["phases"][0]
     assert first["npk_ratio"] == [3.0, 1.0, 2.0]
     assert first["target_ec_ms"] == 1.2

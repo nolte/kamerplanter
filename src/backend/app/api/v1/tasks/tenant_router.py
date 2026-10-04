@@ -158,7 +158,7 @@ def update_workflow(
     """Update a workflow template."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_workflow_template(key, data)
+    updated = service.update_workflow_template(key, data, tenant_key=ctx.tenant_key)
     return _wf_response(updated)
 
 
@@ -170,7 +170,7 @@ def delete_workflow(
 ):
     """Delete a workflow template."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
-    service.delete_workflow_template(key)
+    service.delete_workflow_template(key, tenant_key=ctx.tenant_key)
     return Response(status_code=204)
 
 

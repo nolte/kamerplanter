@@ -26,6 +26,7 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, datetime
 
+from app.common.auth import is_platform_admin
 from app.common.exceptions import ForbiddenError, UnauthorizedError
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.interfaces.user_repository import IUserRepository
@@ -118,6 +119,10 @@ class McpAuthenticator:
             account_key=user.key or "",
             display_name=user.display_name,
             is_service_account=is_service,
+            # A key restricted to one tenant never carries the platform role: the
+            # admin surface it unlocks spans every tenant (same rule as
+            # ``get_is_platform_admin``, #1817).
+            is_platform_admin=not api_key.tenant_scope and is_platform_admin(self._tenant_service, user.key or ""),
             memberships=memberships,
         )
 

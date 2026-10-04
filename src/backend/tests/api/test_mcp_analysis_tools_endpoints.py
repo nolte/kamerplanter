@@ -130,7 +130,7 @@ class _NutrientPlanService:
     def get_plant_plan(self, plant_key, *, tenant_key):
         return self._plan if self.assignments else None
 
-    def get_phase_entries(self, plan_key):
+    def get_phase_entries(self, plan_key, *, tenant_key):
         return []
 
     def assign_to_plant(self, plant_key, plan_key, assigned_by="", *, tenant_key):

@@ -100,10 +100,8 @@ _ADMITTED: dict[tuple[str, str], str] = {
             "/api/v1/phase-definitions",
             "/api/v1/phase-definitions/{key}",
             "/api/v1/phase-definitions/{key}/sequences",
-            "/api/v1/phase-definitions/{key}/species",
             "/api/v1/phase-sequences",
             "/api/v1/phase-sequences/{key}",
-            "/api/v1/phase-sequences/{key}/species",
             "/api/v1/phase-sequences/{seq_key}/entries",
         )
     },

@@ -1,12 +1,16 @@
+from collections.abc import Callable
+
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.enums import NutrientDemandLevel
+from app.common.enums import NutrientDemandLevel, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.common.types import FertilizerKey, FertilizerStockKey
 from app.domain.engines.area_dosing_engine import AreaDosingCalculator, AreaDosingResult
+from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
+from app.domain.services.catalogue_authorization import authorize_hybrid_catalogue_write
 from app.domain.services.location_ownership import resolve_owned_location
 
 
@@ -36,8 +40,46 @@ class FertilizerService:
     def create_fertilizer(self, fertilizer: Fertilizer) -> Fertilizer:
         return self._repo.create(fertilizer)
 
-    def update_fertilizer(self, key: FertilizerKey, data: dict) -> Fertilizer:
-        existing = self.get_fertilizer(key)
+    @staticmethod
+    def _authorize_write(
+        existing: Fertilizer,
+        key: FertilizerKey,
+        *,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
+        can_role_write: Callable[[TenantRole], bool],
+    ) -> None:
+        """Foreign -> 404, global -> platform admin, own -> a writing role (#2100)."""
+        authorize_hybrid_catalogue_write(
+            existing.tenant_key,
+            entity="Fertilizer",
+            plural_noun="fertilizers",
+            key=key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=can_role_write,
+        )
+
+    def update_fertilizer(
+        self,
+        key: FertilizerKey,
+        data: dict,
+        *,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
+    ) -> Fertilizer:
+        existing = self._repo.get_or_raise(key)
+        self._authorize_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=MembershipEngine.can_edit_resource,
+        )
         allowed_fields = {
             "product_name",
             "brand",
@@ -73,10 +115,27 @@ class FertilizerService:
                     for e in exc.errors()
                 ],
             ) from exc
+        # Ownership is frozen: the stored owner wins over anything the merge carried.
+        validated.tenant_key = existing.tenant_key
         return self._repo.update(key, validated)
 
-    def delete_fertilizer(self, key: FertilizerKey) -> bool:
-        self.get_fertilizer(key)  # ensure exists
+    def delete_fertilizer(
+        self,
+        key: FertilizerKey,
+        *,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
+    ) -> bool:
+        existing = self._repo.get_or_raise(key)
+        self._authorize_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=MembershipEngine.can_delete_resource,
+        )
         return self._repo.delete(key)
 
     # ── Stock CRUD ───────────────────────────────────────────────────
@@ -239,9 +298,9 @@ class FertilizerService:
 
     # ── Reverse lookup ─────────────────────────────────────────────────
 
-    def get_nutrient_plan_usage(self, key: FertilizerKey) -> list[dict]:
-        self.get_fertilizer(key)  # ensure exists
-        return self._repo.get_nutrient_plan_usage(key)
+    def get_nutrient_plan_usage(self, key: FertilizerKey, *, tenant_key: str) -> list[dict]:
+        self.get_fertilizer(key, tenant_key)  # exists and is visible to the caller
+        return self._repo.get_nutrient_plan_usage(key, tenant_key=tenant_key)
 
     # ── Area-based dosing (REQ-004 W-013, AP-11) ────────────────────────
 

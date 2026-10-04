@@ -18,7 +18,7 @@ from app.api.v1.phase_sequences.schemas import (
     PhaseSequenceSpeciesResponse,
     PhaseSequenceUpdate,
 )
-from app.common.auth import get_current_user, get_is_platform_admin, require_platform_admin
+from app.common.auth import get_active_tenant_key, get_current_user, get_is_platform_admin, require_platform_admin
 from app.common.dependencies import get_phase_sequence_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
@@ -189,14 +189,17 @@ def list_sequences_for_definition(
 def list_species_for_definition(
     key: Annotated[str, Path(description="Document key of the phase definition.")],
     _user: User = Depends(get_current_user),
+    tenant_key: str = Depends(get_active_tenant_key),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    """List all species (global catalog) that traverse this phase definition (FIX-01 R5/R9).
+    """List all species the caller may see that traverse this phase definition (FIX-01 R5/R9).
 
     Global read-only endpoint composed from existing repository building blocks; an
-    empty list is a valid result (no 404, R7).
+    empty list is a valid result (no 404, R7). The species are the caller's visible
+    ones — global, own or granted — never another tenant's private ones (#2102).
     """
-    return [PhaseDefinitionSpeciesResponse(**row) for row in service.get_species_for_definition(key)]
+    rows = service.get_species_for_definition(key, tenant_key=tenant_key)
+    return [PhaseDefinitionSpeciesResponse(**row) for row in rows]
 
 
 @router.put(
@@ -292,12 +295,13 @@ def clone_phase_sequence(
 def list_species_for_sequence(
     key: Annotated[str, Path(description="Document key of the phase sequence.")],
     _user: User = Depends(get_current_user),
+    tenant_key: str = Depends(get_active_tenant_key),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    """List all species that use this phase sequence."""
+    """List the species the caller may see that use this phase sequence (#2102)."""
     # Goes through the service (which itself checks the sequence exists) rather than
     # reaching into its private repository — the API layer must not skip a layer.
-    return [PhaseSequenceSpeciesResponse(**row) for row in service.get_species_for_sequence(key)]
+    return [PhaseSequenceSpeciesResponse(**row) for row in service.get_species_for_sequence(key, tenant_key=tenant_key)]
 
 
 @router.get(

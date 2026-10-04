@@ -5,6 +5,7 @@ from arango.database import StandardDatabase
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.query_builder import escape_aql_like
+from app.data_access.arango.tenant_scope import tenant_union_with_grants_predicate
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.models.phase_sequence import (
     PhaseDefinition,
@@ -158,16 +159,24 @@ class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoReposito
         )
         return previous.key if previous else None
 
-    def get_species_for_sequence(self, seq_key: str) -> list[dict]:
-        """Return all species linked to a PhaseSequence via HAS_PHASE_SEQUENCE edge."""
+    def get_species_for_sequence(self, seq_key: str, *, tenant_key: str) -> list[dict]:
+        """Species linked to a PhaseSequence via HAS_PHASE_SEQUENCE, visible to ``tenant_key`` (#2102).
+
+        The binder gives a tenant-owned species its edge too, so the traversal
+        reaches the private species of every tenant; the vertex is filtered with
+        the masterdata read rule — global, the caller's own, or granted to it — as
+        the species catalogue's own reads are. An empty ``tenant_key`` yields the
+        global species only.
+        """
+        predicate, predicate_vars = tenant_union_with_grants_predicate(tenant_key, doc_var="v")
         query = (
             f"FOR v IN 1..1 INBOUND @seq_id {col.HAS_PHASE_SEQUENCE} "
-            f"FILTER v != null "
+            f"FILTER v != null AND {predicate} "
             f"RETURN {{ key: v._key, scientific_name: v.scientific_name, "
             f"common_names: v.common_names || [] }}"
         )
         seq_id = f"{col.PHASE_SEQUENCES}/{seq_key}"
-        return list(self._db.aql.execute(query, bind_vars={"seq_id": seq_id}))
+        return list(self._db.aql.execute(query, bind_vars={"seq_id": seq_id, **predicate_vars}))
 
     def get_all_sequences(
         self,

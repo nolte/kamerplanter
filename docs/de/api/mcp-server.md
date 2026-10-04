@@ -277,7 +277,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | Werkzeug | Zweck |
 |----------|-------|
 | `create_site` | Standort-Wurzel anlegen (Wohnung, Garten, Balkon, Gewächshaus, Fensterbank, Growzelt) |
-| `assign_species_phase_sequence` | Eine Art an eine **vorhandene** Phasen-Abfolge binden. Verlangt `mcp.setup` und nicht nur `mcp.write`, weil Arten und Abfolgen zum gemeinsamen Katalog gehören: eine einzige Bindung ändert den Zeitplan aller Pflanzen dieser Art in *jedem* Garten. Abfolgen zu *definieren* bleibt bewusst Aufgabe der Oberfläche |
+| `assign_species_phase_sequence` | Eine Art an eine **vorhandene** Phasen-Abfolge binden. Verlangt `mcp.setup` und nicht nur `mcp.write` **und die Plattform-Admin-Rolle** (das Werkzeug hat keinen Mandanten; für Nicht-Admins ist es nicht gelistet und wird mit `permission.denied` abgelehnt), weil Arten und Abfolgen zum gemeinsamen Katalog gehören: eine einzige Bindung ändert den Zeitplan aller Pflanzen dieser Art in *jedem* Garten. Abfolgen zu *definieren* bleibt bewusst Aufgabe der Oberfläche |
 
 Jedes Werkzeug prüft die referenzierten Schlüssel (Pflanze, Standort, Bereich, Slot) grundsätzlich gegen den für diesen Aufruf aufgelösten Mandanten. Ein Fremdschlüssel aus einem anderen Mandanten liefert konsequent `not_found` — niemals `permission.denied` — damit kein Werkzeug die Existenz fremder Ressourcen verrät.
 

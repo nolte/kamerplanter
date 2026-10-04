@@ -68,7 +68,8 @@ class _Service:
             raise KeyError(key)
         return self._plans[key]
 
-    def get_phase_entries(self, plan_key):
+    def get_phase_entries(self, plan_key, *, tenant_key):
+        # Mirrors the real signature: required and keyword-only since #2104.
         return self._entries.get(plan_key, [])
 
     def clone_plan(self, source_key, new_name, author="", tenant_key=""):

@@ -85,7 +85,9 @@ def _service(template: TaskTemplate | None = None) -> tuple[TaskService, MagicMo
 
 
 def _template(**overrides) -> TaskTemplate:
-    return TaskTemplate(_key="tt-1", name="Giessen", **overrides)
+    # Owned by the caller unless a test says otherwise: an owner-less template is a
+    # shared one and not writable (#2101).
+    return TaskTemplate(_key="tt-1", name="Giessen", **{"tenant_key": TENANT_KEY, **overrides})
 
 
 class TestCreateTaskTemplateVerifiesItsParentWorkflow:
@@ -304,6 +306,7 @@ class TestTheSiblingUpdatesAreAllowListedToo:
         updated = service.update_workflow_template(
             "wf-1",
             {"name": "Umbenannt", "tenant_key": FOREIGN_TENANT_KEY},
+            tenant_key=TENANT_KEY,
         )
 
         assert updated.name == "Umbenannt"
@@ -313,7 +316,7 @@ class TestTheSiblingUpdatesAreAllowListedToo:
         """``is_system`` is the flag the write guard itself reads."""
         service, _ = self._workflow_service(WorkflowTemplate(_key="wf-1", tenant_key=TENANT_KEY, name="Meiner"))
 
-        updated = service.update_workflow_template("wf-1", {"is_system": True})
+        updated = service.update_workflow_template("wf-1", {"is_system": True}, tenant_key=TENANT_KEY)
 
         assert updated.is_system is False
 

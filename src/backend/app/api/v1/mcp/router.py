@@ -41,6 +41,7 @@ from fastapi import APIRouter, Body, Depends, Header, Path, Response
 from fastapi.responses import JSONResponse
 
 from app.api.v1.mcp.deps import get_dispatcher, get_mcp_principal, get_session_store
+from app.common.enums import McpPermission
 from app.common.exceptions import KamerplanterError
 from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.core.permissions import has_mcp_permission
@@ -83,7 +84,17 @@ def _visible_specs(principal: McpPrincipal) -> list[dict[str, Any]]:
         spec.model_dump()
         for spec in registry.specs()
         if any(has_mcp_permission(role, spec.permission) for role in roles)
+        # A tool that writes data every tenant shares is a platform admin's: listing
+        # it to anyone else would advertise a call the dispatcher always refuses (#2103).
+        and (principal.is_platform_admin or _acts_inside_a_tenant_or_reads(registry, spec))
     ]
+
+
+def _acts_inside_a_tenant_or_reads(registry: Any, spec: Any) -> bool:
+    """False only for a tenant-less tool that is not a plain read — a global write tool."""
+
+    tool = registry.get(spec.name)
+    return bool(getattr(tool, "tenant_scoped", False)) or spec.permission == McpPermission.READ
 
 
 @router.get("/tools")
