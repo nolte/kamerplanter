@@ -57,6 +57,17 @@ helm/kamerplanter/
 - **Keine** `_helpers.tpl` — bjw-s stellt alle Helpers bereit
 - `charts/` Verzeichnis: Nur generierte Dateien, nie manuell einchecken
 
+### 2.1.1 Template-Ausdruecke in values.yaml (bjw-s ≥ 5.2)
+
+bjw-s common rendert seit 5.2 **jeden String** der Values einmal als Template gegen die zusammengefuehrten Values. Das ist der vorgesehene Weg fuer abgeleitete Werte, ohne eigene Template-Dateien (#2124):
+
+- **Ein Schalter, viele Stellen:** Operator-Bloecke wie `storage`, `backup`, `database` sind die Quelle; Controller, Persistence und NetworkPolicies lesen sie mit `'{{ .Values.storage.backend }}'`.
+- **`enabled` nie als `"false"` rendern:** bjw-s prueft den Wert auf Wahrheit, und der nicht-leere String `"false"` ist wahr. Muster: `enabled: '{{ if eq .Values.storage.backend "local-fs" }}true{{ end }}'` (rendert `"true"` oder `""`).
+- **Werte, die selbst Template sind, mit `tpl` lesen:** Die Auswertung ist einstufig; `'{{ .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME }}'` liefert den rohen Template-Text, `'{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME $ }}'` dessen Ergebnis.
+- **Render-Pruefungen** stehen unter `renderChecks` als String mit `{{ fail "…" }}` — nur dort, wo eine Kombination nachweislich nicht funktionieren kann, mit einer Meldung, die den Ausweg nennt.
+- **Booleans in Kubernetes-Feldern** (`optional`, `readOnly`) bleiben YAML-Literale; ein Template liefert dort einen String, den die API ablehnt.
+- Was nur ein Render zeigt, prueft `scripts/ci/assert_chart_contracts.sh` (`task verify:chart`, CI `skaffold-verify`).
+
 ### 2.2 Dependencies
 
 ```yaml
@@ -359,6 +370,7 @@ probes:
 
 **Regeln:**
 - **Immer** Custom Probes (`custom: true`)
+- Container, die vor dem ersten `listen` migrieren (Backend), haben einen `startupProbe`, dessen Budget die Migrations-Wartezeit (`BARRIER_TIMEOUT_SECONDS`) uebersteigt (#2125)
 - **Separate** Liveness- und Readiness-Endpunkte
 - Readiness hat kuerzere Intervalle als Liveness
 - ArangoDB: Basic Auth Header in Probe
@@ -615,7 +627,8 @@ Chart-Aenderung
     ├─→ helm lint              → Chart-Struktur, values.yaml Validierung
     ├─→ helm template          → Template-Rendering (Syntax-Fehler)
     ├─→ skaffold diagnose      → Skaffold-Config Validierung
-    └─→ skaffold render        → Vollstaendige Manifest-Generierung
+    ├─→ skaffold render        → Vollstaendige Manifest-Generierung
+    └─→ assert_chart_contracts → Render-Vertraege (Storage, Backup, Probes, DB-Zugaenge)
 ```
 
 Alle Tools muessen in CI/CD **fehlerfrei** durchlaufen.
