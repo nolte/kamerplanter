@@ -491,6 +491,14 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 - **Historie ist Pflichteingang:** Beete ohne Rückblick werden als blind geplant markiert; nacherfasste Vorjahre zählen.
 - **v1.2 nach Agrobiologie- und Persona-Review:** Teilplan mit least-bad-Angebot statt Totalausfall, Vor-/Nachkultur und Gründüngung im MVP, Bodengefahren als harte Regel, Frost-Sicherheitsdatum statt Mittelwert, Score-Aggregation nach Flächenanteil, Geltungsbereich mit Schreibrecht je Beet. 27 Akzeptanzkriterien, alle offenen Punkte entschieden, 10 Issue-Kandidaten; Goldfälle im Review-Bericht. Roadmap hängt an REQ-053 Wellen 0–6.
 
+## 🌿 REQ-055: Plant Identity / Plant Social
+**Fokus:** Eine Pflanzeninstanz (nicht die Art) bekommt optional ein eigenes Profil mit teilbarem Link, einen Verlauf aus allen Ereignissen und — wenn gewünscht — einen eigenen Auftritt in einem sozialen Netzwerk, zuerst Mastodon · **Baut auf:** REQ-013/REQ-051 (PlantInstance, Tagebuch mit `milestone_kind`), REQ-052/NFR-013 (Fotos, EXIF-Strip), REQ-023 (OAuth-Muster), REQ-024/REQ-049 (Mandant, Rollen), REQ-025/NFR-011 (Consent `social_publishing`, R-28…R-37), REQ-042 (Modul `social`), REQ-030 (`social.*`-Typen), REQ-001 (`regulatory_class`)
+- **Drei Schichten, ein Port:** `plant_identities` (Profil, Adresse, Sichtbarkeit) → `plant_events` als append-only Ereignisindex mit Quellreferenz über alle Fachcollections → `social_posts` als Outbox mit Policy (Nicht erzählen / Erst fragen / Gleich erzählen / Einmal pro Woche), Limits, Digest und Moderation; darunter `SocialProvider` mit Mastodon als erster Implementierung. Kein Mastodon-Begriff im Domänenmodell (Grep-Gate).
+- **Account-Modell D:** Nutzer verknüpft einen selbst angelegten Bot-Account mit genau einer Pflanze oder einen Garten-Account mit dem Mandanten; keine automatische Kontoerstellung, kein zentraler Kamerplanter-Bot.
+- **Privacy strukturell:** Allowlist je Ereignistyp (`public_safe/optional/never`), Standort nur als gewählte Stufe (nie aus Koordinaten), opake EXIF-freie Medien-URLs, `unlisted` als Capability-Link, Veröffentlichungsfenster gegen Anwesenheitsprofile, Cannabis-Profile per Default gesperrt (KCanG § 6), KI nicht im MVP und nie faktenerfindend.
+- **Casual-first:** Profil in 3 Schritten mit Vorschau und „Link kopieren" ohne Social-Begriffe (verbindliche Begriffsliste Anhang M), Tabs „Profil"/„Verlauf" für alle sichtbar, Mastodon-Teil hinter Modul `social`.
+- **v1.3:** IT-Security-Review (1 kritisch: sitzungsungebundener OAuth-Callback → Sitzungsbindung + Bestätigung) und Casual-User-Review eingearbeitet, alle 20 offenen Punkte und 4 Kern-ADRs entschieden, 85 Akzeptanzkriterien, 28 Abuse Cases, 12 ADR-Kandidaten, TC-REQ-055 mit 45 Browser-Testfällen, 41 Issue-Kandidaten in 7 Wellen.
+
 ---
 
 ## Technologie-Stack

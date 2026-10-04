@@ -2450,8 +2450,8 @@ def control_dict_loop(repos: dict[str, InventedRepository]):
 }
 
 
-#: The genuine-gap ceiling of `test_the_unresolved_receiver_count_does_not_grow` (#2039); baseline 2839.
-_GENUINE_UNRESOLVED_CEILING = 2900
+#: The genuine-gap ceiling of `test_the_unresolved_receiver_count_does_not_grow` (#2039); baseline 2743.
+_GENUINE_UNRESOLVED_CEILING = 2804
 
 
 class TestTheDetectorTypesWhatIsWrittenDown:
@@ -2978,16 +2978,25 @@ class TestPersistingReadsAreSweptLikeWrites:
         move on the work it exists to reward: typing an external receiver left
         it unchanged and 7925 of the 10764 were external.
 
-        Baseline, measured 2026-10-04 on develop fec68ae88 after annotating the
-        ``get_*`` providers of ``app/common/dependencies.py``: 10764 unresolved =
-        2839 genuine + 7925 external (before the providers were annotated: 10859
-        = 2944 + 7915). The ceiling is the genuine baseline plus 61 of headroom,
-        not a quality target: a refactor that un-annotates a layer shows up
-        here instead of as a quietly shrinking set of findings.
+        Baseline, measured 2026-10-04 on develop a192c307d with the detector that
+        also types tuple-unpacking loop targets, ``with … as x`` bindings and
+        ``self.X`` assigned outside ``__init__`` (#2039): 10828 unresolved = 2743
+        genuine + 8085 external. The same tree under the detector before that
+        change: 10829 = 2853 genuine + 7976 external — one call fewer in total
+        (the two unannotated helpers of ``app/common/dependencies.py`` are now
+        annotated) and 109 calls moved from genuine to external, because their
+        receiver is now known to come from outside the tree (``str`` values of a
+        ``dict[str, str]``, ``httpx.Client()``). No call newly resolved to a class
+        of this tree, no function newly reads as a writer, and the name-fallback
+        edges are the same 2216 plus ten to the body-less ``_DecodedRedis.delete``.
+        The ceiling is the genuine baseline plus 61 of headroom (the headroom the
+        previous ceiling had over 2839), not a quality target: a refactor that
+        un-annotates a layer shows up here instead of as a quietly shrinking set
+        of findings.
         """
         assert genuine_unresolved_call_count() < _GENUINE_UNRESOLVED_CEILING, (
             f"{genuine_unresolved_call_count()} attribute calls resolve to no receiver type and no external "
-            "owner, up from the 2839 measured on 2026-10-04. The detector is guessing on more of the tree "
+            "owner, up from the 2743 measured on 2026-10-04. The detector is guessing on more of the tree "
             "than it was; check what stopped carrying annotations before trusting a green run."
         )
         assert genuine_unresolved_call_count() + external_unresolved_call_count() == unresolved_call_count()
