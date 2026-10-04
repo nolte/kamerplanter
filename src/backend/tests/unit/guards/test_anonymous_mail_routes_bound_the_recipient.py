@@ -9,8 +9,12 @@ name, so this guard enumerates the class **by what a member does**.
 
 **Predicate** — a ``POST`` route of the auth router is a member when
 
-* it is anonymous: no dependency in its tree is named ``require_*`` or
-  ``get_current_*`` (read from FastAPI's own dependant tree, not from source);
+* it is anonymous: no dependency in its tree **is** ``app.common.auth.get_current_user``
+  (the one place a bearer token becomes a principal, read from FastAPI's own
+  dependant tree by identity, not from source). A name does not authenticate:
+  ``require_mcp_enabled`` is a feature gate and ``get_current_user_optional``
+  lets an anonymous caller through, and the former name-prefix rule treated both
+  as authentication (#2062);
 * and its handler reaches a mail: it calls an ``AuthService`` method that —
   directly, or through ``self.<method>`` references (a call, a ``partial``, a
   lambda) — touches ``self._email_service``; or it references a module-level
@@ -29,6 +33,10 @@ stale and excuse the next copy.
 Since #2046 the login route is a member: its ``EMAIL_NOT_VERIFIED`` refusal is
 reached anonymously (the caller holds the password, not a session) and mails a
 fresh verification link on a per-account budget.
+
+``async def`` service methods count like ``def`` ones (#2062): the former
+``FunctionDef``-only walk dropped them, so a mail-sending ``async`` method — or a
+reservation made in one — was invisible.
 
 **Spellings this predicate cannot see** (so nobody reads green as more than it
 is): a mail sent through an attribute other than ``self._email_service`` (a
@@ -59,6 +67,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from fastapi import APIRouter, Depends
 from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute
 
@@ -66,7 +75,7 @@ APP = Path(__file__).resolve().parents[3] / "app"
 AUTH_SERVICE = APP / "domain" / "services" / "auth_service.py"
 AUTH_ROUTER = APP / "api" / "v1" / "auth" / "router.py"
 
-_AUTHENTICATING_PREFIXES = ("require_", "get_current_")
+_AUTHENTICATING_DEPENDENCY = ("app.common.auth", "get_current_user")
 
 #: Members that need no per-recipient reservation of their own, keyed
 #: ``"<route> <AuthService method or task:<helper>>"``, with the reason read from the code.
@@ -122,10 +131,10 @@ def _self_attr_chain(node: ast.AST) -> tuple[str, ...] | None:
 def _methods(class_source: str, class_name: str) -> dict[str, _Method]:
     tree = ast.parse(class_source)
     cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == class_name)
-    names = {f.name for f in cls.body if isinstance(f, ast.FunctionDef)}
+    names = {f.name for f in cls.body if isinstance(f, ast.FunctionDef | ast.AsyncFunctionDef)}
     out: dict[str, _Method] = {}
     for func in cls.body:
-        if not isinstance(func, ast.FunctionDef):
+        if not isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
         ref_lines: dict[str, int] = {}
         mail_line: int | None = None
@@ -213,24 +222,29 @@ def _members(
 # ── the live application ──────────────────────────────────────────────────
 
 
-def _dependency_names(dependant: Dependant) -> set[str]:
-    names: set[str] = set()
+def _authenticates(dependant: Dependant) -> bool:
+    """Whether ``get_current_user`` is anywhere in the dependency tree, compared by identity of module and name."""
     for dep in dependant.dependencies:
         call: Callable[..., object] | None = dep.call
-        if call is not None:
-            names.add(getattr(call, "__name__", ""))
-        names |= _dependency_names(dep)
-    return names
+        if call is not None and (getattr(call, "__module__", ""), getattr(call, "__name__", "")) == (
+            _AUTHENTICATING_DEPENDENCY
+        ):
+            return True
+        if _authenticates(dep):
+            return True
+    return False
 
 
-def _anonymous_post_routes() -> list[tuple[str, str]]:
-    from app.api.v1.auth.router import router
+def _anonymous_post_routes(router: APIRouter | None = None) -> list[tuple[str, str]]:
+    if router is None:
+        from app.api.v1.auth.router import router as auth_router
 
+        router = auth_router
     out: list[tuple[str, str]] = []
     for route in router.routes:
         if not isinstance(route, APIRoute) or "POST" not in (route.methods or set()):
             continue
-        if any(n.startswith(_AUTHENTICATING_PREFIXES) for n in _dependency_names(route.dependant)):
+        if _authenticates(route.dependant):
             continue
         out.append((route.path, inspect.getsource(inspect.unwrap(route.endpoint))))
     return out
@@ -432,3 +446,87 @@ class S:
     )
 
     assert members == {"/password-reset/request request_password_reset": False}
+
+
+# ── self-test: which routes are anonymous, and async service methods (#2062) ──
+
+
+def _synthetic_router() -> APIRouter:
+    from app.common.auth import get_current_user, get_current_user_optional, require_account_principal
+
+    def require_feature_flag() -> None:
+        return None
+
+    def get_current_widget() -> None:
+        return None
+
+    router = APIRouter()
+
+    @router.post("/gated")
+    def gated(_flag: None = Depends(require_feature_flag)) -> None:
+        return None
+
+    @router.post("/named-like-auth")
+    def named_like_auth(_w: None = Depends(get_current_widget)) -> None:
+        return None
+
+    @router.post("/optional")
+    def optional(_u: object = Depends(get_current_user_optional)) -> None:
+        return None
+
+    @router.post("/authenticated")
+    def authenticated(_u: object = Depends(get_current_user)) -> None:
+        return None
+
+    @router.post("/principal")
+    def principal(_u: object = Depends(require_account_principal)) -> None:
+        return None
+
+    @router.post("/plain")
+    def plain() -> None:
+        return None
+
+    return router
+
+
+def test_selftest_a_name_prefix_does_not_authenticate() -> None:
+    """The gate, the look-alike and the optional-user dependency leave a route anonymous; the real ones do not."""
+    paths = {path for path, _ in _anonymous_post_routes(_synthetic_router())}
+
+    assert paths == {"/gated", "/named-like-auth", "/optional", "/plain"}
+
+
+def test_selftest_the_live_service_account_route_is_anonymous_and_no_member() -> None:
+    """``require_mcp_enabled`` is a feature gate: the route is anonymous now, and reaches no mail."""
+    paths = {path for path, _ in _anonymous_post_routes()}
+
+    assert "/auth/service-accounts/validate" in paths
+    assert "/auth/logout-all" not in paths
+    assert not [key for key in _live_members() if key.startswith("/auth/service-accounts/validate")]
+
+
+_ASYNC_SERVICE = """
+class S:
+    async def mails(self, email):
+        await self._send(email)
+
+    async def bounded(self, email):
+        if self._store.reserve_attempt("p:" + email) > 3:
+            return
+        await self._send(email)
+
+    async def _send(self, email):
+        self._email_service.send_password_reset_email(to_email=email, token="t", frontend_url="u")
+"""
+
+
+def test_selftest_an_async_method_that_mails_is_a_member() -> None:
+    members = _members([("/e", "def e(service):\n    service.mails(x)\n")], _methods(_ASYNC_SERVICE, "S"), {})
+
+    assert members == {"/e mails": False}
+
+
+def test_selftest_a_reservation_in_an_async_method_marks_it_bounded() -> None:
+    members = _members([("/f", "def f(service):\n    service.bounded(x)\n")], _methods(_ASYNC_SERVICE, "S"), {})
+
+    assert members == {"/f bounded": True}
