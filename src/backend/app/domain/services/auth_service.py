@@ -27,6 +27,7 @@ from app.common.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
+from app.common.keyed_lock import KeyedLocks
 from app.common.log_privacy import log_subject, loggable_ip
 from app.common.types import UserKey
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
@@ -219,6 +220,13 @@ _UNKNOWN_SOURCE = "unknown"
 #: Lifetime of a mailed e-mail verification link — at registration and on every
 #: resend (#2037). One constant, so the two issuance paths cannot drift apart.
 _VERIFICATION_TOKEN_TTL = timedelta(hours=24)
+
+#: Serialises "write a fresh token, then mail it" per account and token kind (#2062). Two such
+#: issues for one account — an anonymous resend and a proven login refusal, or two reset requests
+#: — run on two threadpool threads after their responses; interleaved, the later write kills the
+#: earlier token while the earlier mail still arrives last. Per process only: two replicas can
+#: still interleave (see REQ-023 §3.2b).
+_TOKEN_ISSUE_LOCKS = KeyedLocks()
 
 #: Answer to a service account that tries to acquire an interactive credential (#1559).
 #:
@@ -948,19 +956,20 @@ class AuthService:
         """
         if user.key is None:
             return
-        token = token_urlsafe(32)
-        self._user_repo.update_fields(
-            user.key,
-            {
-                "email_verification_token": token,
-                "email_verification_expires": _iso(now_utc() + _VERIFICATION_TOKEN_TTL),
-            },
-        )
-        self._email_service.send_verification_email(
-            to_email=user.email,
-            token=token,
-            frontend_url=self._frontend_url,
-        )
+        with _TOKEN_ISSUE_LOCKS.hold(f"verification:{user.key}"):
+            token = token_urlsafe(32)
+            self._user_repo.update_fields(
+                user.key,
+                {
+                    "email_verification_token": token,
+                    "email_verification_expires": _iso(now_utc() + _VERIFICATION_TOKEN_TTL),
+                },
+            )
+            self._email_service.send_verification_email(
+                to_email=user.email,
+                token=token,
+                frontend_url=self._frontend_url,
+            )
 
     @staticmethod
     def _needs_verification_mail(user: User) -> bool:
@@ -1046,21 +1055,24 @@ class AuthService:
             # accounts, the enumeration oracle SEC-H-009/SEC-H-010 exist to close.
             if not allows_interactive_auth(user):
                 return
-            token = secrets.token_urlsafe(32)
-            expires = datetime.now(UTC) + timedelta(hours=1)
-            if user.key:
-                self._user_repo.update_fields(
-                    user.key,
-                    {"password_reset_token": token, "password_reset_expires": _iso(expires)},
+            # Write and mail under one per-account lock (#2062): the newest mail must
+            # carry the stored token, not one a concurrent request already overwrote.
+            with _TOKEN_ISSUE_LOCKS.hold(f"reset:{user.key}"):
+                token = secrets.token_urlsafe(32)
+                expires = datetime.now(UTC) + timedelta(hours=1)
+                if user.key:
+                    self._user_repo.update_fields(
+                        user.key,
+                        {"password_reset_token": token, "password_reset_expires": _iso(expires)},
+                    )
+                # The stored spelling, never the typed one (#2060): the lookup matches
+                # case-insensitively, and a mail server may not — a link for
+                # ``Owner@d`` must not reach a different mailbox ``owner@d``.
+                self._email_service.send_password_reset_email(
+                    to_email=user.email,
+                    token=token,
+                    frontend_url=self._frontend_url,
                 )
-            # The stored spelling, never the typed one (#2060): the lookup matches
-            # case-insensitively, and a mail server may not — a link for
-            # ``Owner@d`` must not reach a different mailbox ``owner@d``.
-            self._email_service.send_password_reset_email(
-                to_email=user.email,
-                token=token,
-                frontend_url=self._frontend_url,
-            )
 
         self._deliver_mail("password_reset", _issue_and_send, defer_mail)
 
