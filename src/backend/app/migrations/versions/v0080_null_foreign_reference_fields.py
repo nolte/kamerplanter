@@ -34,7 +34,8 @@ migrated state; back up ``equipment`` and ``watering_logs`` before running.
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Iterable
+from typing import Any, cast
 
 import structlog
 from arango.database import StandardDatabase
@@ -61,7 +62,7 @@ class NullForeignReferenceFieldsMigration(Migration):
     def _rows(db: StandardDatabase, cls: LegacyFieldClass) -> list[dict[str, Any]]:
         if not all(db.has_collection(name) for name in REQUIRED_COLLECTIONS[cls.name]):
             return []
-        return list(db.aql.execute(cls.rows_query))
+        return list(cast("Iterable[dict[str, Any]]", db.aql.execute(cls.rows_query)))
 
     @staticmethod
     def _apply(db: StandardDatabase, cls: LegacyFieldClass, rows: list[dict[str, Any]]) -> None:
