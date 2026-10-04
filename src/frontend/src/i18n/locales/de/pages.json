@@ -955,6 +955,9 @@
       "adminRemoveMemberStepUpTitle": "Mitglied entfernen bestätigen",
       "adminRemoveMemberStepUpDescription": "Du entfernst „{{name}}“ aus der Organisation „{{tenant}}“. Die Person verliert sofort den Zugriff auf diese Organisation – ist sie die letzte Leitung, hat die Organisation danach keine mehr. Deshalb bestätigst du das mit deinem eigenen Zugang.",
       "adminRemoveMemberStepUpConfirm": "Mitglied entfernen",
+      "adminChangeRoleStepUpTitle": "Rollenwechsel bestätigen",
+      "adminChangeRoleStepUpDescription": "Du änderst die Rolle von „{{name}}“ in der Organisation „{{tenant}}“ auf „{{role}}“. Die Rolle bestimmt, was die Person in der Organisation ändern und löschen darf – ist sie die letzte Leitung, hat die Organisation danach keine mehr. Deshalb bestätigst du das mit deinem eigenen Zugang.",
+      "adminChangeRoleStepUpConfirm": "Rolle ändern",
       "providerUnlinked": "Anmeldeweg entfernt"
     },
     "tenants": {
@@ -971,6 +974,9 @@
       "memberEmail": "E-Mail",
       "memberRole": "Rolle",
       "memberRemoved": "Mitglied entfernt",
+      "removeMemberStepUpTitle": "Mitglied entfernen bestätigen",
+      "removeMemberStepUpDescription": "Du entfernst „{{name}}“ aus der Organisation „{{tenant}}“. Die Person verliert sofort den Zugriff – ist sie die letzte Leitung, hat die Organisation danach keine mehr. Deshalb bestätigst du das mit deinem eigenen Zugang.",
+      "removeMemberStepUpConfirm": "Mitglied entfernen",
       "inviteEmail": "E-Mail-Adresse",
       "sendInvitation": "Einladung senden",
       "createLink": "Einladungslink",

@@ -23,6 +23,10 @@ import DataTable, { type Column } from '@/components/common/DataTable';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import { parseApiError } from '@/api/errors';
+import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
+import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
+import { useStepUpResume } from '@/hooks/useStepUpReauth';
+import { toCredentialStepUpBody } from '@/utils/stepUp';
 import type { Membership, Invitation } from '@/api/types';
 
 export default function TenantSettingsPage() {
@@ -40,6 +44,13 @@ export default function TenantSettingsPage() {
   const [members, setMembers] = useState<Membership[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
+  // #2032 — removing a member locks that person out, so it passes the acting administrator's
+  // own step-up, bound to the membership (#1884). The chosen member does not survive the round
+  // trip to the identity provider, so the resume context is only consumed; the pending token is
+  // picked up when the administrator repeats the removal within its five minutes — for the same
+  // membership only.
+  useStepUpResume('remove-tenant-member');
+  const [memberToRemove, setMemberToRemove] = useState<Membership | null>(null);
 
   const slug = activeTenant?.slug ?? '';
 
@@ -105,19 +116,16 @@ export default function TenantSettingsPage() {
     [slug, loadInvitations, enqueueSnackbar],
   );
 
-  const handleRemoveMember = useCallback(
-    async (key: string) => {
-      if (!slug) return;
-      try {
-        await tenantApi.removeMember(slug, key);
-        enqueueSnackbar(t('pages.tenants.memberRemoved'), { variant: 'success' });
-        loadMembers();
-      } catch (err) {
-        enqueueSnackbar(parseApiError(err), { variant: 'error' });
-      }
-    },
-    [slug, t, enqueueSnackbar, loadMembers],
-  );
+  // The acting administrator's OWN step-up (#2032); a rejection propagates to the dialog,
+  // which shows it inside itself and stays open.
+  const handleConfirmRemoveMember = async (credentials: StepUpConfirmation) => {
+    if (!slug || !memberToRemove) return;
+    const removed = memberToRemove;
+    await tenantApi.removeMember(slug, removed.key, toCredentialStepUpBody(credentials));
+    setMemberToRemove(null);
+    enqueueSnackbar(t('pages.tenants.memberRemoved'), { variant: 'success' });
+    void loadMembers();
+  };
 
   const memberColumns: Column<Membership>[] = useMemo(() => {
     const cols: Column<Membership>[] = [
@@ -153,7 +161,7 @@ export default function TenantSettingsPage() {
               size="small"
               onClick={(e) => {
                 e.stopPropagation();
-                handleRemoveMember(r.key);
+                setMemberToRemove(r);
               }}
               aria-label={t('pages.tenants.removeMember')}
               data-testid={`remove-member-${r.key}`}
@@ -165,7 +173,7 @@ export default function TenantSettingsPage() {
       });
     }
     return cols;
-  }, [isAdmin, t, handleRemoveMember]);
+  }, [isAdmin, t]);
 
   const invitationColumns: Column<Invitation>[] = useMemo(
     () => [
@@ -271,7 +279,7 @@ export default function TenantSettingsPage() {
                   <Tooltip title={t('pages.tenants.removeMember')}>
                     <IconButton
                       size="small"
-                      onClick={() => handleRemoveMember(m.key)}
+                      onClick={() => setMemberToRemove(m)}
                       aria-label={t('pages.tenants.removeMember')}
                       data-testid={`remove-member-${m.key}`}
                     >
@@ -345,6 +353,23 @@ export default function TenantSettingsPage() {
             />
           </CardContent>
         </Card>
+      )}
+
+      {isAdmin && (
+        <StepUpConfirmDialog
+          open={memberToRemove !== null}
+          title={t('pages.tenants.removeMemberStepUpTitle')}
+          description={t('pages.tenants.removeMemberStepUpDescription', {
+            name: memberToRemove?.display_name || memberToRemove?.email || '',
+            tenant: activeTenant?.name ?? '',
+          })}
+          confirmLabel={t('pages.tenants.removeMemberStepUpConfirm')}
+          testIdPrefix="remove-tenant-member"
+          stepUpAction="tenant_member_removal"
+          stepUpTarget={memberToRemove?.key}
+          onConfirm={handleConfirmRemoveMember}
+          onCancel={() => setMemberToRemove(null)}
+        />
       )}
     </Box>
   );

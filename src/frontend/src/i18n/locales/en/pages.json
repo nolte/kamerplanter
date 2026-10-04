@@ -955,6 +955,9 @@
       "adminRemoveMemberStepUpTitle": "Confirm removing the member",
       "adminRemoveMemberStepUpDescription": "You are removing \"{{name}}\" from the organization \"{{tenant}}\". They lose access to this organization at once – if they are its last lead, it has none afterwards. So you confirm this with your own credentials.",
       "adminRemoveMemberStepUpConfirm": "Remove member",
+      "adminChangeRoleStepUpTitle": "Confirm the role change",
+      "adminChangeRoleStepUpDescription": "You are changing the role of \"{{name}}\" in the organization \"{{tenant}}\" to \"{{role}}\". The role decides what they may change and delete in the organization – if they are its last lead, it has none afterwards. So you confirm this with your own credentials.",
+      "adminChangeRoleStepUpConfirm": "Change role",
       "providerUnlinked": "Sign-in method removed"
     },
     "tenants": {
@@ -971,6 +974,9 @@
       "memberEmail": "Email",
       "memberRole": "Role",
       "memberRemoved": "Member removed",
+      "removeMemberStepUpTitle": "Confirm removing the member",
+      "removeMemberStepUpDescription": "You are removing \"{{name}}\" from the organization \"{{tenant}}\". They lose access at once – if they are the last lead, the organization has none afterwards. So you confirm this with your own credentials.",
+      "removeMemberStepUpConfirm": "Remove member",
       "inviteEmail": "Email address",
       "sendInvitation": "Send Invitation",
       "createLink": "Invitation Link",
