@@ -195,6 +195,25 @@ def test_two_tenants_choose_the_same_slot_id_and_one_location_does_not(env) -> N
     ]
 
 
+def test_moving_a_slot_onto_a_location_that_holds_its_label_is_a_409_on_the_label(env) -> None:
+    """Per location, so one tenant may reuse a label across its locations — but not move onto it."""
+    client, db, acting = env
+    db.collection("locations").insert(
+        {"_key": "loc-alice-2", "name": "Tent 2", "site_key": "site-alice", "area_m2": 1.0}
+    )
+    first = _create_slot(client, acting, TENANT_A, "TENT01_A1")
+    second = _create_slot(client, acting, TENANT_A, "TENT01_A1", location_key="loc-alice-2")
+    assert (first.status_code, second.status_code) == (201, 201), (first.text, second.text)
+
+    moved = client.put(
+        f"{_as(acting, TENANT_A)}/slots/{second.json()['key']}",
+        json={"slot_id": "TENT01_A1", "location_key": "loc-alice"},
+    )
+
+    assert moved.status_code == 409, moved.text
+    assert moved.json()["details"][0]["field"] == "slot_id", moved.text
+
+
 def test_two_tenants_label_a_batch_the_same_and_one_tenant_does_not(env) -> None:
     client, _db, acting = env
 
