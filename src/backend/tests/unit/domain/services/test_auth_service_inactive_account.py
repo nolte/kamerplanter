@@ -30,6 +30,7 @@ acquire a fresh provider link on the way in.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -60,6 +61,7 @@ def _user(*, is_active: bool) -> User:
         display_name="Suspended User",
         password_hash=PasswordEngine().hash_password(PASSWORD),
         email_verified=True,
+        email_confirmed_at=datetime(2026, 1, 1, tzinfo=UTC),
         is_active=is_active,
     )
 
