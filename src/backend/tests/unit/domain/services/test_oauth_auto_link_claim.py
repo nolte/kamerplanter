@@ -21,12 +21,13 @@ from __future__ import annotations
 
 import ast
 import pathlib
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
 
 from app.common.enums import AuthProviderType
-from app.common.exceptions import ValidationError
+from app.common.exceptions import OAuthAutoLinkRefusedError, ValidationError
 from app.domain.engines.oauth_engine import OAuthEngine, _as_optional_bool
 from app.domain.models.auth import OAuthUserInfo
 from app.domain.models.oidc_config import OidcProviderConfig
@@ -43,6 +44,7 @@ def _victim() -> User:
         email=VICTIM_EMAIL,
         display_name="Victim",
         email_verified=True,
+        email_confirmed_at=datetime(2026, 1, 1, tzinfo=UTC),
         is_active=True,
     )
 
@@ -156,6 +158,16 @@ class TestTheProviderClaimDecidesTheAutoLink:
         service.complete_oauth("acme", "code", "state")
 
         assert auth_provider_repo.create.call_count == 1
+
+    def test_a_flag_without_the_proof_does_not_link(self):
+        """The account's side is the proof, not the flag: registration stamps the flag unconfirmed."""
+        service, auth_provider_repo = _service(_oauth_user(True))
+        service._user_repo.get_by_email.return_value.email_confirmed_at = None
+
+        with pytest.raises(OAuthAutoLinkRefusedError):
+            service.complete_oauth("acme", "code", "state")
+
+        assert auth_provider_repo.create.call_count == 0
 
 
 class TestTheClaimIsNormalisedToThreeStates:
