@@ -34,11 +34,11 @@ from app.domain.services.planting_run_service import PlantingRunService
 router = APIRouter(prefix="/plant-instances", tags=["plant-instances"], responses=NOT_FOUND_RESPONSE)
 
 
-def _to_response(p: PlantInstance, service: PlantInstanceService) -> PlantResponse:
+def _to_response(p: PlantInstance, service: PlantInstanceService, tenant_key: str) -> PlantResponse:
     """Convert PlantInstance to PlantResponse, resolving phase name and
     denormalized species/cultivar labels from their keys."""
     phase_name = service.resolve_phase_name(p.current_phase_key) if p.current_phase_key else ""
-    species = service.resolve_species(p.species_key)
+    species = service.resolve_species(p.species_key, tenant_key=tenant_key)
     cultivar = service.resolve_cultivar(p.cultivar_key)
     return to_response(
         p,
@@ -61,7 +61,7 @@ def list_plants(
 ):
     """List the tenant's plant instances (paginated)."""
     items, _total = service.list_plants(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
-    return [_to_response(p, service) for p in items]
+    return [_to_response(p, service, ctx.tenant_key) for p in items]
 
 
 @router.get("/survival-stats", response_model=SurvivalStatsResponse)
@@ -107,7 +107,7 @@ def get_plant(
 ):
     """Return a single plant instance by key."""
     p = service.get_plant(key, tenant_key=ctx.tenant_key)
-    return _to_response(p, service)
+    return _to_response(p, service, ctx.tenant_key)
 
 
 @router.post("", response_model=PlantResponse, status_code=201)
@@ -119,7 +119,7 @@ def create_plant(
     """Create a plant instance for the tenant."""
     plant = PlantInstance(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_plant(plant)
-    return _to_response(created, service)
+    return _to_response(created, service, ctx.tenant_key)
 
 
 @router.put("/{key}", response_model=PlantResponse)
@@ -166,7 +166,7 @@ def update_plant(
     # ADR-006 E1 — per-instance cultivation cycle override (None = same as the species).
     existing.cultivation_cycle_type = update_data.get("cultivation_cycle_type")
     updated = service.update_plant(key, existing)
-    return _to_response(updated, service)
+    return _to_response(updated, service, ctx.tenant_key)
 
 
 @router.patch("/{key}", response_model=PlantResponse)
@@ -192,7 +192,7 @@ def patch_plant(
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(existing, field, value)
     updated = service.update_plant(key, existing)
-    return _to_response(updated, service)
+    return _to_response(updated, service, ctx.tenant_key)
 
 
 @router.post("/{key}/remove", response_model=PlantResponse)
@@ -209,7 +209,7 @@ def remove_plant(
         termination_cause=body.termination_cause if body else None,
         tenant_key=ctx.tenant_key,
     )
-    return _to_response(removed, service)
+    return _to_response(removed, service, ctx.tenant_key)
 
 
 @router.post("/slots/{slot_key}/validate-planting", response_model=ValidatePlantingResponse)

@@ -44,6 +44,7 @@ from app.domain.models.survival_stats import (
 )
 from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.propagation_service import PropagationService
+from app.domain.services.species_visibility import readable_species
 
 if TYPE_CHECKING:
     from app.domain.services.overwintering_materializer import OverwinteringMaterializer
@@ -292,11 +293,9 @@ class PlantInstanceService:
 
         It is *not*, however, a claim that a stale reference stays hidden. A plant
         that already carries a foreign ``species_key`` — written before this guard
-        existed — is disclosed on **every** ``GET``: ``_to_response`` calls
-        ``resolve_species``, which reads the species repository **unscoped**
-        (``get_by_key``) to denormalise the label. Rows predating the guard are
-        exempt by the changed-only rule and no repair migration ships with #1349;
-        the exposure is pre-existing and unchanged by it, not absent.
+        existed — keeps it (exempt by the changed-only rule, no repair migration).
+        Its label no longer discloses the foreign species: ``resolve_species``
+        resolves the key under the reader's tenant (#2082) and answers ``None``.
 
         Only ``None`` skips a field. An empty string does **not**: ``""`` is a value
         the caller chose, it resolves to nothing, and reading it as "no reference
@@ -1243,11 +1242,16 @@ class PlantInstanceService:
             return ""
         return self._phase_resolver.resolve_name(phase_key)
 
-    def resolve_species(self, species_key: str) -> Species | None:
-        """Resolve a Species key to its full model (for denormalized labels)."""
+    def resolve_species(self, species_key: str, *, tenant_key: str) -> Species | None:
+        """Resolve a Species key to its full model for a denormalized label, under the tenant.
+
+        A plant row may carry a species key its tenant cannot read (written before the
+        reference was verified, #2082): that resolves to ``None`` — the same as an
+        unknown key — never to the foreign species' name.
+        """
         if not species_key or not self._species_repo:
             return None
-        return self._species_repo.get_by_key(species_key)
+        return readable_species(self._species_repo, species_key, tenant_key)
 
     def resolve_cultivar(self, cultivar_key: str | None) -> Cultivar | None:
         """Resolve a Cultivar key to its full model (for denormalized labels)."""

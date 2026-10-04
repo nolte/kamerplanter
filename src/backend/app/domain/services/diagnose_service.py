@@ -37,6 +37,7 @@ from app.domain.models.diagnosis import (
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.ai_audit_logger import AiAuditLogger
 from app.domain.services.ai_context_builder import AiContextBuilder
+from app.domain.services.species_visibility import readable_species
 from app.domain.services.symptom_catalog import SymptomCatalog
 
 logger = structlog.get_logger(__name__)
@@ -274,7 +275,7 @@ class DiagnoseService:
 
         species = None
         if self._species is not None and plant.species_key:
-            species = self._species.get_by_key(plant.species_key)
+            species = readable_species(self._species, plant.species_key, ctx.tenant_key)
 
         phase_name: str | None = None
         if plant.current_phase_key and hasattr(self._plants, "resolve_phase_name"):

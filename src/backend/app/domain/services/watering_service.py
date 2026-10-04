@@ -24,6 +24,7 @@ from app.domain.services.feeding_references import (
     require_readable_nutrient_plan,
 )
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
+from app.domain.services.species_visibility import readable_species
 from app.domain.services.watering_confirmation_scope import own_task_or_none, require_confirmable_run
 
 logger = structlog.get_logger(__name__)
@@ -367,7 +368,7 @@ class WateringService:
         species_seasonal: list[dict] | None = None
         waterlogging_tolerance: str | None = None
         if self._species_repo and plant.species_key:
-            species = self._species_repo.get_by_key(plant.species_key)
+            species = readable_species(self._species_repo, plant.species_key, tenant_key)
             if species:
                 waterlogging_tolerance = getattr(species, "waterlogging_tolerance", None)
                 # Check cultivar override first
