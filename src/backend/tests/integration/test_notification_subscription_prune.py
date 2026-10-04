@@ -20,6 +20,7 @@ from app.data_access.arango.notification_preference_repository import (
     NOTIFICATION_PREFERENCES,
     ArangoNotificationPreferenceRepository,
 )
+from app.domain.engines.encryption_engine import EncryptionEngine
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 TEST_DATABASE = run_database_name("push_prune")
@@ -77,7 +78,9 @@ def _seed(db: StandardDatabase, user_key: str = "u1") -> None:
 def test_only_the_named_endpoints_are_removed_and_the_rest_of_the_document_is_kept(db: StandardDatabase) -> None:
     _seed(db)
 
-    removed = ArangoNotificationPreferenceRepository(db).remove_subscriptions("u1", "pwa", [GONE, ALSO_GONE])
+    removed = ArangoNotificationPreferenceRepository(db, EncryptionEngine("")).remove_subscriptions(
+        "u1", "pwa", [GONE, ALSO_GONE]
+    )
 
     doc = db.collection(NOTIFICATION_PREFERENCES).get("notifpref_u1")
     assert removed == 2
@@ -94,14 +97,18 @@ def test_nothing_is_written_when_no_endpoint_matches(db: StandardDatabase) -> No
     _seed(db)
     before = db.collection(NOTIFICATION_PREFERENCES).get("notifpref_u1")
 
-    removed = ArangoNotificationPreferenceRepository(db).remove_subscriptions("u1", "pwa", ["https://push/unknown"])
+    removed = ArangoNotificationPreferenceRepository(db, EncryptionEngine("")).remove_subscriptions(
+        "u1", "pwa", ["https://push/unknown"]
+    )
 
     assert removed == 0
     assert db.collection(NOTIFICATION_PREFERENCES).get("notifpref_u1")["_rev"] == before["_rev"]
 
 
 def test_a_user_without_preferences_gets_none_created(db: StandardDatabase) -> None:
-    removed = ArangoNotificationPreferenceRepository(db).remove_subscriptions("erased-user", "pwa", [GONE])
+    removed = ArangoNotificationPreferenceRepository(db, EncryptionEngine("")).remove_subscriptions(
+        "erased-user", "pwa", [GONE]
+    )
 
     assert removed == 0
     assert db.collection(NOTIFICATION_PREFERENCES).count() == 0
@@ -111,7 +118,7 @@ def test_another_users_document_is_untouched(db: StandardDatabase) -> None:
     _seed(db, "u1")
     _seed(db, "u2")
 
-    ArangoNotificationPreferenceRepository(db).remove_subscriptions("u1", "pwa", [GONE])
+    ArangoNotificationPreferenceRepository(db, EncryptionEngine("")).remove_subscriptions("u1", "pwa", [GONE])
 
     subscriptions = db.collection(NOTIFICATION_PREFERENCES).get("notifpref_u2")["channels"]["pwa"]["config"][
         "subscriptions"

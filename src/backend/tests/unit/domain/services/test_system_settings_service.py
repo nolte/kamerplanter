@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.models.system_settings import (
     HomeAssistantSettings,
     PlantIdentificationSettings,
@@ -32,7 +33,7 @@ def mock_repo():
 
 @pytest.fixture
 def service(mock_repo):
-    return SystemSettingsService(mock_repo)
+    return SystemSettingsService(mock_repo, EncryptionEngine(""))
 
 
 class TestGetSettings:
@@ -54,7 +55,7 @@ class TestUpdateHaSettings:
         mock_repo.upsert.return_value = SystemSettings(
             home_assistant=HomeAssistantSettings(
                 ha_url="http://ha:8123",
-                ha_access_token="tok",
+                ha_access_token_encrypted="tok",
                 ha_timeout=20,
             ),
         )
@@ -64,14 +65,14 @@ class TestUpdateHaSettings:
 
     def test_preserves_existing_token_when_none(self, service, mock_repo):
         existing = SystemSettings(
-            home_assistant=HomeAssistantSettings(ha_access_token="old-token"),
+            home_assistant=HomeAssistantSettings(ha_access_token_encrypted="old-token"),
         )
         mock_repo.get.return_value = existing
         mock_repo.upsert.return_value = existing
 
         service.update_ha_settings("http://ha:8123", None, None)
         upserted = mock_repo.upsert.call_args[0][0]
-        assert upserted.home_assistant.ha_access_token == "old-token"
+        assert upserted.home_assistant.ha_access_token_encrypted == "old-token"
 
     def test_overwrites_url(self, service, mock_repo):
         existing = SystemSettings(
@@ -97,7 +98,7 @@ class TestDeleteHaSettings:
         assert result is True
         upserted = mock_repo.upsert.call_args[0][0]
         assert upserted.home_assistant.ha_url is None
-        assert upserted.home_assistant.ha_access_token is None
+        assert upserted.home_assistant.ha_access_token_encrypted is None
 
     def test_returns_false_when_none(self, service, mock_repo):
         mock_repo.get.return_value = None
@@ -115,7 +116,7 @@ class TestGetEffectiveHaSettings:
         stored = SystemSettings(
             home_assistant=HomeAssistantSettings(
                 ha_url="http://db:8123",
-                ha_access_token="db-token",
+                ha_access_token_encrypted="db-token",
                 ha_timeout=30,
             ),
         )
@@ -182,22 +183,22 @@ class TestUpdatePlantIdentificationSettings:
     def test_sets_key(self, service, mock_repo):
         mock_repo.get.return_value = None
         mock_repo.upsert.return_value = SystemSettings(
-            plant_identification=PlantIdentificationSettings(plantnet_api_key="new-key"),
+            plant_identification=PlantIdentificationSettings(plantnet_api_key_encrypted="new-key"),
         )
         result = service.update_plant_identification_settings("new-key")
-        assert result.plant_identification.plantnet_api_key == "new-key"
+        assert result.plant_identification.plantnet_api_key_encrypted == "new-key"
         mock_repo.upsert.assert_called_once()
 
     def test_preserves_existing_when_none(self, service, mock_repo):
         existing = SystemSettings(
-            plant_identification=PlantIdentificationSettings(plantnet_api_key="old-key"),
+            plant_identification=PlantIdentificationSettings(plantnet_api_key_encrypted="old-key"),
         )
         mock_repo.get.return_value = existing
         mock_repo.upsert.return_value = existing
 
         service.update_plant_identification_settings(None)
         upserted = mock_repo.upsert.call_args[0][0]
-        assert upserted.plant_identification.plantnet_api_key == "old-key"
+        assert upserted.plant_identification.plantnet_api_key_encrypted == "old-key"
 
     def test_does_not_touch_ha(self, service, mock_repo):
         existing = SystemSettings(
@@ -214,7 +215,7 @@ class TestUpdatePlantIdentificationSettings:
 class TestDeletePlantIdentificationSettings:
     def test_clears_key(self, service, mock_repo):
         existing = SystemSettings(
-            plant_identification=PlantIdentificationSettings(plantnet_api_key="db-key"),
+            plant_identification=PlantIdentificationSettings(plantnet_api_key_encrypted="db-key"),
         )
         mock_repo.get.return_value = existing
         mock_repo.upsert.return_value = SystemSettings()
@@ -222,7 +223,7 @@ class TestDeletePlantIdentificationSettings:
         result = service.delete_plant_identification_settings()
         assert result is True
         upserted = mock_repo.upsert.call_args[0][0]
-        assert upserted.plant_identification.plantnet_api_key == ""
+        assert upserted.plant_identification.plantnet_api_key_encrypted is None
 
     def test_returns_false_when_none(self, service, mock_repo):
         mock_repo.get.return_value = None
@@ -234,7 +235,7 @@ class TestGetEffectivePlantnetApiKey:
     def test_db_overrides_env(self, mock_env, service, mock_repo):
         mock_env.plantnet_api_key = "env-key"
         mock_repo.get.return_value = SystemSettings(
-            plant_identification=PlantIdentificationSettings(plantnet_api_key="db-key"),
+            plant_identification=PlantIdentificationSettings(plantnet_api_key_encrypted="db-key"),
         )
         assert service.get_effective_plantnet_api_key() == "db-key"
 
@@ -256,7 +257,7 @@ class TestGetPlantnetSettingsWithSource:
     def test_source_db_when_stored(self, mock_env, service, mock_repo):
         mock_env.plantnet_api_key = "env-key"
         mock_repo.get.return_value = SystemSettings(
-            plant_identification=PlantIdentificationSettings(plantnet_api_key="db-key"),
+            plant_identification=PlantIdentificationSettings(plantnet_api_key_encrypted="db-key"),
         )
         result = service.get_plantnet_settings_with_source()
         assert result["plantnet_api_key"] == "db-key"
