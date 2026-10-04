@@ -218,16 +218,21 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
             self.create_edge(col.HARVESTED_AS, plant_id, batch_id)
         return hb
 
-    def batch_id_exists(self, batch_id: str) -> bool:
-        """Report whether any batch already uses ``batch_id``.
+    def batch_id_exists(self, batch_id: str, *, tenant_key: str) -> bool:
+        """Report whether a batch of ``tenant_key`` already uses ``batch_id``.
 
-        The ``batch_id`` unique index is global (not tenant-scoped), so this
-        lookup is deliberately un-scoped to mirror the constraint the generated
-        identifier must satisfy.
+        Scoped like the unique index the generated identifier must satisfy:
+        ``(tenant_key, batch_id)`` since #2065, so another tenant's label neither
+        collides nor steers the generator.
         """
         if not batch_id:
             return False
-        return bool(self.find_by_field("batch_id", batch_id, limit=1, offset=0))
+        self._require_tenant_key(tenant_key, "batch_id_exists")
+        return bool(
+            self.find_by_field(
+                "batch_id", batch_id, limit=1, offset=0, extra_filters=[("tenant_key", "==", tenant_key)]
+            )
+        )
 
     def update_batch(self, key: HarvestBatchKey, batch: HarvestBatch) -> HarvestBatch:
         return super().update(key, batch)

@@ -67,7 +67,7 @@ The `seed_profile` object field bundles genuine seed/germination metadata for se
 | `locations` | Rooms, beds, zones | `name`, `parent_location_key`, `depth`, `path` |
 | `location_types` | Types for location hierarchy | `name`, `level` (10 system seeds) |
 | `slots` | Individual plant spots | `slot_id` (unique), `capacity` |
-| `substrates` | Substrate types / profiles | `substrate_type`, `ph_range`, `ec_capacity` |
+| `substrates` | Substrate types / profiles (global seed substrates and each tenant's own mixes) | `type`, `name_de`, `brand`, `tenant_key`, `ph_base`, `ec_base_ms` |
 | `substrate_batches` | Concrete substrate batches | `cycles_used`, `ph_history`, `irrigation_strategy` |
 
 ### Plant Instances and Runs (REQ-013)
@@ -88,7 +88,7 @@ planned → active → harvesting → completed
 
 | Collection | Description | Key fields |
 |-----------|-------------|-----------|
-| `tanks` | Water tanks | `name` (unique), `capacity_liters`, `tenant_key` |
+| `tanks` | Water tanks | `name` (unique per tenant), `volume_liters`, `tenant_key` |
 | `tank_states` | Point-in-time tank snapshots | `ec_ms`, `ph`, `volume_liters`, `recorded_at` |
 | `tank_fill_events` | Tank fill events | `filled_at`, `water_mix_ratio_ro_percent` |
 | `fertilizers` | Fertilizer master data | `tenant_key`, `product_name`, `brand` (unique per tenant and pair; exactly once globally), `mixing_priority` |
@@ -125,13 +125,13 @@ planned → active → harvesting → completed
 
 | Collection | Description | Key fields |
 |-----------|-------------|-----------|
-| `workflow_templates` | Reusable workflow templates | `name` (unique), `trigger_phase` |
-| `task_templates` | Task templates within workflows | `title`, `due_offset_days` |
+| `workflow_templates` | Reusable workflow templates (global seed templates and each tenant's own) | `tenant_key`, `name` (unique per tenant; exactly once globally), `is_system` |
+| `task_templates` | Task templates within workflows | `name`, `workflow_template_key`, `days_offset` |
 | `tasks` | Concrete tasks | `plant_key`, `status`, `due_date` |
 | `workflow_executions` | Active workflow executions | `plant_key`, `started_at` |
 | `task_comments` | Task comments | `author_key`, `body` |
 | `task_audit_entries` | Audit trail per task | `changed_by`, `change_type` |
-| `activities` | Activity master data | `name` (unique) |
+| `activities` | Activity master data | `tenant_key`, `name` (unique per tenant; exactly once globally), `is_system` |
 
 ### Authentication and Users (REQ-023)
 
@@ -314,18 +314,20 @@ Kamerplanter automatically creates the following indexes on startup:
 | `users` | `email` | Persistent | Yes |
 | `tenants` | `slug` | Persistent | Yes |
 | `memberships` | `user_key, tenant_key` | Persistent | Yes |
-| `fertilizers` | `product_name, brand` | Persistent | Yes |
+| `fertilizers` | `tenant_key, product_name, brand` | Persistent | Yes |
 | `harvest_batches` | `batch_id` | Persistent (sparse) | Yes |
-| `tanks` | `name` | Persistent | Yes |
+| `tanks` | `tenant_key, name` | Persistent | Yes |
+| `activities` | `tenant_key, name` | Persistent | Yes |
+| `workflow_templates` | `tenant_key, name` | Persistent | Yes |
 | `refresh_tokens` | `token_hash` | Persistent | Yes |
 | `calendar_feeds` | `token` | Persistent | Yes |
 | `tasks` | `status`, `plant_key` | Persistent | No |
 | `feeding_events` | `plant_key`, `timestamp` | Persistent | No |
 
-<!-- Quelle: src/backend/app/data_access/arango/collections.py (ensure_indexes) -->
+<!-- Quelle: src/backend/app/data_access/arango/collections.py (ensure_collections) -->
 
 !!! note "Sparse indexes"
-    An index marked **sparse** only considers documents in which the field is actually set. For `harvest_batches.batch_id` this is required because the batch ID is an optional field: empty input is normalised to `null`, and any number of batches may exist without a batch ID at the same time, while identifiers that are set must still stay unique. Existing data is migrated by `v0030` (empty strings → `null`, index recreated as `unique + sparse`).
+    An index marked **sparse** only considers documents in which the field is actually set. For `harvest_batches.batch_id` this is required because the batch ID is an optional field: empty input is normalised to `null`, and any number of batches may exist without a batch ID at the same time, while identifiers that are set must still stay unique. Existing data is migrated by `v0030` (empty strings → `null`, index recreated as `unique + sparse`). On databases created before June 2026, ArangoDB reports the old index as type `hash`. `v0030` misses it there, and only `v0073` removes it.
 
 ---
 

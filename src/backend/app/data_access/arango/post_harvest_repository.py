@@ -71,14 +71,15 @@ class ArangoPostHarvestRepository(BaseArangoRepository[PostHarvestBatch], IPostH
         tenant_key: str,
     ) -> list[PostHarvestBatch]:
         self._require_tenant_key(tenant_key, "list_for_harvest_batch")
-        return self.get_page(
-            filters=[
-                ("harvest_batch_key", "==", harvest_batch_key),
-                ("tenant_key", "==", tenant_key),
-            ],
+        # Every post-harvest batch of the harvest batch: ``get_page`` without a
+        # ``limit`` silently returned its default page of 50 (#2025).
+        return self.find_by_field(
+            "harvest_batch_key",
+            harvest_batch_key,
             sort="created_at",
             sort_direction="DESC",
-        )[0]
+            extra_filters=[("tenant_key", "==", tenant_key)],
+        )
 
     # ── Drying progress ──
 

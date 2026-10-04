@@ -738,7 +738,6 @@ _CATALOGUE_WRITTEN_BY_ADMINS = (
 EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     # ── catalogue ──────────────────────────────────────────────────────────
     ("ArangoActivityRepository", "get_all"): Exclusion("catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"),
-    ("ArangoActivityRepository", "get_by_name"): Exclusion("catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"),
     ("ArangoActivityRepository", "get_system_activities"): Exclusion(
         "catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"
     ),
@@ -803,11 +802,6 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "account", "the MCP audit trail across the service accounts one user owns (REQ-033 §4.6)"
     ),
     # ── probe ──────────────────────────────────────────────────────────────
-    ("ArangoHarvestRepository", "batch_id_exists"): Exclusion(
-        "probe",
-        "the batch_id unique index is global, so the id generator must ask globally; the boolean "
-        "only steers HarvestService._generate_batch_id and is never returned",
-    ),
     ("ArangoPlantingRunRepository", "verify_entry_references"): Exclusion(
         "probe",
         "runs the owned-reference check of an unsaved entry against the entry's own tenant_key and "
@@ -869,6 +863,21 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "system",
         "the fertilizer seed loaders match a seed product to a GLOBAL row only (tenant_key empty, never a tenant's "
         "own product), over the whole catalogue (#2000); no request handler reaches it",
+    ),
+    ("ArangoActivityRepository", "get_global_activities"): Exclusion(
+        "system",
+        "the activity seed matches a seed entry to a GLOBAL row only (tenant_key empty, never a tenant's "
+        "own activity), over the whole catalogue (#2027); no request handler reaches it",
+    ),
+    ("ArangoTaskRepository", "get_global_workflow_templates"): Exclusion(
+        "system",
+        "the workflow seed matches a seed template to a GLOBAL row only (tenant_key empty, never a tenant's "
+        "own template), over the whole catalogue (#2027); no request handler reaches it",
+    ),
+    ("ArangoSubstrateRepository", "get_global_substrates"): Exclusion(
+        "system",
+        "the substrate seed checks a seed identity against the GLOBAL rows only (tenant_key empty, never a "
+        "tenant's own mix), over the whole catalogue (#2027); no request handler reaches it",
     ),
     ("ArangoNutrientPlanRepository", "get_global_plans"): Exclusion(
         "system",

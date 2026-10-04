@@ -85,12 +85,9 @@ def get_all_pages(
     Raises :class:`PagingCeilingError` (logged first) instead of looping past
     ``max_pages`` pages.
     """
-    if page_size < 1:
-        raise ValueError("page_size must be >= 1")
-    rows: list[Any] = []
-    offset = 0
-    for _ in range(max_pages):
-        kwargs: dict[str, Any] = {"offset": offset, "limit": page_size}
+
+    def fetch(offset: int, limit: int) -> tuple[list[Any], int]:
+        kwargs: dict[str, Any] = {"offset": offset, "limit": limit}
         if tenant_key is not None:
             kwargs["tenant_key"] = tenant_key
         if all_tenants:
@@ -98,12 +95,44 @@ def get_all_pages(
         if filters is not None:
             kwargs["filters"] = filters
         page, total = repo.get_all(**kwargs)
+        return page, total
+
+    return read_all_pages(fetch, page_size=page_size, max_pages=max_pages)
+
+
+def read_all_pages[T](
+    fetch: Callable[[int, int], tuple[list[T], int]],
+    *,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    max_pages: int = MAX_PAGES,
+) -> list[T]:
+    """Every row a paged ``(offset, limit) -> (rows, total)`` read can return (#2025).
+
+    The list-method counterpart of :func:`get_all_pages` for reads that are not
+    spelled ``get_all``: ``get_all_pests``, ``get_all_sequences``,
+    ``get_all_indicators``, ``list_by_tenant`` and the like. ``fetch`` receives the
+    offset and limit and returns one page plus the collection's ``total``, e.g.
+    ``lambda offset, limit: repo.list_by_tenant(tenant_key, offset=offset, limit=limit)``.
+    Scope (tenant, filters) is whatever the closure binds; the helper adds none.
+
+    Same contract as :func:`get_all_pages` (which delegates here): every page is read
+    before the caller sees a row, paging stops once the offset reaches ``total`` or a
+    page comes back empty, the read must be ordered by a total order (a unique key or
+    a ``_key`` tie-break), and :class:`PagingCeilingError` is raised (logged first)
+    instead of reading past ``max_pages`` pages.
+    """
+    if page_size < 1:
+        raise ValueError("page_size must be >= 1")
+    rows: list[T] = []
+    offset = 0
+    for _ in range(max_pages):
+        page, total = fetch(offset, page_size)
         rows.extend(page)
         offset += len(page)
         if not page or offset >= total:
             return rows
     logger.error("get_all_pages_ceiling", max_pages=max_pages, page_size=page_size, rows_read=len(rows))
-    raise PagingCeilingError(f"get_all_pages read {max_pages} pages of {page_size} rows without reaching the end")
+    raise PagingCeilingError(f"paged read hit {max_pages} pages of {page_size} rows without reaching the end")
 
 
 class BaseArangoRepository[TModel: BaseModel]:
@@ -329,9 +358,19 @@ class BaseArangoRepository[TModel: BaseModel]:
         doc["_key"] = doc.get("_key", doc.get("_id", "").split("/")[-1])
         return doc
 
-    #: Matches the indexed field name in an ArangoDB unique-constraint message,
-    #: e.g. ``... over '["batch_id"]' ...`` or the older ``... over 'batch_id' ...``.
-    _UNIQUE_INDEX_FIELD_RE: ClassVar[re.Pattern[str]] = re.compile(r"over\s+'?\[?\"?(?P<field>[A-Za-z_][A-Za-z0-9_.]*)")
+    #: Matches the indexed field list in an ArangoDB unique-constraint message:
+    #: ``... over '["batch_id"]' ...``, the older ``... over 'batch_id' ...``, a
+    #: compound ``... over 'tenant_key, name'; ...`` (3.12) or a bare ``over [...]``.
+    _UNIQUE_INDEX_FIELDS_RE: ClassVar[re.Pattern[str]] = re.compile(
+        r"over\s+(?:'(?P<quoted>[^']*)'|(?P<bracketed>\[[^\]]*\])|(?P<bare>[A-Za-z_][A-Za-z0-9_.]*))"
+    )
+    _FIELD_NAME_RE: ClassVar[re.Pattern[str]] = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
+
+    #: The scope of a compound unique index: the tenant, or the owning location of a
+    #: slot (``(location_key, slot_id)``, #2065). It bounds the constraint and is
+    #: never what the caller collided on; naming it would tell the caller an internal
+    #: key and point the client at no form field (#2029).
+    _UNIQUE_SCOPE_FIELDS: ClassVar[frozenset[str]] = frozenset({"tenant_key", "location_key"})
 
     @classmethod
     def _extract_unique_field(cls, error_message: str | None) -> str | None:
@@ -342,13 +381,21 @@ class BaseArangoRepository[TModel: BaseModel]:
             unique constraint violated - in index 42 of type persistent
             over '["batch_id"]'; conflicting key: '...'
 
-        Returns the first indexed field name, or ``None`` when the message does
-        not follow the recognised shape (so callers can fall back gracefully).
+        Returns the first indexed field that is not a scope
+        (:attr:`_UNIQUE_SCOPE_FIELDS`) — for ``(tenant_key, name)`` that is ``name`` — or
+        the first field when every field is a scope. ``None`` when the message
+        does not follow the recognised shape (so callers can fall back gracefully).
         """
         if not error_message:
             return None
-        match = cls._UNIQUE_INDEX_FIELD_RE.search(error_message)
-        return match.group("field") if match else None
+        match = cls._UNIQUE_INDEX_FIELDS_RE.search(error_message)
+        if match is None:
+            return None
+        listed = match.group("quoted") or match.group("bracketed") or match.group("bare") or ""
+        names: list[str] = cls._FIELD_NAME_RE.findall(listed)
+        if not names:
+            return None
+        return next((name for name in names if name not in cls._UNIQUE_SCOPE_FIELDS), names[0])
 
     @classmethod
     def _describe_unique_conflict(

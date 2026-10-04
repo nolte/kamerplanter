@@ -58,8 +58,25 @@ class ArangoActivityRepository(BaseArangoRepository[Activity], IActivityReposito
             return items, total
         return super().get_all(offset, limit)
 
-    def get_by_name(self, name: str) -> Activity | None:
-        return self.find_one_by_field("name", name)
+    def get_global_activities(self) -> list[Activity]:
+        """Every global (system) activity, the whole catalogue, no row limit (#2027).
+
+        The activity seed matches a seed entry to its row through this and nothing
+        wider — the twin of ``ArangoNutrientPlanRepository.get_global_plans`` (#1957).
+        A row is global when its ``tenant_key`` is empty or absent, so a tenant's own
+        activity that carries a seed's name is never returned and can never be
+        rewritten from the seed as a global system row. Ordered by ``_key`` so a
+        lookup by name resolves the same way on every boot.
+        """
+        cursor = self._db.aql.execute(
+            f"""
+            FOR doc IN {col.ACTIVITIES}
+                FILTER doc.tenant_key == "" OR doc.tenant_key == null
+                SORT doc._key
+                RETURN doc
+            """
+        )
+        return [Activity(**self._from_doc(doc)) for doc in cursor]
 
     def delete(self, key: ActivityKey) -> bool:
         activity_id = f"{col.ACTIVITIES}/{key}"

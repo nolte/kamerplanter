@@ -67,7 +67,7 @@ Das Objektfeld `seed_profile` bündelt echte Saatgut-/Keim-Metadaten für samenv
 | `locations` | Räume, Beete, Zonen | `name`, `parent_location_key`, `depth`, `path` |
 | `location_types` | Typen für Standorthierarchie | `name`, `level` (10 System-Seeds) |
 | `slots` | Einzelne Pflanzplätze | `slot_id` (unique), `capacity` |
-| `substrates` | Substrattypen/-profile | `substrate_type`, `ph_range`, `ec_capacity` |
+| `substrates` | Substrattypen/-profile (globale Seed-Substrate und eigene Mischungen je Mandant) | `type`, `name_de`, `brand`, `tenant_key`, `ph_base`, `ec_base_ms` |
 | `substrate_batches` | Konkrete Substrat-Batches | `cycles_used`, `ph_history`, `irrigation_strategy` |
 
 ### Pflanzinstanzen und Durchläufe (REQ-013)
@@ -88,7 +88,7 @@ planned → active → harvesting → completed
 
 | Collection | Beschreibung | Wichtige Felder |
 |-----------|-------------|----------------|
-| `tanks` | Wassertanks | `name` (unique), `capacity_liters`, `tenant_key` |
+| `tanks` | Wassertanks | `name` (unique je Mandant), `volume_liters`, `tenant_key` |
 | `tank_states` | Messzeitpunkt-Snapshots eines Tanks | `ec_ms`, `ph`, `volume_liters`, `recorded_at` |
 | `tank_fill_events` | Befüllereignisse | `filled_at`, `water_mix_ratio_ro_percent` |
 | `fertilizers` | Dünger-Stammdaten | `tenant_key`, `product_name`, `brand` (unique je Mandant und Paar; global genau einmal), `mixing_priority` |
@@ -125,13 +125,13 @@ planned → active → harvesting → completed
 
 | Collection | Beschreibung | Wichtige Felder |
 |-----------|-------------|----------------|
-| `workflow_templates` | Wiederverwendbare Workflow-Vorlagen | `name` (unique), `trigger_phase` |
-| `task_templates` | Aufgaben-Vorlagen innerhalb Workflows | `title`, `due_offset_days` |
+| `workflow_templates` | Wiederverwendbare Workflow-Vorlagen (globale Seed-Vorlagen und eigene je Mandant) | `tenant_key`, `name` (unique je Mandant; global genau einmal), `is_system` |
+| `task_templates` | Aufgaben-Vorlagen innerhalb Workflows | `name`, `workflow_template_key`, `days_offset` |
 | `tasks` | Konkrete Aufgaben | `plant_key`, `status`, `due_date` |
 | `workflow_executions` | Aktive Workflow-Ausführungen | `plant_key`, `started_at` |
 | `task_comments` | Kommentare an Aufgaben | `author_key`, `body` |
 | `task_audit_entries` | Audit-Trail je Aufgabe | `changed_by`, `change_type` |
-| `activities` | Aktivitäts-Stammdaten | `name` (unique) |
+| `activities` | Aktivitäts-Stammdaten | `tenant_key`, `name` (unique je Mandant; global genau einmal), `is_system` |
 
 ### Authentifizierung und Benutzer (REQ-023)
 
@@ -314,18 +314,20 @@ Kamerplanter legt beim Start automatisch folgende Indizes an:
 | `users` | `email` | Persistent | Ja |
 | `tenants` | `slug` | Persistent | Ja |
 | `memberships` | `user_key, tenant_key` | Persistent | Ja |
-| `fertilizers` | `product_name, brand` | Persistent | Ja |
+| `fertilizers` | `tenant_key, product_name, brand` | Persistent | Ja |
 | `harvest_batches` | `batch_id` | Persistent (sparse) | Ja |
-| `tanks` | `name` | Persistent | Ja |
+| `tanks` | `tenant_key, name` | Persistent | Ja |
+| `activities` | `tenant_key, name` | Persistent | Ja |
+| `workflow_templates` | `tenant_key, name` | Persistent | Ja |
 | `refresh_tokens` | `token_hash` | Persistent | Ja |
 | `calendar_feeds` | `token` | Persistent | Ja |
 | `tasks` | `status`, `plant_key` | Persistent | Nein |
 | `feeding_events` | `plant_key`, `timestamp` | Persistent | Nein |
 
-<!-- Quelle: src/backend/app/data_access/arango/collections.py (ensure_indexes) -->
+<!-- Quelle: src/backend/app/data_access/arango/collections.py (ensure_collections) -->
 
 !!! note "Sparse-Indizes"
-    Ein als **sparse** markierter Index berücksichtigt nur Dokumente, in denen das Feld tatsächlich gesetzt ist. Bei `harvest_batches.batch_id` ist das erforderlich, weil die Chargen-ID ein optionales Feld ist: Leere Eingaben werden auf `null` normalisiert, und beliebig viele Chargen dürfen gleichzeitig ohne Chargen-ID existieren, während gesetzte Kennungen weiterhin eindeutig bleiben müssen. Bestandsdaten werden von Migration `v0030` angepasst (leere Zeichenketten → `null`, Index-Neuanlage als `unique + sparse`).
+    Ein als **sparse** markierter Index berücksichtigt nur Dokumente, in denen das Feld tatsächlich gesetzt ist. Bei `harvest_batches.batch_id` ist das erforderlich, weil die Chargen-ID ein optionales Feld ist: Leere Eingaben werden auf `null` normalisiert, und beliebig viele Chargen dürfen gleichzeitig ohne Chargen-ID existieren, während gesetzte Kennungen weiterhin eindeutig bleiben müssen. Bestandsdaten werden von Migration `v0030` angepasst (leere Zeichenketten → `null`, Index-Neuanlage als `unique + sparse`). Auf Datenbanken, die vor Juni 2026 angelegt wurden, führt ArangoDB den alten Index als Typ `hash`. `v0030` übersieht ihn dort, und erst `v0073` entfernt ihn.
 
 ---
 

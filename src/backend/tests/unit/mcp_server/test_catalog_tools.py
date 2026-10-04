@@ -422,3 +422,18 @@ async def test_glossary_search_filters_and_passes_the_language_through():
     resp = await SearchGlossary().run(_ctx(glossary_service=svc), SearchGlossary.Input(query="vpd", language="en"))
     assert svc.seen == (None, "en")
     assert [i["slug"] for i in resp.data["items"]] == ["vpd"]
+
+
+@pytest.mark.asyncio
+async def test_list_substrates_finds_a_mix_past_the_old_cap_of_200():
+    """#2025: the filter scanned the first 200 substrates and answered "none" past them."""
+    rows = [Substrate(_key=f"s{i:03d}", name_de=f"Füller {i}", name_en=f"Filler {i}") for i in range(250)]
+    rows.append(Substrate(_key="s-late", name_de="Seltene Mischung", name_en="Rare mix"))
+
+    class _Svc:
+        def list_substrates(self, offset=0, limit=50, *, tenant_key=None):
+            return rows[offset : offset + limit], len(rows)
+
+    resp = await ListSubstrates().run(_ctx(substrate_service=_Svc()), ListSubstrates.Input(query="rare mix"))
+
+    assert [i["name_de"] for i in resp.data["items"]] == ["Seltene Mischung"]

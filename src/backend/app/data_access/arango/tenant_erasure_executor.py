@@ -113,9 +113,9 @@ def _match(
     """The FILTER that selects the tenant's rows of *entry*, and its bind variables.
 
     A row is the tenant's when it carries the tenant's key or points at a parent
-    row of the tenant — minus the rows the entry keeps: a ``keep_when`` example
-    (a system seed) and, with ``keep_if_granted_via``, a row another tenant was
-    granted access to (#1769 code review). Field names, keys and predicates are
+    row of the tenant — minus, with ``keep_if_granted_via``, a row another tenant
+    was granted access to (#1769 code review). No field value spares a row that
+    carries the tenant's key: a global seed has an empty one and is never selected. Field names, keys and predicates are
     bound; the only thing formatted into the string is the clause index.
     """
     clauses = ["doc[@tenant_field] == @tenant_key"]
@@ -135,9 +135,6 @@ def _match(
         binds[f"keys{index}"] = keys
         binds[f"where{index}"] = parent.where
     match = "(" + " OR ".join(clauses) + ")"
-    for index, example in enumerate(entry.keep_when):
-        match += f" AND NOT MATCHES(doc, @keep{index})"
-        binds[f"keep{index}"] = example
     if entry.keep_if_granted_via is not None:
         # A grant from any tenant but this one: that tenant's rows point here.
         match += (

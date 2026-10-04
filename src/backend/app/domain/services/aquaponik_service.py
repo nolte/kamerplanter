@@ -277,8 +277,8 @@ class AquaponikService:
     def get_fcr_analysis(self, system_key: str, tenant_key: str) -> dict[str, Any]:
         self.get_system(system_key, tenant_key)
         stocks = self._repo.list_stocks(system_key, tenant_key)
-        feedings = self._repo.list_feedings(system_key, tenant_key, offset=0, limit=500)
-        total_feed_g = sum(f.amount_g for f in feedings)
+        # Every feeding of the system, not the newest 500 (#2025).
+        feeding_count, total_feed_g = self._repo.sum_feedings(system_key, tenant_key=tenant_key)
         biomass_gain_kg = sum(
             max(0.0, (s.count * s.avg_weight_g - s.initial_count * s.avg_weight_g)) / 1000 for s in stocks
         )
@@ -287,7 +287,7 @@ class AquaponikService:
             "total_feed_kg": round(total_feed_g / 1000, 3),
             "biomass_gain_kg": round(biomass_gain_kg, 3),
             "fcr": fcr,
-            "feeding_count": len(feedings),
+            "feeding_count": feeding_count,
         }
 
     # ── Supplementation & deficiency ────────────────────────────────────

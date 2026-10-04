@@ -13,8 +13,9 @@ query string, and they come from code, never from user input.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
@@ -280,6 +281,30 @@ class ArangoActuatorRepository(BaseArangoRepository[Actuator]):
             limit=limit,
             extra_filters=[("tenant_key", "==", tenant_key)],
         )
+
+    def count_events(self, actuator_key: str, *, tenant_key: str) -> dict[str, int]:
+        """Event totals of one actuator over its whole history, aggregated in AQL (#2025).
+
+        Returns ``{"total": n, "switch_cycles": n, "failures": n}``. A switch cycle is
+        an event whose ``new_state`` differs from its ``previous_state`` (a missing
+        previous state counts, as ``None != "on"`` does in Python); a failure is an
+        event whose ``success`` is not true. The statistics used to be computed from
+        one page of 500 events and stopped counting past it.
+        """
+        query = f"""
+        FOR doc IN {col.CONTROL_EVENTS}
+          FILTER doc.actuator_key == @actuator_key AND doc.tenant_key == @tenant_key
+          COLLECT AGGREGATE
+            total = COUNT(1),
+            switch_cycles = SUM(doc.previous_state != doc.new_state ? 1 : 0),
+            failures = SUM(doc.success == true ? 0 : 1)
+          RETURN {{ total, switch_cycles, failures }}
+        """
+        cursor = cast(
+            Cursor, self._db.aql.execute(query, bind_vars={"actuator_key": actuator_key, "tenant_key": tenant_key})
+        )
+        row = next(cursor, None) or {}
+        return {name: int(row.get(name) or 0) for name in ("total", "switch_cycles", "failures")}
 
     def list_events_for_location(
         self, location_key: str, tenant_key: str, offset: int = 0, limit: int = 50

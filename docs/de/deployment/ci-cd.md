@@ -678,6 +678,13 @@ Ein Rollback ist ein Commit im **GitOps-Repository**: `targetRevision` zurück a
     oben, weil es noch seinen ursprünglichen Release-Zeitstempel trägt; im
     Zweifel den Manifest-Digest pinnen statt einer bloßen Versionsnummer.
 
+!!! warning "Kein Rollback unter eine Migration, die einen Index zurückgezogen hat"
+
+    Ein älteres Backend-Image legt beim Start die eindeutigen Indizes wieder an,
+    die eine spätere Migration entfernt hat; die Migration läuft danach nie
+    wieder. Welche Versionen deshalb als Rollback-Ziel ausscheiden, steht im
+    [Changelog](../changelog/unreleased.md) unter „Betrieb (Rollback)“.
+
 ArgoCD zieht die ältere Chart-Version — mitsamt der Digests, die diese Version pinnt — und die Pods rollen zurück. Prüfe das Ergebnis **im laufenden Pod**, nicht in der Values-Datei und nicht am Controller-Status:
 
 ```bash

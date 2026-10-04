@@ -6,6 +6,11 @@ as the cross-replica advisory lock: its insert fails while the lock is held, so
 exactly one runner wins.  A stale lock (older than :data:`LOCK_TTL_SECONDS`) may
 be taken over so a crashed runner cannot wedge the startup forever.
 
+The seed registry runs under the same lock (#2028): one replica seeds while the
+others wait. A long holder keeps the lock fresh with :func:`refresh_lock`, and a
+reserved ``__seed_run__`` document records the last completed seed run so a
+replica that waited out another replica's run can tell that it happened.
+
 All access goes through the python-arango collection API with bound parameters —
 no user input is ever interpolated into a query string.
 """
@@ -38,6 +43,12 @@ logger = structlog.get_logger()
 LOCK_KEY = "__lock__"
 LOCK_TTL_SECONDS = 300  # 5 minutes — a lock older than this is treated as orphaned.
 
+#: The last completed seed run (#2028); not a migration record.
+SEED_RUN_KEY = "__seed_run__"
+
+#: Reserved documents in ``schema_migrations`` that are not migration records.
+RESERVED_KEYS: frozenset[str] = frozenset({LOCK_KEY, SEED_RUN_KEY})
+
 
 def _collection(db: StandardDatabase) -> Any:
     """Return the ``schema_migrations`` collection handle."""
@@ -45,9 +56,9 @@ def _collection(db: StandardDatabase) -> Any:
 
 
 def _iter_records(db: StandardDatabase) -> Iterator[dict[str, Any]]:
-    """Yield every tracked migration document, skipping the lock sentinel."""
+    """Yield every tracked migration document, skipping the reserved documents."""
     for doc in _collection(db).all():
-        if doc.get("_key") == LOCK_KEY:
+        if doc.get("_key") in RESERVED_KEYS:
             continue
         yield doc
 
@@ -188,3 +199,61 @@ def release_lock(db: StandardDatabase, owner: str) -> None:
         # Raced with a concurrent takeover between our read and delete — the
         # lock is no longer ours to free.
         logger.debug("migration_lock_release_race", error=loggable_error(exc))
+
+
+def refresh_lock(db: StandardDatabase, owner: str) -> bool:
+    """Renew ``acquired_at`` of a lock this runner holds; ``False`` when it no longer does.
+
+    A holder that works longer than :data:`LOCK_TTL_SECONDS` in total (the seed
+    registry, #2028) calls this between its steps, so the lock only goes stale when
+    the holder stops making progress — not merely because the whole run is long. The
+    renewal is a revision-checked replace like the takeover: a replica that has
+    taken the lock over in the meantime (or released it) makes this return ``False``
+    instead of the caller writing on as if it were still the only runner.
+    """
+    col = _collection(db)
+    existing = col.get(LOCK_KEY)
+    if existing is None or existing.get("owner") != owner:
+        logger.warning(
+            "migration_lock_lost",
+            stored_owner=existing.get("owner") if existing else None,
+            our_owner=owner,
+        )
+        return False
+    renewed = {
+        "_key": LOCK_KEY,
+        "_rev": existing.get("_rev"),
+        "owner": owner,
+        "acquired_at": datetime.now(UTC).isoformat(),
+    }
+    try:
+        col.replace(renewed)
+    except (DocumentReplaceError, DocumentRevisionError) as exc:
+        logger.warning("migration_lock_lost", our_owner=owner, error=loggable_error(exc))
+        return False
+    return True
+
+
+def seed_run_marker(db: StandardDatabase) -> dict[str, Any] | None:
+    """The record of the last completed seed run, or ``None`` before the first (#2028)."""
+    doc: dict[str, Any] | None = _collection(db).get(SEED_RUN_KEY)
+    return doc
+
+
+def record_seed_run(db: StandardDatabase, *, run_id: str, fingerprint: str, failed_jobs: list[str]) -> None:
+    """Record a completed seed run: its id, the seed-input fingerprint and the jobs that failed.
+
+    Written by the lock holder before it releases the lock, so a replica that waited
+    for the lock reads either the previous record or this one, never a half-written
+    run.
+    """
+    _collection(db).insert(
+        {
+            "_key": SEED_RUN_KEY,
+            "run_id": run_id,
+            "fingerprint": fingerprint,
+            "failed_jobs": list(failed_jobs),
+            "completed_at": datetime.now(UTC).isoformat(),
+        },
+        overwrite=True,
+    )

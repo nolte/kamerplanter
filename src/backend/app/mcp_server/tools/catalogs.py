@@ -24,6 +24,7 @@ from typing import Any
 from pydantic import Field
 
 from app.common.enums import McpPermission
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.base import CatalogueToolInput, TenantToolInput, ToolBase, ToolInput, mcp_tool
 from app.mcp_server.context import ToolContext
@@ -85,7 +86,14 @@ class ListSubstrates(ToolBase):
         # species tools took in #1121. Omitted stays the shared catalogue, which is
         # what this tool returned before and what an existing client expects.
         tenant_key = ctx.catalogue_tenant_key(args.tenant)
-        substrates, total = ctx.substrate_service.list_substrates(offset=0, limit=_MAX_LIMIT, tenant_key=tenant_key)
+        # Filter over every substrate in scope, not the first 200: a tenant mix past the
+        # cap answered "no such substrate" without saying the scan stopped (#2025).
+        substrates = read_all_pages(
+            lambda offset, limit: ctx.substrate_service.list_substrates(
+                offset=offset, limit=limit, tenant_key=tenant_key
+            )
+        )
+        total = len(substrates)
         selected = list(substrates)
         if args.query:
             needle = args.query.strip().lower()

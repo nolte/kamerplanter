@@ -671,6 +671,13 @@ A rollback is a commit in the **GitOps repository**: set `targetRevision` back t
     above because it still carries its original release timestamp; when in
     doubt, pin the manifest digest instead of a bare version number.
 
+!!! warning "No rollback below a migration that retired an index"
+
+    An older backend image re-creates, at startup, the unique indexes a later
+    migration dropped; the migration never runs again. Which versions are
+    therefore no rollback target is listed in the
+    [changelog](../changelog/unreleased.md) under "Operations (rollback)".
+
 ArgoCD pulls the older chart version — together with the digests that version pins — and the pods roll back. Verify the result **in the running pod**, not in the values file and not from a controller status:
 
 ```bash

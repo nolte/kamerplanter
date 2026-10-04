@@ -31,7 +31,7 @@ We introduce a **versioned, tracked migration framework** and draw a clear conce
 **Core building blocks:**
 
 - **Tracking collection `schema_migrations`** — one document per applied version, holding the version number, name, a checksum of the `up()` source, timestamp, and duration. If the checksum of an already-applied migration drifts, a warning is logged — applied migrations are treated as immutable; corrections ship as a **new** migration.
-- **Concurrency lock** — prevents multiple backend replicas starting at the same time from applying the same migration twice.
+- **Concurrency lock** — prevents multiple backend replicas starting at the same time from applying the same migration twice. The same lock also serialises the seed registry: one replica seeds while the others wait. If another replica completed a full run of the same seed inputs in the meantime, the waiting replica does not seed again. If the bounded wait runs out, startup fails instead of silently skipping the seeds.
 - **Strictly linear version history** — migrations are sequentially numbered (`v0001`, `v0002`, …); gaps before the current head are an error, and out-of-order application is not allowed.
 - **Migration protocol** with `up()`/`down()`: rollback is supported where it makes sense; non-reversible data transformations declare that honestly (`reversible = False`) instead of faking a reversal.
 - **Baseline migration `v0001`** marks the database state prior to the framework's introduction; the five existing migrations were wrapped as `v0002`–`v0006`.
@@ -69,7 +69,7 @@ Migrations currently still run inside the FastAPI `lifespan` on startup (protect
 - A failing reference-data seed no longer takes down the startup.
 - One-off migrations run exactly once, tracked, and in a defined order.
 - The database state is inspectable at any time via `current`/`history`.
-- Replica races on parallel pod startup are excluded by the lock.
+- Replica races on parallel pod startup are excluded by the lock — for migrations and seeds.
 - New migrations follow a single, tested pattern (`create <slug>` scaffolding).
 
 ### Negative

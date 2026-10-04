@@ -4,9 +4,11 @@ All data is loaded from YAML files in the seed_data/ directory.
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import structlog
+from arango.cursor import Cursor
+from arango.database import StandardDatabase
 
 from app.common.dependencies import (
     get_db,
@@ -25,7 +27,7 @@ from app.common.enums import (
     PhotoperiodType,
     StressTolerance,
 )
-from app.data_access.arango.base_repository import get_all_pages
+from app.data_access.arango.base_repository import get_all_pages, read_all_pages
 from app.data_access.arango.phase_sequence_repository import BOUND_BY_SEED
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
 from app.domain.interfaces.species_repository import ISpeciesRepository
@@ -151,7 +153,7 @@ def link_indoor_species_to_phase_sequence() -> None:
     # every sequence exists — the binding is completed within the same seed run, not on a
     # later boot. ``verify_all_species_bound`` runs at the end of that job and reports at
     # error level if it was not, so this early return can no longer be silent-by-default.
-    all_seqs, _ = ps_repo.get_all_sequences(0, 500)
+    all_seqs = read_all_pages(ps_repo.get_all_sequences)  # every sequence, not the first 500 (#2025)
     seq_key_by_name: dict[str, str] = {s.name: (s.key or "") for s in all_seqs}
     indoor_key = seq_key_by_name.get(INDOOR_DEFAULT_SEQUENCE, "")
     if not indoor_key:
@@ -511,6 +513,64 @@ def seed_cultivars(
                 logger.info("cultivar_created", species=sci_name, cultivar=cv_data["name"])
 
 
+#: Duplicates of a seed task template under its global seed workflow (#2027 review,
+#: SEC-A). Only global rows are in scope — the parent workflow global and named in
+#: ``workflows.yaml``, the task template itself global and one the YAML ships for
+#: that workflow — so a tenant's row can never be selected. The oldest row (lowest
+#: ``_key``) of each ``(workflow, name)`` group is kept.
+_SEED_TASK_TEMPLATE_DUPLICATES_AQL = """
+FOR wf IN @@workflows
+    FILTER wf.tenant_key == "" OR wf.tenant_key == null
+    FILTER wf.name IN @workflow_names
+    FOR doc IN @@templates
+        FILTER doc.workflow_template_key == wf._key
+        FILTER doc.tenant_key == "" OR doc.tenant_key == null
+        FILTER [wf.name, doc.name] IN @seed_pairs
+        COLLECT name = doc.name, wfk = doc.workflow_template_key INTO group
+        LET keys = (FOR g IN group SORT g.doc._key RETURN g.doc._key)
+        FILTER LENGTH(keys) > 1
+        FOR key IN SLICE(keys, 1)
+            RETURN key
+"""
+
+
+def remove_duplicate_seed_task_templates(db: StandardDatabase, workflow_data: dict[str, Any]) -> list[str]:
+    """Delete duplicate rows of a seed task template under its seed workflow; return their keys.
+
+    The cleanup once ran over **every** task template, grouped by ``(name,
+    workflow_template_key)``, with no tenant in the key: measured on ArangoDB 3.12,
+    two tenants' standalone templates named "Gießen" (both without a workflow) were one
+    group and one of them was deleted at the next boot, and so was a tenant's second
+    "Gießen" (day 10 beside day 3) in its own workflow. It now selects only global
+    rows the seed ships under a global seed workflow
+    (:data:`_SEED_TASK_TEMPLATE_DUPLICATES_AQL`), which is the duplicate the cleanup
+    was written for.
+    """
+    from app.data_access.arango import collections as seed_col
+
+    workflow_names = [w["name"] for w in workflow_data.get("workflow_templates", [])]
+    seed_pairs = [[t["workflow_name"], t["name"]] for t in workflow_data.get("task_templates", [])]
+    cursor = cast(
+        Cursor,
+        db.aql.execute(
+            _SEED_TASK_TEMPLATE_DUPLICATES_AQL,
+            bind_vars={
+                "@workflows": seed_col.WORKFLOW_TEMPLATES,
+                "@templates": seed_col.TASK_TEMPLATES,
+                "workflow_names": workflow_names,
+                "seed_pairs": seed_pairs,
+            },
+        ),
+    )
+    keys = [str(key) for key in cursor]
+    tt_col = db.collection(seed_col.TASK_TEMPLATES)
+    for key in keys:
+        tt_col.delete(key)
+    if keys:
+        logger.info("task_template_duplicates_removed", count=len(keys))
+    return keys
+
+
 def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
     """Seed all reference data into the database. Idempotent (upsert behavior)."""
     # ── Seed location types (REQ-002) — delegated to startup module ──
@@ -752,7 +812,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
 
     # ── Seed IPM data (REQ-010) ──────────────────────────────────────
     ipm_repo = get_ipm_repo()
-    existing_pests, _ = ipm_repo.get_all_pests(0, 200)
+    existing_pests = read_all_pages(ipm_repo.get_all_pests)  # not the first 200 (#2025)
     existing_pest_map = {p.scientific_name: p for p in existing_pests}
 
     pest_key_map: dict[str, str] = {}
@@ -768,7 +828,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             pest_key_map[pest.common_name] = created.key or ""
             logger.info("pest_created", name=pest.common_name)
 
-    existing_diseases, _ = ipm_repo.get_all_diseases(0, 200)
+    existing_diseases = read_all_pages(ipm_repo.get_all_diseases)
     existing_disease_map = {d.scientific_name: d for d in existing_diseases}
 
     disease_key_map: dict[str, str] = {}
@@ -784,7 +844,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             disease_key_map[disease.common_name] = created.key or ""
             logger.info("disease_created", name=disease.common_name)
 
-    existing_treatments, _ = ipm_repo.get_all_treatments(0, 200)
+    existing_treatments = read_all_pages(ipm_repo.get_all_treatments)
     existing_treatment_map = {t.name: t for t in existing_treatments}
 
     treatment_key_map: dict[str, str] = {}
@@ -857,28 +917,17 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
     # registry job *after* the plant-info seeds, so a species defined only there resolves
     # (#1956).
 
-    # ── Deduplicate task templates (one-time cleanup) ────────────────
-    from app.data_access.arango import collections as seed_col
-
-    tt_col = db.collection(seed_col.TASK_TEMPLATES)
-    dedup_query = (
-        f"FOR doc IN {seed_col.TASK_TEMPLATES} "
-        f"COLLECT name = doc.name, wfk = doc.workflow_template_key INTO group "
-        f"LET docs = group[*].doc "
-        f"FILTER LENGTH(docs) > 1 "
-        f"LET to_remove = SLICE(docs, 1) "
-        f"FOR d IN to_remove RETURN d._key"
-    )
-    dup_keys = list(db.aql.execute(dedup_query))
-    if dup_keys:
-        for dk in dup_keys:
-            tt_col.delete(dk)
-        logger.info("task_template_duplicates_removed", count=len(dup_keys))
+    # ── Deduplicate seed task templates (one-time cleanup) ───────────
+    remove_duplicate_seed_task_templates(db, workflow_data)
 
     # ── Seed Workflow templates + Task templates (REQ-006) ───────────
     task_repo = get_task_repo()
-    existing_wfs, _ = task_repo.get_all_workflow_templates(0, 200)
-    existing_wf_map = {w.name: w for w in existing_wfs}
+    # Global rows only (#2027): a tenant's own template named like a seed is neither
+    # rewritten as a global system template nor given the seed's phases and task
+    # templates. The first row per name wins; the rows come ordered by ``_key``.
+    existing_wf_map: dict[str, WorkflowTemplate] = {}
+    for existing_wf in task_repo.get_global_workflow_templates():
+        existing_wf_map.setdefault(existing_wf.name, existing_wf)
     wf_key_map: dict[str, str] = {}
 
     for wt_data in workflow_data.get("workflow_templates", []):
@@ -889,8 +938,11 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             task_repo.update_workflow_template(found.key or "", wt)
             logger.info("workflow_template_upserted", name=wt.name)
         else:
-            created = task_repo.create_workflow_template(wt)
-            wf_key_map[wt.name] = created.key or ""
+            created_wf = task_repo.create_workflow_template(wt)
+            # Recorded so a name the YAML lists twice updates the row just created
+            # instead of colliding with it on the unique (tenant_key, name) index.
+            existing_wf_map[wt.name] = created_wf
+            wf_key_map[wt.name] = created_wf.key or ""
             logger.info("workflow_template_created", name=wt.name)
 
     # Seed workflow phases

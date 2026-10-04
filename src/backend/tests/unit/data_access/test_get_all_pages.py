@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.data_access.arango.base_repository import PagingCeilingError, get_all_pages
+from app.data_access.arango.base_repository import PagingCeilingError, get_all_pages, read_all_pages
 
 
 class _Repo:
@@ -65,3 +65,34 @@ def test_ceiling_raises_instead_of_looping() -> None:
 
     with pytest.raises(PagingCeilingError):
         get_all_pages(Endless(), all_tenants=True, page_size=10, max_pages=5)
+
+
+class TestReadAllPages:
+    """#2025: the same paging for list methods not spelled ``get_all``."""
+
+    @pytest.mark.parametrize("n", [0, 1, 999, 1000, 1001, 2500])
+    def test_returns_every_row_once_in_order(self, n: int) -> None:
+        rows = [f"r{i:05d}" for i in range(n)]
+        calls: list[tuple[int, int]] = []
+
+        def fetch(offset: int, limit: int) -> tuple[list[str], int]:
+            calls.append((offset, limit))
+            return rows[offset : offset + limit], len(rows)
+
+        assert read_all_pages(fetch) == rows
+        assert calls == [(o, 1000) for o in range(0, max(n, 1), 1000)]
+
+    def test_a_bound_method_with_positional_offset_and_limit_is_a_fetch(self) -> None:
+        class Ipm:
+            def get_all_pests(self, offset: int = 0, limit: int = 50) -> tuple[list[int], int]:
+                return list(range(1234))[offset : offset + limit], 1234
+
+        assert read_all_pages(Ipm().get_all_pests, page_size=200) == list(range(1234))
+
+    def test_ceiling_raises_instead_of_looping(self) -> None:
+        with pytest.raises(PagingCeilingError):
+            read_all_pages(lambda offset, limit: (["x"] * limit, 10**12), page_size=10, max_pages=5)
+
+    def test_page_size_must_be_positive(self) -> None:
+        with pytest.raises(ValueError, match="page_size"):
+            read_all_pages(lambda offset, limit: ([], 0), page_size=0)

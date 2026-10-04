@@ -5,6 +5,7 @@ from app.common.datetimes import ensure_aware_utc, now_utc
 from app.common.enums import TerminationType
 from app.common.exceptions import KarenzViolationError, NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.quality_scoring_engine import QualityScoringEngine
 from app.domain.engines.readiness_engine import ReadinessEngine
@@ -111,10 +112,12 @@ class HarvestService:
             if obs.indicator_key:
                 reliabilities[obs.indicator_key] = 0.5  # Default
 
-        # Try to get actual reliability scores from indicators
-        for _key in indicator_keys:
-            indicators = self._repo.get_all_indicators(0, 1000)
-            for ind in indicators[0]:
+        # Actual reliability scores from the indicators: read every indicator once.
+        # The read used to sit inside a loop over ``indicator_keys`` and fetch one
+        # fixed page of 1000 per key; an observed indicator past that page kept the
+        # 0.5 default (#2025).
+        if indicator_keys:
+            for ind in read_all_pages(self._repo.get_all_indicators):
                 if ind.key in indicator_keys:
                     reliabilities[ind.key or ""] = ind.reliability_score
 
@@ -165,26 +168,26 @@ class HarvestService:
         # batch_id is nullable since the ""->None model normalization; treat
         # None and blank alike and always persist a generated identifier.
         if not (batch.batch_id or "").strip():
-            batch.batch_id = self._generate_batch_id(plant_key, harvest_date)
+            batch.batch_id = self._generate_batch_id(plant_key, harvest_date, tenant_key=batch.tenant_key)
 
         return self._repo.create_batch(batch)
 
-    def _generate_batch_id(self, plant_key: str, harvest_date: datetime) -> str:
+    def _generate_batch_id(self, plant_key: str, harvest_date: datetime, *, tenant_key: str) -> str:
         """Build a deterministic, collision-free ``batch_id`` for a blank input.
 
         Base form is ``HARVEST-<YYYYMMDD>-<plant_key>``. If a batch for the same
         plant already exists on that day, a numeric suffix (``-2``, ``-3`` …) is
         appended until a free identifier is found; an exhausted range falls back
-        to a short random suffix. The unique ``batch_id`` index stays the
-        authoritative backstop against concurrent races.
+        to a short random suffix. The unique ``(tenant_key, batch_id)`` index stays
+        the authoritative backstop against concurrent races (#2065).
         """
         day = harvest_date.strftime("%Y%m%d")
         base = f"HARVEST-{day}-{plant_key or 'unassigned'}"
-        if not self._repo.batch_id_exists(base):
+        if not self._repo.batch_id_exists(base, tenant_key=tenant_key):
             return base
         for suffix in range(2, 1000):
             candidate = f"{base}-{suffix}"
-            if not self._repo.batch_id_exists(candidate):
+            if not self._repo.batch_id_exists(candidate, tenant_key=tenant_key):
                 return candidate
         return f"{base}-{uuid4().hex[:8]}"
 

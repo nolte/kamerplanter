@@ -31,7 +31,7 @@ Wir führen ein **versioniertes, getracktes Migrations-Framework** ein und trenn
 **Kernbausteine:**
 
 - **Tracking-Collection `schema_migrations`** — pro angewandter Version ein Dokument mit Versionsnummer, Name, Checksumme des `up()`-Quelltexts, Zeitstempel und Dauer. Weicht die Checksumme einer bereits angewandten Migration ab, wird das als Warnung geloggt — angewandte Migrationen gelten als unveränderlich, Korrekturen erfolgen als **neue** Migration.
-- **Concurrency-Lock** — verhindert, dass mehrere gleichzeitig startende Backend-Replicas dieselbe Migration doppelt ausführen.
+- **Concurrency-Lock** — verhindert, dass mehrere gleichzeitig startende Backend-Replicas dieselbe Migration doppelt ausführen. Derselbe Lock serialisiert auch die Seed-Registry: Ein Replica seedet, die anderen warten. Hat währenddessen ein anderes Replica einen vollständigen Lauf derselben Seed-Eingaben abgeschlossen, seedet das wartende Replica nicht erneut. Läuft die begrenzte Wartezeit ab, bricht der Start ab, statt die Seeds still zu überspringen.
 - **Strikt lineare Versionshistorie** — Migrationen sind fortlaufend nummeriert (`v0001`, `v0002`, …); Lücken vor dem aktuellen Stand sind ein Fehler, Out-of-Order-Anwendung ist ausgeschlossen.
 - **Migration-Protokoll** mit `up()`/`down()`: Rollback wird unterstützt, wo sinnvoll; nicht umkehrbare Datentransformationen deklarieren das ehrlich (`reversible = False`) statt eine scheinbare Umkehr vorzutäuschen.
 - **Baseline-Migration `v0001`** markiert den Datenbankstand vor Einführung des Frameworks; die fünf bestehenden Migrationen wurden als `v0002`–`v0006` gekapselt.
@@ -69,7 +69,7 @@ Aktuell laufen Migrationen weiterhin im FastAPI-`lifespan` beim Start (abgesiche
 - Ein fehlschlagender Referenzdaten-Seed reißt den Startup nicht mehr mit.
 - Einmalige Migrationen laufen genau einmal, getrackt und in definierter Reihenfolge.
 - Der Datenbankstand ist über `current`/`history` jederzeit inspizierbar.
-- Replica-Races beim parallelen Pod-Start sind durch den Lock ausgeschlossen.
+- Replica-Races beim parallelen Pod-Start sind durch den Lock ausgeschlossen — für Migrationen und Seeds.
 - Neue Migrationen folgen einem einheitlichen, getesteten Muster (`create <slug>`-Scaffolding).
 
 ### Negativ

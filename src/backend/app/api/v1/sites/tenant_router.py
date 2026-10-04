@@ -215,7 +215,7 @@ def get_location_tree(
 
     # Count active plants per location
     plants_by_location: dict[str, int] = {}
-    plants, _ = plant_service.list_plants(offset=0, limit=10000, tenant_key=ctx.tenant_key)
+    plants = plant_service.list_all_plants(ctx.tenant_key)  # every plant, not the first 10000 (#2025)
     for p in plants:
         if p.location_key and p.location_key in location_keys and not p.removed_on:
             plants_by_location[p.location_key] = plants_by_location.get(p.location_key, 0) + 1

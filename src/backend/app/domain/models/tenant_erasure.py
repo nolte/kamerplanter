@@ -87,9 +87,14 @@ class TenantErasureEntry(BaseModel):
     tenant's key, **or** when one of *parents* points at a row of the tenant —
     ``locations``/``slots`` carry a ``tenant_key`` field that no write path fills
     (#1397), so their site is the only reliable anchor.
+
+    No field value spares a row that carries the tenant's key: the value-based
+    ``keep_when`` exception kept a tenant's own ``is_system`` rows through the
+    erasure (#2027 follow-up) and is gone; ``extra="forbid"`` makes an entry that
+    still passes it fail at import instead of being silently ignored.
     """
 
-    model_config = {"frozen": True}
+    model_config = {"frozen": True, "extra": "forbid"}
 
     collection: str
     action: TenantErasureAction
@@ -97,9 +102,6 @@ class TenantErasureEntry(BaseModel):
     #: API key, whose tenant restriction is ``tenant_scope`` (#1769 review GDPR-007).
     tenant_field: str = "tenant_key"
     parents: tuple[TenantErasureParent, ...] = ()
-    #: Rows matching one of these equality examples are never the tenant's to
-    #: erase (a system seed the v0004 backfill stamped, ``is_system: true``).
-    keep_when: tuple[dict[str, bool | str], ...] = ()
     #: An edge collection of access grants (``tenant_has_access``): a row another
     #: tenant was granted stays, because that tenant's data points at it (#1638).
     keep_if_granted_via: str | None = None

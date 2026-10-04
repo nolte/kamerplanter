@@ -17,6 +17,7 @@ from app.common.exceptions import NotFoundError, ValidationError
 from app.common.log_privacy import loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.cyclic_lifecycle_engine import CyclicLifecycleEngine
@@ -117,6 +118,14 @@ class PlantInstanceService:
 
     def list_plants(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[PlantInstance], int]:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
+
+    def list_all_plants(self, tenant_key: str) -> list[PlantInstance]:
+        """Every plant of ``tenant_key``, page by page — for aggregates (#2025).
+
+        :meth:`list_plants` returns one page; a per-location count built from a single
+        fixed window of 10000 silently undercounted past it.
+        """
+        return get_all_pages(self._repo, tenant_key=tenant_key)
 
     def get_plant(self, key: PlantID, tenant_key: str = "") -> PlantInstance:
         plant = self._repo.get_or_raise(key)

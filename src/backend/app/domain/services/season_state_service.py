@@ -19,6 +19,7 @@ from app.common.enums import SeasonPhase
 from app.common.exceptions import NotFoundError, SeasonStateUnavailableError
 from app.common.log_privacy import loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.engines.frost_exposure_resolver import resolve_frost_exposure
 from app.domain.engines.season_state_engine import SeasonStateEngine, SeasonStateTransition
 from app.domain.models.season_state import SeasonState
@@ -39,10 +40,6 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 _ENTITY = "SeasonState"
-
-#: How many of a tenant's sites the overview resolves. Mirrors the 200 the state
-#: listing above it uses, so the two halves of the answer are paged alike.
-_OVERVIEW_SITE_LIMIT = 200
 
 
 class SeasonStateService:
@@ -352,10 +349,17 @@ class SeasonStateService:
         read-shaped request. Nothing is written here; the daily Celery task remains
         the only writer (#1461).
         """
-        stored_states, _total = self._repo.list_for_tenant(tenant_key)
+        # Every stored state: ``list_for_tenant`` defaults to one page of 200 (#2025).
+        stored_states = read_all_pages(
+            lambda offset, limit: self._repo.list_for_tenant(tenant_key, offset=offset, limit=limit)
+        )
         by_site = {state.site_key: state for state in stored_states}
 
-        sites, _site_total = self._site_repo.get_all_sites(0, _OVERVIEW_SITE_LIMIT, tenant_key=tenant_key)
+        # Every site of the tenant: a frost-exposed site past a first page of 200 with no
+        # stored state yet was missing from the overview (#2025).
+        sites = read_all_pages(
+            lambda offset, limit: self._site_repo.get_all_sites(offset, limit, tenant_key=tenant_key)
+        )
         overview: list[SeasonState] = []
         seen: set[str] = set()
         for site in sites:

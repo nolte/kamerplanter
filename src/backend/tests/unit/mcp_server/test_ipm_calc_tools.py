@@ -443,3 +443,48 @@ async def test_mixing_protocol_still_accepts_the_coarse_phase_names():
         ),
     )
     assert resp.data["resolved_ec_phase"] == "flowering"
+
+
+# ── #2025: a filtered catalogue answer covers rows past the old scan cap ─────
+class _PagingIpmService:
+    """Pages like the repository (honours offset/limit, reports the whole total)."""
+
+    def __init__(self, pests, diseases):
+        self._pests, self._diseases = pests, diseases
+
+    def list_pests(self, offset=0, limit=50):
+        return self._pests[offset : offset + limit], len(self._pests)
+
+    def list_diseases(self, offset=0, limit=50):
+        return self._diseases[offset : offset + limit], len(self._diseases)
+
+
+@pytest.mark.asyncio
+async def test_list_pests_and_diseases_find_a_match_past_the_old_scan_of_500():
+    pests = [_Pest(f"pe{i:04d}", f"Filler {i}", f"filler {i}", symptoms="none") for i in range(550)]
+    pests.append(_Pest("pe-late", "Tetranychus urticae", "Spider mite", symptoms="feine Gespinste"))
+    diseases = [_Disease(f"di{i:04d}", f"Filler {i}", f"filler {i}") for i in range(550)]
+    diseases.append(_Disease("di-late", "Botrytis cinerea", "Grey mould"))
+    svc = _PagingIpmService(pests, diseases)
+
+    pest_resp = await ListPests().run(_ctx(ipm_service=svc), ListPests.Input(query="gespinste"))
+    disease_resp = await ListDiseases().run(_ctx(ipm_service=svc), ListDiseases.Input(query="botrytis"))
+
+    assert [i["pest_key"] for i in pest_resp.data["items"]] == ["pe-late"]
+    assert [i["disease_key"] for i in disease_resp.data["items"]] == ["di-late"]
+
+
+@pytest.mark.asyncio
+async def test_list_fertilizers_finds_a_product_past_the_old_cap_of_100():
+    class _Paging(_FertService):
+        def list_fertilizers(self, offset=0, limit=50, filters=None, tenant_key=""):
+            items = list(self._ferts.values())
+            return items[offset : offset + limit], len(items)
+
+    ferts = [_Fert(f"f{i:03d}", f"Filler {i}") for i in range(120)] + [_Fert("f-late", "Rare Bloom")]
+    resp = await ListFertilizers().run(
+        _ctx(fertilizer_service=_Paging(ferts)), ListFertilizers.Input(query="rare bloom")
+    )
+
+    assert [i["fertilizer_key"] for i in resp.data["items"]] == ["f-late"]
+    assert resp.data["total"] == 121

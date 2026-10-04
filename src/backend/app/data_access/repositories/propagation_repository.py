@@ -116,12 +116,14 @@ class PropagationRepository:
         return [PropagationEvent(**self._events._from_doc(doc)) for doc in cursor]
 
     def list_events_for_batch(self, batch_key: str, tenant_key: str) -> list[PropagationEvent]:
-        return self._events.get_page(
-            filters=[("tenant_key", "==", tenant_key), ("batch_key", "==", batch_key)],
+        """Every event of the batch, oldest first — not a first page of 500 (#2025)."""
+        return self._events.find_by_field(
+            "batch_key",
+            batch_key,
             sort="created_at",
             sort_direction="ASC",
-            limit=500,
-        )[0]
+            extra_filters=[("tenant_key", "==", tenant_key)],
+        )
 
     # ── Batches ──────────────────────────────────────────────────────────────
 
@@ -244,12 +246,14 @@ class PropagationRepository:
         return self._phenotypes.create(note)
 
     def list_phenotypes_for_plant(self, plant_key: str, tenant_key: str) -> list[PhenotypeNote]:
-        return self._phenotypes.get_page(
-            filters=[("tenant_key", "==", tenant_key), ("plant_key", "==", plant_key)],
+        """Every phenotype note of the plant, newest first — not a first page of 500 (#2025)."""
+        return self._phenotypes.find_by_field(
+            "plant_key",
+            plant_key,
             sort="created_at",
             sort_direction="DESC",
-            limit=500,
-        )[0]
+            extra_filters=[("tenant_key", "==", tenant_key)],
+        )
 
     def get_phenotype(self, key: str, tenant_key: str) -> PhenotypeNote | None:
         note = self._phenotypes.get_by_key(key)
