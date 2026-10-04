@@ -42,6 +42,15 @@ vollständige Löschung aus wie ein selbst gestellter Löschantrag, mit demselbe
 als Nachweis und derselben automatischen Wiederholung bei einem fehlgeschlagenen Schritt — mehr
 dazu weiter unten unter „Alle Löschwege tun dasselbe".
 
+Der Task wählt nur Konten, die nie bestätigt, nie von einem Administrator herabgestuft und nie
+angemeldet waren und die **keine Anbieterzeile** haben. Wer sich lokal registriert hat, hat eine
+`LOCAL`-Anbieterzeile und wird daher noch **nicht** erfasst. Diese Konten löscht der Task
+nicht, sondern **zählt** sie bei jedem Lauf (`local_registrations_pending` im Ergebnis und die
+Warnzeile `unverified_local_registrations_pending`). Erst wenn du die Zahl gesehen hast, schaltest
+du die Löschung mit `RETENTION_UNVERIFIED_LOCAL_REAP_ENABLED=true` frei; danach zählen nur noch
+föderierte Anbieterzeilen (Google, GitHub, Apple, OIDC) als „verknüpft", und Servicekonten bleiben
+ausgenommen. Schlägt das Zählen fehl, bleibt der Task beim engen Selektor.
+
 ### IP-Anonymisierung (R-03)
 
 IP-Adressen werden `RETENTION_IP_ANONYMIZATION_DAYS` Tage nach der Ausstellung der
@@ -705,6 +714,7 @@ Konstruktor prüft dieselben Unter- und Obergrenzen noch einmal (NFR-011 AK-14):
 |-------------|-------|---------|---------|---------|----------------------------------|
 | `RETENTION_SOFT_DELETE_RETENTION_DAYS` | R-01 | 90 | 1 | 90 | `PRIVACY_HARD_DELETE_AFTER_DAYS` |
 | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | 7 | — |
+| `RETENTION_UNVERIFIED_LOCAL_REAP_ENABLED` | R-02 | `false` (Schalter) | — | — | — |
 | `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | 7 | — |
 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | 72 | `PRIVACY_EXPORT_RETENTION_HOURS` |
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 3 | 1 | 3 | — |

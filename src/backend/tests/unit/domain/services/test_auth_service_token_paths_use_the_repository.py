@@ -106,7 +106,7 @@ class _FakeUserRepository(IUserRepository):
     def count(self, *, active_only: bool = False) -> int:
         return 1 if self._user else 0
 
-    def get_unverified_before(self, cutoff_iso: str) -> list[User]:
+    def get_unverified_before(self, cutoff_iso: str, *, include_local_registrations: bool = False) -> list[User]:
         return []
 
 

@@ -1420,7 +1420,15 @@ class PrivacyService:
             # their address since is not an abandoned registration (#1767 review).
             user = self._user_repo.get_by_key(user_key)
             # A demoted account (an admin lowered ``email_verified``, #1992) is established, not abandoned.
-            if user is None or user.email_verified or user.email_verified_lowered_at is not None:
+            # An account that ever signed in is in use, whatever ``email_verified`` says (#2010):
+            # the widened selector reads ``last_login_at`` at selection time; this is the same check
+            # again at erasure time.
+            if (
+                user is None
+                or user.email_verified
+                or user.email_verified_lowered_at is not None
+                or user.last_login_at is not None
+            ):
                 return None, False
 
         # The request first, so a failure after the account is closed still
@@ -1983,12 +1991,19 @@ class PrivacyService:
                     f"{self._retention.unverified_account_days}-day period has elapsed: at the latest "
                     f"{self._retention.unverified_account_days + 1} days after registration."
                 ),
-                enforcement_status="enforced",
+                # #2010: a locally registered account is only reached once the operator released the run.
+                enforcement_status="enforced" if self._retention.unverified_local_reap_enabled else "partial",
                 exception_note=(
                     "An account with a linked login provider (e.g. Google, GitHub, OIDC) is never removed by this "
                     "rule, whether or not its e-mail address was confirmed: its owner can still sign in. "
                     "An account whose registration time is missing or unreadable is likewise never removed by "
                     "this rule (it is counted and reported to the operator instead)."
+                    + (
+                        ""
+                        if self._retention.unverified_local_reap_enabled
+                        else " An account registered with a password and never confirmed is, for now, counted but "
+                        "not yet removed: the operator has to release that step first."
+                    )
                 ),
             ),
             RetentionCategoryInfo(

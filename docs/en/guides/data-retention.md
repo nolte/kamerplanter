@@ -40,6 +40,15 @@ as a self-filed erasure request, with the same erasure request as proof and the 
 automatic retry on a failed step — more on this further below under "All deletion paths do
 the same".
 
+The task selects only accounts that were never confirmed, never demoted by an administrator and
+never signed in, and that have **no provider row**. Someone who registered locally has a `LOCAL`
+provider row and is therefore **not yet** reached. The task does not delete those accounts; it
+**counts** them on every run (`local_registrations_pending` in the result and the
+`unverified_local_registrations_pending` warning). Only once you have seen the number do you release
+the deletion with `RETENTION_UNVERIFIED_LOCAL_REAP_ENABLED=true`; after that only federated provider
+rows (Google, GitHub, Apple, OIDC) count as "linked", and service accounts stay exempt. If the count
+fails, the task keeps the narrow selector.
+
 ### IP Anonymization (R-03)
 
 IP addresses are automatically anonymized `RETENTION_IP_ANONYMIZATION_DAYS` days after
@@ -665,6 +674,7 @@ checks the same floor again:
 |---------|------|---------|---------|---------|---------------------------|
 | `RETENTION_SOFT_DELETE_RETENTION_DAYS` | R-01 | 90 | 1 | 90 | `PRIVACY_HARD_DELETE_AFTER_DAYS` |
 | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | R-02 | 7 | 1 | 7 | — |
+| `RETENTION_UNVERIFIED_LOCAL_REAP_ENABLED` | R-02 | `false` (switch) | — | — | — |
 | `RETENTION_IP_ANONYMIZATION_DAYS` | R-03 | 7 | 1 | 7 | — |
 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` | R-05 | 72 | 1 | 72 | `PRIVACY_EXPORT_RETENTION_HOURS` |
 | `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | R-06 | 3 | 1 | 3 | — |

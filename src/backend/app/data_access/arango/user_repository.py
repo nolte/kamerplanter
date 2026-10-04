@@ -9,6 +9,11 @@ from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.user import User
 
+#: An instant comparison (#1784), and a missing or unreadable ``created_at`` selects nothing.
+_REGISTERED_BEFORE_CUTOFF = (
+    "DATE_TIMESTAMP(doc.created_at) != null AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)"
+)
+
 
 class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
     _model_cls = User
@@ -256,7 +261,7 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         cursor = self._db.aql.execute(query, bind_vars={"@collection": col.USERS})
         return next(cursor, 0)
 
-    def get_unverified_before(self, cutoff_iso: str) -> list[User]:
+    def get_unverified_before(self, cutoff_iso: str, *, include_local_registrations: bool = False) -> list[User]:
         """Abandoned half-registrations, for `cleanup_unverified_accounts` to purge.
 
         **An account with a linked federated provider is excluded, and that
@@ -290,58 +295,119 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         can, today and every day after, so they are not an abandoned registration
         whatever `email_verified` says.
 
+        **A locally registered account is excluded by default, and that is the
+        measured gap of #2010.** Registration writes a ``LOCAL`` ``auth_providers`` row
+        for every account, and by default *any* provider row counts as linked, so the
+        default selector reaches provider-less accounts only (seeds, imports, legacy
+        rows). ``include_local_registrations=True`` narrows the exclusion to federated
+        rows (``provider != 'local'``): an abandoned local registration is then
+        selected too. Widening also drops ``account_type == 'service'`` (a machine
+        account has no mailbox to confirm). The caller widens only after the operator
+        has seen the dry-run count (:meth:`count_unverified_local_registrations_before`).
+
         ``created_at`` is compared as an instant (#1784, see
         :mod:`app.data_access.arango.query_builder`); an account whose creation
         time is missing or unreadable is not selected — its age is unknown, and
         every account this returns is erased.
         """
-        query = """
+        cursor = self._db.aql.execute(
+            self._unverified_query(
+                age=_REGISTERED_BEFORE_CUTOFF,
+                include_local_registrations=include_local_registrations,
+                tail="RETURN doc",
+            ),
+            bind_vars={
+                "@collection": col.USERS,
+                "@providers": col.AUTH_PROVIDERS,
+                "cutoff": cutoff_iso,
+                **self._local_bind(include_local_registrations),
+            },
+        )
+        return [User(**self._from_doc(doc)) for doc in cursor]
+
+    @staticmethod
+    def _local_bind(include_local_registrations: bool) -> dict[str, str]:
+        return {"local_provider": "local"} if include_local_registrations else {}
+
+    @staticmethod
+    def _unverified_query(*, age: str, include_local_registrations: bool, tail: str, extra: str = "") -> str:
+        """The one predicate behind R-02's selector, its dry-run count and its held counter.
+
+        Selector and counters share these lines so a counter can never describe a
+        different set than the selector it reports on (#2010, AK-14b). ``age`` is the
+        only part that differs between "selected" and "held".
+        """
+        federated_only = " AND provider.provider != @local_provider" if include_local_registrations else ""
+        human_only = " AND doc.account_type != 'service'" if include_local_registrations else ""
+        return f"""
         FOR doc IN @@collection
           FILTER doc.email_verified == false
             AND doc.email_verified_lowered_at == null
             AND doc.last_login_at == null
-            AND DATE_TIMESTAMP(doc.created_at) != null
-            AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)
+            AND {age}
           LET linked = LENGTH(
             FOR provider IN @@providers
-              FILTER provider.user_key == doc._key
+              FILTER provider.user_key == doc._key{federated_only}
               LIMIT 1
               RETURN 1
           )
-          FILTER linked == 0
-          RETURN doc
+          FILTER linked == 0{human_only}{extra}
+          {tail}
         """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={"@collection": col.USERS, "@providers": col.AUTH_PROVIDERS, "cutoff": cutoff_iso},
-        )
-        return [User(**self._from_doc(doc)) for doc in cursor]
 
-    def count_unverified_undated(self) -> int:
+    def count_unverified_local_registrations_before(self, cutoff_iso: str) -> int:
+        """Dry run (#2010): abandoned local registrations the widened selector would add.
+
+        Exactly the accounts ``get_unverified_before(cutoff, include_local_registrations=True)``
+        returns beyond the default selector — those with at least one provider row, all of
+        them ``local``. Nothing is erased by counting; the number is what the operator reads
+        before releasing the real run.
+        """
+        provider_rows = """
+          FILTER LENGTH(
+            FOR any_row IN @@providers
+              FILTER any_row.user_key == doc._key
+              LIMIT 1
+              RETURN 1
+          ) > 0"""
+        cursor = self._db.aql.execute(
+            self._unverified_query(
+                age=_REGISTERED_BEFORE_CUTOFF,
+                include_local_registrations=True,
+                extra=provider_rows,
+                tail="COLLECT WITH COUNT INTO pending RETURN pending",
+            ),
+            bind_vars={
+                "@collection": col.USERS,
+                "@providers": col.AUTH_PROVIDERS,
+                "cutoff": cutoff_iso,
+                **self._local_bind(True),
+            },
+        )
+        return int(next(iter(cursor), 0))
+
+    def count_unverified_undated(self, *, include_local_registrations: bool = False) -> int:
         """Unverified, unlinked accounts that :meth:`get_unverified_before` can never select (#1806 GDPR-003).
 
         The R-02 selector skips an account whose ``created_at`` is missing or
         unreadable — its age is unknown and everything it returns is erased, so
         skipping is the safe side. The price is that such a row is held for ever
         without anyone being told. This counts exactly those rows (same predicate
-        as the selector, with the date test inverted) so the task can report the
-        number next to its other counters, like R-06's ``held_without_tombstone``.
+        as the selector, with the date test inverted, and the same
+        ``include_local_registrations`` so it describes the selector actually in
+        use, #2010) so the task can report the number next to its other counters,
+        like R-06's ``held_without_tombstone``.
         """
-        query = """
-        FOR doc IN @@collection
-          FILTER doc.email_verified == false
-            AND doc.email_verified_lowered_at == null
-            AND doc.last_login_at == null
-            AND DATE_TIMESTAMP(doc.created_at) == null
-          LET linked = LENGTH(
-            FOR provider IN @@providers
-              FILTER provider.user_key == doc._key
-              LIMIT 1
-              RETURN 1
-          )
-          FILTER linked == 0
-          COLLECT WITH COUNT INTO held
-          RETURN held
-        """
-        cursor = self._db.aql.execute(query, bind_vars={"@collection": col.USERS, "@providers": col.AUTH_PROVIDERS})
+        cursor = self._db.aql.execute(
+            self._unverified_query(
+                age="DATE_TIMESTAMP(doc.created_at) == null",
+                include_local_registrations=include_local_registrations,
+                tail="COLLECT WITH COUNT INTO held RETURN held",
+            ),
+            bind_vars={
+                "@collection": col.USERS,
+                "@providers": col.AUTH_PROVIDERS,
+                **self._local_bind(include_local_registrations),
+            },
+        )
         return int(next(iter(cursor), 0))

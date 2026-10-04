@@ -955,6 +955,13 @@ class Settings(BaseSettings):
     retention_unverified_account_days: int = Field(
         default=7, ge=1, le=RETENTION_CEILINGS["retention_unverified_account_days"]
     )
+    #: NFR-011 R-02 release switch (#2010) — ``False``: the cleanup reaches only
+    #: provider-less accounts and merely *counts* the locally registered, never
+    #: confirmed accounts it would erase once released (the dry run, logged and
+    #: returned as ``local_registrations_pending``). ``True``: those are erased too.
+    #: Operator decision 2026-10-03: nothing real is deleted before the operator has
+    #: seen that count; the value is read by ``RetentionService.unverified_local_reap_enabled``.
+    retention_unverified_local_reap_enabled: bool = False
     #: NFR-011 R-06 / §4 ``ERASURE_AUDIT_RETENTION_YEARS`` — a completed erasure
     #: request (pseudonymised at erasure) is kept this many years as the
     #: Art. 5(2) accountability proof, then hard-deleted by
