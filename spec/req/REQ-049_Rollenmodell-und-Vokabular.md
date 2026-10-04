@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 5.9
 Status: Entwurf
-Version: 1.6 (§4.2: Mandant löschen braucht Verwaltung **und** Leitung, #1791)
+Version: 1.7 (§2.5: Mitgliedschaft im Mandanten `platform` nur mit Step-up, nie selbst, mit Audit, #2106); 1.6 (§4.2: Mandant löschen braucht Verwaltung **und** Leitung, #1791)
 Abhängigkeit: REQ-024 (Mandantenverwaltung — Permission-Matrix §1a, wird hier im Vokabular abgelöst und im Rollenumfang erweitert), REQ-023 (Authentifizierung — Kontoart, Dienstkonten), REQ-027 (Light-Modus — Einzelkonto), REQ-030 (Benachrichtigungssystem — übernimmt die Empfängerregel §2.8), REQ-022 (Pflegeerinnerungen — dieselbe Empfängerregel), REQ-046 (Wetterdienste — wandern auf die globale Ebene §2.9), REQ-005 + REQ-018 (Home Assistant — wandert auf die Mandantenebene §2.9), NFR-001 (Schichtenarchitektur), NFR-015 (OWASP-ZAP — Permission-Matrix-Tests), NFR-016 (Versioniertes Migrations-Framework — Datenmigration der Mitgliedschaften)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 (Mandantenverwaltung — Permission-Matrix §1a, wird hie
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.7 | 2026-10-04 | **Mitgliedschaft in `platform` (§2.5, #2106):** Wer dem Mandanten `platform` hinzugefügt wird — erst recht mit `lead` — wird Plattform-Admin; das Hinzufügen verlangt deshalb den Step-up des Administrators (REQ-024 AK-59), die Rolle `lead` dort vergibt nur ein bestehender Plattform-Admin, ein Plattform-Admin fügt sich dem Mandanten `platform` nie selbst hinzu, und jede Vergabe steht im Sicherheits-Audit (REQ-024 AK-60, NFR-011 R-38). |
 | 1.6 | 2026-09-25 | **Mandant löschen (#1791):** Die einzige Aktion, die **beide** Achsen verlangt — Verwaltung (§2.4) **und** Leitung (§2.3) —, weil sie seit #1769 alle Daten des Mandanten unwiderruflich vernichtet. Das ist eine Schnittmenge, keine Vermischung: keine der beiden Achsen öffnet die Aktion allein. Dazu ein Step-up (Kurzname zurücktippen, Passwort bei lokalem Konto), Einzelheiten in REQ-024 §1a.2. §2.4 und §4.2 nachgeführt. |
 | 1.5 | 2026-08-15 | **§2.11 (Dienstkonten):** Ein Dienstkonto (`account_type: 'service'`, REQ-023) nimmt über ein echtes Membership teil wie ein interaktiver Aufrufer, hat aber **keinen** Rückfall auf einen persönlichen Mandanten — ohne Header globaler Scope `""`. Normativ festgehalten, weil das heutige Verhalten sonst nur durch die Datenlage entsteht und ein später angelegter persönlicher Mandant es ohne Codeänderung erweitern würde. Schließt #1122 (Folge-F-4 aus #1091). |
 | 1.4 | 2026-08-11 | **ADR-009:** Neue §2.11 (Aktiver Mandant auf globalen Routen): Ein `X-Active-Tenant`-Header trägt auf globalen, mandantenbewussten Routen den Mandanten-Slug, in dem der Aufrufer handelt; ein Resolver löst Read, Write-Stamping und Rolle identisch auf, die Rolle stammt aus dem Membership im *aktiven* Mandanten (§2.7). Fail-safe: abwesender Header → persönlich/global wie bisher, ungültiger Header → orakelfreies `403`, nie ein stiller Rückfall. Schließt damit die offene Designfrage **A1** aus #808 (Auflösung des Mandanten auf global-aber-mandantenbewussten Routen). **AK-09** von `404` auf `403` korrigiert: Nach der Angleichung der `/t/{slug}/`-Pfadroute (Package A-11) verweigert `get_current_tenant` einem Nicht-Member — auch einem Plattform-Admin ohne Mitgliedschaft — orakelfrei mit `403` **vor** jedem Datenzugriff; beide Mandantengrenzen (Pfad und Header) sind damit orakelfrei. |
@@ -125,6 +126,8 @@ Die Plattform-Rolle wird über eine Admin-Mitgliedschaft im technischen Mandante
 | Rolle | Schlüssel | Darf |
 |-------|-----------|------|
 | **Plattform-Admin** | `platform_admin` | Globalen Stammdaten-Katalog pflegen (Arten, Sorten, botanische Familien, Schädlinge, Krankheiten, Behandlungsmittel, globale Düngemittel und Nährstoffpläne); `tenant_has_access`-Zuweisungen; Arten und Sorten aus einem Mandanten in den globalen Katalog übernehmen; Companion- und Fruchtfolge-Graphkanten; **global konfigurierte externe Dienste samt Zugangsschlüsseln** (§2.9); Mandanten- und Nutzerübersicht; Anmeldeanbieter konfigurieren; Bilderkennung aktivieren; Mandanten und Konten sperren, reaktivieren und Notfall-Admins ernennen |
+
+**Vergabe der Plattform-Rolle (#2106):** Die Mitgliedschaft im Mandanten `platform` vergibt nur ein bestehender Plattform-Admin, mit seinem eigenen Step-up (Aktion `admin_membership_add`, REQ-024 AK-59); die Rolle `lead` dort erst recht (§2.4, REQ-024 AK-58). Ein Plattform-Admin fügt sich dem Mandanten `platform` nie selbst hinzu. Jede Vergabe, Änderung und Entfernung steht im persistenten Sicherheits-Audit (REQ-024 AK-60).
 
 **Abgrenzung:** Der Plattform-Admin sieht *Verwaltungsdaten* über Mandanten hinweg (Existenz, Name, Mitgliederliste). Er erhält dadurch **keinen** Lesezugriff auf die Fachdaten eines Mandanten. Wer dorthin Zugriff braucht, muss regulär als Mitglied aufgenommen werden.
 
