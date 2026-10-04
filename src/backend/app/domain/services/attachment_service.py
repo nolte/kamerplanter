@@ -169,7 +169,7 @@ class AttachmentService:
         if own is not None:
             logger.info(
                 "attachment_deduplicated",
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
                 attachment_id=own.key,
                 category=category.value,
                 byte_size=own.byte_size,
@@ -505,7 +505,7 @@ class AttachmentService:
             shared = False
         logger.info(
             "attachment_deleted",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             attachment_id=attachment_id,
             category=attachment.category.value,
             shared_object_retained=shared,

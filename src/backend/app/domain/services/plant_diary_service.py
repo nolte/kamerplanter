@@ -512,7 +512,7 @@ class PlantDiaryService:
             logger.warning(
                 "diary_environment_service_unavailable",
                 plant_key=plant_key,
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
                 error=loggable_error(exc),
             )
             return self._degraded_snapshot()
@@ -524,7 +524,7 @@ class PlantDiaryService:
             logger.warning(
                 "diary_environment_capture_skipped",
                 plant_key=plant_key,
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
                 error=loggable_error(exc),
             )
             return self._degraded_snapshot()
@@ -924,7 +924,7 @@ class PlantDiaryService:
         logger.info(
             "diary_analysis_claimed",
             entry_key=key,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             worker_id=worker,
             lease_expires_at=expires_at_iso,
         )
@@ -997,7 +997,7 @@ class PlantDiaryService:
         logger.info(
             "diary_analysis_submitted",
             entry_key=key,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             worker_id=entry.analysis_claimed_by,
             analysis_state=target.value,
         )

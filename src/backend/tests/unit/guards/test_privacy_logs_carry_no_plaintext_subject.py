@@ -29,6 +29,13 @@ spelling the other catches:
 * **by keyword**: ``user_key=``, ``email=`` or any ``*_email=`` keyword (``old_email``,
   ``new_email``, ``provider_email``, ``to_email``), unless the name says the value is
   a digest (``*_sha256``, ``*_digest``, ``*_hash``);
+* **by actor name** (#2020): a ``*ed_by`` keyword (``contributed_by``, ``created_by``,
+  ``updated_by``, ``requested_by`` …) must be a call or a literal, and a bare name or
+  attribute named ``*ed_by`` is an identifier under any keyword — the provenance fields
+  carry the account key by construction. Measured when added: the one real hit
+  (``contributed_by=user_key``) was already removed by #1989; the guard now flagged 4
+  sites — 2 locals holding a ``log_subject`` reference (renamed ``requested_by_ref``) and
+  2 free-form worker ids (``analysis_claimed_by``, allow-listed);
 * **by value**, under ANY keyword or as a positional argument: a bare name or
   attribute that *is* the identifier — ``user_key``, ``x.user_key``, anything ending
   in ``email``, ``user.key`` / ``account.key`` / ``current_user.key`` — including
@@ -157,7 +164,15 @@ _LOGGER_RECEIVER = re.compile(r"(^|_)(logger|log)$")
 _LOGGER_CALLABLES = {"log", "logger"}
 _DIGEST_SUFFIX = re.compile(r"_(sha256|digest|hash)$")
 _SUBJECT_KEYWORD = re.compile(r"^(user_key|email|\w+_email)$")
-_IDENTIFIER_NAME = re.compile(r"(^|_)(user_key|email)$")
+#: A name that holds an account key by being named for the actor (#2020): the
+#: provenance fields ``contributed_by``, ``created_by``, ``updated_by`` … carry the
+#: account key by construction, so a parameter or attribute so named is as much a
+#: subject identifier as ``user_key`` is.
+_ACTOR_NAME = r"\w*ed_by"
+_IDENTIFIER_NAME = re.compile(rf"(^|_)(user_key|email)$|^{_ACTOR_NAME}$")
+#: A keyword named for the actor (#2020) must be a call (``log_subject(...)``) or a
+#: literal, whatever the value's own name says.
+_ACTOR_KEYWORD = re.compile(rf"^{_ACTOR_NAME}$")
 _SUBJECT_OWNERS = {"user", "account", "current_user", "subject_user", "created_user"}
 _STORAGE_MODULE_KEYWORDS = {"key", "prefix", "src", "dst"}
 _STORAGE_KEY_KEYWORD = re.compile(r"(^|_)(object_key|storage_key)$")
@@ -222,6 +237,13 @@ _ALLOWED: dict[str, str] = {
     ),
     "app/domain/engines/notification_engine.py::NotificationEngine.prune_expired_subscriptions::pruned": (
         "remove_subscriptions(user_key, ...) returns how many subscriptions it removed, an int (#1827)"
+    ),
+    "app/domain/services/plant_diary_service.py::PlantDiaryService.submit_analysis::worker_id": (
+        "analysis_claimed_by holds the agent-chosen free-form worker id (claim_analysis, bounded by "
+        "MAX_WORKER_ID_LENGTH), not an account key (#2020)"
+    ),
+    "app/domain/services/plant_diary_service.py::PlantDiaryService._release_expired_lease::previous_worker_id": (
+        "analysis_claimed_by holds the agent-chosen free-form worker id, not an account key (#2020)"
     ),
     "app/tasks/auth_tasks.py::dispatch_duplicate_registration_notice::error": (
         "a broker error names the broker connection; the task argument is an opaque key, not in the text"
@@ -468,6 +490,10 @@ class _LogCallVisitor(ast.NodeVisitor):
                 self.findings.append(f"{where}: {kw.arg}={hit} (value is a subject identifier)")
             elif hit := _tainted_reference(kw.value, tainted):
                 self.findings.append(f"{where}: {kw.arg}={hit} (a local built from a subject identifier, #1830)")
+            elif _ACTOR_KEYWORD.match(kw.arg) and not isinstance(kw.value, ast.Call | ast.Constant):
+                self.findings.append(
+                    f"{where}: {kw.arg}= (an actor field holds the account key; log {kw.arg}=log_subject(...), #2020)"
+                )
             elif _COMPOSITE_KEY_KEYWORD.search(kw.arg) and not isinstance(kw.value, ast.Call | ast.Constant):
                 self.findings.append(f"{where}: {kw.arg}= (a composite key that embeds the account key, #1830)")
             elif _is_raw_ip(kw.arg, kw.value):
@@ -571,6 +597,16 @@ _STORAGE = "app/data_access/storage/probe_adapter.py"
         (_SERVICE, "logger.info('e', subject=user.key)", True),
         (_SERVICE, "logger.info('e', new_email=user.email)", True),
         (_SERVICE, "logger.info('e', who=export.user_key or '')", True),
+        # #2020: an account key under an actor-shaped name (``contributed_by=user_key`` was the one that slipped).
+        (_SERVICE, "logger.info('e', contributed_by=contributed_by)", True),
+        (_SERVICE, "logger.info('e', created_by=created_by)", True),
+        (_SERVICE, "logger.info('e', who=updated_by)", True),
+        (_SERVICE, "logger.info('e', who=self.deleted_by or '')", True),
+        (_SERVICE, "logger.info('e', contributed_by=user_key)", True),
+        (_SERVICE, "logger.info('e', requested_by=actor)", True),
+        (_SERVICE, "logger.info('e', contributed_by=log_subject(user_key))", False),
+        (_SERVICE, "logger.info('e', claimed_by='worker-1')", False),
+        (_SERVICE, "logger.info('e', created_by_count=len(rows))", False),
         (_SERVICE, "logger.info('e', who=a if c else record.user_key)", True),
         (_SERVICE, "logger.info(f'erased {user_key}')", True),
         (_SERVICE, "logger.info('erased %s', user_key)", True),

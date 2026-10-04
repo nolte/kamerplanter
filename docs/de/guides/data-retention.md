@@ -434,11 +434,16 @@ lassen sie sich dagegen nicht verknüpfen.
     `privacy/exports/<subject>/<Export>.json`. Den Mandantenschlüssel eines Anhangs
     (`t/<Mandant>/<Kategorie>/…`) ersetzen sie durch die Mandanten-Referenz
     `ten_…`; Kategorie, Datum, ULID und Dateiendung bleiben für die Fehlersuche.
-    Dieselbe Referenz steht als `tenant=` auf den Einladungs- und Mandanten-Lösch-Zeilen
-    neben der Subjekt-Referenz: Der Mandantenschlüssel selbst hängt an den
-    aufbewahrten, pseudonymisierten Zeilen und würde das Pseudonym sonst wieder mit
-    deinem Mandanten verbinden. Aus dem Lösch-Nachweis-Schlüssel `ter_<Mandant>` wird
-    in Protokollzeilen `ter_ten_…`.
+    Dieselbe Referenz steht als `tenant=` auf jeder Protokollzeile, die einen Mandanten nennt —
+    mit oder ohne Subjekt-Referenz, denn zwei Zeilen eines Ablaufs teilen oft einen
+    Entitätsschlüssel (eine Anhangs-ID) und würden beide sonst verbinden: Der
+    Mandantenschlüssel selbst hängt an den aufbewahrten, pseudonymisierten Zeilen und
+    würde das Pseudonym sonst wieder mit deinem Mandanten verbinden. Ein Dashboard oder
+    Alarm, das auf `tenant_key=` filtert, muss auf `tenant=` umgestellt werden. Aus dem Lösch-Nachweis-Schlüssel `ter_<Mandant>` wird
+    in Protokollzeilen `ter_ten_…` — auch dort, wo er nur innerhalb eines Textes steht, etwa in der
+    Worker-Zeile `succeeded in …` des Mandanten-Lösch-Tasks oder in einer Speicher-Fehlermeldung,
+    die `t/<Mandant>/…` nennt. Felder, die nach dem Akteur heißen (`contributed_by`, `created_by`, …),
+    enthalten nie den Kontoschlüssel.
 
     Fehlertexte in diesen Zeilen (`error=`) sind ebenso bereinigt: Der Kontoschlüssel
     ist durch die Referenz ersetzt, Export-Bundle-Pfade sind maskiert. Wo ein Fehlertext
@@ -449,7 +454,12 @@ lassen sie sich dagegen nicht verknüpfen.
     (`schema://nutzer:passwort@…`) werden ebenfalls maskiert. Dasselbe gilt für
     Zugangsdaten im *Pfad* einer URL — das Bot-Token einer Telegram-Adresse, das Token
     eines Discord- oder Slack-Webhooks, das Geräte-Token eines Push-Endpunkts —, auch in
-    den Zeilen, die die HTTP-Bibliothek bei einem Verbindungsfehler selbst schreibt. Beim
+    den Zeilen, die die HTTP-Bibliothek bei einem Verbindungsfehler selbst schreibt. Eine Apprise-Adresse, wie du sie in den
+    Benachrichtigungs-Einstellungen eingetragen hast (`slack://…`, `tgram://…`, `pover://…`; bei
+    `gotify://`, `matrix://` und `ntfy://` bleibt nur der Server stehen), wird ebenso maskiert,
+    falls sie je in einem Text landet, und ebenso ein signiertes Token aus mehreren durch Punkte
+    getrennten Teilen. Das Protokoll des optionalen Pakets `apprise` selbst steht auf `WARNING`, weil
+    es darunter Anfrage-Nutzlasten schreibt. Beim
     An- und Abmelden von Push-Benachrichtigungen steht im Protokoll nur der Name des
     Push-Dienstes, nicht die Adresse deines Geräts. Ein unerwarteter Fehler
     (ein Traceback) läuft durch dieselbe Bereinigung: Eine Fehlermeldung aus der
@@ -465,7 +475,9 @@ lassen sie sich dagegen nicht verknüpfen.
     Mandanten-Kürzel und Download-Token.
 
     IP-Adressen stehen in Protokollzeilen der Anwendung höchstens in der R-03-Kürzung (IPv4 letztes
-    Oktett `0`, IPv6 `/48`), als `ip_prefix=`. Das gilt inzwischen auch für die
+    Oktett `0`, IPv6 `/48`), als `ip_prefix=`. Dasselbe gilt für Zeilen, die eine Bibliothek über
+    den Client schreibt: Die Zeile „ratelimit … exceeded“ des Ratenbegrenzers trägt die gekürzte
+    Adresse, nicht die volle. Das gilt inzwischen auch für die
     Zugriffsprotokolle: uvicorn kürzt die Client-Adresse auf dieselbe Weise und schreibt
     vom aufgerufenen Pfad nur die festen Routen-Segmente (z. B. `/api/v1/t/{}/plants/{}`)
     — dein Mandanten-Kürzel, dein Kontoschlüssel und ein Download-Token in der URL stehen

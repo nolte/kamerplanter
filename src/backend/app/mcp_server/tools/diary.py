@@ -52,6 +52,7 @@ from pydantic import ValidationError as PydanticValidationError
 from app.common.datetimes import ensure_aware_utc, now_utc
 from app.common.enums import DiaryAnalysisState, DiaryEntryType, McpPermission
 from app.common.exceptions import DiaryAnalysisValidationError, KamerplanterError, NotFoundError
+from app.common.log_privacy import log_tenant
 from app.config.settings import settings
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_MIME_TYPE, can_render, metadata_keys
 from app.domain.interfaces.plant_diary_repository import DiaryOverviewFilter
@@ -171,7 +172,7 @@ def _dispatch_thumbnail_generation(attachment_id: str, tenant_key: str) -> None:
         logger.warning(
             "diary_photo_thumbnail_dispatch_failed",
             attachment_id=attachment_id,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             reason=type(exc).__name__,
         )
 

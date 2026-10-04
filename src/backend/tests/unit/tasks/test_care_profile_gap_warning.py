@@ -28,6 +28,7 @@ from unittest.mock import MagicMock
 import pytest
 import structlog
 
+from app.common.log_privacy import log_tenant
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 
 
@@ -128,7 +129,7 @@ class TestUnprofiledPlantWarning:
 
         service._repo.count_plants_without_profile.assert_called_once_with(tenant_key="tenant-a")
         warning = _events(logs, "plants_without_care_profile")[0]
-        assert warning["tenant_key"] == "tenant-a"
+        assert warning["tenant"] == log_tenant("tenant-a")  # the reference, never the key (#2019)
         assert warning["scope"] == "tenant"
 
     def test_the_run_creates_no_profile_for_them(self, _mock_dependencies):

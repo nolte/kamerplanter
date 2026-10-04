@@ -150,7 +150,7 @@ _ALLOWED: dict[str, str] = {
     "app/domain/services/ai_audit_logger.py::AiAuditLogger.record::endpoint": _AI_FEATURE_NAME,
     "app/domain/services/privacy_service.py::PrivacyService._authorize_admin_erasure::step_up": _STEP_UP_METHOD,
     "app/domain/services/tenant_service.py::TenantService.delete_tenant::step_up": _STEP_UP_METHOD,
-    "app/api/v1/attachments/token_router.py::redeem_token::tenant_key": _TOKEN_CLAIMS,
+    "app/api/v1/attachments/token_router.py::redeem_token::tenant": _TOKEN_CLAIMS,
     "app/api/v1/attachments/token_router.py::redeem_token::attachment_id": _TOKEN_CLAIMS,
     "app/data_access/external/console_email_adapter.py::ConsoleEmailAdapter.send_verification_email"
     "::verification_url": _CONSOLE_DEBUG_LINK,

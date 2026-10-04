@@ -42,6 +42,7 @@ from app.common.dependencies import (
     get_reference_index_store,
     get_species_repo,
 )
+from app.common.log_privacy import log_tenant
 from app.config.settings import settings
 from app.tasks import celery_app
 
@@ -135,7 +136,7 @@ def feed_user_reference(  # type: ignore[no-untyped-def]
             "feed_user_reference_failed",
             attachment_id=attachment_id,
             plant_instance_key=plant_instance_key,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             error=type(exc).__name__,
         )
         raise self.retry(exc=exc) from exc
@@ -144,7 +145,7 @@ def feed_user_reference(  # type: ignore[no-untyped-def]
         "feed_user_reference",
         attachment_id=attachment_id,
         plant_instance_key=plant_instance_key,
-        tenant_key=tenant_key,
+        tenant=log_tenant(tenant_key),
         **outcome,
     )
     return outcome

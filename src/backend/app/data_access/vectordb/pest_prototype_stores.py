@@ -21,6 +21,7 @@ import httpx
 import structlog
 
 from app.common.exceptions import ExternalSourceError, FeatureNotConfiguredError
+from app.common.log_privacy import log_tenant
 from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
 from app.domain.interfaces.pest_prototype_store import IPestPrototypeContributionMarker, IPestPrototypeStore
 
@@ -107,7 +108,7 @@ class NoopPestPrototypeStore(IPestPrototypeStore):
 
     async def delete_tenant_contributions(self, tenant_key: str) -> int:
         self._refuse_if_indexed()
-        logger.info("pest_prototype_cleanup_noop", scope="tenant", tenant_key=tenant_key, removed=0)
+        logger.info("pest_prototype_cleanup_noop", scope="tenant", tenant=log_tenant(tenant_key), removed=0)
         return 0
 
     async def list_contribution_keys(self, *, after: str | None, limit: int) -> tuple[list[str], str | None]:

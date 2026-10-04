@@ -10,7 +10,7 @@ observed). Guarded by the ``weather_enabled`` kill-switch.
 import structlog
 
 from app.common.async_bridge import run_async
-from app.common.log_privacy import loggable_error
+from app.common.log_privacy import log_tenant, loggable_error
 from app.config.settings import settings
 from app.tasks import celery_app
 
@@ -69,8 +69,8 @@ def fetch_weather_forecasts(self) -> dict:  # noqa: ANN001 — Celery bound-task
             logger.warning(
                 "weather_fetch_tenant_mismatch",
                 site_key=config.site_key,
-                config_tenant=config.tenant_key,
-                site_tenant=site.tenant_key,
+                config_tenant=log_tenant(config.tenant_key),
+                site_tenant=log_tenant(site.tenant_key),
             )
             skipped += 1
             continue

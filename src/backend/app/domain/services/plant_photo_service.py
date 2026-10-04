@@ -35,6 +35,7 @@ from app.common.exceptions import (
     PhotoQuotaExceededError,
     ValidationError,
 )
+from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership
 from app.config.settings import Settings
 from app.domain.engines.photo_quality_assessor import PhotoQualityAssessor
@@ -155,7 +156,7 @@ class PlantPhotoService:
         updated = self._plants.update(key, plant)
         logger.info(
             "plant_photo_linked",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             plant_instance_key=key,
             attachment_id=attachment_id,
             photo_count=len(updated.photo_refs),
@@ -185,7 +186,7 @@ class PlantPhotoService:
         updated = self._plants.update(key, plant)
         logger.info(
             "plant_photo_cover_set",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             plant_instance_key=key,
             attachment_id=attachment_id,
         )
@@ -257,7 +258,7 @@ class PlantPhotoService:
 
         logger.info(
             "plant_photo_metadata_updated",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             plant_instance_key=key,
             attachment_id=attachment_id,
             caption_set=not isinstance(caption, _Unset),
@@ -349,7 +350,7 @@ class PlantPhotoService:
             assert attachment.quality_assessment is not None  # narrowed by the guard
             logger.info(
                 "plant_photo_quality_assessment_cache_hit",
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
                 plant_instance_key=key,
                 attachment_id=attachment_id,
                 adapter=adapter_key,
@@ -389,7 +390,7 @@ class PlantPhotoService:
 
         logger.info(
             "plant_photo_quality_assessed",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             plant_instance_key=key,
             attachment_id=attachment_id,
             adapter=adapter_key,
@@ -442,7 +443,7 @@ class PlantPhotoService:
         updated = self._plants.update(key, plant)
         logger.info(
             "plant_photo_deleted",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             plant_instance_key=key,
             attachment_id=attachment_id,
             photo_count=len(updated.photo_refs),
@@ -465,7 +466,7 @@ class PlantPhotoService:
         if removed:
             logger.info(
                 "plant_photos_cascade_deleted",
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
                 plant_instance_key=plant.key,
                 removed=removed,
             )

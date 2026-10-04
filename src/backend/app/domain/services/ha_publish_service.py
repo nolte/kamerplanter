@@ -13,6 +13,7 @@ from typing import Any, Protocol
 import structlog
 
 from app.common.exceptions import NotFoundError
+from app.common.log_privacy import log_tenant
 from app.domain.interfaces.ha_publish_repository import IHaPublishRepository
 from app.domain.models.ha_publish_setting import HaPublishEntityType, HaPublishSetting
 from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_location
@@ -105,7 +106,7 @@ class HaPublishService:
         )
         logger.info(
             "ha_publish_setting_updated",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             entity_type=entity_type.value,
             entity_key=entity_key,
             enabled=enabled,

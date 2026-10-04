@@ -30,6 +30,7 @@ import httpx
 import structlog
 
 from app.common.exceptions import ExternalSourceError
+from app.common.log_privacy import log_tenant
 from app.data_access.external.inference_service_client import InferenceServiceClient
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 
@@ -85,6 +86,6 @@ class InferenceServiceReferenceIndexStore(IReferenceIndexStore):
             "reference_contribution_noop",
             reason="gallery-hook contribution path not activated",
             species_key=species_key,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
         )
         return False

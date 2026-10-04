@@ -29,6 +29,7 @@ from __future__ import annotations
 import structlog
 
 from app.common.exceptions import FeatureNotConfiguredError
+from app.common.log_privacy import log_tenant
 from app.domain.interfaces.reference_contribution_marker import IReferenceContributionMarker
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 
@@ -68,7 +69,7 @@ class NoopReferenceIndexStore(IReferenceIndexStore):
             "reference_index_cleanup_noop",
             reason="inference-service not enabled; no contribution on record",
             scope="user",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             removed=0,
         )
         return 0
@@ -79,7 +80,7 @@ class NoopReferenceIndexStore(IReferenceIndexStore):
             "reference_index_cleanup_noop",
             reason="inference-service not enabled; no contribution on record",
             scope="tenant",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             removed=0,
         )
         return 0
@@ -108,6 +109,6 @@ class NoopReferenceIndexStore(IReferenceIndexStore):
             "reference_contribution_noop",
             reason="inference-service not enabled; no contribution on record",
             species_key=species_key,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
         )
         return False

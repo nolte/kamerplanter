@@ -6,6 +6,7 @@ import structlog
 
 from app.common.enums import AttachmentCategory, TaskOrigin, WorkflowTargetType
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.hst_validator import HSTValidator
@@ -690,7 +691,7 @@ class TaskService:
             logger.warning(
                 "task_template_without_parent_workflow",
                 task_template_key=key,
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
             )
             raise NotFoundError("TaskTemplate", key)
         parent = self.get_workflow_template(parent_key, tenant_key=tenant_key)
@@ -746,7 +747,7 @@ class TaskService:
                 "shared_workflow_is_not_a_generated_plan",
                 workflow_template_key=shared_plan.key,
                 task_template_key=template.key,
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
             )
             raise NotFoundError("TaskTemplate", template.key or "")
 
@@ -765,7 +766,7 @@ class TaskService:
                 "activity_plan_forked_on_write",
                 source_workflow_key=shared_plan.key,
                 workflow_template_key=copy.key,
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
             )
             copied_key = template_key_map.get(template.key or "")
             if copied_key:
@@ -784,7 +785,7 @@ class TaskService:
             "activity_plan_template_absent_from_private_copy",
             source_template_key=template.key,
             workflow_template_key=copy.key,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
         )
         raise NotFoundError("TaskTemplate", template.key or "")
 

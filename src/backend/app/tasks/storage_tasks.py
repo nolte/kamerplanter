@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 import structlog
 
 from app.common.dependencies import get_attachment_repo, get_object_storage
-from app.common.log_privacy import loggable_error
+from app.common.log_privacy import log_tenant, loggable_error
 from app.config.settings import settings
 from app.domain.engines.storage.thumbnail_generator import (
     ThumbnailGenerator,
@@ -47,7 +47,7 @@ async def _generate(attachment_id: str, tenant_key: str) -> dict:
 
     attachment = repo.get(attachment_id, tenant_key)
     if attachment is None:
-        logger.warning("thumbnail_attachment_missing", attachment_id=attachment_id, tenant_key=tenant_key)
+        logger.warning("thumbnail_attachment_missing", attachment_id=attachment_id, tenant=log_tenant(tenant_key))
         return {"attachment_id": attachment_id, "generated": 0, "reason": "attachment_not_found"}
 
     if not can_render(attachment.mime_type):
@@ -85,12 +85,12 @@ async def _generate(attachment_id: str, tenant_key: str) -> dict:
     ):
         for thumb in renditions:
             await storage.delete_object(thumbnail_key(attachment.storage_key, thumb.size))
-        logger.info("thumbnails_discarded_after_delete", tenant_key=tenant_key, attachment_id=attachment_id)
+        logger.info("thumbnails_discarded_after_delete", tenant=log_tenant(tenant_key), attachment_id=attachment_id)
         return {"attachment_id": attachment_id, "generated": 0, "reason": "attachment_deleted"}
 
     logger.info(
         "thumbnails_generated",
-        tenant_key=tenant_key,
+        tenant=log_tenant(tenant_key),
         attachment_id=attachment_id,
         generated=generated,
     )
@@ -116,7 +116,7 @@ def generate_thumbnails(self, attachment_id: str, tenant_key: str) -> dict:  # t
         logger.error(
             "generate_thumbnails_failed",
             attachment_id=attachment_id,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             error=loggable_error(exc),
         )
         raise self.retry(exc=exc) from exc
@@ -246,7 +246,7 @@ async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> di
             logger.warning(
                 "orphan_photo_delete_failed",
                 attachment_id=attachment.key,
-                tenant_key=attachment.tenant_key,
+                tenant=log_tenant(attachment.tenant_key),
                 error=loggable_error(exc),
             )
     return {

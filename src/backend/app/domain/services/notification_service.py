@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime
 
 import structlog
 
-from app.common.log_privacy import log_subject, loggable_endpoint_host, loggable_error
+from app.common.log_privacy import log_subject, log_tenant, loggable_endpoint_host, loggable_error
 from app.common.notification_targets import validate_ha_channel_config
 from app.common.url_safety import validate_apprise_urls, validate_push_endpoint
 from app.domain.engines.notification_engine import NotificationEngine
@@ -143,7 +143,7 @@ class NotificationService:
 
         logger.info(
             "care_notifications_sent",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             users_notified=users_notified,
             total_sent=total_sent,
         )
@@ -204,7 +204,7 @@ class NotificationService:
             if already_notified:
                 logger.info(
                     "frost_forecast_notification_deduplicated",
-                    tenant_key=tenant_key,
+                    tenant=log_tenant(tenant_key),
                     site_key=site_key,
                     group_key=group_key,
                     already_notified=len(already_notified),
@@ -241,7 +241,7 @@ class NotificationService:
 
         logger.info(
             "frost_forecast_notifications_sent",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             site_key=site_key,
             expected_date=expected_date.isoformat(),
             recipients=len(pending),
