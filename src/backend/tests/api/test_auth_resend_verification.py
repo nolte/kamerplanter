@@ -66,7 +66,12 @@ def _users() -> dict[str, User]:
             email_verification_expires=later,
         ),
         VERIFIED: User(
-            _key="1000002", email=VERIFIED, display_name="Verified", password_hash=_PASSWORD_HASH, email_verified=True
+            _key="1000002",
+            email=VERIFIED,
+            display_name="Verified",
+            password_hash=_PASSWORD_HASH,
+            email_verified=True,
+            email_confirmed_at=datetime.now(UTC),  # proven: only an unproven account needs a link (#1948)
         ),
         SERVICE: User(
             _key="1000003",
