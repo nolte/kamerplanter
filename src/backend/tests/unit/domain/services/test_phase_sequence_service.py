@@ -416,9 +416,9 @@ class TestGetSpeciesForDefinition:
                 {"key": "sp2", "scientific_name": "Solanum lycopersicum", "common_names": ["Tomate"]},
             ],
         }
-        mock_repo.get_species_for_sequence.side_effect = lambda k: species[k]
+        mock_repo.get_species_for_sequence.side_effect = lambda k, *, tenant_key: species[k]
 
-        result = service.get_species_for_definition("pd1")
+        result = service.get_species_for_definition("pd1", tenant_key="t1")
 
         by_key = {row["key"]: row for row in result}
         assert set(by_key) == {"sp1", "sp2"}
@@ -433,12 +433,12 @@ class TestGetSpeciesForDefinition:
         mock_repo.get_definition_by_key.return_value = defn
         mock_repo.get_sequences_for_definition.return_value = []
 
-        assert service.get_species_for_definition("pd9") == []
+        assert service.get_species_for_definition("pd9", tenant_key="t1") == []
 
     def test_missing_definition_raises_not_found(self, service, mock_repo):
         mock_repo.get_definition_by_key.return_value = None
         with pytest.raises(NotFoundError):
-            service.get_species_for_definition("nope")
+            service.get_species_for_definition("nope", tenant_key="t1")
 
     def test_uses_definition_default_when_no_entry_override(self, service, mock_repo):
         """FIX-01 R5: when entry has no override, use definition's typical_duration_days."""
@@ -462,9 +462,9 @@ class TestGetSpeciesForDefinition:
         mock_repo.get_entries_for_sequence.side_effect = lambda k: entries[k]
 
         species = {"ps1": [{"key": "sp-tomato", "scientific_name": "Solanum lycopersicum", "common_names": []}]}
-        mock_repo.get_species_for_sequence.side_effect = lambda k: species[k]
+        mock_repo.get_species_for_sequence.side_effect = lambda k, *, tenant_key: species[k]
 
-        result = service.get_species_for_definition("pd1")
+        result = service.get_species_for_definition("pd1", tenant_key="t1")
 
         assert len(result) == 1
         assert result[0]["typical_duration_days"] == 28
@@ -493,9 +493,9 @@ class TestGetSpeciesForDefinition:
                 }
             ]
         }
-        mock_repo.get_species_for_sequence.side_effect = lambda k: species[k]
+        mock_repo.get_species_for_sequence.side_effect = lambda k, *, tenant_key: species[k]
 
-        result = service.get_species_for_definition("pd1")
+        result = service.get_species_for_definition("pd1", tenant_key="t1")
 
         assert len(result) == 1
         row = result[0]
