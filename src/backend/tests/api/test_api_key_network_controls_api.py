@@ -177,6 +177,25 @@ def test_the_refusal_is_the_answer_the_mcp_path_gives() -> None:
     assert response.json()["message"] == IP_NOT_PERMITTED
 
 
+def test_an_unparsable_forwarded_entry_is_refused_even_when_the_peer_is_inside_the_allowlist() -> None:
+    """Fail closed, not "fall back to the peer" (#2053, bundle review of #2062).
+
+    The peer can be one of our own proxies — nginx or the ingress, inside the
+    cluster ranges an allowlist may name. A forwarded entry that is no address
+    must therefore not become the peer's address for the allowlist; it is "no
+    address could be established", which the allowlist refuses.
+    """
+    client, _ = _client()
+    proxied = TestClient(client.app, client=("10.9.9.9", 50000))
+
+    response = proxied.get("/api/v1/me-probe", headers=_headers(_FENCED, "not-an-ip"))
+
+    assert response.status_code == 401
+    assert proxied.get("/api/v1/me-probe", headers=_headers(_FENCED)).status_code == 200, (
+        "precondition: the peer itself is inside the allowlist"
+    )
+
+
 def test_the_same_key_is_admitted_from_inside_its_allowlist() -> None:
     client, _ = _client()
 

@@ -6,8 +6,10 @@ entry is the caller's, so any string became the key of the rate limits, the
 pairing lockout, the service-account allowlist and, since #2059, the per-source
 reset budget. Measured through ``GET /api/health`` before the fix: four headers
 (``not-an-ip``, 200 × ``x``, ``2001:DB8::1``, ``2001:db8:0:0::1``) → four
-limiter buckets. Now a non-address falls back to the socket peer and an address
-is keyed in its canonical form: two buckets.
+limiter buckets. Now a non-address resolves to ``None`` — the limiter key then
+falls back to the socket peer, the allowlist refuses
+(``test_api_key_network_controls_api``) — and an address is keyed in its
+canonical form: two buckets.
 """
 
 from __future__ import annotations
