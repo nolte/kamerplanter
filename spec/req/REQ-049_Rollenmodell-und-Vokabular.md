@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 5.9
 Status: Entwurf
-Version: 1.6 (§4.2: Mandant löschen braucht Verwaltung **und** Leitung, #1791)
+Version: 1.7 (§2.3/§2.5: globale Katalogzeile schreiben = nur Plattform-Admin, Düngemittel #2100); 1.6 (§4.2: Mandant löschen braucht Verwaltung **und** Leitung, #1791)
 Abhängigkeit: REQ-024 (Mandantenverwaltung — Permission-Matrix §1a, wird hier im Vokabular abgelöst und im Rollenumfang erweitert), REQ-023 (Authentifizierung — Kontoart, Dienstkonten), REQ-027 (Light-Modus — Einzelkonto), REQ-030 (Benachrichtigungssystem — übernimmt die Empfängerregel §2.8), REQ-022 (Pflegeerinnerungen — dieselbe Empfängerregel), REQ-046 (Wetterdienste — wandern auf die globale Ebene §2.9), REQ-005 + REQ-018 (Home Assistant — wandert auf die Mandantenebene §2.9), NFR-001 (Schichtenarchitektur), NFR-015 (OWASP-ZAP — Permission-Matrix-Tests), NFR-016 (Versioniertes Migrations-Framework — Datenmigration der Mitgliedschaften)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 (Mandantenverwaltung — Permission-Matrix §1a, wird hie
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.7 | 2026-10-04 | **Globale Düngemittel (#2100):** Schreiben auf eine globale Katalogzeile (`tenant_key == ""`) ist Plattform-Admin vorbehalten; das gilt für Düngemittel wie für Substrate (eine gemeinsame Regel, `authorize_hybrid_catalogue_write`). Fremde Zeile → 404, eigene Zeile → fachliche Rolle (Löschen: Leitung, §2.3). |
 | 1.6 | 2026-09-25 | **Mandant löschen (#1791):** Die einzige Aktion, die **beide** Achsen verlangt — Verwaltung (§2.4) **und** Leitung (§2.3) —, weil sie seit #1769 alle Daten des Mandanten unwiderruflich vernichtet. Das ist eine Schnittmenge, keine Vermischung: keine der beiden Achsen öffnet die Aktion allein. Dazu ein Step-up (Kurzname zurücktippen, Passwort bei lokalem Konto), Einzelheiten in REQ-024 §1a.2. §2.4 und §4.2 nachgeführt. |
 | 1.5 | 2026-08-15 | **§2.11 (Dienstkonten):** Ein Dienstkonto (`account_type: 'service'`, REQ-023) nimmt über ein echtes Membership teil wie ein interaktiver Aufrufer, hat aber **keinen** Rückfall auf einen persönlichen Mandanten — ohne Header globaler Scope `""`. Normativ festgehalten, weil das heutige Verhalten sonst nur durch die Datenlage entsteht und ein später angelegter persönlicher Mandant es ohne Codeänderung erweitern würde. Schließt #1122 (Folge-F-4 aus #1091). |
 | 1.4 | 2026-08-11 | **ADR-009:** Neue §2.11 (Aktiver Mandant auf globalen Routen): Ein `X-Active-Tenant`-Header trägt auf globalen, mandantenbewussten Routen den Mandanten-Slug, in dem der Aufrufer handelt; ein Resolver löst Read, Write-Stamping und Rolle identisch auf, die Rolle stammt aus dem Membership im *aktiven* Mandanten (§2.7). Fail-safe: abwesender Header → persönlich/global wie bisher, ungültiger Header → orakelfreies `403`, nie ein stiller Rückfall. Schließt damit die offene Designfrage **A1** aus #808 (Auflösung des Mandanten auf global-aber-mandantenbewussten Routen). **AK-09** von `404` auf `403` korrigiert: Nach der Angleichung der `/t/{slug}/`-Pfadroute (Package A-11) verweigert `get_current_tenant` einem Nicht-Member — auch einem Plattform-Admin ohne Mitgliedschaft — orakelfrei mit `403` **vor** jedem Datenzugriff; beide Mandantengrenzen (Pfad und Header) sind damit orakelfrei. |

@@ -10,7 +10,7 @@ from app.domain.engines.substrate_mix_engine import calculate_mix_properties
 from app.domain.interfaces.substrate_repository import ISubstrateRepository
 from app.domain.models.substrate import MixComponent, Substrate, SubstrateBatch
 from app.domain.services.catalogue_authorization import (
-    require_platform_admin_for_global_catalogue,
+    authorize_hybrid_catalogue_write,
     require_role_for_catalogue_create,
 )
 from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_slot
@@ -199,21 +199,23 @@ class SubstrateService:
         is_platform_admin: bool,
         can_role_write: Callable[[TenantRole], bool],
     ) -> None:
-        """The hybrid-catalogue write gate, identical in shape to the species one.
+        """The hybrid-catalogue write gate, shared with the fertilizer service (#2100).
 
         Four arms: system context passes, a *foreign* mix is 404 (ownership
         hiding), the *global* base catalogue is platform-admin only (the #1120
-        rule), and an *own* mix needs a writing role.
+        rule), and an *own* mix needs a writing role. The decision lives in
+        :func:`~app.domain.services.catalogue_authorization.authorize_hybrid_catalogue_write`.
         """
-        if tenant_key is None:
-            return
-        if existing.tenant_key not in (tenant_key, ""):
-            raise NotFoundError("Substrate", key)
-        if existing.tenant_key == "":
-            require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity="Substrate")
-            return
-        if not is_platform_admin and not (caller_role is not None and can_role_write(caller_role)):
-            raise ForbiddenError("Your role may not modify substrates in this tenant.")
+        authorize_hybrid_catalogue_write(
+            existing.tenant_key,
+            entity="Substrate",
+            plural_noun="substrates",
+            key=key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=can_role_write,
+        )
 
     @staticmethod
     def _authorize_batch_write(

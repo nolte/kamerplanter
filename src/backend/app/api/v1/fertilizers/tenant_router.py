@@ -89,11 +89,13 @@ def update_fertilizer(
     body: FertilizerUpdate,
     ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.UPDATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Update a tenant-owned fertilizer product."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
+    """Update a fertilizer: the tenant's own product, or a global seed product as platform admin (#2100)."""
     data = body.model_dump(exclude_none=True)
-    updated = service.update_fertilizer(key, data)
+    updated = service.update_fertilizer(
+        key, data, tenant_key=ctx.tenant_key, caller_role=ctx.role, is_platform_admin=is_platform_admin
+    )
     return _fert_response(updated)
 
 
@@ -102,10 +104,10 @@ def delete_fertilizer(
     key: Annotated[str, Path(description="Document key of the fertilizer.")],
     ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.DELETE)),
     service: FertilizerService = Depends(get_fertilizer_service),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Delete a tenant-owned fertilizer product."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
-    service.delete_fertilizer(key)
+    """Delete a fertilizer: the tenant's own product, or a global seed product as platform admin (#2100)."""
+    service.delete_fertilizer(key, tenant_key=ctx.tenant_key, caller_role=ctx.role, is_platform_admin=is_platform_admin)
 
 
 @router.get("/{key}/stocks", response_model=list[StockResponse])
