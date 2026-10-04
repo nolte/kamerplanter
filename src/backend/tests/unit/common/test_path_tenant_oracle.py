@@ -40,8 +40,11 @@ def _user(key: str | None = "user_1") -> SimpleNamespace:
     return SimpleNamespace(key=key)
 
 
-def _tenant(key: str, slug: str) -> SimpleNamespace:
-    return SimpleNamespace(key=key, slug=slug)
+def _tenant(key: str, slug: str, *, is_active: bool = True) -> SimpleNamespace:
+    # ``is_active`` is a field every stored tenant carries (``Tenant.is_active``);
+    # the resolvers read it since #2105, so a double without it would be a shape
+    # production never produces.
+    return SimpleNamespace(key=key, slug=slug, is_active=is_active)
 
 
 def _membership(
@@ -86,13 +89,16 @@ class _FakeTenantService:
 
 _OWN = _tenant("tenant_own", "green-club")
 _FOREIGN = _tenant("tenant_foreign", "foreign-club")
+# Deactivated by a platform admin (#2105); the caller's membership in it stays active.
+_DORMANT = _tenant("tenant_dormant", "dormant-club", is_active=False)
 
 
 def _service(**kwargs: Any) -> _FakeTenantService:
     defaults: dict[str, Any] = {
-        "by_slug": {"green-club": _OWN, "foreign-club": _FOREIGN},
+        "by_slug": {"green-club": _OWN, "foreign-club": _FOREIGN, "dormant-club": _DORMANT},
         "memberships": {
             ("user_1", "tenant_own"): _membership(TenantRole.GROWER, admin_scopes=[AdminScope.TECHNICAL]),
+            ("user_1", "tenant_dormant"): _membership(TenantRole.LEAD),
         },
     }
     defaults.update(kwargs)
@@ -158,6 +164,32 @@ def test_an_inactive_membership_is_refused_like_a_non_member():
     assert error.status_code == 403
 
 
+def test_a_deactivated_tenant_is_refused_exactly_like_an_unknown_slug():
+    # #2105: the caller's membership in ``dormant-club`` is active and its slug is
+    # real — only the tenant is switched off. Before the fix this resolved to the
+    # member's full lead standing.
+    service = _service()
+
+    deactivated = _error(lambda: _resolve("dormant-club", service))
+    unknown = _error(lambda: _resolve("no-such-org", service))
+
+    assert isinstance(deactivated, ForbiddenError)
+    assert _body(deactivated) == _body(unknown)
+
+
+def test_reactivating_the_tenant_restores_the_unchanged_membership():
+    # The refusal reads the flag, never the membership: the same stored
+    # membership resolves again, with its role, once the tenant is active.
+    service = _service(
+        by_slug={"dormant-club": _tenant("tenant_dormant", "dormant-club", is_active=True)},
+    )
+
+    ctx = _resolve("dormant-club", service)
+
+    assert ctx.tenant_key == "tenant_dormant"
+    assert ctx.role is TenantRole.LEAD
+
+
 def test_a_keyless_caller_is_refused_rather_than_granted_the_tenant():
     # An anonymous caller holds no membership anywhere; a slug in the path must
     # not become standing in that tenant.
@@ -166,7 +198,14 @@ def test_a_keyless_caller_is_refused_rather_than_granted_the_tenant():
     assert error.status_code == 403
 
 
-@pytest.mark.parametrize(("case", "slug"), [("unknown slug", "no-such-org"), ("non-member", "foreign-club")])
+_REFUSED_CASES = [
+    ("unknown slug", "no-such-org"),
+    ("non-member", "foreign-club"),
+    ("deactivated tenant", "dormant-club"),
+]
+
+
+@pytest.mark.parametrize(("case", "slug"), _REFUSED_CASES)
 def test_neither_refusal_names_the_probed_slug(case: str, slug: str):
     # The old 404 body was ``tenants with key 'foo' not found.`` plus a details
     # entry repeating it — the probe answered itself even without reading the
@@ -180,7 +219,7 @@ def test_neither_refusal_names_the_probed_slug(case: str, slug: str):
 # ── The decisive property: both surfaces refuse identically ─────────────────
 
 
-@pytest.mark.parametrize(("case", "slug"), [("unknown slug", "no-such-org"), ("non-member", "foreign-club")])
+@pytest.mark.parametrize(("case", "slug"), _REFUSED_CASES)
 def test_the_path_refusal_is_identical_to_the_header_refusal(case: str, slug: str):
     """A ``/t/{slug}/`` refusal and an ``X-Active-Tenant`` refusal are one answer.
 
