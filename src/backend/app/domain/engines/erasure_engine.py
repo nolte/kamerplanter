@@ -294,22 +294,29 @@ class ErasureEngine:
             ),
         ),
         AnonymizationRule(
-            # The personal tenant (``tenant_service.create_personal_tenant``)
-            # carries the subject as owner and takes ``name``/``slug`` from the
-            # display name. Deleting it would cascade into records a retention
-            # obligation keeps (a harvest in it: CanG, NFR-011 R-16), so the
-            # tenant is kept and stops naming anyone: owner replaced, name and
-            # slug rewritten to ``anonymized_rename_value(tombstone, key)`` —
-            # unique per row (``slug`` has a unique index) and derived from the
-            # salted tombstone, so nobody can register it first. Until the
-            # #1700 review it was ``anonymized-<key>``: Arango keys are
-            # guessable, a display name "Anonymized <key>" took the slug, and
-            # the erasure transaction aborted on the unique index on every
-            # retry. An organisation tenant the subject founded keeps
-            # its name — it is the group's, not the subject's — and loses only
-            # the owner reference. ``owner_user_key`` confers no permission
-            # (authority is the membership role, REQ-049), so there is nothing
-            # to transfer.
+            # What this rule still covers is the tenant that outlives the
+            # account. The account erasure erases the subject's *personal*
+            # tenant (``tenant_service.create_personal_tenant``) through the
+            # tenant-erasure inventory before this plan runs, whoever else is an
+            # active member of it (erasure together, REQ-025 §3.1.3, #1824), so
+            # it normally no longer exists here. Two kinds of tenant reach this
+            # rule: an organisation tenant the subject founded, which keeps its
+            # name — it is the group's, not the subject's — and loses only the
+            # owner reference; and a personal tenant a member who joined after
+            # the erasure froze it keeps (``retained_late_joiner``, REQ-025
+            # AK-IE-07), which carries the subject as owner and takes
+            # ``name``/``slug`` from the display name. Deleting that one would
+            # cascade into records a retention obligation keeps (a harvest in
+            # it: CanG, NFR-011 R-16), so it is kept and stops naming anyone:
+            # owner replaced, name and slug rewritten to
+            # ``anonymized_rename_value(tombstone, key)`` — unique per row
+            # (``slug`` has a unique index) and derived from the salted
+            # tombstone, so nobody can register it first. Until the #1700 review
+            # it was ``anonymized-<key>``: Arango keys are guessable, a display
+            # name "Anonymized <key>" took the slug, and the erasure transaction
+            # aborted on the unique index on every retry. ``owner_user_key``
+            # confers no permission (authority is the membership role,
+            # REQ-049), so there is nothing to transfer.
             collection="tenants",
             user_field="owner_user_key",
             anonymized_value=ANONYMIZED_MARKER,
