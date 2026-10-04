@@ -384,6 +384,38 @@ class TestRollbackStatement:
         assert not database.collection(col.MEMBERSHIPS).has(key)
         assert list(database.collection(col.HAS_MEMBERSHIP).find({"_to": f"{col.MEMBERSHIPS}/{key}"})) == []
 
+    def test_it_removes_the_membership_of_a_claimed_run_without_touching_its_record(self, database, personal_tenant):
+        """A write on a running erasure's record would conflict with its heartbeat and read as a lost claim."""
+        from app.data_access.arango.membership_repository import ArangoMembershipRepository
+        from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
+
+        _record(database, personal_tenant)
+        record_key = TenantErasureEngine.record_key(personal_tenant)
+        database.collection(col.TENANT_ERASURE_RECORDS).update(
+            {"_key": record_key, "last_attempt_at": "2026-10-04T05:00:00+00:00", "attempt_count": 1}
+        )
+        revision = database.collection(col.TENANT_ERASURE_RECORDS).get(record_key)["_rev"]
+        key = self._member(database, personal_tenant)
+
+        assert ArangoMembershipRepository(database).delete_while_tenant_frozen(key, personal_tenant) is True
+
+        assert not database.collection(col.MEMBERSHIPS).has(key)
+        assert database.collection(col.TENANT_ERASURE_RECORDS).get(record_key)["_rev"] == revision
+
+    def test_it_touches_the_record_of_an_unclaimed_freeze(self, database, personal_tenant):
+        """The touch is the arbiter against the erasure's withdrawal; without it the statement is a plain delete."""
+        from app.data_access.arango.membership_repository import ArangoMembershipRepository
+        from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
+
+        _record(database, personal_tenant)
+        record_key = TenantErasureEngine.record_key(personal_tenant)
+        revision = database.collection(col.TENANT_ERASURE_RECORDS).get(record_key)["_rev"]
+        key = self._member(database, personal_tenant)
+
+        assert ArangoMembershipRepository(database).delete_while_tenant_frozen(key, personal_tenant) is True
+
+        assert database.collection(col.TENANT_ERASURE_RECORDS).get(record_key)["_rev"] != revision
+
     def test_it_leaves_the_membership_when_there_is_no_record(self, database, personal_tenant):
         from app.data_access.arango.membership_repository import ArangoMembershipRepository
 

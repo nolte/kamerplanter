@@ -109,14 +109,22 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
     #: record (its withdrawal or its claim) conflicts with the touch.
     _ROLLBACK_ATTEMPTS = 3
 
+    #: A record no run ever claimed — the only one the erasure can still withdraw
+    #: (``ArangoTenantErasureRepository.delete_unclaimed``'s own condition).
+    _UNCLAIMED = (
+        "record.origin == 'account_erasure' AND record.status == 'in_progress' "
+        "AND record.last_attempt_at == null AND (record.attempt_count == null OR record.attempt_count == 0)"
+    )
+
     def delete_while_tenant_frozen(self, key: str, tenant_key: str) -> bool:
         """Remove membership *key* only while the tenant's deletion record is open, atomically (#1924).
 
-        One AQL statement reads the record, **writes** it (``updated_at``) and
-        removes the membership. The write is what makes the two decisions that
-        meet on a join exclusive: the erasure withdraws the record
-        (``delete_unclaimed``, a write on the same document) and then reads the
-        members again; a read-then-delete on the joiner's side would let the
+        Against a record **no run has claimed** — the only state the erasure can
+        still withdraw — one AQL statement reads the record, **writes** it
+        (``updated_at``) and removes the membership. The write is what makes the
+        two decisions that meet on a join exclusive: the erasure withdraws the
+        record (``delete_unclaimed``, a write on the same document) and then reads
+        the members again; a read-then-delete on the joiner's side would let the
         joiner's delete land after that read, and the tenant would be kept for a
         member nobody has any more. With the touch, the withdrawal and this
         rollback cannot both succeed on the document: whichever commits first is
@@ -124,47 +132,55 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         erasure's re-read, a withdrawal that commits first leaves this statement
         nothing to match, and the membership stands.
 
+        Against a record a run **has claimed** the erasure has decided to erase and
+        can no longer keep the tenant, so there is nothing to arbitrate and the
+        record is left untouched: a write here would conflict with the running
+        erasure's own heartbeat and read as a lost claim.
+
         Returns ``True`` when the membership was removed, ``False`` when no open
-        record exists any more (withdrawn, or never there) — the membership
-        stands then.
+        record exists any more (withdrawn, completed, or never there) — the
+        membership stands then.
 
         Raises:
             WriteConflictError: the record kept conflicting with a concurrent
                 write for :attr:`_ROLLBACK_ATTEMPTS` attempts.
         """
-        query = """
+        unclaimed = f"""
         FOR record IN @@records
-          FILTER record._key == @record_key AND record.status != 'completed'
-          UPDATE record WITH { updated_at: @now } IN @@records
+          FILTER record._key == @record_key AND {self._UNCLAIMED}
+          UPDATE record WITH {{ updated_at: @now }} IN @@records
           FOR member IN @@memberships
             FILTER member._key == @key AND member.tenant_key == @tenant_key
             REMOVE member IN @@memberships
             RETURN OLD._key
         """
+        claimed = f"""
+        FOR record IN @@records
+          FILTER record._key == @record_key AND record.status != 'completed' AND NOT ({self._UNCLAIMED})
+          FOR member IN @@memberships
+            FILTER member._key == @key AND member.tenant_key == @tenant_key
+            REMOVE member IN @@memberships
+            RETURN OLD._key
+        """
+        bind_vars = {
+            "@records": col.TENANT_ERASURE_RECORDS,
+            "@memberships": col.MEMBERSHIPS,
+            "record_key": TenantErasureEngine.record_key(tenant_key),
+            "key": key,
+            "tenant_key": tenant_key,
+        }
         for _attempt in range(self._ROLLBACK_ATTEMPTS):
             try:
-                cursor = cast(
-                    Cursor,
-                    self._db.aql.execute(
-                        query,
-                        bind_vars={
-                            "@records": col.TENANT_ERASURE_RECORDS,
-                            "@memberships": col.MEMBERSHIPS,
-                            "record_key": TenantErasureEngine.record_key(tenant_key),
-                            "key": key,
-                            "tenant_key": tenant_key,
-                            "now": datetime.now(UTC).isoformat(),
-                        },
-                    ),
-                )
-                removed = list(cursor)
+                # Claimed after the first statement looked: the second sees it claimed.
+                for query, extra in ((unclaimed, {"now": datetime.now(UTC).isoformat()}), (claimed, {})):
+                    cursor = cast(Cursor, self._db.aql.execute(query, bind_vars={**bind_vars, **extra}))
+                    if list(cursor):
+                        self._remove_dependents(key)
+                        return True
+                return False
             except AQLQueryExecuteError as exc:
-                if exc.error_code == 1200:
-                    continue
-                raise
-            if removed:
-                self._remove_dependents(key)
-            return bool(removed)
+                if exc.error_code != 1200:
+                    raise
         raise WriteConflictError(col.TENANT_ERASURE_RECORDS)
 
     def list_by_tenant(self, tenant_key: str) -> list[MemberInfo]:
