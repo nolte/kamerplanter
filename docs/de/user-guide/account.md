@@ -111,6 +111,9 @@ Nach mehreren fehlgeschlagenen Anmeldeversuchen in Folge sperrt das System dein 
 !!! note "Warum die Meldung immer erscheint"
     Diese Meldung wird unabhängig davon angezeigt, ob ein Konto mit der eingegebenen Adresse existiert. Das verhindert, dass Außenstehende über die Reset-Funktion herausfinden können, welche E-Mail-Adressen bei Kamerplanter registriert sind.
 
+!!! tip "Kein Link angekommen?"
+    Kamerplanter schickt für eine Adresse höchstens **drei** Links pro Stunde an Anfragen aus deinem Netz und höchstens **zehn** insgesamt. Danach kommt erst wieder einer, wenn eine Stunde lang keine Anfrage aus deinem Netz kam — frag also nicht mehrmals hintereinander, sondern warte eine Stunde. Anfragen anderer Leute nach deiner Adresse verbrauchen dein Kontingent aus deinem Netz nicht. Einen Weg, über den dir ein Administrator einen Link schickt oder das Passwort zurücksetzt, gibt es nicht. <!-- REQ-023 -->
+
 4. Öffne den Reset-Link aus der E-Mail (gültig für **1 Stunde**)
 5. Vergib ein neues Passwort (mindestens 10 Zeichen) und bestätige es
 6. Klicke auf **Passwort speichern** — du wirst zur Anmeldeseite weitergeleitet

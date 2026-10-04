@@ -47,18 +47,25 @@ DEFAULT_TTL_SECONDS = 86_400
 
 #: Entry cap of the in-process tier; it bounds memory while Valkey is down. The
 #: step-up's subjects derive from authenticated accounts and cannot be flooded
-#: anonymously. The two anonymous budgets — the verification resend
-#: (``DEFAULT_VERIFICATION_RESEND_STORE``, #2037) and the password reset
-#: (``DEFAULT_PASSWORD_RESET_STORE``, #2043) — count caller-chosen addresses:
-#: while Valkey is down, more than this many distinct addresses submitted to one
-#: process evict the oldest entry (LRU), and with it that address's spent
-#: budget. Only worthwhile with several source IPs: one IP at the default 20/min
-#: needs about 205 minutes per eviction, while the window refills after 60
-#: minutes anyway. Tracked separately. The password-proven resend budget
-#: (``DEFAULT_VERIFICATION_RESEND_PROVEN_STORE``, #2046) has the same cap and
-#: the same eviction, but its subjects are account keys reached only with the
-#: account's correct password, so filling it takes that many proven accounts.
+#: anonymously, so its full map evicts the least recently written entry (LRU).
+#: The password-proven resend budget (``DEFAULT_VERIFICATION_RESEND_PROVEN_STORE``,
+#: #2046) has the same cap and the same eviction: its subjects are account keys
+#: reached only with the account's correct password, so filling it takes that
+#: many proven accounts. The two anonymous budgets use
+#: :func:`anonymous_budget_fallback` instead (#2058).
 _FALLBACK_CAPACITY = 4096
+
+#: Entry cap of the in-process tier of the two **anonymous** mail budgets — the
+#: verification resend (#2037) and the password reset (#2043), whose subjects are
+#: caller-chosen addresses (#2058). Four times the step-up's: an entry is a
+#: 64-character digest plus a small record, a few hundred bytes, so a full map
+#: is a few megabytes per store and process.
+ANONYMOUS_BUDGET_FALLBACK_CAPACITY = 16_384
+
+#: What :meth:`MemoryStepUpThrottleStore.reserve_attempt` answers for a new
+#: subject it cannot admit into a full non-evicting map: above every budget, so
+#: the caller treats it as spent and stays silent (#2058).
+FULL_MAP_COUNT = 2**31 - 1
 
 
 class _StringRedis(Protocol):
@@ -99,12 +106,40 @@ class MemoryStepUpThrottleStore(IStepUpThrottleStore):
         ttl_seconds: int = DEFAULT_TTL_SECONDS,
         capacity: int = _FALLBACK_CAPACITY,
         clock: Callable[[], datetime] | None = None,
+        *,
+        refuse_new_subjects_when_full: bool = False,
     ) -> None:
+        """Build the map.
+
+        Args:
+            ttl_seconds: Window of a subject's counters, renewed on every write.
+            capacity: Most entries the map holds.
+            clock: Source of "now"; the wall clock unless a test supplies one.
+            refuse_new_subjects_when_full: ``False`` (the step-up): a full map
+                evicts its least recently written entry. ``True`` (the anonymous
+                mail budgets, #2058): a full map first drops entries whose
+                window has passed, and if it is still full,
+                :meth:`reserve_attempt` answers :data:`FULL_MAP_COUNT` for a
+                **new** subject without storing it — no live entry, and with it
+                no spent budget, is ever evicted by a flood of new subjects.
+        """
         self._ttl = timedelta(seconds=ttl_seconds)
         self._capacity = capacity
         self._clock = clock or (lambda: datetime.now(UTC))
         self._mutex = threading.Lock()
         self._entries: OrderedDict[str, _Entry] = OrderedDict()
+        self._refuse_when_full = refuse_new_subjects_when_full
+        self._full_reported = False
+
+    @property
+    def capacity(self) -> int:
+        """Most entries the map holds."""
+        return self._capacity
+
+    @property
+    def refuses_new_subjects_when_full(self) -> bool:
+        """Whether a full map refuses new subjects instead of evicting (#2058)."""
+        return self._refuse_when_full
 
     def _entry(self, key: str, now: datetime) -> _Entry:
         """The live entry for *key*, created or aged as needed; moved to the young end."""
@@ -118,6 +153,24 @@ class MemoryStepUpThrottleStore(IStepUpThrottleStore):
             self._entries.popitem(last=False)
         return entry
 
+    def _has_room_for(self, key: str, now: datetime) -> bool:
+        """Whether *key* may be stored without evicting a live entry; the caller holds ``_mutex``.
+
+        Entries are kept in order of their last write and every write renews the
+        window, so the expired ones sit at the old end: dropping from there until
+        the first live entry purges all of them.
+        """
+        if key in self._entries or len(self._entries) < self._capacity:
+            return True
+        while self._entries:
+            oldest = next(iter(self._entries.values()))
+            if oldest.expires_at is None or oldest.expires_at > now:
+                break
+            if oldest.locked_until is not None and oldest.locked_until > now:
+                break
+            self._entries.popitem(last=False)
+        return len(self._entries) < self._capacity
+
     def lock_remaining_seconds(self, subject: str) -> int:
         now = self._clock()
         with self._mutex:
@@ -129,11 +182,22 @@ class MemoryStepUpThrottleStore(IStepUpThrottleStore):
 
     def reserve_attempt(self, subject: str) -> int:
         now = self._clock()
+        key = _digest(subject)
         with self._mutex:
-            entry = self._entry(_digest(subject), now)
-            entry.count += 1
-            entry.expires_at = now + self._ttl
-            return entry.count
+            if self._refuse_when_full and not self._has_room_for(key, now):
+                report, self._full_reported = not self._full_reported, True
+            else:
+                if self._refuse_when_full:
+                    self._full_reported = False
+                entry = self._entry(key, now)
+                entry.count += 1
+                entry.expires_at = now + self._ttl
+                return entry.count
+        if report:
+            # Once per episode of a full map, never per refused subject: a flood
+            # must not turn into a log flood. No subject, no address.
+            logger.warning("anonymous_budget_fallback_full", capacity=self._capacity)
+        return FULL_MAP_COUNT
 
     def strike(self, subject: str, *, rearm_to: int, lock_seconds: Callable[[int], int]) -> int:
         now = self._clock()
@@ -175,11 +239,33 @@ DEFAULT_STEP_UP_THROTTLE_STORE = MemoryStepUpThrottleStore()
 #: alone that long.
 VERIFICATION_RESEND_WINDOW_SECONDS = 3_600
 
+
+def anonymous_budget_fallback(
+    ttl_seconds: int,
+    *,
+    capacity: int = ANONYMOUS_BUDGET_FALLBACK_CAPACITY,
+    clock: Callable[[], datetime] | None = None,
+) -> MemoryStepUpThrottleStore:
+    """The in-process tier of an anonymous per-address mail budget (#2058).
+
+    Non-evicting: a caller who submits more distinct addresses than the map
+    holds while Valkey is down must not evict a victim's spent budget and buy
+    it a fresh one (measured before #2058: 4096 invented addresses → a 4th
+    mail to the victim). A full map drops expired entries first; a new address
+    that still finds no room is answered as over its budget — silently, no mail
+    — until entries expire. ``capacity`` and ``clock`` are for tests.
+    """
+    return MemoryStepUpThrottleStore(
+        ttl_seconds=ttl_seconds, capacity=capacity, clock=clock, refuse_new_subjects_when_full=True
+    )
+
+
 #: Process-wide in-process tier of the resend budget, and the degradation target
 #: of its Redis tier — its own instance, so the step-up's 24-hour window and this
 #: one-hour window are never applied to each other's subjects. Module-level for
-#: the same reason as :data:`DEFAULT_STEP_UP_THROTTLE_STORE`.
-DEFAULT_VERIFICATION_RESEND_STORE = MemoryStepUpThrottleStore(ttl_seconds=VERIFICATION_RESEND_WINDOW_SECONDS)
+#: the same reason as :data:`DEFAULT_STEP_UP_THROTTLE_STORE`; non-evicting
+#: (:func:`anonymous_budget_fallback`).
+DEFAULT_VERIFICATION_RESEND_STORE = anonymous_budget_fallback(VERIFICATION_RESEND_WINDOW_SECONDS)
 
 #: Process-wide in-process tier of the password-proven resend budget (#2046) —
 #: the fresh link the login refusal ``EMAIL_NOT_VERIFIED`` mails once the
@@ -191,20 +277,21 @@ DEFAULT_VERIFICATION_RESEND_STORE = MemoryStepUpThrottleStore(ttl_seconds=VERIFI
 DEFAULT_VERIFICATION_RESEND_PROVEN_STORE = MemoryStepUpThrottleStore(ttl_seconds=VERIFICATION_RESEND_WINDOW_SECONDS)
 
 
-#: Window of the per-address budget of ``POST /auth/password-reset/request``
-#: (#2043) — the third user of this mechanism, shaped exactly like the resend
-#: budget above: an atomic counter per subject, window renewed by every request,
-#: no strikes, no locks. Its subjects — ``password-reset:<address>`` — digest to
+#: Window of the two-stage budget of ``POST /auth/password-reset/request``
+#: (#2043, #2059) — the third user of this mechanism, shaped like the resend
+#: budget above: an atomic counter per subject, window renewed by every write,
+#: no strikes, no locks. Its subjects — ``password-reset-source:<address>|<ip>``
+#: per source and ``password-reset:<address>`` over all sources — digest to
 #: neither a step-up subject nor a ``verification-resend:`` one, so the budgets
 #: never spend each other. One hour, like the resend budget: the reset link
-#: itself lives one hour, so a fourth link inside it would only replace a link
-#: that is still valid.
+#: itself lives one hour.
 PASSWORD_RESET_WINDOW_SECONDS = 3_600
 
 #: Process-wide in-process tier of the reset budget, and the degradation target
 #: of its Redis tier. Its own instance, for the reason
-#: :data:`DEFAULT_VERIFICATION_RESEND_STORE` is one.
-DEFAULT_PASSWORD_RESET_STORE = MemoryStepUpThrottleStore(ttl_seconds=PASSWORD_RESET_WINDOW_SECONDS)
+#: :data:`DEFAULT_VERIFICATION_RESEND_STORE` is one; non-evicting
+#: (:func:`anonymous_budget_fallback`).
+DEFAULT_PASSWORD_RESET_STORE = anonymous_budget_fallback(PASSWORD_RESET_WINDOW_SECONDS)
 
 
 class RedisStepUpThrottleStore(IStepUpThrottleStore):

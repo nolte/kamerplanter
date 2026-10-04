@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.api.v1.auth.router import limiter
+from app.api.v1.auth.router import limiter, process_memory_limiter
 from app.api.v1.openapi_tags import OPENAPI_TAGS
 from app.api.v1.router import api_router
 from app.common.dependencies import close_connection, get_connection, get_ha_client
@@ -460,7 +460,7 @@ def _mounted_paths(application: Any, _depth: int = 0) -> Iterator[str]:
 
 
 @app.get("/api/health", tags=["health"])
-@limiter.limit(settings.rate_limit_health)
+@process_memory_limiter.limit(settings.rate_limit_health)
 def root_health(request: Request) -> dict:
     """Root-level health endpoint for M2M consumers (HA integration).
 
@@ -486,8 +486,10 @@ def root_health(request: Request) -> dict:
     ("willing to answer, nothing baked in") and which a drift-detection consumer
     has to be able to tell apart from a deliberately silent instance.
 
-    Rate-limited per client IP (``rate_limit_health``, SEC-003). The endpoint is
-    unauthenticated and does real work — the router-graph walk below plus, where
+    Rate-limited per client IP (``rate_limit_health``, SEC-003), counted in this
+    process's memory only (``process_memory_limiter``, #2048): a health request
+    never waits on the shared limiter storage, also not while Valkey is down.
+    The endpoint is unauthenticated and does real work — the router-graph walk below plus, where
     enabled, **synchronous** probes into TimescaleDB and the knowledge service —
     which made it a cheap amplification point into internal services. The
     Kubernetes liveness/readiness probes hit ``/api/v1/health/live`` and

@@ -342,7 +342,7 @@ class TestASingleUseTokenIsSingleUse:
         from app.common.exceptions import InvalidTokenError
 
         service, mail = _auth_service(db)
-        service.request_password_reset(_STORED_USER["email"])
+        service.request_password_reset(_STORED_USER["email"], client_ip="198.51.100.1")
         token = mail.reset_token
         assert token, "the service did not issue a reset token; nothing to measure"
 

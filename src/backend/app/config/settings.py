@@ -833,6 +833,12 @@ class Settings(BaseSettings):
     #: base-URL negotiation, an operator during an incident a handful of times.
     #: Sixty a minute leaves an order of magnitude of headroom for several such
     #: clients behind one NAT address while still bounding a flood.
+    #:
+    #: **Counted per process, in memory** (#2048, ``process_memory_limiter``):
+    #: the bound is about amplification, not a budget that must hold across
+    #: replicas, and a health request must never wait on the shared Valkey —
+    #: least of all while it is down. The deployment-wide bound is this value
+    #: times the number of backend processes.
     rate_limit_health: str = "60/minute"
 
     #: How many proxy addresses **our own** infrastructure appends to the right

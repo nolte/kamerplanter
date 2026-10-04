@@ -200,7 +200,7 @@ class TestTheResetPathIsTheSameSurface:
         account = _account(account_type="service", email=SERVICE_EMAIL)
         service, user_repo = _service(account)
 
-        service.request_password_reset(SERVICE_EMAIL)
+        service.request_password_reset(SERVICE_EMAIL, client_ip="198.51.100.1")
 
         assert user_repo.update_fields.call_count == 0
         assert service._email_service.send_password_reset_email.call_count == 0  # type: ignore[attr-defined]
@@ -209,7 +209,7 @@ class TestTheResetPathIsTheSameSurface:
         account = _account(account_type="human", email=USER_EMAIL)
         service, user_repo = _service(account)
 
-        service.request_password_reset(USER_EMAIL)
+        service.request_password_reset(USER_EMAIL, client_ip="198.51.100.1")
 
         assert user_repo.update_fields.call_count == 1
         assert service._email_service.send_password_reset_email.call_count == 1  # type: ignore[attr-defined]

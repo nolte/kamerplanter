@@ -17,7 +17,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from app.api.v1.auth.router import limiter
+from app.api.v1.auth.router import limiter, process_memory_limiter
 from tests.support import db_guard
 
 
@@ -87,7 +87,10 @@ def reset_rate_limiter() -> Iterator[None]:
     ever leaves it off would silently disarm every later rate-limit assertion,
     which is the worse failure — a passing test that certifies nothing.
     """
-    limiter.enabled = True
-    limiter.reset()
+    limiters = (limiter, process_memory_limiter)  # the latter counts /api/health only (#2048)
+    for each in limiters:
+        each.enabled = True
+        each.reset()
     yield
-    limiter.reset()
+    for each in limiters:
+        each.reset()

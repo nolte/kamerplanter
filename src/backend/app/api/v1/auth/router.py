@@ -48,7 +48,7 @@ from app.common.exceptions import (
     ValidationError,
 )
 from app.common.openapi_responses import CRUD_RESPONSES, STEP_UP_RESPONSES, UNAUTHORIZED_RESPONSE
-from app.common.rate_limit import build_rate_limiter
+from app.common.rate_limit import build_process_memory_rate_limiter, build_rate_limiter
 from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.core.permissions import list_mcp_permissions
@@ -103,6 +103,11 @@ def _rate_limit_key(request: Request) -> str:
 #: in the storage ``settings.rate_limit_storage_url`` / ``redis_url`` names, so
 #: the limits hold per deployment rather than per process (#2045).
 limiter = build_rate_limiter(_rate_limit_key)
+
+#: The limiter of ``GET /api/health`` alone: same client key, counted in process
+#: memory only, so the public health endpoint never waits on the shared storage
+#: (#2048). Every other limit uses :data:`limiter`.
+process_memory_limiter = build_process_memory_rate_limiter(_rate_limit_key)
 router = APIRouter(prefix="/auth", tags=["auth"], responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES})
 
 #: API-key management, mounted in **both** deployment modes (REQ-027, REQ-033 §4.3).
@@ -550,12 +555,15 @@ def request_password_reset(
     failure must not tell the caller whether the address has an account.
 
     **Limits.** Per client IP ``settings.rate_limit_auth`` (answers 429 — a
-    property of the source, never of the address); per address three requests,
-    refilled once the address has been left alone for an hour (#2043). The
-    per-address budget is enforced silently and counts unknown addresses alike:
-    a request over it answers exactly like an accepted one and only sends nothing.
+    property of the source, never of the address); per address and client IP
+    three requests, refilled once that source has left the address alone for an
+    hour (#2043, #2059); per address over all sources ten links an hour. Both
+    budgets are enforced silently and count unknown addresses alike: a request
+    over one answers exactly like an accepted one and only sends nothing.
     """
-    service.request_password_reset(body.email, defer_mail=background_tasks.add_task)
+    service.request_password_reset(
+        body.email, client_ip=resolve_client_ip(request), defer_mail=background_tasks.add_task
+    )
     return MessageResponse(message="If the email exists, a reset link has been sent.")
 
 

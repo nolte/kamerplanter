@@ -30,6 +30,8 @@ can choose it can walk around the lockout and can claim an allowlisted address.
 
 from __future__ import annotations
 
+import ipaddress
+
 import structlog
 from fastapi import Request
 
@@ -87,6 +89,10 @@ def resolve_client_ip(request: Request) -> str | None:
     trusting a value no proxy of ours is known to have written. The peer is the
     one address nobody can fake.
 
+    The selected entry counts only if it is an IP address, and is returned in
+    its canonical form; anything else is ``None`` (#2053) — never the peer,
+    which may be one of our own proxies.
+
     ``None`` means the peer could not be read either — no header *or* a header
     this configuration cannot interpret, and no ``request.client``. It is
     emphatically **not** "no forwarded header was sent": a header shorter than
@@ -112,4 +118,21 @@ def resolve_client_ip(request: Request) -> str | None:
     index = len(chain) - 1 - hops
     if index < 0:
         return peer
-    return chain[index]
+    # Only an IP address is an answer (#2053). Where the entry is the caller's
+    # own (``hops`` 0 behind no proxy, or a path around ours) any string became
+    # the key of every IP-keyed control — measured: ``not-an-ip`` and a
+    # 200-character string each opened their own limiter bucket. The canonical
+    # form also folds spellings of one address (``2001:DB8::1``,
+    # ``2001:db8:0:0::1``) into one key.
+    #
+    # Anything else is ``None`` ("no address could be established"), not the
+    # peer: the peer can be our own nginx or ingress, inside the cluster ranges
+    # an ``ip_allowlist`` may name, and falling back to it admitted a junk entry
+    # there (bundle review of #2062). Every caller already handles ``None`` on
+    # the safe side: the allowlist refuses, the limiter key falls back to the
+    # peer, the pairing lockout and the reset budget count it in one shared
+    # "unknown" bucket.
+    try:
+        return str(ipaddress.ip_address(chain[index]))
+    except ValueError:
+        return None

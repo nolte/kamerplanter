@@ -284,7 +284,8 @@ class TestTheBudgetStopsTheMail:
         assert refused.status_code == accepted.status_code == 200
         assert refused.content == accepted.content
         assert _stable_headers(refused) == _stable_headers(accepted)
-        # The per-IP countdown is present and simply one lower: the budget adds no header.
+        # The budget adds no header (the limiter is built without ``headers_enabled``, so
+        # there is no per-IP countdown either): the same header names on both answers.
         assert {k.lower() for k in refused.headers} == {k.lower() for k in accepted.headers}
 
     def test_the_budget_is_reserved_before_the_lookup_and_before_the_response(
@@ -292,7 +293,30 @@ class TestTheBudgetStopsTheMail:
     ) -> None:
         _request(client, OWNER)
 
-        assert world.order == ["reserve", "lookup", "response-sent", "write", "send"]
+        # Two reservations since #2059: per address and source, then per address.
+        # The lookup runs after the response since #2062, with the write and the
+        # mail: the request path does the reservations and nothing else.
+        assert world.order == ["reserve", "reserve", "response-sent", "lookup", "write", "send"]
+
+    def test_the_request_path_does_the_same_work_inside_and_above_the_overall_budget(
+        self, world: _World, client: TestClient
+    ) -> None:
+        """No lookup on the request path on either side of the budget (#2062).
+
+        Before, a request inside the budget looked the account up before answering
+        and one above it did not — a faster answer above the budget.
+        """
+        _request(client, OWNER)
+        inside = world.order[: world.order.index("response-sent")]
+        for _ in range(MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW):
+            _request(client, OWNER)
+        world.order.clear()
+
+        _request(client, OWNER)
+        above = world.order[: world.order.index("response-sent")]
+
+        assert "lookup" not in inside
+        assert "lookup" not in above
 
     def test_over_the_budget_nothing_after_the_reservation_runs(self, world: _World, client: TestClient) -> None:
         for _ in range(MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW):
@@ -345,7 +369,7 @@ class TestOneBudgetPerAddress:
         """
         service = world.service()
         for email in (f" {OWNER.upper()} ", OWNER, "Owner@Example.com"):
-            service.request_password_reset(email)
+            service.request_password_reset(email, client_ip="testclient")
 
         assert world.budget.reserve_attempt(f"password-reset:{OWNER}") == 4
 
@@ -377,7 +401,13 @@ class TestAStorageOutage:
 
         assert {r.status_code for r in answers} == {200}
         assert world.mail.count(OWNER) == MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW
-        assert fallback.reserve_attempt(f"password-reset:{OWNER}") == MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW + _OVER + 1
+        # Every request counted in the per-source stage (#2059); only the admitted
+        # ones reached the per-address stage.
+        assert (
+            fallback.reserve_attempt(f"password-reset-source:{OWNER}|testclient")
+            == MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW + _OVER + 1
+        )
+        assert fallback.reserve_attempt(f"password-reset:{OWNER}") == MAX_PASSWORD_RESET_REQUESTS_PER_WINDOW + 1
 
     def test_the_wired_store_degrades_to_its_own_in_process_tier(self) -> None:
         subject = "password-reset:outage-probe-2043@example.com"
