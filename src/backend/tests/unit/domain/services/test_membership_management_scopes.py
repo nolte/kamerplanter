@@ -18,9 +18,14 @@ from app.common.exceptions import ForbiddenError, ValidationError
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.models.membership import Membership
 from app.domain.services.tenant_service import TenantService
+from tests.support.step_up import STEP_UP_PASSED, PassedStepUpVerifier
 
 _MANAGER = [AdminScope.MANAGEMENT]
 _NONE: list[AdminScope] = []
+#: The member routes pass the actor's step-up since #2032; this suite is about the scope gate and INV-1, so the
+#: step-up is the passed double. The refusals are pinned against the real verifier in
+#: ``test_tenant_role_membership_step_up.py``.
+_STEP_UP = {"requester": MagicMock(), "client_ip": None, **STEP_UP_PASSED}
 
 
 def _membership(scopes: list[AdminScope], role: TenantRole = TenantRole.LEAD) -> Membership:
@@ -43,6 +48,7 @@ def _service(membership: Membership, manager_count: int) -> tuple[TenantService,
         membership_engine=MembershipEngine(),
         invitation_engine=MagicMock(),
         assignment_repo=MagicMock(),
+        step_up_verifier=PassedStepUpVerifier(),  # type: ignore[arg-type]
     )
     return service, membership_repo
 
@@ -52,19 +58,19 @@ class TestManagementScopeGatesMemberManagement:
         service, _ = _service(_membership(_MANAGER), manager_count=2)
 
         with pytest.raises(ForbiddenError, match="management"):
-            service.remove_member("t1", "m1", actor_scopes=_NONE)
+            service.remove_member("t1", "m1", actor_scopes=_NONE, **_STEP_UP)
 
     def test_scope_holder_can_remove_a_member(self):
         service, repo = _service(_membership(_NONE, role=TenantRole.GROWER), manager_count=1)
 
-        assert service.remove_member("t1", "m1", actor_scopes=_MANAGER) is True
+        assert service.remove_member("t1", "m1", actor_scopes=_MANAGER, **_STEP_UP) is True
         repo.delete.assert_called_once_with("m1")
 
     def test_technical_scope_does_not_substitute(self):
         service, _ = _service(_membership(_NONE), manager_count=2)
 
         with pytest.raises(ForbiddenError, match="management"):
-            service.remove_member("t1", "m1", actor_scopes=[AdminScope.TECHNICAL])
+            service.remove_member("t1", "m1", actor_scopes=[AdminScope.TECHNICAL], **_STEP_UP)
 
 
 class TestLastManagerGuard:
@@ -72,13 +78,13 @@ class TestLastManagerGuard:
         service, repo = _service(_membership(_MANAGER), manager_count=1)
 
         with pytest.raises(ValidationError, match="management"):
-            service.remove_member("t1", "m1", actor_scopes=_MANAGER)
+            service.remove_member("t1", "m1", actor_scopes=_MANAGER, **_STEP_UP)
         repo.delete.assert_not_called()
 
     def test_removing_a_manager_while_another_remains_is_allowed(self):
         service, repo = _service(_membership(_MANAGER), manager_count=2)
 
-        assert service.remove_member("t1", "m1", actor_scopes=_MANAGER) is True
+        assert service.remove_member("t1", "m1", actor_scopes=_MANAGER, **_STEP_UP) is True
         repo.delete.assert_called_once_with("m1")
 
     def test_the_last_manager_cannot_leave(self):
@@ -110,6 +116,6 @@ class TestLastManagerGuard:
         # strand a tenant — the guard must not block it.
         service, repo = _service(_membership(_MANAGER), manager_count=1)
 
-        service.change_member_role("t1", "m1", new_role=TenantRole.VIEWER, actor_scopes=_MANAGER)
+        service.change_member_role("t1", "m1", new_role=TenantRole.VIEWER, actor_scopes=_MANAGER, **_STEP_UP)
 
         repo.update_fields.assert_called_once_with("m1", {"role": TenantRole.VIEWER})

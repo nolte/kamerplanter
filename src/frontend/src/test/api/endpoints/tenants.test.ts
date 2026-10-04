@@ -71,18 +71,21 @@ describe('tenants endpoints — members', () => {
     expect(client.get).toHaveBeenCalledWith('/tenants/org/members');
   });
 
-  it('changeMemberRole patches role', async () => {
+  it("changeMemberRole patches role with the acting administrator's step-up (#2032)", async () => {
     client.patch.mockResolvedValue({ data: undefined });
-    await tenants.changeMemberRole('org', 'm1', 'lead');
+    await tenants.changeMemberRole('org', 'm1', 'lead', { current_password: 'pw' });
     expect(client.patch).toHaveBeenCalledWith('/tenants/org/members/m1/role', {
       role: 'lead',
+      current_password: 'pw',
     });
   });
 
-  it('removeMember deletes membership', async () => {
+  it("removeMember deletes membership with the acting administrator's step-up (#2032)", async () => {
     client.delete.mockResolvedValue({ data: undefined });
-    await tenants.removeMember('org', 'm1');
-    expect(client.delete).toHaveBeenCalledWith('/tenants/org/members/m1');
+    await tenants.removeMember('org', 'm1', { step_up_code: '12345678' });
+    expect(client.delete).toHaveBeenCalledWith('/tenants/org/members/m1', {
+      data: { step_up_code: '12345678' },
+    });
   });
 
   it('leaveTenant posts to leave endpoint', async () => {

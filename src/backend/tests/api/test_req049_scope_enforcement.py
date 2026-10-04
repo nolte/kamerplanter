@@ -23,11 +23,12 @@ from fastapi.testclient import TestClient
 
 from app.api.v1.actuators.tenant_router import router as actuators_router
 from app.api.v1.tenants.router import router as tenants_router
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, get_current_user
 from app.common.dependencies import get_tenant_service
 from app.common.enums import AdminScope, TenantRole
 from app.common.exceptions import KamerplanterError
 from app.domain.models.tenant_context import TenantContext
+from app.domain.models.user import User
 
 _SLUG = "garten"
 _PREFIX = f"/api/v1/t/{_SLUG}"
@@ -45,6 +46,9 @@ def _client(role: TenantRole, scopes: list[AdminScope]) -> TestClient:
     app.dependency_overrides[get_current_tenant] = lambda: TenantContext(
         tenant_key="t1", tenant_slug=_SLUG, user_key="u1", role=role, admin_scopes=scopes
     )
+    # Member removal and role change take the acting user for their step-up (#2032): without a principal
+    # the request would stop at a 401 and "passed the scope guard" would be unobservable.
+    app.dependency_overrides[get_current_user] = lambda: User(_key="u1", email="u1@example.org", display_name="U1")
     # Never reached: every case below is refused by the dependency, before any
     # handler body runs. A service that *were* reached would raise here and the
     # test would fail loudly rather than pass for the wrong reason.

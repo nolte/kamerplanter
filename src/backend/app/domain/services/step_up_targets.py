@@ -25,7 +25,14 @@ on a kind of target learns nothing about which targets of that kind exist (403 b
   for ``new:<slug>``, no configuration uses that slug yet;
 * ``admin_tenant_update`` (#2009) — a platform admin; the tenant exists and is not the
   platform tenant (which cannot be deactivated, #1021);
-* ``admin_membership_removal`` (#2009) — a platform admin; the membership exists.
+* ``admin_membership_removal`` (#2009) — a platform admin; the membership exists;
+* ``admin_membership_role_change`` (#2032) — a platform admin; the membership exists;
+* ``tenant_member_removal`` / ``tenant_member_role_change`` (#2032) — the requester holds
+  the ``management`` scope in the tenant the membership belongs to
+  (``MembershipEngine.can_manage_members``, the predicate the routes' scope gate
+  applies). An unknown membership and one of another tenant are one answer (403): the
+  tenant is read off the membership, so deciding "not yours" before "unknown" is the
+  only order that is no membership-existence oracle.
 """
 
 from __future__ import annotations
@@ -106,10 +113,12 @@ class StepUpTargetAuthorizer:
                 raise NotFoundError("Tenant", target)
             if tenant.is_platform:
                 raise ForbiddenError("The platform tenant cannot be deactivated.")
-        elif action == "admin_membership_removal":
+        elif action in ("admin_membership_removal", "admin_membership_role_change"):
             self._require_platform_admin(user_key)
             if self._memberships.get_by_key(target) is None:
                 raise NotFoundError("Membership", target)
+        elif action in ("tenant_member_removal", "tenant_member_role_change"):
+            self._authorize_tenant_member_act(user_key, target)
         else:  # pragma: no cover - a new targeted act must be given its rule here
             raise ForbiddenError("This act cannot be confirmed here.")
 
@@ -120,6 +129,12 @@ class StepUpTargetAuthorizer:
     def _require_platform_admin(self, user_key: str) -> None:
         if not self._is_platform_admin(user_key):
             raise ForbiddenError("Platform admin role required.")
+
+    def _authorize_tenant_member_act(self, user_key: str, membership_key: str) -> None:
+        membership = self._memberships.get_by_key(membership_key)
+        actor = self._memberships.get_by_user_and_tenant(user_key, membership.tenant_key) if membership else None
+        if not (actor and actor.is_active and MembershipEngine.can_manage_members(actor.admin_scopes)):
+            raise ForbiddenError("Managing members requires the management scope in the membership's tenant.")
 
     def _authorize_tenant_deletion(self, user_key: str, tenant_key: str) -> None:
         membership = self._memberships.get_by_user_and_tenant(user_key, tenant_key)

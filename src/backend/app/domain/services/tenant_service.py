@@ -1604,6 +1604,12 @@ class TenantService:
         *,
         tenant_key: str | None = None,
         user_key: str | None = None,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> Membership:
         """Change a membership's domain role on the platform-admin path.
 
@@ -1615,8 +1621,34 @@ class TenantService:
         parent. The write goes through
         :meth:`IMembershipRepository.update_fields`, which re-validates the merged
         model (#968).
+
+        **Step-up when the role changes (#2032, REQ-024 AK-57).** Demoting a tenant's
+        last ``lead`` — or promoting someone to it — changes who may delete in the
+        tenant and who may lock others out, so an actual change of the role passes
+        the admin's *own* step-up (``requester``: the password, the fresh
+        re-authentication or the mailed code; an API key is 403, 429 when locked),
+        bound to this membership (#1884). It lives here, not on the routes, so both
+        views pass the same check; the step-up arguments are keyword-only without a
+        default, so a new caller cannot forget them. A role re-sent unchanged (the
+        edit form re-sends what it loaded) needs none and writes nothing. The
+        membership is resolved first (404 for an unknown one or one under another
+        parent); without a valid step-up nothing is written.
         """
-        self._resolve_admin_membership(membership_key, tenant_key=tenant_key, user_key=user_key)
+        membership = self._resolve_admin_membership(membership_key, tenant_key=tenant_key, user_key=user_key)
+        if membership.role == new_role:
+            return membership
+        self._step_up_verifier.verify(
+            requester,
+            action="admin_membership_role_change",
+            # #1884 — a factor obtained to change this membership's role confirms this one only.
+            target=membership_key,
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
         result = self._membership_repo.update_fields(membership_key, {"role": new_role})
         if not result:
             raise NotFoundError("Membership", membership_key)
@@ -1697,12 +1729,26 @@ class TenantService:
         membership_key: str,
         new_role: TenantRole,
         actor_scopes: list[AdminScope],
+        *,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> Membership:
         """Change a member's domain role (REQ-049 axis 1).
 
         Gated on the actor's ``MANAGEMENT`` scope, not on their own rank:
         handing out a role is member management, and the secretary who does it
         need not be a gardener.
+
+        **Step-up when the role changes (#2032, REQ-024 AK-57).** The same rule as
+        :meth:`admin_change_membership_role`, for the tenant's own member
+        administrator: an actual change passes the actor's step-up
+        (``tenant_member_role_change``, bound to the membership — #1884); a role
+        re-sent unchanged needs none and writes nothing. The scope gate and the
+        tenant-ownership 404 come first.
         """
         if not self._membership_engine.can_manage_members(actor_scopes):
             raise ForbiddenError("Requires the management administrative scope")
@@ -1714,6 +1760,21 @@ class TenantService:
         if not membership or membership.tenant_key != tenant_key:
             raise NotFoundError("Membership", membership_key)
 
+        if membership.role == new_role:
+            return membership
+
+        self._step_up_verifier.verify(
+            requester,
+            action="tenant_member_role_change",
+            # #1884 — a factor obtained to change this membership's role confirms this one only.
+            target=membership_key,
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
         result = self._membership_repo.update_fields(membership_key, {"role": new_role})
         if not result:
             raise NotFoundError("Membership", membership_key)
@@ -1751,7 +1812,29 @@ class TenantService:
             raise NotFoundError("Membership", membership_key)
         return result
 
-    def remove_member(self, tenant_key: str, membership_key: str, actor_scopes: list[AdminScope]) -> bool:
+    def remove_member(
+        self,
+        tenant_key: str,
+        membership_key: str,
+        actor_scopes: list[AdminScope],
+        *,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> bool:
+        """Remove a member from the tenant (the tenant's own member administrator).
+
+        **Step-up (#2032, REQ-024 AK-57).** Removing a member — also the tenant's last
+        ``lead`` — locks that person out, so it passes the actor's *own* step-up
+        (``tenant_member_removal``, bound to the membership — #1884), as the
+        platform-admin removal does (#2009). The scope gate, the tenant-ownership 404
+        and INV-1 (the last ``management`` holder stays, 422) come first: a request that
+        cannot succeed is not asked for a password. The step-up arguments are
+        keyword-only without a default, so a new caller cannot forget them.
+        """
         if not self._membership_engine.can_manage_members(actor_scopes):
             raise ForbiddenError("Requires the management administrative scope")
 
@@ -1762,6 +1845,18 @@ class TenantService:
         if membership.has_management:
             self._guard_last_manager(tenant_key, "Cannot remove the last member with the management scope")
 
+        self._step_up_verifier.verify(
+            requester,
+            action="tenant_member_removal",
+            # #1884 — a factor obtained to remove this membership confirms this one only.
+            target=membership_key,
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
         return self._membership_repo.delete(membership_key)
 
     def leave_tenant(self, tenant_key: str, user_key: str) -> bool:

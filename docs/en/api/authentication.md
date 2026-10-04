@@ -335,7 +335,7 @@ Content-Type: application/json
 }
 ```
 
-`action` names what the code is to confirm — one of the actions in the table below (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`, `oidc_provider_change`). The code confirms **only** that one action — a code requested for a password change is refused for an erasure attempt, without being spent by the mismatch. The mailed message names the action in plain text, never the target.
+`action` names what the code is to confirm — one of the actions in the table below (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`, `oidc_provider_change`, `admin_tenant_update`, `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change`). The code confirms **only** that one action — a code requested for a password change is refused for an erasure attempt, without being spent by the mismatch. The mailed message names the action in plain text, never the target.
 
 **The act's target (`target`).** When the act acts on something other than your own account, `target` names it — otherwise the route answers `422`; for an act on your own account a `target` is `422` as well: <!-- #1884 -->
 
@@ -345,6 +345,8 @@ Content-Type: application/json
 | `tenant_deletion` | the tenant's key |
 | `provider_unlink` | the provider link's key from `GET /users/me/providers` |
 | `oidc_provider_change` | the OIDC configuration's key; `new:<slug>` when creating one |
+| `admin_tenant_update` | the tenant's key |
+| `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change` | the membership's key (`membership_key`) |
 
 The code and the `step_up_token` then hold for that target only: a code requested for account A is refused for account B, without being spent. The route checks the target when it issues the factor — it must exist and you must be allowed to act on it (`403` if not; `404` if it doesn't exist; `409` if the slug of a new OIDC configuration is taken).
 
