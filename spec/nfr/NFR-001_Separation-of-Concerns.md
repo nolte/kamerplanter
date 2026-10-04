@@ -6,7 +6,7 @@ Kategorie: Architektur Unterkategorie: API-Design, Security, Deployment Fokus: B
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI, Docker
 Status: Genehmigt
 Priorität: Kritisch
-Version: 2.4 (#2109: Budgets je Konto auf teuren Routen umgesetzt, `rate_limit_general` entfernt)
+Version: 2.5 (§8.3 SE-006: serverseitiges Fehler-Tracking — Einwilligung `error_tracking` steuert den `user`-Block, #2136) — 2.4 (#2109: Budgets je Konto auf teuren Routen umgesetzt, `rate_limit_general` entfernt)
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [architecture, api-first, security, scalability, separation-of-concerns, layered-architecture, rate-limiting, csp, mqtt-security, audit-trail, dsgvo]
@@ -1081,6 +1081,7 @@ Sentry überträgt bei Fehler-Reports potenziell personenbezogene Daten (IP-Adre
 | SE-003 | Session-Replay DARF NUR mit separater expliziter Einwilligung aktiviert werden (Consent-Kategorie `error_tracking` mit Sub-Option `session_replay`). | MUSS |
 | SE-004 | Sentry MUSS entweder als Self-Hosted-Instanz ODER über ein EU-Rechenzentrum betrieben werden. Bei Nutzung von Sentry SaaS (US) MUSS ein Auftragsverarbeitungsvertrag (AVV) nach Art. 28 DSGVO abgeschlossen und das EU-US Data Privacy Framework als Rechtsgrundlage dokumentiert werden. | MUSS |
 | SE-005 | Bei Widerruf der Einwilligung MUSS Sentry sofort deaktiviert werden (kein Nachladen, kein Tracking bis zum nächsten Seitenaufruf). | MUSS |
+| SE-006 | **Serverseitig (Backend, #2136):** SE-001 und SE-005 betreffen das Browser-SDK. Das Backend-SDK läuft prozessweit, bevor es eine Person gibt; dort entscheidet die Einwilligung `error_tracking` der anfragenden Person je Ereignis, ob es den `user`-Block (Konto- und Mandanten-Pseudonym) trägt. Ohne Einwilligung oder bei nicht lesbarer Einwilligung geht das Ereignis ohne `user`. Was das SDK selbst als Nutzer setzt, wird immer verworfen (REQ-025 §3.6). | MUSS |
 
 ### 8.4 Security-Audit-Log
 
@@ -1682,6 +1683,7 @@ class WeatherStationAdapter:
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.5 | 2026-10-05 | **#2136 (MT-040) SE-006:** Serverseitiges Fehler-Tracking — die Einwilligung `error_tracking` entscheidet je Ereignis über den `user`-Block (Pseudonyme); SE-001/SE-005 gelten für das Browser-SDK. |
 | 2.4 | 2026-10-04 | **#2109 (MT-012) Budgets je Konto auf teuren Routen:** §6.3 hält den Umsetzungsstand fest. Upload-, Inferenz- und Druck-Routen zählen je Konto und Route (`RATE_LIMIT_UPLOAD` 30/min, `RATE_LIMIT_INFERENCE` 20/min, `RATE_LIMIT_EXPORT` 20/min, Schlüssel `user_rate_limit_key`); RL-003 (`Retry-After`) ist für jede 429-Antwort umgesetzt. Die nie gelesene Einstellung `rate_limit_general` ist entfernt statt verdrahtet — ein Konto-Default auf allen rund 800 Routen hätte jede Route neu bepreist. RL-001 (jede Route einem Tier zugeordnet) bleibt offen; Guards `test_expensive_routes_carry_a_per_user_limit`, `test_rate_limit_settings_are_read`. |
 | 2.1 | 2026-02-27 | IT-Security-Review-Findings eingearbeitet: §6.3 Rate Limiting formalisiert (SEC-H-002), §6.4 HTTP Security Headers (SEC-M-003), §6.5 Globale Eingabevalidierung (SEC-H-003), §6.6 MQTT-Security (SEC-H-006), §6.7 DSFA-Pflicht (SEC-K-005), §8.3 Sentry DSGVO-Konformität (SEC-M-005), §10.2 Audit-Trail verbindlich (SEC-H-007), §12 Akzeptanzkriterien erweitert |
 | 2.0 | 2026-02-25 | Produktionsreife Version, §6.1 Auth an REQ-023 delegiert |
