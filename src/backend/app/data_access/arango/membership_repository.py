@@ -123,11 +123,6 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         return super().update(key, merged)
 
     def delete(self, key: str) -> bool:
-        self._remove_dependents(key)
-        return super().delete(key)
-
-    def _remove_dependents(self, key: str) -> None:
-        """Remove the edges and location assignments that hang off membership *key*."""
         membership_id = f"{col.MEMBERSHIPS}/{key}"
         # Clean up edges
         self.delete_edges(col.HAS_MEMBERSHIP, membership_id, direction="inbound")
@@ -139,6 +134,7 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
           REMOVE doc IN {col.LOCATION_ASSIGNMENTS}
         """
         self._db.aql.execute(query, bind_vars={"key": key})
+        return super().delete(key)
 
     #: Attempts at the rollback below when a concurrent write on the deletion
     #: record (its withdrawal or its claim) conflicts with the touch.
@@ -189,12 +185,12 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
                     ),
                 )
                 if list(touched):
-                    self._remove_dependents(key)
+                    self.delete(key)  # the document is gone: its edges and assignments go
                     return True
                 # Claimed after the first statement looked: the second sees it claimed.
                 claimed = cast(Cursor, self._db.aql.execute(_ROLLBACK_CLAIMED_AQL, bind_vars=bind_vars))
                 if list(claimed):
-                    self._remove_dependents(key)
+                    self.delete(key)  # the document is gone: its edges and assignments go
                     return True
                 return False
             except AQLQueryExecuteError as exc:
