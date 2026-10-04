@@ -231,3 +231,31 @@ def test_the_smtp_connection_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None
     adapter.send_notification_email("to@example.org", "subject", "<p>body</p>")
 
     assert seen == [10]
+
+
+class TestEmailChannelWithoutVerificationWarning:
+    """#1948 — a configured sender plus REQUIRE_EMAIL_VERIFICATION=false is named at startup."""
+
+    @pytest.mark.parametrize(
+        ("adapter", "required", "warns"),
+        [
+            ("smtp", False, True),
+            ("resend", False, True),
+            ("smtp", True, False),
+            ("console", False, False),
+        ],
+    )
+    def test_the_api_warns_only_when_a_sender_meets_unverified_registration(
+        self, monkeypatch: pytest.MonkeyPatch, adapter: str, required: bool, warns: bool
+    ) -> None:
+        from app.main import warn_if_email_channel_without_verification
+
+        monkeypatch.setattr(settings, "email_adapter", adapter)
+        monkeypatch.setattr(settings, "require_email_verification", required)
+
+        with structlog.testing.capture_logs() as logs:
+            warned = warn_if_email_channel_without_verification()
+
+        assert warned is warns
+        events = [(entry["event"], entry["log_level"]) for entry in logs]
+        assert events == ([("email_channel_without_verification", "warning")] if warns else [])

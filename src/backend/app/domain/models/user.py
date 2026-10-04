@@ -57,6 +57,12 @@ class User(BaseModel):
     display_name: DisplayName
     password_hash: str | None = None
     email_verified: bool = False
+    #: When the owner of the address proved it (#1948): set only by the verification link, the
+    #: e-mail-change confirmation, its revert, or an OIDC provider asserting ``email_verified``.
+    #: ``email_verified`` alone proves nothing — with ``REQUIRE_EMAIL_VERIFICATION=false``
+    #: registration stamps it without a confirmation — so every consumer that mails the address
+    #: (REQ-030 §3.4) reads this field. ``None`` means "never proven".
+    email_confirmed_at: datetime | None = None
     #: When an administrator lowered ``email_verified`` on a verified account (#1992). Set, the
     #: account is not an abandoned registration, whatever ``email_verified`` says now: the
     #: unverified-account cleanup (NFR-011 R-02) never selects or erases it.

@@ -494,7 +494,9 @@ class NotificationEngine:
         """The one address the e-mail channel may mail for *user_key*, or ``None`` (#1885).
 
         Only the account's own address, and only while it is confirmed: a
-        verified login address of a live, human account. A recipient typed into
+        live, human account whose owner *proved* the address (``email_confirmed_at``,
+        #1948) — ``email_verified`` alone is not proof, because registration with
+        ``REQUIRE_EMAIL_VERIFICATION=false`` stamps it without a confirmation. A recipient typed into
         the preferences is never consulted, so nobody can aim the operator's
         sender reputation at a third party's inbox. ``None`` means "mail
         nothing", never "fall back to something else".
@@ -506,7 +508,7 @@ class NotificationEngine:
             # error must not abort the delivery to the other channels.
             logger.exception("email_recipient_lookup_failed", subject=log_subject(user_key))
             return None
-        if user is None or not user.email_verified or not user.is_active:
+        if user is None or not user.email_verified or user.email_confirmed_at is None or not user.is_active:
             return None
         if user.account_type != "human":
             return None

@@ -176,13 +176,14 @@ class TestVerifyEmail:
 
         _service(repo).verify_email(VERIFY_TOKEN)
 
-        assert repo.updates == [
-            {
-                "email_verified": True,
-                "email_verification_token": None,
-                "email_verification_expires": None,
-            }
-        ]
+        (update,) = repo.updates
+        # The link also records the proof the e-mail channel reads (#1948).
+        assert isinstance(update.pop("email_confirmed_at"), datetime)
+        assert update == {
+            "email_verified": True,
+            "email_verification_token": None,
+            "email_verification_expires": None,
+        }
 
     def test_an_unknown_token_is_refused(self) -> None:
         repo = _FakeUserRepository(_user(email_verification_token="other"))
