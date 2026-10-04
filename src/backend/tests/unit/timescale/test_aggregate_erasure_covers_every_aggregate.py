@@ -4,7 +4,7 @@
 adds another (``sensor_weekly``) would leave that aggregate's buckets of a
 deleted tenant behind while every test stayed green, so the list is measured
 against the migrations: each ``CREATE MATERIALIZED VIEW ... timescaledb.continuous``
-must be named in ``_AGGREGATE_VIEWS``.
+must be named in ``AGGREGATE_VIEWS``.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 
 from app.data_access.timescale import observation_repository
-from app.data_access.timescale.observation_repository import _AGGREGATE_VIEWS
+from app.data_access.timescale.observation_repository import AGGREGATE_VIEWS
 
 _MIGRATIONS = Path(observation_repository.__file__).parent / "migrations"
 _CAGG = re.compile(
@@ -26,7 +26,7 @@ def test_every_continuous_aggregate_of_the_migrations_is_erased() -> None:
     created = {m.group("name") for path in sorted(_MIGRATIONS.glob("*.sql")) for m in _CAGG.finditer(path.read_text())}
 
     assert created, "the pattern found no continuous aggregate: it no longer reads the migrations"
-    assert created == set(_AGGREGATE_VIEWS), (
+    assert created == set(AGGREGATE_VIEWS), (
         "A continuous aggregate was added or renamed in a migration; deletion of a tenant/sensor must "
-        "purge its buckets too (add it to _AGGREGATE_VIEWS in observation_repository.py)."
+        "purge its buckets too (add it to AGGREGATE_VIEWS in observation_repository.py)."
     )
