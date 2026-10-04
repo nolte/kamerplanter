@@ -17,6 +17,45 @@ _REGISTERED_BEFORE_CUTOFF = (
     "DATE_TIMESTAMP(doc.created_at) != null AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)"
 )
 
+#: The one predicate behind R-02's selector, its dry-run count and its held counter (#2010).
+#: Selector and counters share these lines so a counter can never describe a different set than
+#: the selector it reports on (AK-14b). ``age`` is the only part that differs between "selected"
+#: and "held". A module constant, so the catalogue guard can read the query text.
+_UNVERIFIED_QUERY = """
+        FOR doc IN @@collection
+          FILTER doc.email_verified == false
+            AND doc.email_verified_lowered_at == null
+            AND doc.last_login_at == null
+            AND {age}
+          LET linked = LENGTH(
+            FOR provider IN @@providers
+              FILTER provider.user_key == doc._key{federated_only}
+              LIMIT 1
+              RETURN 1
+          )
+          FILTER linked == 0{human_only}{extra}
+          {tail}
+        """
+
+#: Only the dry-run count: the account has at least one provider row (all of them ``local``).
+_HAS_A_PROVIDER_ROW = """
+          FILTER LENGTH(
+            FOR any_row IN @@providers
+              FILTER any_row.user_key == doc._key
+              LIMIT 1
+              RETURN 1
+          ) > 0"""
+
+
+def _widening(include_local_registrations: bool) -> dict[str, str]:
+    """The two fragments (#2010) that narrow R-02's provider exclusion to federated rows."""
+    if not include_local_registrations:
+        return {"federated_only": "", "human_only": ""}
+    return {
+        "federated_only": " AND provider.provider != @local_provider",
+        "human_only": " AND doc.account_type != 'service'",
+    }
+
 
 class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
     _model_cls = User
@@ -313,12 +352,11 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         time is missing or unreadable is not selected — its age is unknown, and
         every account this returns is erased.
         """
+        query = _UNVERIFIED_QUERY.format(
+            age=_REGISTERED_BEFORE_CUTOFF, extra="", tail="RETURN doc", **_widening(include_local_registrations)
+        )
         cursor = self._db.aql.execute(
-            self._unverified_query(
-                age=_REGISTERED_BEFORE_CUTOFF,
-                include_local_registrations=include_local_registrations,
-                tail="RETURN doc",
-            ),
+            query,
             bind_vars={
                 "@collection": col.USERS,
                 "@providers": col.AUTH_PROVIDERS,
@@ -332,32 +370,6 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
     def _local_bind(include_local_registrations: bool) -> dict[str, str]:
         return {"local_provider": "local"} if include_local_registrations else {}
 
-    @staticmethod
-    def _unverified_query(*, age: str, include_local_registrations: bool, tail: str, extra: str = "") -> str:
-        """The one predicate behind R-02's selector, its dry-run count and its held counter.
-
-        Selector and counters share these lines so a counter can never describe a
-        different set than the selector it reports on (#2010, AK-14b). ``age`` is the
-        only part that differs between "selected" and "held".
-        """
-        federated_only = " AND provider.provider != @local_provider" if include_local_registrations else ""
-        human_only = " AND doc.account_type != 'service'" if include_local_registrations else ""
-        return f"""
-        FOR doc IN @@collection
-          FILTER doc.email_verified == false
-            AND doc.email_verified_lowered_at == null
-            AND doc.last_login_at == null
-            AND {age}
-          LET linked = LENGTH(
-            FOR provider IN @@providers
-              FILTER provider.user_key == doc._key{federated_only}
-              LIMIT 1
-              RETURN 1
-          )
-          FILTER linked == 0{human_only}{extra}
-          {tail}
-        """
-
     def count_unverified_local_registrations_before(self, cutoff_iso: str) -> int:
         """Dry run (#2010): abandoned local registrations the widened selector would add.
 
@@ -366,30 +378,24 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         them ``local``. Nothing is erased by counting; the number is what the operator reads
         before releasing the real run.
         """
-        provider_rows = """
-          FILTER LENGTH(
-            FOR any_row IN @@providers
-              FILTER any_row.user_key == doc._key
-              LIMIT 1
-              RETURN 1
-          ) > 0"""
-        return self._count(
-            self._unverified_query(
-                age=_REGISTERED_BEFORE_CUTOFF,
-                include_local_registrations=True,
-                extra=provider_rows,
-                tail="COLLECT WITH COUNT INTO pending RETURN pending",
-            ),
-            {
-                "@collection": col.USERS,
-                "@providers": col.AUTH_PROVIDERS,
-                "cutoff": cutoff_iso,
-                **self._local_bind(True),
-            },
+        query = _UNVERIFIED_QUERY.format(
+            age=_REGISTERED_BEFORE_CUTOFF,
+            extra=_HAS_A_PROVIDER_ROW,
+            tail="COLLECT WITH COUNT INTO pending RETURN pending",
+            **_widening(True),
         )
-
-    def _count(self, query: str, bind_vars: dict[str, str]) -> int:
-        cursor = cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars))
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                query,
+                bind_vars={
+                    "@collection": col.USERS,
+                    "@providers": col.AUTH_PROVIDERS,
+                    "cutoff": cutoff_iso,
+                    **self._local_bind(True),
+                },
+            ),
+        )
         return int(next(iter(cursor), 0))
 
     def count_unverified_undated(self, *, include_local_registrations: bool = False) -> int:
@@ -404,15 +410,21 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         use, #2010) so the task can report the number next to its other counters,
         like R-06's ``held_without_tombstone``.
         """
-        return self._count(
-            self._unverified_query(
-                age="DATE_TIMESTAMP(doc.created_at) == null",
-                include_local_registrations=include_local_registrations,
-                tail="COLLECT WITH COUNT INTO held RETURN held",
-            ),
-            {
-                "@collection": col.USERS,
-                "@providers": col.AUTH_PROVIDERS,
-                **self._local_bind(include_local_registrations),
-            },
+        query = _UNVERIFIED_QUERY.format(
+            age="DATE_TIMESTAMP(doc.created_at) == null",
+            extra="",
+            tail="COLLECT WITH COUNT INTO held RETURN held",
+            **_widening(include_local_registrations),
         )
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                query,
+                bind_vars={
+                    "@collection": col.USERS,
+                    "@providers": col.AUTH_PROVIDERS,
+                    **self._local_bind(include_local_registrations),
+                },
+            ),
+        )
+        return int(next(iter(cursor), 0))

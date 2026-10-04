@@ -33,7 +33,6 @@ def _query_source() -> str:
 
     return (
         inspect.getsource(ArangoUserRepository.get_unverified_before)
-        + inspect.getsource(ArangoUserRepository._unverified_query)
         + inspect.getsource(user_repository).split("class ArangoUserRepository")[0]
     )
 
@@ -75,13 +74,13 @@ class TestTheLocalWideningKeepsEveryOtherGuard:
     """#2010: ``include_local_registrations`` narrows only the provider exclusion."""
 
     def test_the_widened_exclusion_still_correlates_and_filters_on_the_provider(self):
-        source = inspect.getsource(ArangoUserRepository._unverified_query)
+        source = _query_source()
         assert "provider.provider != @local_provider" in source
         assert re.search(r"FILTER\s+provider\.user_key\s*==\s*doc\._key", source)
         assert re.search(r"FILTER\s+linked\s*==\s*0", source)
 
     def test_the_widened_selector_never_reaches_a_service_account(self):
-        assert "doc.account_type != 'service'" in inspect.getsource(ArangoUserRepository._unverified_query)
+        assert "doc.account_type != 'service'" in _query_source()
 
     def test_the_default_is_the_narrow_selector(self):
         parameter = inspect.signature(ArangoUserRepository.get_unverified_before).parameters[
