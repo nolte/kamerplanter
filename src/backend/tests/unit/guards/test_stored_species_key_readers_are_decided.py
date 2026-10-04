@@ -35,11 +35,20 @@ APP = Path(__file__).resolve().parents[3] / "app"
 _LOOKUP_ATTRS = {"get_species", "get_species_or_raise", "get_species_by_key", "resolve_species", "_resolve_species"}
 _RESOLVER_NAMES = {"readable_species", "_require_readable_species", "_species_is_readable"}
 _TENANT_KWARGS = {"tenant_key"}
+_TENANT_POSITION = 3
 
 _RESOLVES = "resolves"
 _LISTED = "listed"
 
-_ENGINE_REASON = "feeds an internal compatibility/rotation computation; no species name or data is echoed to the caller"
+_ROTATION_REASON = (
+    "echoes botanical family keys (global catalogue), never a species name; an unreadable species' family is"
+    " the only thing it could carry, and only as a key the caller's own plant history already implies"
+)
+_NEIGHBOUR_NAME_REASON = (
+    "names a neighbour only when the species has a global companion edge; the app has no tenant write path"
+    " for those edges (seed-only), so a tenant's private species cannot be that neighbour (re-judged #2082)"
+)
+_FISH_REASON = "the 'species' is the global fish catalogue (fish_species), not the tenant-owned species collection"
 _CARE = "app/domain/services/care_reminder_service.py:CareReminderService"
 
 #: ``"path:qualified name"`` -> ``(verdict, reason)``.
@@ -77,34 +86,31 @@ _READERS: dict[str, tuple[str, str]] = {
     "app/tasks/reference_contribution_tasks.py:_evaluate": (_RESOLVES, ""),
     "app/domain/engines/companion_planting_engine.py:CompanionPlantingEngine.check_compatibility": (
         _LISTED,
-        _ENGINE_REASON,
+        _NEIGHBOUR_NAME_REASON,
     ),
     "app/domain/engines/companion_planting_engine.py:CompanionPlantingEngine.get_companion_recommendations": (
         _LISTED,
-        _ENGINE_REASON,
+        _NEIGHBOUR_NAME_REASON,
     ),
     "app/domain/engines/crop_rotation_validator.py:CropRotationValidator.validate_planting": (
         _LISTED,
-        _ENGINE_REASON,
+        _ROTATION_REASON,
     ),
     "app/domain/services/aquaponik_service.py:AquaponikService.create_stock": (
         _LISTED,
-        "the stock's species key comes from the request and is not a plant row; checked against the aquaponics model",
+        f"the stock's species key comes from the request and is not a plant row; {_FISH_REASON}",
     ),
     "app/domain/services/aquaponik_service.py:AquaponikService.get_feeding_recommendation": (
         _LISTED,
-        "reads the species of the tenant's own stock for a feeding factor; no name echoed",
+        f"reads the species of the tenant's own stock for a feeding factor; {_FISH_REASON}",
     ),
     "app/domain/services/aquaponik_service.py:AquaponikService._primary_species": (
         _LISTED,
-        "reads the species of the tenant's own stock for a feeding factor; no name echoed",
+        f"reads the species of the tenant's own stock for a feeding factor; {_FISH_REASON}",
     ),
-    f"{_CARE}.care_inputs_for_plant": (
-        _LISTED,
-        "species name and frost sensitivity reach reminder text; the species cache is keyed by species key alone",
-    ),
-    f"{_CARE}._build_plant_data_for_tenant": (_LISTED, "same cache-key change as care_inputs_for_plant"),
-    f"{_CARE}.ensure_seasonal_winter_tasks": (_LISTED, "same cache-key change as care_inputs_for_plant"),
+    f"{_CARE}.care_inputs_for_plant": (_RESOLVES, ""),
+    f"{_CARE}._build_plant_data_for_tenant": (_RESOLVES, ""),
+    f"{_CARE}.ensure_seasonal_winter_tasks": (_RESOLVES, ""),
     "app/domain/services/species_service.py:SpeciesService.get_compatible_species": (
         _LISTED,
         "the key is the request's path parameter, not a stored one; a separate catalogue-read question",
@@ -113,7 +119,7 @@ _READERS: dict[str, tuple[str, str]] = {
         _LISTED,
         "the key is the request's path parameter, not a stored one; a separate catalogue-read question",
     ),
-    "app/tasks/care_tasks.py:generate_due_care_reminders": (_LISTED, "same cache-key change as care_inputs_for_plant"),
+    "app/tasks/care_tasks.py:generate_due_care_reminders": (_RESOLVES, ""),
 }
 
 
@@ -145,7 +151,10 @@ def _is_resolver(call: ast.Call) -> bool:
     if name in _RESOLVER_NAMES:
         return True
     # ``get_species(..., tenant_key=...)`` / ``resolve_species(..., tenant_key=...)``
-    return name in _LOOKUP_ATTRS and any(kw.arg in _TENANT_KWARGS for kw in call.keywords)
+    if name in _LOOKUP_ATTRS and any(kw.arg in _TENANT_KWARGS for kw in call.keywords):
+        return True
+    # ``CareReminderService._resolve_species(key, cache, tenant_key)`` takes the tenant positionally
+    return name == "_resolve_species" and len(call.args) >= _TENANT_POSITION
 
 
 def _function_nodes(rel: str, tree: ast.AST):
@@ -253,6 +262,16 @@ def test_selftest_a_scoped_reader_is_found_and_resolves() -> None:
 
     assert set(found) == {"app/x.py:label"}
     assert _resolves(found["app/x.py:label"])
+
+
+def test_selftest_the_care_resolver_counts_only_when_it_is_handed_the_tenant() -> None:
+    bare = "def f(self, plant, cache):\n    return self._resolve_species(plant.species_key, cache)\n"
+    scoped = (
+        "def f(self, plant, cache):\n    return self._resolve_species(plant.species_key, cache, plant.tenant_key)\n"
+    )
+
+    assert not _resolves(readers({"app/x.py": bare})["app/x.py:f"])
+    assert _resolves(readers({"app/x.py": scoped})["app/x.py:f"])
 
 
 def test_selftest_a_function_that_never_reads_a_species_key_is_not_a_reader() -> None:

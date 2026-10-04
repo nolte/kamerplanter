@@ -1838,7 +1838,13 @@ class AuthService:
                 # The provider's own claim, not a literal (#1403). `None` — the
                 # provider said nothing — refuses, by the operator decision
                 # recorded on `should_auto_link`.
-                if self._oauth_engine.should_auto_link(existing_user.email_verified, oauth_user.email_verified):
+                #
+                # The existing account's side is the *proof* (`address_proven`), not
+                # `email_verified`: with `REQUIRE_EMAIL_VERIFICATION=false` registration
+                # stamps that flag for whoever typed the address first, and linking onto
+                # such an account hands the victim's provider sign-in to the registrant,
+                # who still holds the password they chose.
+                if self._oauth_engine.should_auto_link(existing_user.address_proven, oauth_user.email_verified):
                     # The sibling branch above carries this check; this one never
                     # did (#1528 class sweep). A suspended account whose address
                     # a provider asserts as verified could therefore be logged
