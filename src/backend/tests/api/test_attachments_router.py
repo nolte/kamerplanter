@@ -508,6 +508,59 @@ class TestThumbnailRegeneration:
         assert dispatched == []
 
 
+def _heic_with_gps() -> bytes:
+    """An ISO-BMFF HEIC prefix that carries an EXIF block with a GPS IFD.
+
+    Not decodable by stock Pillow (no HEIF plugin) — exactly the property that
+    made the EXIF strip pass it through unchanged before #2139.
+    """
+    exif = Image.Exif()
+    exif[0x8825] = {1: "N", 2: (52.0, 31.0, 12.0), 3: "E", 4: (13.0, 24.0, 36.0)}
+    body = b"Exif\x00\x00" + exif.tobytes()
+    ftyp = b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00mif1heic"
+    return ftyp + len(body).to_bytes(4, "big") + b"meta" + body
+
+
+class TestHeicIsNotAcceptedUnstripped:
+    """#2139 — an image type whose metadata the pipeline cannot remove is refused, not stored with its GPS."""
+
+    def test_a_heic_photo_with_gps_is_refused_and_nothing_is_stored(self, tmp_path):
+        app, _service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        heic = _heic_with_gps()
+
+        resp = client.post(_base(), files={"file": ("IMG_0001.HEIC", heic, "image/heic")}, data={"category": "diary"})
+
+        assert resp.status_code == 415, resp.text
+        assert resp.json()["error_code"] == "INVALID_FILE_TYPE"
+        assert [p for p in tmp_path.rglob("*") if p.is_file()] == []
+
+    def test_an_operator_override_cannot_readmit_heic_while_stripping_is_on(self, tmp_path, monkeypatch):
+        app, service, _adapter = _build(tmp_path)
+        monkeypatch.setattr(service._settings, "storage_allowed_mime_types_diary", "image/heic,image/jpeg")
+        client = TestClient(app)
+
+        resp = client.post(
+            _base(), files={"file": ("IMG_0001.HEIC", _heic_with_gps(), "image/heic")}, data={"category": "diary"}
+        )
+
+        assert resp.status_code == 415, resp.text
+
+    def test_with_stripping_disabled_the_operator_override_is_honoured(self, tmp_path, monkeypatch):
+        # EXIF stripping off promises nothing about metadata, so an unstrippable
+        # type is no worse than any other there.
+        app, service, _adapter = _build(tmp_path)
+        monkeypatch.setattr(service._settings, "storage_allowed_mime_types_diary", "image/heic,image/jpeg")
+        monkeypatch.setattr(service._settings, "storage_strip_exif", False)
+        client = TestClient(app)
+
+        resp = client.post(
+            _base(), files={"file": ("IMG_0001.HEIC", _heic_with_gps(), "image/heic")}, data={"category": "diary"}
+        )
+
+        assert resp.status_code == 201, resp.text
+
+
 @pytest.fixture(autouse=True)
 def _restore_delay():
     """Restore the real Celery ``.delay`` after each test patched it."""

@@ -1086,9 +1086,9 @@ class Settings(BaseSettings):
     reference_contribution_rate_limit_per_user_day: int = 20
     # NFR-013 §5.2 — global MIME whitelist (CSV string). Per-category overrides
     # are read from ``storage_allowed_mime_types_<category>`` (empty = default).
-    storage_allowed_mime_types: str = (
-        "image/jpeg,image/png,image/webp,image/heic,application/pdf,text/csv,application/zip"
-    )
+    # #2139: no HEIC/HEIF — the EXIF strip cannot re-encode them, so they were
+    # stored with their GPS block; the app's clients convert to JPEG first.
+    storage_allowed_mime_types: str = "image/jpeg,image/png,image/webp,application/pdf,text/csv,application/zip"
     storage_allowed_mime_types_diary: str = ""
     storage_allowed_mime_types_ipm: str = ""
     storage_allowed_mime_types_harvest: str = ""
@@ -1174,7 +1174,7 @@ class Settings(BaseSettings):
         Resolution order:
           1. An explicit ``storage_allowed_mime_types_<category>`` override, if set.
           2. For photo categories without an override, an image-only subset of
-             the global whitelist (``image/jpeg,png,webp,heic``).
+             the global whitelist (``image/jpeg,png,webp``).
           3. The global ``storage_allowed_mime_types`` list.
         """
         global_types = _split_csv(self.storage_allowed_mime_types)
@@ -1195,7 +1195,8 @@ class Settings(BaseSettings):
 _PHOTO_CATEGORIES: frozenset[str] = frozenset(
     {"diary", "ipm", "harvest", "post_harvest", "plant", "pest_reference", "id_recognition", "task"}
 )
-_PHOTO_MIME_TYPES: frozenset[str] = frozenset({"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"})
+# #2139 — only the types the EXIF strip can re-encode (``exif_stripper``).
+_PHOTO_MIME_TYPES: frozenset[str] = frozenset({"image/jpeg", "image/png", "image/webp"})
 
 
 def _split_csv(value: str) -> list[str]:

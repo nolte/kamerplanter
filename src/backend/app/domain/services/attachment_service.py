@@ -10,7 +10,9 @@ Upload pipeline order (NFR-013 §5.1) — every guard runs *before* any bytes ar
 written, so a rejected upload never leaves orphan objects:
 
   1. Quota check ............ StorageQuotaExceededError (409)
-  2. MIME whitelist ......... InvalidFileTypeError (415)
+  2. MIME whitelist ......... InvalidFileTypeError (415) — while EXIF
+                              stripping is on, also for an image type the
+                              strip cannot re-encode (HEIC/HEIF, GIF; #2139)
   3. Magic-byte validation .. InvalidFileTypeError (415)
      Pixel ceiling (images) .. ImagePixelLimitError (413) — from the header,
                                before anything is decoded (#2108)
@@ -49,7 +51,7 @@ from app.common.image_bounds import image_dimensions
 from app.common.log_privacy import log_subject, log_tenant
 from app.common.url_safety import validate_server_side_url
 from app.config.settings import Settings
-from app.domain.engines.storage.exif_stripper import ExifStripper
+from app.domain.engines.storage.exif_stripper import ExifStripper, is_strippable_format
 from app.domain.engines.storage.magic_byte_validator import _SNIFF_LEN, MagicByteValidator
 from app.domain.engines.storage.storage_key_builder import StorageKeyBuilder
 from app.domain.engines.storage.thumbnail_generator import (
@@ -150,6 +152,10 @@ class AttachmentService:
 
         # 2. MIME whitelist (category-resolved).
         allowed = self._settings.allowed_mime_types_for_category(category.value)
+        if self._settings.storage_strip_exif:
+            # #2139 — an image type the strip cannot re-encode would be stored
+            # with its EXIF/GPS block, whatever a per-category override admits.
+            allowed = [m for m in allowed if not m.startswith("image/") or is_strippable_format(m)]
         if mime_type not in allowed:
             raise InvalidFileTypeError(mime_type, allowed)
 

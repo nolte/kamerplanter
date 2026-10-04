@@ -33,23 +33,24 @@ logger = structlog.get_logger()
 
 # MIME types we re-encode. HEIC is intentionally excluded: Pillow cannot encode
 # HEIC without pillow-heif, and re-encoding to another container would change
-# the stored extension. (HEIC uploads are rare on the supported clients; if
-# needed this is a follow-up — documented in the run report.)
+# the stored extension. Since #2139 the upload pipeline therefore refuses every
+# image type missing here while EXIF stripping is on (415), and HEIC/HEIF are
+# no longer in the default whitelist; the app's clients convert to JPEG first.
 _STRIPPABLE_FORMATS: dict[str, str] = {
     "image/jpeg": "JPEG",
     "image/png": "PNG",
     "image/webp": "WEBP",
 }
 
-# SEC-005: HEIC/HEIF are *allowed* photo upload types but cannot be EXIF-stripped
-# without a system-level decoder (``pillow-heif``). Listing them here lets the
-# erasure pipeline surface them as ``skipped`` (observable) instead of silently
-# returning the original bytes — so a GDPR erasure never *appears* to strip GPS
-# from a HEIC photo that it actually left untouched.
+# SEC-005: HEIC/HEIF cannot be EXIF-stripped without a system-level decoder
+# (``pillow-heif``). They are no longer accepted for upload (#2139), but objects
+# stored before that still exist. Listing them here lets the erasure pipeline
+# surface those as ``skipped`` (observable) instead of silently returning the
+# original bytes — so a GDPR erasure never *appears* to strip GPS from a HEIC
+# photo that it actually left untouched.
 #
-# Follow-up (not in this fix): add ``pillow-heif`` and register its opener so
-# these formats become genuinely strippable; then move them into
-# ``_STRIPPABLE_FORMATS`` and drop this set.
+# Re-admitting HEIC needs ``pillow-heif`` and its opener registered; then move
+# these formats into ``_STRIPPABLE_FORMATS`` and drop this set.
 _UNSUPPORTED_PHOTO_FORMATS: frozenset[str] = frozenset({"image/heic", "image/heif"})
 
 
