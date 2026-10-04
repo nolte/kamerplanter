@@ -78,6 +78,11 @@ def start_request(request_id: str) -> RequestTelemetry:
     return telemetry
 
 
+def clear_request() -> None:
+    """Drop the holder from the current context — for code that runs requests outside an ASGI task (tests)."""
+    _CURRENT.set(None)
+
+
 def current_request() -> RequestTelemetry | None:
     """The holder of the request this code runs in, or ``None`` outside a request."""
     return _CURRENT.get()

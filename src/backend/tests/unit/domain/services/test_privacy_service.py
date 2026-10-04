@@ -384,6 +384,26 @@ class TestConsent:
         assert record.granted is False
         assert record.revoked_at is not None
 
+    @pytest.mark.parametrize("retired", ["hibp_check", "external_enrichment"])
+    def test_a_stored_record_of_a_retired_purpose_is_kept_but_no_longer_offered(self, service, consent_repo, retired):
+        """#2136 (MT-040): the record stays (export, erasure, R-04 are generic), the switch is gone.
+
+        No migration deletes it: the record documents a consent that was given, and the
+        retention rules already cover it. It is not listed, and neither grant nor revoke
+        accepts the purpose — no processing exists that either could switch.
+        """
+        stored = ConsentRecord(_key="consent-old", user_key=USER_KEY, purpose=retired, granted=True)
+        consent_repo.list_by_user.return_value = [stored]
+        consent_repo.get_by_user_and_purpose.return_value = stored
+
+        assert retired not in {r.purpose for r in service.list_consents(USER_KEY)}
+        with pytest.raises(ValidationError):
+            service.grant_consent(USER_KEY, retired)
+        with pytest.raises(ValidationError):
+            service.revoke_consent(USER_KEY, retired)
+        consent_repo.update.assert_not_called()
+        consent_repo.delete.assert_not_called()
+
     def test_list_consents_includes_all_purposes(self, service):
         results = service.list_consents(USER_KEY)
 

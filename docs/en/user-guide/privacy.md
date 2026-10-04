@@ -164,9 +164,7 @@ No optional consent is needed for the core functions of the system. However, som
 | Purpose | Type | Revocable |
 |---------|------|:---------:|
 | **Core functions** (plant management, reminders) | Required | No |
-| **Error tracking (Sentry)** | Optional | Yes |
-| **HaveIBeenPwned password check** | Optional | Yes |
-| **External master data enrichment** (GBIF, Perenual) | Optional | Yes |
+| **Attribute error reports to my account** (Sentry) | Optional | Yes |
 | **Photo identification** (Pl@ntNet) | Optional | Yes |
 | **Cloud-based pest detection** (Kindwise plant.health) | Optional | Yes |
 | **AI disease diagnosis** (image recognition for diseases/deficiencies) | Optional | Yes |
@@ -174,6 +172,11 @@ No optional consent is needed for the core functions of the system. However, som
 | **AI access to your plant data** (`ai_tenant_data_access`) | Optional | Yes |
 | **AI processing via cloud provider** (`ai_cloud_processing`) | Optional | Yes |
 | **Release diary entries for AI analysis** (`diary_ai_analysis`) | Optional | Yes |
+
+!!! info "What attributing error reports does"
+    If the operator has switched error tracking on and an error occurs in one of your requests, an error report goes to the tracker — without request contents, without IP address and without the requested path. With your consent it additionally carries a pseudonym of your account and your garden, never name or email. This lets an error that affects you be traced specifically. If you revoke, this applies from your next request.
+
+A password check against known breaches and a consent for external master-data enrichment are no longer in the list: the password check does not exist, and enriching species master data (GBIF, Perenual) sends species names only, no data about you. If you had granted either, the entry stays visible in your data export and is deleted with your account.
 
 ### Revoking Consent
 

@@ -135,9 +135,25 @@ def pseudonyms() -> dict[str, str]:
         settings.log_pseudonym_salt = original
 
 
+#: #2136: the user block needs the request's ``error_tracking`` consent. The probe
+#: replaces only the consent *lookup* (the store), never the decision path.
+CONSENT_GRANTED = (
+    "import app.observability.event_user as event_user\n"
+    "event_user.has_consent = lambda user_key, purpose: purpose == 'error_tracking'\n"
+)
+CONSENT_REVOKED = (
+    "import app.observability.event_user as event_user\nevent_user.has_consent = lambda user_key, purpose: False\n"
+)
+
+
 @pytest.fixture(scope="module")
 def captured() -> list[dict[str, Any]]:
-    return run_probe()
+    return run_probe(CONSENT_GRANTED)
+
+
+@pytest.fixture(scope="module")
+def captured_without_consent() -> list[dict[str, Any]]:
+    return run_probe(CONSENT_REVOKED)
 
 
 def test_an_event_of_a_tenant_request_names_account_and_tenant_by_pseudonym(
@@ -157,3 +173,12 @@ def test_no_event_carries_a_raw_key(captured: list[dict[str, Any]]) -> None:
 def test_an_event_without_an_authenticated_principal_carries_no_user(captured: list[dict[str, Any]]) -> None:
     for event in _by_route(captured, "probe-2129-anonymous"):
         assert "user" not in event or not event["user"], event.get("user")
+
+
+def test_without_error_tracking_consent_the_event_names_nobody(captured_without_consent: list[dict[str, Any]]) -> None:
+    """#2136 (MT-040): a revoked ``error_tracking`` consent yields events without a ``user`` block."""
+    for event in _by_route(captured_without_consent, "{tenant_slug}/probe-2129"):
+        assert "user" not in event or not event["user"], event.get("user")
+        text = json.dumps(event)
+        assert USER_KEY not in text
+        assert TENANT_KEY not in text

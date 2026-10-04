@@ -121,7 +121,7 @@ export default function ConsentBanner({
         <Typography variant="body2" color="text.secondary">
           {t(
             'consent.banner.body',
-            'Notwendige Cookies sind für Login, Spracheinstellung und Tenant-Auswahl aktiv. Optional sind Fehleranalyse (Sentry) und externe Dienste (HaveIBeenPwned, Stammdatenanreicherung).'
+            'Notwendige Cookies sind für Login, Spracheinstellung und Tenant-Auswahl aktiv. Optional ist die Fehleranalyse (Sentry).'
           )}
         </Typography>
         <Box

@@ -199,11 +199,11 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 **Category**: Zustandswechsel
 **Preconditions**:
 - Nutzer ist eingeloggt
-- Einwilligung "Externe Stammdatenanreicherung" ist aktuell widerrufen (Toggle = OFF)
+- Einwilligung "Foto-Identifikation" (`plant_identification`) ist aktuell widerrufen (Toggle = OFF)
 - Nutzer befindet sich auf dem Tab "Einwilligungen"
 
 **Testschritte**:
-1. Nutzer sucht den Eintrag "Externe Stammdatenanreicherung"
+1. Nutzer sucht den Eintrag "KI-Pflanzenidentifikation (Bilderkennung)"
 2. Nutzer betaetigt den Toggle (schaltet ihn von OFF auf ON)
 
 **Erwartete Ergebnisse**:
@@ -213,7 +213,7 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 - Die Aenderung bleibt nach Seitenneuladung erhalten
 
 **Nachbedingungen**:
-- `external_enrichment`-Consent ist auf `granted: true` gesetzt mit aktuellem `granted_at`-Zeitstempel
+- `plant_identification`-Consent ist auf `granted: true` gesetzt mit aktuellem `granted_at`-Zeitstempel (vor #2136: `external_enrichment`, der Zweck wird nicht mehr angeboten)
 
 **Tags**: [req-025, consent, grant, toggle, happy-path]
 
@@ -1069,6 +1069,8 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 ---
 
 ### TC-025-040: HaveIBeenPwned-Check wird nach Consent-Entzug deaktiviert
+
+> **Entfallen (#2136, REQ-025 v1.31):** Der Zweck `hibp_check` wird nicht mehr angeboten, weil keine HaveIBeenPwned-Prüfung existiert. Der Testfall gilt erst wieder, wenn die Prüfung umgesetzt ist und der Zweck zurückkehrt; bis dahin nicht implementieren.
 
 **Requirement**: REQ-025 § 9 (hibp_check Consent-pflichtig), AK-14
 **Priority**: Medium

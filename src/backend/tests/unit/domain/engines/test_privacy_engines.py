@@ -769,7 +769,16 @@ class TestConsentEngine:
     def test_known_optional_purposes(self):
         engine = ConsentEngine()
         keys = {p.key for p in engine.get_all_purposes()}
-        assert {"core_functionality", "error_tracking", "hibp_check", "external_enrichment"} <= keys
+        assert {"core_functionality", "error_tracking"} <= keys
+
+    @pytest.mark.parametrize("retired", ["hibp_check", "external_enrichment"])
+    def test_purposes_no_code_reads_are_not_offered(self, retired):
+        """#2136 (MT-040): no HIBP check exists, and the enrichment sync has no user to ask."""
+        engine = ConsentEngine()
+
+        assert engine.find_purpose(retired) is None
+        assert engine.validate_consent_change(retired, grant=True)
+        assert engine.validate_consent_change(retired, grant=False)
 
     def test_diary_ai_analysis_purpose_registered(self):
         """REQ-050 §7.1 — the purpose must be known, optional and revocable."""

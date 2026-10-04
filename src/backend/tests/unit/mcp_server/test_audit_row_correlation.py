@@ -27,7 +27,7 @@ from pydantic import Field
 
 from app.common.enums import McpPermission, TenantRole
 from app.common.log_privacy import log_api_key, loggable_ip
-from app.common.request_context import start_request
+from app.common.request_context import clear_request, start_request
 from app.config.settings import settings
 from app.domain.models.auth import ApiKey
 from app.domain.models.mcp import McpAuditLog, McpToolResponse
@@ -171,12 +171,14 @@ async def test_a_dispatched_call_is_audited_with_request_key_network_and_entity_
     audit = _AuditRepo()
     dispatcher = ToolDispatcher(registry, MCPAuditLogger(audit), IdempotencyStore(_IdempotencyRepo()))
     start_request("5f0c2e8a-1d4b-4c55-9a39-2b8e7f1c0d42")
-
-    await dispatcher.dispatch(
-        _principal(),
-        "inspect_plant_probe",
-        {"plant_key": "plant-17", "fertilizer_keys": ["fert-1", "fert-2"], "note": "my neighbour Anna"},
-    )
+    try:
+        await dispatcher.dispatch(
+            _principal(),
+            "inspect_plant_probe",
+            {"plant_key": "plant-17", "fertilizer_keys": ["fert-1", "fert-2"], "note": "my neighbour Anna"},
+        )
+    finally:
+        clear_request()
 
     [row] = audit.entries
     assert row.request_id == "5f0c2e8a-1d4b-4c55-9a39-2b8e7f1c0d42"
