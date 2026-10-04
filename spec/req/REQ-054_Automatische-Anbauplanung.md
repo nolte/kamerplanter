@@ -20,6 +20,7 @@ Wird benötigt von: —
 | Version | Datum | Änderung |
 |---------|-------|----------|
 | 1.2 | 2026-10-04 | **Zwei Reviews eingearbeitet** (`spec/analysis/agrobiology-review-req-054.md`, `spec/analysis/outdoor-garden-planner-review-req-054.md`) mit Betreiberentscheidungen: **Teilplan statt Totalausfall** — Status `proposed_incomplete` mit least-bad-Angebot je unerfüllbarem `must` (F-01/W-003); **Vor-/Nachkultur und Gründüngung voll im MVP** (F-09/W-009, AP-FR-008 → MUST); **Profil „Wenig Arbeit" und Druckfassung im MVP** (F-10/F-18); **vier neue Kriterien im MVP**: `soil_cover`, `rotation_future`, `support_required` in `site_fit`, `root_depth_rotation` + `soil_fit` (W-005). Fachkorrekturen: Score-Aggregation nach Flächenanteil, `pest_risk` als Maximum, `companion` als Minimum (K-005); Zehrer-Matrix mit Mittelzehrern und Leguminosenform (K-006); `timing` über Puffertage statt widersprüchlicher 80 % (K-007); `nutrition` aus schlechtester P/K/Mg-Klasse, Humus und geplanter Düngung, N nur über Vorfrucht (K-008); **Frostmodell**: Sicherheitsdatum (`eisheilige_date`) statt Mittelwert für frostempfindliche Arten, Gewächshaus-Offset, Anker `last_frost`/`first_frost`/`calendar` über `growing_periods`, Voranzucht-Vorlauf, Erntefenster-Ende (K-003/K-004/W-007/F-04); **neue harte Regeln** H-10 `soil_hazards` (persistente Bodenpathogene, Juglon) und H-11 familienübergreifende Wirtskreise (K-001/K-002); H-01 mit Jahreskonvention, gleicher Familie innerhalb der Saison und Historie-Lücke als „nicht prüfbar"; H-04 nur angenommene Runs und Bestandskulturen (W-001); H-06 Nachbarbeet weich (W-001); `usable_fraction` je Beettyp ohne Doppelreserve, `turnaround_days` je Übergang (W-002); Bedarf mit `supply = in_hand`, `keep_place_if_possible`, `fit` mit `max_quantity` und Aufteilungsregel, `succession` (F-02/F-06/F-08); Dauerkulturen blockieren (F-03); **Geltungsbereich und Beet-Schreibrechte** bei Annahme (F-05/F-19); Beispiel §10.2 korrigiert (F-14), Trivialnamen und `benefit_reason` im Satz, `override` statt Pluspunkt; Breakdown-Standardansicht mit Symbolen, Zahlen hinter „Details" (F-13); „Vorjahr übernehmen" aus tatsächlichen Runs (F-17); Annahmedialog und „reserviert"-Muster (F-16); Warnungen vor „alle annehmen" auf Mobil (F-20); Profile mit Alltagsnamen und korrigierten Gewichten; 12 neue Akzeptanzkriterien (AP-ACC-016…027). Goldfälle (a)–(e) liegen im Agrobiologie-Bericht und sind die Fixture-Vorlage (AP-NFR-004). |
+| 1.2a | 2026-10-04 | Pre-Merge-Review (PR #2091): §10.2-Beispiel rechnerisch konsistent gemacht (`score = Σ contribution`, Pause-Bonus, Lesehilfe); AP-API-009 unter `/sites/{key}/…` verschoben (Routenkollision mit `{key}`); Migrationsverweise auf Platzhalter M1…M6 (REQ-053 GP-NFR-015). |
 | 1.1 | 2026-10-04 | Alle offenen Punkte O-01…O-08 entschieden (§17). |
 | 1.0 | 2026-10-04 | Erstfassung. |
 
@@ -358,9 +359,9 @@ Alle Beträge in §7.2/§7.3 sind **Modellparameter**: ihre *Richtung* ist agron
       "key": "a1", "demand_key": "d1", "location_key": "loc_b01",
       "window": { "from": "2026-05-15", "until": "2026-10-10", "slot": "main", "window_source": "frost_safe_date" },
       "quantity_plants": 7, "area_m2": 3.36, "share": 0.35, "utilisation": 0.84,
-      "score": 1.02,
+      "score": 0.154,
       "breakdown": [
-        { "k": "rotation", "s": 0.4, "w": 1.0, "share": 0.35, "contribution": 0.14, "reason_code": "heavy_after_legume_harvested", "detail": { "previous_family": "Fabaceae", "previous_family_de": "Hülsenfrüchtler", "years_since_same_family": 5, "pause_required": 4, "benefit_reason": "Leguminosen binden Luftstickstoff" } },
+        { "k": "rotation", "s": 0.5, "w": 1.0, "share": 0.35, "contribution": 0.175, "reason_code": "heavy_after_legume_harvested", "detail": { "previous_family": "Fabaceae", "previous_family_de": "Hülsenfrüchtler", "years_since_same_family": 5, "pause_required": 4, "pause_bonus": 0.1, "benefit_reason": "Leguminosen binden Luftstickstoff" } },
         { "k": "pest_risk", "s": 0.0, "w": 0.8, "share": 0.35, "contribution": 0.0, "reason_code": "no_shared_risk" },
         { "k": "companion", "s": 0.4, "w": 0.6, "share": 0.35, "contribution": 0.084, "reason_code": "compatible_neighbours", "detail": { "partner": "Ocimum basilicum", "partner_de": "Basilikum", "evidence_level": "traditional" } },
         { "k": "site_fit", "s": 0.0, "w": 0.6, "share": 0.35, "contribution": 0.0, "reason_code": "full_sun_met" },
@@ -400,7 +401,7 @@ Alle Beträge in §7.2/§7.3 sind **Modellparameter**: ihre *Richtung* ist agron
 }
 ```
 
-`reason_code`, `warnings[].code`, `notes[].code` sind geschlossene Enums; `detail` ist strukturiert und trägt zu jeder Familie den Trivialnamen (`*_de`).
+`reason_code`, `warnings[].code`, `notes[].code` sind geschlossene Enums; `detail` ist strukturiert und trägt zu jeder Familie den Trivialnamen (`*_de`). **Lesehilfe zum Beispiel:** `score = Σ contribution` der Belegung (0,175 + 0 + 0,084 + 0 − 0,105 = 0,154); Kriterien mit `s = 0` (`nutrition` ohne Analyse, `space`, `timing`, `preference`, `soil_cover`, `root_depth_rotation`, `soil_fit`, `rotation_future`) sind im Beispiel weggelassen, in der echten Antwort stehen alle 13 Zeilen; `rotation = 0,4` (Matrix „Leguminose geerntet → Stark") + `pause_bonus 0,1` (ein erfasstes Jahr über der Pause) = 0,5. Goldfälle übernehmen diese Rechnung (AP-NFR-004).
 
 ### 10.3 Edges und Indizes
 
@@ -431,7 +432,7 @@ Alle Pfade unter `/api/v1/t/{tenant_slug}`; Standardregel Lesen „Alle Rollen",
 | AP-API-006 | `POST /planting-proposals/{key}/accept` `{allocation_keys[] \| all: true, cover_keys[]?, replace_existing: bool}` → geplante Runs + CropRotationPlan, transaktional je Beet; **Schreibrecht je Beet** (F-05): Beete ohne Recht des Aufrufers bleiben `proposed`, Antwort nennt `forbidden_beds[]`; 409 `proposal.stale` bei geändertem `inputs_hash`; idempotent (D-04) | Annehmen | Ab Gärtner |
 | AP-API-007 | `POST /planting-proposals/{key}/replan` `{keep_accepted: true}` | Rest neu planen (SHOULD) | Ab Gärtner |
 | AP-API-008 | `POST /planting-proposals/{key}/discard` | Verwerfen | Ab Gärtner (eigene), Nur Leitung (fremde) |
-| AP-API-009 | `GET /planting-proposals/compare?a=&b=` | Vergleich (SHOULD) | Alle Rollen |
+| AP-API-009 | `GET /sites/{key}/planting-proposals/compare?a=&b=` | Vergleich (SHOULD) — unter der Site registriert, damit `compare` nicht mit `{key}` aus AP-API-004 kollidiert | Alle Rollen |
 | AP-API-010 | `GET /sites/{key}/planning-readiness?scope=` → `{beds, beds_with_history, beds_partial, beds_missing_area, beds_missing_water_access, species_missing_fields[]}` | Vorabprüfung | Alle Rollen |
 | AP-API-011 | `GET /print/planting-proposal/{key}?locale=` | Druckfassung PDF (AP-UX-009) | Alle Rollen |
 | AP-API-012 | `POST\|DELETE /locations/{key}/soil-hazards` | Bodengefahren pflegen (H-10) | Ab Gärtner / Nur Leitung |
@@ -493,7 +494,7 @@ Prüfreihenfolge wie REQ-053 §22.1.
 
 **Nicht im MVP:** Vergleich (AP-UX-005), Rest-neu-planen (AP-FR-007), Beetkommentare (AP-UX-010), H-11 (wartet auf REQ-001 `pathogen_hosts`), `water_match`, `shading_neighbour`, `care_load`, Ertrag (§7.4), Mehrjahresplanung (AP-FR-009), Solver (AP-FR-010), KI-Prosa (AP-FR-013), Frost-Perzentile.
 
-**Voraussetzungen (Folge-Issues anderer Dokumente):** REQ-053: `water_access`, `soil_hazards`, `usable_fraction`, `greenhouse_offset_days` an Location; Historie-Eingänge (Gründüngung Art/Leguminose/Einarbeitung, Mengen je m², Kalkung, `confirmed`-Flag, Ernterückstände); Seed-Schema: `light_requirement`, `crop_organ`, `plants_per_person`, `harvest_window_days`, vorzeichenbehaftete Frost-Offsets / `growing_periods`-Anker `first_frost`/`calendar`; REQ-001: `soil_persistence_years`, `pathogen_hosts`; REQ-053 §16.3 v0077.
+**Voraussetzungen (Folge-Issues anderer Dokumente):** REQ-053: `water_access`, `soil_hazards`, `usable_fraction`, `greenhouse_offset_days` an Location; Historie-Eingänge (Gründüngung Art/Leguminose/Einarbeitung, Mengen je m², Kalkung, `confirmed`-Flag, Ernterückstände); Seed-Schema: `light_requirement`, `crop_organ`, `plants_per_person`, `harvest_window_days`, vorzeichenbehaftete Frost-Offsets / `growing_periods`-Anker `first_frost`/`calendar`; REQ-001: `soil_persistence_years`, `pathogen_hosts`; REQ-053 §16.3 M6.
 
 ---
 

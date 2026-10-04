@@ -262,7 +262,7 @@ Die Regel „fehlende Historie ist neutral 0, nicht frei" ist richtig. Zwei Lüc
 | `Species.light_requirement` | fehlt | in O-01 bereits beschlossen |
 | `root_depth`, `typical_root_depth`, `soil_ph_preference` | vorhanden | von REQ-054 ungenutzt (W-005) |
 | `support_required` | vorhanden | nur in `preference`, falsch zugeordnet (W-004) |
-| `rotation_pause_years`, `nitrogen_fixing`, `NutrientDemand` | im Schema-Verzeichnis per Grep **nicht gefunden** (nur `nutrient_demand_level`, `typical_nutrient_demand`) | REQ-053 §16.3 / v0077 sind Voraussetzung (§15). Vor P1 prüfen, ob die Felder im Seed-Schema nachgezogen sind. |
+| `rotation_pause_years`, `nitrogen_fixing`, `NutrientDemand` | im Schema-Verzeichnis per Grep **nicht gefunden** (nur `nutrient_demand_level`, `typical_nutrient_demand`) | REQ-053 §16.3 / M6 sind Voraussetzung (§15). Vor P1 prüfen, ob die Felder im Seed-Schema nachgezogen sind. |
 
 ---
 

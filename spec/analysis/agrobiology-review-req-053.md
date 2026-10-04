@@ -181,4 +181,4 @@ Faktor 1,5 plausibel (Diagonale √2 drin, übernächster Dreiecksnachbar 1,73 d
 | R-013 | Zehrerklassen konkreter Kulturen variieren je Quelle | Landesanstalten; Quelle je Steckbrief |
 
 ## Dringendste Maßnahme
-O-07 (GP-FR-138) vor Welle 1 überarbeiten, bevor v0077 gebaut wird: `nutrient_demand` (3 Stufen) und `nitrogen_fixing` (Bool) trennen, `PlanRole` einführen. Gleichzeitig §15.1 (`soil_texture`, `growing_medium_kind`, `conditions[]`) korrigieren, solange keine Daten migriert sind.
+O-07 (GP-FR-138) vor Welle 1 überarbeiten, bevor M6 gebaut wird: `nutrient_demand` (3 Stufen) und `nitrogen_fixing` (Bool) trennen, `PlanRole` einführen. Gleichzeitig §15.1 (`soil_texture`, `growing_medium_kind`, `conditions[]`) korrigieren, solange keine Daten migriert sind.

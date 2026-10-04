@@ -49,7 +49,7 @@ Stark: GP-NFR-050–055 (404-Muster, Key-Neuvergabe beim Import, SVG-Escaping, T
 **SR-020 `performed_by`-Filter ermöglicht Aktivitätsprofile** (Gemeinschaftsgarten). → nur Leitung oder `performed_by=me`; DPO-Frage.
 
 ## Suggestion
-**SR-021** Adjacency-Job nur `location_key` im Payload, Site/Tenant aus DB. **SR-022** `tenant_key` auf `locations`/`slots` in v0072 stempeln + Index — schließt die Klasse SR-002/003/021 strukturell. **SR-023** QR nur relativer Pfad, Rücksprung same-origin, Nicht-Mitglied → 404. **SR-024** PDF/SVG/PNG ohne Mitgliedernamen/Zuweisungen/Notizen/GPS; GeoJSON nur Leitung. **SR-025** Payloads/422-Inputs/Dateinamen nie loggen.
+**SR-021** Adjacency-Job nur `location_key` im Payload, Site/Tenant aus DB. **SR-022** `tenant_key` auf `locations`/`slots` in M1 stempeln + Index — schließt die Klasse SR-002/003/021 strukturell. **SR-023** QR nur relativer Pfad, Rücksprung same-origin, Nicht-Mitglied → 404. **SR-024** PDF/SVG/PNG ohne Mitgliedernamen/Zuweisungen/Notizen/GPS; GeoJSON nur Leitung. **SR-025** Payloads/422-Inputs/Dateinamen nie loggen.
 
 ## Info
 SR-026 XXE nicht im Scope (nur JSON). SR-027 GP-NFR-053/054 gut; AKs für SR-003/SR-010 fehlen. SR-028 `ha_publish` nur Tenant-HA, Kopplung = Technik.
@@ -65,7 +65,7 @@ SR-026 XXE nicht im Scope (nur JSON). SR-027 GP-NFR-053/054 gut; AKs für SR-003
 | 5 | Critical | NFR-011-Zeilen | GP-NFR-055 | eingearbeitet (Frist: Betreiberentscheid) |
 | 6 | Critical | Redaktion GP-FR-109 | GP-FR-101, V-12 | eingearbeitet |
 | 7–19 | Warning | siehe oben | — | eingearbeitet |
-| 20 | Suggestion | `tenant_key` auf Location/Slot | v0072 | Betreiberentscheid |
+| 20 | Suggestion | `tenant_key` auf Location/Slot | M1 | Betreiberentscheid |
 
 ## Caller follow-ups (Rechts-/DPO-Fragen)
 - Frist für `care_events` mit PflSchG-Vorbehalt (SR-005).

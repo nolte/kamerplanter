@@ -442,17 +442,17 @@ Jeder Testfall hält ausdrücklich fest, wie der Zustand herzustellen ist: über
 **Testschritte**:
 1. Nutzer öffnet die Beetansicht und die Statusauswahl
 2. Nutzer prüft, ob „geplant" auswählbar ist
-3. Nutzer wählt „brach" und trägt als Begründung „Bodenruhe" ein, bestätigt
+3. Nutzer wählt „aufgelöst" und trägt als Begründung „Beet wird 2027 versetzt" ein, bestätigt
 4. Nutzer öffnet den Tab „Historie"
 
 **Erwartete Ergebnisse**:
 - Der Übergang von „aktiv" nach „geplant" wird nicht angeboten bzw. mit einer verständlichen
   Fehlermeldung abgelehnt
-- „brach" wird übernommen; das Status-Badge am Beet zeigt „brach"
-- Die Historie enthält einen Eintrag „Statuswechsel" mit der Begründung „Bodenruhe"
+- „aufgelöst" wird übernommen; das Beet verschwindet aus dem Plan und ist über den Historie-Filter „Archivierte anzeigen" sichtbar; ein Saisonzustand „brach" ist **kein** wählbarer Status (er wird aus Pflanzungen und Rotationsplan abgeleitet)
+- Die Historie enthält einen Eintrag „Statuswechsel" mit der Begründung „Beet wird 2027 versetzt"
 
 **Nachbedingungen**:
-- Beet hat Status „brach"
+- Beet hat Status „aufgelöst"
 
 **Tags**: [req-053, bed, status, zustandsuebergang, historie, desktop, gp-acc-015]
 

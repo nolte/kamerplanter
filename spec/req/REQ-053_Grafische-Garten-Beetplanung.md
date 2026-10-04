@@ -19,8 +19,9 @@ Wird benötigt von: REQ-054 (Automatische Anbauplanung — liest Beete, Historie
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.2b | 2026-10-04 | **Pre-Merge-Review (PR #2091, 10 Findings):** Migrationsnummern v0072–v0077 waren auf `develop` bereits vergeben → logische Platzhalter M1…M6 (GP-NFR-015); bbox-Beispiele in §20.3/§21.3 auf die Rotationskonvention korrigiert; GP-ACC-015 nutzt `retired` statt des mit W-014 entfallenen `fallow`-Status; Rückgängig im Feldmodus braucht Void auf eigene Ereignisse ≤ 10 min (GP-API-037); Nacherfassung der Vorjahre bekommt einen Datenpfad GP-API-042 (V-11-Ausnahme serverseitig); `trigger`-Enum in GP-FR-100 vervollständigt; CSV-Pfad vereinheitlicht; GP-ACC-028/GP-FR-133 auf `nutrient_demand`/`plan_role` umgestellt. Nicht übernommen: die Behauptung „TaskCategory hat 18 Werte" — `common/enums.py` hat 16. |
 | 1.2a | 2026-10-04 | Querverweis: §29 verweist für die automatische Anbauplanung auf das neue **REQ-054**; „Wird benötigt von" ergänzt. Keine inhaltliche Änderung. |
-| 1.2 | 2026-10-04 | **Drei Reviews eingearbeitet** (`spec/analysis/agrobiology-review-req-053.md`, `outdoor-garden-planner-review-req-053.md`, `security-review-req-053.md`) mit Betreiberentscheidungen: **O-07 revidiert** (K-001) — Zehrerstufe (3 Werte) und `nitrogen_fixing` (Bool) getrennt, `PlanRole` für den Rotationsplan (§16.3); **`tenant_key` auf Location und Slot** in v0072 (SR-022, §20.13, §22.3); **Fruchtfolge- und Mischkultur-Hinweis sowie Vorjahresanzeige in den MVP** (F-12, GP-FR-131/132 → MUST); **Plan-Revision nur für Struktur** — Slot-Korrekturen und Quick-Planting laufen außerhalb (F-09, D-06); Retention `care_events` 5 Jahre (SR-005, NFR-011); `performed_by`-Filter für alle Rollen (SR-020); **Slot-Reservierung mit Zeitfenster** und UC „Beet räumen" (F-01/F-02); **Beetstatus = Lebenszyklus, Saisonzustand abgeleitet** (W-014). Dazu: Bodenmodell neu (K-002/K-003: `soil_texture`, `growing_medium_kind`, `conditions[]`, Messwerte mit Methode/Einheit), Anbaupausen je Familie (K-004), Layout-Semantik präzisiert (W-002/W-003: `grid`, `triangular`, Rand quer/längs, Reihenrichtung, Kapazität mit Reihenabstand), Steckbrief-Felder statt Duplikat (W-001), Pflegekatalog erweitert (W-006/F-03), Tasks an Kompost/Wasserquelle (W-008), Zeltregeln (W-016), Schattenfelder vorbereitet (§29), Security: Batch-Rollenprüfung je Op (SR-001), Referenzauflösung GP-NFR-058 (SR-002/003), Quoten (SR-004), Redaktion GP-FR-109 (SR-006), Kaskade/Export (SR-007/008), `trigger` serverseitig (SR-009), Matrix bereinigt (SR-010), Pflicht-Audit (SR-011), Komplexitäts-/Zeitbudget (SR-012), Prüfreihenfolge (SR-013), HA-Entität (SR-014), `url_fetcher`/SVG-Allowlist (SR-015), CSV (SR-016), Rate-Limits (SR-017), Import (SR-018), Sentry/Cache (SR-019). Feldmodus: Sofortspeichern, Schnellprotokoll-Chips, Rückgängig-Snackbar, Stepper als Standard (F-13/F-16/F-18). MoSCoW/MVP-Widersprüche bereinigt (F-06). 11 neue Akzeptanzkriterien (GP-ACC-039…049). |
+| 1.2 | 2026-10-04 | **Drei Reviews eingearbeitet** (`spec/analysis/agrobiology-review-req-053.md`, `outdoor-garden-planner-review-req-053.md`, `security-review-req-053.md`) mit Betreiberentscheidungen: **O-07 revidiert** (K-001) — Zehrerstufe (3 Werte) und `nitrogen_fixing` (Bool) getrennt, `PlanRole` für den Rotationsplan (§16.3); **`tenant_key` auf Location und Slot** in M1 (SR-022, §20.13, §22.3); **Fruchtfolge- und Mischkultur-Hinweis sowie Vorjahresanzeige in den MVP** (F-12, GP-FR-131/132 → MUST); **Plan-Revision nur für Struktur** — Slot-Korrekturen und Quick-Planting laufen außerhalb (F-09, D-06); Retention `care_events` 5 Jahre (SR-005, NFR-011); `performed_by`-Filter für alle Rollen (SR-020); **Slot-Reservierung mit Zeitfenster** und UC „Beet räumen" (F-01/F-02); **Beetstatus = Lebenszyklus, Saisonzustand abgeleitet** (W-014). Dazu: Bodenmodell neu (K-002/K-003: `soil_texture`, `growing_medium_kind`, `conditions[]`, Messwerte mit Methode/Einheit), Anbaupausen je Familie (K-004), Layout-Semantik präzisiert (W-002/W-003: `grid`, `triangular`, Rand quer/längs, Reihenrichtung, Kapazität mit Reihenabstand), Steckbrief-Felder statt Duplikat (W-001), Pflegekatalog erweitert (W-006/F-03), Tasks an Kompost/Wasserquelle (W-008), Zeltregeln (W-016), Schattenfelder vorbereitet (§29), Security: Batch-Rollenprüfung je Op (SR-001), Referenzauflösung GP-NFR-058 (SR-002/003), Quoten (SR-004), Redaktion GP-FR-109 (SR-006), Kaskade/Export (SR-007/008), `trigger` serverseitig (SR-009), Matrix bereinigt (SR-010), Pflicht-Audit (SR-011), Komplexitäts-/Zeitbudget (SR-012), Prüfreihenfolge (SR-013), HA-Entität (SR-014), `url_fetcher`/SVG-Allowlist (SR-015), CSV (SR-016), Rate-Limits (SR-017), Import (SR-018), Sentry/Cache (SR-019). Feldmodus: Sofortspeichern, Schnellprotokoll-Chips, Rückgängig-Snackbar, Stepper als Standard (F-13/F-16/F-18). MoSCoW/MVP-Widersprüche bereinigt (F-06). 11 neue Akzeptanzkriterien (GP-ACC-039…049). |
 | 1.1 | 2026-10-04 | **Alle offenen Punkte entschieden** (Betreiber, §32). Folgenreichste Entscheidung O-01: **ein Positionsmodell für Zelt und Beet** — `Slot.geometry` gilt für alle Slots, `Slot.position` (Rasterzelle) wird in Welle 1 per Migration in Geometrie überführt und entfernt (§9.2a, §20.5); damit entfallen der Indoor-Feature-Flag V-18 und die Scope-Einschränkung für Indoor-Sites (§2.3, O-08). O-02: `Location.dimensions` wird in Welle 1 entfernt, nicht gespiegelt (§20.8). O-05: ADR-008 wird in Welle 0 auf Accepted gehoben, RRULE kanonisch, bestehende Cron-Regeln werden migriert (§12.2). O-07: REQ-053 legt das gemeinsame Zehrer-Enum fest (§16.3, GP-FR-138) und ändert REQ-001/REQ-002 mit. O-13: Durchfluss manuell mit optionaler HA-Überschreibung und Provenienz (GP-FR-114). Übrige Punkte wie empfohlen. Roadmap Welle 0/1 und Issue-Kandidaten angepasst. |
 | 1.0 | 2026-10-04 | Erstfassung. Fasst die in REQ-002 §1 („Visuelle Beetplanung") nur als Business-Case angelegte Gartenplanung zu einer eigenen, implementierbaren Anforderung zusammen: metrisches Geometriemodell auf Site/Location/Slot (§7, §20), neue Collections `garden_objects`, `care_events`, `irrigation_zones` (§20), Plan-Batch-API mit optimistischer Nebenläufigkeit (§21), Rendering-Entscheidung SVG-in-React mit austauschbarer Renderer-Grenze (§19), Feldmodus für die mobile Nutzung im Garten (§18), MVP-Abgrenzung (§28) und 30 Akzeptanzkriterien (§30). Die Vorgabe aus dem Auftrag (Go-Backend, Vue.js, Tailwind) widerspricht dem verbindlichen Stack (`spec/stack.md`: FastAPI, React 19, MUI 9) und wurde **nicht** übernommen — siehe §3.2. |
 
@@ -343,7 +344,7 @@ Die Betreiberentscheidung lautet: **keine Sonderbehandlung** — ein Growzelt un
 | Raster | nur im Zelt gedacht | Snap-Raster ist eine Editor-Einstellung (§9.2) und für alle Locations gleich; wer ein 4 × 4-Topfraster will, nutzt `compute_layout(grid, spacing = Topfdurchmesser)` (§11.2) |
 | Nachbarschaft (`adjacent_to`) | manuell, nur programmatisch | aus Geometrie abgeleitet (GP-FR-130) — auch im Zelt, womit die Mischkultur-Engine erstmals indoor Nachbarn kennt |
 | Site-Typen | Plan nur outdoor/greenhouse/balcony | Plan für **alle** `SiteType`s; `V-18` entfällt; Indoor-Sites bekommen Grenze = Raumgrundriss oder bleiben ohne `boundary` (dann gilt nur Containment in der Location) |
-| Bestandsdaten | — | Migration v0072 leitet für jeden Slot ohne `geometry` einen Punkt aus `position` ab: `origin = (col × pitch, row × pitch)` mit `pitch` = `location.pitch_m` (neu, Standard 0,30 m — ein 11-l-Topf), `geometry_source = migrated_grid`. `Slot.position` wird danach **entfernt** (keine Spiegelung; Sortierungen nutzen `row_index`/`sequence`, die die Migration ebenfalls füllt). |
+| Bestandsdaten | — | Migration M1 leitet für jeden Slot ohne `geometry` einen Punkt aus `position` ab: `origin = (col × pitch, row × pitch)` mit `pitch` = `location.pitch_m` (neu, Standard 0,30 m — ein 11-l-Topf), `geometry_source = migrated_grid`. `Slot.position` wird danach **entfernt** (keine Spiegelung; Sortierungen nutzen `row_index`/`sequence`, die die Migration ebenfalls füllt). |
 | Layout-Fähigkeit | nur Beete | `LocationType.supports_layout = true` für `is_bed`-Typen **und** `tent`, `shelf` (W-016.1); Bepflanzen-Dialog, `compute_layout` und Run-Layout hängen daran, nicht an `is_bed` |
 | Topfvolumen | nur `planter.volume_liters` am Beet | `Slot.container_volume_l` (optional) — im Zelt begrenzt das Topfvolumen die Pflanze, nicht der Abstand; der Dialog prüft gegen `Species.recommended_container_volume_l`/`min_container_depth_cm` (Schema vorhanden) und warnt (W-016.5) |
 | Licht (SHOULD, nicht MVP) | — | `Location.lighting {lamp_height_cm, canopy_distance_cm, fixture_geometry?}` als Vorbereitung für PPFD-Verteilung; Randabstand im Zelt ist frei konfigurierbar, weil `spacing/2` dort keine Lichtbasis hat (W-016.2/3) |
@@ -558,7 +559,7 @@ Die bestehenden Kategorien `care_reminder`, `seasonal`, `phenological`, `observa
 | Art | Abbildung | Quelle |
 |-----|-----------|--------|
 | einmalig | `Task` ohne `recurrence_rule` | REQ-006 |
-| wiederkehrend | `Task.recurrence_rule` — kanonisch **RRULE** (RFC 5545, ADR-008 Grenze 1). **Entschieden (O-05):** ADR-008 wird in Welle 0 auf *Accepted* gehoben; Migration `v0076_recurrence_cron_to_rrule` konvertiert bestehende Cron-Regeln (`0 8 * * 1` → `FREQ=WEEKLY;BYDAY=MO;BYHOUR=8`) und verweigert den Start bei nicht konvertierbaren Ausdrücken (Liste im Report); REQ-006 wird auf RRULE umgestellt. Die API nimmt ab dann nur RRULE an. | ADR-008 |
+| wiederkehrend | `Task.recurrence_rule` — kanonisch **RRULE** (RFC 5545, ADR-008 Grenze 1). **Entschieden (O-05):** ADR-008 wird in Welle 0 auf *Accepted* gehoben; Migration `M5_recurrence_cron_to_rrule` konvertiert bestehende Cron-Regeln (`0 8 * * 1` → `FREQ=WEEKLY;BYDAY=MO;BYHOUR=8`) und verweigert den Start bei nicht konvertierbaren Ausdrücken (Liste im Report); REQ-006 wird auf RRULE umgestellt. Die API nimmt ab dann nur RRULE an. | ADR-008 |
 | geplant | `Task.status = pending` mit `due_date` in der Zukunft | REQ-006 |
 | automatisch vorgeschlagen | `Task.origin = system`, `source` nennt den Erzeuger (`care_reminder_engine`, `irrigation_demand`, `season_engine`); vorgeschlagene Tasks sind `pending` mit Kennzeichen `suggested = true` (neu) und können angenommen (→ `suggested = false`) oder verworfen (`skipped`) werden | REQ-022, REQ-037, REQ-047 |
 | tatsächlich ausgeführt | `care_event` (§13) | neu |
@@ -602,11 +603,11 @@ Die Fachcollections bleiben **Quelle der Fachdaten** (Liter, ml/L, Wirkstoff). `
 
 | ID | Prio | Anforderung | MVP |
 |----|------|-------------|-----|
-| GP-FR-100 | MUST | Jeder `care_event` beantwortet: **was** (`category`, `summary`), **wann** (`performed_at`), **wer** (`performed_by_user_key` aus dem Token; für ein anderes Mitglied `performed_for_user_key` per Auswahl; für Dritte `performed_by_label` ≤ 80 Zeichen mit UI-Hinweis „keine vollständigen Namen" — SR-006), **wo** (`location_key`, `site_key`), **warum** (`reason` Freitext + `trigger ∈ {task, reminder, suggestion, manual, observation}`), **Produkt** (`product_ref` → `fertilizers`/Freitext `product_label`), **Menge** (`quantity`, `unit ∈ {l, ml, g, kg, l_per_m2, g_per_m2, cm, pieces}`), **betroffene Pflanzen** (`plant_keys[]`, leer = ganzes Beet), **Ergebnis** (`observed_outcome` Freitext, `outcome_rating ∈ {positive, neutral, negative, unknown}`), **Belege** (`photo_refs[]`). | ja |
+| GP-FR-100 | MUST | Jeder `care_event` beantwortet: **was** (`category`, `summary`), **wann** (`performed_at`), **wer** (`performed_by_user_key` aus dem Token; für ein anderes Mitglied `performed_for_user_key` per Auswahl; für Dritte `performed_by_label` ≤ 80 Zeichen mit UI-Hinweis „keine vollständigen Namen" — SR-006), **wo** (`location_key`, `site_key`), **warum** (`reason` Freitext + `trigger ∈ {task, reminder, suggestion, manual, observation, backfill, system}` — Client nur `manual`/`observation`, §20.10), **Produkt** (`product_ref` → `fertilizers`/Freitext `product_label`), **Menge** (`quantity`, `unit ∈ {l, ml, g, kg, l_per_m2, g_per_m2, cm, pieces}`), **betroffene Pflanzen** (`plant_keys[]`, leer = ganzes Beet), **Ergebnis** (`observed_outcome` Freitext, `outcome_rating ∈ {positive, neutral, negative, unknown}`), **Belege** (`photo_refs[]`). | ja |
 | GP-FR-101 | MUST | **Revisionssicherheit:** `care_events` sind append-only. Eine Korrektur erzeugt einen neuen Eintrag mit `supersedes_key` auf den alten; der alte erhält `superseded_by_key` und bleibt lesbar (Filter „Korrekturen anzeigen"). Beim Supersede wird `performed_by_user_key` vom Vorgänger übernommen, der Korrigierende steht in `created_by`; ein korrigiertes `performed_at` unterliegt V-11 (SR-009). Storno nur als `voided_at`, `voided_by`, `void_reason`. Physisch löscht nur die DSGVO-Kaskade (REQ-025). In der UI heißt Supersede „Bearbeiten"; `position_corrected`-Einträge sind in der Historie standardmäßig ausgeblendet (F-13). | ja |
 | GP-FR-102 | MUST | Historie-Tab des Beets: chronologische Liste (neueste zuerst) aus `care_events` **und** Pflanzungsereignissen (Run gestartet/abgeschlossen, Pflanze gesetzt/entfernt, abgeleitet aus `plant_instances`/`planting_runs`), Filter nach Kategorie, Zeitraum, Pflanze, Person; Paginierung ab 50 Einträgen (UI-NFR-003 R-018). | ja |
 | GP-FR-103 | MUST | Pflanzungs-Zeitstrahl: Je Jahr/Saison, welche Spezies (Familie farbcodiert) im Beet standen — Grundlage für den Fruchtfolge-Blick (§16). Rückblick mindestens 5 Jahre (REQ-002: 3–5). | ja |
-| GP-FR-104 | SHOULD | Export der Historie eines Beets als CSV (`GET …/locations/{key}/care-events?format=csv`) mit den Feldern aus GP-FR-100 in flacher Form; **CSV-Härtung (SR-016):** Zellen, die mit `=`, `+`, `-`, `@`, Tab oder CR beginnen, werden mit `'` präfixiert; UTF-8 mit BOM, RFC-4180-Quoting; `performed_by` als Anzeigename; ≤ 50 000 Zeilen. | nein |
+| GP-FR-104 | SHOULD | Export der Historie eines Beets als CSV über GP-API-034 (`GET /care-events?location_key={key}&format=csv`) mit den Feldern aus GP-FR-100 in flacher Form; **CSV-Härtung (SR-016):** Zellen, die mit `=`, `+`, `-`, `@`, Tab oder CR beginnen, werden mit `'` präfixiert; UTF-8 mit BOM, RFC-4180-Quoting; `performed_by` als Anzeigename; ≤ 50 000 Zeilen. | nein |
 | GP-FR-105 | SHOULD | Konsistenz-Job (Celery, täglich): findet Fachereignisse (`watering_events`, `feeding_events`, `treatment_applications`, `harvest_batches`) ohne `care_event`-Referenz und erzeugt nachträglich Protokolleinträge mit `trigger = backfill`; Rückwärts-Migration beim Einführen (§34). | nein |
 | GP-FR-106 | SHOULD | `care_confirmations` (REQ-022) erzeugen ebenfalls einen `care_event` (`trigger = reminder`), damit Zimmerpflanzen- und Beetpflege in derselben Historie erscheinen. | nein |
 | GP-FR-107 | MUST | Die Historie ist mandantenweit filterbar unter `GET /care-events` (alle Beete), mit denselben Filtern; Standard-Zeitraum 90 Tage. | ja |
@@ -713,9 +714,9 @@ Location.soil_profile {
 | ID | Prio | Anforderung | MVP |
 |----|------|-------------|-----|
 | GP-FR-130 | MUST | **Nachbarschaft aus Geometrie:** Nach jeder Slot-Geometrieänderung in einem Beet leitet der Service `adjacent_to`-Kanten neu ab: zwei Slots sind benachbart, wenn der Abstand ihrer Zentren ≤ `adjacency_factor × max(spacing_a, row_spacing_a, spacing_b, row_spacing_b)` ist (Standard 1,5 — Diagonale √2 eingeschlossen, übernächster Dreiecksnachbar 1,73 ausgeschlossen; **mit Reihenabstand**, sonst wären alternierende Reihen wirkungslos — W-018); `distance_cm` wird gesetzt. Bei bekanntem `mature_width_cm` beider Arten gilt stattdessen der Interaktionsradius `(w_a + w_b)/2 × 1,2`. Ab 200 Punkt-Slots je Beet werden Nachbarschaften nur noch **zwischen Zonen/Reihen** abgeleitet (Kantenlimit). Manuell gesetzte Kanten (`source = manual`) bleiben; sie werden über einen eigenen Endpunkt mit Site-Gleichheitsprüfung beider Enden gesetzt (SR-021). Der Celery-Job erhält nur `location_key` und löst Site/Tenant selbst auf. Beetübergreifend (Beetkanten ≤ 50 cm) ist SHOULD. | ja (beetintern) |
-| GP-FR-131 | MUST | **Fruchtfolge auf Beet-Ebene** (F-12, MVP): `validate_planting_in_location(location_key, species_key, *, tenant_key)` führt die Historie aller Slots des Beets zusammen (ab `rotation_reset_at`, nicht für `rotation_exempt`); Ergebnis je Familie: letzte Spezies, Jahre seit demselben Anbau, **Anbaupause** aus `BotanicalFamily.rotation_pause_years` (neu, Default je Familie; Spezies-Override `Species.rotation_pause_years`; Fallback `rotation_window_years`, Obergrenze auf 8 angehoben — K-004) und `severity` mit Grund (z. B. „Kohlhernie-Risiko: Brassicaceae vor 2 Jahren"). Gründüngung zählt mit ihrer Familie. Mischbeete: jede Familie des Jahres zählt. Vorjahre können nacherfasst werden (Rotationsmatrix editierbar für vergangene Jahre, GP-FR-135; MVP: einfacher Dialog „Was stand hier {Jahr}?" am Beet). | ja |
+| GP-FR-131 | MUST | **Fruchtfolge auf Beet-Ebene** (F-12, MVP): `validate_planting_in_location(location_key, species_key, *, tenant_key)` führt die Historie aller Slots des Beets zusammen (ab `rotation_reset_at`, nicht für `rotation_exempt`); Ergebnis je Familie: letzte Spezies, Jahre seit demselben Anbau, **Anbaupause** aus `BotanicalFamily.rotation_pause_years` (neu, Default je Familie; Spezies-Override `Species.rotation_pause_years`; Fallback `rotation_window_years`, Obergrenze auf 8 angehoben — K-004) und `severity` mit Grund (z. B. „Kohlhernie-Risiko: Brassicaceae vor 2 Jahren"). Gründüngung zählt mit ihrer Familie. Mischbeete: jede Familie des Jahres zählt. Vorjahre können nacherfasst werden: MVP-Dialog „Was stand hier {Jahr}?" am Beet schreibt über GP-API-042 (Rotationsmatrix editierbar, GP-FR-135, ist SHOULD). | ja |
 | GP-FR-132 | MUST | Im Bepflanzen-Dialog (§11.1 Schritt 1) erscheinen Fruchtfolge-Warnung und Mischkultur-Hinweis (zu bereits geplanten/aktiven Nachbarn im Beet über `adjacent_to`) **als Hinweis mit Stärkestufe, nicht als Blocker** (D-09); „Trotzdem pflanzen" speichert den Grund am Run (`rotation_override_reason`). Das Beet trägt auf dem Plan ein Badge, wenn eine aktive Pflanzung einen Fruchtfolge-Hinweis hat. Für `planter`/`tent`/`shelf` standardmäßig aus (GP-FR-137). | ja |
-| GP-FR-133 | SHOULD | **Folgekultur-Empfehlung:** aus `rotation_after` (REQ-001) und dem `demand_level`-Zyklus (Starkzehrer → Mittelzehrer → Schwachzehrer → Gründüngung) eine Liste geeigneter Familien/Spezies für das nächste Jahr, angezeigt im Historie-Tab unter dem Zeitstrahl. | nein |
+| GP-FR-133 | SHOULD | **Folgekultur-Empfehlung:** aus `rotation_after` (REQ-001) und dem `NutrientDemand`/`PlanRole`-Zyklus (Starkzehrer → Mittelzehrer → Schwachzehrer → Gründüngung/Brache, §16.3) eine Liste geeigneter Familien/Spezies für das nächste Jahr, angezeigt im Historie-Tab unter dem Zeitstrahl. | nein |
 | GP-FR-134 | SHOULD | **Mischkultur-Overlay** (REQ-028 §7.3): Ebene auf dem Plan, die zwischen benachbarten Pflanzen grüne (kompatibel), rote (inkompatibel) und graue (unbekannt) Verbindungen zeichnet; Hover/Tipp zeigt Grund und Score. Nur für sichtbare Beete, max. 500 Kanten je Viewport (Culling). | nein |
 | GP-FR-135 | SHOULD | **Rotationsmatrix** (REQ-002 §1 „Beet × Jahr") als Tabelle je Site: Zeilen Beete, Spalten Jahre, Zellen **Liste** der Familien je Saison (Vor-/Haupt-/Nachkultur, W-013) farbcodiert nach `nutrient_demand`; Datenquelle `care_events`/`plant_instances`, Zukunftsspalten aus `CropRotationPlan`. | nein |
 | GP-FR-136 | COULD | Problematische Pflanzen je Beet: Spezies, deren Familie in den letzten `rotation_window_years` im Beet stand oder die mit aktiven Nachbarn inkompatibel sind — als Negativliste im Bepflanzen-Dialog ausgegraut mit Grund. | nein |
@@ -728,7 +729,7 @@ Heute existieren drei Enums für dieselbe Sache und ein Merkmal steckt im falsch
 | ID | Prio | Anforderung | MVP |
 |----|------|-------------|-----|
 | GP-FR-138 | MUST | **`NutrientDemand`** = `heavy_feeder \| medium_feeder \| light_feeder` an Spezies (`Species.nutrient_demand`, Pflicht bei Nutzpflanzen, mit `source`/`confidence` — H-004) und Familie (`BotanicalFamily.typical_nutrient_demand`). **`nitrogen_fixing: bool`** an Spezies (neu) und Familie (vorhanden). **`PlanRole`** = `main_crop \| green_manure \| fallow` am `PlantingRun` (`plan_role`, Standard `main_crop`) und am `CropRotationPlan` (ersetzt `demand_level`; `fallow` ist dort der einzige Wert ohne Run). Pydantic-Validatoren: `fallow` nie an Spezies/Familie/Run; `green_manure` am Run verlangt `Species.green_manure_suitable = true`. | ja (Welle 1) |
-| GP-FR-139 | MUST | Migration `v0077_nutrient_demand_split`: `Species.nutrient_demand_level = nitrogen_fixer` → `nitrogen_fixing = true` und `nutrient_demand` aus dem Steckbrief (Pflichtfeld in `plant_info.schema.yaml`; fehlt der Wert, bleibt `nutrient_demand = null` und der Dry-Run-Report listet die Spezies — **kein** stiller Default); `BotanicalFamily.typical_nutrient_demand` `light→light_feeder`, `medium→medium_feeder`, `heavy→heavy_feeder`; `CropRotationPlan.demand_level` → `nutrient_demand` + `plan_role`. Schemas `_defs.schema.yaml:51`, `species.schema.yaml`, `plant_info.schema.yaml`, `botanical_families.schema.yaml:31` und Seeds werden umgestellt; `seed-data-validator` prüft danach. REQ-001 §2 und REQ-002 §2 erhalten eine Changelog-Zeile mit Verweis auf GP-FR-138. | ja (Welle 1) |
+| GP-FR-139 | MUST | Migration `M6_nutrient_demand_split`: `Species.nutrient_demand_level = nitrogen_fixer` → `nitrogen_fixing = true` und `nutrient_demand` aus dem Steckbrief (Pflichtfeld in `plant_info.schema.yaml`; fehlt der Wert, bleibt `nutrient_demand = null` und der Dry-Run-Report listet die Spezies — **kein** stiller Default); `BotanicalFamily.typical_nutrient_demand` `light→light_feeder`, `medium→medium_feeder`, `heavy→heavy_feeder`; `CropRotationPlan.demand_level` → `nutrient_demand` + `plan_role`. Schemas `_defs.schema.yaml:51`, `species.schema.yaml`, `plant_info.schema.yaml`, `botanical_families.schema.yaml:31` und Seeds werden umgestellt; `seed-data-validator` prüft danach. REQ-001 §2 und REQ-002 §2 erhalten eine Changelog-Zeile mit Verweis auf GP-FR-138. | ja (Welle 1) |
 
 Die Rotationslogik (Starkzehrer → Mittelzehrer → Schwachzehrer → Gründüngung/Brache) in GP-FR-131/133/135 arbeitet auf `NutrientDemand` + `PlanRole`; die N-Gutschrift einer Leguminosen-Vorfrucht kommt aus `nitrogen_fixing`.
 
@@ -821,7 +822,7 @@ Business      domain/services/garden_plan_service.py, care_event_service.py, irr
               domain/engines/adjacency_engine.py
 Data Access   data_access/arango/garden_object_repository.py, care_event_repository.py, irrigation_zone_repository.py,
               Erweiterung site_repository (plan), location/slot (geometry); Stream-Transaktion im garden_plan_repository
-Persistence   ArangoDB Collections + Edges (§20), Migration v0072+
+Persistence   ArangoDB Collections + Edges (§20), Migration M1+
 ```
 
 | ID | Prio | Anforderung |
@@ -892,7 +893,7 @@ type PlanOperation =
 | GP-NFR-012 | MUST | Geometrie-Validierung und Flächenberechnung in `domain/calculators/geometry_calculator.py` (rein, ohne I/O, Property-Tests mit Hypothesis: Fläche ≥ 0, Shoelace = Rechteckformel für rect, Rotation erhält Fläche). Keine externe Geometrie-Bibliothek im MVP (Shapely wäre nur für Polygon-Schnitt nötig → COULD für GP-FR-012 Objekt-Snap und Überlappungsprüfung; Entscheidung D-04). |
 | GP-NFR-013 | MUST | Die Batch-API läuft in **einer** ArangoDB-Stream-Transaktion (`db.begin_transaction(write=[…])`) mit Revisionsprüfung: `IF site.plan.plan_revision != expected → abort 409`. Alles-oder-nichts, im Gegensatz zum bestehenden `BatchResponse`-Teilerfolg bei Tasks (bewusste Abweichung: eine halb gespeicherte Geometrieänderung ist nicht reparierbar). **Komplexitätsbudget (SR-012):** zusätzlich zu 500 Operationen gilt Σ Polygonpunkte ≤ 20 000 je Batch, Request-Body ≤ 2 MB und ein Zeitbudget von 10 s (422 `batch.too_complex`); Containment- und Überlappungsprüfung laufen **vor** dem Öffnen der Transaktion (nur Revisionsprüfung und Schreiben laufen darin). |
 | GP-NFR-014 | MUST | Containment-Regeln (§22) werden im Service geprüft, nicht im Router; der Service nimmt Eltern-Keys und `tenant_key` keyword-only (Memory „Prädikat in den Service"). |
-| GP-NFR-015 | MUST | Migrationen nach NFR-016/ADR-005: `v0072_garden_plan_geometry` (Collections, Edges, Indizes; `dimensions` → `geometry`/`height_m` und `Slot.position` → `geometry` mit `pitch_m`, beide Felder danach entfernt — O-01/O-02), `v0073_location_type_is_bed` (Seeds, `is_bed`), `v0074_task_category_extension`, `v0075_care_events_backfill` (SHOULD, GP-FR-105), `v0076_recurrence_cron_to_rrule` (O-05), `v0077_feeder_level_unify` (O-07). Jede Migration ist `reversible` oder begründet nicht; v0072, v0076 und v0077 liefern einen Dry-Run-Report (`--dry-run`), weil sie Bestandsdaten umformen. |
+| GP-NFR-015 | MUST | Migrationen nach NFR-016/ADR-005: **Migrations-Platzhalter:** M1…M6 sind logische Namen; die konkrete `vNNNN`-Nummer vergibt die Umsetzung als nächste freie Nummer (Stand 2026-10-04 abends ist `v0081` die letzte — die ursprünglich genannten v0072–v0077 waren auf `develop` bereits vergeben, Review-Finding). `M1_garden_plan_geometry` (Collections, Edges, Indizes; `dimensions` → `geometry`/`height_m` und `Slot.position` → `geometry` mit `pitch_m`, beide Felder danach entfernt — O-01/O-02), `M2_location_type_is_bed` (Seeds, `is_bed`), `M3_task_category_extension`, `M4_care_events_backfill` (SHOULD, GP-FR-105), `M5_recurrence_cron_to_rrule` (O-05), `M6_nutrient_demand_split` (O-07). Jede Migration ist `reversible` oder begründet nicht; M1, M5 und M6 liefern einen Dry-Run-Report (`--dry-run`), weil sie Bestandsdaten umformen. |
 | GP-NFR-016 | SHOULD | Celery: `adjacency_recompute` (nach Slot-Batch, entkoppelt, idempotent), `care_events_consistency` (täglich), `irrigation_zone_demand_aggregate` (täglich nach REQ-037). |
 | GP-NFR-017 | MUST | **Harte Quoten (SR-004):** je Site ≤ 500 Locations + GardenObjects, ≤ 8 000 Slots; je Beet ≤ 2 000 Slots; Quick-Planting `quantity` ≤ 500. Überschreitung → 422 `plan.quota_exceeded {limit, current}`. §25.1 „Belastungsgrenze" ist damit eine Quote, keine Prosa. |
 
@@ -926,7 +927,7 @@ Export und Import laufen serverseitig (§23): JSON-Backup über `garden_plan_ser
 | `points` | `[[x,y], …]` | polygon ≥ 3, polyline ≥ 2, ≤ 200 Punkte; polygon einfach (keine Selbstschnitte) |
 | `rotation_deg` | float | 0 ≤ r < 360; für circle/point/polyline nicht erlaubt |
 
-Abgeleitet (serverseitig, read-only im DTO): `area_m2`, `bbox`, `centroid`.
+Abgeleitet (serverseitig, read-only im DTO): `area_m2`, `bbox`, `centroid`. Rechenbeispiel für die Konvention (GP-FR-008, CCW um `+x`, Rotation um `origin` = linke untere Ecke): `rect` mit `origin [1,1]`, `width_m 2` (entlang `+x` vor Rotation), `length_m 1`, `rotation_deg 90` hat die Ecken (1,1), (1,3), (0,3), (0,1) → `bbox [0,1,1,3]`.
 
 **Rahmen:** `Site.plan.boundary`, `Location.geometry`, `GardenObject.geometry` → Plan-Rahmen. `Slot.geometry` → Beet-Rahmen der übergeordneten Location (§9.2).
 
@@ -968,7 +969,7 @@ Abgeleitet (serverseitig, read-only im DTO): `area_m2`, `bbox`, `centroid`.
   "geometry": { "kind": "rect", "origin": [1.0, 1.0], "width_m": 2.0, "length_m": 1.0, "rotation_deg": 90.0 },
   "height_m": 0.8,
   "area_m2": 2.0,
-  "bbox": [1.0, 1.0, 2.0, 3.0],
+  "bbox": [0.0, 1.0, 1.0, 3.0],
   "bed_status": "active", "season_state": "planted",
   "sun_exposure": "full_sun",
   "irrigation_system": "drip",
@@ -1038,7 +1039,7 @@ Edges: `has_garden_object` (sites → garden_objects). `belongs_to_tenant` wird 
 }
 ```
 
-`position` (Rasterzelle) **entfällt** (O-01, §9.2a): Migration v0072 leitet daraus `geometry` ab und füllt `row_index`/`sequence`; danach wird das Feld aus Modell, Schema und Frontend entfernt (`geometry_source ∈ {editor, layout, migrated_grid}` dokumentiert die Herkunft). `pitch_m` (neu an Location, Standard 0,30) ist nur die Migrations-Annahme für Alt-Slots. `slot_role ∈ {position, row, zone}`; Standard `position`. Neu außerdem `container_volume_l` (Topfvolumen, W-016), `sown_at` (Direktsaat-Zustand, §11.3), `archived_at` (Slot eines abgeschlossenen Runs, GP-FR-055). Für `row`: `geometry.kind = polyline`; für `zone`: `polygon`.
+`position` (Rasterzelle) **entfällt** (O-01, §9.2a): Migration M1 leitet daraus `geometry` ab und füllt `row_index`/`sequence`; danach wird das Feld aus Modell, Schema und Frontend entfernt (`geometry_source ∈ {editor, layout, migrated_grid}` dokumentiert die Herkunft). `pitch_m` (neu an Location, Standard 0,30) ist nur die Migrations-Annahme für Alt-Slots. `slot_role ∈ {position, row, zone}`; Standard `position`. Neu außerdem `container_volume_l` (Topfvolumen, W-016), `sown_at` (Direktsaat-Zustand, §11.3), `archived_at` (Slot eines abgeschlossenen Runs, GP-FR-055). Für `row`: `geometry.kind = polyline`; für `zone`: `polygon`.
 
 ### 20.6 PlantingRun / Entry (bestehend, additiv) und geplante Belegung
 
@@ -1092,7 +1093,7 @@ Die Position der Pflanze ist `Slot.geometry` ihres `slot_key` — kein zusätzli
 | `bed_orientation` | abgeleitet aus `rotation_deg` + `north_angle_deg` | nicht einführen; GP-FR-017 |
 | `bed_type` | `location_type_key` mit `LocationType.is_bed` | nicht einführen |
 | `bed_rows`, `row_spacing_cm` | `PlantingRunEntry.layout_strategy = rows`, `row_spacing_cm`; Slots `slot_role = row` | nicht einführen (Reihen hängen an der Pflanzung, nicht am Beet) |
-| `dimensions: (l, b, h)` (im Code) | `geometry` + `height_m` | **Entfernt in Welle 1** (O-02): Migration v0072 übernimmt `(l, b)` als `rect`-Geometrie mit `origin = (0,0)` für Locations ohne Geometrie und `h` als `height_m`; Leser im Code werden auf `geometry`/`height_m` umgestellt (Issue 56). |
+| `dimensions: (l, b, h)` (im Code) | `geometry` + `height_m` | **Entfernt in Welle 1** (O-02): Migration M1 übernimmt `(l, b)` als `rect`-Geometrie mit `origin = (0,0)` für Locations ohne Geometrie und `h` als `height_m`; Leser im Code werden auf `geometry`/`height_m` umgestellt (Issue 56). |
 | `Slot.dimensions_cm` (REQ-002) | `Slot.geometry` | nicht einführen |
 | `Slot.position: (row, col)` (im Code) | `Slot.geometry` + `row_index`/`sequence` | **Entfernt in Welle 1** (O-01, §9.2a) |
 
@@ -1187,9 +1188,9 @@ Edges: `has_irrigation_zone` (sites → irrigation_zones), `zone_covers` (irriga
 | Zeitstempel | `created_at`, `updated_at` UTC ISO-8601 (Bestand); `performed_at` in `care_events` ebenfalls UTC, UI zeigt Site-Zeitzone |
 | Plan-Historie | `Site.plan.plan_revision` monoton (nur Struktur, GP-NFR-007); **keine** Geometrie-Versionstabelle im MVP (O-03). **Pflicht-Audit (SR-011):** jede löschende oder strukturverändernde Operation (Batch-`delete`, `DELETE`-Endpunkte, `bed_status = retired`, Import `replace`, Redaktion) schreibt atomar in derselben Transaktion `garden_plan_audit {site_key, revision, user_key, op, entity, key, at, summary}` (Collection, **MUST**); vor Import `replace` wird ein Snapshot geschrieben (GP-FR-148 für diesen Pfad MUST) |
 | Pflege-Historie | append-only mit Supersede/Void (§13.3) |
-| Tenant | alle neuen Dokumente tragen `tenant_key`. **Entschieden (SR-022):** v0072 stempelt `tenant_key` auch auf `locations` und `slots` (aus `site.tenant_key`) und legt Indizes an; Repositories filtern zusätzlich darauf; das Site-Anker-Prädikat (§22.3) bleibt als Defense-in-Depth. Das bisherige Modell „Location/Slot ohne tenant_key" ist damit aufgehoben |
+| Tenant | alle neuen Dokumente tragen `tenant_key`. **Entschieden (SR-022):** M1 stempelt `tenant_key` auch auf `locations` und `slots` (aus `site.tenant_key`) und legt Indizes an; Repositories filtern zusätzlich darauf; das Site-Anker-Prädikat (§22.3) bleibt als Defense-in-Depth. Das bisherige Modell „Location/Slot ohne tenant_key" ist damit aufgehoben |
 
-### 20.14 Graph-Änderungen (Zusammenfassung für v0072)
+### 20.14 Graph-Änderungen (Zusammenfassung für M1)
 
 Neue Collections: `garden_objects`, `care_events`, `irrigation_zones`, `bed_templates` (SHOULD), `garden_plan_audit` (MUST).
 Neue Edge-Definitionen: `has_garden_object`, `run_planned_at`, `care_event_at`, `task_logged_as`, `has_irrigation_zone`, `zone_covers`, `zone_supplied_by`, `zone_actuated_by`.
@@ -1246,7 +1247,7 @@ Request:
 ```
 Response 200:
 ```json
-{ "plan_revision": 43, "key_map": { "tmp1": "loc_a91c", "tmp2": "go_77f0" }, "updated": ["loc_b03"], "deleted": ["go_old"], "derived": { "loc_b03": { "area_m2": 2.0, "bbox": [1.0,1.5,2.0,3.5] }, "loc_a91c": { "area_m2": 2.0, "bbox": [4,1,6,2] } } }
+{ "plan_revision": 43, "key_map": { "tmp1": "loc_a91c", "tmp2": "go_77f0" }, "updated": ["loc_b03"], "deleted": ["go_old"], "derived": { "loc_b03": { "area_m2": 2.0, "bbox": [0.0,1.5,1.0,3.5] }, "loc_a91c": { "area_m2": 2.0, "bbox": [4,1,6,2] } } }
 ```
 Fehler: 409 `plan.revision_conflict` `{current_revision, changed_by, changed_at}`; 422 `validation_error` mit `details[{op_index, field, code}]` — die gesamte Transaktion wird verworfen. Limit: 500 Operationen je Request.
 
@@ -1272,11 +1273,12 @@ Fehler: 409 `plan.revision_conflict` `{current_revision, changed_by, changed_at}
 | GP-API-034 | `GET /care-events?location_key=&plant_key=&category=&from=&to=&performed_by=&include_superseded=false&format=json\|csv` | Historie (mandantenweit oder je Beet). Filter `performed_by` für **alle Rollen** (Betreiberentscheid SR-020; Hinweis: in Gemeinschaftsgärten ermöglicht das Aktivitätsprofile — bei der DSFA nach REQ-025 zu berücksichtigen); `performed_by` erscheint als Anzeigename oder „anonymisiert", nie als Nutzer-Key | Alle Rollen |
 | GP-API-035 | `GET /care-events/{key}` | Einzelereignis inkl. Supersede-Kette | Alle Rollen |
 | GP-API-036 | `POST /care-events/{key}/supersede` | Korrektur (neuer Eintrag, alter bleibt) | Ab Gärtner (eigene = `created_by` ist der Aufrufer), Nur Leitung (fremde); Prädikat im Service |
-| GP-API-037 | `POST /care-events/{key}/void` | Storno mit Grund | Nur Leitung |
+| GP-API-037 | `POST /care-events/{key}/void` | Storno mit Grund | Nur Leitung; **Ausnahme:** eigenes Ereignis (`created_by` = Aufrufer) innerhalb von 10 Minuten nach `created_at` mit `void_reason = undo`: Ab Gärtner (Rückgängig im Feldmodus, GP-FR-149) — Prädikat im Service |
 | GP-API-038 | `GET /locations/{key}/history?from=&to=` | Kombinierte Historie (care_events + Pflanzungsereignisse), paginiert | Alle Rollen |
 | GP-API-039 | `GET /locations/{key}/rotation?years=5` | Zeitstrahl Familie/Spezies je Jahr (GP-FR-103) | Alle Rollen |
 | GP-API-040 | `POST /tasks/{key}/accept-suggestion`, `POST /tasks/{key}/dismiss-suggestion` | Vorschläge (SHOULD) | Ab Gärtner |
 | GP-API-041 | `POST /care-events/{key}/redact` | Redaktion (GP-FR-109) `{reason}`; wirkt auf die Supersede-Kette | Nur Leitung |
+| GP-API-042 | `POST /locations/{key}/history/backfill` | **Vorjahre nacherfassen** (GP-FR-131, REQ-054 §5.3): `{year, season ∈ {spring, main, autumn}?, species_key?, family_key, plan_role ∈ {main_crop, green_manure, fallow}}` → `care_event(category = planting, trigger = backfill, performed_at = {year}-07-01 bzw. Saisonmitte, source = backfill)`; `year` ≤ laufendes Jahr − 1 und ≥ laufendes Jahr − 10; **ausgenommen von V-11** (der Server setzt `trigger = backfill` selbst, der Client nie — SR-009 bleibt gewahrt); `DELETE …/history/backfill/{care_event_key}` stornieren (`void_reason = backfill_error`) | Ab Gärtner |
 
 ### 21.6 Bewässerungszonen (SHOULD)
 
@@ -1303,7 +1305,7 @@ Standardregel: Lesen „Alle Rollen", Anlegen/Ändern „Ab Gärtner", Löschen 
 | Slot (Pflanzposition) | Alle Rollen | Ab Gärtner | Ab Gärtner | Ab Gärtner (unbelegt, keine aktive Reservierung), Nur Leitung (belegt) — Prädikat im Service, nicht im Router-Gate | Position korrigieren: Ab Gärtner |
 | Pflanzdurchlauf / geplante Belegung | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung (Run); Reservierung: Ab Gärtner solange `planned` | Beet räumen: Ab Gärtner |
 | Pflegeaufgabe | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | Erledigen: Ab Gärtner |
-| Pflegeereignis | Alle Rollen | Ab Gärtner | Eigene (Supersede), Nur Leitung (fremde) | — (Void, Redaktion: Nur Leitung) | Filter nach Person: Alle Rollen (SR-020) |
+| Pflegeereignis | Alle Rollen | Ab Gärtner | Eigene (Supersede), Nur Leitung (fremde) | — (Void: eigene ≤ 10 min als Rückgängig ab Gärtner, sonst Nur Leitung; Redaktion: Nur Leitung) | Filter nach Person: Alle Rollen (SR-020) |
 | Bewässerungszone | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | Aktor-/HA-Kopplung (`actuator_key`, `flow_rate_ha_entity_id`): Technik; Aktor-Befehl: Rolle nach REQ-018 (Bedienen), nicht Technik (REQ-049 §2) |
 | Beetvorlage (tenant) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | Globale Vorlagen: Plattform-Admin |
 
@@ -1338,7 +1340,7 @@ Die Standort-Zuweisung (`location_assignments`) bleibt Koordination ohne Schreib
 | V-08 | Domain | `slot.already_planned` | Slot hat eine Reservierung mit **überlappendem Zeitfenster** oder eine aktive Pflanze, deren erwartetes Ende nach `planned_from` liegt (GP-FR-065) |
 | V-09 | Domain | `location.has_active_plants` | Löschen/`retired` eines Beets mit Pflanzen `removed_on = null` verweigert |
 | V-10 | Domain | `bed_status.invalid_transition` | nur Übergänge aus §7.4 |
-| V-11 | Domain | `care_event.performed_in_future` / `care_event.too_old` | `performed_at ≤ now + 5 min` und `≥ now − 365 d` (Backfill-Trigger ausgenommen) |
+| V-11 | Domain | `care_event.performed_in_future` / `care_event.too_old` | `performed_at ≤ now + 5 min` und `≥ now − 365 d`; ausgenommen Ereignisse, die der Server mit `trigger = backfill` erzeugt (GP-API-042, GP-FR-105 — bis 10 Jahre zurück) |
 | V-12 | Domain | `care_event.immutable` | Änderung an bestehendem Ereignis außer Supersede/Void |
 | V-13 | Domain | `care_event.sequence` | `supersedes_key` muss selbes Beet + nicht bereits superseded sein (keine Verzweigung) |
 | V-14 | Domain | `plan.revision_conflict` | `expected_revision != plan_revision` |
@@ -1354,7 +1356,7 @@ Die Standort-Zuweisung (`location_assignments`) bleibt Koordination ohne Schreib
 
 ### 22.3 Mandanten-Anker und Referenzauflösung
 
-Mit v0072 tragen auch Locations und Slots `tenant_key` (SR-022); Repositories filtern darauf. Zusätzlich gilt als Defense-in-Depth das Site-Anker-Prädikat — und zwar so, dass `site_key` **nie aus dem Request stammt** (SR-002):
+Mit M1 tragen auch Locations und Slots `tenant_key` (SR-022); Repositories filtern darauf. Zusätzlich gilt als Defense-in-Depth das Site-Anker-Prädikat — und zwar so, dass `site_key` **nie aus dem Request stammt** (SR-002):
 
 | Regel | Inhalt |
 |-------|--------|
@@ -1479,7 +1481,7 @@ Die Zielwerte gelten für „groß"; die Belastungsgrenze ist zugleich die **har
 | 13 | Pflegehistorie anzeigen | GP-FR-100–103/107, GP-API-034/038 |
 | 14 | Responsive Bedienung | §17.1, Feldmodus GP-UX-020–023/025/027 |
 | 15 | REST API | §21 (MUST-Zeilen) |
-| 16 | Persistente Speicherung in ArangoDB | §20, Migrationen v0072–v0074 |
+| 16 | Persistente Speicherung in ArangoDB | §20, Migrationen M1–M3 |
 
 Zusätzlich im MVP, weil ohne sie das Obige nicht abnehmbar ist: Gartenobjekte `path`, `tree`, `building`, `fence`, `water_source`, `other` (Orientierung auf dem Plan); Undo/Redo (ohne es ist jeder Fehlklick ein Datenverlust); PDF/SVG-Export (REQ-032 §2.5 wartet darauf); JSON-Export (Sicherung); Bodenprofil-Grundfelder (Beetfelder laut Auftrag §6); Beet-Nachbarschaft aus Geometrie (sonst läuft die bestehende Mischkultur-Engine für Beete leer); **nach Review (F-12, Betreiberentscheid):** Fruchtfolge-Hinweis auf Beet-Ebene mit Anbaupausen je Familie, Mischkultur-Hinweis im Dialog, Vorjahr am Beet (GP-FR-077/131/132), Beet räumen (GP-FR-055), Schnellprotokoll und Rückgängig im Feldmodus (GP-UX-029, GP-FR-149), Redaktion (GP-FR-109), Quoten und Pflicht-Audit.
 
@@ -1502,7 +1504,7 @@ Zusätzlich im MVP, weil ohne sie das Obige nicht abnehmbar ist: Gartenobjekte `
 
 Reihenfolge = Implementierungsreihenfolge (Abhängigkeiten), siehe §34.
 
-1. GP-DATA/GP-NFR-015: Migration v0072 (Collections, Edges, Indizes, `dimensions`/`position` → Geometrie), v0073 (`is_bed`, Seeds), v0074 (TaskCategory), v0076 (Cron → RRULE), v0077 (NutrientDemand-Split); Entfernung der Altfelder samt Lesern
+1. GP-DATA/GP-NFR-015: Migration M1 (Collections, Edges, Indizes, `dimensions`/`position` → Geometrie), M2 (`is_bed`, Seeds), M3 (TaskCategory), M5 (Cron → RRULE), M6 (NutrientDemand-Split); Entfernung der Altfelder samt Lesern
 2. GP-FR-004–008, GP-NFR-012: `Geometry`-Typ, `geometry_calculator` (Fläche, bbox, Containment, Einfachheit) + Testvektoren
 3. GP-API-001/002/003, GP-NFR-013/014, V-01–V-05, V-14, V-15, V-17, V-19: Plan lesen, Grenze, Batch
 4. GP-API-010/013/014/015: Einzelressourcen
@@ -1568,7 +1570,7 @@ Alle Kriterien sind Given/When/Then; Tier in Klammern (U = Unit, I = Integration
 
 **Beetverwaltung**
 
-- **GP-ACC-015** (I) Given ein Beet `active`, When `POST /locations/{key}/status {bed_status: "planned"}`, Then 422 `bed_status.invalid_transition`; When stattdessen `fallow` mit `reason`, Then 200 And ein `care_event(category = bed_status_change)` existiert mit `reason`.
+- **GP-ACC-015** (I) Given ein Beet `active` ohne aktive Pflanzen, When `POST /locations/{key}/status {bed_status: "planned"}`, Then 422 `bed_status.invalid_transition`; When stattdessen `retired` mit `reason`, Then 200 And ein `care_event(category = bed_status_change)` existiert mit `reason`; And `GET /plan` liefert für das Beet `season_state = empty` — ein Beet ohne aktiven Run in der laufenden Saison ist `empty`, `fallow` erscheint nur mit einem `CropRotationPlan`-Eintrag `plan_role = fallow` für das Jahr (§7.4, nie als `bed_status`).
 - **GP-ACC-016** (E) Given die Beetliste einer Site mit 3 Beeten, When der Nutzer eine Zeile anklickt, Then ist das Beet auf dem Plan selektiert und im Viewport (Bounding Box sichtbar).
 
 **Pflanzplanung**
@@ -1587,7 +1589,7 @@ Alle Kriterien sind Given/When/Then; Tier in Klammern (U = Unit, I = Integration
 - **GP-ACC-025** (I) Given `POST /tasks/{key}/complete` mit `performed_at` 10 Minuten in der Zukunft, Then 422 `care_event.performed_in_future`; mit `performed_at` vor 400 Tagen, Then 422 `care_event.too_old`.
 - **GP-ACC-026** (I) Given ein `care_event` E1, When `POST /care-events/E1/supersede` mit korrigierter Menge, Then existiert E2 mit `supersedes_key = E1`, E1 hat `superseded_by_key = E2`, And `GET /care-events?location_key=…` liefert nur E2, mit `include_superseded=true` beide; When `PATCH /care-events/E1` versucht wird, Then 405 oder 422 `care_event.immutable`.
 - **GP-ACC-027** (E) Given ein Beet mit 60 `care_events` über 2 Jahre, When der Nutzer den Tab „Historie" öffnet und nach Kategorie „Gießen" filtert, Then erscheinen nur Gieß-Ereignisse, paginiert zu 50, neueste zuerst, And der Zeitstrahl zeigt je Jahr die Familien der Pflanzungen.
-- **GP-ACC-028** (I) Given Pflanzen in einem Beet 2024 (Solanaceae) und 2025 (Fabaceae), When `GET /locations/{key}/rotation?years=5`, Then enthält die Antwort je Jahr die Familie und `nutrient_demand_level`.
+- **GP-ACC-028** (I) Given Pflanzen in einem Beet 2024 (Solanaceae) und 2025 (Fabaceae), When `GET /locations/{key}/rotation?years=5`, Then enthält die Antwort je Jahr die Familie, `nutrient_demand` und `plan_role`.
 
 **Feldmodus, Export, Accessibility, Performance**
 
@@ -1597,10 +1599,10 @@ Alle Kriterien sind Given/When/Then; Tier in Klammern (U = Unit, I = Integration
 - **GP-ACC-032** (E) Given der Plan im Browser, When die Ansicht „Als Liste" aktiviert wird, Then sind alle Objekte als Liste mit Name, Typ, Position, Maßen erreichbar, And `vitest-axe` meldet keine Verstöße auf Editor und Liste.
 - **GP-ACC-033** (U, Benchmark) Given ein Modell der Klasse „groß" (150 Beete, 300 Objekte, 3 000 Slots, 2 000 Pflanzen), When `applyOperation(move)` 100-mal läuft, Then ≤ 1 ms Median, And der SVG-Renderer rendert bei Viewport auf 10 % der Fläche ≤ 400 DOM-Objekte (Culling).
 - **GP-ACC-034** (I, Benchmark) Given dieselbe Klasse „groß" in ArangoDB, When `GET /plan` 20-mal läuft, Then p95 ≤ 300 ms und Antwort ≤ 500 KB.
-- **GP-ACC-035** (I) Given ein Beet ohne Geometrie (Bestandsdaten), When `GET /plan`, Then erscheint es in `locations` mit `geometry = null` und bleibt in der Beetliste; When der Nutzer ihm eine Geometrie gibt, Then wird `area_m2` überschrieben; And Bestands-Locations mit `dimensions ≠ (0,0,0)` haben nach v0072 eine `rect`-Geometrie mit diesen Maßen und `height_m`.
-- **GP-ACC-036** (E) Given eine Indoor-Site mit einer Location `tent` 1,2 × 1,2 m und 9 Slots, die v0072 aus `position` (3 × 3, `pitch_m = 0.3`) abgeleitet hat, When der Nutzer die Beetansicht öffnet und den mittleren Slot per Drag um 10 cm nach rechts verschiebt, Then liegt `geometry.origin` bei `(0.40, 0.30)`, And Ansicht, Werkzeuge und Historie sind identisch zur Beetansicht eines Outdoor-Beets (gleiche Komponenten, kein Zelt-Sonderpfad — nachweisbar über denselben `data-testid`-Satz).
-- **GP-ACC-037** (I) Given eine Familie mit `typical_nutrient_demand = "heavy"` vor v0077, When die Migration läuft, Then steht dort `heavy_feeder`; And `PUT /botanical-families/{key}` mit `typical_nutrient_demand = "fallow"` antwortet 422; And `CropRotationPlan.demand_level = "green_manure"` ist danach `plan_role = green_manure` mit `nutrient_demand = null`.
-- **GP-ACC-038** (I) Given ein Task mit `recurrence_rule = "0 8 * * 1"` vor v0076, When die Migration läuft, Then ist die Regel `FREQ=WEEKLY;BYDAY=MO;BYHOUR=8;BYMINUTE=0`, And `POST /tasks` mit einer Cron-Regel antwortet 422 `recurrence.rrule_required`.
+- **GP-ACC-035** (I) Given ein Beet ohne Geometrie (Bestandsdaten), When `GET /plan`, Then erscheint es in `locations` mit `geometry = null` und bleibt in der Beetliste; When der Nutzer ihm eine Geometrie gibt, Then wird `area_m2` überschrieben; And Bestands-Locations mit `dimensions ≠ (0,0,0)` haben nach M1 eine `rect`-Geometrie mit diesen Maßen und `height_m`.
+- **GP-ACC-036** (E) Given eine Indoor-Site mit einer Location `tent` 1,2 × 1,2 m und 9 Slots, die M1 aus `position` (3 × 3, `pitch_m = 0.3`) abgeleitet hat, When der Nutzer die Beetansicht öffnet und den mittleren Slot per Drag um 10 cm nach rechts verschiebt, Then liegt `geometry.origin` bei `(0.40, 0.30)`, And Ansicht, Werkzeuge und Historie sind identisch zur Beetansicht eines Outdoor-Beets (gleiche Komponenten, kein Zelt-Sonderpfad — nachweisbar über denselben `data-testid`-Satz).
+- **GP-ACC-037** (I) Given eine Familie mit `typical_nutrient_demand = "heavy"` vor M6, When die Migration läuft, Then steht dort `heavy_feeder`; And `PUT /botanical-families/{key}` mit `typical_nutrient_demand = "fallow"` antwortet 422; And `CropRotationPlan.demand_level = "green_manure"` ist danach `plan_role = green_manure` mit `nutrient_demand = null`.
+- **GP-ACC-038** (I) Given ein Task mit `recurrence_rule = "0 8 * * 1"` vor M5, When die Migration läuft, Then ist die Regel `FREQ=WEEKLY;BYDAY=MO;BYHOUR=8;BYMINUTE=0`, And `POST /tasks` mit einer Cron-Regel antwortet 422 `recurrence.rrule_required`.
 - **GP-ACC-039** (I) Given ein Slot mit Reservierung Run A `planned_from = 2026-05-15`, `planned_until = 2026-09-30`, When Run B denselben Slot mit `planned_from = 2026-10-05` beansprucht, Then 200 (Nachkultur); When Run C mit `planned_from = 2026-08-01`, Then 409 `slot.already_planned` mit `overlap_from = 2026-08-01`, `overlap_until = 2026-09-30`.
 - **GP-ACC-040** (I) Given ein Beet mit 2 aktiven Runs und 12 Pflanzen, When `POST /locations/{key}/clear {termination_type: "senesced"}`, Then sind alle 12 Pflanzen `removed_on = heute`, beide Runs `completed`, 12 Slots `archived_at` gesetzt, ein `care_event(clearing)` existiert; And ein neuer Run im Beet mit Zonen-Layout wird **nicht** durch V-06 gegen die archivierten Slots abgewiesen.
 - **GP-ACC-041** (I) Given Tenant B besitzt Pflanze P, When Tenant A `POST /t/a/care-events {plant_keys: [P], …}` sendet, Then 422 `reference.not_found`, And kein `care_event_for`-Edge auf P; dasselbe für `slot_keys` in `plan-slots`, `location_keys` in Zonen, `photo_refs` mit fremdem Attachment, `supersedes_key` auf fremdes Event, `water_source_key` auf fremdes Objekt.
@@ -1611,7 +1613,7 @@ Alle Kriterien sind Given/When/Then; Tier in Klammern (U = Unit, I = Integration
 - **GP-ACC-046** (I) Given Location L von Tenant A, When das Repository mit `tenant_key = B` nach L fragt (`get_location(key, tenant_key=B)`), Then `None`/404 — der Filter greift auf dem neuen `locations.tenant_key`-Index, nicht erst am Site-Anker (SR-022).
 - **GP-ACC-047** (E) Given ein Beet, in dem 2025 Brassicaceae standen und `rotation_pause_years(Brassicaceae) = 4`, When der Nutzer 2026 „Bepflanzen" mit Blumenkohl öffnet, Then zeigt der Dialog vor der Layout-Wahl einen Fruchtfolge-Hinweis mit Grund und Stärke, And „Trotzdem pflanzen" verlangt einen Grund, der am Run als `rotation_override_reason` gespeichert wird, And das Beet trägt danach ein Badge.
 - **GP-ACC-048** (E, 390 × 844) Given das Beet-Sheet im Feldmodus, When der Nutzer den Chip „Gejätet/Gemulcht" tippt, Then existiert nach einem Tipp ein `care_event(category = weeding)` mit `trigger = manual`, And eine Snackbar „Rückgängig" ist 8 s sichtbar; When er sie tippt, Then ist das Event `voided_at` gesetzt mit `void_reason = undo`.
-- **GP-ACC-049** (U) Given die Familie Fabaceae mit `nitrogen_fixing = true` und die Spezies Erbse mit `nutrient_demand = light_feeder`, When v0077 auf einem Bestand mit `nutrient_demand_level = nitrogen_fixer` läuft, Then hat die Spezies `nitrogen_fixing = true` und `nutrient_demand` aus dem Steckbrief (oder `null` + Eintrag im Dry-Run-Report), And `PUT /species/{key}` mit `nutrient_demand = "fallow"` oder `"nitrogen_fixer"` antwortet 422.
+- **GP-ACC-049** (U) Given die Familie Fabaceae mit `nitrogen_fixing = true` und die Spezies Erbse mit `nutrient_demand = light_feeder`, When M6 auf einem Bestand mit `nutrient_demand_level = nitrogen_fixer` läuft, Then hat die Spezies `nitrogen_fixing = true` und `nutrient_demand` aus dem Steckbrief (oder `null` + Eintrag im Dry-Run-Report), And `PUT /species/{key}` mit `nutrient_demand = "fallow"` oder `"nitrogen_fixer"` antwortet 422.
 
 ---
 
@@ -1632,7 +1634,7 @@ Alle Kriterien sind Given/When/Then; Tier in Klammern (U = Unit, I = Integration
 | R-11 | Accessibility-Anspruch (Liste + Tastatur + aria-live) verdoppelt UI-Aufwand | hoch | Zeit | Liste ist zugleich mobile Fallback und Test-Oberfläche; früh bauen (Welle 2) |
 | R-12 | ADR-007 (Breakpoints Code ≠ UI-NFR-001) offen | niedrig | Layout-Umschaltpunkte uneinheitlich | Feldmodus an `useMediaQuery(theme.breakpoints.down('sm'))` binden, nicht an Pixelzahlen |
 | R-13 | `calculate_plants_per_m2` und `print_engine` werden von Bestandscode genutzt; die Erweiterungen (Reihenabstand, `url_fetcher`) ändern Verhalten außerhalb von REQ-053 | sicher | bestehende Tests/`/print/*` betroffen | eigene Issues (Anhang A, 6d/6e) mit Regressionstests vor Welle 1; `url_fetcher` ist eine Sicherheitskorrektur und geht zuerst |
-| R-14 | `nutrient_demand` ist für viele Spezies im Steckbrief nicht erfasst → v0077 lässt `null` | hoch | Fruchtfolge-Hinweise ohne Zehrerstufe | Dry-Run-Report als Arbeitsliste für `plant-info-document-generator`; Hinweis funktioniert familienbasiert auch ohne Spezieswert |
+| R-14 | `nutrient_demand` ist für viele Spezies im Steckbrief nicht erfasst → M6 lässt `null` | hoch | Fruchtfolge-Hinweise ohne Zehrerstufe | Dry-Run-Report als Arbeitsliste für `plant-info-document-generator`; Hinweis funktioniert familienbasiert auch ohne Spezieswert |
 
 ---
 
@@ -1642,13 +1644,13 @@ Alle Punkte wurden vom Betreiber entschieden; die Tabelle bleibt als Protokoll s
 
 | ID | Frage | Entscheidung | Eingearbeitet |
 |----|-------|--------------|---------------|
-| O-01 | `Slot.position` für Beet-Slots füllen? | **Kein zweites Positionsmodell.** Zelt und Beet laufen auf `Slot.geometry`; `position` wird migriert und entfernt. | §9.2a, §20.5, §20.8, GP-ACC-036, v0072 |
+| O-01 | `Slot.position` für Beet-Slots füllen? | **Kein zweites Positionsmodell.** Zelt und Beet laufen auf `Slot.geometry`; `position` wird migriert und entfernt. | §9.2a, §20.5, §20.8, GP-ACC-036, M1 |
 | O-02 | Wann `Location.dimensions` entfernen? | **Sofort in Welle 1** — Migration übernimmt (l, b) als Geometrie, h als `height_m`; keine Spiegelung. | §20.8, GP-ACC-035, Issue 56 |
 | O-03 | Geometrie-Snapshots im MVP? | **Nein**, nur `garden_plan_audit` (SHOULD); Snapshots COULD mit Import-Welle. | §20.13, GP-FR-148 |
 | O-04 | Beete mit Kind-Locations? | **Nein** — Reihen und Zonen sind Slots (`slot_role`). | R-7.5, D-10 |
-| O-05 | ADR-008-Status | **Accepted in Welle 0**, RRULE kanonisch, Cron-Bestand per v0076 konvertiert, REQ-006 umgestellt. | §12.2, GP-NFR-015, GP-ACC-038, Issue 5 |
+| O-05 | ADR-008-Status | **Accepted in Welle 0**, RRULE kanonisch, Cron-Bestand per M5 konvertiert, REQ-006 umgestellt. | §12.2, GP-NFR-015, GP-ACC-038, Issue 5 |
 | O-06 | Kante für care_events → Pflanze | **`care_event_for` wiederverwenden**, Edge-Definition um `care_events` erweitern. | §20.10, §20.14 |
-| O-07 | Zehrer-Enums | **In REQ-053 lösen** — zunächst als 6-Werte-Enum, nach K-001 revidiert zu `NutrientDemand` (3) + `nitrogen_fixing` + `PlanRole`; REQ-001/REQ-002 ziehen nach; v0077. | §16.3 (GP-FR-138/139), GP-ACC-037/049 |
+| O-07 | Zehrer-Enums | **In REQ-053 lösen** — zunächst als 6-Werte-Enum, nach K-001 revidiert zu `NutrientDemand` (3) + `nitrogen_fixing` + `PlanRole`; REQ-001/REQ-002 ziehen nach; M6. | §16.3 (GP-FR-138/139), GP-ACC-037/049 |
 | O-08 | Indoor-Sites auf dem Plan? | **Ja, für alle Site-Typen** (Folge von O-01); V-18 entfällt. | §2.3, §9.2a, §22.2 |
 | O-09 | `shelf` als Beet? | **Nein** — nur `bed`, `raised_bed`, `planter`, `greenhouse_bed`, `cold_frame`. | GP-FR-040 |
 | O-10 | Polygon-Zeichnen auf Smartphone | **Zulassen, nicht abnehmen.** | §17.1 |
@@ -1658,7 +1660,7 @@ Alle Punkte wurden vom Betreiber entschieden; die Tabelle bleibt als Protokoll s
 | O-14 | Fremde `care_events` korrigieren | **Eigene ab Gärtner, fremde nur Leitung.** | §21.8, GP-API-036 |
 | O-15 | Modulname und Navigation | **`garden_planner`, unter „Standorte"**, kein eigener Hauptmenüpunkt. | §21.8, Issue 41 |
 | K-001 | `nitrogen_fixer` im Zehrer-Enum (Review Agrobiologie) | **O-07 revidiert:** 3 Stufen + Bool + `PlanRole`. | §16.3, GP-FR-138/139, GP-ACC-049 |
-| SR-022 | `tenant_key` auf Location/Slot (Review Security) | **Ja, v0072.** | §20.13, §22.3, GP-ACC-046 |
+| SR-022 | `tenant_key` auf Location/Slot (Review Security) | **Ja, M1.** | §20.13, §22.3, GP-ACC-046 |
 | F-12 | Fruchtfolge/Mischkultur im MVP (Review Persona) | **Ja, Hinweise + Vorjahr.** | GP-FR-077/131/132, §28 |
 | F-09/F-17 | Revision je Objekt / Offline-Puffer (Review Persona) | **Revision nur für Struktur; Offline-Puffer SHOULD, Offline-Hinweis MVP.** | GP-NFR-007, GP-UX-024 |
 | SR-005 | Retention `care_events` (Review Security) | **5 Jahre.** | GP-NFR-055, NFR-011 |
@@ -1689,9 +1691,9 @@ Es gibt keine offenen Fragen mehr, die die Implementierung des MVP blockieren. N
 | **D-13** | Persistente Gruppen | ja · nein | **nein** (WON'T) | GP-FR-030 |
 | **D-14** | ID-Schema im Dokument | FR-xxx · GP-FR-xxx | **GP-** | Kollision mit `spec/nfr/NFR-0xx` |
 | **D-15** | Positionsmodell Indoor vs. Outdoor | zwei Modelle (Raster + Geometrie) · ein Modell | **ein Modell** (`Slot.geometry`) | O-01: keine Sonderbehandlung; Mischkultur-Engine sieht damit auch Zelt-Nachbarn |
-| **D-16** | Altfelder `Location.dimensions`, `Slot.position` | spiegeln · sofort entfernen | **sofort entfernen** (v0072) | O-01/O-02: zwei Wahrheiten für Maße sind die Fehlerquelle, die REQ-053 beseitigen soll |
+| **D-16** | Altfelder `Location.dimensions`, `Slot.position` | spiegeln · sofort entfernen | **sofort entfernen** (M1) | O-01/O-02: zwei Wahrheiten für Maße sind die Fehlerquelle, die REQ-053 beseitigen soll |
 | **D-17** | Zehrer-Enum | eigenes Spec-Issue · in REQ-053 | **in REQ-053**: `NutrientDemand` (3) + `nitrogen_fixing` (Bool) + `PlanRole` (revidiert nach K-001) | O-07: Rotationslogik braucht ein Enum; N-Fixierung ist orthogonal zur Zehrerstufe |
-| **D-18** | `tenant_key` auf Location/Slot | nein (Site-Anker) · ja (stempeln) | **ja, in v0072** (SR-022) | schließt die Klasse Cross-Tenant-Lecks strukturell; Site-Anker bleibt als zweite Linie |
+| **D-18** | `tenant_key` auf Location/Slot | nein (Site-Anker) · ja (stempeln) | **ja, in M1** (SR-022) | schließt die Klasse Cross-Tenant-Lecks strukturell; Site-Anker bleibt als zweite Linie |
 | **D-19** | Beetstatus vs. Saisonzustand | ein Enum · getrennt | **getrennt** (W-014): `bed_status` Lebenszyklus, `season_state` abgeleitet | Gründüngung ist eine Pflanzung, keine Brache |
 | **D-20** | Slot-Reservierung | exklusiv · Zeitfenster | **Zeitfenster** (F-01) | Nachkultur im selben Jahr ist der Normalfall |
 | **D-21** | Fruchtfolge/Mischkultur im MVP | nein · Hinweise ja | **Hinweise ja** (F-12) | Persona bleibt sonst für die Jahresplanung bei Papier |
@@ -1707,7 +1709,7 @@ Wellen sind sequenziell abhängig; innerhalb einer Welle sind die Pakete paralle
 | Welle | Inhalt | Pakete | Abhängig von | Schätzung |
 |-------|--------|--------|--------------|-----------|
 | **0 — Spec-Abschluss** | ✅ Betreiberentscheidungen O-01…O-15 (2026-10-04); ADR-008 auf Accepted heben; ✅ Agrobiologie-, Outdoor-Persona- und Security-Review (2026-10-04, `spec/analysis/*-req-053.md`); Restliste der Reviews als Issues (Anhang A, 58–66); verbleibende Review (`agrobiology-requirements-reviewer`) und Outdoor-Review (`outdoor-garden-planner-reviewer`) auf dieses Dokument; Security-Spec-Review; `TC-REQ-053.md` aus §30 (`test-case-extractor`); REQ-002/REQ-013/REQ-006-Pins und Querverweise | 5 | — | 1 Woche |
-| **1 — Fundament Backend** | v0072 (inkl. `tenant_key` auf Location/Slot) – v0074 + v0076 (Cron→RRULE) + v0077 (NutrientDemand-Split), jeweils mit Dry-Run-Report; `print_engine` `url_fetcher` (Sicherheitskorrektur, zuerst); `calculate_plants_per_m2` mit Reihenabstand; GP-NFR-058 Referenzauflösung + Quoten + Pflicht-Audit; Entfernung von `Location.dimensions` und `Slot.position` samt aller Leser (Backend + Frontend); `Geometry`, `geometry_calculator` + Testvektoren; Site-`plan`, Location-/Slot-/GardenObject-Felder; `garden_plan_service` mit Batch-Transaktion und Containment; Endpunkte GP-API-001–003, 010–015; Tenant-Negativtests; Observability-Events | 6 | 0 | 2 Wochen |
+| **1 — Fundament Backend** | M1 (inkl. `tenant_key` auf Location/Slot) – M3 + M5 (Cron→RRULE) + M6 (NutrientDemand-Split), jeweils mit Dry-Run-Report; `print_engine` `url_fetcher` (Sicherheitskorrektur, zuerst); `calculate_plants_per_m2` mit Reihenabstand; GP-NFR-058 Referenzauflösung + Quoten + Pflicht-Audit; Entfernung von `Location.dimensions` und `Slot.position` samt aller Leser (Backend + Frontend); `Geometry`, `geometry_calculator` + Testvektoren; Site-`plan`, Location-/Slot-/GardenObject-Felder; `garden_plan_service` mit Batch-Transaktion und Containment; Endpunkte GP-API-001–003, 010–015; Tenant-Negativtests; Observability-Events | 6 | 0 | 2 Wochen |
 | **2 — Editor-Kern** | `gardenPlanSlice`, Operationen, Undo/Redo; `PlanRenderer` + `SvgPlanRenderer` + Headless-Renderer; Werkzeuge Auswahl/Pan/Beet/Objekte/Polygon; Raster/Snap; Panel; Kontextmenü; Konflikt-Dialog; **Liste-Ansicht + Tastatur + aria-live** (nicht später!); Dynamic Import + Budget-Eintrag; i18n DE/EN; testids; vitest + axe; E2E-Grundlauf | 8 | 1 | 3 Wochen |
 | **3 — Beet & Pflanzung** | `is_bed`-Seeds, Beetansicht mit Tabs, Beetliste, Summary; Bodenprofil; Entry-Layout-Felder, `planting_layout_calculator` (py + ts), Preview-Endpunkt, `run_planned_at`, `create-plants`-Anpassung, Pflanzen-Marker, Position korrigieren; Adjacency-Engine + Celery-Task; Bepflanzen-Dialog mit Fruchtfolge-/Mischkultur-Hinweis (Beet-Validator, `rotation_pause_years`); Zeitfenster-Reservierung; Beet räumen; Vorjahr am Beet | 7 | 2 | 3 Wochen |
 | **4 — Pflege & Historie** | ADR-008 ist Accepted (Welle 0) und RRULE migriert (Welle 1); `TaskCategory`-Erweiterung; `care_events` + Service + Endpunkte inkl. Redaktion; Rückgängig-Snackbar; Abschluss-Übergang atomar; Batch-Erledigen; Historie-Tab + Zeitstrahl + `rotation`-Endpunkt; DSGVO-Kaskade; Backfill-Migration (SHOULD) | 6 | 1 (parallel zu 2–3 möglich, Merge nach 3) | 2 Wochen |
@@ -1739,13 +1741,13 @@ Direkt aus den Anforderungen ableitbar; Titel englisch (Feedback-Memory). Labels
 
 | # | Titel | IDs | Größe |
 |---|-------|-----|-------|
-| 6 | feat(db): migration v0072 garden plan collections/edges/indexes + dimensions→geometry/height_m + Slot.position→geometry (pitch_m, dry-run report); v0073 LocationType.is_bed + seeds; v0074 TaskCategory extension | GP-NFR-015, §9.2a, §20.14, GP-ACC-035/036 | L |
-| 6a | refactor(locations)!: remove Location.dimensions and Slot.position from models, schemas, repositories and frontend after v0072 | O-01, O-02, D-16 | M |
-| 6b | feat(db): migration v0076 recurrence cron→RRULE with dry-run report; API rejects cron (422 recurrence.rrule_required) | O-05, GP-ACC-038 | M |
-| 6c | feat(db): migration v0077 NutrientDemand split (3 levels + nitrogen_fixing bool + PlanRole), BotanicalFamily light/medium/heavy → *_feeder, dry-run report for species without nutrient_demand, seed/schema update | GP-FR-138/139, GP-ACC-037 | M |
+| 6 | feat(db): migration M1 garden plan collections/edges/indexes + dimensions→geometry/height_m + Slot.position→geometry (pitch_m, dry-run report); M2 LocationType.is_bed + seeds; M3 TaskCategory extension | GP-NFR-015, §9.2a, §20.14, GP-ACC-035/036 | L |
+| 6a | refactor(locations)!: remove Location.dimensions and Slot.position from models, schemas, repositories and frontend after M1 | O-01, O-02, D-16 | M |
+| 6b | feat(db): migration M5 recurrence cron→RRULE with dry-run report; API rejects cron (422 recurrence.rrule_required) | O-05, GP-ACC-038 | M |
+| 6c | feat(db): migration M6 NutrientDemand split (3 levels + nitrogen_fixing bool + PlanRole), BotanicalFamily light/medium/heavy → *_feeder, dry-run report for species without nutrient_demand, seed/schema update | GP-FR-138/139, GP-ACC-037 | M |
 | 6d | fix(print)!: restrictive WeasyPrint url_fetcher (no http/file), Jinja autoescape, SVG allowlist — affects existing /print/* (SR-015) | GP-NFR-052, GP-ACC-045 | S |
 | 6e | fix(calculators): calculate_plants_per_m2 with row_spacing and strategy; bed-level crop rotation validator with BotanicalFamily.rotation_pause_years | GP-FR-073/131, W-003, K-004 | M |
-| 6f | feat(db): v0072 stamps tenant_key on locations/slots + indexes; repositories filter on it | SR-022, D-18, GP-ACC-046 | M |
+| 6f | feat(db): M1 stamps tenant_key on locations/slots + indexes; repositories filter on it | SR-022, D-18, GP-ACC-046 | M |
 | 6g | feat(garden-plan): per-operation role check in batch, closed op list, GP-NFR-058 reference resolution, quotas GP-NFR-017, mandatory garden_plan_audit, complexity/time budget | SR-001/003/004/011/012/013, GP-ACC-041/042/043 | L |
 | 7 | feat(domain): Geometry value type + geometry_calculator (area, bbox, containment, simple-polygon) with shared test vectors | GP-FR-004–008, GP-NFR-012, GP-ACC-003/004 | M |
 | 8 | feat(sites): Site.plan (boundary, north_angle_deg, grid, revision) + PUT /plan/boundary | GP-API-002, GP-FR-015, GP-ACC-001 | S |
@@ -1790,7 +1792,7 @@ Direkt aus den Anforderungen ableitbar; Titel englisch (Feedback-Memory). Labels
 | 32 | feat(tasks): atomic completion transition writing care_event + domain event; batch completion with care fields | GP-FR-083–085/088, GP-API-031/032, GP-ACC-024 | L |
 | 33 | feat(frontend): bed care tab (complete inline, category-specific quick dialog) | GP-FR-084, GP-FR-089 badge | M |
 | 34 | feat(history): combined bed history endpoint, rotation timeline endpoint, history tab UI | GP-FR-102/103, GP-API-038/039, GP-ACC-027/028 | L |
-| 35 | feat(db): care_events backfill migration from watering/feeding/treatment/harvest records (SHOULD) | GP-FR-105, v0075 | M |
+| 35 | feat(db): care_events backfill migration from watering/feeding/treatment/harvest records (SHOULD) | GP-FR-105, M4 | M |
 
 **Welle 5 — Feldmodus & Export**
 
