@@ -78,7 +78,7 @@ WHERE tenant_key = %(tenant_key)s
 
 #: The continuous aggregates (migration 002) that hold a derived copy of every
 #: raw reading, and the only two names resolved to materialisation tables below.
-_AGGREGATE_VIEWS = ("sensor_hourly", "sensor_daily")
+AGGREGATE_VIEWS = ("sensor_hourly", "sensor_daily")
 
 #: Where each aggregate keeps its buckets. A continuous aggregate is a read-only
 #: view: ``DELETE FROM sensor_hourly`` is refused, the rows live in an internal
@@ -89,6 +89,21 @@ FROM timescaledb_information.continuous_aggregates
 WHERE view_name = ANY(%(views)s)
   AND view_schema = current_schema()
 """
+
+
+def resolve_aggregate_tables(cur: psycopg.Cursor) -> dict[str, tuple[str, str]]:
+    """The materialisation table of each continuous aggregate, ``{view: (schema, table)}``.
+
+    Raises when one is missing: skipping would report an erasure that left the
+    aggregated copy of the data behind (the failure #1793 is about).
+    """
+    cur.execute(_MATERIALIZATION_SQL, {"views": list(AGGREGATE_VIEWS)})
+    found = {row[0]: (row[1], row[2]) for row in cur.fetchall()}  # one row per view: the schema is fixed above
+    missing = set(AGGREGATE_VIEWS) - found.keys()
+    if missing:
+        msg = f"continuous aggregate(s) not found, cannot erase their buckets: {sorted(missing)}"
+        raise RuntimeError(msg)
+    return found
 
 
 def _prepare_params(reading: SensorReading) -> dict:
@@ -209,16 +224,9 @@ class TimescaleObservationRepository(IObservationRepository):
         harmless: the next refresh recomputes from raw rows that no longer exist
         and materialises nothing for the deleted tenant.
         """
-        cur.execute(_MATERIALIZATION_SQL, {"views": list(_AGGREGATE_VIEWS)})
-        found = {row[0]: (row[1], row[2]) for row in cur.fetchall()}  # one row per view: the schema is fixed above
-        missing = set(_AGGREGATE_VIEWS) - found.keys()
-        if missing:
-            # Fail loud: skipping would report an erasure that left the aggregated
-            # copy of the data behind (the failure #1793 is about).
-            msg = f"continuous aggregate(s) not found, cannot erase their buckets: {sorted(missing)}"
-            raise RuntimeError(msg)
+        found = resolve_aggregate_tables(cur)
         total = 0
-        for view in _AGGREGATE_VIEWS:
+        for view in AGGREGATE_VIEWS:
             schema, table = found[view]
             query = sql.SQL("DELETE FROM {} WHERE tenant_key = %(tenant_key)s").format(sql.Identifier(schema, table))
             params = {"tenant_key": tenant_key}

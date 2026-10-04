@@ -9,7 +9,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python, Celery, ArangoDB, TimescaleDB, Valkey
 Status: Genehmigt
 Priorität: Kritisch
-Version: 1.30 (Messungen nach Löschung: kein Wiederanlegen, #1944; Beitritt gegen Löschung: kein Restfenster, #1924); 1.29 (Durchsetzungsstand aller Fristen benannt, Task-Tabelle gegen den Beat geprüft, #1800); 1.28 (R-02: abgebrochene lokale Registrierungen — Trockenlauf, Freigabe durch den Betreiber, #2010); 1.27 (Statustabelle §2.1/§3.1 an den Code angeglichen, R-06-Zähler fail-safe, #1955/#1800); 1.26 (Protokoll-Bereinigung: eine Redaktion unabhängig von der Schreibweise, #2020 #2019 #1927 #2054 #1926)
+Version: 1.31 (Altbestand der Home-Assistant-Messwerte unter leerem Mandantenschlüssel: Befehl, Trockenlauf, Bestätigung, #2077); 1.30 (Messungen nach Löschung: kein Wiederanlegen, #1944; Beitritt gegen Löschung: kein Restfenster, #1924); 1.29 (Durchsetzungsstand aller Fristen benannt, Task-Tabelle gegen den Beat geprüft, #1800); 1.28 (R-02: abgebrochene lokale Registrierungen — Trockenlauf, Freigabe durch den Betreiber, #2010); 1.27 (Statustabelle §2.1/§3.1 an den Code angeglichen, R-06-Zähler fail-safe, #1955/#1800); 1.26 (Protokoll-Bereinigung: eine Redaktion unabhängig von der Schreibweise, #2020 #2019 #1927 #2054 #1926)
 Datum: 2026-04-27
 Tags: [dsgvo, retention, datensparsamkeit, loeschfristen, compliance, cross-cutting]
 Abhängigkeiten: [REQ-023, REQ-024, REQ-025 v1.1, NFR-001]
@@ -21,6 +21,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-002, SEC-K-005
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.31 | 2026-10-04 | **#2077 Altbestand:** Messwerte der Home-Assistant-Abfrage aus der Zeit vor #1944 stehen unter `tenant_key = ''`; `delete_by_tenant` / `delete_by_sensor` erreichen sie nicht (§2.2 Absatz „Altbestand unter leerem Mandantenschlüssel“). Betreiberentscheidung: nur Zeilen **gelöschter** Sensoren dürfen entfallen, nur nach ausdrücklicher Bestätigung der Zahl aus einem Trockenlauf; Zeilen bestehender Sensoren werden gezählt und nicht angefasst. Umgesetzt als Betreiberbefehl `python -m app.migrations.purge_orphan_ha_readings` (nichts läuft automatisch). Die Messung auf einer echten Installation steht aus. |
 | 1.30 | 2026-10-04 | **#1944:** Nach einer Sensor- oder Mandantenlöschung entsteht keine Zeitreihe neu — eine Messung, die einen gelöschten Besitzer trifft, wird abgewiesen bzw. zurückgenommen (§2.2 Absatz „Kein Wiederanlegen“, AK-16 erweitert); die Home-Assistant-Abfrage speichert unter dem Mandanten des Sensor-Elternteils statt unter `''`. **#1924:** AK-PT-05 — das „Restfenster“ ist geschlossen: ein Beitritt, der mit der erneuten Mitgliederprüfung zusammenfällt, endet in genau einem Ausgang (Mitgliedschaft bleibt und der Mandant wird erhalten, oder sie wird abgelehnt und der Mandant gelöscht). Siehe REQ-025 v1.28 AK-IE-06/AK-IE-07. |
 | 1.29 | 2026-10-04 | **#1800 Durchsetzungsstand (Betreiberentscheidung: genau vier Fristen, alle bereits seit #1912 durchgesetzt):** R-04 (Consent Records, 3 Jahre nach Widerruf), R-04a (Consent-IP, Anonymisierung inkl. Zurücksetzen von `ip_anonymized_at` bei erneuter Einwilligung), R-07 (E-Mail-Änderungsanfragen, Hard-Delete nach 24 h) und R-12 (Einladungen, Hard-Delete 30 Tage nach Ablauf) laufen über die Beat-Tasks aus §3.1 und lesen ihre `RETENTION_*`-Einstellungen; weitere Fristen kamen nicht hinzu. **Weiter nicht implementiert:** R-14 (Sensor-Stufen, `SENSOR_*` ohne Leser), R-15 (Aktor-Logs, kein Speicher) und die Prometheus-Metriken (§3.3, AK-06) — Roadmap-Ziel „Retention-Observability“. Eine Frist, zu der diese NFR schweigt, gilt als **Vorschlag, DSB-Prüfung offen**, bis sie hier steht; der Code erfindet keine. Zwei Guards halten die Aussage fest: Jedes `retention_*`-Setting hat einen lesenden Code (ein Setting ohne Leser ist wirkungslos), und die Task-Tabelle in §3.1 nennt genau die `retention.*`-Beat-Tasks. |
 | 1.28 | 2026-10-04 | **#2010 R-02 Trockenlauf (Betreiberentscheidung 2026-10-03: erst zählen, dann löschen):** Gemessen gegen eine echte ArangoDB: `AuthService.register` schreibt für **jede** lokal registrierte Person eine `LOCAL`-Zeile in `auth_providers`, und der R-02-Selektor zählte *jede* Anbieterzeile als „verknüpft“ — er erreichte also nur Konten ohne Anbieterzeile (Seeds, Importe, Altbestand). Eine abgebrochene lokale Registrierung blieb unbegrenzt liegen, entgegen R-02 und REQ-023 AK-17. **Jetzt:** `cleanup_unverified_accounts` zählt bei jedem Lauf (`local_registrations_pending`, Warnzeile `unverified_local_registrations_pending`), wie viele abgebrochene lokale Registrierungen die freigegebene Bereinigung löschen würde, und löscht **keine**, solange `RETENTION_UNVERIFIED_LOCAL_REAP_ENABLED` nicht gesetzt ist (Default `false`). Die Freigabe ist die Entscheidung des Betreibers nach Kenntnis der Zahl. Freigegeben, verengt `get_unverified_before(..., include_local_registrations=True)` den Ausschluss auf föderierte Anbieter (`provider != 'local'`) und schließt Servicekonten aus; der `held_undated`-Zähler benutzt dasselbe Prädikat. Alle bisherigen Ausschlüsse bleiben (nie bestätigt, kein `email_verified_lowered_at`, kein `last_login_at`, Alter lesbar und über der Frist); `erase_account_now(origin="unverified_cleanup")` prüft `last_login_at` beim Löschen erneut. **Fail-safe:** schlägt der Zähler fehl, bleibt es beim engen Selektor — nie Ausweitung auf einem Fehlerpfad. Neue Einstellung in §4 (bool, ohne Obergrenze). R-02 in §2.1 nennt jetzt, was der Selektor tut; die öffentliche Aufbewahrungsübersicht (`retention_summary`) führt R-02 bis zur Freigabe als `partial` mit Hinweis, danach als `enforced`. |
@@ -275,6 +276,24 @@ Policy-Lauf (stündlich bzw. täglich) berechnet den Bucket aus nicht mehr vorha
 entfernt ihn. Das Fenster ist damit durch den Policy-Takt begrenzt und braucht keinen eigenen
 Schutz; es bleibt dokumentiert.
 <!-- /Quelle: Datenschutzplan Q-O7, #1793 -->
+
+**Altbestand unter leerem Mandantenschlüssel (#2077).** Messwerte, die die Home-Assistant-Abfrage vor
+#1944 gespeichert hat, tragen `tenant_key = ''` (ein Sensor-Dokument hat keinen eigenen); weder
+`delete_by_tenant` noch `delete_by_sensor` trifft sie, in den Rohdaten wie in den Stunden- und
+Tagesmitteln. #1944 verhindert neue Zeilen dieser Art und ändert den Bestand nicht. Entscheidung des
+Betreibers (2026-10-04): Zeilen eines Sensors, dessen Dokument **nicht mehr existiert**, dürfen
+gelöscht werden — aber nur nach ausdrücklicher Bestätigung durch einen Menschen, mit einem Trockenlauf
+davor; Zeilen eines **bestehenden** Sensors werden nicht gelöscht (nur gezählt, einschließlich der Zahl
+der Zeitreihen, deren Mandant sich aus dem Eltern-Objekt ableiten ließe). Nichts davon läuft
+automatisch: kein Migrationsschritt, kein Beat-Task. Der Betreiberbefehl
+`python -m app.migrations.purge_orphan_ha_readings` ordnet jede Zeitreihe mit leerem Schlüssel in
+*verwaist*, *lebend* oder *nicht zuordenbar* ein, meldet Zeilen je Klasse und Tabelle (`raw`, `hourly`,
+`daily`) und löscht die verwaiste Klasse nur mit `--confirm-delete-orphans <Zahl>`, wobei die Zahl der
+im Trockenlauf gemessenen verwaisten Zeilen entsprechen muss (sonst Abbruch, nichts gelöscht). Er
+löscht in Zeitfenstern mit je einem Commit, prüft vor jeder Zeitreihe erneut, dass der Sensor fehlt,
+ist idempotent und protokolliert nur Zahlen. Ohne TimescaleDB meldet er „nicht anwendbar“. Das
+Bucket-Refresh-Rennen des vorigen Absatzes gilt auch hier; der Befehl misst nach dem Löschen erneut.
+Die Zahl betroffener Zeilen auf einer echten Installation ist nicht Teil dieser Umsetzung.
 
 ### 2.3 Fachliche Aufbewahrungspflichten
 
