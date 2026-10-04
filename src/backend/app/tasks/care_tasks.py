@@ -105,7 +105,7 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
             )
 
     # Per-run caches for the winter-reminder context (REQ-022 §3.2, B1).
-    species_cache: dict = {}
+    species_cache: dict[tuple[str, str], object] = {}
     cultivar_cache: dict = {}
     # Per-site SeasonState phase cache (REQ-047 §3.2, C2): a site with a SeasonState
     # drives its winter reminders by phase, so the month-based path here is only the
@@ -150,7 +150,7 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
         # overwintering profile + frost sensitivity the engine suppresses every
         # winter-protection reminder, so they would never spawn a task.
         overwintering_profile = care_service.resolve_overwintering_profile(plant_key)
-        species = care_service._resolve_species(plant.species_key, species_cache)
+        species = care_service._resolve_species(plant.species_key, species_cache, plant.tenant_key)
         frost_sensitivity = species.frost_sensitivity if species else None
         cultivar_traits = care_service._resolve_cultivar_traits(plant.cultivar_key, cultivar_cache)
         season_phase = _season_phase_for(plant)
