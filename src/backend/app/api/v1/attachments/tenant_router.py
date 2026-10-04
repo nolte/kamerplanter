@@ -269,7 +269,7 @@ async def download_thumbnail(
     except NotFoundError:
         # Lazy regeneration (NFR-013 §8.2), claimed once per window (#2108).
         if not service.request_thumbnails(attachment):
-            raise NotFoundError("thumbnail", f"{attachment_id}/{size}") from None
+            raise NotFoundError("storage object", f"{attachment_id}/{size}") from None
         return Response(status_code=202)
     headers = {"Cache-Control": "private, max-age=86400"}
     # Thumbnails are always image/webp — nosniff, inline allowed (SEC-009).

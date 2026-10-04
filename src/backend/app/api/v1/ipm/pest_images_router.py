@@ -98,7 +98,7 @@ async def get_promoted_pest_image_thumbnail(
         from app.tasks.storage_tasks import request_thumbnails
 
         if not request_thumbnails(attachment, claims):
-            raise NotFoundError("thumbnail", f"{contribution_id}/{size}") from None
+            raise NotFoundError("storage object", f"{contribution_id}/{size}") from None
         return Response(status_code=202)
 
     headers = {"Cache-Control": "public, max-age=86400"}
