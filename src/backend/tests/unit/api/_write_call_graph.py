@@ -354,6 +354,17 @@ class CallGraph:
         self.subclasses: dict[str, list[ClassNode]] = defaultdict(list)
         self.modules_parsed = 0
         self.unresolved_calls = 0
+        #: The two parts of `unresolved_calls` (#2039). `genuine` is a receiver
+        #: nothing in the tree types and no external library owns — a missing
+        #: annotation someone can add. `external` is a receiver typed as, or
+        #: reached from, a class or module outside the tree (`structlog`'s
+        #: logger, `self._db.aql`, `datetime.now()`): typing it can never resolve
+        #: the call, so counting it would let the ceiling move on work that is
+        #: not a gap.
+        self.genuine_unresolved_calls = 0
+        self.external_unresolved_calls = 0
+        #: Per module: the names bound by an import of something outside `app`.
+        self.external_names: dict[str, set[str]] = defaultdict(set)
         #: `(caller id, callee id)` pairs linked by NAME because nothing typed the
         #: receiver. Reported inside the path so a triage can see which hop is a
         #: guess rather than a resolution.
@@ -378,6 +389,12 @@ class CallGraph:
             if isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
                 for alias in node.names:
                     symbols[alias.asname or alias.name] = f"{node.module}::{alias.name}"
+                    if node.module.split(".")[0] != "app":
+                        self.external_names[module].add(alias.asname or alias.name)
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.split(".")[0] != "app":
+                        self.external_names[module].add(alias.asname or alias.name.split(".")[0])
         for node in tree.body:
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
                 symbols[node.name] = f"{module}::{node.name}"
@@ -703,6 +720,10 @@ class CallGraph:
                 targets = self._call_targets(call, fn)
                 if not targets and isinstance(call.func, ast.Attribute):
                     self.unresolved_calls += 1
+                    if self._is_external_receiver(call.func.value, fn):
+                        self.external_unresolved_calls += 1
+                    else:
+                        self.genuine_unresolved_calls += 1
                     fn.unresolved.append(call.func.attr)
                     # Only an UNTYPED receiver falls back. A receiver whose type
                     # is known and simply carries no such method is not a blind
@@ -725,6 +746,59 @@ class CallGraph:
                     if id(target) not in seen:
                         seen.add(id(target))
                         fn.callees.append(target)
+
+    def _is_external_receiver(self, expression: ast.expr, scope: FunctionNode, depth: int = 0) -> bool:
+        """Is this receiver typed as, or rooted in, something outside the tree? (#2039)
+
+        Rooted in an external import (`datetime`, `asyncio`, `httpx`), a module
+        global or local bound to a call on one (`logger = structlog.get_logger()`),
+        an attribute or subscript of such a thing, or a value whose resolved type
+        is a name this tree does not define (`StandardDatabase`, `dict`, `str`).
+        `Any` and `object` are not types in this sense: they are the annotation
+        saying "unknown".
+        """
+        if depth > _MAX_TYPE_DEPTH:
+            return False
+        if isinstance(expression, ast.Name):
+            if expression.id in scope._annotations or expression.id in {"self", "cls"}:
+                return self._types_are_external(expression, scope)
+            local = scope._assignments.get(expression.id)
+            if local:
+                return all(self._is_external_receiver(v, scope, depth + 1) for v in local) or (
+                    self._types_are_external(expression, scope)
+                )
+            if expression.id in self.external_names.get(scope.module, ()):
+                return True
+            imported_from = self.module_symbols.get(scope.module, {}).get(expression.id, "")
+            if imported_from.startswith("app."):
+                # `celery_app` is built in `app.tasks.celery_app` and imported here:
+                # judge it where it is bound.
+                home_module, _, home_name = imported_from.partition("::")
+                home_bound = self.module_globals.get(home_module, {}).get(home_name)
+                if home_bound is not None and not isinstance(home_bound, ast.Name | ast.Attribute):
+                    home = FunctionNode(home_module, "<module>", "<module>", 0, None)
+                    return self._is_external_receiver(home_bound, home, depth + 1)
+            bound = self.module_globals.get(scope.module, {}).get(expression.id)
+            if bound is not None and not isinstance(bound, ast.Name | ast.Attribute):
+                return self._is_external_receiver(bound, scope, depth + 1) or self._types_are_external(
+                    expression, scope
+                )
+            return self._types_are_external(expression, scope)
+        if isinstance(expression, ast.Attribute | ast.Subscript):
+            return self._is_external_receiver(expression.value, scope, depth + 1) or self._types_are_external(
+                expression, scope
+            )
+        if isinstance(expression, ast.Call):
+            return self._is_external_receiver(expression.func, scope, depth + 1) or self._types_are_external(
+                expression, scope
+            )
+        if isinstance(expression, ast.Await):
+            return self._is_external_receiver(expression.value, scope, depth + 1)
+        return self._types_are_external(expression, scope)
+
+    def _types_are_external(self, expression: ast.expr, scope: FunctionNode) -> bool:
+        found = self._types_of(expression, scope)
+        return bool(found) and not (found & set(self.classes)) and not (found <= {"Any", "object"})
 
     def _write_vocabulary(self) -> frozenset[str]:
         """Method names on repository classes that reach a direct write.
@@ -989,6 +1063,16 @@ def reachable_keyword_arguments(endpoint: Any, callee_name: str, keyword: str) -
 def unresolved_call_count() -> int:
     """Attribute calls no receiver type could resolve — the measured blind spot."""
     return call_graph().unresolved_calls
+
+
+def genuine_unresolved_call_count() -> int:
+    """Unresolved calls whose receiver is an annotation gap in this tree (#2039)."""
+    return call_graph().genuine_unresolved_calls
+
+
+def external_unresolved_call_count() -> int:
+    """Unresolved calls on a receiver typed as, or rooted in, an external library."""
+    return call_graph().external_unresolved_calls
 
 
 def direct_writers() -> list[FunctionNode]:
