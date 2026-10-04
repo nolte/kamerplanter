@@ -156,7 +156,7 @@ class _Cultivar:
 
 
 class _SpeciesService:
-    def get_species(self, key: str) -> _Species:
+    def get_species(self, key: str, *, tenant_key: str | None = None) -> _Species:
         if key != "solanum_lycopersicum":
             raise NotFoundError("Species", key)
         return _Species()
@@ -1883,3 +1883,21 @@ def test_list_entries_is_a_tenant_bound_read_tool() -> None:
     # No free-text search: it would match against a body this tool refuses to return.
     assert "q" not in spec.input_schema["properties"]
     assert "search" not in spec.input_schema["properties"]
+
+
+class _TenantAwareSpecies:
+    """Mirrors the real ``SpeciesService.get_species``: a foreign private species is a 404 once a tenant is given."""
+
+    def get_species(self, key: str, *, tenant_key: str | None = None) -> _Species:
+        if key == "foreign_private" and tenant_key is not None:
+            raise NotFoundError("Species", key)
+        return _Species()
+
+
+def test_species_name_is_resolved_under_the_callers_tenant() -> None:
+    from app.mcp_server.tools.diary import _species_name
+
+    ctx = type("Ctx", (), {"tenant_key": "tenant-a", "species_service": _TenantAwareSpecies()})()
+
+    assert _species_name(ctx, "foreign_private", {}) is None
+    assert _species_name(ctx, "solanum_lycopersicum", {}) == "Solanum lycopersicum"
