@@ -122,13 +122,19 @@ export async function fetchTenantMembers(tenantKey: string): Promise<AdminTenant
   return data;
 }
 
+/**
+ * Add an account to a tenant (#2106): the body carries the **admin's own** step-up —
+ * `current_password`, or `step_up_token` / `step_up_code` for the act `admin_membership_add`
+ * bound to `<tenant_key>|<user_key>`; 401 without it.
+ */
 export async function addTenantMember(
   tenantKey: string,
   payload: AdminAddMemberRequest,
+  stepUp: CredentialStepUp,
 ): Promise<AdminTenantMember> {
   const { data } = await apiClient.post<AdminTenantMember>(
     `/admin/platform/tenants/${encodeURIComponent(tenantKey)}/members`,
-    payload,
+    { ...payload, ...stepUp },
   );
   return data;
 }
@@ -174,13 +180,15 @@ export async function fetchUserMemberships(userKey: string): Promise<AdminUserMe
   return data;
 }
 
+/** Add a user to a tenant (#2106): the same step-up body as {@link addTenantMember}. */
 export async function addUserToTenant(
   userKey: string,
   payload: AdminAddUserToTenantRequest,
+  stepUp: CredentialStepUp,
 ): Promise<AdminUserMembership> {
   const { data } = await apiClient.post<AdminUserMembership>(
     `/admin/platform/users/${encodeURIComponent(userKey)}/memberships`,
-    payload,
+    { ...payload, ...stepUp },
   );
   return data;
 }

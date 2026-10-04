@@ -73,6 +73,7 @@ describe('stepUpReauth storage (#1815)', () => {
     expect(STEP_UP_ACTIONS.filter(isTargetedStepUpAction).sort()).toEqual([
       'admin_account_erasure',
       'admin_account_update',
+      'admin_membership_add',
       'admin_membership_removal',
       'admin_membership_role_change',
       'admin_tenant_update',
@@ -125,6 +126,7 @@ describe('isStepUpAction (#1847, #1857)', () => {
       'device_pairing',
       'provider_unlink',
       'admin_account_update',
+      'admin_membership_add',
       'admin_membership_role_change',
       'tenant_member_removal',
       'tenant_member_role_change',

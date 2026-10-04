@@ -87,6 +87,8 @@ _FOREIGN_SELECTORS_WITH_REASON: dict[tuple[str, str], tuple[str, str]] = {
             "/api/v1/admin/platform/tenants/{tenant_key}/members/{membership_key}",
             "/api/v1/admin/platform/tenants/{tenant_key}/members/{membership_key}/role",
             "/api/v1/admin/platform/users/{user_key}/memberships",
+            # MT-014 (#2111): the security audit is read across tenants, or of one the caller names.
+            "/api/v1/admin/platform/security-audit",
         )
     },
     **{

@@ -135,6 +135,16 @@ class ITaskRepository(ABC):
     def delete_task(self, key: TaskKey) -> bool: ...
 
     @abstractmethod
+    def clear_assignee(self, *, tenant_key: str, user_key: str) -> int:
+        """Unassign *user_key* from every task of *tenant_key*; returns how many tasks changed (#2114).
+
+        Run when a membership ends: an account that left (or was removed from) a tenant must not stay the
+        assignee of its tasks, or the care-reminder beat goes on notifying it. Both arguments are required and
+        keyword-only - another tenant's tasks of the same account are never touched. Only the assignee changes;
+        the tasks themselves (status, due date, history) stay.
+        """
+
+    @abstractmethod
     def get_tasks_for_plant(
         self,
         plant_key: str,

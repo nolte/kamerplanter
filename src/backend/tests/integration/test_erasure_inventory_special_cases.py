@@ -147,9 +147,12 @@ class TestTenantsOfAnErasedOwner:
         personal = service.create_personal_tenant(SUBJECT, DISPLAY_NAME)
         # #1824 — erased with the subject although OTHER is a member
         # (``test_personal_tenant_erasure_reach``); only a late joiner keeps it.
-        service.admin_add_membership(personal.key, OTHER, TenantRole.GROWER)
+        memberships = ArangoMembershipRepository(database)
+        memberships.create(Membership(user_key=OTHER, tenant_key=personal.key, role=TenantRole.GROWER, is_active=True))
         organisation = service.create_organization(SUBJECT, "Gemeinschaftsgarten Nord")
-        service.admin_add_membership(organisation.key, OTHER, TenantRole.GROWER)
+        memberships.create(
+            Membership(user_key=OTHER, tenant_key=organisation.key, role=TenantRole.GROWER, is_active=True)
+        )
         other_membership = ArangoMembershipRepository(database).get_by_user_and_tenant(OTHER, organisation.key)
         assert other_membership is not None
         before_other = database.collection(col.MEMBERSHIPS).get(other_membership.key)

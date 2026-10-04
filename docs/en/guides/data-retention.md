@@ -22,8 +22,9 @@ Basis: GDPR Art. 5(1)(e). <!-- NFR-011 -->
 | R-07a | Revert window of a confirmed email change | 7 days after confirmation | Clear `previous_email`, the revert token's hash, and its expiry | Purpose lapse — the revert link has expired |
 | R-11 | Expired refresh tokens | Immediately on expiry | Hard-delete (TTL index) | Purpose lapse |
 | R-12 | Expired invitations | 30 days after expiry | Set status to `expired`, hard-delete after 30 days (`app.tasks.tenant_tasks.cleanup_expired_invitations`, daily at 02:00 UTC) | Purpose lapse |
+| R-38 | Security audit (membership, role and scope changes) | 730 days (2 years) after creation, fixed | Hard-delete (`security_audit.purge_expired`, daily at 02:55 UTC); an account erasure turns the row's account keys into tombstone hashes, a tenant deletion leaves it | GDPR Art. 32 (proof of access changes), Art. 5(2) |
 
-Every period except R-11 is read from exactly one setting (see
+Every period except R-11 (TTL index), R-06a and R-38 (fixed) is read from exactly one setting (see
 [Environment Variables](../reference/environment-variables.md#datenschutz-dsgvo-req-025-nfr-011)
 for the exact names). For R-01, R-05 and R-07 there were already documented, older
 variable names before this change, but they had no effect — the code used fixed values.
@@ -641,6 +642,7 @@ keeping the record longer than declared.
 | R-12 | `app.tasks.tenant_tasks.cleanup_expired_invitations` | daily, 02:00 | Expiry of the invitation (status `expired`), then `RETENTION_INVITATION_RETENTION_DAYS` until the hard-delete |
 | R-16, R-17, R-18 | `retention.purge_expired_legal_retention_rows` | daily, 04:45 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS`, `RETENTION_TREATMENT_MIN_RETENTION_YEARS`, `RETENTION_INSPECTION_MIN_RETENTION_YEARS` |
 | R-06a | `retention.purge_expired_tenant_erasure_records` | daily, 04:50 | fixed 5 years (cap), or the end of the tenant's retained data |
+| R-38 | `security_audit.purge_expired` | daily, 02:55 | fixed 730 days after the row was written |
 
 Each task logs its run in structured form (structlog) under its own event name with
 counters, for example:

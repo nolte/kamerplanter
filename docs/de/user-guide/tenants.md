@@ -85,6 +85,9 @@ Als Admin kannst du Mitglieder auf drei Wegen einladen:
 
 Das System sendet eine Einladungs-E-Mail. Nach Klick auf den Link im Mail wird der Nutzer deinem Tenant mit der vorgewählten Rolle hinzugefügt — egal ob er sich neu registriert oder bereits ein Konto hat.
 
+!!! warning "Die Einladung gilt nur für die eingeladene Adresse"
+    Eine E-Mail-Einladung kann nur das Konto annehmen, dessen E-Mail-Adresse die eingeladene ist **und** die bestätigt wurde. Wer den Link weiterleitet, verleiht damit niemandem die Mitgliedschaft: ein anderes Konto — oder dasselbe Konto mit noch unbestätigter Adresse — bekommt `403`, die Einladung bleibt offen und nichts wird angelegt. Bestätige die Adresse deines Kontos zuerst, wenn du eingeladen wirst, und melde dich mit dem Konto an, das diese Adresse trägt. Ein **Einladungslink** (Methode 2) ist dagegen zum Teilen gedacht und bleibt für jedes angemeldete Konto gültig. <!-- Issue #2115, REQ-024 AK-61 -->
+
 ### Methode 2: Einladungslink
 
 1. Navigiere zu **Einstellungen** > **Mitglieder** > **Einladungslink generieren**
@@ -206,6 +209,9 @@ Du kannst einen Tenant verlassen, solange du nicht der einzige Admin bist:
 
 1. Navigiere zu **Einstellungen** > **Mitgliedschaft** > **Tenant verlassen**
 2. Bestätigen
+
+!!! note "Aufgaben und Erinnerungen"
+    Verlässt du einen Tenant — oder entfernt dich ein Admin —, bist du dort bei keiner Aufgabe mehr zugewiesen: Die Aufgaben bleiben im Tenant, aber ohne Zuständigen. Die täglichen Pflege-Erinnerungen und die Tageszusammenfassung gehen nur noch an aktive Mitglieder; eine Zusammenfassung enthält immer nur die Aufgaben **eines** Tenants (hast du mehrere, bekommst du je Tenant eine). <!-- Issue #2114, REQ-024 AK-62 -->
 
 !!! warning "Als einziger Admin"
     Wenn du der einzige Admin bist, musst du vorher entweder ein anderes Mitglied zum Admin befördern oder den Tenant löschen — Letzteres setzt zusätzlich voraus, dass du dort sowohl die Rolle Leitung als auch die Zusatzberechtigung Verwaltung hast. Details dazu unter [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md). <!-- Issue #1791 -->

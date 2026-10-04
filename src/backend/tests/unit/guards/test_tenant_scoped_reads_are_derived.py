@@ -873,6 +873,11 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ("ArangoMcpAuditRepository", "list_for_user_accounts"): Exclusion(
         "account", "the MCP audit trail across the service accounts one user owns (REQ-033 §4.6)"
     ),
+    ("ArangoSecurityAuditRepository", "list_recent"): Exclusion(
+        "platform",
+        "the platform admin's read of the persistent security audit (MT-014, #2111): newest first across all "
+        "tenants or one named by the caller; the only route is GET /admin/platform/security-audit",
+    ),
     # ── probe ──────────────────────────────────────────────────────────────
     ("ArangoPlantingRunRepository", "verify_entry_references"): Exclusion(
         "probe",
@@ -927,6 +932,9 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ),
     ("ArangoMcpAuditRepository", "count_undated"): Exclusion(
         "system", "held-count of the installation-wide mcp_audit_log retention task (#1806 GDPR-003)"
+    ),
+    ("ArangoSecurityAuditRepository", "count_undated"): Exclusion(
+        "system", "held-count of the installation-wide security_audit_log retention task (NFR-011 R-38, #2111)"
     ),
     ("ArangoNotificationRepository", "find_overdue_watering"): Exclusion(
         "system", "the escalation Celery task re-notifies every overdue watering reminder"

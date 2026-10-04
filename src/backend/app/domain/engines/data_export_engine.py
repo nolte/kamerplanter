@@ -410,6 +410,21 @@ class DataExportEngine:
             label="MCP tool calls (service accounts)",
             fields=["tenant_key", "tool_name", "status", "created_at"],
         ),
+        # MT-014 (#2111): the security audit names two accounts per row. The rows about the
+        # subject's own memberships (target) and the rows of changes the subject made (actor)
+        # are disclosed; the *other* account's key is left out of each (Art. 15(4)).
+        DataSourceDefinition(
+            collection="security_audit_log",
+            filter_field="target_user_key",
+            label="Changes to your tenant memberships (security audit)",
+            fields=["tenant_key", "action", "via", "old_role", "new_role", "old_scopes", "new_scopes", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="security_audit_log",
+            filter_field="actor_user_key",
+            label="Membership changes you made (security audit)",
+            fields=["tenant_key", "action", "via", "old_role", "new_role", "old_scopes", "new_scopes", "created_at"],
+        ),
         DataSourceDefinition(
             collection="mcp_idempotency_record",
             filter_field="service_account_key",

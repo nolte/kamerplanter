@@ -1078,6 +1078,9 @@
       "adminChangeRoleStepUpTitle": "Confirm the role change",
       "adminChangeRoleStepUpDescription": "You are changing the role of \"{{name}}\" in the organization \"{{tenant}}\" to \"{{role}}\". The role decides what they may change and delete in the organization – if they are its last lead, it has none afterwards. So you confirm this with your own credentials.",
       "adminChangeRoleStepUpConfirm": "Change role",
+      "adminAddMemberStepUpTitle": "Confirm adding the member",
+      "adminAddMemberStepUpDescription": "You are adding \"{{name}}\" to the organization \"{{tenant}}\" as \"{{role}}\". The role decides what they may change and delete in the organization – a lead may also delete it. So you confirm this with your own credentials.",
+      "adminAddMemberStepUpConfirm": "Add member",
       "providerUnlinked": "Sign-in method removed"
     },
     "tenants": {

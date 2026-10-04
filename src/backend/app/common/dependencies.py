@@ -225,6 +225,7 @@ if TYPE_CHECKING:
     from app.domain.services.retention_service import RetentionService
     from app.domain.services.season_signal_resolver import SeasonSignalResolver
     from app.domain.services.season_state_service import SeasonStateService
+    from app.domain.services.security_audit_service import SecurityAuditService
     from app.domain.services.sensor_service import SensorService
     from app.domain.services.starter_kit_service import StarterKitService
     from app.domain.services.step_up_service import StepUpVerifier
@@ -1209,6 +1210,14 @@ def get_assignment_repo() -> ArangoLocationAssignmentRepository:
     return ArangoLocationAssignmentRepository(get_db())
 
 
+def get_security_audit_service() -> SecurityAuditService:
+    """MT-014 (#2111) — the persistent security audit of membership, role and scope changes."""
+    from app.data_access.arango.security_audit_repository import ArangoSecurityAuditRepository
+    from app.domain.services.security_audit_service import SecurityAuditService
+
+    return SecurityAuditService(ArangoSecurityAuditRepository(get_db()))
+
+
 def get_tenant_service() -> TenantService:
     return TenantService(
         tenant_repo=get_tenant_repo(),
@@ -1232,6 +1241,10 @@ def get_tenant_service() -> TenantService:
         site_anchors=get_site_repo(),
         # #1924 — nobody is invited into the personal tenant of an account that asked to be erased.
         erasure_repo=get_erasure_repo(),
+        # MT-014 (#2111) — every membership, role and scope change leaves a persistent audit row.
+        security_audit=get_security_audit_service(),
+        # #2114 — a membership that ends takes the member off the tenant's task assignments.
+        task_repo=get_task_repo(),
     )
 
 

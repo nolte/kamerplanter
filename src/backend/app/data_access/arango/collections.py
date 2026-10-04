@@ -242,6 +242,10 @@ GLOSSARY_TERM_CACHE = "glossary_term_cache"
 MCP_AUDIT_LOG = "mcp_audit_log"
 MCP_IDEMPOTENCY_RECORD = "mcp_idempotency_record"
 
+# MT-014 (#2111) — the persistent security audit: who changed whose membership,
+# role or scopes, in which tenant, when. Append-only; retention in NFR-011 R-38.
+SECURITY_AUDIT_LOG = "security_audit_log"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -361,6 +365,8 @@ DOCUMENT_COLLECTIONS = [
     # REQ-033 MCP server (adapter-layer only)
     MCP_AUDIT_LOG,
     MCP_IDEMPOTENCY_RECORD,
+    # MT-014 security audit (#2111)
+    SECURITY_AUDIT_LOG,
     # REQ-026 Aquaponics
     FISH_SPECIES,
     FISH_STOCKS,
@@ -2509,6 +2515,14 @@ def ensure_collections(db: StandardDatabase) -> None:
     mcp_audit_log_col.add_persistent_index(fields=["service_account_key"], unique=False)
     mcp_audit_log_col.add_persistent_index(fields=["tenant_key", "created_at"], unique=False)
     mcp_audit_log_col.add_persistent_index(fields=["created_at"], unique=False)
+
+    # MT-014 (#2111) security audit: read by tenant (tenant's own history) and by
+    # target account, swept by created_at (NFR-011 R-38).
+    security_audit_log_col = db.collection(SECURITY_AUDIT_LOG)
+    security_audit_log_col.add_persistent_index(fields=["tenant_key", "created_at"], unique=False)
+    security_audit_log_col.add_persistent_index(fields=["target_user_key"], unique=False)
+    security_audit_log_col.add_persistent_index(fields=["actor_user_key"], unique=False)
+    security_audit_log_col.add_persistent_index(fields=["created_at"], unique=False)
 
     mcp_idempotency_record_col = db.collection(MCP_IDEMPOTENCY_RECORD)
     mcp_idempotency_record_col.add_persistent_index(

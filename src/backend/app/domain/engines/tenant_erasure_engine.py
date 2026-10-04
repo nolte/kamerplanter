@@ -238,6 +238,16 @@ class TenantErasureEngine:
                 "purged by mcp_tasks; it outlives the tenant by design."
             ),
         ),
+        TenantErasureEntry(
+            collection="security_audit_log",
+            action="retain",
+            reason=(
+                "NFR-011 R-38 (MT-014): the security audit proves who was given or lost access to the tenant; "
+                "it is kept for its two-year window and purged by security_audit_tasks, so it outlives the "
+                "tenant by design. It names account keys only, which an account erasure replaces by "
+                "tombstone hashes (ErasureEngine.PSEUDONYMIZE_AUDIT_COLLECTIONS)."
+            ),
+        ),
         # ── The proof of this very deletion ──
         TenantErasureEntry(
             collection="tenant_erasure_records",
