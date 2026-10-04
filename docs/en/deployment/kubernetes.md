@@ -163,6 +163,16 @@ controllers:
           globalMounts:
             - path: /var/lib/arangodb3
 
+# Attachments in S3 — mandatory with more than one backend replica
+storage:
+  backend: s3
+  s3:
+    endpointUrl: https://s3.eu-central-1.amazonaws.com
+    region: eu-central-1
+    bucket: kamerplanter-prod
+    credentialsRef:
+      secretName: storage-s3-credentials
+
 ingress:
   main:
     enabled: true
@@ -179,7 +189,7 @@ ingress:
               identifier: frontend
 ```
 
-1. Two replicas for rolling updates without downtime.
+1. Two replicas for rolling updates without downtime. **Only with S3** (`storage.backend: s3`, see below) or a `ReadWriteMany` volume: on the default `ReadWriteOnce` volume the chart refuses more than one backend replica, because a second pod on another node never starts ([Storage configuration](helm.md#storage-configuration-nfr-013)).
 2. Pulls `ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` and `LOG_PSEUDONYM_SALT` from the secret created in the previous step — no plain-text passwords in `values.yaml`.
 3. `light` = without login/tenant system, single user. `full` (the chart default) = with JWT auth and tenant management. Details: [Deployment Profiles](betriebsprofile.md).
 4. `ARANGO_ROOT_PASSWORD` is also injected from `kamerplanter-secrets`.

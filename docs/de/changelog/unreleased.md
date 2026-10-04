@@ -75,6 +75,10 @@
 - Pflegeerinnerungen: Das Abschließen einer fälligen Gieß-Aufgabe legt die Folgeaufgabe unmittelbar an — zuvor entstand sie erst beim nächtlichen Planungslauf
 - Pflegeerinnerungen: Eine Bestätigung schließt nur noch Pflegeaufgaben, die heute oder früher fällig sind; eine bereits eingeplante Folgeaufgabe bleibt erhalten
 
+### Deployment (Helm)
+
+- **Upgrade-Hinweis (Helm):** Der Block `storage` in den Chart-Values wirkt jetzt (Issue #2124, NFR-013 v1.9). Bisher las das Chart ihn nicht — `storage.backend: s3` lieferte trotzdem `local-fs` mit PVC aus. Das Chart leitet daraus jetzt die `STORAGE_*`-Variablen von Backend und Celery-Worker, das PVC `backend-attachments` (nur bei `local-fs`) und dessen Mounts ab; die S3-Credentials kommen als genau zwei Schlüssel aus dem Secret in `storage.s3.credentialsRef` (Default `storage-s3-credentials` mit `STORAGE_S3_ACCESS_KEY_ID`/`STORAGE_S3_SECRET_ACCESS_KEY`). Eigene `env`-Einträge in deinen Values überschreiben die abgeleiteten Werte weiterhin. **Neu verweigert:** Mehr als eine Replica von `backend` oder `celery-worker` auf dem Standard-Volume `ReadWriteOnce` bricht `helm template`/`helm upgrade`/den ArgoCD-Sync mit einer Meldung ab, weil ein zweiter Pod auf einem anderen Node nie startet (`Multi-Attach error`). Ausweg: `storage.backend: s3` (Pflicht für geteilten Betrieb), `storage.localFs.pvc.accessMode: ReadWriteMany` mit RWX-StorageClass, oder auf einem Cluster mit genau einem Node `storage.localFs.singleNode: true`. Das Anhang-PVC trägt zusätzlich `argocd.argoproj.io/sync-options: Prune=false,Delete=false`, damit ArgoCD es nach dem Wechsel auf S3 nicht löscht — migriere die Dateien vorher mit `python -m scripts.storage.migrate --from local-fs --to s3 --checksum-verify`
+
 ## In Entwicklung
 
 - REQ-025 (Datenschutz/DSGVO): DSGVO Art. 15–21 Betroffenenrechte — spezifiziert, nicht implementiert

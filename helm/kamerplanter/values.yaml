@@ -38,19 +38,30 @@
 # controllers. That change belongs in that repository; this comment is the
 # invariant it has to satisfy, kept next to the values that enforce it here.
 
-# -- NFR-013 Object-storage configuration (§4.1, §10).
+# -- NFR-013 Object-storage configuration (§4.1, §10) — THE storage switch (#2124).
 #
-# This block is the operator-facing source of truth for the storage backend.
-# The bjw-s common chart consumes ``controllers``/``persistence`` literally
-# (values.yaml is not templated), so the concrete wiring lives there:
-#   * ``STORAGE_*`` env vars on the backend + celery-worker controllers
-#   * the ``backend-uploads`` PVC mounted at ``storage.localFs.root`` (local-fs)
-# Keep this block and that wiring in sync when changing the backend.
+# This block is the one place an operator chooses where attachments live. Since
+# bjw-s common 5.2 every string in these values is rendered as a template, and
+# the backend + celery-worker controllers and the ``backend-attachments``
+# persistence below read this block through ``{{ .Values.storage.* }}``
+# expressions. Until #2124 nothing read it: setting ``backend: s3`` here still
+# deployed local-fs with a volume — a switch the docs described and the chart
+# ignored.
+#
+#   * ``local-fs`` (default): the ``backend-attachments`` claim is rendered and
+#     mounted at ``localFs.root`` in the backend and the celery-worker.
+#   * ``s3``: no claim, no mount; the backend + worker get ``STORAGE_BACKEND=s3``,
+#     the ``s3.*`` parameters and the two credential keys from
+#     ``s3.credentialsRef``. **Required for shared (multi-node / SaaS)
+#     operation**, see ``localFs.singleNode``.
 #
 # SECRETS (NFR-013 §4.1): the S3 access key / secret are NEVER placed in
-# values.yaml, a ConfigMap or Git. They are resolved from a Secret produced by
-# the External Secrets Operator (``s3.credentialsRef``) and injected via
-# ``envFrom`` — see the commented example on the backend controller.
+# values.yaml, a ConfigMap or Git. They come from the Secret named in
+# ``s3.credentialsRef`` (e.g. produced by the External Secrets Operator) and are
+# injected key by key via ``secretKeyRef`` — only those two keys, not the whole
+# Secret. The references are ``optional`` so that a local-fs release, which has
+# no such Secret, still starts; with ``backend: s3`` and the Secret missing, the
+# storage health check fails readiness (the rollout stops, the old pods serve).
 storage:
   backend: local-fs   # local-fs | s3
   maxFileSizeMb: 25
@@ -63,13 +74,18 @@ storage:
     root: /data/attachments
     pvc:
       size: 20Gi
-      # ReadWriteMany is required once the backend runs with >1 replica AND the
-      # celery-worker shares the volume (thumbnail generation). With a single
-      # backend replica + single worker on the same node, ReadWriteOnce is fine
-      # but limits horizontal scaling — prefer RWX on a CSI that supports it
-      # (Longhorn, NFS, CephFS).
+      # The claim is mounted by the backend AND the celery-worker. A
+      # ReadWriteOnce volume attaches to ONE node: a second pod scheduled onto
+      # another node stays in ContainerCreating with `Multi-Attach error`. So more
+      # than one backend or worker replica on local-fs needs ReadWriteMany on a
+      # CSI that supports it (Longhorn RWX, NFS, CephFS) — or S3. The render
+      # refuses the combination (``renderChecks.attachmentVolume`` below).
       accessMode: ReadWriteOnce
       storageClass: ""   # "" = cluster default StorageClass
+    # Set to true ONLY on a single-node cluster: there every pod shares the one
+    # node, so ReadWriteOnce carries several replicas. On more than one node it
+    # does not, whatever this flag says.
+    singleNode: false
 
   s3:
     endpointUrl: https://s3.eu-central-1.amazonaws.com
@@ -78,13 +94,36 @@ storage:
     usePathStyle: false
     forceTls: true
     kmsKeyId: ""
-    # External Secrets Operator reference — the operator syncs the upstream
-    # secret store into a Kubernetes Secret with these keys. NEVER inline the
-    # values here (NFR-013 §4.1).
+    # A private / in-cluster endpoint (MinIO, Ceph RGW) is refused by the
+    # admin "test connection" probe unless this is true (SEC-002). The
+    # backend's NetworkPolicy also excludes RFC1918 egress — an in-cluster
+    # endpoint additionally needs an egress rule in your values.
+    allowPrivateEndpoint: false
+    # Name and keys of the Secret holding the S3 credentials (synced by the
+    # External Secrets Operator or created by hand). NEVER inline the values.
     credentialsRef:
       secretName: storage-s3-credentials
-      accessKeyIdKey: AWS_ACCESS_KEY_ID
-      secretAccessKeyKey: AWS_SECRET_ACCESS_KEY
+      accessKeyIdKey: STORAGE_S3_ACCESS_KEY_ID
+      secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
+
+# -- Render-time checks (#2124). bjw-s renders every string in these values as a
+# template, and ``fail`` aborts ``helm template`` / ``helm upgrade`` / the ArgoCD
+# render with the message — before anything reaches the cluster. The checks
+# render to an empty string when they pass and are read by nothing else.
+renderChecks:
+  attachmentVolume: >-
+    {{- $storage := .Values.storage -}}
+    {{- if not (has $storage.backend (list "local-fs" "s3")) -}}
+    {{- fail (printf "storage.backend must be local-fs or s3, got %q" (toString $storage.backend)) -}}
+    {{- end -}}
+    {{- if and (eq $storage.backend "local-fs") (ne $storage.localFs.pvc.accessMode "ReadWriteMany") (not $storage.localFs.singleNode) -}}
+    {{- range $name := list "backend" "celery-worker" -}}
+    {{- $controller := index $.Values.controllers $name | default dict -}}
+    {{- if and (ne (toString $controller.enabled) "false") (gt (int (default 1 $controller.replicas)) 1) -}}
+    {{- fail (printf "controllers.%s.replicas=%d with storage.backend=local-fs on a %s attachment volume: the volume attaches to one node, so a second pod on another node never starts (Multi-Attach error). Use storage.backend=s3 (required for shared operation), or storage.localFs.pvc.accessMode=ReadWriteMany with an RWX storage class, or - on a cluster with exactly one node - storage.localFs.singleNode=true. See docs/deployment/helm.md#storage-konfiguration-nfr-013 (#2124)." $name (int $controller.replicas) $storage.localFs.pvc.accessMode) -}}
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
 
 # -- Default pod-level security context applied to all controllers (SEC-M-004)
 defaultPodOptions:
@@ -293,29 +332,38 @@ controllers:
           MCP_IDEMPOTENCY_TTL_HOURS: "24"
           # mcp_audit_log retention; the floor is set by NFR-011, not by taste.
           MCP_AUDIT_RETENTION_DAYS: "90"
-          # NFR-013 Object storage (§4.1). Defaults target the local-fs backend
-          # whose root MUST match the backend-uploads PVC mount below. Switch to
-          # s3 by setting STORAGE_BACKEND=s3 + the STORAGE_S3_* values and adding
-          # the credentials via envFrom from the ESO-synced Secret (see comment).
-          STORAGE_BACKEND: "local-fs"
-          STORAGE_LOCAL_FS_ROOT: /data/attachments
-          STORAGE_MAX_FILE_SIZE_MB: "25"
-          STORAGE_PRESIGN_TTL_SECONDS: "900"
-          STORAGE_VIRUS_SCAN_ENABLED: "false"
-          # -- S3 backend (uncomment + set STORAGE_BACKEND=s3 to enable):
-          # STORAGE_S3_ENDPOINT_URL: https://s3.eu-central-1.amazonaws.com
-          # STORAGE_S3_REGION: eu-central-1
-          # STORAGE_S3_BUCKET: kamerplanter-prod
-          # STORAGE_S3_USE_PATH_STYLE: "false"
-          # STORAGE_S3_FORCE_TLS: "true"
-          # STORAGE_S3_KMS_KEY_ID: ""
-          # -- S3 credentials come ONLY from the External Secrets Operator —
-          # never inline them here (NFR-013 §4.1). Provide a Secret named
-          # ``storage-s3-credentials`` (keys STORAGE_S3_ACCESS_KEY_ID /
-          # STORAGE_S3_SECRET_ACCESS_KEY) and reference it via envFrom:
-          #   envFrom:
-          #     - secret: kamerplanter-secrets
-          #     - secret: storage-s3-credentials
+          # NFR-013 Object storage (§4.1) — rendered from the top-level
+          # ``storage`` block (#2124); set the backend THERE, not here. The
+          # celery-worker carries the same lines and must stay identical.
+          STORAGE_BACKEND: '{{ .Values.storage.backend }}'
+          STORAGE_LOCAL_FS_ROOT: '{{ .Values.storage.localFs.root }}'
+          STORAGE_MAX_FILE_SIZE_MB: '{{ .Values.storage.maxFileSizeMb }}'
+          STORAGE_PRESIGN_TTL_SECONDS: '{{ .Values.storage.presignTtlSeconds }}'
+          STORAGE_VIRUS_SCAN_ENABLED: '{{ .Values.storage.virusScan.enabled }}'
+          STORAGE_VIRUS_SCAN_ENDPOINT: '{{ .Values.storage.virusScan.endpoint }}'
+          # The S3 parameters are empty (= the application defaults) unless the
+          # backend is s3; the two booleans always carry the configured value.
+          STORAGE_S3_ENDPOINT_URL: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.endpointUrl }}{{ end }}'
+          STORAGE_S3_REGION: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.region }}{{ end }}'
+          STORAGE_S3_BUCKET: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.bucket }}{{ end }}'
+          STORAGE_S3_KMS_KEY_ID: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.kmsKeyId }}{{ end }}'
+          STORAGE_S3_USE_PATH_STYLE: '{{ .Values.storage.s3.usePathStyle }}'
+          STORAGE_S3_FORCE_TLS: '{{ .Values.storage.s3.forceTls }}'
+          STORAGE_S3_ALLOW_PRIVATE_ENDPOINT: '{{ .Values.storage.s3.allowPrivateEndpoint }}'
+          # S3 credentials: only these two keys of the Secret named in
+          # storage.s3.credentialsRef, never inlined (NFR-013 §4.1).
+          STORAGE_S3_ACCESS_KEY_ID:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.storage.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.storage.s3.credentialsRef.accessKeyIdKey }}'
+                optional: true
+          STORAGE_S3_SECRET_ACCESS_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.storage.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.storage.s3.credentialsRef.secretAccessKeyKey }}'
+                optional: true
         probes:
           liveness:
             enabled: true
@@ -577,12 +625,32 @@ controllers:
           # changes, not one.
           # NFR-013 — the worker generates thumbnails (§8.2) and runs the DSGVO
           # storage erasure (§6.2), so it MUST see the same backend + volume as
-          # the backend pod. Keep these in sync with the backend controller.
-          STORAGE_BACKEND: "local-fs"
-          STORAGE_LOCAL_FS_ROOT: /data/attachments
-          STORAGE_MAX_FILE_SIZE_MB: "25"
-          # For the s3 backend, add the same STORAGE_S3_* vars + an envFrom on
-          # the ESO-synced ``storage-s3-credentials`` Secret (see backend).
+          # the backend pod: these lines are the backend's, verbatim (#2124).
+          STORAGE_BACKEND: '{{ .Values.storage.backend }}'
+          STORAGE_LOCAL_FS_ROOT: '{{ .Values.storage.localFs.root }}'
+          STORAGE_MAX_FILE_SIZE_MB: '{{ .Values.storage.maxFileSizeMb }}'
+          STORAGE_PRESIGN_TTL_SECONDS: '{{ .Values.storage.presignTtlSeconds }}'
+          STORAGE_VIRUS_SCAN_ENABLED: '{{ .Values.storage.virusScan.enabled }}'
+          STORAGE_VIRUS_SCAN_ENDPOINT: '{{ .Values.storage.virusScan.endpoint }}'
+          STORAGE_S3_ENDPOINT_URL: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.endpointUrl }}{{ end }}'
+          STORAGE_S3_REGION: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.region }}{{ end }}'
+          STORAGE_S3_BUCKET: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.bucket }}{{ end }}'
+          STORAGE_S3_KMS_KEY_ID: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.kmsKeyId }}{{ end }}'
+          STORAGE_S3_USE_PATH_STYLE: '{{ .Values.storage.s3.usePathStyle }}'
+          STORAGE_S3_FORCE_TLS: '{{ .Values.storage.s3.forceTls }}'
+          STORAGE_S3_ALLOW_PRIVATE_ENDPOINT: '{{ .Values.storage.s3.allowPrivateEndpoint }}'
+          STORAGE_S3_ACCESS_KEY_ID:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.storage.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.storage.s3.credentialsRef.accessKeyIdKey }}'
+                optional: true
+          STORAGE_S3_SECRET_ACCESS_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.storage.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.storage.s3.credentialsRef.secretAccessKeyKey }}'
+                optional: true
         probes:
           liveness:
             enabled: true
@@ -1248,25 +1316,36 @@ persistence:
           - path: /data/uploads
 
   # -- NFR-013 local-fs object storage (§3.1, §10). Persistent PVC at
-  # STORAGE_LOCAL_FS_ROOT (/data/attachments). Shared by the backend (uploads /
-  # streaming) and the celery-worker (thumbnail generation §8.2, DSGVO erasure
-  # §6.2). Use ReadWriteMany once the backend scales beyond one replica; with a
-  # single backend + worker on the same node ReadWriteOnce suffices. The
-  # ``storage.localFs.pvc`` block above documents the operator-facing values.
-  # ``retain: true`` protects attachment data from accidental ``helm uninstall``.
+  # ``storage.localFs.root``, shared by the backend (uploads / streaming) and the
+  # celery-worker (thumbnail generation §8.2, DSGVO erasure §6.2). Every field
+  # is rendered from the top-level ``storage`` block (#2124): the claim exists
+  # only with ``storage.backend: local-fs``.
+  #
+  # ``enabled`` renders to "true" or to "" — not to "false", because bjw-s tests
+  # the value for truth and the non-empty string "false" is true.
+  #
+  # Kept data on purpose: ``retain: true`` (``helm.sh/resource-policy: keep``)
+  # survives ``helm uninstall``, and the ArgoCD sync options keep a prune — e.g.
+  # after switching to ``storage.backend: s3``, which drops the claim from the
+  # render — or an Application deletion from deleting the attachments. Migrate
+  # them first (``python -m scripts.storage.migrate --from local-fs --to s3``),
+  # then delete the claim by hand.
   backend-attachments:
-    enabled: true
+    enabled: '{{ if eq .Values.storage.backend "local-fs" }}true{{ end }}'
     type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 20Gi
+    accessMode: '{{ .Values.storage.localFs.pvc.accessMode }}'
+    size: '{{ .Values.storage.localFs.pvc.size }}'
+    storageClass: '{{ .Values.storage.localFs.pvc.storageClass }}'
     retain: true
+    annotations:
+      argocd.argoproj.io/sync-options: Prune=false,Delete=false
     advancedMounts:
       backend:
         main:
-          - path: /data/attachments
+          - path: '{{ .Values.storage.localFs.root }}'
       celery-worker:
         main:
-          - path: /data/attachments
+          - path: '{{ .Values.storage.localFs.root }}'
 
   # -- Fontconfig writable cache (suppresses "No writable cache directories" warning)
   backend-fontconfig:

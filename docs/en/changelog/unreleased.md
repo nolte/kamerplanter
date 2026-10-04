@@ -75,6 +75,10 @@ Changes not yet published in a release.
 - Care reminders: completing a due watering task creates the follow-up task immediately — previously it only appeared with the nightly planning run
 - Care reminders: a confirmation now only closes care tasks that are due today or earlier; a follow-up task already scheduled is left in place
 
+### Deployment (Helm)
+
+- **Upgrade note (Helm):** The `storage` block of the chart values now takes effect (issue #2124, NFR-013 v1.9). Until now the chart did not read it — `storage.backend: s3` still shipped `local-fs` with a PVC. The chart now derives the `STORAGE_*` variables of the backend and the Celery worker, the `backend-attachments` PVC (only with `local-fs`) and its mounts from it; the S3 credentials come as exactly two keys of the Secret named in `storage.s3.credentialsRef` (default `storage-s3-credentials` with `STORAGE_S3_ACCESS_KEY_ID`/`STORAGE_S3_SECRET_ACCESS_KEY`). Your own `env` entries still override the derived values. **Newly refused:** more than one `backend` or `celery-worker` replica on the default `ReadWriteOnce` volume aborts `helm template`/`helm upgrade`/the ArgoCD sync with a message, because a second pod on another node never starts (`Multi-Attach error`). Ways out: `storage.backend: s3` (mandatory for shared operation), `storage.localFs.pvc.accessMode: ReadWriteMany` with an RWX storage class, or on a cluster with exactly one node `storage.localFs.singleNode: true`. The attachment PVC also carries `argocd.argoproj.io/sync-options: Prune=false,Delete=false` so ArgoCD does not delete it after the switch to S3 — migrate the files first with `python -m scripts.storage.migrate --from local-fs --to s3 --checksum-verify`
+
 ## In Development
 
 - REQ-025 (Privacy/GDPR): GDPR Art. 15–21 data subject rights — specified, not implemented

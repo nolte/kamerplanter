@@ -367,11 +367,19 @@ controllers:
 
 ## Storage-Konfiguration (NFR-013) {#storage-konfiguration-nfr-013}
 
-Kamerplanter speichert alle Binärdaten (Fotos, Importe, Exporte) über einen austauschbaren Storage-Adapter. Die Wahl des Backends und die zugehörige Kubernetes-Persistenz werden vollständig über `values.yaml` gesteuert.
+Kamerplanter speichert alle Binärdaten (Fotos, Importe, Exporte) über einen austauschbaren Storage-Adapter. Die Wahl des Backends und die zugehörige Kubernetes-Persistenz steuerst du über den Block `storage` in deinen Values: Das Chart leitet daraus die `STORAGE_*`-Variablen von Backend und Celery-Worker, das PVC und dessen Mounts ab.
+
+!!! warning "Vor #2124 war der Block `storage` wirkungslos"
+    Ältere Chart-Stände lasen den Block `storage` nicht: `storage.backend: s3` lieferte trotzdem `local-fs` mit PVC aus. Wer S3 bisher über eigene `env`-Einträge (`STORAGE_BACKEND`, `STORAGE_S3_*`) und ein zusätzliches `envFrom` eingerichtet hat, behält diese Einträge — sie überschreiben die Werte aus `storage`. Stelle beim nächsten Upgrade auf `storage.backend: s3` um, sonst legt das Chart weiterhin das (dann unbenutzte) PVC an.
+
+!!! danger "Geteilter Betrieb: S3 ist Pflicht"
+    Das PVC `backend-attachments` wird von Backend **und** Celery-Worker gemountet. Ein `ReadWriteOnce`-Volume hängt an genau einem Node: Landet ein zweiter Pod auf einem anderen Node, bleibt er mit `Multi-Attach error` in `ContainerCreating` hängen. Für mehr als eine Backend- oder Worker-Replica — und für jeden Betrieb mit mehreren Mandanten auf einem Cluster mit mehreren Nodes — nutze `storage.backend: s3`. Das Chart verweigert das Rendern, wenn `controllers.backend.replicas` oder `controllers.celery-worker.replicas` größer als 1 ist und die Anhänge auf einem `ReadWriteOnce`-Volume liegen. Ausweg ohne S3: `ReadWriteMany` mit einer RWX-fähigen StorageClass, oder — nur auf einem Cluster mit genau einem Node — `storage.localFs.singleNode: true`.
+
+    Auch mit einer einzigen Replica gilt auf einem Cluster mit mehreren Nodes: Backend und Worker müssen auf demselben Node laufen, und ein Rolling Update (`maxSurge: 1`) startet den neuen Backend-Pod nur, wenn er auf demselben Node landet.
 
 ### Local Filesystem (Standard)
 
-Im Default-Betrieb legt das Chart automatisch das PVC `backend-attachments` an und mountet es in den Backend- und Celery-Worker-Pods unter `/data/attachments`.
+Im Default-Betrieb legt das Chart automatisch das PVC `backend-attachments` an und mountet es in den Backend- und Celery-Worker-Pods unter `/data/attachments`. Das PVC trägt `helm.sh/resource-policy: keep` und die ArgoCD-Sync-Option `Prune=false,Delete=false`: Weder `helm uninstall` noch ein ArgoCD-Prune (etwa nach dem Umstellen auf S3) noch das Löschen der ArgoCD-Application löschen die Anhänge.
 
 ```yaml
 storage:
@@ -388,9 +396,10 @@ storage:
       size: 20Gi                      # Chart-Default; nach Bedarf erhöhen
       accessMode: ReadWriteOnce       # Für Single-Replica (Standard)
       storageClass: ""                # Leer = Cluster-Default
+    singleNode: false                 # true nur auf einem Cluster mit genau einem Node
 ```
 
-**Multi-Replica-Betrieb** (Backend-Replicas > 1):
+**Multi-Replica-Betrieb** (Backend- oder Worker-Replicas > 1) ohne S3:
 
 ```yaml
 storage:
@@ -423,7 +432,10 @@ storage:
 
 ### S3-kompatibel (Production)
 
-Nicht-geheime S3-Parameter werden direkt in `values.yaml` gesetzt. Die Credentials kommen ausschließlich aus dem External Secrets Operator (ESO) — nie als Klartext in Git.
+Nicht-geheime S3-Parameter werden direkt in `values.yaml` gesetzt. Die Credentials kommen ausschließlich aus einem Secret — idealerweise vom External Secrets Operator (ESO) erzeugt, nie als Klartext in Git. Das Chart liest daraus genau die zwei in `credentialsRef` genannten Schlüssel (`secretKeyRef`), nicht das ganze Secret. Mit `storage.backend: s3` rendert das Chart kein PVC und keinen Mount.
+
+!!! warning "Bestehende Anhänge zuerst migrieren"
+    Beim Umstellen von `local-fs` auf `s3` liegen die bisherigen Dateien noch im PVC. Kopiere sie vor dem Umschalten mit dem Migrationswerkzeug im Backend-Pod (`python -m scripts.storage.migrate --from local-fs --to s3 --checksum-verify`, siehe [Speicher konfigurieren](../user-guide/object-storage.md#migration-zwischen-backends)). Erst danach `storage.backend: s3` setzen; das alte PVC bleibt stehen (siehe oben) und du löschst es von Hand, wenn der Prüfsummen-Vergleich grün ist.
 
 ```yaml
 storage:
@@ -483,16 +495,11 @@ spec:
     ```
     Das Secret sollte aus einem sicheren Vault kommen und **niemals** in Git gespeichert werden.
 
+    Fehlt das Secret bei `storage.backend: s3`, starten die Pods trotzdem (die Referenzen sind `optional`, damit ein `local-fs`-Release ohne dieses Secret auskommt), aber der Storage-Health-Check schlägt fehl und der Pod wird nicht `Ready` — der Rollout bleibt stehen, die alten Pods bedienen weiter.
+
 #### NetworkPolicy für S3-Endpoints
 
-Das Chart enthält eine NetworkPolicy, die ausgehende Verbindungen auf den konfigurierten S3-Endpunkt beschränkt und den Zugriff auf die Cloud-Metadata-IP (`169.254.169.254`) blockiert (SSRF-Schutz):
-
-```yaml
-networkPolicies:
-  storage:
-    enabled: true
-    blockMetadataEndpoint: true      # Blockiert 169.254.169.254 (Default: true)
-```
+Eine eigene Storage-NetworkPolicy gibt es nicht. Backend und Celery-Worker erreichen einen öffentlichen S3-Endpunkt über ihre allgemeine Egress-Regel (`networkpolicies.backend` und `networkpolicies.celery-worker`: Ports 80/443 nach `0.0.0.0/0` ohne RFC1918-Netze und ohne `169.254.0.0/16` — die Cloud-Metadata-Adresse bleibt gesperrt). Ein Endpunkt im Cluster oder im privaten Netz (MinIO, Ceph RGW) ist damit **nicht** erreichbar: Ergänze in deinen Values eine Egress-Regel für genau diesen Endpunkt in beiden Policies.
 
 #### MinIO im Cluster
 

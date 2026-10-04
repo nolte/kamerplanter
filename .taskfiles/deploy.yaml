@@ -58,6 +58,20 @@ tasks:
         out=$(mktemp)
         trap 'rm -f "$out"' EXIT
         ./scripts/ci/skaffold_render_verify.sh "$out"
+      - ./scripts/ci/assert_chart_contracts.sh helm/kamerplanter
+
+  verify:chart:
+    desc: |
+      Render-time contracts of the Helm chart (attachment storage switch and
+      the multi-replica refusal, backup CronJob, backend startup budget,
+      least-privilege ArangoDB credentials) — the same script the
+      skaffold-verify CI job runs after its render. Needs helm and mikefarah
+      yq v4; builds the chart dependencies first.
+    cmds:
+      - helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/ --force-update
+      - helm repo add ollama https://otwld.github.io/ollama-helm/ --force-update
+      - helm dependency build helm/kamerplanter
+      - ./scripts/ci/assert_chart_contracts.sh helm/kamerplanter
 
   security:nuclei:validate:
     desc: |

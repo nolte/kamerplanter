@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, Helm, Kubernetes 1.28+, S3-kompatibles Object Storage, ReadWriteMany-PVs
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.7 (#1834: Objekt-Rekonziliation umgesetzt, nur Bericht per Default — v1.6 Datenschutzplan-Entscheidung Q-O3)
+Version: 1.9 (#2124: Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb — v1.7 #1834 Objekt-Rekonziliation)
 Autor: Business Analyst - Agrotech
 Datum: 2026-04-27
 Tags: [storage, object-storage, s3, minio, local-fs, adapter, photos, attachments, dsgvo, multi-tenant]
@@ -21,6 +21,7 @@ Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachmen
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.9 | 2026-10-04 | **Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb (#2124, MT-028):** Der Block `storage` in `helm/kamerplanter/values.yaml` war bis hierher wirkungslos (das Chart las ihn nicht; `storage.backend: s3` lieferte `local-fs` mit PVC). Jetzt leitet das Chart daraus die `STORAGE_*`-Variablen von Backend und Celery-Worker, das PVC `backend-attachments` (nur bei `local-fs`) und dessen Mounts ab; die S3-Credentials kommen als zwei `secretKeyRef` aus `credentialsRef` (Default-Schluessel jetzt `STORAGE_S3_ACCESS_KEY_ID` / `STORAGE_S3_SECRET_ACCESS_KEY`, wie in der Betriebsdoku). Neuer §10.1: Das Chart verweigert das Rendern von mehr als einer Backend- oder Worker-Replica auf einem `ReadWriteOnce`-Anhang-Volume (Ausweg: S3, RWX oder `storage.localFs.singleNode: true`). Das PVC traegt `Prune=false,Delete=false` fuer ArgoCD. Render-Vertraege in `scripts/ci/assert_chart_contracts.sh`. |
 | 1.7 | 2026-10-02 | **#1834 Objekt-Rekonziliation umgesetzt (§6.6, AC-12):** Task `app.tasks.storage_tasks.reconcile_orphaned_storage_objects` (Beat täglich 04:10) listet `t/` über beide Adapter seitenweise (local-fs paginiert jetzt wie S3, Token = letzter Key; je Lauf höchstens `STORAGE_RECONCILE_MAX_OBJECTS_PER_RUN` Objekte, der Folgelauf setzt fort), bildet Renditionen über jede mögliche Original-Endung auf den haltenden Datensatz ab und meldet `found` / `young` / `eligible` / `would_delete` / `deleted` / `failed`. **Löschen ist per Default aus** (`STORAGE_RECONCILE_DELETE_ENABLED=false`, Betreiberentscheidung: erster Release nur Bericht); die Sicherheitsmarge ist `STORAGE_RECONCILE_MIN_AGE_HOURS` (Default 24, Untergrenze 1). Eine Notbremse (`STORAGE_RECONCILE_MAX_ORPHAN_FRACTION`, Default 0,5) verhindert das Löschen bei einem gültig, aber leer antwortenden Katalog. Bericht und Logzeilen des Laufs tragen nur Zählwerte, nie Mandant, Nutzer oder Objektpfad. Vier Pfade der Issue sind rot-zuerst gegen ArangoDB und den echten local-fs-Adapter belegt. |
 | 1.6 | 2026-09-26 | **Datenschutzplan-Entscheidung Q-O3 (Betreiberentscheidung, #1834):** Neuer §6.6 Objekt-Rekonziliation — ein periodischer Lauf listet Objekte im Storage, die kein `attachments`-Datensatz mehr hält, mit 24h-Sicherheitsmarge gegen den Schreib-vor-Datensatz-Zeitpunkt eines Uploads; für den ersten Release **nur Bericht, keine Löschung**. **AC-12** neu. |
 | 1.5 | 2026-09-25 | **Deduplizierung pro Hochlader (#1770):** Schritt 8 der Upload-Pipeline gibt einem zweiten Hochlader identischer Bytes nicht mehr den Datensatz des ersten zurück, sondern einen eigenen Datensatz über dasselbe gespeicherte Objekt; `storage_key` ist deshalb nicht mehr eindeutig (Migration v0062 entfernt den eindeutigen Index). Ein Objekt wird erst gelöscht, wenn kein Datensatz des Mandanten es mehr hält; die Quota zählt es einmal. |
@@ -615,9 +616,18 @@ storage:
     kmsKeyId: ""
     credentialsRef:
       secretName: storage-s3-credentials
-      accessKeyIdKey: AWS_ACCESS_KEY_ID
-      secretAccessKeyKey: AWS_SECRET_ACCESS_KEY
+      accessKeyIdKey: STORAGE_S3_ACCESS_KEY_ID
+      secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
 ```
+
+### 10.1 Umsetzung im Chart (#2124)
+
+Der Block ist im Chart **verdrahtet**, nicht nur Skizze: bjw-s common rendert seit 5.2 jeden String der Values als Template, und Backend, Celery-Worker sowie die Persistence `backend-attachments` lesen `storage.*` ueber `{{ .Values.storage.* }}`.
+
+- `local-fs`: PVC `backend-attachments` (`localFs.pvc.accessMode`/`size`/`storageClass`), gemountet unter `localFs.root` in Backend und Worker.
+- `s3`: kein PVC, kein Mount; `STORAGE_BACKEND=s3`, die `s3.*`-Parameter und genau die zwei Credential-Schluessel aus `credentialsRef` (`secretKeyRef`, `optional`, damit ein `local-fs`-Release ohne dieses Secret startet).
+- **Geteilter Betrieb erfordert S3.** Das PVC wird von Backend und Worker gemountet; ein `ReadWriteOnce`-Volume haengt an einem Node, ein zweiter Pod auf einem anderen Node startet nie (`Multi-Attach error`). Das Chart verweigert deshalb das Rendern von `controllers.backend.replicas > 1` oder `controllers.celery-worker.replicas > 1` bei `local-fs` ohne `ReadWriteMany`, ausser der Betreiber bestaetigt einen Cluster mit genau einem Node (`storage.localFs.singleNode: true`).
+- Das PVC traegt `helm.sh/resource-policy: keep` und `argocd.argoproj.io/sync-options: Prune=false,Delete=false`, damit weder `helm uninstall` noch ein ArgoCD-Prune nach dem Wechsel auf S3 die Anhaenge loescht; vor dem Wechsel migriert §7.3.
 
 ---
 
