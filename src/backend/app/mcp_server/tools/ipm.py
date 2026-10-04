@@ -234,7 +234,7 @@ class GetDisease(ToolBase):
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
         disease = ctx.ipm_service.get_disease(args.disease_key)
         data = _disease_summary(disease)
-        data["description"] = getattr(disease, "description_de", None) or getattr(disease, "description", None)
+        data["description"] = disease.description
         return self._response(
             summary=f"{disease.common_name} ({disease.scientific_name}), pathogen: {disease.pathogen_type}.",
             data=data,

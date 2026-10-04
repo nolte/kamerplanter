@@ -48,7 +48,7 @@ class CreateSite(WriteToolBase):
 
 @mcp_tool(name="get_location", permission=McpPermission.READ)
 class GetLocation(ToolBase):
-    """Return one location's own properties — type, climate, frost exposure."""
+    """Return one location's own properties — type, area, light, frost exposure."""
 
     class Input(TenantToolInput):
         location_key: str
@@ -65,17 +65,20 @@ class GetLocation(ToolBase):
         # record — which MCP could not read.
         location = ctx.site_service.get_location(args.location_key, ctx.tenant_key)
         return self._response(
-            summary=f"Location '{location.name}' ({location.type}).",
+            summary=f"Location '{location.name}' ({location.location_type_key or 'untyped'}).",
             data={
                 "location_key": location.key,
                 "name": location.name,
-                "type": location.type,
-                "site_key": getattr(location, "site_key", None),
-                "frost_exposed": getattr(location, "frost_exposed", None),
-                "climate_zone": getattr(location, "climate_zone", None),
-                "light_situation": getattr(location, "light_situation", None),
-                "area_sqm": getattr(location, "area_sqm", None),
-                "notes": getattr(location, "notes", None),
+                "location_type_key": location.location_type_key,
+                "site_key": location.site_key,
+                "parent_location_key": location.parent_location_key,
+                "depth": location.depth,
+                "path": location.path,
+                "area_m2": location.area_m2,
+                "orientation": location.orientation,
+                "light_type": location.light_type,
+                "irrigation_system": location.irrigation_system,
+                "frost_exposed": location.frost_exposed,
             },
             links=[ctx.ui_link("/sites"), ctx.api_link(f"/locations/{location.key}")],
         )
