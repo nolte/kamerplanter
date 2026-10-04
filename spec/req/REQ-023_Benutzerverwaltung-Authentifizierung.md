@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.39 (Admin-Seite für OIDC-Provider, #1906); 1.38 (Bestätigungsnachweis `email_confirmed_at`, #1948); 1.37 (Step-up für Rollenwechsel und Mitglieder-Entfernen, #2032); 1.36 (Bereinigung abgebrochener lokaler Registrierungen: Trockenlauf, #2010); 1.35 (Anonyme Routen und Reset-Budget nach den Prüfungen von #2043/#2045 gehärtet, #2048/#2052/#2058/#2059/#2060); 1.34 (Wartezeit der Mail-Budgets bei hängendem Valkey begrenzt, Aussagen der Bündel-Prüfung korrigiert, #2045/#2043/#2046); 1.33 (Login-Ablehnung `EMAIL_NOT_VERIFIED` mit korrektem Passwort verschickt den neuen Bestätigungslink selbst, #2046); 1.32 (Budget je Adresse für `POST /auth/password-reset/request`, #2043); 1.31 (IP-Rate-Limits zählen in geteiltem Speicher, #2045); 1.30 (Neuer Bestätigungslink per `POST /auth/resend-verification`, #2037); 1.29 (SEC-H-009 Bedingung 1 an den neuen Default angepasst, #1948)
+Version: 1.40 (Restbefunde #2062: Valkey-Clients, Token-Reihenfolge, Summe je Postfach); 1.39 (Admin-Seite für OIDC-Provider, #1906); 1.38 (Bestätigungsnachweis `email_confirmed_at`, #1948); 1.37 (Step-up für Rollenwechsel und Mitglieder-Entfernen, #2032); 1.36 (Bereinigung abgebrochener lokaler Registrierungen: Trockenlauf, #2010); 1.35 (Anonyme Routen und Reset-Budget nach den Prüfungen von #2043/#2045 gehärtet, #2048/#2052/#2058/#2059/#2060); 1.34 (Wartezeit der Mail-Budgets bei hängendem Valkey begrenzt, Aussagen der Bündel-Prüfung korrigiert, #2045/#2043/#2046); 1.33 (Login-Ablehnung `EMAIL_NOT_VERIFIED` mit korrektem Passwort verschickt den neuen Bestätigungslink selbst, #2046); 1.32 (Budget je Adresse für `POST /auth/password-reset/request`, #2043); 1.31 (IP-Rate-Limits zählen in geteiltem Speicher, #2045); 1.30 (Neuer Bestätigungslink per `POST /auth/resend-verification`, #2037); 1.29 (SEC-H-009 Bedingung 1 an den neuen Default angepasst, #1948)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.40 | 2026-10-04 | **Restbefunde aus #2043/#2045/#2046 (#2062):** (1) **Alle Valkey-Clients der Request-Pfade warten höchstens 0,5 s** (§3.2c): `_get_redis_client()` (Geräte-Kopplung, API-Key-Limiter, MCP-Sitzungen, Identifikations-Limiter) und der OAuth-State-Store nutzten die redis-py-Vorgabe von 5 s je Socket-Operation — gemessen gegen einen Socket, der annimmt und nie antwortet: 5,01 s je Aufruf, die anonyme Kopplungs-Einlösung 10,10 s; jetzt 0,50 s und 1,10 s. Ein Guard verlangt `bounded_redis_client_options()` von jedem in `app/` gebauten Valkey-Client. (2) **Reihenfolge von Token und Mail** (§3.2b): Token-Schreiben und Versand laufen je Konto und Tokenart unter einem Prozess-Lock; vorher konnte die zuletzt eintreffende Mail ein bereits überschriebenes Token tragen (deterministisch reproduziert, Bestätigung und Reset). Je Prozess, nicht je Replik. (3) **Summe je Postfach gemessen** (§3.2b): 16 Mails in einem Fenster (3 anonym, 3 bewiesen, 10 Reset), nicht „bis zu 9“; bewusst kein gemeinsames Budget (ein Squatter könnte sonst den Reset der Inhaberin verbrauchen, vgl. §3.2c „Aussperren durch Dritte“). (4) **Valkey ohne AUTH** (§3.2c): Entscheidung für den Betreiber festgehalten. (5) Guard `anonymous_mail_routes`: anonym heißt „kein `get_current_user` im Abhängigkeitsbaum“ (vorher: Namenspräfix `require_*`/`get_current_*`), `async def`-Methoden werden gelesen. |
 | 1.39 | 2026-10-04 | **#1906 (§4.1, §3.9):** Die OIDC-Provider-Konfigurationen haben eine eigene Admin-Seite `/admin/oidc-providers` (Plattform-Admin, erreichbar im Tab „Plattform-Modus" der Kontoeinstellungen): Liste, Anlegen, Bearbeiten, Löschen und Discovery-Test über `/api/v1/admin/oidc-providers`. Anlegen, Löschen und jede Änderung außer `display_name` und `icon_url` laufen im Dialog `StepUpConfirmDialog` mit der Aktion `oidc_provider_change` (Ziel: Schlüssel der Konfiguration, beim Anlegen `new:<slug>`); `display_name` und `icon_url` speichern ohne Dialog. Das Client-Secret ist schreibgeschützt: Die Schnittstelle gibt es nie zurück, die Seite zeigt es nie an, ein leeres Feld beim Bearbeiten behält das gespeicherte. Feste Endpunkte (`authorization_url`, `token_url`, `userinfo_url`, `jwks_url`) und der Standard-Mandant lassen sich beim Anlegen setzen; die Antwort enthält sie nicht, die Seite zeigt sie später nicht an. Die Aussage „nur über die API verwaltbar" im Admin-Handbuch (#1980) entfällt. Testfälle TC-023-077 bis TC-023-079. |
 | 1.38 | 2026-10-04 | **Bestätigungsnachweis (#1948):** `users.email_confirmed_at` hält fest, dass der Inhaber der Adresse sie belegt hat. Gesetzt nur vom Bestätigungslink (`POST /auth/verify-email`), der Bestätigung des E-Mail-Wechsels, dessen Revert-Link und von einem OIDC-Provider, der `email_verified` behauptet. `email_verified` allein belegt nichts: die Registrierung mit `REQUIRE_EMAIL_VERIFICATION=false` setzt es ohne Bestätigung, und das Umstellen auf `true` ändert gespeicherte Konten nicht. Deshalb liest REQ-030 §3.4 den Nachweis. Ein ohne Bestätigung registriertes Konto meldet sich weiter an (Anmelde-Gate bleibt `email_verified`), bekommt aber keine Benachrichtigungs-Mail, bis es einen Link bestätigt; `POST /auth/resend-verification` (§3.2b) stellt ihn mit `REQUIRE_EMAIL_VERIFICATION=true` auch solchen Konten aus. Migration v0080 stempelt bestehende verifizierte Konten (Grandfathering: Herkunft nicht unterscheidbar, sonst endete jede bestehende Mail beim ersten Deploy). Startwarnung `email_channel_without_verification`, wenn ein Versender (`EMAIL_ADAPTER` smtp/resend) mit `REQUIRE_EMAIL_VERIFICATION=false` zusammentrifft. Admin-gesetztes `email_verified` ist eine Zusicherung, kein Nachweis. |
 | 1.37 | 2026-10-04 | **#2032 (§3.9):** Drei weitere Aktionen laufen durch den Step-up, jeweils an den Schlüssel der Mitgliedschaft gebunden (#1884): `admin_membership_role_change` (`PATCH /admin/platform/tenants/{tenant_key}/members/{membership_key}/role`, `PATCH /admin/platform/users/{user_key}/memberships/{membership_key}/role`), `tenant_member_role_change` (`PATCH /tenants/{slug}/members/{membership_key}/role`) und `tenant_member_removal` (`DELETE /tenants/{slug}/members/{membership_key}`) — das Konto, das den Step-up leistet, ist das **handelnde** (Plattform-Admin bzw. Mandanten-Verwalter mit `management`), nie das betroffene Mitglied. Die Tabelle und die Zielliste in §3.9 führen jetzt auch die Aktionen von #2009 (`admin_tenant_update`, `admin_membership_removal`). Die Routen: REQ-024 AK-56/AK-57. |
@@ -961,6 +962,16 @@ Ein nur föderiertes Konto meldet sich beim Anbieter an und braucht keinen Link.
 `email_verification_token` (32 Byte, `secrets.token_urlsafe`) mit 24 h Gültigkeit
 über den gespeicherten — jeder früher verschickte Link ist ab da ungültig.
 `POST /auth/verify-email` löscht den Token beim Einlösen (einmalig verwendbar).
+**Reihenfolge (#2062):** Token-Schreiben und Versand eines Kontos laufen unter einem
+Lock je Konto und Tokenart (`KeyedLocks`, Eintrag nur solange jemand hält oder wartet),
+auch beim Reset (§3.2c). Ohne ihn konnten ein anonymer Resend und ein bewiesener Link
+(oder zwei Reset-Anfragen) so verschränken: Schreiben A, Schreiben B, Mail B, Mail A —
+die zuletzt eintreffende Mail trug dann das schon überschriebene Token (mit Ereignissen
+deterministisch reproduziert). Der Lock gilt je Prozess: Zwei Replikas können weiter
+verschränken; Folge ist eine tote Mail über der gültigen, der Weg zurück ist eine
+weitere Anfrage. Er wird nicht über Valkey verteilt — das wäre ein verteilter Lock mit
+Ausfallpfad für höchstens eine tote Mail. Die Haltezeit ist die Versandzeit (SMTP-Timeout
+10 s) und blockiert nur Mails desselben Kontos.
 
 **Grenzen.**
 
@@ -1032,8 +1043,12 @@ weiteren Request-Body:
 Wer das Passwort kennt, kann über diesen Weg höchstens dreimal pro Stunde einen
 Link an das Postfach schicken lassen. Das ist eines von drei unabhängigen Budgets
 für dasselbe Postfach: Reset (§3.2c, 3), anonymer Bestätigungslink (oben, 3) und
-dieser Weg (3) — zusammen bis zu 9 Mails pro Stunde an ein Postfach, während eines
-Valkey-Ausfalls bis zu 9·P + 9 bei P Backend-Prozessen. Wer das Passwort hält, hält
+dieser Weg (3) — zusammen bis zu 16 Mails pro Stunde an ein Postfach (gemessen über den
+Service mit den Produktions-Stores, #2062: 3 + 3 + 10, bei vier oder mehr Quellen für den
+Reset; kein Mail darüber hinaus innerhalb des Fensters), während eines Valkey-Ausfalls bis
+zu 16·P + 16 bei P Backend-Prozessen. Ein gemeinsames Budget über die drei Wege gibt es
+bewusst nicht: Wer eine fremde Adresse registriert, verbräuchte damit den Reset der
+Inhaberin — dieselbe Aussperrung durch Dritte wie in §3.2c. Wer das Passwort hält, hält
 nicht unbedingt das Postfach: Wer eine fremde Adresse registriert (Squatting), kennt
 das Passwort seines Kontos, aber die Mails gehen an die echte Inhaberin der Adresse.
 
@@ -1117,6 +1132,31 @@ Anfrage oder meldet sich mit dem bisherigen Passwort an, wenn sie es noch kennt;
 hat ein Squatter ihre Adresse registriert, gibt es kein „bisheriges Passwort“ von
 ihr. Das Log-Ereignis `password_reset_budget_exhausted` macht gehäufte
 Überschreitungen für Betreiber sichtbar, ohne die Adresse zu nennen.
+
+**Valkey ohne AUTH — Entscheidung für den Betreiber (#2062, #2050).** Die `LIMITS:*`-
+und Budget-Schlüssel liegen in einem Valkey ohne Passwort; ihre Integrität ruht auf der
+NetworkPolicy des Charts (`networkpolicies.valkey`): Ingress nur von den Controllern
+`backend`, `celery-worker` und `celery-beat` auf 6379. Gemessen am Chart: kein
+`requirepass`, keine ACL, `REDIS_URL` ohne Zugangsdaten. Ein eigener DB-Index trennt
+nichts (ein Server, keine ACL je Index); ein Passwort wäre ein Secret in allen drei
+Controllern und in `REDIS_URL` und ist eine Chart-/Secret-Änderung. Wer einen dieser
+drei Pods beherrscht, kann die Zähler ohnehin umgehen (das Backend signiert die Tokens
+selbst); schützen muss die Richtung „fremder Pod im Namespace“, und die schließt nur
+eine CNI, die NetworkPolicies durchsetzt — eine ohne diese Durchsetzung lässt die Regel
+wirkungslos. **Vorschlag:** Annahme mit dieser Begründung und `requirepass` nur dort, wo die
+CNI keine NetworkPolicies durchsetzt; nicht von dieser Änderung entschieden, Helm-Secrets
+sind unverändert.
+
+**Alle Valkey-Clients der Request-Pfade sind begrenzt (#2062).** `_get_redis_client()`
+und der OAuth-State-Store nutzten die redis-py-Vorgabe von 5 s je Socket-Operation:
+gemessen gegen einen Socket, der annimmt und nie antwortet, 5,01 s je Aufruf, die
+anonyme Kopplungs-Einlösung (`POST /auth/device-pairing/redeem`, Throttle plus
+Code-Store) 10,10 s. Beide benutzen jetzt `bounded_redis_client_options()` wie der
+Limiter (0,5 s je Verbindung und Lesen, kein Retry): 0,50 s je Aufruf, die Einlösung
+1,10 s. Jeder dieser Aufrufer behandelt einen Valkey-Fehler schon als Ausfall (lokale
+Stufe oder fail-closed wie der API-Key-Limiter, SEC-004); verkürzt ist die Dauer eines
+Ausfalls, nicht seine Bedeutung. Der Rückfall mit Probenplan (`LatchedRedis`) bleibt den
+Budget-Stores vorbehalten.
 
 **Bei Valkey-Ausfall** zählt jeder Prozess für sich: bis zu 3 Links je Adresse,
 Stunde und Worker-Prozess über alle Replikas. **Die In-Process-Stufe verdrängt nie
