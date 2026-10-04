@@ -44,6 +44,7 @@ feature/* ──► develop ──► (Release Tag v*) ──► main
 | `release-lag.yml` | Scheduled, daily at 09:00 UTC (+ manual) | Reports when `develop` carries commits no **published** release contains |
 | `renovate-health.yml` | Scheduled, daily at 09:20 UTC (+ manual) | Reads the Dependency Dashboard (#12) and reports a Renovate problem or manager-inventory drift |
 | `lane-inputs.yml` | weekly on `develop`, manual | Measures which files the filtered jobs read, compares with `.github/lane-inputs/` and proposes differences as a bot pull request ([details](#lane-inputs)) |
+| `reach-audit.yml` | weekly (Sunday 02:43 UTC), manual | Runs the capability reach audit including the full-stack T2 probes on a runner; advisory, no merge gate ([details](#reach-audit)) |
 
 ---
 
@@ -501,6 +502,35 @@ python -m pytest -q tests/unit/guards/test_lane_filters_cover_measured_inputs.py
 ```
 
 A run on any branch other than `develop` measures that branch and only reports what it would propose; it opens no pull request.
+
+---
+
+## Capability reach audit (`reach-audit.yml`) {#reach-audit}
+
+The reach audit asks of every declared capability whether it really reaches what it promises: it runs the approved probes in `project/reach-probes/` and reports each capability as *reached*, *partially reached*, *not reached* or *not probed*. The **T2** probes need the full stack with seeded data (a Docker Compose stack plus the reranker image build). This workflow runs them on a GitHub runner so you do not have to start that stack on your machine.
+
+The workflow is **advisory**: it runs weekly and on demand, never on pull requests, and it is not a required check.
+
+### Run it
+
+```bash
+gh workflow run reach-audit.yml                       # T0, T1 and T2
+gh workflow run reach-audit.yml -f include_t2=false   # T0 and T1 only
+```
+
+A cold run builds two images (the backend stack and the reranker with its model download) and can take well over an hour; a warm run takes about 15 minutes.
+
+### What the result means
+
+The job writes the report `.audits/capability-reach/<date>.md` and uploads it as the artifact `capability-reach-report`; the job summary lists what needs attention.
+
+- **The job is red** when a probe measured *not reached*, when an environment (stack, seed, reranker) did not come up, when a probe was *weakened* or is invalid, or when the runner itself failed.
+- **The job stays green and lists a warning** for a *stale* probe (its declaration changed after the probe was derived), for a capability no probe could be built for (*not constructible*) and for *partially reached*. These are coverage gaps, not defects. A stale probe is not edited: you re-confirm or re-derive it with the `capability-reach-audit` skill.
+
+The headline of the report counts the entries that were **not probed**. Read that number first: it says how much of the declared surface the audit did not measure.
+
+!!! note "The runner is not part of this repository"
+    `reach_audit.py` comes from `nolte/claude-shared`, checked out at one pinned commit inside the workflow. Moving the pin is a deliberate one-line change in `reach-audit.yml`.
 
 ---
 
