@@ -1,0 +1,66 @@
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: not yet recorded. This derivation carries no `approval:` block; the approval step
+# adds it in the SAME commit (a later commit to this file would be reported as weakened).
+#
+# Replaces inventory-tenant-erasure-plan-reaches-rows (#1951, #1968). The predecessor is reported
+# weakened: its derived_from was moved four times without the runner being able to show a
+# declaration change behind each move (0212013a8: the file did not change in between; then
+# 5c7eefab1, 46f990d03, 90bebe1bb, each held to the one before). Every later move is held to
+# the weakened one, so the state cannot be cleared in place (claude-shared#685, #686). A new
+# file under a new id has no such history; the predecessor is deleted in the same change.
+#
+# What the declaration says, as read for this derivation (tenant_erasure_engine.py at HEAD):
+# TenantErasureEngine.INVENTORY (L95) lists 93 entries, each delete, pseudonymize or retain. The
+# seed writes one row per entry (the deletion-record collection excepted: its row is the act's
+# proof) for the tenant under test and a control tenant, the act deletes the tenant through the
+# platform-admin route, and the observe step reports per collection whether the row is gone
+# (erased/), changed so that it no longer names the member (pseudonymised/) or untouched
+# (retained/), plus three residue counters that must be 0.
+# Expectation recounted against the inventory at HEAD: 92 collections + erased/tenants + the
+# three counters = 96 members, identical to the predecessor's. The only change since the
+# predecessor's anchor (800869a) is that activities and workflow_templates no longer carry
+# keep_when is_system (#2027 follow-up: a seed is global, a row stamped with the tenant is the
+# tenant's); both stay erased/, so the expected set is unchanged.
+# Unchanged against the predecessor: expected, observe, tier, environment, teardown. Changed: the
+# id, the anchor (content of tenant_erasure_engine.py at HEAD) and the cited line.
+id: inventory-tenant-erasure-plan-reaches-rows-v2
+summary: collections of the declared tenant-erasure inventory left without the tenant's rows after execution
+declaration:
+  source: inventory
+  path: src/backend/app/domain/engines/tenant_erasure_engine.py
+  location: TenantErasureEngine.INVENTORY (L95)
+tier: T2
+expected:
+  kind: set
+  unit: observed tenant-erasure row facts (erased/pseudonymised/retained per collection, plus residue counters)
+  values: [erased/activities, erased/actuators, erased/ai_conversations, erased/ai_provider_configs,
+    erased/ai_tip_cache, erased/api_keys, erased/aquaponic_systems, erased/attachments, erased/burping_events,
+    erased/calendar_feeds, erased/care_confirmations, erased/care_profiles, erased/climate_normals,
+    erased/control_events, erased/control_rules, erased/control_schedules, erased/cultivars,
+    erased/diagnosis_requests, erased/drying_progress, erased/equipment, erased/feeding_events,
+    erased/fertilizer_stocks, erased/fertilizers, erased/fish_feeding_events, erased/fish_stocks,
+    erased/ha_publish_settings, erased/harvest_observations, erased/identification_requests, erased/import_jobs,
+    erased/inventree_connections, erased/inventree_references, erased/invitations, erased/irrigation_demands,
+    erased/location_assignments, erased/locations, erased/maintenance_logs, erased/maintenance_schedules,
+    erased/manual_overrides, erased/mcp_idempotency_record, erased/memberships, erased/mold_alerts,
+    erased/notifications, erased/nutrient_plan_phase_entries, erased/nutrient_plans,
+    erased/overwintering_profiles, erased/pest_detections, erased/pest_image_contributions,
+    erased/phase_control_profiles, erased/phase_histories, erased/phenotype_notes,
+    erased/plant_diagnosis_requests, erased/plant_diary_entries, erased/plant_instances,
+    erased/planting_run_entries, erased/planting_runs, erased/post_harvest_batches, erased/propagation_batches,
+    erased/propagation_events, erased/rooting_protocols, erased/season_states, erased/sensors, erased/sites,
+    erased/slots, erased/species, erased/stock_transactions, erased/storage_observations,
+    erased/substrate_batches, erased/substrates, erased/succession_plans, erased/supplementation_events,
+    erased/tank_fill_events, erased/tank_states, erased/tanks, erased/task_audit_entries, erased/task_comments,
+    erased/task_templates, erased/tasks, erased/tenants, erased/water_tests, erased/watering_events,
+    erased/watering_logs, erased/weather_forecasts, erased/weather_source_configs, erased/workflow_executions,
+    erased/workflow_phases, erased/workflow_templates, pseudonymised/harvest_batches, pseudonymised/inspections,
+    pseudonymised/quality_assessments, pseudonymised/treatment_applications, retained/ai_audit_log,
+    retained/mcp_audit_log, retained/yield_metrics, dangling-edges/0, stamped-elsewhere/0, control-changed/0]
+derived_from: blob:736534b05c03e1dd0c933c618db98e2a4b406f89
+environment: ['reach:stack:up', 'reach:seed:erasure-tenant', 'reach:erasure:admin-delete-tenant']
+teardown: ['reach:stack:down']
+observe:
+  argv: [python3, scripts/reach/observe_tenant_residue.py, --tenant, reach-tenant]
+  timeout_seconds: 300
