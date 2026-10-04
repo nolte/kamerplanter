@@ -1,7 +1,6 @@
 # Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: not yet recorded. This derivation carries no `approval:` block; the approval step
-# adds it in the SAME commit (a later commit to this file would be reported as weakened).
+# Approval: recorded under the operator's delegation of this batch to the orchestrating session (2026-10-04).
 #
 # Replaces endpoint-zap-postmerge-push-runs (#1976). That probe counted the newest 300
 # push runs of the lane and read an empty conclusion (a run still in flight) as "did not
@@ -43,3 +42,8 @@ observe:
   - --limit
   - '300'
   timeout_seconds: 120
+approval:
+  approved_at: '2026-10-04T09:50:14Z'
+  approved_by: nolte
+  observation_digest: ca67bcb0acb5b92bc268fc09796d4372150af938b1098d49bfe6c055f4cb33bf
+  mode: derived

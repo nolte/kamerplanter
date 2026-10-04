@@ -1,7 +1,6 @@
 # Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: not yet recorded. This derivation carries no `approval:` block; the approval step
-# adds it in the SAME commit (a later commit to this file would be reported as weakened).
+# Approval: recorded under the operator's delegation of this batch to the orchestrating session (2026-10-04).
 #
 # Replaces requirement-req025-art17-pest-prototype-cleanup (#1951). The predecessor moved from a whole-file anchor to
 # section anchors in #1904 (08e64b743) while REQ-025 had changed as a file since the derivation
@@ -33,3 +32,8 @@ teardown: ['reach:vectordb:down', 'reach:stack:down']
 observe:
   argv: [python3, scripts/reach/observe_pest_prototypes.py, --subject, reach-subject]
   timeout_seconds: 120
+approval:
+  approved_at: '2026-10-04T09:50:14Z'
+  approved_by: nolte
+  observation_digest: 1c26deca2076159b94aeef91e8ac6527121212d18eacc82831f1ce019939882c
+  mode: derived

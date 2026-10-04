@@ -1,7 +1,6 @@
 # Reach probe; derived by capability-reach-scanner via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: not yet recorded. This re-derivation carries no `approval:` block; the approval step
-# adds it in the SAME commit (a later commit to this file would be reported as weakened).
+# Approval: recorded under the operator's delegation of this batch to the orchestrating session (2026-10-04).
 #
 # Re-derived for #1968: since #1962 (#1824, erasure together) an account erasure erases the
 # subject's personal tenant also when other active members use it, so the earlier wording
@@ -41,3 +40,8 @@ observe:
   - reach-personal-tenant
   - --records
   timeout_seconds: 120
+approval:
+  approved_at: '2026-10-04T09:50:14Z'
+  approved_by: nolte
+  observation_digest: a6845ddd0605ee872b59e8fd937e274a2da4bc8d4f661a8575c30fd75b442bfe
+  mode: derived
