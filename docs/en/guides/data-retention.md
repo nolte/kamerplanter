@@ -982,6 +982,9 @@ kubectl exec -n kamerplanter deploy/<release>-backend -- \
 - It never touches rows with a non-empty tenant key (not even for the same sensor); those belong
   to the tenant or sensor deletion.
 - The log carries counts only, no sensor or tenant keys.
+- The output also says how many sensor documents the command found in ArangoDB. If it shows 0
+  while orphan rows are reported, the wrong database is usually configured (`ARANGODB_DATABASE`):
+  do not confirm. The command refuses a database that was never initialised.
 
 Without TimescaleDB (light mode) the command reports "not applicable" and exits 0; when
 TimescaleDB is configured but unreachable it exits 1 and changes nothing.

@@ -47,6 +47,9 @@ class FakeSensors:
     def owner_is_derivable(self, sensor_key: str) -> bool:
         return sensor_key in self.derivable
 
+    def sensor_count(self) -> int:
+        return len(self.live)
+
 
 def _world() -> tuple[FakeStore, FakeSensors]:
     store = FakeStore(
@@ -198,3 +201,9 @@ def test_the_report_names_no_sensor_key() -> None:
     rendered = repr(result) + str(result.before)
     assert "gone-1" not in rendered
     assert "live-1" not in rendered
+
+
+def test_the_report_carries_how_many_sensors_the_directory_knows() -> None:
+    store, sensors = _world()
+    assert LegacyReadingCleanup(store, sensors).report().sensors_known == 2
+    assert LegacyReadingCleanup(store, FakeSensors(live=set())).report().sensors_known == 0

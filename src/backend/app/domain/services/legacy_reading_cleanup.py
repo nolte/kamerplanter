@@ -43,6 +43,10 @@ class SensorDirectory(Protocol):
 
     def owner_is_derivable(self, sensor_key: str) -> bool: ...
 
+    def sensor_count(self) -> int:
+        """How many sensor documents exist at all — zero is the signature of a wrong or empty database."""
+        ...
+
 
 class CleanupStatus(enum.StrEnum):
     NOT_APPLICABLE = "not_applicable"
@@ -67,6 +71,9 @@ class LegacyReadingReport:
     live: ClassCounts
     unattributable: ClassCounts
     live_series_with_derivable_owner: int
+    #: Sensor documents the directory holds. Zero while orphans are reported means every series
+    #: looks orphaned because no sensor can be found — usually the wrong database, not deleted sensors.
+    sensors_known: int = 0
     orphan_keys: tuple[str, ...] = field(default=(), repr=False, compare=False)
 
     @property
@@ -103,7 +110,9 @@ class LegacyReadingCleanup:
             else:
                 orphan = _plus(orphan, counts)
                 orphan_keys.append(sensor_key)
-        return LegacyReadingReport(orphan, live, unattributable, derivable, tuple(orphan_keys))
+        return LegacyReadingReport(
+            orphan, live, unattributable, derivable, self._sensors.sensor_count(), tuple(orphan_keys)
+        )
 
     def run(self, *, confirm_delete_orphans: int | None) -> CleanupResult:
         """Measure, and delete the orphan class only when ``confirm_delete_orphans`` equals what was measured."""

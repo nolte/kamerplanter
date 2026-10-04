@@ -96,6 +96,9 @@ class Directory:
     def owner_is_derivable(self, sensor_key: str) -> bool:
         return self.service.owning_tenant_key(sensor_key) is not None
 
+    def sensor_count(self) -> int:
+        return int(self.sensor_repo.collection.count())
+
 
 class World:
     def __init__(self, arango, timescale) -> None:
@@ -226,6 +229,65 @@ def test_the_command_defaults_to_a_dry_run_and_deletes_with_the_confirmation(
 
     assert cmd.main(["--confirm-delete-orphans", str(total)]) == 0
     assert world.counts(DEAD) == LegacySeriesCounts()
+
+
+def _point_settings_at(monkeypatch: pytest.MonkeyPatch, database: str) -> None:
+    from app.config.settings import settings
+
+    monkeypatch.setattr(settings, "arangodb_host", ts_arango_host())
+    monkeypatch.setattr(settings, "arangodb_port", ts_arango_port())
+    monkeypatch.setattr(settings, "arangodb_username", ARANGO_USERNAME)
+    monkeypatch.setattr(settings, "arangodb_password", ARANGO_PASSWORD)
+    monkeypatch.setattr(settings, "arangodb_database", database)
+
+
+def ts_arango_host() -> str:
+    from tests.support.arango_integration import ARANGO_HOST
+
+    return ARANGO_HOST
+
+
+def ts_arango_port() -> int:
+    from tests.support.arango_integration import ARANGO_PORT
+
+    return int(ARANGO_PORT)
+
+
+def test_the_production_directory_classifies_against_the_real_collections(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _point_settings_at(monkeypatch, ARANGO_DATABASE)
+
+    directory = cmd._ArangoSensorDirectory()  # noqa: SLF001 — the command's own wiring is what is measured
+
+    assert directory.exists(world.live) and not directory.exists(DEAD)
+    assert directory.owner_is_derivable(world.live) and not directory.owner_is_derivable(world.live_parentless)
+    assert directory.sensor_count() >= 2
+    result = LegacyReadingCleanup(world.store, directory).run(confirm_delete_orphans=None)
+    assert result.before is not None and result.before.orphan.series == 1 and result.before.live.series == 2
+
+
+def test_the_production_directory_refuses_a_database_that_was_never_initialised(
+    arango, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A mistyped ARANGODB_DATABASE must not make every series look orphaned (nor create a database)."""
+    system = ArangoClient(hosts=ARANGO_URL).db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
+    missing = run_database_name("legacy_ha_missing")
+    _point_settings_at(monkeypatch, missing)
+
+    with pytest.raises(Exception):  # noqa: B017, PT011 — the server answers "database not found" for the absent one
+        cmd._ArangoSensorDirectory()  # noqa: SLF001
+
+    assert not system.has_database(missing)
+
+    empty = run_database_name("legacy_ha_empty")
+    system.create_database(empty)
+    try:
+        _point_settings_at(monkeypatch, empty)
+        with pytest.raises(cmd.SensorDirectoryError, match="never initialised"):
+            cmd._ArangoSensorDirectory()  # noqa: SLF001
+    finally:
+        system.delete_database(empty)
 
 
 def test_an_unreachable_store_is_reported_and_nothing_is_touched(world: World) -> None:

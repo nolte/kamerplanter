@@ -50,20 +50,57 @@ EXIT_CODES: dict[CleanupStatus, int] = {
 }
 
 
+class SensorDirectoryError(RuntimeError):
+    """The sensor directory cannot be trusted; the message names settings, never data, and is shown to the operator."""
+
+
 class _ArangoSensorDirectory:
-    """Existence and owner derivability of a sensor, read from ArangoDB."""
+    """Existence and owner derivability of a sensor, read from ArangoDB.
+
+    Opens the configured database **read-only in effect** and refuses one that was
+    never initialised: ``ArangoConnection.connect()`` creates a missing database,
+    and an empty one would make every series look orphaned — the count the
+    operator confirms would come from the same wrong place.
+    """
 
     def __init__(self) -> None:
-        from app.common.dependencies import get_observation_service, get_sensor_repo
+        from arango.client import ArangoClient
 
-        self._sensor_repo = get_sensor_repo()
-        self._observation_service = get_observation_service()
+        from app.config.settings import settings
+        from app.data_access.arango import collections as col
+        from app.data_access.arango.sensor_repository import ArangoSensorRepository
+        from app.data_access.arango.site_repository import ArangoSiteRepository
+        from app.data_access.arango.tank_repository import ArangoTankRepository
+        from app.domain.services.observation_service import ObservationService
+
+        client = ArangoClient(hosts=f"http://{settings.arangodb_host}:{settings.arangodb_port}")
+        db = client.db(
+            settings.arangodb_database, username=settings.arangodb_username, password=settings.arangodb_password
+        )
+        if not db.has_collection(col.SENSORS) or not db.has_collection(col.SITES):
+            msg = (
+                f"the sensor and site collections do not exist in database {settings.arangodb_database!r}: "
+                "it was never initialised. Check ARANGODB_DATABASE; nothing was measured."
+            )
+            raise SensorDirectoryError(msg)
+        self._sensors = db.collection(col.SENSORS)
+        self._sensor_repo = ArangoSensorRepository(db)
+        self._observation_service = ObservationService(
+            None,  # type: ignore[arg-type]  # only ``owning_tenant_key`` is used, which never touches the readings store
+            self._sensor_repo,
+            tank_repo=ArangoTankRepository(db),
+            site_anchors=ArangoSiteRepository(db),
+        )
 
     def exists(self, sensor_key: str) -> bool:
         return self._sensor_repo.get(sensor_key) is not None
 
     def owner_is_derivable(self, sensor_key: str) -> bool:
         return self._observation_service.owning_tenant_key(sensor_key) is not None
+
+    def sensor_count(self) -> int:
+        count = self._sensors.count()
+        return count if isinstance(count, int) else 0
 
 
 def _build() -> tuple[ILegacyReadingStore | None, SensorDirectory]:
@@ -85,6 +122,9 @@ class _NoSensors:
     def owner_is_derivable(self, sensor_key: str) -> bool:
         return False
 
+    def sensor_count(self) -> int:
+        return 0
+
 
 def _print_report(label: str, report: LegacyReadingReport) -> None:
     print(f"{label}")
@@ -96,6 +136,9 @@ def _print_report(label: str, report: LegacyReadingReport) -> None:
         c = group.counts
         print(f"  {name:<32} series={group.series:<6} raw={c.raw:<9} hourly={c.hourly:<9} daily={c.daily:<9}")
     print(f"  live series whose owner is derivable from the sensor's parent: {report.live_series_with_derivable_owner}")
+    print(f"  sensor documents found in ArangoDB: {report.sensors_known}")
+    if report.orphan_rows and report.sensors_known == 0:
+        print("  WARNING: no sensor document exists at all, so every series looks orphaned. Check ARANGODB_DATABASE.")
     print(f"  orphan rows in total (the number to confirm): {report.orphan_rows}")
 
 
@@ -158,6 +201,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         store, sensors = _build()
         result = LegacyReadingCleanup(store, sensors).run(confirm_delete_orphans=args.confirm_delete_orphans)
+    except SensorDirectoryError as exc:
+        print(f"Failed: {exc}")
+        return EXIT_ERROR
     except Exception as exc:  # noqa: BLE001 — an operator tool reports and exits non-zero
         from app.common.log_privacy import loggable_error
 

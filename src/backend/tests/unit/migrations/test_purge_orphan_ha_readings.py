@@ -77,3 +77,26 @@ def test_an_outage_exits_nonzero(monkeypatch: pytest.MonkeyPatch, capsys: pytest
 def test_every_status_has_an_exit_code() -> None:
     assert {s for s in CleanupStatus} == set(cmd.EXIT_CODES)
     assert isinstance(CleanupResult, type)
+
+
+def test_a_directory_without_sensors_warns_that_every_series_looks_orphaned(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    store = FakeStore({"gone": LegacySeriesCounts(raw=3)})
+    _wire(monkeypatch, store, FakeSensors(live=set()))
+
+    assert cmd.main([]) == 0
+
+    assert "Check ARANGODB_DATABASE" in capsys.readouterr().out
+
+
+def test_an_untrustworthy_sensor_directory_is_reported_and_nothing_is_deleted(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def refuse() -> tuple[None, None]:
+        raise cmd.SensorDirectoryError("the sensor and site collections do not exist")
+
+    monkeypatch.setattr(cmd, "_build", refuse)
+
+    assert cmd.main(["--confirm-delete-orphans", "3"]) == cmd.EXIT_ERROR
+    assert "do not exist" in capsys.readouterr().out

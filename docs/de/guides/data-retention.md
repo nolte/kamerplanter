@@ -1035,6 +1035,9 @@ kubectl exec -n kamerplanter deploy/<release>-backend -- \
 - Zeilen mit einem nicht-leeren Mandantenschlüssel (auch für denselben Sensor) berührt der Befehl
   nie; sie gehören zur Mandanten- oder Sensorlöschung.
 - Das Protokoll enthält nur Zahlen, keine Sensor- oder Mandantenschlüssel.
+- Die Ausgabe nennt auch, wie viele Sensor-Dokumente der Befehl in ArangoDB gefunden hat. Steht dort
+  0, während verwaiste Zeilen gemeldet werden, ist meist die falsche Datenbank eingestellt
+  (`ARANGODB_DATABASE`) — dann nicht bestätigen. Eine nie initialisierte Datenbank lehnt der Befehl ab.
 
 Ohne TimescaleDB (leichter Betrieb) meldet der Befehl „nicht anwendbar" und beendet sich mit 0; ist
 TimescaleDB konfiguriert, aber nicht erreichbar, endet er mit Exit-Code 1 und ändert nichts.
