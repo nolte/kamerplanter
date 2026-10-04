@@ -987,6 +987,69 @@ idempotent. Vorab zählen: `python -m app.migrations upgrade --dry-run`.
 
 ---
 
+## Altbestand: Home-Assistant-Messwerte vor der Korrektur bereinigen
+
+Bis zur Korrektur der Home-Assistant-Abfrage legte Kamerplanter jede abgefragte Messung mit
+**leerem Mandantenschlüssel** ab. Das Löschen eines Sensors oder Mandanten findet solche Zeilen
+nicht. Für sie gibt es keine Aufbewahrungsfrist außer den 90 Tagen, 2 Jahren und 5 Jahren der
+Stufen — sie bleiben bis dahin auch liegen, wenn ihr Sensor längst gelöscht ist. Neue Zeilen
+dieser Art entstehen nicht mehr; der Altbestand wird **nicht automatisch** angefasst, weil ein
+Löschen nicht rückgängig zu machen ist. Du führst die Bereinigung selbst aus, in zwei Schritten.
+<!-- NFR-011 #2077 -->
+
+Der Befehl ordnet jede Zeitreihe mit leerem Mandantenschlüssel ein — in den Rohdaten und in den
+Stunden- und Tagesmitteln:
+
+| Klasse | Bedeutung | Was der Befehl tut |
+|--------|-----------|--------------------|
+| **verwaist** | Das Sensor-Dokument gibt es nicht mehr. | Löscht, **nur** nach Bestätigung. |
+| **lebend** | Der Sensor existiert noch. | Zählt, fasst **nichts** an. |
+| **nicht zuordenbar** | Der Sensorschlüssel ist leer oder kann keiner sein. | Zählt, fasst **nichts** an. |
+
+**1. Trockenlauf (Standard, schreibt nichts):**
+
+```bash
+kubectl exec -n kamerplanter deploy/<release>-backend -- \
+  python -m app.migrations.purge_orphan_ha_readings
+```
+
+Die Ausgabe nennt je Klasse die Zeitreihen und die Zeilen je Tabelle (`raw`, `hourly`, `daily`),
+dazu, für wie viele lebende Zeitreihen sich der Mandant über den übergeordneten Standort, Tank
+oder Ort ableiten ließe (nur eine Zahl — diese Zeilen werden nicht umgeschrieben), und zuletzt die
+**Gesamtzahl der verwaisten Zeilen**. Sie steht auch im vorbereiteten Bestätigungsbefehl.
+
+**2. Löschen, mit genau dieser Zahl bestätigt:**
+
+```bash
+kubectl exec -n kamerplanter deploy/<release>-backend -- \
+  python -m app.migrations.purge_orphan_ha_readings --confirm-delete-orphans <Zahl>
+```
+
+- Weicht die Zahl von dem ab, was der Befehl **jetzt** misst (es kamen Zeilen hinzu, ein früherer
+  Lauf hat teilweise gelöscht), lehnt er ab (Exit-Code 4) und löscht nichts. Dann den Trockenlauf
+  wiederholen und die neue Zahl bestätigen.
+- Der Befehl prüft vor jeder Zeitreihe erneut, dass ihr Sensor wirklich fehlt, löscht in
+  Zeitfenstern von sieben Tagen mit je einem Commit und misst danach erneut.
+- Ein Abbruch mitten im Lauf ist unkritisch: Bereits gelöschte Fenster bleiben gelöscht, der
+  Trockenlauf zeigt den Rest.
+- Zeilen mit einem nicht-leeren Mandantenschlüssel (auch für denselben Sensor) berührt der Befehl
+  nie; sie gehören zur Mandanten- oder Sensorlöschung.
+- Das Protokoll enthält nur Zahlen, keine Sensor- oder Mandantenschlüssel.
+
+Ohne TimescaleDB (leichter Betrieb) meldet der Befehl „nicht anwendbar" und beendet sich mit 0; ist
+TimescaleDB konfiguriert, aber nicht erreichbar, endet er mit Exit-Code 1 und ändert nichts.
+
+!!! danger "Nicht reversibel"
+    Gelöschte Messwerte sind danach nicht wiederherstellbar. Vor dem Lauf ein Backup der
+    TimescaleDB-Datenbank anlegen (`pg_dump`).
+
+!!! note "Wenn nach dem Lauf Zeilen übrig bleiben"
+    Ein Aggregat-Lauf, der gerade auf einem älteren Stand lief, kann Stundenmittel der letzten drei
+    Stunden bzw. Tagesmittel der letzten drei Tage noch einmal anlegen. Der Befehl meldet das in der
+    Messung nach dem Löschen; den Trockenlauf einmal wiederholen und mit der neuen Zahl bestätigen.
+
+---
+
 ## Häufige Fragen
 
 ??? question "Kann ich die 90-Tage-Frist für Soft-Delete verlängern?"

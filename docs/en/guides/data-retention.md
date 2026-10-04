@@ -936,6 +936,67 @@ first with `python -m app.migrations upgrade --dry-run`.
 
 ---
 
+## Legacy data: cleaning up Home Assistant readings from before the fix
+
+Until the Home Assistant poll was fixed, Kamerplanter stored every polled reading with an
+**empty tenant key**. Deleting a sensor or a tenant does not find such rows, so they stay until
+the 90-day, 2-year and 5-year tiers expire them — even when their sensor is long gone. New rows of
+this kind are no longer created. The legacy rows are **not touched automatically**, because a
+delete cannot be undone: you run the cleanup yourself, in two steps. <!-- NFR-011 #2077 -->
+
+The command sorts every series with an empty tenant key into a class — in the raw data and in the
+hourly and daily averages:
+
+| Class | Meaning | What the command does |
+|-------|---------|-----------------------|
+| **orphan** | The sensor document no longer exists. | Deletes, **only** after confirmation. |
+| **live** | The sensor still exists. | Counts, touches **nothing**. |
+| **unattributable** | The sensor key is empty or cannot be a key. | Counts, touches **nothing**. |
+
+**1. Dry run (the default, writes nothing):**
+
+```bash
+kubectl exec -n kamerplanter deploy/<release>-backend -- \
+  python -m app.migrations.purge_orphan_ha_readings
+```
+
+The output lists, per class, the series and the rows per table (`raw`, `hourly`, `daily`); for how
+many live series the tenant could be derived from the parent site, tank or location (a number
+only — those rows are not rewritten); and last the **total number of orphan rows**. The same
+number is in the prepared confirmation command.
+
+**2. Delete, confirmed with exactly that number:**
+
+```bash
+kubectl exec -n kamerplanter deploy/<release>-backend -- \
+  python -m app.migrations.purge_orphan_ha_readings --confirm-delete-orphans <number>
+```
+
+- If the number differs from what the command measures **now** (rows arrived, an earlier run
+  deleted part of them), it refuses (exit code 4) and deletes nothing. Repeat the dry run and
+  confirm the new number.
+- Before each series the command checks again that its sensor is really missing, deletes in
+  seven-day windows with one commit each, and measures again afterwards.
+- Stopping in the middle is harmless: windows already deleted stay deleted, the dry run shows
+  the rest.
+- It never touches rows with a non-empty tenant key (not even for the same sensor); those belong
+  to the tenant or sensor deletion.
+- The log carries counts only, no sensor or tenant keys.
+
+Without TimescaleDB (light mode) the command reports "not applicable" and exits 0; when
+TimescaleDB is configured but unreachable it exits 1 and changes nothing.
+
+!!! danger "Not reversible"
+    Deleted readings cannot be restored. Back up the TimescaleDB database (`pg_dump`) before the
+    run.
+
+!!! note "If rows remain after the run"
+    An aggregate refresh that was running on an older snapshot can create the hourly buckets of the
+    last three hours, or the daily buckets of the last three days, once more. The command reports
+    this in the measurement after the delete; repeat the dry run once and confirm the new number.
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "Can I extend the 90-day soft-delete period?"
