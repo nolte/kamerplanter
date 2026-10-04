@@ -90,10 +90,26 @@ Der Bereich **Admin > Statistiken** bietet eine Übersicht über:
 
 Hier konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitHub, firmeneigene OIDC-Instanzen). Diese Einstellungen gelten plattformweit für alle Mandanten.
 
-!!! info "Nur über API: OIDC-Provider"
-    Es gibt dafür keine Seite in der Oberfläche. Als Plattform-Admin legst du Provider über die REST-Schnittstelle unter `/api/v1/admin/oidc-providers` an, änderst, testest und löschst sie. Anlegen, Umstellen auf einen anderen Aussteller und Löschen verlangen eine erneute Bestätigung deiner Admin-Anmeldung. <!-- #1906 -->
+Du verwaltest sie auf einer eigenen Seite: Öffne **Einstellungen > Plattform-Modus** und klicke in der Karte „Anmelde-Provider (OIDC)“ auf **OIDC-Provider verwalten** (Adresse `/admin/oidc-providers`). Die Karte erscheint nur für Plattform-Admins. Auf der Seite kannst du:
 
-    Eine Admin-Seite für Provider gibt es noch nicht; dieser Abschnitt beschreibt deshalb den API-Weg.
+- jeden Provider mit Typ, Aussteller-URL, Client-ID, Scopes, Status (aktiv oder abgeschaltet) und dem Zeitpunkt des letzten Discovery-Abrufs sehen
+- einen Provider **hinzufügen** (**Provider hinzufügen**)
+- einen Provider **bearbeiten** (Stift-Symbol)
+- einen Provider **testen** (**Testen**): Der Test ruft das Discovery-Dokument ab und meldet vier Befunde — Scopes, Provider-Typ, Signaturschlüssel und Aussteller — je als „In Ordnung“, „Fehlgeschlagen“ oder „Nicht anwendbar“, mit der Begründung des Servers. Der Test braucht keine Bestätigung.
+- einen Provider **löschen** (Papierkorb-Symbol)
+
+Ein neuer Provider startet **abgeschaltet**. Er erscheint erst auf der Anmeldeseite, wenn du ihn aktivierst.
+
+!!! warning "Alles, was beeinflusst, wer sich anmelden darf, verlangt deine erneute Bestätigung"
+    Ein Provider entscheidet, wem eine Anmeldung zugeordnet wird: Wer einen Provider auf einen eigenen Server umstellen kann, kann sich als jedes Konto anmelden, dessen Adresse dieser Server behauptet. Deshalb verlangen Hinzufügen, Löschen und jede Änderung außer Anzeigename und Icon eine Bestätigung mit deinem eigenen Zugang: dein aktuelles Passwort — oder, ohne lokales Passwort, eine frische Anmeldung bei deinem Provider bzw. den Bestätigungscode, der per E-Mail kommt. Beim Löschen tippst du zusätzlich den Kurznamen des Providers ein. Auch das Ein- **und** Abschalten eines Providers verlangt die Bestätigung: Ein abgeschalteter Provider kann niemanden mehr frisch anmelden, und die Konten, die nur über ihn verknüpft sind, würden dann auf den schwächeren E-Mail-Code ausweichen. Das Formular sagt dir vor dem Absenden, ob deine Änderung die Bestätigung braucht. Eine Sitzung mit einem persönlichen API-Key kann Provider gar nicht ändern.
+
+    Bekannter Randfall: Meldest du dich **nur** über genau den Provider an, den du reparieren willst, und funktioniert der gerade nicht, kannst du dich dort nicht erneut anmelden. Setze dir vorher ein lokales Passwort. <!-- #1883, #1906 -->
+
+!!! info "Das Client-Secret ist nur beschreibbar"
+    Das Client-Secret wird verschlüsselt gespeichert und nie wieder angezeigt — weder in der Liste noch im Bearbeiten-Formular. Beim Bearbeiten lässt du **Neues Client-Secret** leer, um das gespeicherte zu behalten; ein neues Secret verlangt deine Bestätigung. <!-- #1906 -->
+
+!!! info "Feste Endpunkte und Standard-Mandant setzt du beim Hinzufügen"
+    Unter **Erweitert** im Formular zum Hinzufügen gibst du feste Adressen für Autorisierung, Token, Userinfo und Schlüsselverzeichnis an, dazu den Standard-Mandanten, dem neue föderierte Konten beitreten. Die Oberfläche zeigt sie danach nicht an, weil die Schnittstelle zum Server sie nicht zurückgibt; zum späteren Ändern nutzt du die REST-Schnittstelle unter `/api/v1/admin/oidc-providers` (`PUT`). Auch den Kurznamen (Slug) kannst du nach dem Hinzufügen nicht mehr ändern: Er steckt in der Rückruf-URL. <!-- #1906 -->
 
 !!! info "Rückruf-URL beim Provider hinterlegen"
     Trage beim Provider als Rückruf-URL (Redirect URI) genau `{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback` ein — mit der öffentlichen Adresse aus `APP_BASE_URL` und dem Kurznamen (Slug) des Providers, z.B. `https://garten.example/api/v1/auth/oauth/google/callback`. Anmeldung und erneute Anmeldung zur Bestätigung nutzen dieselbe URL. Steht `APP_BASE_URL` noch auf der Voreinstellung `http://localhost:5173`, lehnt der Provider die Anmeldung ab. <!-- #1865 -->
@@ -108,7 +124,7 @@ Hier konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitH
     Die Anmeldung über einen Provider mit ID-Token prüft Signatur (Schlüssel aus `jwks_url` bzw. dem Discovery-Dokument), Aussteller, Zielgruppe (`aud`), `nonce` und Gültigkeit, und das `sub` darf nicht leer sein und muss zum Userinfo-Ergebnis passen. Scheitert die Anmeldung eines bisher funktionierenden Providers danach mit `provider_error`, suche im Log nach dem Ereignis `oauth_login_refused` — das Feld `reason` sagt, welche Prüfung scheiterte (`signature` oder `jwks_unavailable`: Schlüssel nicht erreichbar bzw. falsch; `iss`: `issuer_url` stimmt nicht mit dem `iss` des Providers überein; `sub_mismatch`: Userinfo und ID-Token nennen verschiedene Personen). Das Schlüsselverzeichnis muss über `https` erreichbar sein. <!-- #1936 -->
 
 !!! info "Nur `https`-Adressen; Schlüsselabruf mit Zwischenspeicher und Grenzen"
-    `issuer_url`, `authorization_url`, `token_url`, `userinfo_url` und `jwks_url` (optional: pinnt den Schlüsselendpunkt des Providers) nimmt die API nur als `https`-Adresse an — sonst antwortet sie mit `422`. Nur mit `DEBUG=true` ist `http` zu `localhost`, `127.0.0.1` oder `::1` erlaubt (lokale Entwicklung gegen einen Provider auf demselben Rechner). Eine Konfiguration, die du vor dieser Regel mit `http` gespeichert hast, bleibt gespeichert, wird aber bei der Anmeldung nicht mehr angesprochen: Die Anmeldung endet mit `provider_error`, bis du die Adresse auf `https` änderst — der Test (`POST /api/v1/admin/oidc-providers/{key}/test`) nennt den Grund. Schickt eine Änderung das alte `http`-Feld unverändert mit, antwortet sie ebenfalls mit `422`.
+    `issuer_url`, `authorization_url`, `token_url`, `userinfo_url` und `jwks_url` (optional: pinnt den Schlüsselendpunkt des Providers) nehmen das Formular und die API nur als `https`-Adresse an — sonst antwortet sie mit `422`. Nur mit `DEBUG=true` ist `http` zu `localhost`, `127.0.0.1` oder `::1` erlaubt (lokale Entwicklung gegen einen Provider auf demselben Rechner). Eine Konfiguration, die du vor dieser Regel mit `http` gespeichert hast, bleibt gespeichert, wird aber bei der Anmeldung nicht mehr angesprochen: Die Anmeldung endet mit `provider_error`, bis du die Adresse auf `https` änderst — der Test (`POST /api/v1/admin/oidc-providers/{key}/test`) nennt den Grund. Schickt eine Änderung das alte `http`-Feld unverändert mit, antwortet sie ebenfalls mit `422`.
 
     Die Schlüssel des Providers ruft der Server nicht bei jeder Anmeldung ab: Er behält sie je Provider zehn Minuten im Arbeitsspeicher des jeweiligen Workers und holt sie neu, wenn ein ID-Token einen unbekannten Schlüssel (`kid`) nennt — höchstens einmal alle zehn Sekunden je Provider. Ein Abruffehler gilt nur 30 Sekunden; danach versucht der Server es wieder. Antworten über 256 KiB werden verworfen, ein einzelner unbrauchbarer Schlüssel im Verzeichnis wird übersprungen. Nennt das Discovery-Dokument des Providers ein `jwks_uri` auf eine interne Adresse (Metadaten-Dienst, privates Netz), ruft der Server es nicht ab; ein Provider im eigenen Netz darf sein Schlüsselverzeichnis nur auf seinem eigenen Host veröffentlichen — andernfalls trage es selbst als `jwks_url` ein. Zusätzlich verweigert die Anmeldung ein ID-Token, das noch nicht gültig ist (`nbf`, 30 Sekunden Toleranz, Grund `nbf`) oder vor mehr als zehn Minuten ausgestellt wurde (`iat`). <!-- #1987 -->
 
@@ -121,11 +137,6 @@ Hier konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitH
     Eine Anmeldung, die läuft, während du einen Provider löschst und unter demselben Slug neu anlegst, schreibt keine Verknüpfung und kein Konto mehr in den neuen Provider: Die Anmeldung endet mit `provider_error` (`reason=configuration_changed`). Verknüpfungen tragen jetzt zusätzlich den Schlüssel ihrer Konfiguration; ältere ohne Schlüssel gelten wie bisher über den Slug. Das Anlegen erzeugt die Konfiguration zuerst deaktiviert, entfernt die Waisen des Slugs und schaltet sie dann ein; legen zwei Admins gleichzeitig denselben Slug an, scheitert der zweite mit `409`, ohne Verknüpfungen des ersten zu löschen. <!-- #1987 -->
 
 
-!!! warning "Provider anlegen, umstellen und löschen verlangt deine erneute Bestätigung"
-    Ein Provider entscheidet, wem eine Anmeldung zugeordnet wird: Wer einen Provider auf einen eigenen Server umstellen kann, kann sich als jedes Konto anmelden, dessen Adresse dieser Server behauptet. Deshalb verlangen `POST /api/v1/admin/oidc-providers` sowie `PUT` und `DELETE` auf `/api/v1/admin/oidc-providers/{key}` dein aktuelles Passwort (`current_password`) — oder, ohne lokales Passwort, eine frische Anmeldung bzw. den Bestätigungscode für die Aktion `oidc_provider_change` mit dem Schlüssel der Konfiguration als Ziel (beim Anlegen `new:<slug>`). Ein API-Key kann Provider nicht mehr ändern. Ohne Bestätigung bleiben nur Anzeigename und Icon — auch das Ein- **und** Abschalten eines Providers verlangt sie: Ein abgeschalteter Provider kann niemanden mehr frisch anmelden, und die Konten, die nur über ihn verknüpft sind, würden dann auf den schwächeren E-Mail-Code ausweichen.
-
-    Bekannter Randfall: Meldest du dich **nur** über genau den Provider an, den du reparieren willst, und funktioniert der gerade nicht, kannst du dich dort nicht erneut anmelden. Setze dir vorher ein lokales Passwort. <!-- #1883 -->
-
 !!! warning "Der Provider-Typ ist auf vier Werte festgelegt"
     Gültig sind ausschließlich `google`, `github`, `apple` und `oidc` — kleingeschrieben. Alles andere, auch `GitHub` oder `GITHUB`, wird beim Anlegen und beim Ändern mit `422` abgelehnt.
 
@@ -133,7 +144,7 @@ Hier konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitH
 
     `oidc` ist der richtige Wert für jeden Provider ohne eigene Sonderbehandlung (Keycloak, Authentik, Azure AD, Okta); die Endpunkte kommen dann aus dem Discovery-Dokument.
 
-    Für Provider, die vor dieser Prüfung gespeichert wurden, meldet `POST /api/v1/admin/oidc-providers/{key}/test` den Befund im Feld `provider_type_check` (`ok`, `provider_type`, `known_provider_types`, `detail`). Bestehende Einträge werden **nicht** automatisch umgeschrieben — korrigiere sie per `PUT`.
+    Für Provider, die vor dieser Prüfung gespeichert wurden, meldet `POST /api/v1/admin/oidc-providers/{key}/test` den Befund im Feld `provider_type_check` (`ok`, `provider_type`, `known_provider_types`, `detail`). Bestehende Einträge werden **nicht** automatisch umgeschrieben — korrigiere sie im Bearbeiten-Formular (oder per `PUT`).
 
 !!! warning "GitHub braucht den Scope `user:email`"
     Ein Provider vom Typ `github`, dessen Scope-Liste weder `user:email` noch den übergeordneten Scope `user` enthält, wird beim Anlegen und beim Ändern mit `422` abgelehnt.

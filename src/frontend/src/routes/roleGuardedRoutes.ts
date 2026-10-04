@@ -256,12 +256,12 @@ export interface PlatformAdminRoute {
  *
  * The survey is over the **axis**, not over the URL prefix: every frontend module
  * that calls an `/admin/...` path was traced to the pages that import it, and each
- * backend `/admin/**` operation read for its dependency. Five routes reach the
- * platform-admin gate, and only two of them are whole admin pages:
+ * backend `/admin/**` operation read for its dependency. Six routes reach the
+ * platform-admin gate, and only three of them are whole admin pages:
  *
- * - `admin/tenants/:key`, `admin/users/:key` — **listed below.** Every request
- *   these pages make is `require_platform_admin`, including the two `GET`s they
- *   load with. A refused member has nothing to read here at all.
+ * - `admin/tenants/:key`, `admin/users/:key`, `admin/oidc-providers` (#1906) —
+ *   **listed below.** Every request these pages make is `require_platform_admin`,
+ *   including the `GET`s they load with. A refused member has nothing to read here at all.
  * - `settings` — the account page **every member owns**. Its *platform* tab is
  *   the admin surface, and since #1385 so is the instance-wide half of the *ha*
  *   tab: every `/admin/settings` operation now resolves through
@@ -321,5 +321,11 @@ export const PLATFORM_ADMIN_ROUTES: Readonly<Record<string, PlatformAdminRoute>>
   // `GET /admin/platform/users`, with membership management beside it.
   'admin/users/:key': {
     gate: 'GET /api/v1/admin/platform/users — require_platform_admin',
+  },
+  // REQ-023 §3.9 / #1906 — the installation's sign-in provider configurations: list,
+  // create, edit, delete and discovery test are all `require_platform_admin` on
+  // `/admin/oidc-providers` (the reads included), writes behind the admin's step-up.
+  'admin/oidc-providers': {
+    gate: 'GET /api/v1/admin/oidc-providers — require_platform_admin',
   },
 };

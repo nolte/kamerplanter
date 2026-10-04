@@ -135,6 +135,7 @@ const OnboardingWizard = lazy(() => import('@/pages/onboarding/OnboardingWizard'
 // Admin
 const AdminEditTenantPage = lazy(() => import('@/pages/admin/AdminEditTenantPage'));
 const AdminEditUserPage = lazy(() => import('@/pages/admin/AdminEditUserPage'));
+const AdminOidcProvidersPage = lazy(() => import('@/pages/admin/AdminOidcProvidersPage'));
 
 // UI-NFR-019 Kiosk mode
 const KioskStartPage = lazy(() => import('@/pages/kiosk/KioskStartPage'));
@@ -315,7 +316,7 @@ export const router = createBrowserRouter(
             />
           )}
 
-          {/* Admin: Edit tenant/user — full mode only.
+          {/* Admin: Edit tenant/user, OIDC providers — full mode only.
               REQ-049 §2.4 / #1336: the platform-admin axis, guarded by its own
               wrapper. Every request these pages make is `require_platform_admin`,
               the reads included, so refusal replaces the page instead of
@@ -339,6 +340,16 @@ export const router = createBrowserRouter(
                   <RequirePlatformAdmin>
                     <Suspense fallback={<LoadingSkeleton variant="form" />}>
                       <AdminEditUserPage />
+                    </Suspense>
+                  </RequirePlatformAdmin>
+                }
+              />
+              <Route
+                path="admin/oidc-providers"
+                element={
+                  <RequirePlatformAdmin>
+                    <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                      <AdminOidcProvidersPage />
                     </Suspense>
                   </RequirePlatformAdmin>
                 }

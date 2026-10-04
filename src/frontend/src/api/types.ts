@@ -6698,3 +6698,111 @@ export interface GraftCompatibilityResponse {
   same_family: boolean;
   message: string;
 }
+
+// ── Admin: OIDC / OAuth provider configurations (#1906, REQ-023 §3.9) ───────
+
+/** The closed provider-type vocabulary of `OidcProviderType` in the backend; lower-case. */
+export type OidcProviderType = 'google' | 'github' | 'apple' | 'oidc';
+
+/**
+ * `OidcProviderResponse` of `GET /admin/oidc-providers`. The client secret is
+ * write-only: the API never returns it (or its ciphertext), and neither do
+ * the endpoint URL overrides nor the default tenant — those can be set on
+ * create (and on update through the API) but not read back.
+ */
+export interface OidcProvider {
+  key: string;
+  slug: string;
+  display_name: string;
+  /** Stays `string` on the way out: a record stored before the write gate may carry any spelling (#1497). */
+  provider_type: string;
+  issuer_url: string;
+  client_id: string;
+  scopes: string[];
+  enabled: boolean;
+  icon_url: string | null;
+  auto_discover: boolean;
+  discovery_refreshed_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+/** `POST /admin/oidc-providers`; carries the admin's step-up for `oidc_provider_change` / `new:<slug>`. */
+export interface OidcProviderCreate extends CredentialStepUp {
+  slug: string;
+  display_name: string;
+  provider_type: OidcProviderType;
+  issuer_url: string;
+  client_id: string;
+  client_secret: string;
+  scopes: string[];
+  authorization_url?: string;
+  token_url?: string;
+  userinfo_url?: string;
+  jwks_url?: string;
+  auto_discover?: boolean;
+  enabled?: boolean;
+  icon_url?: string;
+  default_tenant_key?: string;
+}
+
+/** `PUT /admin/oidc-providers/{key}` — partial; only sent fields change. Step-up unless it is presentation only. */
+export interface OidcProviderUpdate extends CredentialStepUp {
+  display_name?: string;
+  provider_type?: OidcProviderType;
+  issuer_url?: string;
+  client_id?: string;
+  client_secret?: string;
+  scopes?: string[];
+  authorization_url?: string;
+  token_url?: string;
+  userinfo_url?: string;
+  jwks_url?: string;
+  auto_discover?: boolean;
+  enabled?: boolean;
+  icon_url?: string;
+  default_tenant_key?: string;
+}
+
+export interface OidcScopeCheck {
+  ok: boolean;
+  provider_type: string;
+  configured_scopes: string[];
+  missing_scopes: string[];
+  detail: string;
+}
+
+export interface OidcProviderTypeCheck {
+  ok: boolean;
+  provider_type: string;
+  known_provider_types: string[];
+  detail: string;
+}
+
+export interface OidcJwksCheck {
+  ok: boolean;
+  applicable: boolean;
+  jwks_url: string | null;
+  key_count: number;
+  skipped_key_count: number;
+  key_ids: string[];
+  detail: string;
+}
+
+export interface OidcIssuerCheck {
+  ok: boolean;
+  applicable: boolean;
+  configured_issuer: string;
+  accepted_issuers: string[];
+  discovery_issuer: string | null;
+  detail: string;
+}
+
+/** `POST /admin/oidc-providers/{key}/test` — four verdicts plus the discovery message. */
+export interface OidcProviderTestResult {
+  message: string;
+  scope_check: OidcScopeCheck;
+  provider_type_check: OidcProviderTypeCheck;
+  jwks_check: OidcJwksCheck;
+  issuer_check: OidcIssuerCheck;
+}
