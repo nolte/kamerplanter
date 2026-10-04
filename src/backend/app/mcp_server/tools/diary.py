@@ -209,7 +209,9 @@ def _species_name(ctx: ToolContext, species_key: str | None, cache: dict[str, st
         return None
     if species_key not in cache:
         try:
-            cache[species_key] = getattr(ctx.species_service.get_species(species_key), "scientific_name", None)
+            cache[species_key] = getattr(
+                ctx.species_service.get_species(species_key, tenant_key=ctx.tenant_key), "scientific_name", None
+            )
         except KamerplanterError:
             cache[species_key] = None
     return cache[species_key]

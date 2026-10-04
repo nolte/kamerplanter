@@ -47,6 +47,7 @@ from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
 from app.domain.services.notification_propagation_service import NotificationPropagationService
+from app.domain.services.species_visibility import readable_species
 
 logger = structlog.get_logger()
 
@@ -405,7 +406,10 @@ class CareReminderService:
         #: request). The tenant dashboard resolved a species for its own listing and
         #: the preset resolution then read the same document again per unprofiled
         #: plant — two reads of one row inside one call (#1489 review, SCR-009).
-        self._species_cache: dict[str, Species | None] = {}
+        #: Keyed by ``(tenant_key, species_key)``: whether a species is readable depends
+        #: on the tenant asking, so the key alone would hand one tenant's answer to
+        #: another within a service lifetime (#2082).
+        self._species_cache: dict[tuple[str, str], Species | None] = {}
 
     # ── the care inputs (#1489/#1481) ────────────────────────────────────────
 
@@ -450,7 +454,7 @@ class CareReminderService:
         if self._plant_repo is not None and self._species_repo is not None:
             plant = self._plant_repo.get_by_key(plant_key)
             if plant is not None:
-                species = self._resolve_species(plant.species_key, self._species_cache)
+                species = self._resolve_species(plant.species_key, self._species_cache, plant.tenant_key)
                 if plant.cultivar_key:
                     cultivar = self._species_repo.get_cultivar_by_key(plant.cultivar_key)
         return resolve_care_inputs(species, cultivar, resolve_family_name=self._family_name)
@@ -1505,7 +1509,7 @@ class CareReminderService:
             if not plant_key:
                 continue
 
-            species = self._resolve_species(plant.species_key, species_cache)
+            species = self._resolve_species(plant.species_key, species_cache, tenant_key)
             plant_data.append(
                 {
                     "plant_key": plant_key,
@@ -1521,13 +1525,22 @@ class CareReminderService:
 
         return plant_data
 
-    def _resolve_species(self, species_key: str | None, cache: dict[str, Species | None]) -> Species | None:
-        """Resolve (and cache per call) the full species record."""
+    def _resolve_species(
+        self, species_key: str | None, cache: dict[tuple[str, str], Species | None], tenant_key: str
+    ) -> Species | None:
+        """Resolve (and cache per call) the species ``tenant_key`` may read.
+
+        A stored species key is no proof the plant's tenant may read that species: a
+        legacy planting run can have copied another tenant's private key (#2081). An
+        unreadable species resolves like an unknown one (``None``): no name, no frost
+        gating, a generic preset — never the foreign data.
+        """
         if not species_key or self._species_repo is None:
             return None
-        if species_key not in cache:
-            cache[species_key] = self._species_repo.get_by_key(species_key)
-        return cache[species_key]
+        cache_key = (tenant_key, species_key)
+        if cache_key not in cache:
+            cache[cache_key] = readable_species(self._species_repo, species_key, tenant_key)
+        return cache[cache_key]
 
     def _resolve_cultivar_traits(self, cultivar_key: str | None, cache: dict[str, list[str]]) -> list[str] | None:
         """Resolve a cultivar's traits as strings (drives the deadheading guard, B1)."""
@@ -1569,7 +1582,7 @@ class CareReminderService:
             plant_key, may_create=True
         )
         overwintering_profile = self._resolve_overwintering_profile(plant_key)
-        species = self._resolve_species(plant.species_key, self._species_cache)
+        species = self._resolve_species(plant.species_key, self._species_cache, plant.tenant_key)
         frost_sensitivity = species.frost_sensitivity if species else None
         cultivar_traits = self._resolve_cultivar_traits(plant.cultivar_key, {})
 
