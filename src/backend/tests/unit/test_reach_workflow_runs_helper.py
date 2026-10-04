@@ -75,3 +75,11 @@ def test_an_in_flight_run_takes_no_slot_of_the_sample():
     # execute", so a healthy lane measured 299 until the scan finished.
     rows = [_run(None, status="in_progress"), _run("success"), _run("success"), _run("success")]
     assert runs.observe(_pager(rows), limit=3) == 3
+
+
+def test_caller_supplied_values_cannot_add_parameters_to_the_request():
+    path = runs.runs_path("w.yml", "push&per_page=1", "develop#x y", "completed", 2)
+    assert "per_page=1&" not in path
+    assert "&per_page=100&page=2" in path
+    assert "develop%23x%20y" in path and "push%26per_page%3D1" in path
+    assert path.startswith("repos/{owner}/{repo}/actions/workflows/w.yml/runs?")

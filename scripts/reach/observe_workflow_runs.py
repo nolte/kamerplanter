@@ -30,6 +30,7 @@ import argparse
 import json
 import subprocess
 import sys
+import urllib.parse
 from collections.abc import Callable
 from typing import Any
 
@@ -71,15 +72,27 @@ def observe(fetch_page: Callable[[int], dict[str, Any]], limit: int) -> int:
     return sum(1 for row in sample if row.get("conclusion") not in NOT_EXECUTED)
 
 
+def runs_path(workflow: str, event: str, branch: str, status: str, page: int) -> str:
+    """The ``gh api`` path of one page; every caller-supplied value is percent-encoded.
+
+    ``{owner}/{repo}`` stay literal: ``gh`` fills them from the working directory's repository.
+    """
+    q = urllib.parse.quote
+    return (
+        f"repos/{{owner}}/{{repo}}/actions/workflows/{q(workflow, safe='')}/runs"
+        f"?event={q(event, safe='')}&branch={q(branch, safe='')}&status={q(status, safe='')}"
+        f"&per_page={PER_PAGE}&page={page}&exclude_pull_requests=true"
+    )
+
+
 def _gh_pager(workflow: str, event: str, branch: str, status: str) -> Callable[[int], dict[str, Any]]:
     def fetch(page: int) -> dict[str, Any]:
-        path = (
-            f"repos/{{owner}}/{{repo}}/actions/workflows/{workflow}/runs"
-            f"?event={event}&branch={branch}&status={status}&per_page={PER_PAGE}&page={page}"
-            "&exclude_pull_requests=true"
-        )
         res = subprocess.run(  # noqa: S603, S607 - fixed argv, no shell
-            ["gh", "api", path], capture_output=True, text=True, timeout=GH_TIMEOUT_SECONDS, check=False
+            ["gh", "api", runs_path(workflow, event, branch, status, page)],
+            capture_output=True,
+            text=True,
+            timeout=GH_TIMEOUT_SECONDS,
+            check=False,
         )
         if res.returncode != 0:
             sys.exit(f"gh api exited {res.returncode}: {res.stderr.strip()}")
@@ -95,6 +108,8 @@ def main() -> int:
     parser.add_argument("--branch", default="develop")
     parser.add_argument("--limit", type=int, default=300)
     args = parser.parse_args()
+    if args.limit < 1:
+        parser.error("--limit must be at least 1")
     try:
         count = observe(_gh_pager(args.workflow, args.event, args.branch, "completed"), args.limit)
     except ShortReadError as exc:
