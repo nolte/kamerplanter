@@ -3966,6 +3966,7 @@
         "emailDaily": "Tägliche Zusammenfassung",
         "emailDailyHelper": "Du erhältst einmal täglich eine gesammelte E-Mail mit allen fälligen Aufgaben (Digest).",
         "appriseUrls": "Apprise-URLs (eine pro Zeile)",
+        "appriseUrlsHelper": "Gespeicherte URLs enthalten Zugangsschlüssel und werden deshalb maskiert angezeigt (zum Beispiel tgram://****#1). Lass eine maskierte Zeile stehen, um die URL zu behalten, lösche sie, um die URL zu entfernen, oder trage eine neue URL in einer eigenen Zeile ein.",
         "quietHours": "Ruhezeiten",
         "quietHoursDesc": "Während der Ruhezeiten werden keine Benachrichtigungen zugestellt (außer kritische Alarme wie Frost oder Sensorwarnungen).",
         "quietHoursStart": "Von",

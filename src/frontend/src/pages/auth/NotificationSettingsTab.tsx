@@ -108,6 +108,10 @@ export default function NotificationSettingsTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingChannel, setTestingChannel] = useState<string | null>(null);
+  // The Apprise textarea's raw text while the user edits it. The saved list drops
+  // blank lines; deriving the textarea from that list swallowed the Enter that
+  // starts a new line, so a URL could not be typed below the masked ones (#2113).
+  const [appriseDraft, setAppriseDraft] = useState<string | null>(null);
 
   // Editable state mirrors prefs for form fields
   const [channels, setChannels] = useState<Record<string, ChannelPreference>>({});
@@ -171,6 +175,13 @@ export default function NotificationSettingsTab() {
         daily_summary: dailySummary,
       });
       setPrefs(updated);
+      // The answer masks the Apprise URLs (#2113): show the placeholders, not the
+      // URLs just typed, so the textarea matches what the server keeps.
+      const savedApprise = updated.channels?.apprise;
+      if (savedApprise) {
+        setChannels((prev) => ({ ...prev, apprise: savedApprise }));
+      }
+      setAppriseDraft(null);
       enqueueSnackbar(t('common.saved'), { variant: 'success' });
     } catch (err) {
       enqueueSnackbar(parseApiError(err), { variant: 'error' });
@@ -491,25 +502,37 @@ export default function NotificationSettingsTab() {
                       minRows={3}
                       maxRows={8}
                       value={
-                        Array.isArray(pref.config?.urls)
+                        appriseDraft ??
+                        (Array.isArray(pref.config?.urls)
                           ? (pref.config.urls as string[]).join('\n')
-                          : ''
+                          : '')
                       }
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        setAppriseDraft(e.target.value);
                         updateChannelConfig(
                           channelKey,
                           'urls',
                           e.target.value
                             .split('\n')
                             .filter((u: string) => u.trim().length > 0),
-                        )
-                      }
+                        );
+                      }}
                       placeholder={
                         'tgram://bottoken/chatid\nslack://tokenA/tokenB/channel\ngotify://hostname/token'
                       }
                       data-testid="apprise-urls"
+                      slotProps={{ htmlInput: { 'aria-describedby': 'apprise-urls-helper' } }}
                       sx={{ maxWidth: 500, width: '100%' }}
                     />
+                    {/* #2113: stored URLs carry access tokens; the API answers with
+                        masked placeholders, and a placeholder kept on save keeps its URL. */}
+                    <FormHelperText
+                      id="apprise-urls-helper"
+                      data-testid="apprise-urls-helper"
+                      sx={{ maxWidth: 500 }}
+                    >
+                      {t('pages.notifications.settings.appriseUrlsHelper')}
+                    </FormHelperText>
                   </Box>
                 )}
 
