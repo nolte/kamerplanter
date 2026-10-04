@@ -259,6 +259,23 @@ class PlantingRunService:
             raise NotFoundError("Species", species_key)
         self._species_resolver(species_key, tenant_key=tenant_key)
 
+    def _species_is_readable(self, species_key: str, tenant_key: str) -> bool:
+        """Whether an entry's *stored* species is one the run's tenant may read (#1963).
+
+        The read-side twin of :meth:`_require_readable_species`: that one refuses a
+        species on the way in, this one is asked about rows that are already stored,
+        where a legacy entry (written before #1876) may still name another tenant's
+        private species — v0067 dropped its edge, not its field. A run with no tenant
+        (seeds, migrations) is not judged, matching the write side.
+        """
+        if not tenant_key:
+            return True
+        try:
+            self._require_readable_species(species_key, tenant_key)
+        except NotFoundError:
+            return False
+        return True
+
     def _require_owned_substrate_batch(self, run: PlantingRun) -> None:
         """Refuse a ``substrate_batch_key`` that is not the run's tenant's (#1868).
 
@@ -465,6 +482,11 @@ class PlantingRunService:
         entries = self._repo.get_entries(run_key)
         if not entries:
             raise ValueError("Run has no entries.")
+        # The stored species of every entry is resolved under the run's tenant before the
+        # phase data is read through it or a plant is stamped with it: an entry written
+        # before #1876 can still name another tenant's species (#1963).
+        for entry in entries:
+            self._require_readable_species(entry.species_key, run.tenant_key)
 
         self._engine.validate_run_type_constraints(
             run.run_type,
@@ -911,7 +933,7 @@ class PlantingRunService:
 
     def get_phase_timeline(self, run_key: PlantingRunKey) -> list[dict]:
         """Build per-species phase timeline with completed/current/projected phases."""
-        self.get_run(run_key)
+        run = self.get_run(run_key)
         if self._phase_repo is None and self._phase_seq_repo is None:
             return []
 
@@ -933,6 +955,11 @@ class PlantingRunService:
         for species_key in species_keys:
             sp_plants = species_plants.get(species_key, [])
             if not sp_plants:
+                continue
+            # A stored species key is not proof the run's tenant may read it (#1963): a
+            # legacy entry (and the plants stamped from it) can name another tenant's
+            # private species, whose phases and name must not reach this timeline.
+            if not self._species_is_readable(species_key, run.tenant_key):
                 continue
 
             # Get phases — prefer PhaseSequence, fallback to LifecycleConfig

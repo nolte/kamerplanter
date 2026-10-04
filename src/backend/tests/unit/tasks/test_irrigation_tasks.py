@@ -81,7 +81,9 @@ def _wire_repos(deps, *, runs, forecasts=None):
     deps.get_planting_run_repo.return_value = run_repo
 
     species_repo = MagicMock()
-    species_repo.get_by_key.return_value = SimpleNamespace(default_crop_coefficient_kc=None, plant_category=None)
+    species_repo.get_by_key.return_value = SimpleNamespace(
+        tenant_key="", default_crop_coefficient_kc=None, plant_category=None
+    )
     deps.get_species_repo.return_value = species_repo
 
     lifecycle_repo = MagicMock()
@@ -113,7 +115,7 @@ class TestComputeIrrigationDemand:
 
     def test_writes_demand_for_active_run(self, task_module):
         module, deps = task_module
-        run = SimpleNamespace(key="run1", current_phase_key="phase1", location_key="loc1")
+        run = SimpleNamespace(key="run1", tenant_key="t1", current_phase_key="phase1", location_key="loc1")
         _site_repo, demand_repo = _wire_repos(deps, runs=[run])
 
         result = module.compute_irrigation_demand()
@@ -142,7 +144,7 @@ class TestComputeIrrigationDemand:
 
     def test_site_without_gps_is_skipped(self, task_module):
         module, deps = task_module
-        run = SimpleNamespace(key="run1", current_phase_key=None, location_key=None)
+        run = SimpleNamespace(key="run1", tenant_key="t1", current_phase_key=None, location_key=None)
         site_repo, demand_repo = _wire_repos(deps, runs=[run])
         site_repo.find_site_docs_by_types.return_value = [_site_doc() | {"gps_coordinates": None}]
         result = module.compute_irrigation_demand()

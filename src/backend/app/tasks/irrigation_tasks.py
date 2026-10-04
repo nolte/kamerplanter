@@ -25,6 +25,7 @@ from app.config.settings import settings
 from app.domain.calculators.crop_coefficient import resolve_kc
 from app.domain.calculators.evapotranspiration_calculator import EvapotranspirationCalculator
 from app.domain.models.irrigation_demand import IrrigationDemand
+from app.domain.services.species_visibility import readable_species
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -185,7 +186,9 @@ def _resolve_species_kc(run, run_repo, species_repo):  # noqa: ANN001, ANN201
     entries = run_repo.get_entries(run.key) if run.key else []
     if not entries:
         return None, None
-    species = species_repo.get_by_key(entries[0].species_key)
+    # The entry's key is a stored one, and rows written before #1876 may name another
+    # tenant's private species: only a species the run's tenant may read feeds the demand (#1963).
+    species = readable_species(species_repo, entries[0].species_key, run.tenant_key)
     if species is None:
         return None, None
     return getattr(species, "default_crop_coefficient_kc", None), getattr(species, "plant_category", None)

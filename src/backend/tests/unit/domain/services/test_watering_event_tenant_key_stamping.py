@@ -176,6 +176,7 @@ class TestBatchCreatedPlantsCarryTheirRunsTenant:
             plant_repo=plant_repo,
             engine=engine,
             site_repo=site_repo,
+            species_resolver=lambda key, *, tenant_key: None,  # readable (#1963)
         )
         return service, plant_repo
 
