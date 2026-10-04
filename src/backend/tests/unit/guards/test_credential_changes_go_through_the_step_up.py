@@ -156,9 +156,9 @@ _MEMBERSHIP_CLASSIFIED: dict[tuple[str, str], str] = {
         "a person leaving on their own: the act is the member's own, nobody is locked out by someone else, "
         "and INV-1 refuses the last management holder; the session that leaves is the person's"
     ),
-    ("tenant_service.py", "TenantService._create_membership_unless_erasing"): (
-        "compensation of a creation made one statement earlier in the same function: takes back the membership "
-        "it just inserted when the tenant froze meanwhile (#1825)"
+    ("tenant_service.py", "TenantService._settle_join_against_freeze"): (
+        "compensation of a creation made one statement earlier by the caller (_create_membership_unless_erasing): "
+        "takes back the membership it just inserted when the tenant froze meanwhile (#1825, #1924)"
     ),
     ("tenant_service.py", "TenantService.change_member_scopes"): (
         "no route or other caller reaches it today (pinned by test_the_unrouted_scope_change_has_no_caller); "
