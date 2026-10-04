@@ -115,6 +115,9 @@ on:
       # tests/unit/test_reach_observation_helpers.py, which only this suite runs — the
       # guards lane lists the directory but reads none of its files (#1730).
       - 'scripts/reach/**'
+      # The reach-audit job verdict (reach-audit.yml) is loaded by path from
+      # tests/unit/test_reach_report_verdict.py, which only this suite runs.
+      - 'scripts/ci/reach_report_verdict.py'
       # The embedding sidecar's feed builder (#1724) is loaded by path from
       # tests/unit/test_embedding_service_feed.py, which only this suite runs; the
       # guards lane reads the sidecars' limits.py but not this file (lane-inputs).
@@ -215,6 +218,9 @@ on:
       # tests/unit/test_reach_observation_helpers.py, which only this suite runs — the
       # guards lane lists the directory but reads none of its files (#1730).
       - 'scripts/reach/**'
+      # The reach-audit job verdict (reach-audit.yml) is loaded by path from
+      # tests/unit/test_reach_report_verdict.py, which only this suite runs.
+      - 'scripts/ci/reach_report_verdict.py'
       # The embedding sidecar's feed builder (#1724) is loaded by path from
       # tests/unit/test_embedding_service_feed.py, which only this suite runs; the
       # guards lane reads the sidecars' limits.py but not this file (lane-inputs).
