@@ -120,6 +120,21 @@ class PlantInstanceService:
     def list_plants(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[PlantInstance], int]:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
 
+    def list_plants_window(
+        self,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        after: str | None = None,
+    ) -> list[PlantInstance]:
+        """One ``_key``-ordered page of the tenant's plants without the count query (MT-035, #2131).
+
+        The list route answers a bare array, so the ``total`` :meth:`list_plants` pays a
+        second scan for is never read; ``after`` pages by keyset instead of offset.
+        """
+        return self._repo.list_window(offset=offset, limit=limit, tenant_key=tenant_key, after=after)
+
     def list_all_plants(self, tenant_key: str) -> list[PlantInstance]:
         """Every plant of ``tenant_key``, page by page — for aggregates (#2025).
 

@@ -12,7 +12,7 @@ from app.api.v1.feeding_events.schemas import (
 from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_feeding_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
-from app.common.pagination import PaginationParams, get_pagination
+from app.common.pagination import CursorPaginationParams, PaginationParams, get_cursor_pagination, get_pagination
 from app.core.permissions import Action
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.tenant_context import TenantContext
@@ -27,12 +27,14 @@ def _event_response(e: FeedingEvent) -> FeedingEventResponse:
 
 @router.get("", response_model=list[FeedingEventResponse])
 def list_events(
-    pagination: PaginationParams = Depends(get_pagination),
+    pagination: CursorPaginationParams = Depends(get_cursor_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: FeedingService = Depends(get_feeding_service),
 ):
-    """List the tenant's feeding events (paginated)."""
-    items, _total = service.list_events(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
+    """List the tenant's feeding events (paginated; ``?after=<key>`` pages by keyset, MT-035)."""
+    items = service.list_events_window(
+        tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit, after=pagination.after
+    )
     return [_event_response(e) for e in items]
 
 

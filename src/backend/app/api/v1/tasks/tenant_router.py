@@ -575,15 +575,18 @@ def get_overdue_tasks(
 def get_tasks_for_plant(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     status: str | None = Query(default=None, description="Filter by task status."),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
-    """List the tasks of a plant instance, optionally filtered by status.
+    """List the tasks of a plant instance by due date, optionally filtered by status (paginated, MT-035).
 
     A ``plant_key`` belonging to another tenant yields an empty list — the tenant
     scope is enforced in the repository query (#927).
     """
-    tasks = service.get_tasks_for_plant(plant_key, status, tenant_key=ctx.tenant_key)
+    tasks = service.get_tasks_for_plant(
+        plant_key, status, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit
+    )
     return [_task_response(t) for t in tasks]
 
 

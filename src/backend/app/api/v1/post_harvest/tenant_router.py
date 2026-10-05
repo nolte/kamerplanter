@@ -194,11 +194,13 @@ def record_observation(
 @router.get("/{key}/observations", response_model=list[StorageObservationResponse])
 def list_observations(
     key: Annotated[str, Path(description="Document key of the post-harvest batch.")],
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
-    """List a post-harvest batch's storage observations."""
-    return [_observation_response(o) for o in service.list_observations(key, ctx.tenant_key)]
+    """List a post-harvest batch's storage observations, newest first (paginated, MT-035)."""
+    observations = service.list_observations(key, ctx.tenant_key, offset=pagination.offset, limit=pagination.limit)
+    return [_observation_response(o) for o in observations]
 
 
 @router.get("/{key}/mold-alerts", response_model=list[MoldAlertResponse])

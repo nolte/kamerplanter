@@ -80,13 +80,23 @@ class ArangoAiConversationRepository(BaseArangoRepository[AiConversation]):
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.AI_CONVERSATIONS)
 
-    def list_for_user(self, tenant_key: str, user_key: str) -> list[AiConversation]:
+    def list_for_user(
+        self, tenant_key: str, user_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[AiConversation]:
+        """One user's conversations in one tenant, most recently updated first.
+
+        ``offset``/``limit`` read one window (MT-035, #2131); ``_key`` breaks
+        ``updated_at`` ties so two pages never serve the same row.
+        """
         return self.find_by_field(
             "tenant_key",
             tenant_key,
             extra_filters=[("user_key", "==", user_key)],
             sort="updated_at",
             sort_direction="DESC",
+            offset=offset,
+            limit=limit,
+            tiebreak_key=True,
         )
 
     def delete_expired(self, *, now: datetime | None = None) -> int:
