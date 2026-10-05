@@ -107,12 +107,31 @@ def test_the_lookup_scan_flags_what_it_should(source: str, offending: bool) -> N
     assert bool(offenders) is offending
 
 
+#: #2137 — the minting routes read the *requested* allowlist off their request body
+#: (``body.ip_allowlist``) to hand it to the minting service, which checks it through
+#: ``api_key_control_errors`` in ``app/domain/models/auth.py``. That is the write
+#: path, not a decision on a stored key; it is admitted by file **and** receiver
+#: name, so a stored key read in the same router still fails. An entry that names
+#: no read any more fails too.
+_REQUEST_BODY_READS = {
+    "app/api/v1/auth/router.py",
+}
+
+
+def _is_request_body_read(rel: str, node: ast.Attribute) -> bool:
+    return rel in _REQUEST_BODY_READS and isinstance(node.value, ast.Name) and node.value.id == "body"
+
+
 def test_the_allowlist_and_the_counter_have_one_home() -> None:
     reads, increments = [], []
+    body_reads: set[str] = set()
     for path, tree in _modules():
         rel = f"{path.relative_to(_APP.parent)}"
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute) and node.attr == "ip_allowlist" and path not in _CONTROL_HOMES:
+                if _is_request_body_read(rel, node):
+                    body_reads.add(rel)
+                    continue
                 reads.append(f"{rel}:{node.lineno}")
             if (
                 isinstance(node, ast.Call)
@@ -125,6 +144,18 @@ def test_the_allowlist_and_the_counter_have_one_home() -> None:
 
     assert reads == [], f"ip_allowlist read outside the shared control (#1850): {reads}"
     assert increments == [], f"per-key budget counted outside the shared control (#1850): {increments}"
+    assert body_reads == _REQUEST_BODY_READS, f"stale request-body entry: {sorted(_REQUEST_BODY_READS - body_reads)}"
+
+
+def test_the_request_body_exemption_admits_only_the_body() -> None:
+    """A stored key read in a minting router is still a read outside the control home."""
+    rel = "app/api/v1/auth/router.py"
+    (body_read,) = [n for n in ast.walk(ast.parse("body.ip_allowlist")) if isinstance(n, ast.Attribute)]
+    (key_read,) = [n for n in ast.walk(ast.parse("api_key.ip_allowlist")) if isinstance(n, ast.Attribute)]
+
+    assert _is_request_body_read(rel, body_read)
+    assert not _is_request_body_read(rel, key_read)
+    assert not _is_request_body_read("app/domain/services/auth_service.py", body_read)
 
 
 def test_both_surfaces_are_built_with_the_shared_limiter() -> None:

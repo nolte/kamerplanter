@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -9,7 +10,13 @@ from app.common.validators import DisplayName
 # enforces the same bound for non-HTTP callers and a domain service may not
 # import an API schema (NFR-001). This boundary is where an over-long value
 # becomes a 422 instead of a 500 (BACKEND.md §5.4).
-from app.domain.models.auth import DEVICE_NAME_MAX_LENGTH
+from app.domain.models.auth import (
+    API_KEY_IP_ALLOWLIST_MAX_ENTRIES,
+    API_KEY_MAX_LIFETIME_DAYS,
+    API_KEY_RATE_LIMIT_MAX,
+    API_KEY_RATE_LIMIT_MIN,
+    DEVICE_NAME_MAX_LENGTH,
+)
 
 # ── Request schemas ────────────────────────────────────────────────
 
@@ -154,7 +161,38 @@ class RefreshRequest(BaseModel):
     )
 
 
-class ApiKeyCreateRequest(CredentialStepUp):
+class ApiKeyControls(BaseModel):
+    """The network controls a key is minted with (#2137, MT-041, REQ-023 §5b).
+
+    Enforced on every key surface (REST and MCP) since #1850; the service checks
+    them before the step-up asks for a password (``api_key_control_errors``), so
+    an unusable value is a 422 and nothing is minted.
+    """
+
+    ip_allowlist: list[Annotated[str, Field(min_length=1, max_length=64)]] | None = Field(
+        default=None,
+        max_length=API_KEY_IP_ALLOWLIST_MAX_ENTRIES,
+        description=(
+            "CIDR ranges the key is accepted from (a bare address is its own /32 or /128). No host bits, nothing "
+            "wider than /8 (IPv4) or /32 (IPv6). Omitted or empty: every address."
+        ),
+    )
+    rate_limit_per_minute: int | None = Field(
+        default=None,
+        ge=API_KEY_RATE_LIMIT_MIN,
+        le=API_KEY_RATE_LIMIT_MAX,
+        description="Requests per minute the key may make, REST and MCP together (429 beyond). Omitted: no limit.",
+    )
+    expires_at: datetime | None = Field(
+        default=None,
+        description=(
+            f"When the key stops working; with a timezone, in the future, at most {API_KEY_MAX_LIFETIME_DAYS} days "
+            "ahead. Omitted: the key does not expire."
+        ),
+    )
+
+
+class ApiKeyCreateRequest(ApiKeyControls, CredentialStepUp):
     label: str = Field(min_length=1, max_length=100)
     tenant_scope: str | None = Field(
         default=None,
@@ -379,6 +417,9 @@ class ApiKeyCreatedResponse(BaseModel):
     key_prefix: str
     tenant_scope: str | None
     created_at: datetime | None
+    ip_allowlist: list[str] | None = None
+    rate_limit_per_minute: int | None = None
+    expires_at: datetime | None = None
 
 
 class ApiKeySummaryResponse(BaseModel):
@@ -389,6 +430,9 @@ class ApiKeySummaryResponse(BaseModel):
     revoked: bool
     last_used_at: datetime | None
     created_at: datetime | None
+    ip_allowlist: list[str] | None = None
+    rate_limit_per_minute: int | None = None
+    expires_at: datetime | None = None
 
 
 class MessageResponse(BaseModel):

@@ -861,6 +861,10 @@ def create_api_key(
     without one, ``step_up_token`` / ``step_up_code``); 401 without it, 403 from
     an API-key request (a key cannot mint a key), 429 ``STEP_UP_LOCKED``. Light
     mode needs none: every request there already is the system account.
+
+    **Controls (#2137):** ``ip_allowlist``, ``rate_limit_per_minute`` and
+    ``expires_at`` bind the key on REST and MCP alike; an unusable value is a 422
+    before the password is asked for.
     """
     created = service.create_api_key(
         current_user.key or "",
@@ -871,6 +875,9 @@ def create_api_key(
         step_up_token=body.step_up_token,
         authenticated_with_api_key=via_api_key,
         client_ip=client_ip,
+        ip_allowlist=body.ip_allowlist,
+        rate_limit_per_minute=body.rate_limit_per_minute,
+        expires_at=body.expires_at,
     )
     return ApiKeyCreatedResponse(**created.model_dump())
 
