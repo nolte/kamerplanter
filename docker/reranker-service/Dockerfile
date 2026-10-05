@@ -18,7 +18,7 @@
 # stages below resolve `python` and `uvicorn` without an activation step. The
 # project environment lives in /opt/venv, built by the `venv` stage below and
 # copied into a runtime stage that has no uv at all (#1725).
-FROM python:3.14-slim@sha256:0741d101873c12ab927e6f8653feb8862b9bd58771177acb1b885b95141f91b4 AS uv-base
+FROM python:3.14-slim@sha256:c3e521df8b2b498a7a682e7e18676771cb80c6b75b8699af886b2d554ce40151 AS uv-base
 COPY --from=ghcr.io/astral-sh/uv:0.12.23@sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21 /uv /bin/uv
 ENV UV_PYTHON=/usr/local/bin/python3 \
     UV_PYTHON_DOWNLOADS=never \
@@ -189,7 +189,7 @@ RUN uv sync --locked --no-dev
 
 # ── Runtime base (shared across all final targets) ───────────────────
 
-FROM python:3.14-slim@sha256:0741d101873c12ab927e6f8653feb8862b9bd58771177acb1b885b95141f91b4 AS runtime
+FROM python:3.14-slim@sha256:c3e521df8b2b498a7a682e7e18676771cb80c6b75b8699af886b2d554ce40151 AS runtime
 
 LABEL org.opencontainers.image.title="kamerplanter-reranker-service" \
       org.opencontainers.image.description="ONNX cross-encoder reranker (BGE reranker v2 m3) that re-scores RAG retrieval hits for Kamerplanter" \
