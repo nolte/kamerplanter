@@ -123,6 +123,22 @@ controllers:
 !!! danger "`ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT`, `LOG_PSEUDONYM_SALT` never come from `env:`"
     The real chart deliberately does **not** declare these five values under `env:` — they come exclusively via `envFrom: - secret: kamerplanter-secrets` from a secret you create beforehand. Without that secret (or with an unchanged default value inside it), the backend refuses to start when `DEBUG=false`; the Celery worker controller draws from the same secret and checks `LOG_PSEUDONYM_SALT` just as strictly. Details: [Kubernetes Deployment — Create the mandatory secrets](kubernetes.md), [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
+#### Celery worker {#celery-worker}
+
+The worker processes three queues (issue #2128):
+
+| Queue | Contents |
+|---|---|
+| `critical` | Retention periods and erasures (NFR-011), security and privacy sweeps, notifications, frost warnings, the actuator control loop |
+| `celery` | everything else — Celery's default queue under its existing name |
+| `bulk` | long, external runs: dataset and reference-image acquisition, master-data enrichment, glossary warm-up, storage migrations |
+
+The chart starts the worker with `-Q critical,celery,bulk`. **A queue no worker reads keeps its tasks in Valkey forever** — without any error. If you override the worker `args` in your values, carry the queue list over completely or drop `-Q` altogether (the worker then reads every queue the application declares).
+
+To run `bulk` in a worker of its own, give that worker `-Q bulk` and the existing one `-Q critical,celery` — never leave a queue out of both. An additional worker needs the same environment, Secrets and NetworkPolicy as `celery-worker`.
+
+Every task has a time limit as a backstop: 30 minutes (soft, the task can clean up), after 35 minutes the process is ended. Runs that are resumable or started on purpose (erasure runs, data export, storage migration, dataset acquisition) get three hours. Each worker process now reserves one message ahead instead of four.
+
 #### Frontend
 
 ```yaml

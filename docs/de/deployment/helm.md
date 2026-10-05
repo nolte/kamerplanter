@@ -124,6 +124,22 @@ controllers:
 !!! danger "`ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT`, `LOG_PSEUDONYM_SALT` kommen NIE aus `env:`"
     Der reale Chart deklariert diese fünf Werte absichtlich **nicht** im `env:`-Block — sie kommen ausschließlich per `envFrom: - secret: kamerplanter-secrets` aus einem vorher angelegten Kubernetes-Secret. Ohne dieses Secret (bzw. mit einem unveränderten Default-Wert darin) verweigert das Backend bei `DEBUG=false` den Start; der Celery-Worker-Controller bezieht dasselbe Secret und prüft `LOG_PSEUDONYM_SALT` ebenso streng. Details: [Kubernetes-Deployment — Pflicht-Secrets anlegen](kubernetes.md), [Konfigurationsmatrix — Pflicht-Secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
+#### Celery-Worker {#celery-worker}
+
+Der Worker verarbeitet drei Warteschlangen (Issue #2128):
+
+| Queue | Inhalt |
+|---|---|
+| `critical` | Aufbewahrungsfristen und Löschungen (NFR-011), Sicherheits- und Datenschutz-Aufräumläufe, Benachrichtigungen, Frostwarnungen, Aktor-Regelkreis |
+| `celery` | alles Übrige — Celerys Standard-Queue unter ihrem bisherigen Namen |
+| `bulk` | lange, externe Läufe: Datensatz- und Referenzbild-Erfassung, Stammdaten-Anreicherung, Glossar-Vorwärmen, Storage-Migrationen |
+
+Der Chart startet den Worker mit `-Q critical,celery,bulk`. **Eine Queue, die kein Worker liest, behält ihre Aufgaben für immer in Valkey** — ohne Fehlermeldung. Wenn du die Worker-`args` in deinen Values überschreibst, übernimm die Queue-Liste vollständig oder lass `-Q` ganz weg (dann liest der Worker alle Queues, die die Anwendung deklariert).
+
+Willst du `bulk` in einem eigenen Worker laufen lassen, gib diesem `-Q bulk` und dem bestehenden `-Q critical,celery` — nie eine Queue bei beiden weglassen. Ein zusätzlicher Worker braucht dieselbe Umgebung, dieselben Secrets und dieselbe NetworkPolicy wie `celery-worker`.
+
+Jede Aufgabe hat ein Zeitlimit als Notbremse: 30 Minuten (weich, die Aufgabe kann aufräumen), nach 35 Minuten wird der Prozess beendet. Läufe, die fortsetzbar sind oder bewusst gestartet werden (Löschläufe, Datenexport, Storage-Migration, Datensatz-Erfassung), haben drei Stunden. Jeder Worker-Prozess reserviert nur noch eine Nachricht im Voraus statt vier.
+
 #### Frontend
 
 ```yaml

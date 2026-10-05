@@ -299,6 +299,21 @@ for profile in "${CHART}"/values-*.yaml; do
   render "monitoring-$(basename "${profile}" .yaml)" -f "${profile}" --set monitoring.enabled=true
 done
 
+# ---------------------------------------------------------------------------
+# #2128 (MT-032) — the worker consumes every queue the application routes to.
+#
+# app/tasks/routing.py routes tasks to `critical`, `celery` (the default) and
+# `bulk`. A queue no worker consumes keeps its tasks in Valkey forever and
+# nobody is told. The list must be exactly the code's QUEUES, in every profile
+# that runs a worker; tests/unit/guards/test_every_task_has_a_queue.py holds
+# the code side (it reads the same values files and the live Celery config).
+# ---------------------------------------------------------------------------
+worker_queues() { printf '%s | .args | join(" ") | capture("(^| )(-Q|--queues)[ =](?P<q>[^ ]+)") | .q | split(",") | .[]' "$(main_of celery-worker)"; }
+expect storage-default "the worker consumes critical, celery and bulk" "$(worker_queues)" '["critical","celery","bulk"]'
+expect profile-values-dev "the dev worker consumes critical, celery and bulk" "$(worker_queues)" '["critical","celery","bulk"]'
+expect storage-default "the worker excludes no queue" \
+  "$(main_of celery-worker) | .args[] | select(test(\"^(-X|--exclude-queues)\"))" '[]'
+
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2
   exit 1

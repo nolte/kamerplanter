@@ -20,6 +20,7 @@ from app.config.settings import settings
 from app.data_access.external.registration import register_external_adapters
 from app.domain.engines.encryption_engine import is_usable_fernet_key
 from app.observability.error_tracking import init_error_tracking, resolve_release
+from app.tasks.routing import celery_queue_config
 
 # The Celery worker/beat boot via ``celery -A app.tasks`` and never import
 # ``app.main``, so without this call the adapter registries would be empty in the
@@ -301,6 +302,9 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    # MT-032 (#2128): named queues, routes, time limits, one reserved message per
+    # process and a visibility timeout above the longest limit — app/tasks/routing.py.
+    **celery_queue_config(),
     beat_schedule={
         "enrichment-incremental-daily": {
             "task": "app.tasks.enrichment_tasks.sync_all_sources_task",

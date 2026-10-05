@@ -973,7 +973,13 @@ controllers:
           tag: latest
           pullPolicy: IfNotPresent
         command: ["celery"]
-        args: ["-A", "app.tasks", "worker", "--loglevel=info", "--concurrency=2"]
+        # MT-032 (#2128): consume every queue the application declares
+        # (app/tasks/routing.py). A queue no worker consumes keeps its tasks in
+        # Valkey forever, silently — tests/unit/guards/test_every_task_has_a_queue.py
+        # and scripts/ci/assert_chart_contracts.sh hold this list to the code.
+        # To run `bulk` in a worker of its own, give that worker `-Q bulk` and
+        # this one `-Q critical,celery` — never drop a queue from both.
+        args: ["-A", "app.tasks", "worker", "--loglevel=info", "--concurrency=2", "-Q", "critical,celery,bulk"]
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
