@@ -30,6 +30,9 @@ const NO_DIALOG: Readonly<Record<string, string>> = {
   // `changeMemberRole` in `api/endpoints/tenants.ts` carries the step-up body (#2032), but the
   // tenant settings page offers no role control: the endpoint has no caller. Measured 2026-10-04.
   tenant_member_role_change: 'no UI control calls changeMemberRole (tenants.ts); API-only today',
+  // #2137 — the service-account routes (`/t/{slug}/service-accounts`) have no page yet; REQ-023 §5b.0
+  // records the frontend (§5b.10) as open. Measured 2026-10-05: no endpoint module calls them.
+  service_account_change: 'service accounts are API-only today (REQ-023 §5b.0, frontend §5b.10 open)',
 };
 
 function surfacesOf(action: string): string[] {
