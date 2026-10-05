@@ -220,3 +220,35 @@ class TestTheCalculationsRouterIsGated:
             json={"temp_c": 25.0, "humidity_percent": 60.0, "phase": "vegetative"},
         )
         assert response.status_code == 200
+
+
+class TestTheSunTimesRangeIsBounded:
+    """MT-035 (#2131): one row per requested day, so the request must bound the days.
+
+    Before the cap the handler looped from ``start_date`` to ``end_date`` without a
+    limit: ``0001-01-01`` .. ``9999-12-31`` asked one request for 3.65 million
+    sun-time computations and a list of the same length.
+    """
+
+    _BODY = {"latitude": 52.52, "longitude": 13.405, "timezone": "Europe/Berlin"}
+
+    def test_a_range_past_the_cap_is_refused_before_any_computation(self):
+        client = _get_client()
+        with patch("app.api.v1.calculations.router.calculate_sun_times_range") as compute:
+            response = client.post(
+                "/api/v1/calculations/sun-times-range",
+                json={**self._BODY, "start_date": "2025-01-01", "end_date": "2026-01-02"},
+            )
+        assert response.status_code == 422, response.json()
+        assert response.json()["error_code"] == "VALIDATION_ERROR"
+        compute.assert_not_called()
+
+    def test_a_full_year_still_answers_one_row_per_day(self):
+        # The control: the cap is a leap year, so a whole calendar year is accepted.
+        client = _get_client()
+        response = client.post(
+            "/api/v1/calculations/sun-times-range",
+            json={**self._BODY, "start_date": "2024-01-01", "end_date": "2024-12-31"},
+        )
+        assert response.status_code == 200, response.json()
+        assert len(response.json()) == 366
