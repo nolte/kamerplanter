@@ -147,9 +147,6 @@ class ITankRepository(ABC):
     # ── Queries ────────────────────────────────────────────────────────
 
     @abstractmethod
-    def get_tanks_for_location(self, location_key: LocationKey) -> list[Tank]: ...
-
-    @abstractmethod
     def get_active_auto_create_schedules(self) -> list[MaintenanceSchedule]: ...
 
     @abstractmethod

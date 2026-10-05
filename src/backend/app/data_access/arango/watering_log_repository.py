@@ -313,25 +313,6 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
       RETURN doc
     """
 
-    _RECENT_RUNOFF_QUERY = """
-    FOR doc IN @@collection
-      FILTER @plant_key IN doc.plant_keys
-        AND doc.runoff_ec != null
-      SORT DATE_TIMESTAMP(doc.logged_at) DESC
-      LIMIT @limit
-      RETURN doc
-    """
-
-    _RECENT_RUNOFF_TENANT_QUERY = """
-    FOR doc IN @@collection
-      FILTER @plant_key IN doc.plant_keys
-        AND doc.tenant_key == @tenant_key
-        AND doc.runoff_ec != null
-      SORT DATE_TIMESTAMP(doc.logged_at) DESC
-      LIMIT @limit
-      RETURN doc
-    """
-
     def get_by_plant(
         self,
         plant_key: str,
@@ -361,37 +342,5 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
             query = self._BY_PLANT_TENANT_QUERY
         else:
             query = self._BY_PLANT_QUERY
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return [self._to_model(doc) for doc in cursor]
-
-    def get_latest_by_plant(
-        self,
-        plant_key: str,
-        tenant_key: str = "",
-        *,
-        all_tenants: bool = False,
-    ) -> WateringLog | None:
-        results = self.get_by_plant(plant_key, offset=0, limit=1, tenant_key=tenant_key, all_tenants=all_tenants)
-        return results[0] if results else None
-
-    def get_recent_runoff_logs(
-        self,
-        plant_key: str,
-        limit: int = 5,
-        tenant_key: str = "",
-        *,
-        all_tenants: bool = False,
-    ) -> list[WateringLog]:
-        self._enforce_tenant_scope(tenant_key, all_tenants)
-        bind_vars: dict[str, object] = {
-            "@collection": col.WATERING_LOGS,
-            "plant_key": plant_key,
-            "limit": limit,
-        }
-        if tenant_key:
-            bind_vars["tenant_key"] = tenant_key
-            query = self._RECENT_RUNOFF_TENANT_QUERY
-        else:
-            query = self._RECENT_RUNOFF_QUERY
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [self._to_model(doc) for doc in cursor]

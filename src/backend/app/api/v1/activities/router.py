@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.activities.schemas import ActivityCreate, ActivityResponse, ActivityUpdate
-from app.common.auth import get_current_user, require_platform_admin
+from app.common.auth import get_current_user, get_is_platform_admin, require_platform_admin
 from app.common.dependencies import get_activity_service
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
@@ -75,10 +75,11 @@ def update_activity(
     key: Annotated[str, Path(description="Document key of the activity.")],
     body: ActivityUpdate,
     service: ActivityService = Depends(get_activity_service),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ) -> ActivityResponse:
     """Update an existing catalog activity."""
     data = body.model_dump(exclude_none=True)
-    updated = service.update_activity(key, data)
+    updated = service.update_activity(key, data, is_platform_admin=is_platform_admin)
     return to_response(updated, ActivityResponse)
 
 
@@ -90,6 +91,7 @@ def update_activity(
 def delete_activity(
     key: Annotated[str, Path(description="Document key of the activity.")],
     service: ActivityService = Depends(get_activity_service),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ) -> None:
     """Delete a catalog activity."""
-    service.delete_activity(key)
+    service.delete_activity(key, is_platform_admin=is_platform_admin)

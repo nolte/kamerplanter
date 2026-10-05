@@ -128,21 +128,6 @@ class ArangoAquaponikRepository(BaseArangoRepository[AquaponicSystem]):
         self._db.aql.execute(query, bind_vars={"key": key})
         return self.delete(key)
 
-    def link_tank(self, system_key: str, tank_key: str, tank_role: str) -> None:
-        self.create_edge(
-            col.SYSTEM_HAS_TANK,
-            f"{col.AQUAPONIC_SYSTEMS}/{system_key}",
-            f"{col.TANKS}/{tank_key}",
-            {"tank_role": tank_role},
-        )
-
-    def link_growbed(self, system_key: str, slot_key: str) -> None:
-        self.create_edge(
-            col.SYSTEM_HAS_GROWBED,
-            f"{col.AQUAPONIC_SYSTEMS}/{system_key}",
-            f"{col.SLOTS}/{slot_key}",
-        )
-
     # ── FishStock ───────────────────────────────────────────────────────
 
     def create_stock(self, stock: FishStock) -> FishStock:

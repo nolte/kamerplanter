@@ -13,6 +13,3 @@ class IWeatherForecastRepository(ABC):
 
     @abstractmethod
     def find_by_site(self, site_key: str, tenant_key: str) -> list[WeatherForecast]: ...
-
-    @abstractmethod
-    def get(self, key: str) -> WeatherForecast | None: ...

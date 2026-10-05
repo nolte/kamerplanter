@@ -4,6 +4,7 @@ from app.common.exceptions import ForbiddenError, ValidationError
 from app.common.types import ActivityKey
 from app.domain.interfaces.activity_repository import IActivityRepository
 from app.domain.models.activity import Activity
+from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
 
 
 class ActivityService:
@@ -25,7 +26,15 @@ class ActivityService:
     def create_activity(self, activity: Activity) -> Activity:
         return self._repo.create(activity)
 
-    def update_activity(self, key: ActivityKey, data: dict) -> Activity:
+    def update_activity(self, key: ActivityKey, data: dict, *, is_platform_admin: bool) -> Activity:
+        """Rewrite a catalogue activity — a platform admin's write, decided here (#2120).
+
+        Every activity row is global today (#2119 owns tenant rows), so the rule is
+        the global-catalogue one. It used to live only in the route's
+        ``require_platform_admin`` dependency: a second caller (an MCP tool, a job)
+        would have written the shared catalogue without it.
+        """
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity="activity")
         existing = self.get_activity(key)
         allowed_fields = {
             "name",
@@ -62,7 +71,9 @@ class ActivityService:
             ) from exc
         return self._repo.update(key, validated)
 
-    def delete_activity(self, key: ActivityKey) -> bool:
+    def delete_activity(self, key: ActivityKey, *, is_platform_admin: bool) -> bool:
+        """Delete a catalogue activity — a platform admin's write, decided here (#2120)."""
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity="activity")
         activity = self.get_activity(key)
         if activity.is_system:
             raise ForbiddenError("System activities cannot be deleted.")

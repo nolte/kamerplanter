@@ -67,7 +67,7 @@ class _NutrientService:
         self.seen_tenant = tenant_key
         return self._plans, len(self._plans)
 
-    def get_plan(self, key, tenant_key="", *, for_write=False):
+    def get_plan(self, key, *, tenant_key, for_write=False):
         self.seen_tenant = tenant_key
         for p in self._plans:
             if p.key == key:
