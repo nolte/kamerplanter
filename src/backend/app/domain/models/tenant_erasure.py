@@ -29,8 +29,10 @@ type TenantErasureAction = Literal["delete", "pseudonymize", "retain"]
 
 #: Which entry point asked for the deletion. ``account_erasure`` is the erasure of
 #: the tenant's owner: a personal tenant goes with its owner's account, whoever else
-#: is an active member of it (#1788, erasure together #1824).
-type TenantErasureOrigin = Literal["tenant_management", "platform_admin", "account_erasure"]
+#: is an active member of it (#1788, erasure together #1824). ``orphaned_organisation``
+#: (#2134) is an organisation an account erasure left without anybody who can
+#: administer it: it runs into the grace of #2123 and is erased afterwards.
+type TenantErasureOrigin = Literal["tenant_management", "platform_admin", "account_erasure", "orphaned_organisation"]
 
 #: ``scheduled`` (#2123, MT-027) — accepted and inside its cancellable grace
 #: (``scheduled_for``); nothing has been erased and no run has claimed it. The daily

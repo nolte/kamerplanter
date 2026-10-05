@@ -60,7 +60,12 @@ from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.invitation import Invitation, InvitationLink
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
-from app.domain.models.privacy import PersonalTenantErasure, PersonalTenantErasurePreview
+from app.domain.models.privacy import (
+    OrganisationErasurePreview,
+    OrganisationSettlement,
+    PersonalTenantErasure,
+    PersonalTenantErasurePreview,
+)
 from app.domain.models.security_audit import SecurityAuditEntry
 from app.domain.models.tenant import Tenant, TenantWithRole
 from app.domain.models.tenant_erasure import (
@@ -785,7 +790,9 @@ class TenantService:
         tenant = self._tenant_repo.get_by_key(tenant_key)
         if tenant is None:
             raise NotFoundError("Tenant", tenant_key)
-        if tenant.status not in (TenantStatus.PENDING_DELETION, TenantStatus.ORPHANED):
+        if tenant.status != TenantStatus.PENDING_DELETION:
+            # #2134 — an ``orphaned`` organisation has nobody left who could administer it; handing it
+            # back would recreate the stranded tenant the settlement exists to end (REQ-023 §5a.5 dropped).
             raise InvalidStatusTransitionError(str(tenant.status), str(TenantStatus.ACTIVE))
         self._step_up_verifier.verify(
             requester,
@@ -1013,6 +1020,192 @@ class TenantService:
                 result["escalated"] += 1
         logger.info("tenant_erasure.retry_completed", **result)
         return result
+
+    # --- Organisations of an erased account (REQ-025 §3.1.3, MT-038 #2134) ---
+
+    def _organisations_of(self, user_key: str) -> list[tuple[Tenant, Membership]]:
+        """The organisations *user_key* holds an active membership in whose lifecycle is still open.
+
+        Personal tenants go with the account (#1788) and the platform tenant is never
+        settled here (its leads are the platform admins, REQ-049 §2.5); a tenant whose
+        deletion is already scheduled, running or orphaned needs no second decision.
+        """
+        found: list[tuple[Tenant, Membership]] = []
+        for membership in self._membership_repo.list_by_user(user_key):
+            if not membership.is_active:
+                continue
+            tenant = self._tenant_repo.get_by_key(membership.tenant_key)
+            if (
+                tenant is None
+                or tenant.tenant_type != TenantType.ORGANIZATION
+                or tenant.is_platform
+                or tenant.status not in _TOGGLEABLE_STATUSES
+            ):
+                continue
+            found.append((tenant, membership))
+        return found
+
+    def _remaining_members(self, tenant_key: str, leaving_user_key: str) -> list[Membership]:
+        return [
+            member
+            for member in self._membership_repo.active_memberships_of(tenant_key=tenant_key)
+            if member.user_key != leaving_user_key
+        ]
+
+    def organisation_erasure_preview(self, user_key: str) -> list[OrganisationErasurePreview]:
+        """The organisations an erasure of *user_key* would change, before it is confirmed (#2134).
+
+        Read-only and caller-scoped (the route passes the authenticated account). Names
+        the organisation and the outcome — never who takes over or who remains.
+        """
+        preview: list[OrganisationErasurePreview] = []
+        for tenant, membership in self._organisations_of(user_key):
+            outcome, _heir = self._membership_engine.departure_settlement(
+                membership, self._remaining_members(tenant.key or "", user_key)
+            )
+            if outcome != "unaffected":
+                preview.append(OrganisationErasurePreview(name=tenant.name, outcome=outcome))
+        return preview
+
+    def settle_organisations_of_erased_account(
+        self, user_key: str, *, now: datetime | None = None
+    ) -> list[OrganisationSettlement]:
+        """Keep every organisation of an erased account administrable, or schedule it for deletion (#2134).
+
+        Called by the account erasure before its ArangoDB plan removes the subject's
+        memberships — the cascade that bypassed INV-1 (MT-038). Per organisation
+        (:meth:`MembershipEngine.departure_settlement`):
+
+        * ``management_passes_to_lead`` — the longest-serving remaining ``lead``
+          receives the ``management`` scope (security audit ``via=account_erasure``)
+          and every remaining member is told;
+        * ``orphaned`` — nobody left who can administer it: the tenant becomes
+          ``orphaned`` and its deletion is scheduled with the grace of #2123
+          (origin ``orphaned_organisation``); the remaining members and the platform
+          admins are told;
+        * ``unaffected`` — another ``management`` holder remains.
+
+        Idempotent: a retry finds the heir holding ``management`` (unaffected) or the
+        tenant already ``orphaned`` (skipped). Raises what a failed write raises — the
+        account erasure is retried as a whole.
+        """
+        now = now or datetime.now(UTC)
+        settled: list[OrganisationSettlement] = []
+        for tenant, membership in self._organisations_of(user_key):
+            tenant_key = tenant.key or ""
+            remaining = self._remaining_members(tenant_key, user_key)
+            outcome, heir = self._membership_engine.departure_settlement(membership, remaining)
+            if outcome == "management_passes_to_lead" and heir is not None:
+                self._hand_management_to(heir, tenant, subject_user_key=user_key, remaining=remaining)
+            elif outcome == "orphaned":
+                self._orphan_organisation(tenant, subject_user_key=user_key, now=now)
+            settled.append(OrganisationSettlement(tenant_key=tenant_key, outcome=outcome))
+        if settled:
+            logger.info(
+                "account_erasure.organisations_settled",
+                subject=log_subject(user_key),
+                outcomes=[item.outcome for item in settled],
+            )
+        return settled
+
+    def _hand_management_to(
+        self, heir: Membership, tenant: Tenant, *, subject_user_key: str, remaining: list[Membership]
+    ) -> None:
+        """Give *heir* the ``management`` scope the erased account held last (INV-1, #2134); audited and told."""
+        # REQ-049 INV-2: duplicate-free, in declaration order — the order the model normalises to.
+        scopes = [scope for scope in AdminScope if scope in heir.admin_scopes or scope == AdminScope.MANAGEMENT]
+        result = self._membership_repo.update_fields(heir.key or "", {"admin_scopes": scopes})
+        if not result:
+            raise NotFoundError("Membership", heir.key or "")
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_SCOPES_CHANGED,
+            via=SecurityAuditVia.ACCOUNT_ERASURE,
+            actor_user_key=subject_user_key,
+            target_user_key=heir.user_key,
+            tenant_key=tenant.key or "",
+            membership=result,
+            old_scopes=heir.admin_scopes,
+        )
+        logger.info(
+            "account_erasure.management_handed_over", tenant=log_tenant(tenant.key), heir=log_subject(heir.user_key)
+        )
+        name = html.escape(tenant.name)
+        body = (
+            "<h2>The management of your organisation has passed on</h2>"
+            f"<p>The last person with the management right in <strong>{name}</strong> has deleted their account. "
+            "The longest-serving lead of the organisation now holds the management right, "
+            "so members can still be invited and the organisation administered.</p>"
+            "<p>Nothing else changes for you.</p>"
+        )
+        self._mail_accounts(
+            [member.user_key for member in remaining],
+            subject="Kamerplanter — the management of your organisation has passed on",
+            body=body,
+            event="account_erasure.handover_notice",
+        )
+
+    def _orphan_organisation(self, tenant: Tenant, *, subject_user_key: str, now: datetime) -> None:
+        """Schedule the deletion of an organisation nobody can administer any more (#2134, #2123 grace)."""
+        tenant_key = tenant.key or ""
+        scheduled_for = now + self._tenant_erasure_grace
+        record_key = TenantErasureEngine.record_key(tenant_key)
+        repo = self._require_tenant_erasure_repo()
+        if repo.get(record_key) is None:
+            try:
+                repo.create_with_key(
+                    TenantErasureRecord(
+                        tenant_key=tenant_key,
+                        tenant_type=str(tenant.tenant_type),
+                        origin="orphaned_organisation",
+                        requested_by_subject=log_subject(subject_user_key),
+                        step_up="account_erasure_no_interactive_step_up",
+                        slug_digest=self._tenant_slug_digest(tenant.slug),
+                        status="scheduled",
+                        requested_at=now,
+                        scheduled_for=scheduled_for,
+                    ),
+                    record_key,
+                )
+            except (DuplicateError, WriteConflictError) as exc:
+                raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
+        self._schedule_tenant_erasure(tenant, scheduled_for, requester_key=subject_user_key, orphaned=True)
+        due = html.escape(scheduled_for.strftime("%Y-%m-%d"))
+        name = html.escape(tenant.name)
+        body = (
+            "<h2>An organisation was orphaned by an account deletion</h2>"
+            f"<p>After an account deletion nobody can administer the organisation <strong>{name}</strong> any more. "
+            f"It is shown as orphaned in the admin area and will be deleted with all its data on {due} (UTC).</p>"
+        )
+        platform_leads = [
+            member.user_key
+            for member in self._membership_repo.active_memberships_of(tenant_key=_PLATFORM_TENANT_KEY)
+            if member.role == TenantRole.LEAD
+        ]
+        self._mail_accounts(
+            platform_leads,
+            subject="Kamerplanter — an organisation was orphaned",
+            body=body,
+            event="account_erasure.orphan_notice",
+        )
+
+    def _mail_accounts(self, user_keys: list[str], *, subject: str, body: str, event: str) -> int:
+        """Mail each account once; best effort — a failing mailbox never stops the erasure (#2134)."""
+        if self._email_service is None or self._user_repo is None:
+            logger.warning(f"{event}_not_sent", reason="no_mailer")
+            return 0
+        sent = 0
+        for user_key in dict.fromkeys(user_keys):
+            try:
+                account = self._user_repo.get_by_key(user_key)
+                if account is None or not account.email:
+                    continue
+                self._email_service.send_notification_email(to_email=account.email, subject=subject, html_body=body)
+            except Exception as exc:  # noqa: BLE001 - one mailbox must not stop the others
+                logger.warning(f"{event}_failed", member=log_subject(user_key), error_type=type(exc).__name__)
+                continue
+            sent += 1
+        logger.info(event, notified=sent)
+        return sent
 
     # --- Personal tenants of an erased account (REQ-025 Art. 17, #1788) ---
 

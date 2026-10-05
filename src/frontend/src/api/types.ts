@@ -4948,9 +4948,22 @@ export interface ErasurePreviewTenant {
   other_member_count: number;
 }
 
-/** GET /privacy/erasure-preview (REQ-025 AK-FK-06, #1824). */
+/**
+ * What an account erasure does to an organization the account is a member of (#2134):
+ * the last `management` holder hands it to the longest-serving lead, or the organization
+ * is left without anybody who can administer it and becomes `orphaned`.
+ */
+export interface ErasurePreviewOrganization {
+  /** The organization's name — the subject is a member of it. */
+  name: string;
+  outcome: 'management_passes_to_lead' | 'orphaned';
+}
+
+/** GET /privacy/erasure-preview (REQ-025 AK-FK-06, #1824; organizations since #2134). */
 export interface ErasurePreview {
   personal_tenants: ErasurePreviewTenant[];
+  /** Only the organizations the erasure changes; absent from a backend older than #2134. */
+  organizations?: ErasurePreviewOrganization[];
 }
 
 /**

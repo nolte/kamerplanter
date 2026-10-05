@@ -79,6 +79,15 @@ class IMembershipRepository(ABC):
         """The distinct account keys holding an active membership of the tenant (#1788)."""
 
     @abstractmethod
+    def active_memberships_of(self, *, tenant_key: str) -> list[Membership]:
+        """The active memberships of active accounts in the tenant (#2134).
+
+        Same population as :meth:`active_member_user_keys`, as full documents: the
+        account-erasure settlement of an organisation needs each one's role, scopes
+        and start (INV-1, the longest-serving ``lead``).
+        """
+
+    @abstractmethod
     def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
         """Active member account key → when that membership began (``None`` when not recorded), #1824.
 

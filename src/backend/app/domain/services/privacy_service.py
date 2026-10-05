@@ -73,6 +73,8 @@ from app.domain.models.privacy import (
     ErasureOrigin,
     ErasureRequest,
     ErasureStepUp,
+    OrganisationErasurePreview,
+    OrganisationSettlement,
     PersonalTenantErasure,
     PersonalTenantErasurePreview,
     PrivacyPolicyInfo,
@@ -1076,6 +1078,17 @@ class PrivacyService:
         if tenant_service is None:  # pragma: no cover - the preview needs the same wiring as the erasure
             raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
         return tenant_service.personal_tenant_erasure_preview(user_key)
+
+    def organisation_erasure_preview(self, user_key: UserKey) -> list[OrganisationErasurePreview]:
+        """The organisations an erasure of *user_key* would change (#2134): last management, last member.
+
+        Read-only and caller-scoped like :meth:`erasure_preview`; names the organisation and the
+        outcome, never the members.
+        """
+        tenant_service = self._tenant_service
+        if tenant_service is None:  # pragma: no cover - the preview needs the same wiring as the erasure
+            raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
+        return tenant_service.organisation_erasure_preview(user_key)
 
     def _deliver_member_notice(
         self,
@@ -3013,6 +3026,12 @@ class PrivacyService:
             on_personal_tenants_resolved,
             erasure_requested_at,
         )
+        # #2134 (MT-038) — the plan below removes the subject's memberships without the INV-1 guard
+        # (a person exercising Art. 17 cannot be told to hand over first). Before it runs, every
+        # organisation they are the last management holder (or the last member) of is settled:
+        # the longest-serving lead takes over, or the organisation is orphaned into the deletion
+        # grace (#2123). Idempotent, so a retry repeats it harmlessly.
+        report.organisations = await asyncio.to_thread(self._settle_organisations, user_key)
         # NFR-011 R-04 (#1800 security review): an unrevoked consent record
         # would otherwise be pseudonymised below with revoked_at still null,
         # and the R-04 purge (which excludes null on purpose, #1784) would
@@ -3038,9 +3057,17 @@ class PrivacyService:
             storage_objects_released=report.storage_objects_released,
             # Outcomes only — no tenant or record key beside the subject digest (#1788 review GDPR-05).
             personal_tenants=[item.outcome for item in report.personal_tenants],
+            organisations=[item.outcome for item in report.organisations or []],
             arango_steps={step.collection: step.affected for step in report.arango.steps},
         )
         return report
+
+    def _settle_organisations(self, user_key: str) -> list[OrganisationSettlement]:
+        """Step 4b of :meth:`erase_account` — the subject's organisations (#2134); see TenantService."""
+        tenant_service = self._tenant_service
+        if tenant_service is None:  # pragma: no cover - refused by the configuration check
+            raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
+        return tenant_service.settle_organisations_of_erased_account(user_key)
 
     def _erase_personal_tenants(
         self,

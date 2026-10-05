@@ -204,6 +204,17 @@ class FakeMembershipRepo:
             }
         )
 
+    def list_by_user(self, user_key: str) -> list[Membership]:
+        return [m for m in self.stored.values() if m.user_key == user_key]
+
+    def active_memberships_of(self, *, tenant_key: str) -> list[Membership]:
+        """The real predicate of :meth:`active_member_user_keys`, as whole memberships (#2134)."""
+        return [
+            m
+            for m in self.stored.values()
+            if m.tenant_key == tenant_key and m.is_active and m.user_key not in self.inactive_accounts
+        ]
+
     def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
         return {
             m.user_key: m.joined_at

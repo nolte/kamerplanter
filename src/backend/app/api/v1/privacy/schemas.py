@@ -227,13 +227,35 @@ class PersonalTenantErasurePreviewItem(BaseModel):
     model_config = ConfigDict(json_schema_extra={"examples": [{"name": "Ada's garden", "other_member_count": 2}]})
 
 
+class OrganizationErasurePreviewItem(BaseModel):
+    """An organisation the erasure changes (#2134, MT-038): names the organisation and the outcome, nobody else."""
+
+    #: The organisation's name — the subject is a member of it.
+    name: str
+    #: ``management_passes_to_lead`` — the subject is its last ``management`` holder and the
+    #: longest-serving lead takes over; ``orphaned`` — nobody who can administer it is left, it is
+    #: deleted after the tenant-deletion grace (#2123).
+    outcome: Literal["management_passes_to_lead", "orphaned"]
+
+    model_config = ConfigDict(json_schema_extra={"examples": [{"name": "Lindenhof", "outcome": "orphaned"}]})
+
+
 class ErasurePreviewResponse(BaseModel):
-    """What confirming the erasure would delete beyond the account itself (REQ-025 AK-FK-06, #1824)."""
+    """What confirming the erasure would delete or change beyond the account itself (REQ-025 AK-FK-06, #1824, #2134)."""
 
     personal_tenants: list[PersonalTenantErasurePreviewItem] = Field(default_factory=list)
+    #: Only the organisations the erasure changes (#2134); unaffected ones are not listed.
+    organizations: list[OrganizationErasurePreviewItem] = Field(default_factory=list)
 
     model_config = ConfigDict(
-        json_schema_extra={"examples": [{"personal_tenants": [{"name": "Ada's garden", "other_member_count": 2}]}]}
+        json_schema_extra={
+            "examples": [
+                {
+                    "personal_tenants": [{"name": "Ada's garden", "other_member_count": 2}],
+                    "organizations": [{"name": "Lindenhof", "outcome": "management_passes_to_lead"}],
+                }
+            ]
+        }
     )
 
 

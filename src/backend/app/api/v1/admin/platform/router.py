@@ -23,6 +23,7 @@ from app.api.v1.privacy.schemas import (
     ErasureCreateRequest,
     ErasurePreviewResponse,
     ErasureResponse,
+    OrganizationErasurePreviewItem,
     PersonalTenantErasurePreviewItem,
 )
 from app.api.v1.tenants.schemas import (
@@ -430,7 +431,11 @@ def get_user_erasure_preview(
         personal_tenants=[
             PersonalTenantErasurePreviewItem(name=item.name, other_member_count=item.other_member_count)
             for item in privacy_service.erasure_preview(key)
-        ]
+        ],
+        organizations=[
+            OrganizationErasurePreviewItem(name=item.name, outcome=item.outcome)
+            for item in privacy_service.organisation_erasure_preview(key)
+        ],
     )
 
 

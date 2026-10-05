@@ -718,7 +718,10 @@
       "erasurePreviewTenantShared_other": "„{{name}}“ wird gelöscht, {{count}} weitere Mitglieder sind betroffen.",
       "erasurePreviewSharedHint": "Alles darin geht mit verloren: Standorte, Pflanzen, Tagebuch und Aufgaben, auch die der anderen Mitglieder. Die anderen Mitglieder werden per E-Mail benachrichtigt, sobald du die Löschung beantragst, und können ihre Daten bis zur endgültigen Löschung sichern.",
       "erasurePreviewLoading": "Wir prüfen, welche persönlichen Gärten betroffen sind …",
-      "erasurePreviewError": "Wir konnten nicht prüfen, welche persönlichen Gärten betroffen sind. Deine persönlichen Gärten werden in jedem Fall mit allem Inhalt gelöscht, auch wenn weitere Mitglieder darin sind."
+      "erasurePreviewError": "Wir konnten nicht prüfen, welche persönlichen Gärten betroffen sind. Deine persönlichen Gärten werden in jedem Fall mit allem Inhalt gelöscht, auch wenn weitere Mitglieder darin sind.",
+      "erasurePreviewOrgHeading": "Deine Organisationen nach der Löschung deines Kontos:",
+      "erasurePreviewOrgManagementPasses": "In „{{name}}“ bist du die letzte Person mit Verwaltungsrecht. Die dienstälteste Leitung übernimmt die Verwaltung; die Mitglieder werden benachrichtigt.",
+      "erasurePreviewOrgOrphaned": "In „{{name}}“ bleibt niemand, der die Organisation verwalten kann. Sie wird nach einer Frist (standardmäßig 90 Tage) mit allen Daten gelöscht; die Mitglieder und die Betreiber werden benachrichtigt."
     },
     "activities": {
       "title": "Tätigkeiten",
@@ -913,6 +916,9 @@
       "adminErasurePreviewSharedHint": "Alles darin geht sofort mit verloren: Standorte, Pflanzen, Tagebuch und Aufgaben, auch die der anderen Mitglieder. Die anderen Mitglieder erhalten eine E-Mail, dass die Löschung jetzt stattfindet. Eine Frist, in der sie ihre Daten noch sichern könnten, gibt es bei dieser Löschung nicht.",
       "adminErasurePreviewLoading": "Wir prüfen, welche persönlichen Gärten betroffen sind …",
       "adminErasurePreviewError": "Wir konnten nicht prüfen, welche persönlichen Gärten betroffen sind. Die persönlichen Gärten des Kontos werden in jedem Fall sofort mit allem Inhalt gelöscht, auch wenn weitere Mitglieder darin sind, und diese bekommen keine Frist.",
+      "adminErasurePreviewOrgHeading": "Organisationen des Kontos nach der Löschung:",
+      "adminErasurePreviewOrgManagementPasses": "In „{{name}}“ ist das Konto die letzte Person mit Verwaltungsrecht. Die dienstälteste Leitung übernimmt die Verwaltung; die Mitglieder werden benachrichtigt.",
+      "adminErasurePreviewOrgOrphaned": "In „{{name}}“ bleibt niemand, der die Organisation verwalten kann. Sie wird verwaist und nach der Frist mit allen Daten gelöscht; du siehst sie im Admin-Bereich.",
       "adminDeleteUserConfirm": "Möchtest du den Benutzer \"{{name}}\" ({{email}}) und alle zugehörigen Daten wirklich unwiderruflich löschen?",
       "adminUserDeletionAccepted": "Löschung angenommen: Das Konto ist gesperrt, seine Daten werden im Hintergrund gelöscht",
       "adminConfirmDelete": "Endgültig löschen",

@@ -138,6 +138,31 @@ class PersonalTenantErasurePreview(BaseModel):
     other_member_count: int = Field(ge=0)
 
 
+#: What an account erasure does to an organisation the account is a member of (#2134).
+type OrganisationErasureOutcome = Literal["unaffected", "management_passes_to_lead", "orphaned"]
+
+
+class OrganisationErasurePreview(BaseModel):
+    """An organisation the erasure of an account changes, shown before it is confirmed (#2134, MT-038).
+
+    ``name`` is the organisation's — the subject is a member of it. Only the two
+    outcomes that change something are previewed: the subject is the last
+    ``management`` holder and the longest-serving ``lead`` takes over, or nobody
+    who can administer it is left and the organisation is ``orphaned`` (deleted
+    after the tenant-deletion grace, #2123). Names nobody else.
+    """
+
+    name: str
+    outcome: Literal["management_passes_to_lead", "orphaned"]
+
+
+class OrganisationSettlement(BaseModel):
+    """What the account erasure did to one organisation of the subject (#2134). Carries no account key."""
+
+    tenant_key: str
+    outcome: OrganisationErasureOutcome
+
+
 class ErasureRequest(BaseModel):
     """Art. 17: Account-deletion request, executed asynchronously after 90d."""
 
@@ -622,6 +647,10 @@ class AccountErasureReport(BaseModel):
     #: subject. ``None`` when the phase did not run — an erasure that skipped it
     #: must not be recorded ``completed``.
     personal_tenants: list[PersonalTenantErasure] | None = None
+    #: The organisation phase (#2134, MT-038): what the erasure did to each
+    #: organisation of the subject (management handed over, orphaned, unaffected).
+    #: ``None`` when it did not run.
+    organisations: list[OrganisationSettlement] | None = None
     arango: ErasureExecutionReport = Field(default_factory=ErasureExecutionReport)
 
     def affected(self, collection: str) -> int:

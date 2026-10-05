@@ -718,7 +718,10 @@
       "erasurePreviewTenantShared_other": "\"{{name}}\" is deleted, {{count}} other members are affected.",
       "erasurePreviewSharedHint": "Everything in it is lost: sites, plants, diary and tasks, including those of the other members. The other members are notified by email as soon as you request the deletion and can secure their data until the final deletion.",
       "erasurePreviewLoading": "Checking which personal gardens are affected …",
-      "erasurePreviewError": "We could not check which personal gardens are affected. Your personal gardens are deleted with everything in them in any case, even when other members use them."
+      "erasurePreviewError": "We could not check which personal gardens are affected. Your personal gardens are deleted with everything in them in any case, even when other members use them.",
+      "erasurePreviewOrgHeading": "Your organizations after your account is deleted:",
+      "erasurePreviewOrgManagementPasses": "In “{{name}}” you are the last person with the management right. The longest-serving lead takes over management; the members are notified.",
+      "erasurePreviewOrgOrphaned": "In “{{name}}” nobody is left who can administer the organization. It is deleted with all its data after a grace period (90 days by default); the members and the operators are notified."
     },
     "activities": {
       "title": "Activities",
@@ -912,6 +915,9 @@
       "adminErasurePreviewSharedHint": "Everything in it is lost at once: sites, plants, diary and tasks, including those of the other members. The other members get an email saying the deletion is happening now. There is no grace period in which they could still secure their data.",
       "adminErasurePreviewLoading": "Checking which personal gardens are affected …",
       "adminErasurePreviewError": "We could not check which personal gardens are affected. The account's personal gardens are deleted at once with everything in them in any case, even when other members use them, and those members get no grace period.",
+      "adminErasurePreviewOrgHeading": "The account's organizations after the deletion:",
+      "adminErasurePreviewOrgManagementPasses": "In “{{name}}” the account is the last person with the management right. The longest-serving lead takes over management; the members are notified.",
+      "adminErasurePreviewOrgOrphaned": "In “{{name}}” nobody is left who can administer the organization. It becomes orphaned and is deleted with all its data after the grace period; you see it in the admin area.",
       "adminDeleteUserConfirm": "Are you sure you want to permanently delete user \"{{name}}\" ({{email}}) and all associated data?",
       "adminUserDeletionAccepted": "Deletion accepted: the account is closed and its data is being erased in the background",
       "adminConfirmDelete": "Delete permanently",

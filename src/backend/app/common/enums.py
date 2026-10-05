@@ -1794,6 +1794,9 @@ class SecurityAuditVia(StrEnum):
     SELF = "self"
     REGISTRATION = "registration"
     TENANT_CREATION = "tenant_creation"
+    #: The account erasure of a tenant's last ``management`` holder handed the scope to the
+    #: longest-serving remaining ``lead`` (MT-038, #2134).
+    ACCOUNT_ERASURE = "account_erasure"
 
 
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {

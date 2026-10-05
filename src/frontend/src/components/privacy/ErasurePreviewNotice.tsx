@@ -20,7 +20,10 @@ interface ErasurePreviewNoticeProps {
 
 /**
  * The personal tenants an account erasure deletes with the account, one line
- * each, shown **before** the person confirms (REQ-025 AK-FK-06, #1824).
+ * each, shown **before** the person confirms (REQ-025 AK-FK-06, #1824) — and,
+ * since #2134, the organizations it changes: "last management in X" (the
+ * longest-serving lead takes over) or "last member / no lead left in Y" (orphaned,
+ * deleted after the grace).
  *
  * Made of `span`s, not a list: it sits inside `DialogContentText`, which is a
  * `<p>`, where a `<ul>` would be invalid markup. Renders nothing for an account
@@ -60,13 +63,15 @@ export default function ErasurePreviewNotice({
         {admin ? t('pages.auth.adminErasurePreviewError') : t('pages.privacy.erasurePreviewError')}
       </Box>
     );
-  } else if (preview.status === 'ready' && preview.tenants.length > 0) {
+  } else if (preview.status === 'ready' && (preview.tenants.length > 0 || preview.organizations.length > 0)) {
     const anyShared = preview.tenants.some((tenant) => tenant.other_member_count > 0);
     content = (
       <Box component="span" sx={{ ...block, mt: 1 }} data-testid={testIdPrefix}>
-        <Box component="strong" sx={block}>
-          {admin ? t('pages.auth.adminErasurePreviewHeading') : t('pages.privacy.erasurePreviewHeading')}
-        </Box>
+        {preview.tenants.length > 0 && (
+          <Box component="strong" sx={block}>
+            {admin ? t('pages.auth.adminErasurePreviewHeading') : t('pages.privacy.erasurePreviewHeading')}
+          </Box>
+        )}
         {preview.tenants.map((tenant, index) => (
           // The preview carries no id (names and counts only, AK-FK-06), so the position disambiguates two tenants of one name.
           <Box
@@ -99,6 +104,32 @@ export default function ErasurePreviewNotice({
             {admin ? t('pages.auth.adminErasurePreviewSharedHint') : t('pages.privacy.erasurePreviewSharedHint')}
           </Box>
         )}
+        {preview.organizations.length > 0 && (
+          <Box component="strong" sx={{ ...block, mt: preview.tenants.length > 0 ? 1 : 0 }}>
+            {admin ? t('pages.auth.adminErasurePreviewOrgHeading') : t('pages.privacy.erasurePreviewOrgHeading')}
+          </Box>
+        )}
+        {preview.organizations.map((org, index) => {
+          const passes = org.outcome === 'management_passes_to_lead';
+          const key = passes
+            ? admin
+              ? 'pages.auth.adminErasurePreviewOrgManagementPasses'
+              : 'pages.privacy.erasurePreviewOrgManagementPasses'
+            : admin
+              ? 'pages.auth.adminErasurePreviewOrgOrphaned'
+              : 'pages.privacy.erasurePreviewOrgOrphaned';
+          return (
+            // Names only (the preview carries no key); the position disambiguates two of one name.
+            <Box
+              component="span"
+              sx={block}
+              key={`${org.name}-${index}`}
+              data-testid={`${testIdPrefix}-org-${passes ? 'handover' : 'orphaned'}`}
+            >
+              {t(key, { name: org.name })}
+            </Box>
+          );
+        })}
       </Box>
     );
   }

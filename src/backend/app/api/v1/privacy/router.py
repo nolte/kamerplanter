@@ -21,6 +21,7 @@ from app.api.v1.privacy.schemas import (
     ErasureResponse,
     MessageResponse,
     ObjectionRequest,
+    OrganizationErasurePreviewItem,
     PersonalTenantErasurePreviewItem,
     PrivacyPolicyResponse,
     RestrictionCreateRequest,
@@ -309,7 +310,12 @@ def get_erasure_preview(
         personal_tenants=[
             PersonalTenantErasurePreviewItem(name=item.name, other_member_count=item.other_member_count)
             for item in preview
-        ]
+        ],
+        # #2134 — "last management in org X" / "nobody left in org Y", named before the confirmation.
+        organizations=[
+            OrganizationErasurePreviewItem(name=item.name, outcome=item.outcome)
+            for item in service.organisation_erasure_preview(current_user.key or "")
+        ],
     )
 
 
