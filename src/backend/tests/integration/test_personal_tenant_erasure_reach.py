@@ -19,8 +19,11 @@ grace):
 * the subject's **personal tenant with a second active member** — erased too
   (erasure together, #1824: it goes with the account, the other member is
   told beforehand), every ``delete`` row gone, the request naming it ``erased``;
-* an **organisation tenant** the subject owns — untouched by the tenant
-  inventory (it is the group's, not the subject's).
+* an **organisation tenant** the subject owns — not run through the tenant
+  inventory by the account erasure (it is the group's, not the subject's). The
+  subject is its only member, so since #2134 it is left ``orphaned`` with a
+  *scheduled* deletion (origin ``orphaned_organisation``) that the tenant grace
+  of #2123 runs later — never in this erasure.
 
 Locally it needs a database::
 
@@ -364,8 +367,14 @@ def test_a_personal_tenant_with_another_member_goes_with_the_account(database, e
 def test_an_organisation_the_subject_owns_is_not_run_through_the_tenant_inventory(database, erased, entry_point):
     run = erased[entry_point]
     tenant = f"o-{entry_point}"
-    assert _read(database, f"{col.TENANTS}/{tenant}") is not None
-    assert database.collection("tenant_erasure_records").get(TenantErasureEngine.record_key(tenant)) is None
+    stored = _read(database, f"{col.TENANTS}/{tenant}")
+    assert stored is not None
+    # #2134 — its only member is gone: orphaned and scheduled, never claimed by this erasure.
+    assert stored["status"] == "orphaned"
+    record = database.collection("tenant_erasure_records").get(TenantErasureEngine.record_key(tenant))
+    assert record is not None
+    assert (record["status"], record["origin"]) == ("scheduled", "orphaned_organisation")
+    assert record.get("last_attempt_at") is None
     domain_rows = [run.organisation[c] for c in _entries("delete") if c not in (col.MEMBERSHIPS,) and c != col.TENANTS]
     assert [doc_id for doc_id in domain_rows if _read(database, doc_id) is None] == []
 
