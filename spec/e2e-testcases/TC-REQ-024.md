@@ -2,7 +2,7 @@
 req_id: REQ-024
 title: Mandantenverwaltung & Gemeinschaftsgärten
 category: Plattform & Kollaboration
-test_count: 93
+test_count: 97
 coverage_areas:
   - Tenant-Erstellung (TenantCreatePage — /tenants/create)
   - Tenant-Einstellungen (TenantSettingsPage — /t/{slug}/settings)
@@ -1850,6 +1850,105 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 ---
 
+### TC-024-XT-001: Deep-Link auf eine Pflanze eines fremden Tenants zeigt „nicht gefunden"
+
+**Requirement**: REQ-024 §1 Kernkonzepte, AK-14; Audit MT-024 (#2120)
+**Priority**: Critical
+**Category**: Berechtigungsprüfung (Cross-Tenant-Negativprobe)
+**Preconditions**:
+- Tenant „Garten Anna" (Nutzerin Anna, Rolle Gärtner) und Tenant „Garten Bernd" (Nutzer Bernd) existieren, Anna ist **nicht** Mitglied in „Garten Bernd"
+- Bernd hat die Pflanze „Bernds Tomate" angelegt; ihr Schlüssel ist dem Testlauf bekannt (aus Bernds Pflanzendetail-URL)
+
+**Testschritte**:
+1. Anna ist angemeldet, aktiver Tenant „Garten Anna"
+2. Anna ruft die Pflanzendetailseite **in ihrem eigenen Tenant** mit Bernds Pflanzenschlüssel direkt über die Adresszeile auf (`/t/garten-anna/pflanzen/plant-instances/<Schlüssel von Bernds Tomate>`)
+3. Anna ruft dieselbe Seite mit einem frei erfundenen, nicht existierenden Schlüssel auf
+
+**Erwartete Ergebnisse**:
+- Schritt 2 zeigt die „Nicht gefunden"-Ansicht; der Name „Bernds Tomate" erscheint nirgends auf der Seite
+- Schritt 3 zeigt **dieselbe** „Nicht gefunden"-Ansicht wie Schritt 2 — fremd und nicht vorhanden sind für Anna nicht unterscheidbar
+- Annas eigene Pflanzenliste ist unverändert
+
+**Nachbedingungen**:
+- Bernds Pflanze ist unverändert
+
+**Tags**: [req-024, cross-tenant-isolation, mt-024, deep-link, kritisch, sicherheit]
+
+---
+
+### TC-024-XT-002: Bearbeiten über einen Deep-Link mit fremdem Schlüssel ändert nichts
+
+**Requirement**: REQ-024 §1a.1, AK-14; Audit MT-010/MT-024 (#2107, #2120)
+**Priority**: Critical
+**Category**: Berechtigungsprüfung (Cross-Tenant-Negativprobe, Schreibpfad)
+**Preconditions**:
+- Wie TC-024-XT-001; Bernd hat zusätzlich den Standort „Bernds Gewächshaus" und den Tank „Bernds Tank" angelegt
+
+**Testschritte**:
+1. Anna öffnet in ihrem Tenant die Detailansicht des Standorts mit dem Schlüssel von „Bernds Gewächshaus" über die Adresszeile (`/t/garten-anna/standorte/locations/<Schlüssel>`)
+2. Anna öffnet die Detailansicht des Tanks mit dem Schlüssel von „Bernds Tank" über die Adresszeile (`/t/garten-anna/standorte/tanks/<Schlüssel>`)
+3. Bernd meldet sich an und öffnet beide Objekte
+
+**Erwartete Ergebnisse**:
+- Schritte 1 und 2 zeigen die „Nicht gefunden"-Ansicht; es erscheint kein ausgefülltes Formular und kein Speichern-Button
+- In Schritt 3 sieht Bernd Namen und Werte beider Objekte unverändert
+
+**Nachbedingungen**:
+- Keine Daten in „Garten Bernd" geändert
+
+**Tags**: [req-024, cross-tenant-isolation, mt-010, mt-024, deep-link, schreibpfad, kritisch, sicherheit]
+
+---
+
+### TC-024-XT-003: Globaler Seed-Dünger ist für einen Gärtner nicht änderbar
+
+**Requirement**: REQ-024 §2 Stammdaten-Scoping; REQ-049 §2.3; Audit MT-002/MT-024 (#2100, #2120)
+**Priority**: High
+**Category**: Berechtigungsprüfung (Hybrid-Katalog, Schreibpfad)
+**Preconditions**:
+- Anna ist Gärtnerin in „Garten Anna" und **kein** Platform-Admin
+- Der mitgelieferte Seed-Dünger „CalMag" ist im Düngerkatalog sichtbar
+
+**Testschritte**:
+1. Anna öffnet die Düngerdetailseite von „CalMag"
+2. Anna versucht, den Produktnamen zu ändern und zu speichern
+
+**Erwartete Ergebnisse**:
+- Entweder ist kein Bearbeiten-Button sichtbar, oder das Speichern endet mit einer verständlichen Meldung, dass nur Platform-Admins den gemeinsamen Katalog ändern dürfen
+- Nach dem Neuladen zeigt „CalMag" den ursprünglichen Namen — auch in „Garten Bernd"
+
+**Nachbedingungen**:
+- Der Seed-Dünger ist für alle Tenants unverändert
+
+**Tags**: [req-024, cross-tenant-isolation, mt-002, mt-024, hybrid-katalog, kritisch]
+
+---
+
+### TC-024-XT-004: Nährstoffplan eines fremden Tenants ist nicht druckbar
+
+**Requirement**: REQ-024 §1 Kernkonzepte, AK-14; Audit MT-024 §5 (#2120)
+**Priority**: High
+**Category**: Berechtigungsprüfung (Export/Druck)
+**Preconditions**:
+- Bernd hat den privaten Nährstoffplan „Bernds Geheimrezept" angelegt; sein Schlüssel ist dem Testlauf bekannt
+
+**Testschritte**:
+1. Anna ruft in ihrem Tenant die Detailseite des Nährstoffplans mit Bernds Planschlüssel über die Adresszeile auf (`/t/garten-anna/duengung/plans/<Schlüssel>`)
+2. Anna sucht auf der Seite den Button „Als PDF herunterladen"
+
+**Erwartete Ergebnisse**:
+- Anna sieht die „Nicht gefunden"-Ansicht; es gibt keinen Export-Button und es wird kein PDF heruntergeladen
+- Der Planname „Bernds Geheimrezept" erscheint nirgends
+
+**Nachbedingungen**:
+- Kein Status geändert
+
+**Tags**: [req-024, cross-tenant-isolation, mt-024, druck, export, kritisch]
+
+> **Automatisierungsstand (2026-10-05):** TC-024-XT-001 bis -004 sind spezifiziert, aber noch **nicht** als Browser-Test automatisiert und nicht gelaufen. Die API-Schicht derselben Probe deckt `tests/integration/test_cross_tenant_equipment_actuators_print.py` sowie die Boundary-Tests aus #2148 (`test_fertilizer_catalogue_write_gate.py`, `test_shared_workflow_template_write_gate.py`) ab.
+
+---
+
 ## 16. Mobile-Ansicht (MobileCard)
 
 ### TC-024-072: Mitgliederliste auf mobilen Geräten als MobileCard dargestellt
@@ -2466,7 +2565,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 | Gießdienst-Rotation — Erweiterte Szenarien | TC-024-083 – TC-024-086 |
 | Pinnwand — Erweiterte Szenarien | TC-024-087 – TC-024-090 |
 | Gemeinsame Einkaufsliste — Erweiterte Szenarien | TC-024-091 – TC-024-093 |
-| Cross-Tenant-Isolation | TC-024-070, TC-024-071 |
+| Cross-Tenant-Isolation | TC-024-070, TC-024-071, TC-024-XT-001 – TC-024-XT-004 |
 | Leere Zustände (Empty States) | TC-024-073, TC-024-074 |
 | Mobile-Ansicht | TC-024-072 |
 | Grenzwerte & Edge Cases | TC-024-075 – TC-024-081 |
