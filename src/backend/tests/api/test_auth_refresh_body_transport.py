@@ -62,6 +62,7 @@ from app.domain.interfaces.refresh_token_repository import IRefreshTokenReposito
 from app.domain.models.auth import RefreshToken
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
+from tests.support.refresh_family_fakes import RefreshFamilyMemoryMixin
 from tests.support.step_up import PassedStepUpVerifier
 
 _REFRESH_PATH = "/api/v1/auth/refresh"
@@ -110,7 +111,7 @@ class _FakeCodeStore(IDevicePairingCodeStore):
         return self._records.pop(code, None)
 
 
-class _MemoryRefreshTokenRepository(IRefreshTokenRepository):
+class _MemoryRefreshTokenRepository(RefreshFamilyMemoryMixin, IRefreshTokenRepository):
     """A session store that actually forgets a revoked token.
 
     ``get_by_hash`` filtering out revoked documents mirrors the AQL filter in
@@ -539,10 +540,27 @@ class TestRotationSemanticsAreIdentical:
         assert harness.refresh_via_body(token).status_code == 401
 
     def test_a_replayed_cookie_token_is_refused_with_401(self, harness: _Harness) -> None:
+        """Past the #2116 grace window a rotated cookie token is a replay."""
         token = harness.login()
         assert harness.refresh_via_cookie(token).status_code == 200
+        harness.sessions.age_rotations(seconds=61)
 
         assert harness.refresh_via_cookie(token).status_code == 401
+
+    def test_a_second_tab_inside_the_grace_window_gets_an_access_token_and_no_cookie(self, harness: _Harness) -> None:
+        """#2116: two tabs refreshing with one cookie. The loser must not mint a second
+        successor (the winner's ``Set-Cookie`` already holds the live one) and is not
+        signed out either."""
+        token = harness.login()
+        assert harness.refresh_via_cookie(token).status_code == 200
+        live_before = harness.sessions.active_count()
+
+        second = harness.refresh_via_cookie(token)
+
+        assert second.status_code == 200
+        assert second.json()["access_token"]
+        assert "kp_refresh" not in _set_cookie_names(second)
+        assert harness.sessions.active_count() == live_before
 
     def test_a_token_rotated_over_the_body_is_dead_on_the_cookie_path_too(self, harness: _Harness) -> None:
         """Revocation is a property of the token, not of the transport that

@@ -454,7 +454,11 @@ def refresh(
 
     body_token = body.refresh_token if body is not None else None
     if body_token:
+        # No grace window on this transport (#2116, REQ-023 §3.2a): the client holds
+        # exactly one token, so a rotated one presented again is a replay.
         token_pair, new_raw_refresh, _is_persistent = service.refresh_tokens(body_token, user_agent, ip_address)
+        if new_raw_refresh is None:  # unreachable without allow_grace; never answer a pair without its token
+            raise InvalidTokenError("refresh token")
         return TokenPairResponse(
             access_token=token_pair.access_token,
             token_type=token_pair.token_type,
@@ -470,8 +474,14 @@ def refresh(
     # every client this package exists for.
     raw_refresh = get_refresh_token_from_cookie(kp_refresh)
     verify_csrf(request)
-    token_pair, new_raw_refresh, is_persistent = service.refresh_tokens(raw_refresh, user_agent, ip_address)
-    _set_refresh_cookie(response, new_raw_refresh, is_persistent=is_persistent)
+    # Two tabs refreshing with the same cookie are the grace window's case (#2116): the
+    # loser gets an access token and no cookie, because the winner's ``Set-Cookie``
+    # already put the successor into the browser's shared jar.
+    token_pair, new_raw_refresh, is_persistent = service.refresh_tokens(
+        raw_refresh, user_agent, ip_address, allow_grace=True
+    )
+    if new_raw_refresh is not None:
+        _set_refresh_cookie(response, new_raw_refresh, is_persistent=is_persistent)
     set_csrf_cookie(response)
     return TokenResponse(
         access_token=token_pair.access_token,

@@ -1,5 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import * as favoritesApi from '@/api/endpoints/favorites';
+import { mayAdoptLocalData } from '@/lib/localDataOwner';
+import { useSignedInUserKey } from '@/hooks/useSignedInUserKey';
 
 /**
  * Server-backed personal favorites for one entity type.
@@ -24,9 +26,13 @@ import * as favoritesApi from '@/api/endpoints/favorites';
 export function useServerFavorites(entityType: string, legacyStorageKey?: string) {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const loaded = useRef(false);
+  const userKey = useSignedInUserKey();
 
   useEffect(() => {
     if (loaded.current) return;
+    // The carry-over needs to know whose profile it would write into (#2117): with
+    // a legacy key, the first load waits for the signed-in account.
+    if (legacyStorageKey && !userKey) return;
     loaded.current = true;
 
     favoritesApi
@@ -34,14 +40,14 @@ export function useServerFavorites(entityType: string, legacyStorageKey?: string
       .then(async (entries) => {
         const server = new Set(entries.map((e) => e.target_key));
         const carried = legacyStorageKey
-          ? await carryOverLegacyFavorites(legacyStorageKey, server)
+          ? await carryOverLegacyFavorites(legacyStorageKey, server, userKey)
           : new Set<string>();
         setFavorites(new Set([...server, ...carried]));
       })
       .catch(() => {
         // Silently fall back to an empty set (e.g. not authenticated).
       });
-  }, [entityType, legacyStorageKey]);
+  }, [entityType, legacyStorageKey, userKey]);
 
   const toggleFavorite = useCallback((key: string) => {
     setFavorites((prev) => {
@@ -90,6 +96,7 @@ export function useServerFavorites(entityType: string, legacyStorageKey?: string
 export async function carryOverLegacyFavorites(
   storageKey: string,
   alreadyOnServer: Set<string>,
+  userKey?: string | null,
 ): Promise<Set<string>> {
   let stored: string[];
   try {
@@ -106,6 +113,10 @@ export async function carryOverLegacyFavorites(
   } catch {
     return new Set();
   }
+
+  // Leftovers another account wrote on this browser stay where they are (#2117):
+  // the first account to adopt local data owns it (see `localDataOwner.ts`).
+  if (stored.length > 0 && !mayAdoptLocalData(userKey)) return new Set();
 
   const missing = stored.filter((key) => !alreadyOnServer.has(key));
   if (missing.length === 0) {

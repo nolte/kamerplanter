@@ -18,6 +18,7 @@ import {
   clearLocalDashboardLayout,
 } from '@/lib/dashboardLayoutStorage';
 import type { RootState } from '@/store/store';
+import { mayAdoptLocalData } from '@/lib/localDataOwner';
 
 interface UserPreferencesState {
   preferences: UserPreference | null;
@@ -84,6 +85,8 @@ export const migrateLocalModuleVisibility = createAsyncThunk(
     const local = readLocalModuleVisibility();
     if (Object.keys(local).length === 0) return null;
     const state = getState() as RootState;
+    // Another account's leftovers on a shared browser stay where they are (#2117).
+    if (!mayAdoptLocalData(state.auth?.user?.key)) return null;
     const current = state.userPreferences.preferences?.module_visibility ?? {};
     const merged = { ...current, ...local };
     const pref = await api.updatePreferences({ module_visibility: merged });
@@ -121,6 +124,8 @@ export const migrateLocalDashboardLayout = createAsyncThunk(
     const local = readLocalDashboardLayout();
     if (!local) return null;
     const state = getState() as RootState;
+    // Another account's leftovers on a shared browser stay where they are (#2117).
+    if (!mayAdoptLocalData(state.auth?.user?.key)) return null;
     const serverHasLayout = state.userPreferences.preferences?.dashboard_layout != null;
     if (serverHasLayout) {
       clearLocalDashboardLayout();

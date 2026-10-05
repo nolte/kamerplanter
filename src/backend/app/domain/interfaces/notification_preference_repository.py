@@ -11,6 +11,19 @@ class INotificationPreferenceRepository(ABC):
     def upsert(self, preferences: NotificationPreferences) -> NotificationPreferences: ...
 
     @abstractmethod
+    def remove_endpoint_from_other_users(self, channel_key: str, endpoint: str, holder_user_key: str) -> int:
+        """Remove ``endpoint`` from every account's ``channel_key`` subscriptions except the holder's (#2117).
+
+        A push endpoint names one browser profile on one device; when an account
+        subscribes it, no other account may still receive pushes through it.
+        Same write shape as :meth:`remove_subscriptions`: an existing document only,
+        one atomic update per document.
+
+        Returns:
+            How many subscriptions were removed across all other accounts.
+        """
+
+    @abstractmethod
     def remove_subscriptions(self, user_key: str, channel_key: str, endpoints: list[str]) -> int:
         """Remove the subscriptions with these endpoints from one channel's config, atomically (#1827).
 

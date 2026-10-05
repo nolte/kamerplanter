@@ -67,14 +67,6 @@ DECIDED: dict[tuple[str, str], str] = {
         "persisted in clear: the iCal endpoint looks the feed up BY the token value, so Fernet (random IV) cannot "
         "serve the lookup; hashing it is the fix and is a separate change (#2113 class sweep, reported)"
     ),
-    ("user.User", "email_verification_token"): (
-        "persisted in clear and looked up by value (get_by_email_verification_token); needs a hash, not Fernet — "
-        "outside #2113's cheap scope, reported in its class sweep"
-    ),
-    ("user.User", "password_reset_token"): (
-        "persisted in clear and looked up by value (get_by_password_reset_token); needs a hash, not Fernet — "
-        "outside #2113's cheap scope, reported in its class sweep"
-    ),
 }
 
 

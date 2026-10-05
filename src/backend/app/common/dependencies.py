@@ -1214,6 +1214,7 @@ def get_user_service() -> UserService:
     return UserService(
         get_user_repo(),
         step_up_verifier=get_step_up_verifier(),
+        refresh_token_repo=get_refresh_token_repo(),
     )
 
 

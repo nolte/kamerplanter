@@ -3,6 +3,7 @@ import { isRateLimited } from '@/api/client';
 import * as authApi from '@/api/endpoints/auth';
 import type { UserProfile } from '@/api/types';
 import { isApiError, parseApiError } from '@/api/errors';
+import { releasePushSubscription } from '@/lib/pushSubscription';
 
 interface AuthState {
   user: UserProfile | null;
@@ -72,7 +73,18 @@ export const fetchProfile = createAsyncThunk('auth/fetchProfile', async () => {
   return profile;
 });
 
+/**
+ * Sign out of this session (#2117).
+ *
+ * The device's push subscription is dropped first, on the server and in the
+ * browser, because removing the server copy needs the access token this request
+ * is about to end. The rest of the clean-up (every data slice, the active tenant)
+ * belongs to the session end itself and runs on this thunk's `fulfilled` **and**
+ * `rejected`: a logout request that fails (offline) still ends the session in
+ * the tab — the user asked to leave, and the refresh cookie dies at its expiry.
+ */
 export const logoutUser = createAsyncThunk('auth/logout', async () => {
+  await releasePushSubscription({ notifyServer: true });
   await authApi.logout();
 });
 
@@ -173,12 +185,16 @@ const authSlice = createSlice({
       state.initialized = true;
     });
 
-    // Logout
-    builder.addCase(logoutUser.fulfilled, (state) => {
+    // Logout — a failed request still signs the tab out (#2117, see `logoutUser`).
+    const signedOut = (state: AuthState) => {
       state.user = null;
       state.accessToken = null;
       state.isAuthenticated = false;
-    });
+      state.isLoading = false;
+      state.initialized = true;
+    };
+    builder.addCase(logoutUser.fulfilled, signedOut);
+    builder.addCase(logoutUser.rejected, signedOut);
 
     // Refresh
     builder.addCase(refreshAccessToken.fulfilled, (state, action) => {

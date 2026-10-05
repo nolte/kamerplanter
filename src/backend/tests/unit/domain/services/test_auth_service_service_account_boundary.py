@@ -218,11 +218,11 @@ class TestTheResetPathIsTheSameSurface:
         """The token cannot be issued any more, but the redeem path is a second
         door into the same write and is gated on its own."""
         account = _account(account_type="service", email=SERVICE_EMAIL)
-        account.password_reset_token = "planted-token"  # noqa: S105 — not a credential
+        account.password_reset_token_hash = TokenEngine.hash_token("planted-token")
         account.password_reset_expires = datetime.now(UTC) + timedelta(hours=1)
         service, user_repo = _service(account)
 
-        user_repo.get_by_password_reset_token.return_value = account
+        user_repo.get_by_password_reset_token_hash.return_value = account
 
         with pytest.raises(ForbiddenError):
             service.reset_password("planted-token", NEW_PASSWORD)

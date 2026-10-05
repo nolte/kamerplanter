@@ -120,3 +120,56 @@ class TestResolveUserOptional:
 class TestIsAuthenticationRequired:
     def test_returns_true(self, provider):
         assert provider.is_authentication_required() is True
+
+
+class TestRevokedAccessTokens:
+    """#2116 (MT-019): an access token minted before a revocation stops resolving at once.
+
+    Against the real ``TokenEngine``, so the ``gen`` claim is the one the minting
+    path writes and the decoding path reads — not a hand-built payload.
+    """
+
+    @pytest.fixture
+    def engine(self):
+        from app.domain.engines.token_engine import TokenEngine
+
+        return TokenEngine("s" * 64)
+
+    def _provider(self, engine, user: User) -> FullAuthProvider:
+        repo = MagicMock()
+        repo.get_by_key.return_value = user
+        return FullAuthProvider(engine, repo, MagicMock())
+
+    def test_a_token_of_the_current_generation_resolves(self, engine, active_user):
+        active_user.access_token_generation = 3
+        token = engine.create_access_token("user-123", generation=3).access_token
+
+        assert self._provider(engine, active_user).resolve_user(f"Bearer {token}", client_ip=None) is active_user
+
+    def test_a_token_minted_before_the_last_revocation_is_refused(self, engine, active_user):
+        token = engine.create_access_token("user-123", generation=3).access_token
+        active_user.access_token_generation = 4  # logout everywhere / revoke / password change happened since
+
+        provider = self._provider(engine, active_user)
+        with pytest.raises(UnauthorizedError, match="revoked"):
+            provider.resolve_user(f"Bearer {token}", client_ip=None)
+        assert provider.resolve_user_optional(f"Bearer {token}", client_ip=None) is None
+
+    def test_a_token_minted_before_the_claim_existed_counts_as_generation_zero(self, engine, active_user):
+        """Tokens issued by the previous release carry no ``gen``: valid until a revocation, then refused."""
+        import time
+
+        from authlib.jose import JsonWebToken
+
+        now = int(time.time())
+        legacy = JsonWebToken(["HS256"]).encode(
+            {"alg": "HS256"},
+            {"sub": "user-123", "exp": now + 900, "iat": now, "jti": "j", "type": "access"},
+            "s" * 64,
+        )
+        bearer = f"Bearer {legacy.decode()}"
+
+        assert self._provider(engine, active_user).resolve_user(bearer, client_ip=None) is active_user
+        active_user.access_token_generation = 1
+        with pytest.raises(UnauthorizedError):
+            self._provider(engine, active_user).resolve_user(bearer, client_ip=None)

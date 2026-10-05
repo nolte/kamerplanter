@@ -1,8 +1,9 @@
-from typing import cast
+from typing import Any, cast
 
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from arango.exceptions import AQLQueryExecuteError
+from pydantic import BaseModel
 
 from app.common.types import UserKey
 from app.data_access.arango import collections as col
@@ -75,7 +76,7 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
     #:   override below re-materialises a full ``User`` and goes through
     #:   :meth:`BaseArangoRepository.update`, so every ``None`` in ``fields`` was
     #:   dropped too. That silently defeated ``AuthService.reset_password`` and
-    #:   ``change_password``, which clear ``password_reset_token`` /
+    #:   ``change_password``, which clear ``password_reset_token_hash`` /
     #:   ``password_reset_expires`` and say in a comment that they rely on the
     #:   explicit ``None`` being persisted: a used reset token stayed valid for its
     #:   full hour, and ``verify_email`` likewise could not burn its token.
@@ -97,7 +98,7 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
     #: method. #1525 SCR-003 narrowed them, because full-replace makes that shape
     #: strictly worse than it was: a stale snapshot no longer merely *loses* a field a
     #: parallel request set in between, it **removes** the attribute — and the field
-    #: in question is typically ``password_reset_token`` or ``locked_until``.
+    #: in question is typically ``password_reset_token_hash`` or ``locked_until``.
     #:
     #: The alternative — routing those clears through a second
     #: ``update_fields(..., keep_none=True)`` write at each call site — is the #948
@@ -121,8 +122,25 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
     #: real server.
     _update_is_full_replace = True
 
+    #: Account attributes this repository never writes (#2116). They are owned by
+    #: ``ArangoRefreshTokenRepository``, which moves them in the same AQL statement
+    #: that revokes the sessions. Every write here is a rewrite of a model read
+    #: moments earlier (see ``_update_is_full_replace``), so a writer that read the
+    #: account before a "log out everywhere" would otherwise put the old counter
+    #: back and revive every access token the revocation ended. Left out of the
+    #: payload, the stored value survives any such rewrite (the update is a merge
+    #: at the storage level); a new account simply has none, which reads as ``0``.
+    _STORE_OWNED_FIELDS: frozenset[str] = frozenset({"session_generation", "access_token_generation"})
+
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.USERS)
+
+    def _to_doc(self, model: BaseModel, *, exclude_none: bool = True) -> dict[str, Any]:
+        """The base serialisation without the session counters (:data:`_STORE_OWNED_FIELDS`)."""
+        doc = super()._to_doc(model, exclude_none=exclude_none)
+        for name in self._STORE_OWNED_FIELDS:
+            doc.pop(name, None)
+        return doc
 
     def update_fields(self, key: UserKey, fields: dict) -> User | None:
         """Merge ``fields`` into the stored user and rewrite it (#1018, mirrors #968 §2).
@@ -206,8 +224,8 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
             return None
         return User(**self._from_doc(docs[0]))
 
-    def get_by_email_verification_token(self, token: str) -> User | None:
-        """The user carrying this email-verification token, or ``None`` (#1556).
+    def get_by_email_verification_token_hash(self, token_hash: str) -> User | None:
+        """The user carrying this email-verification token digest, or ``None`` (#1556, #2158).
 
         Was hand-written AQL inside ``AuthService.verify_email``, executed against
         ``self._user_repo._db`` — NFR-001's Business Logic → Data Access →
@@ -220,14 +238,14 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         out by hand, so this move changes no behaviour — it is a layering repair,
         not a validation repair.
         """
-        return self._get_by_token("email_verification_token", token)
+        return self._get_by_token("email_verification_token_hash", token_hash)
 
-    def get_by_password_reset_token(self, token: str) -> User | None:
-        """The user carrying this password-reset token, or ``None`` (#1556).
+    def get_by_password_reset_token_hash(self, token_hash: str) -> User | None:
+        """The user carrying this password-reset token digest, or ``None`` (#1556, #2158).
 
-        The reset-path twin of :meth:`get_by_email_verification_token`.
+        The reset-path twin of :meth:`get_by_email_verification_token_hash`.
         """
-        return self._get_by_token("password_reset_token", token)
+        return self._get_by_token("password_reset_token_hash", token_hash)
 
     def _get_by_token(self, attribute: str, token: str) -> User | None:
         """One user by an exact match on a token attribute, or ``None``.
