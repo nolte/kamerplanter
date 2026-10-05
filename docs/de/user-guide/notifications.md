@@ -111,6 +111,8 @@ Aktiviert Web-Push-Benachrichtigungen direkt im Browser oder in der als App inst
 
 Wird der Kanal in diesem Browser nicht unterstützt (z. B. älterer Browser) oder hast du Benachrichtigungen zuvor blockiert, zeigt die Seite einen entsprechenden Hinweis anstelle der Aktivieren-Schaltfläche. Über **Deaktivieren** entfernst du die Push-Registrierung dieses Geräts wieder.
 
+Eine Push-Registrierung gehört immer zu genau einem Konto: Aktiviert jemand anderes auf demselben Browser Push, erhält dein Konto über dieses Gerät keine Nachrichten mehr. Beim **Abmelden** wird die Registrierung dieses Geräts entfernt; nach dem nächsten Anmelden aktivierst du Push dort bei Bedarf erneut. <!-- #2117 -->
+
 ### Apprise
 
 Bindet über die Open-Source-Bibliothek [Apprise](https://github.com/caronc/apprise) mehr als 100 Messaging-Dienste an — etwa Telegram, Slack, Discord, ntfy, Gotify oder Pushover. Trage dazu eine oder mehrere **Apprise-URLs** ein (eine pro Zeile), zum Beispiel:

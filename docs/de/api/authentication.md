@@ -18,6 +18,10 @@ Das **Access Token** ist ein signiertes JWT (HS256). Es enthält die Nutzer-ID u
 
 Das **Refresh Token** wird als HttpOnly-Cookie gesetzt. Es ist für JavaScript nicht lesbar und schützt damit vor XSS-Angriffen. Bei jedem Aufruf von `/auth/refresh` wird das Token rotiert — das alte Token wird ungültig, ein neues ausgestellt.
 
+Alle Refresh-Tokens, die aus einer Anmeldung durch Rotation entstehen, bilden eine **Token-Familie**. Wird ein bereits rotiertes Token erneut vorgelegt, gilt das als Wiederverwendung eines gestohlenen Tokens: Der Server beendet die ganze Familie (diese eine Anmeldung, andere Geräte bleiben angemeldet) und antwortet mit `401 Unauthorized`. Ausnahme ist das **Gnadenfenster** von 60 Sekunden für den Cookie-Weg: Erneuern zwei Tabs desselben Browsers gleichzeitig, erhält der zweite ein neues Access Token, aber keinen neuen Cookie — den hat der erste Tab bereits gesetzt. Das Gnadenfenster gilt nur für denselben Client (gleicher `User-Agent`). <!-- #2116 -->
+
+Ein Access Token endet nicht erst nach seinen 15 Minuten: **Jeder Widerruf** — Abmelden, alle Sitzungen abmelden, eine einzelne Sitzung beenden, Passwortänderung oder -Reset, die Deaktivierung des Kontos, eine erkannte Token-Wiederverwendung — macht alle bis dahin ausgestellten Access Tokens des Kontos sofort ungültig (`401 Unauthorized`). Geräte, deren Sitzung weiterläuft, holen sich mit ihrem Refresh Token unbemerkt ein neues. <!-- #2116 -->
+
 ---
 
 ## Registrierung
@@ -195,7 +199,7 @@ X-CSRF-Token: <csrf-token>
 }
 ```
 
-Das alte Refresh-Token wird ungültig. Der neue Refresh-Cookie wird automatisch gesetzt.
+Das alte Refresh-Token wird ungültig. Der neue Refresh-Cookie wird automatisch gesetzt. Kommt dasselbe alte Token innerhalb von 60 Sekunden aus demselben Browser noch einmal (zweiter Tab), antwortet der Server mit einem Access Token und setzt **keinen** Cookie; später oder von einem anderen Client gilt es als Wiederverwendung und beendet die Sitzung (siehe [Token-Modell](#token-modell)).
 
 ---
 
@@ -208,7 +212,9 @@ POST /api/v1/auth/logout
 X-CSRF-Token: <csrf-token>
 ```
 
-Invalidiert das aktuelle Refresh-Token und löscht den Cookie.
+Invalidiert die Sitzung (das aktuelle Refresh-Token und alle aus ihr rotierten) und löscht den Cookie. Access Tokens des Kontos werden sofort ungültig; andere angemeldete Geräte erneuern ihres unbemerkt.
+
+Die Web-Oberfläche entfernt beim Abmelden außerdem alles, was sie im Browser über dein Konto hält: geladene Daten, den aktiven Garten und die Browser-Push-Registrierung dieses Geräts. Auf einem gemeinsam genutzten Gerät sieht die nächste Person nichts davon und erhält keine Push-Nachrichten für dein Konto. <!-- #2117 -->
 
 ### Alle Sitzungen abmelden
 
@@ -218,7 +224,7 @@ Authorization: Bearer <access-token>
 X-CSRF-Token: <csrf-token>
 ```
 
-Invalidiert alle Refresh-Tokens des Nutzers auf allen Geräten.
+Invalidiert alle Refresh-Tokens des Nutzers auf allen Geräten — und alle Access Tokens: Auch ein noch nicht abgelaufenes Access Token wird ab der nächsten Anfrage mit `401 Unauthorized` abgelehnt. <!-- #2116 -->
 
 ---
 
@@ -711,6 +717,9 @@ Fehlt das Feld `refresh_token` im Body, ist es `null`, oder ist der gesamte Body
     Ein nicht leerer Body, der kein gültiges JSON ist, wird mit `422 Unprocessable Entity` abgelehnt. Native Clients müssen den Header `Content-Type: application/json` setzen.
 
 Die Rotation ist transportübergreifend: Ein per Body oder per Cookie erneuertes Refresh Token macht das jeweils vorherige Token auf **beiden** Transportwegen ungültig — es gibt nur eine Rotation, keine getrennte Buchführung je Transportweg.
+
+!!! warning "Kein Gnadenfenster auf dem Body-Weg"
+    Ein bereits rotiertes Token, das erneut vorgelegt wird, beendet die Sitzung des Geräts (Token-Familie, siehe [Token-Modell](#token-modell)) — auch dann, wenn nur die Antwort auf die erste Erneuerung verloren ging. Ein nativer Client speichert das neue Token deshalb, bevor er es benutzt, und wiederholt eine Erneuerung nicht blind mit dem alten Token. Ist die Sitzung beendet, koppelt er sich neu. <!-- #2116 -->
 
 ### Sitzung eines gekoppelten Geräts beenden
 
