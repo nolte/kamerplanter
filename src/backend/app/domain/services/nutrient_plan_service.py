@@ -331,8 +331,9 @@ class NutrientPlanService:
         """The plan assigned to a plant of ``tenant_key`` (#927)."""
         return self._repo.get_plant_plan(plant_key, tenant_key=tenant_key)
 
-    def remove_plant_plan(self, plant_key: str) -> bool:
-        return self._repo.remove_plant_plan(plant_key)
+    def remove_plant_plan(self, plant_key: str, *, tenant_key: str) -> bool:
+        """Detach a plant of ``tenant_key`` from its plan; the repository verifies the plant (#2107)."""
+        return self._repo.remove_plant_plan(plant_key, tenant_key=tenant_key)
 
     # ── Clone ────────────────────────────────────────────────────────
 

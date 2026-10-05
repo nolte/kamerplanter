@@ -216,7 +216,13 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
             return None
         return NutrientPlan(**self._from_doc(docs[0]))
 
-    def remove_plant_plan(self, plant_key: str) -> bool:
+    def remove_plant_plan(self, plant_key: str, *, tenant_key: str) -> bool:
+        """Detach a plant of ``tenant_key`` from its plan; a foreign or unknown plant is 404 (#2107).
+
+        The plant is the anchor: the edge belongs to it. The route verified the plant
+        before calling this unscoped delete — check-then-act — so the check is here now.
+        """
+        self.verify_entity_ownership(col.PLANT_INSTANCES, plant_key, tenant_key, entity_name="PlantInstance")
         plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
         self.delete_edges(col.FOLLOWS_PLAN, plant_id)
         return True

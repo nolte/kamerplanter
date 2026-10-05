@@ -261,12 +261,10 @@ def get_nutrient_plan(
 def remove_nutrient_plan(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.UPDATE)),
-    plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Remove the nutrient plan assigned to a plant instance."""
-    plant_service.get_plant(key, tenant_key=ctx.tenant_key)
-    plan_service.remove_plant_plan(key)
+    plan_service.remove_plant_plan(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}/current-dosages")
