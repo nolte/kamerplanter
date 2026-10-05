@@ -324,7 +324,9 @@ describe('LoginPage registration entry (#2132)', () => {
     registrationMode('invite_only');
     renderWithProviders(<LoginPage />, { store: idleAuthStore() });
 
-    expect(await screen.findByTestId('login-register-link')).toHaveTextContent(/Mit Einladung registrieren/);
+    await waitFor(() => {
+      expect(screen.getByTestId('login-register-link')).toHaveTextContent(/Mit Einladung registrieren/);
+    });
   });
 
   it('hides the registration link and says so when registration is closed', async () => {
