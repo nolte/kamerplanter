@@ -346,7 +346,13 @@ deletion paths do the same").
 
 A community garden you founded keeps its name, because the name belongs to the group.
 Only the owner reference is replaced. The owner reference grants no rights; rights come
-from the role in a membership, so nothing needs to be handed over.
+from the role in a membership. Only one thing is handed over: if you are the last person
+with the management right in an organization, the longest-serving remaining lead takes
+over management, and the members are notified. If no lead is left or you are the only
+member, the organization becomes **orphaned**: it is closed and deleted with all its data
+after the tenant-deletion grace period (`RETENTION_TENANT_ERASURE_GRACE_DAYS`, default 90
+days); the remaining members and the operators are notified. The preview shows you both
+before you confirm the deletion. <!-- Issue #2134 -->
 
 An AI tip you dismissed stays dismissed for the other members of your garden. Only
 the note that you dismissed it is replaced with `_anonymized`.
@@ -568,9 +574,17 @@ of a single account. <!-- Issue #1769 -->
    If the instance is not correctly configured for tenant deletion (missing
    `ERASURE_TOMBSTONE_SALT`, a misconfigured reference index or pest-image store), the
    system refuses the deletion with `503` and changes nothing.
-2. **Proof and lock:** A deletion record is created (it names neither the tenant's name,
-   slug nor owner), and every membership is deactivated immediately — nobody has access
-   anymore after that.
+2. **Proof, lock and grace period:** A deletion record is created (it names neither the
+   tenant's name, slug nor owner). The tenant enters the state **"Deletion scheduled"**
+   (`pending_deletion`) and is closed at once for every member, API key and MCP client.
+   Every member receives an email with the deletion date: until then they can save their
+   own data through the [personal data export](../user-guide/privacy.md#exporting-your-data-gdpr-art-15-20).
+   The actual deletion starts only after `RETENTION_TENANT_ERASURE_GRACE_DAYS` days
+   (default 90). Until then a member with the Lead role **and** Management — or a
+   platform admin in the admin area — can cancel the deletion with their own password;
+   the tenant is active again afterwards, with every membership unchanged. Once the grace
+   period has ended, the memberships are deactivated and the state changes to
+   "Being deleted" — from then on nothing can be taken back. <!-- Issue #2123 -->
 3. **External cleanup:** Contributed recognition vectors and pest prototypes are
    removed, followed by the tenant's sensor readings in the time-series database and
    all binary data under the object-storage prefix `t/{tenant_key}/`.
@@ -632,6 +646,7 @@ keeping the record longer than declared.
 | Rule | Celery task | Schedule (UTC) | Period setting |
 |------|-------------|-----------------|-----------------|
 | R-01 | `retention.execute_scheduled_erasures` | daily, 04:00 | `RETENTION_SOFT_DELETE_RETENTION_DAYS` |
+| R-01b | `app.tasks.tenant_tasks.resume_tenant_erasures` | daily, 04:30 | `RETENTION_TENANT_ERASURE_GRACE_DAYS` (fixed when the tenant deletion is accepted) |
 | R-02 | `app.tasks.auth_tasks.cleanup_unverified_accounts` | daily, 03:10 | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` |
 | R-03 | `app.tasks.auth_tasks.anonymize_old_ips` | daily, 03:20 | `RETENTION_IP_ANONYMIZATION_DAYS` |
 | R-05 | `retention.expire_data_exports` | hourly, minute 20 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` |
@@ -698,6 +713,7 @@ checks the same floor again:
 | `RETENTION_CONSENT_IP_ANONYMIZATION_DAYS` | R-04a | 7 | 1 | 7 | — |
 | `RETENTION_INVITATION_RETENTION_DAYS` | R-12 | 30 | 1 | 30 | — |
 | `RETENTION_ERASURE_MEMBER_NOTICE_DAYS` | R-01a | 7 | 1 | 7 | — |
+| `RETENTION_TENANT_ERASURE_GRACE_DAYS` | R-01b | 90 | 0 | 90 | — |
 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | R-16 | 5 | 5 (CanG) | — | — |
 | `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | R-17 | 3 | 3 (PflSchG §11) | — | — |
 | `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | R-18 | 3 | 3 (PflSchG §11) | — | — |

@@ -360,8 +360,14 @@ die Konfiguration stimmt (siehe unten, „Alle Löschwege tun dasselbe").
 
 Einen Gemeinschaftsgarten, den du gegründet hast, behält seinen Namen, denn der gehört
 der Gruppe. Nur die Besitzer-Referenz wird ersetzt. Die Besitzer-Referenz verleiht
-keine Rechte, die Rechte hängen an der Rolle in der Mitgliedschaft. Deshalb muss
-nichts übertragen werden.
+keine Rechte, die Rechte hängen an der Rolle in der Mitgliedschaft. Übertragen wird
+nur eines: Bist du in einer Organisation die letzte Person mit Verwaltungsrecht,
+übernimmt die dienstälteste verbleibende Leitung die Verwaltung, und die Mitglieder
+werden benachrichtigt. Bleibt keine Leitung oder bist du das einzige Mitglied, wird die
+Organisation **verwaist**: Sie ist gesperrt und wird nach der Frist der Mandantenlöschung
+(`RETENTION_TENANT_ERASURE_GRACE_DAYS`, Standard 90 Tage) mit allen Daten gelöscht; die
+verbleibenden Mitglieder und die Betreiber werden benachrichtigt. Beides zeigt dir die
+Vorschau, bevor du die Löschung bestätigst. <!-- Issue #2134 -->
 
 Ein KI-Tipp, den du ausgeblendet hast, bleibt für die anderen Mitglieder deines
 Gartens ausgeblendet. Nur der Vermerk, dass du es warst, wird durch `_anonymized`
@@ -605,9 +611,18 @@ eines Gartens betroffen ist, nicht nur die Datensätze eines einzelnen Kontos. <
    (fehlender `ERASURE_TOMBSTONE_SALT`, falsch konfigurierter Referenz-Index oder
    Schädlingsbild-Speicher), lehnt das System die Löschung mit `503` ab, ohne etwas zu
    ändern.
-2. **Nachweis und Sperre:** Ein Löschungs-Datensatz wird angelegt (er nennt weder den
-   Namen noch den Slug noch den Eigentümer des Mandanten), und alle Mitgliedschaften
-   werden sofort deaktiviert — niemand hat danach noch Zugriff.
+2. **Nachweis, Sperre und Gnadenfrist:** Ein Löschungs-Datensatz wird angelegt (er nennt
+   weder den Namen noch den Slug noch den Eigentümer des Mandanten). Der Mandant geht in
+   den Zustand **„Löschung geplant“** (`pending_deletion`) und ist ab sofort für alle
+   Mitglieder, API-Schlüssel und MCP-Clients gesperrt. Alle Mitglieder bekommen eine
+   E-Mail mit dem Löschdatum: Bis dahin können sie ihre eigenen Daten über den
+   [persönlichen Datenexport](../user-guide/privacy.md#meine-daten-exportieren-art-15-20-dsgvo) sichern. Die
+   eigentliche Löschung beginnt erst nach `RETENTION_TENANT_ERASURE_GRACE_DAYS` Tagen
+   (Standard 90). Bis dahin kann ein Mitglied mit Leitung **und** Verwaltung — oder ein
+   Platform-Admin im Admin-Bereich — die Löschung mit dem eigenen Passwort abbrechen; der
+   Mandant ist danach wieder aktiv, alle Mitgliedschaften sind unverändert. Nach Ablauf
+   der Frist werden die Mitgliedschaften deaktiviert und der Zustand wechselt auf
+   „Wird gelöscht“ — ab dann lässt sich nichts mehr zurücknehmen. <!-- Issue #2123 -->
 3. **Externe Bereinigung:** Beigetragene Erkennungsvektoren und Schädlingsbild-Prototypen
    werden entfernt, danach die Sensor-Messwerte des Mandanten in der
    Zeitreihen-Datenbank und alle Binärdaten unter dem Objektspeicher-Präfix
@@ -673,6 +688,7 @@ bis zu einen Tag überziehen, also länger speichern als deklariert.
 | Regel | Celery-Task | Takt (UTC) | Frist-Einstellung |
 |-------|-------------|-----------|--------------------|
 | R-01 | `retention.execute_scheduled_erasures` | täglich, 04:00 | `RETENTION_SOFT_DELETE_RETENTION_DAYS` |
+| R-01b | `app.tasks.tenant_tasks.resume_tenant_erasures` | täglich, 04:30 | `RETENTION_TENANT_ERASURE_GRACE_DAYS` (bei Annahme der Mandantenlöschung festgeschrieben) |
 | R-02 | `app.tasks.auth_tasks.cleanup_unverified_accounts` | täglich, 03:10 | `RETENTION_UNVERIFIED_ACCOUNT_DAYS` |
 | R-03 | `app.tasks.auth_tasks.anonymize_old_ips` | täglich, 03:20 | `RETENTION_IP_ANONYMIZATION_DAYS` |
 | R-05 | `retention.expire_data_exports` | stündlich, Minute 20 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` |
@@ -740,6 +756,7 @@ Konstruktor prüft dieselben Unter- und Obergrenzen noch einmal (NFR-011 AK-14):
 | `RETENTION_CONSENT_IP_ANONYMIZATION_DAYS` | R-04a | 7 | 1 | 7 | — |
 | `RETENTION_INVITATION_RETENTION_DAYS` | R-12 | 30 | 1 | 30 | — |
 | `RETENTION_ERASURE_MEMBER_NOTICE_DAYS` | R-01a | 7 | 1 | 7 | — |
+| `RETENTION_TENANT_ERASURE_GRACE_DAYS` | R-01b | 90 | 0 | 90 | — |
 | `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | R-16 | 5 | 5 (CanG) | — | — |
 | `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | R-17 | 3 | 3 (PflSchG §11) | — | — |
 | `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | R-18 | 3 | 3 (PflSchG §11) | — | — |
