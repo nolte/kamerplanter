@@ -21,6 +21,7 @@ from app.data_access.arango.tenant_repository import ArangoTenantRepository
 from app.data_access.timescale.null_observation_repository import NullObservationRepository
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStore
+from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.services.tenant_service import TenantService
 
 
@@ -43,7 +44,9 @@ def tenant_erasure_service(database, salt: str, *, reference_index_store=None) -
         invitation_repo=ArangoInvitationRepository(database),
         assignment_repo=ArangoLocationAssignmentRepository(database),
         tenant_engine=MagicMock(),
-        membership_engine=MagicMock(),
+        # The real rule: since #2134 the account erasure settles the subject's organisations
+        # through ``MembershipEngine.departure_settlement`` before its plan runs.
+        membership_engine=MembershipEngine(),
         invitation_engine=MagicMock(),
         storage_adapter=None,
         reference_index_store=reference_index_store or NoopReferenceIndexStore(),

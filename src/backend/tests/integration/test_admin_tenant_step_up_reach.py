@@ -4,7 +4,7 @@ Driven end to end against a **real** ArangoDB: the real platform-admin routes, t
 ``TenantService`` with its real step-up verifier, over the real
 ``ArangoTenantRepository`` and ``ArangoMembershipRepository`` (which own the
 ``has_membership`` / ``membership_in`` edges). What survives a refused request is read
-straight off the collections — the tenant document's ``is_active``, the membership
+straight off the collections — the tenant document's ``status`` (``is_active`` until v0084), the membership
 document and both of its edges — so a refusal observed here is the production path
 leaving the store as it was, not a double that never wrote.
 
@@ -86,7 +86,7 @@ def db(database):
             "slug": "community-garden",
             "tenant_type": "organization",
             "owner_user_key": MEMBER,
-            "is_active": True,
+            "status": "active",  # v0084 (#2123): the lifecycle state replaced the bool
             "is_platform": False,
             "max_members": 50,
             "settings": {},
@@ -133,7 +133,7 @@ def test_a_tenant_stays_active_without_the_admins_step_up_and_is_deactivated_wit
     refused = client.patch(f"/api/v1/admin/platform/tenants/{TENANT}", json={"is_active": False})
 
     assert refused.status_code == 401, refused.text
-    assert db.collection(col.TENANTS).get(TENANT)["is_active"] is True
+    assert db.collection(col.TENANTS).get(TENANT)["status"] == "active"
 
     # The control: the same request with the admin's own password goes through.
     accepted = client.patch(
@@ -141,7 +141,7 @@ def test_a_tenant_stays_active_without_the_admins_step_up_and_is_deactivated_wit
     )
     assert accepted.status_code == 200, accepted.text
     stored = db.collection(col.TENANTS).get(TENANT)
-    assert stored["is_active"] is False
+    assert stored["status"] == "suspended"  # the admin's bool is the suspension switch (#2123)
     assert "current_password" not in stored
 
 
