@@ -257,7 +257,14 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
             return []
 
         predicate, bind_vars = tenant_union_predicate(tenant_key, doc_var="plan")
-        bind_vars["species_keys"] = list(species_keys)
+        # The fertilizer names are a second catalogue read: an entry's key is verified
+        # on write only since #1713, so a legacy entry can still name another tenant's
+        # product. Own ∪ global again, the union ``visible_fertilizer_labels`` applies
+        # (#2120) — a key it rejects simply drops out of the list.
+        # Merged by unpacking, not ``.update``: the write-route detector reads an
+        # untyped ``.update`` as a repository write (#1443), and this is a read.
+        fertilizer_predicate, fertilizer_vars = tenant_union_predicate(tenant_key, doc_var="f")
+        bind_vars = {**bind_vars, **fertilizer_vars, "species_keys": list(species_keys)}
 
         # The body below is a plain string spliced once through `.replace`, not an
         # f-string: it holds AQL object literals (`{ plan_key: ... }`) whose braces
@@ -297,7 +304,7 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
                 LET fertilizers = (
                     FOR fk IN fertilizer_keys
                         FOR f IN fertilizers
-                            FILTER f._key == fk
+                            FILTER f._key == fk AND __FERTILIZER_PREDICATE__
                             RETURN { key: f._key, product_name: f.product_name, brand: f.brand }
                 )
                 SORT LENGTH(matched_species) DESC, plan.name ASC
@@ -311,7 +318,7 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
                     fertilizer_count: LENGTH(fertilizer_keys),
                     fertilizers: fertilizers
                 }
-            """.replace("__TENANT_PREDICATE__", predicate),
+            """.replace("__TENANT_PREDICATE__", predicate).replace("__FERTILIZER_PREDICATE__", fertilizer_predicate),
             bind_vars=bind_vars,
         )
         return list(cursor)
