@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
-from typing import get_args
+from typing import TYPE_CHECKING, get_args
 
 import structlog
 
@@ -54,6 +54,13 @@ from app.domain.models.glossary_term import (
 )
 from app.domain.services.ai_audit_logger import AiAuditLogger
 from app.domain.services.ai_call_budget import AiCallBudget
+
+if TYPE_CHECKING:
+    from app.data_access.arango.ai_repository import ArangoAiProviderRepository
+    from app.data_access.arango.glossary_repository import (
+        ArangoGlossaryTermCacheRepository,
+        ArangoGlossaryTermRepository,
+    )
 
 logger = structlog.get_logger(__name__)
 
@@ -88,12 +95,12 @@ class GlossaryService:
         self,
         *,
         call_budget: AiCallBudget,
-        term_repo,
-        cache_repo,
+        term_repo: ArangoGlossaryTermRepository,
+        cache_repo: ArangoGlossaryTermCacheRepository,
         knowledge_adapter: IKnowledgeService,
         audit_logger: AiAuditLogger,
         consent_guard: ConsentGuard | None = None,
-        provider_repo=None,
+        provider_repo: ArangoAiProviderRepository | None = None,
         redis_client=None,
     ) -> None:
         self._budget = call_budget

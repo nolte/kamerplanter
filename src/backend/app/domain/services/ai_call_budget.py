@@ -37,7 +37,7 @@ every audited call carries its token counts (``ai_audit_log``).
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
@@ -58,8 +58,17 @@ TENANT_CALLS = "tenant_calls"
 TENANT_TOKENS = "tenant_tokens"
 
 
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
+class AiBudgetClock(Protocol):
+    """Where the budget reads the time — a seam for tests."""
+
+    def now(self) -> datetime: ...
+
+
+class UtcClock:
+    """The wall clock, in UTC."""
+
+    def now(self) -> datetime:
+        return datetime.now(UTC)
 
 
 class AiBudgetStore(Protocol):
@@ -100,11 +109,11 @@ class AiCallBudget:
         redis_client: AiBudgetStore,
         limits: AiBudgetLimits,
         *,
-        clock: Callable[[], datetime] = _utc_now,
+        clock: AiBudgetClock | None = None,
     ) -> None:
         self._redis = redis_client
         self._limits = limits
-        self._clock = clock
+        self._clock: AiBudgetClock = clock if clock is not None else UtcClock()
 
     # ── keys ───────────────────────────────────────────────────────────
 
@@ -121,7 +130,7 @@ class AiCallBudget:
         return f"ai_budget:{day}:tokens:t:{tenant_key}"
 
     def _day_and_retry_after(self) -> tuple[str, int]:
-        now: datetime = self._clock()
+        now: datetime = self._clock.now()
         # recurrence-owner-ok: the budget window is the current UTC calendar day;
         # its end is only the Retry-After of a refusal, nothing recurs on it.
         next_midnight = datetime.combine(now.date() + timedelta(days=1), datetime.min.time(), tzinfo=UTC)

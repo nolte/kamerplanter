@@ -45,11 +45,19 @@ class DownValkey(FakeValkey):
 _NOON = datetime(2026, 10, 5, 12, 0, 0, tzinfo=UTC)
 
 
+class _FixedClock:
+    def __init__(self, now: datetime) -> None:
+        self._now = now
+
+    def now(self) -> datetime:
+        return self._now
+
+
 def _budget(store=None, *, user: int = 50, tenant: int = 500, tokens: int = 0, now: datetime = _NOON) -> AiCallBudget:
     return AiCallBudget(
         store if store is not None else FakeValkey(),
         AiBudgetLimits(user_calls_per_day=user, tenant_calls_per_day=tenant, tenant_tokens_per_day=tokens),
-        clock=lambda: now,
+        clock=_FixedClock(now),
     )
 
 
