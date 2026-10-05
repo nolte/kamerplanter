@@ -125,8 +125,11 @@ class FakeInvitationRepo:
     def get_by_token_hash(self, token_hash: str) -> Invitation | None:
         return next((i for i in self.stored.values() if i.token_hash == token_hash), None)
 
-    def list_by_tenant(self, tenant_key: str) -> list[Invitation]:
-        return [i for i in self.stored.values() if i.tenant_key == tenant_key]
+    def list_by_tenant(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[Invitation]:
+        rows = [i for i in self.stored.values() if i.tenant_key == tenant_key]
+        return rows if limit is None else rows[offset or 0 : (offset or 0) + limit]
 
     def update_fields(self, key: str, fields: dict[str, Any]) -> Invitation | None:
         current = self.stored.get(key)

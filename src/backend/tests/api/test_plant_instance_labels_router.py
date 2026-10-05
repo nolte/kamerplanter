@@ -63,7 +63,7 @@ def _plant() -> PlantInstance:
 
 def test_plant_instances_list_embeds_species_and_cultivar():
     service = MagicMock()
-    service.list_plants.return_value = ([_plant()], 1)
+    service.list_plants_window.return_value = [_plant()]
     service.resolve_phase_name.return_value = ""
     service.resolve_species.return_value = _species()
     service.resolve_cultivar.return_value = _cultivar()
@@ -89,7 +89,7 @@ def test_plant_instances_list_null_species_when_unresolved():
     service = MagicMock()
     plant = _plant()
     plant.cultivar_key = None
-    service.list_plants.return_value = ([plant], 1)
+    service.list_plants_window.return_value = [plant]
     service.resolve_phase_name.return_value = ""
     service.resolve_species.return_value = None
     service.resolve_cultivar.return_value = None
