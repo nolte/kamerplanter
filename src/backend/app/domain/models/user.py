@@ -88,6 +88,22 @@ class User(BaseModel):
     timezone: str = "Europe/Berlin"
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    #: Moves on every event that ends **all** sessions of the account (#2116): logout
+    #: everywhere, password reset or change, deactivation, an Art. 17 request. A
+    #: refresh token minted under an older generation is refused.
+    #:
+    #: Written only by ``IRefreshTokenRepository`` in the same statement that revokes
+    #: the sessions; :class:`~app.data_access.arango.user_repository.ArangoUserRepository`
+    #: never writes either counter, so a writer that read the account before the
+    #: revocation cannot set it back (``update_fields`` rewrites the whole account).
+    session_generation: int = 0
+    #: Moves on every revocation, of one session or of all (#2116). An access token
+    #: carries the value it was minted under (claim ``gen``) and stops resolving the
+    #: moment this moves: ``FullAuthProvider`` compares it with the account it reads
+    #: anyway, so the check costs no extra read. Revoking one session therefore ends
+    #: the access tokens of the account's other sessions too; their next request
+    #: refreshes silently (their refresh tokens are untouched).
+    access_token_generation: int = 0
     #: The ``tenant_scope`` of the API key this request authenticated with (#1817).
     #:
     #: Request state, not account state: a *private* attribute, so no stored

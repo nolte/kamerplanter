@@ -27,9 +27,18 @@ class TokenEngine:
         expire_minutes: int = 15,
         tenant_roles: dict[str, str] | None = None,
         is_platform_admin: bool = False,
+        *,
+        generation: int = 0,
+        session_id: str | None = None,
     ) -> TokenPair:
+        """Mint an access token.
+
+        ``generation`` is the account's ``access_token_generation`` and travels as
+        ``gen``; ``session_id`` is the refresh-token family and travels as ``sid``
+        (#2116). The resolver refuses a token whose ``gen`` is not the account's.
+        """
         now = int(time.time())
-        payload = {
+        payload: dict[str, object] = {
             "sub": user_key,
             "tenant_roles": tenant_roles or {},
             "is_platform_admin": is_platform_admin,
@@ -37,7 +46,10 @@ class TokenEngine:
             "iat": now,
             "jti": str(uuid.uuid4()),
             "type": "access",
+            "gen": generation,
         }
+        if session_id is not None:
+            payload["sid"] = session_id
         header = {"alg": self._algorithm}
         token = self._jwt.encode(header, payload, self._secret_key)
         return TokenPair(
@@ -72,6 +84,8 @@ class TokenEngine:
             iat=claims["iat"],
             jti=claims["jti"],
             type=claims["type"],
+            gen=claims.get("gen", 0),
+            sid=claims.get("sid"),
         )
 
     def create_refresh_token(self) -> tuple[str, str]:

@@ -20,6 +20,20 @@ def is_api_key_authorization(authorization: str | None) -> bool:
     return bool(authorization) and authorization.startswith(f"Bearer {_API_KEY_PREFIX}")
 
 
+def access_token_is_current(payload: TokenPayload, user: User) -> bool:
+    """Whether no revocation happened since *payload* was minted (#2116, REQ-023 AK-14).
+
+    The token carries the account's ``access_token_generation`` of its minting
+    (``gen``); every revocation — one session, all of them, a password reset or
+    change, a deactivation, a detected refresh replay — moves the account's
+    counter, so the token stops resolving on the next request instead of living
+    out its 15 minutes. Compared on the account the resolver reads anyway: no extra
+    round trip. A generation is compared, not a timestamp, so a replica whose clock
+    is a second behind can neither revive a revoked token nor refuse a fresh one.
+    """
+    return payload.gen == user.access_token_generation
+
+
 class FullAuthProvider(IAuthProvider):
     def __init__(
         self,
@@ -51,6 +65,8 @@ class FullAuthProvider(IAuthProvider):
         user = self._user_repo.get_by_key(payload.sub)
         if user is None or not user.is_active:
             raise UnauthorizedError("User not found or inactive.")
+        if not access_token_is_current(payload, user):
+            raise UnauthorizedError("Token has been revoked.")
 
         return user
 
@@ -69,7 +85,7 @@ class FullAuthProvider(IAuthProvider):
             return None
 
         user = self._user_repo.get_by_key(payload.sub)
-        if user is None or not user.is_active:
+        if user is None or not user.is_active or not access_token_is_current(payload, user):
             return None
         return user
 

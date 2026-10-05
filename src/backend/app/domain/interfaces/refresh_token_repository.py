@@ -13,10 +13,31 @@ class IRefreshTokenRepository(ABC):
     def get_by_hash(self, token_hash: str) -> RefreshToken | None: ...
 
     @abstractmethod
+    def find_by_hash(self, token_hash: str) -> RefreshToken | None:
+        """The token with this hash in any state, revoked and rotated ones included (#2116)."""
+
+    @abstractmethod
+    def claim_rotation(self, key: str, family_key: str, rotated_at: datetime) -> bool:
+        """Atomically mark a live token rotated; ``False`` when it was no longer live (#2116)."""
+
+    @abstractmethod
+    def set_successor(self, key: str, successor_key: str) -> None:
+        """Record the token a rotation minted in place of ``key`` (#2116)."""
+
+    @abstractmethod
+    def family_is_live(self, user_key: UserKey, family_key: str) -> bool:
+        """Whether one token of the family is neither revoked nor expired (#2116)."""
+
+    @abstractmethod
     def revoke(self, key: str) -> bool: ...
 
     @abstractmethod
-    def revoke_all_for_user(self, user_key: UserKey) -> int: ...
+    def revoke_family(self, user_key: UserKey, family_key: str) -> int:
+        """Revoke one family (one login) and move the account's ``access_token_generation`` (#2116)."""
+
+    @abstractmethod
+    def revoke_all_for_user(self, user_key: UserKey) -> int:
+        """Revoke every session and move both session generations of the account (#2116)."""
 
     @abstractmethod
     def cleanup_expired(self, *, now: datetime | None = None) -> int: ...

@@ -1,8 +1,9 @@
-from typing import cast
+from typing import Any, cast
 
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from arango.exceptions import AQLQueryExecuteError
+from pydantic import BaseModel
 
 from app.common.types import UserKey
 from app.data_access.arango import collections as col
@@ -121,8 +122,25 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
     #: real server.
     _update_is_full_replace = True
 
+    #: Account attributes this repository never writes (#2116). They are owned by
+    #: ``ArangoRefreshTokenRepository``, which moves them in the same AQL statement
+    #: that revokes the sessions. Every write here is a rewrite of a model read
+    #: moments earlier (see ``_update_is_full_replace``), so a writer that read the
+    #: account before a "log out everywhere" would otherwise put the old counter
+    #: back and revive every access token the revocation ended. Left out of the
+    #: payload, the stored value survives any such rewrite (the update is a merge
+    #: at the storage level); a new account simply has none, which reads as ``0``.
+    _STORE_OWNED_FIELDS: frozenset[str] = frozenset({"session_generation", "access_token_generation"})
+
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.USERS)
+
+    def _to_doc(self, model: BaseModel, *, exclude_none: bool = True) -> dict[str, Any]:
+        """The base serialisation without the session counters (:data:`_STORE_OWNED_FIELDS`)."""
+        doc = super()._to_doc(model, exclude_none=exclude_none)
+        for name in self._STORE_OWNED_FIELDS:
+            doc.pop(name, None)
+        return doc
 
     def update_fields(self, key: UserKey, fields: dict) -> User | None:
         """Merge ``fields`` into the stored user and rewrite it (#1018, mirrors #968 §2).
