@@ -443,4 +443,6 @@ def test_unresolvable_queries_are_reported_rather_than_assumed_safe() -> None:
 
 
 #: Measured on the commit that introduced this guard. See the test above.
-_EXPECTED_UNRESOLVED = 8
+#: 2026-10-05 (#2107): 8 -> 7 — ``WateringLogRepository.get_recent_runoff_logs`` (dead,
+#: its query picked from two class attributes) was removed.
+_EXPECTED_UNRESOLVED = 7

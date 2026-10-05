@@ -431,6 +431,14 @@ _REFERENCE_FIELDS: dict[str, str] = {
 }
 
 
+#: Models that carry no ``tenant_key`` of their own but whose stored references are
+#: caller-supplied and were classified here while they still declared the (never
+#: written) field. #2107 removed it — the site is their owner — and keeping them in
+#: scope keeps their five verifications on the register instead of letting them
+#: drop out with the field.
+_PARENT_SCOPED_IN_SCOPE: frozenset[tuple[str, str]] = frozenset({("site", "Location"), ("site", "Slot")})
+
+
 def _reference_fields() -> set[str]:
     import app.domain.models as models_pkg
 
@@ -440,7 +448,7 @@ def _reference_fields() -> set[str]:
         for name, cls in inspect.getmembers(module, inspect.isclass):
             if not issubclass(cls, BaseModel) or cls.__module__ != module.__name__:
                 continue
-            if "tenant_key" not in cls.model_fields:
+            if "tenant_key" not in cls.model_fields and (info.name, name) not in _PARENT_SCOPED_IN_SCOPE:
                 continue
             for field in cls.model_fields:
                 if field != "tenant_key" and (field.endswith("_key") or field.endswith("_keys")):
