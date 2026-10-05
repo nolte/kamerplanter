@@ -48,6 +48,30 @@ Im Bereich **Admin > Mandanten** kannst du:
 
 ---
 
+## Home-Assistant-Entitäten freigeben {#home-assistant-entitaeten-freigeben}
+
+Kamerplanter ist mit genau **einer** Home-Assistant-Instanz verbunden — deiner, mit deinem Token — und nutzt sie für alle Mandanten. Damit ein Mandant nicht auf Türkontakte, Anwesenheitssensoren oder Schalter deines Haushalts zugreifen kann, gibst du jedem Mandanten nur die Entitäten frei, die er nutzen soll: als Sensor, Aktor, Wetterquelle oder Benachrichtigungsziel. <!-- Issue #2112 -->
+
+1. Öffne **Admin > Mandanten** und wähle den Mandanten.
+2. Im Abschnitt **Home-Assistant-Entitäten** siehst du alle Entitäten deiner Instanz mit ihrem Freigabestand. Über die Suche und den Schalter **Nur freigegebene** grenzt du die Liste ein.
+3. Mit dem Schalter neben einer Entität gibst du sie frei oder ziehst die Freigabe zurück.
+4. Benachrichtigungsdienste (zum Beispiel `notify.mobile_app_handy`) stehen nicht in der Liste. Trag sie unten unter **Entität per ID freigeben** ein.
+
+Was die Freigabe bewirkt:
+
+- Mitglieder sehen in den Auswahllisten nur freigegebene Entitäten — und nur, wenn sie im Mandanten das Recht **Technik** haben.
+- Wer eine nicht freigegebene Entität eintragen will, bekommt eine Fehlermeldung; gespeichert wird nichts.
+- Ziehst du eine Freigabe zurück, bleiben Sensoren und Aktoren bestehen, Kamerplanter liest und schaltet die Entität für diesen Mandanten aber nicht mehr. Ein Aktor fällt dann auf die manuelle Aufgabe zurück, wie bei einem Home-Assistant-Ausfall.
+- Eine Entität, die Home Assistant nicht mehr meldet, bleibt mit dem Hinweis „nicht mehr in Home Assistant" in der Liste, bis du die Freigabe zurückziehst.
+
+!!! info "Bestehende Zuordnungen bleiben nach dem Update gültig"
+    Beim Update auf diese Version gibt Kamerplanter jede Entität, die ein Mandant schon nutzt, diesem Mandanten automatisch frei. Diese Freigaben siehst und änderst du hier wie jede andere. Ein Benachrichtigungsziel, das ein Nutzer in seinen Einstellungen eingetragen hat, gilt dabei für alle Mandanten, in denen er Mitglied ist — prüfe diese Freigaben, wenn du mehrere Mandanten betreibst.
+
+!!! warning "Eine Instanz für alle Mandanten"
+    Diese Freigaben begrenzen, was ein Mandant nutzen kann. Sie machen aus einer Instanz keine getrennten Instanzen: Ereignisse und Hinweise, die Kamerplanter an Home Assistant schickt, landen weiterhin alle in deiner Instanz. Für einen Betrieb mit fremden Mandanten ist eine eigene Home-Assistant-Verbindung je Mandant nötig; die gibt es noch nicht.
+
+---
+
 ## Nutzerverwaltung
 
 Im Bereich **Admin > Nutzer** kannst du:

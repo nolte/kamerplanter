@@ -48,6 +48,30 @@ In the **Admin > Tenants** section you can:
 
 ---
 
+## Release Home Assistant entities {#release-home-assistant-entities}
+
+Kamerplanter is connected to exactly **one** Home Assistant instance — yours, with your token — and uses it for all tenants. So that a tenant cannot reach your household's door contacts, presence sensors or switches, you release to each tenant only the entities it is meant to use: as a sensor, actuator, weather source or notification target. <!-- Issue #2112 -->
+
+1. Open **Admin > Tenants** and pick the tenant.
+2. The **Home Assistant entities** section lists every entity of your instance with its release state. Narrow it down with the search and the **Released only** switch.
+3. The switch next to an entity releases it or withdraws the release.
+4. Notification services (for example `notify.mobile_app_phone`) are not in the list. Enter them below under **Release entity by ID**.
+
+What a release does:
+
+- Members see only released entities in the pickers — and only if they hold the **Technical** scope in the tenant.
+- Anyone entering an entity that is not released gets an error message; nothing is saved.
+- If you withdraw a release, sensors and actuators stay, but Kamerplanter no longer reads or switches the entity for this tenant. An actuator then falls back to the manual task, as during a Home Assistant outage.
+- An entity Home Assistant no longer reports stays in the list, marked "no longer in Home Assistant", until you withdraw the release.
+
+!!! info "Existing assignments stay valid after the update"
+    When you update to this version, Kamerplanter automatically releases every entity a tenant already uses to that tenant. You see and change these releases here like any other. A notification target a user entered in their settings counts for every tenant they are a member of — check those releases if you run several tenants.
+
+!!! warning "One instance for all tenants"
+    These releases limit what a tenant can use. They do not turn one instance into separate instances: events and notices Kamerplanter sends to Home Assistant all still arrive in your instance. Running tenants of other people needs a Home Assistant connection per tenant, which does not exist yet.
+
+---
+
 ## User Management
 
 In the **Admin > Users** section you can:
