@@ -52,6 +52,12 @@ from app.domain.models.actuator import (
     PhaseControlProfile,
 )
 from app.domain.models.task import Task
+from app.domain.services.ha_entity_grant_service import (
+    DenyAllHaEntityGate,
+    HaEntityGate,
+    only_granted,
+    require_granted,
+)
 from app.domain.services.location_ownership import require_owned_site
 
 logger = structlog.get_logger(__name__)
@@ -68,8 +74,13 @@ class ActuatorService:
         engine: ControlEngine | None = None,
         mapper: HomeAssistantCommandMapper | None = None,
         site_repo: ISiteRepository | None = None,
+        ha_entity_grants: HaEntityGate | None = None,
     ) -> None:
         self._repo = repo
+        # MT-015 (#2112): an actuator binds and switches only a Home Assistant
+        # entity granted to its tenant. Absent, nothing is granted — an actuator
+        # acts on the physical world, so "cannot tell" refuses.
+        self._ha_entity_gate: HaEntityGate = ha_entity_grants or DenyAllHaEntityGate()
         # A location's tenant lives on its parent site, and the actuator
         # repository reads locations but not sites (#1397). Optional so the
         # service stays constructible in pure-domain contexts; when it is absent
@@ -106,12 +117,15 @@ class ActuatorService:
 
     def create_actuator(self, location_key: str, tenant_key: str, actuator: Actuator) -> Actuator:
         self._verify_location(location_key, tenant_key)
+        require_granted(self._ha_entity_gate, tenant_key, {"ha_entity_id": actuator.ha_entity_id})
         actuator.location_key = location_key
         actuator.tenant_key = tenant_key
         return self._repo.create_actuator(actuator)
 
     def update_actuator(self, key: str, tenant_key: str, data: dict[str, Any]) -> Actuator:
         actuator = self.get_actuator(key, tenant_key)
+        if data.get("ha_entity_id") and data["ha_entity_id"] != actuator.ha_entity_id:
+            require_granted(self._ha_entity_gate, tenant_key, {"ha_entity_id": data["ha_entity_id"]})
         updated = actuator.model_copy(update=data)
         return self._repo.update_actuator(key, updated)
 
@@ -296,6 +310,12 @@ class ActuatorService:
         client = self._ha_client_factory()
         if client is None:
             return False, "Home Assistant is not configured"
+        if not self._ha_entity_gate.is_granted(actuator.tenant_key, actuator.ha_entity_id):
+            # MT-015 (#2112): stored before the allowlist, or its grant was
+            # withdrawn — the operator's instance is not switched on the tenant's
+            # behalf. The caller degrades to a manual fallback task, as on an outage.
+            logger.warning("actuator_ha_entity_not_granted", actuator=actuator.key)
+            return False, "Home Assistant entity is not released for this tenant"
         domain, service, data = self._mapper.map_command(
             actuator.actuator_type.value, actuator.ha_entity_id or "", command, value
         )
@@ -599,15 +619,19 @@ class ActuatorService:
             logger.warning("actuator_ha_status_failed", error=loggable_error(exc))
             return {"configured": True, "reachable": False, "reason": "unreachable"}
 
-    def ha_entities(self) -> list[dict[str, Any]]:
-        """List HA entities available for actuator mapping (empty on outage)."""
+    def ha_entities(self, tenant_key: str) -> list[dict[str, Any]]:
+        """List the HA entities granted to ``tenant_key`` for actuator mapping (empty on outage).
+
+        Filtered to the tenant's grants (MT-015, #2112): the instance is the
+        operator's, and its inventory is not the tenant's to see.
+        """
         if self._ha_client_factory is None:
             return []
         client = self._ha_client_factory()
         if client is None:
             return []
         try:
-            return client.list_sensor_entities()
+            return only_granted(self._ha_entity_gate, tenant_key, client.list_sensor_entities())
         except Exception as exc:  # noqa: BLE001 — degrade to empty list on HA outage
             logger.warning("actuator_ha_entities_failed", error=loggable_error(exc))
             return []

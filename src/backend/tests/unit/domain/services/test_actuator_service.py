@@ -37,6 +37,7 @@ from app.domain.models.actuator import (
 from app.domain.models.site import Location, Site
 from app.domain.models.task import Task
 from app.domain.services.actuator_service import ActuatorService
+from tests.support.ha_entity_grants import EverythingGrantedTo
 
 
 class FakeActuatorRepo:
@@ -268,6 +269,9 @@ def _service(repo, ha=None, task_repo=None):
         ha_client_factory=(lambda: ha) if ha is not None else None,
         task_repo=task_repo,
         site_repo=FakeSiteRepo(),
+        # MT-015 (#2112): every actuator under test is t1's and its entity granted
+        # to t1; the allowlist has its own tests.
+        ha_entity_grants=EverythingGrantedTo("t1"),
     )
 
 

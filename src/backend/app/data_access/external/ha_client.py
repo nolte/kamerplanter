@@ -120,6 +120,33 @@ class HomeAssistantClient:
             )
         return results
 
+    def list_entities(self) -> list[dict[str, str | None]]:
+        """GET /api/states -> every entity of the instance, without its state (MT-015, #2112).
+
+        The platform admin's inventory for the per-tenant entity allowlist: id,
+        domain, friendly name, unit and device class — enough to recognise an
+        entity, nothing of what it currently reports.
+        """
+        url = f"{self._base_url}/api/states"
+        resp = httpx.get(url, headers=self._headers, timeout=self._timeout)
+        resp.raise_for_status()
+        results = []
+        for entity in resp.json():
+            eid = entity.get("entity_id", "")
+            if not isinstance(eid, str) or "." not in eid:
+                continue
+            attrs = entity.get("attributes", {}) or {}
+            results.append(
+                {
+                    "entity_id": eid,
+                    "domain": eid.split(".", 1)[0],
+                    "friendly_name": attrs.get("friendly_name", eid),
+                    "unit_of_measurement": attrs.get("unit_of_measurement"),
+                    "device_class": attrs.get("device_class"),
+                }
+            )
+        return results
+
     def get_state_attributes(self, entity_id: str) -> dict | None:
         """GET /api/states/{entity_id} -> the raw ``attributes`` block or None.
 

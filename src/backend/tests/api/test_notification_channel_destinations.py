@@ -35,8 +35,14 @@ from app.data_access.external.ha_notification_channel import HomeAssistantNotifi
 from app.domain.models.notification import Notification, NotificationPreferences
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.notification_service import NotificationService
+from tests.support.ha_entity_grants import grant_service
 
 SLUG = "anna"
+
+#: The shape tests below are not about the per-tenant allowlist (MT-015, #2112,
+#: covered in test_ha_notification_grants.py): every well-formed destination they
+#: use is granted to the tenant, so a refusal here is the shape check's own.
+GRANTED = {"t1": {"notify.notify", "notify.mobile_app_pixel", "media_player.kitchen"}}
 
 
 class _Repo:
@@ -55,7 +61,9 @@ class _Repo:
 
 def _client():
     repo = _Repo()
-    service = NotificationService(engine=MagicMock(), notification_repo=MagicMock(), preference_repo=repo)
+    service = NotificationService(
+        engine=MagicMock(), notification_repo=MagicMock(), preference_repo=repo, ha_entity_grants=grant_service(GRANTED)
+    )
     app = FastAPI()
     app.include_router(router, prefix=f"/api/v1/t/{SLUG}")
 
@@ -106,7 +114,8 @@ class _RecordingHA:
 
 def _ha_send(config):
     ha = _RecordingHA()
-    result = asyncio.run(HomeAssistantNotificationChannel(ha).send(_notification(), config))
+    channel = HomeAssistantNotificationChannel(ha, ha_entity_grants=grant_service(GRANTED))
+    result = asyncio.run(channel.send(_notification(), config))
     return ha, result
 
 

@@ -554,7 +554,7 @@ class WateringService:
         ]
         if not moisture_sensors:
             return None
-        live = self._sensor_service.get_live_state_for_sensors(moisture_sensors)
+        live = self._sensor_service.get_live_state_for_sensors(moisture_sensors, tenant_key=tenant_key)
         entry = (live.get("values") or {}).get(SOIL_MOISTURE_METRIC)
         value = entry.get("value") if entry else None
         # Avoid a tuple-except (a known ruff-format 0.15.x mangling trap) — narrow by type.

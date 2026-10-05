@@ -258,7 +258,7 @@ class TestPreferences:
             },
         )
 
-        service.update_preferences("user_1", new_prefs)
+        service.update_preferences("user_1", new_prefs, tenant_key="t1")
 
         mock_preference_repo.upsert.assert_called_once()
         call_args = mock_preference_repo.upsert.call_args[0][0]

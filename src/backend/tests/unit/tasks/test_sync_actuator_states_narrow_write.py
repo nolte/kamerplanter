@@ -12,6 +12,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.support.ha_entity_grants import EverythingGrantedTo
+
 
 class _Actuator(SimpleNamespace):
     def model_copy(self, update):
@@ -38,6 +40,8 @@ def deps(monkeypatch):
     module = ModuleType("app.common.dependencies")
     module.get_actuator_repo = MagicMock()  # type: ignore[attr-defined]
     module.get_ha_client = MagicMock()  # type: ignore[attr-defined]
+    # MT-015 (#2112): every actuator here is t1's and its entity granted to t1.
+    module.get_ha_entity_grant_service = lambda: SimpleNamespace(snapshot=lambda: EverythingGrantedTo("t1"))  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", module)
     from app.config.settings import settings
 
@@ -46,7 +50,9 @@ def deps(monkeypatch):
 
 
 def test_an_edit_landing_during_the_ha_round_trip_survives(deps):
-    repo = _ReplacingActuatorRepo({"key": "a1", "name": "Fan", "ha_entity_id": "switch.fan", "is_online": True})
+    repo = _ReplacingActuatorRepo(
+        {"key": "a1", "tenant_key": "t1", "name": "Fan", "ha_entity_id": "switch.fan", "is_online": True}
+    )
 
     def ha_state(_entity_id):
         repo.doc["name"] = "Fan (renamed)"  # an edit lands while HA is asked
@@ -69,14 +75,17 @@ def test_an_actuator_deleted_during_the_poll_does_not_abort_the_run(deps):
 
     class _Repo(_ReplacingActuatorRepo):
         def get_all(self, offset=0, limit=50, *, all_tenants=False):
-            return [_Actuator(key="gone", ha_entity_id="switch.a", is_online=True), _Actuator(**self.doc)], 2
+            return [
+                _Actuator(key="gone", tenant_key="t1", ha_entity_id="switch.a", is_online=True),
+                _Actuator(**self.doc),
+            ], 2
 
         def update_fields(self, key, fields):
             if key == "gone":
                 raise NotFoundError("Actuator", key)
             super().update_fields(key, fields)
 
-    repo = _Repo({"key": "a2", "ha_entity_id": "switch.b", "is_online": True})
+    repo = _Repo({"key": "a2", "tenant_key": "t1", "ha_entity_id": "switch.b", "is_online": True})
     deps.get_actuator_repo.return_value = repo
     deps.get_ha_client.return_value = SimpleNamespace(get_state=lambda _entity_id: None)
 

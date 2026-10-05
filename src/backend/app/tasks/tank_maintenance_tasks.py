@@ -137,7 +137,7 @@ def sync_tank_states_from_ha() -> dict:
     """
     from datetime import UTC, datetime
 
-    from app.common.dependencies import get_ha_client, get_sensor_repo, get_tank_repo
+    from app.common.dependencies import get_ha_client, get_ha_entity_grant_service, get_sensor_repo, get_tank_repo
     from app.domain.models.tank import TankState
 
     ha_client = get_ha_client()
@@ -146,10 +146,14 @@ def sync_tank_states_from_ha() -> dict:
 
     sensor_repo = get_sensor_repo()
     tank_repo = get_tank_repo()
+    # MT-015 (#2112): only entities granted to the tank's tenant are read; one
+    # read of every tenant's grants for the whole run.
+    grants = get_ha_entity_grant_service().snapshot()
 
     tanks = get_all_pages(tank_repo, all_tenants=True)  # system task: all tenants
     updated = 0
     skipped = 0
+    not_granted = 0
     errors: list[dict] = []
 
     for tank in tanks:
@@ -161,8 +165,10 @@ def sync_tank_states_from_ha() -> dict:
             skipped += 1
             continue
 
-        # Only process sensors with HA entity IDs
-        ha_sensors = [s for s in sensors if s.ha_entity_id]
+        # Only process sensors with HA entity IDs granted to the tank's tenant
+        with_entity = [s for s in sensors if s.ha_entity_id]
+        ha_sensors = [s for s in with_entity if grants.is_granted(tank.tenant_key, s.ha_entity_id)]
+        not_granted += len(with_entity) - len(ha_sensors)
         if not ha_sensors:
             skipped += 1
             continue
@@ -202,9 +208,10 @@ def sync_tank_states_from_ha() -> dict:
         "tank_state_sync_completed",
         tanks_updated=updated,
         tanks_skipped=skipped,
+        sensors_not_granted=not_granted,
         errors=len(errors),
     )
-    return {"updated": updated, "skipped": skipped, "errors": len(errors)}
+    return {"updated": updated, "skipped": skipped, "errors": len(errors), "not_granted": not_granted}
 
 
 @celery_app.task(name="app.tasks.tank_maintenance_tasks.check_tank_alerts")

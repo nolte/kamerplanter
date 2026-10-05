@@ -10,6 +10,12 @@ from app.domain.models.sensor import Sensor
 from app.domain.models.site import Site
 from app.domain.models.weather import WeatherForecast
 from app.domain.services.sensor_service import SensorService
+from tests.support.ha_entity_grants import EverythingGrantedTo
+
+#: The tenant the sensors under test belong to. Every well-formed entity is granted
+#: to it (MT-015, #2112), so these tests exercise the reads themselves; the
+#: allowlist has its own tests (test_ha_entity_grant_service.py, the API tier).
+LIVE_TENANT = "t-live"
 
 
 @pytest.fixture
@@ -24,7 +30,7 @@ def mock_ha_client():
 
 @pytest.fixture
 def service(mock_repo, mock_ha_client):
-    return SensorService(mock_repo, mock_ha_client)
+    return SensorService(mock_repo, mock_ha_client, ha_entity_gate=EverythingGrantedTo(LIVE_TENANT))
 
 
 @pytest.fixture
@@ -37,14 +43,14 @@ class TestGetLiveState:
         mock_repo.find_by_tank.return_value = [
             Sensor(name="EC", metric_type="ec_ms", ha_entity_id="sensor.ec", tank_key="t1"),
         ]
-        result = service_no_ha.get_live_state("t1")
+        result = service_no_ha.get_live_state("t1", tenant_key=LIVE_TENANT)
         assert result["source"] == "unavailable"
         assert result["values"] == {}
         assert result["message"] == "Home Assistant not configured"
 
     def test_no_sensors(self, service, mock_repo, mock_ha_client):
         mock_repo.find_by_tank.return_value = []
-        result = service.get_live_state("t1")
+        result = service.get_live_state("t1", tenant_key=LIVE_TENANT)
         assert result["source"] == "ha_live"
         assert result["values"] == {}
         assert result["errors"] == []
@@ -59,7 +65,7 @@ class TestGetLiveState:
             "entity_id": "sensor.tank_ec",
             "unit": "mS/cm",
         }
-        result = service.get_live_state("t1")
+        result = service.get_live_state("t1", tenant_key=LIVE_TENANT)
         assert result["source"] == "ha_live"
         assert "ec_ms" in result["values"]
         assert result["values"]["ec_ms"]["value"] == 1.45
@@ -72,7 +78,7 @@ class TestGetLiveState:
             Sensor(name="EC Sensor", metric_type="ec_ms", ha_entity_id="sensor.tank_ec", tank_key="t1"),
         ]
         mock_ha_client.get_state.side_effect = Exception("Connection refused")
-        result = service.get_live_state("t1")
+        result = service.get_live_state("t1", tenant_key=LIVE_TENANT)
         assert result["source"] == "ha_live"
         assert result["values"] == {}
         assert len(result["errors"]) == 1
@@ -89,7 +95,7 @@ class TestGetLiveState:
             "entity_id": "sensor.tank_ec",
             "unit": None,
         }
-        result = service.get_live_state("t1")
+        result = service.get_live_state("t1", tenant_key=LIVE_TENANT)
         assert result["source"] == "ha_live"
         assert result["values"] == {}  # value was None, not included
         assert result["errors"] == []
@@ -103,7 +109,7 @@ class TestGetLiveState:
             {"value": 1.2, "last_changed": "2026-03-01T10:00:00Z", "entity_id": "sensor.ec", "unit": "mS/cm"},
             {"value": 6.1, "last_changed": "2026-03-01T10:01:00Z", "entity_id": "sensor.ph", "unit": "pH"},
         ]
-        result = service.get_live_state("t1")
+        result = service.get_live_state("t1", tenant_key=LIVE_TENANT)
         assert len(result["values"]) == 2
         assert result["values"]["ec_ms"]["value"] == 1.2
         assert result["values"]["ph"]["value"] == 6.1
@@ -112,7 +118,7 @@ class TestGetLiveState:
         mock_repo.find_by_tank.return_value = [
             Sensor(name="MQTT only", metric_type="ec_ms", mqtt_topic="tank/ec", tank_key="t1"),
         ]
-        result = service.get_live_state("t1")
+        result = service.get_live_state("t1", tenant_key=LIVE_TENANT)
         assert result["source"] == "ha_live"
         assert result["values"] == {}
         mock_ha_client.get_state.assert_not_called()
@@ -127,7 +133,7 @@ class TestCreateSensor:
             metric_type="ec_ms",
             tank_key="t1",
         )
-        result = service.create_sensor(sensor)
+        result = service.create_sensor(sensor, tenant_key=LIVE_TENANT)
         assert result.key == "s1"
         mock_repo.create.assert_called_once_with(sensor)
 
@@ -200,7 +206,11 @@ class TestParentScopedWrites:
         service, repo, _observations = scoped
 
         updated = service.update_sensor(
-            "mine", {"name": "EC (new)", "is_active": False}, parent_field="tank_key", parent_key="my-tank"
+            "mine",
+            {"name": "EC (new)", "is_active": False},
+            parent_field="tank_key",
+            parent_key="my-tank",
+            tenant_key=LIVE_TENANT,
         )
 
         assert (updated.name, updated.is_active) == ("EC (new)", False)
@@ -216,6 +226,7 @@ class TestParentScopedWrites:
             {"name": "EC", "tank_key": "their-tank", "site_key": "s1"},
             parent_field="tank_key",
             parent_key="my-tank",
+            tenant_key=LIVE_TENANT,
         )
 
         assert (updated.tank_key, updated.site_key) == ("my-tank", None)
@@ -237,7 +248,9 @@ class TestParentScopedWrites:
         service, _repo, _observations = scoped
 
         with pytest.raises(NotFoundError):
-            service.update_sensor("on-a-site", {"name": "x"}, parent_field="tank_key", parent_key="s1")
+            service.update_sensor(
+                "on-a-site", {"name": "x"}, parent_field="tank_key", parent_key="s1", tenant_key=LIVE_TENANT
+            )
 
     def test_deleting_a_sensor_deletes_its_readings(self, scoped):
         """A sensor's TimescaleDB series is personal data, not housekeeping.
@@ -320,7 +333,9 @@ class TestParentScopedWrites:
         """
         service, _repo, _observations = scoped
 
-        updated = service.update_sensor("mine", {"ha_entity_id": None}, parent_field="tank_key", parent_key="my-tank")
+        updated = service.update_sensor(
+            "mine", {"ha_entity_id": None}, parent_field="tank_key", parent_key="my-tank", tenant_key=LIVE_TENANT
+        )
 
         assert updated.ha_entity_id is None
 
@@ -370,7 +385,7 @@ class TestGetLiveStateForSensors:
             "entity_id": "sensor.outdoor_temp",
             "unit": "°C",
         }
-        result = service.get_live_state_for_sensors(sensors)
+        result = service.get_live_state_for_sensors(sensors, tenant_key=LIVE_TENANT)
         assert result["source"] == "ha_live"
         assert result["values"]["temperature_celsius"]["value"] == 22.5
 
@@ -378,7 +393,7 @@ class TestGetLiveStateForSensors:
         sensors = [
             Sensor(name="Temp", metric_type="temperature_celsius", ha_entity_id="sensor.temp", site_key="s1"),
         ]
-        result = service_no_ha.get_live_state_for_sensors(sensors)
+        result = service_no_ha.get_live_state_for_sensors(sensors, tenant_key=LIVE_TENANT)
         assert result["source"] == "unavailable"
         assert result["message"] == "Home Assistant not configured"
         # Both maps exist and are empty — a consumer that reads ``readings``
@@ -435,7 +450,7 @@ class TestTwoSensorsOfOneMetric:
     def test_both_readings_survive(self, service, mock_ha_client):
         mock_ha_client.get_state.side_effect = self._states()
 
-        result = service.get_live_state_for_sensors(self._two_thermometers())
+        result = service.get_live_state_for_sensors(self._two_thermometers(), tenant_key=LIVE_TENANT)
 
         assert set(result["readings"]) == {"s-front", "s-back"}
         assert result["readings"]["s-front"]["value"] == 21.4
@@ -444,7 +459,7 @@ class TestTwoSensorsOfOneMetric:
     def test_each_reading_names_its_own_sensor(self, service, mock_ha_client):
         mock_ha_client.get_state.side_effect = self._states()
 
-        result = service.get_live_state_for_sensors(self._two_thermometers())
+        result = service.get_live_state_for_sensors(self._two_thermometers(), tenant_key=LIVE_TENANT)
 
         front = result["readings"]["s-front"]
         assert front["sensor_key"] == "s-front"
@@ -455,7 +470,7 @@ class TestTwoSensorsOfOneMetric:
     def test_the_derived_view_shows_one_and_admits_it(self, service, mock_ha_client):
         mock_ha_client.get_state.side_effect = self._states()
 
-        result = service.get_live_state_for_sensors(self._two_thermometers())
+        result = service.get_live_state_for_sensors(self._two_thermometers(), tenant_key=LIVE_TENANT)
 
         entry = result["values"]["temperature_celsius"]
         assert entry["value"] == 23.9  # the freshest of the two
@@ -467,7 +482,7 @@ class TestTwoSensorsOfOneMetric:
         mock_ha_client.get_state.side_effect = self._states()[:1]
         sensors = self._two_thermometers()[:1]
 
-        result = service.get_live_state_for_sensors(sensors)
+        result = service.get_live_state_for_sensors(sensors, tenant_key=LIVE_TENANT)
 
         entry = result["values"]["temperature_celsius"]
         assert entry["value"] == 21.4
@@ -486,7 +501,7 @@ class TestTwoSensorsOfOneMetric:
             Sensor(name="Zelt vorne", metric_type="temperature_celsius", ha_entity_id="sensor.zelt_vorne"),
         ]
 
-        result = service.get_live_state_for_sensors(sensors)
+        result = service.get_live_state_for_sensors(sensors, tenant_key=LIVE_TENANT)
 
         assert list(result["readings"]) == ["sensor.zelt_vorne"]
         assert result["readings"]["sensor.zelt_vorne"]["sensor_key"] is None
@@ -514,7 +529,7 @@ class TestTwoSensorsOfOneMetric:
             },
         ]
 
-        result = service.get_location_frost_warning("loc1")
+        result = service.get_location_frost_warning("loc1", tenant_key=LIVE_TENANT)
 
         assert result["frost_warning"] is True
         assert result["temperature_celsius"] == 1.1
@@ -567,7 +582,7 @@ class TestNoReadingIsDiscarded:
         ]
 
         with structlog.testing.capture_logs() as logs:
-            result = service.get_live_state_for_sensors(sensors)
+            result = service.get_live_state_for_sensors(sensors, tenant_key=LIVE_TENANT)
 
         assert sorted(result["readings"]) == ["sensor-back", "sensor-front", "sensor-middle"]
         assert sorted(entry["value"] for entry in result["readings"].values()) == [21.0, 24.0, 27.5]
@@ -594,7 +609,7 @@ class TestNoReadingIsDiscarded:
             self._state("sensor.tent_humidity", 55.0),
         ]
 
-        result = service.get_live_state_for_sensors(sensors)
+        result = service.get_live_state_for_sensors(sensors, tenant_key=LIVE_TENANT)
 
         assert set(result["values"]) == {"temperature_celsius", "humidity_percent"}
         assert all(entry["sensor_count"] == 1 for entry in result["values"].values())
@@ -610,7 +625,7 @@ class TestNoReadingIsDiscarded:
             {"value": None, "last_changed": None, "entity_id": "sensor.tent_back_temp", "unit": "°C"},
         ]
 
-        result = service.get_live_state_for_sensors(sensors)
+        result = service.get_live_state_for_sensors(sensors, tenant_key=LIVE_TENANT)
 
         assert list(result["readings"]) == ["sensor-front"]
         assert result["values"]["temperature_celsius"]["value"] == 21.0
@@ -634,7 +649,7 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1")
+        result = service.get_location_frost_warning("loc1", tenant_key=LIVE_TENANT)
         assert result["frost_warning"] is True
         assert result["temperature_celsius"] == 1.0
         assert result["threshold_celsius"] == 3.0
@@ -650,7 +665,7 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1")
+        result = service.get_location_frost_warning("loc1", tenant_key=LIVE_TENANT)
         assert result["frost_warning"] is False
         assert result["source"] == "ha_live"
 
@@ -664,7 +679,7 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.hum",
             "unit": "%",
         }
-        result = service.get_location_frost_warning("loc1")
+        result = service.get_location_frost_warning("loc1", tenant_key=LIVE_TENANT)
         assert result["frost_warning"] is None
         assert result["temperature_celsius"] is None
         assert result["source"] == "no_temperature"
@@ -680,14 +695,14 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1")
+        result = service.get_location_frost_warning("loc1", tenant_key=LIVE_TENANT)
         assert result["frost_warning"] is None
         assert result["temperature_celsius"] is None
         assert result["source"] == "no_temperature"
 
     def test_unknown_when_ha_unavailable(self, service_no_ha, mock_repo):
         mock_repo.find_by_location.return_value = [self._temp_sensor()]
-        result = service_no_ha.get_location_frost_warning("loc1")
+        result = service_no_ha.get_location_frost_warning("loc1", tenant_key=LIVE_TENANT)
         assert result["frost_warning"] is None
         assert result["source"] == "unavailable"
 
@@ -699,7 +714,7 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1", threshold_celsius=0.0)
+        result = service.get_location_frost_warning("loc1", threshold_celsius=0.0, tenant_key=LIVE_TENANT)
         assert result["frost_warning"] is False
         assert result["threshold_celsius"] == 0.0
 
@@ -713,7 +728,7 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1")
+        result = service.get_location_frost_warning("loc1", tenant_key=LIVE_TENANT)
         assert result["frost_warning"] is True  # reactive unchanged
         assert "forecast_frost_warning" not in result
         assert "forecast_min_temperature" not in result
@@ -757,6 +772,7 @@ def forecast_service(mock_repo, mock_ha_client, mock_forecast_repo, mock_site_re
     return SensorService(
         mock_repo,
         mock_ha_client,
+        ha_entity_gate=EverythingGrantedTo(LIVE_TENANT),
         weather_forecast_repo=mock_forecast_repo,
         site_repo=mock_site_repo,
     )

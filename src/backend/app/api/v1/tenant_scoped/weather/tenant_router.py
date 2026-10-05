@@ -28,9 +28,9 @@ from app.api.v1.tenant_scoped.weather.schemas import (
     WeatherTestPreviewItem,
     WeatherTestResponse,
 )
-from app.common.auth import get_current_tenant, require_tenant_role
+from app.common.auth import get_current_tenant, require_admin_scope, require_tenant_role
 from app.common.dependencies import get_sensor_service, get_weather_source_service
-from app.common.enums import TenantRole
+from app.common.enums import AdminScope, TenantRole
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.data_access.external.weather_attributions import WEATHER_ATTRIBUTIONS
 from app.domain.models.tenant_context import TenantContext
@@ -237,17 +237,24 @@ async def test_weather_source(
 
 @router.get("/ha/weather-entities", response_model=list[HaEntityItem])
 def list_ha_weather_entities(
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: WeatherSourceService = Depends(get_weather_source_service),
 ):
-    """List HA ``weather.*`` entities for mode A (empty when HA is unavailable)."""
-    return [HaEntityItem(**item) for item in service.list_ha_weather_entities()]
+    """List the tenant's granted HA ``weather.*`` entities for mode A (empty when HA is unavailable).
+
+    TECHNICAL scope only (MT-015, #2112): the instance is the operator's, and only
+    the entities the platform admin granted to this tenant are listed.
+    """
+    return [HaEntityItem(**item) for item in service.list_ha_weather_entities(tenant_key=ctx.tenant_key)]
 
 
 @router.get("/ha/sensor-entities", response_model=list[HaEntityItem])
 def list_ha_sensor_entities(
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: WeatherSourceService = Depends(get_weather_source_service),
 ):
-    """List HA ``sensor.*`` entities for mode B (empty when HA is unavailable)."""
-    return [HaEntityItem(**item) for item in service.list_ha_sensor_entities()]
+    """List the tenant's granted HA ``sensor.*`` entities for mode B (empty when HA is unavailable).
+
+    TECHNICAL scope only (MT-015, #2112), filtered to the tenant's grants.
+    """
+    return [HaEntityItem(**item) for item in service.list_ha_sensor_entities(tenant_key=ctx.tenant_key)]

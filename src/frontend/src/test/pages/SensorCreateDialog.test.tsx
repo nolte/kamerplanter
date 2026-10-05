@@ -6,7 +6,7 @@ import i18n from 'i18next';
 import SensorCreateDialog, {
   type SensorContext,
 } from '@/pages/standorte/SensorCreateDialog';
-import { renderWithProviders } from '../helpers';
+import { createStoreWithTenantRole, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
 import type { Sensor } from '@/api/types';
 
@@ -112,6 +112,8 @@ type MountProps = {
   sensor?: Sensor;
   onClose?: () => void;
   onSaved?: () => void;
+  /** Admin scopes of the acting member; the HA entity list needs `technical` (MT-015, #2112). */
+  adminScopes?: string[];
 };
 
 function mount(props: MountProps = {}) {
@@ -125,6 +127,7 @@ function mount(props: MountProps = {}) {
       context={props.context ?? { parentType: 'tank', parentKey: 'tank-1' }}
       sensor={props.sensor}
     />,
+    { store: createStoreWithTenantRole('lead', props.adminScopes ?? ['technical']) },
   );
   return { ...utils, onClose, onSaved };
 }
@@ -169,6 +172,34 @@ describe('SensorCreateDialog', () => {
     await screen.findByTestId('sensor-create-dialog');
     expect(await screen.findByLabelText(i18n.t('pages.sensors.haEntitySelect'))).toBeInTheDocument();
     expect(screen.queryByTestId('form-field-ha_entity_id')).not.toBeInTheDocument();
+  });
+
+  it('explains instead of requesting the entity list for a member without the technical scope (MT-015)', async () => {
+    let listed = 0;
+    registerHandlers({ haEntities: HA_ENTITIES });
+    server.use(
+      http.get('/api/v1/t/:tenant/tanks/ha-entities', () => {
+        listed += 1;
+        return HttpResponse.json([], { status: 403 });
+      }),
+    );
+    mount({ adminScopes: [] });
+    await screen.findByTestId('sensor-create-dialog');
+    expect(await screen.findByTestId('sensor-ha-entities-technical-only')).toHaveTextContent(
+      i18n.t('pages.sensors.haEntitiesTechnicalOnly'),
+    );
+    // The entity ID stays enterable by hand; the backend checks the release.
+    expect(screen.getByTestId('form-field-ha_entity_id')).toBeInTheDocument();
+    expect(screen.queryByLabelText(i18n.t('pages.sensors.haEntitySelect'))).not.toBeInTheDocument();
+    expect(listed).toBe(0);
+  });
+
+  it('tells a technical member when nothing is released for the garden yet (MT-015)', async () => {
+    registerHandlers({ haEntities: [] });
+    mount();
+    expect(await screen.findByTestId('sensor-ha-entities-none-released')).toHaveTextContent(
+      i18n.t('pages.sensors.haEntitiesNoneReleased'),
+    );
   });
 
   it('populates fields when an HA entity with suggestions is picked', async () => {

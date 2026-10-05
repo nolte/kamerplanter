@@ -18,7 +18,7 @@ from app.api.v1.admin.settings.schemas import (
     SystemSettingsResponse,
 )
 from app.common.auth import require_platform_admin
-from app.common.dependencies import get_ha_client, get_system_settings_service
+from app.common.dependencies import get_ha_client, get_ha_entity_grant_service, get_system_settings_service
 from app.common.exceptions import ValidationError
 from app.common.openapi_responses import AUTH_RESPONSES
 from app.common.url_safety import validate_ha_url, validate_storage_endpoint_url
@@ -407,7 +407,9 @@ def _sync_ha_notification_channel() -> None:
 
     ha_client = get_ha_client()
     if ha_client is not None:
-        NotificationChannelRegistry.register(HomeAssistantNotificationChannel(ha_client))
+        NotificationChannelRegistry.register(
+            HomeAssistantNotificationChannel(ha_client, ha_entity_grants=get_ha_entity_grant_service())
+        )
     else:
         # Remove stale channel if HA was unconfigured
         NotificationChannelRegistry.unregister("home_assistant")

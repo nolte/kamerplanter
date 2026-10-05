@@ -41,6 +41,12 @@ from app.domain.models.weather import (
     WeatherSourceHaConfig,
     WeatherSourcePublicConfig,
 )
+from app.domain.services.ha_entity_grant_service import (
+    DenyAllHaEntityGate,
+    HaEntityGate,
+    only_granted,
+    require_granted,
+)
 from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.weather_adapter_registry import WeatherAdapterRegistry
 
@@ -110,8 +116,12 @@ class WeatherSourceService:
         ha_client_factory: Callable[[], HomeAssistantClient | None],
         weather_settings_provider: Callable[[], EffectiveWeatherSettings] | None = None,
         climate_normal_repo: IClimateNormalRepository | None = None,
+        ha_entity_grants: HaEntityGate | None = None,
     ) -> None:
         self._config_repo = weather_source_config_repo
+        # MT-015 (#2112): the Home Assistant entities a weather source names must
+        # be granted to the site's tenant. Absent, nothing is granted (fail-closed).
+        self._ha_entity_gate: HaEntityGate = ha_entity_grants or DenyAllHaEntityGate()
         self._site_repo = site_repo
         self._encryption = encryption_engine
         self._ha_client_factory = ha_client_factory
@@ -176,6 +186,9 @@ class WeatherSourceService:
         request: WeatherSourceConfigRequest,
     ) -> WeatherSourceConfig:
         site = self._load_owned_site(site_key, tenant_key)
+        for req_entry in request.sources:
+            if req_entry.kind == "home_assistant":
+                self._require_granted_ha_entities(tenant_key, req_entry.ha_config)
         existing = self._config_repo.get_by_site(site_key, tenant_key)
         existing_key_refs = self._existing_key_refs(existing)
 
@@ -247,6 +260,16 @@ class WeatherSourceService:
             return self._encryption.encrypt(new_plaintext)
         return existing_key_refs.get(source_name)
 
+    def _require_granted_ha_entities(self, tenant_key: str, ha_request: WeatherSourceHaConfigRequest | None) -> None:
+        """Refuse a Home Assistant weather configuration naming an ungranted entity (422)."""
+        if ha_request is None:
+            return
+        references: dict[str, str | None] = {"weather_entity_id": ha_request.weather_entity_id}
+        if ha_request.sensor_mapping is not None:
+            for field, entity_id in ha_request.sensor_mapping.model_dump().items():
+                references[f"sensor_mapping.{field}"] = entity_id
+        require_granted(self._ha_entity_gate, tenant_key, references)
+
     @staticmethod
     def _to_stored_ha_config(
         ha_request: WeatherSourceHaConfigRequest | None,
@@ -311,6 +334,9 @@ class WeatherSourceService:
 
         config: object | None = None
         if entry.kind == "home_assistant":
+            # An unsaved configuration reads Home Assistant just like a saved one,
+            # so it is held to the same allowlist (MT-015, #2112).
+            self._require_granted_ha_entities(tenant_key, entry.ha_config)
             ha_client = self._ha_client_factory()
             if ha_client is None:
                 return WeatherTestResult(
@@ -352,13 +378,17 @@ class WeatherSourceService:
 
     # ── HA entity pickers ─────────────────────────────────────────────
 
-    def list_ha_weather_entities(self) -> list[dict]:
-        """HA ``weather.*`` entities (mode A). Empty list when HA is unavailable."""
-        return self._ha_entities(lambda client: client.list_weather_entities())
+    def list_ha_weather_entities(self, *, tenant_key: str) -> list[dict]:
+        """The tenant's granted HA ``weather.*`` entities (mode A). Empty when HA is unavailable."""
+        return only_granted(
+            self._ha_entity_gate, tenant_key, self._ha_entities(lambda client: client.list_weather_entities())
+        )
 
-    def list_ha_sensor_entities(self) -> list[dict]:
-        """HA ``sensor.*`` entities (mode B). Empty list when HA is unavailable."""
-        return self._ha_entities(lambda client: client.list_sensor_entities())
+    def list_ha_sensor_entities(self, *, tenant_key: str) -> list[dict]:
+        """The tenant's granted HA ``sensor.*`` entities (mode B). Empty when HA is unavailable."""
+        return only_granted(
+            self._ha_entity_gate, tenant_key, self._ha_entities(lambda client: client.list_sensor_entities())
+        )
 
     def _ha_entities(self, reader: Callable[[HomeAssistantClient], list[dict]]) -> list[dict]:
         ha_client = self._ha_client_factory()

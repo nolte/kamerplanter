@@ -246,6 +246,12 @@ MCP_IDEMPOTENCY_RECORD = "mcp_idempotency_record"
 # role or scopes, in which tenant, when. Append-only; retention in NFR-011 R-38.
 SECURITY_AUDIT_LOG = "security_audit_log"
 
+# MT-015 (#2112) — which entities of the operator's one Home Assistant instance a
+# tenant may use. Maintained by the platform admin; unique per (tenant, entity).
+TENANT_HA_ENTITY_GRANTS = "tenant_ha_entity_grants"
+#: The identity of a grant — enforced unique, so a re-grant is a no-op.
+HA_ENTITY_GRANT_IDENTITY_FIELDS = ["tenant_key", "entity_id"]
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -367,6 +373,8 @@ DOCUMENT_COLLECTIONS = [
     MCP_IDEMPOTENCY_RECORD,
     # MT-014 security audit (#2111)
     SECURITY_AUDIT_LOG,
+    # MT-015 Home Assistant entity allowlist (#2112)
+    TENANT_HA_ENTITY_GRANTS,
     # REQ-026 Aquaponics
     FISH_SPECIES,
     FISH_STOCKS,
@@ -2523,6 +2531,9 @@ def ensure_collections(db: StandardDatabase) -> None:
     security_audit_log_col.add_persistent_index(fields=["target_user_key"], unique=False)
     security_audit_log_col.add_persistent_index(fields=["actor_user_key"], unique=False)
     security_audit_log_col.add_persistent_index(fields=["created_at"], unique=False)
+
+    # MT-015 (#2112) Home Assistant entity allowlist: one row per (tenant, entity).
+    db.collection(TENANT_HA_ENTITY_GRANTS).add_persistent_index(fields=HA_ENTITY_GRANT_IDENTITY_FIELDS, unique=True)
 
     mcp_idempotency_record_col = db.collection(MCP_IDEMPOTENCY_RECORD)
     mcp_idempotency_record_col.add_persistent_index(

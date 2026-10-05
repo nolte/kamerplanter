@@ -296,7 +296,9 @@ class EnvironmentSnapshotService:
         live: dict = {"readings": {}, "values": {}, "errors": [], "source": "unavailable"}
         if time.monotonic() < deadline:
             try:
-                live = self._sensor_service.get_live_state_for_sensors(candidates, deadline=deadline)
+                live = self._sensor_service.get_live_state_for_sensors(
+                    candidates, tenant_key=tenant_key, deadline=deadline
+                )
             except Exception as exc:  # noqa: BLE001 — never fails the write
                 logger.warning("diary_environment_live_read_failed", origin=origin.value, error=loggable_error(exc))
                 degraded = True
