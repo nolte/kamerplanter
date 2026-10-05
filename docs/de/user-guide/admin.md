@@ -530,10 +530,10 @@ Die Moderation findest du im Admin-Bereich in der Karte **„Beigesteuerte Schä
 ## Häufige Fragen
 
 ??? question "Wer kann die Plattform-Admin-Rolle vergeben?"
-    Die Plattform-Admin-Rolle kann nur von einem bestehenden Platform-Admin vergeben werden — direkt über die API oder im Admin-Bereich. Beim ersten Setup wird der erste registrierte Nutzer automatisch als Platform-Admin konfiguriert.
+    Die Plattform-Admin-Rolle kann nur von einem bestehenden Platform-Admin vergeben werden — direkt über die API oder im Admin-Bereich, jeweils mit seinem Passwort bestätigt. Beim ersten Setup richtest du das erste Plattform-Admin-Konto auf dem Server ein (`python -m app.migrations.add_platform_admin <e-mail>`); der erste registrierte Nutzer wird **nicht** automatisch Platform-Admin.
 
 ??? question "Kann ein Platform-Admin auch Tenant-Daten einsehen?"
-    Ja. Platform-Admins haben Lesezugriff auf alle mandantengebundenen Daten. Diese Berechtigung sollte auf vertrauenswürdige Personen beschränkt und mit einem Audit-Log versehen sein. <!-- REQ-024 -->
+    Nein, nicht die Fachdaten. Ein Platform-Admin sieht Verwaltungsdaten über alle Mandanten hinweg — dass ein Mandant existiert, wie er heißt, wer Mitglied ist — aber keine Pflanzen, Ernten oder Tagebücher eines fremden Mandanten. Dafür müsste er dort regulär als Mitglied aufgenommen werden. <!-- REQ-049 §2.5 -->
 
 ??? question "Gibt es eine Viewer-Rolle für den Admin-Bereich?"
     Ja. Die Plattform-Rolle `viewer` bietet Lesezugriff auf alle Admin-Statistiken und Mandanten-Übersichten, jedoch keine Schreibberechtigungen.

@@ -150,9 +150,9 @@ planned → active → harvesting → completed
 | `tenants` | Mandanten (Gärten, Organisationen) | `slug` (unique), `name` |
 | `memberships` | Nutzer-Mandant-Beziehungen | `user_key`, `tenant_key` (unique je Paar), `role` |
 | `invitations` | Einladungen zu Mandanten | `token_hash` (unique), `tenant_key`, `expires_at` |
-| `location_assignments` | Zuweisungsbasierte Schreibrechte | `membership_key`, `location_key` (unique je Paar) |
+| `location_assignments` | Standort-Zuweisungen (Zuständigkeit, keine Schreibrechte) | `membership_key`, `location_key` (unique je Paar) |
 
-**Rollen je Mandant:** `admin`, `grower`, `viewer`
+**Rollen je Mandant:** `viewer`, `grower`, `lead`, dazu Zusatzberechtigungen `admin_scopes` (`management`, `technical`)
 
 ### Pflegeerinnerungen (REQ-022)
 

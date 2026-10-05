@@ -48,6 +48,10 @@ Changes not yet published in a release.
 
 ## Changed
 
+### Documentation
+
+- Roles and permissions, platform admin: the pages now say what applies — a location assignment does not restrict editing, the first registered account does not become platform administrator automatically (it is set up on the server), a platform administrator sees no plants or harvests of other gardens, and the guided switch from light mode is marked as not built yet.
+
 ### Frontend
 
 - Privacy: the account deletion dialog names, before you confirm, the organizations whose management passes to the longest-serving lead or that become orphaned (issue #2134)

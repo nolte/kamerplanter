@@ -468,12 +468,12 @@ Tipp-Karten werden sofort neu generiert bei:
 
 ---
 
-## Consent-Middleware
+## Einwilligungsprüfung (Consent-Guard)
 
-Cloud-Provider (OpenAI, Anthropic) erfordern eine explizite DSGVO-Einwilligung (REQ-025). Die Consent-Middleware prüft vor jeder Anfrage, ob die Einwilligung vorliegt.
+Cloud-Provider (OpenAI, Anthropic) erfordern eine explizite DSGVO-Einwilligung (REQ-025). Geprüft wird nicht in einer Middleware, sondern in der Service-Schicht: `ConsentGuard` (`app/domain/guards/consent_guard.py`) fragt vor dem Aufruf, ob die Einwilligung vorliegt, und antwortet sonst mit `403 ConsentRequiredError`. Das Beispiel zeigt die Logik vereinfacht.
 
 ```python
-# app/common/dependencies.py
+# vereinfacht — umgesetzt in app/domain/guards/consent_guard.py (ConsentGuard)
 
 async def require_ai_consent(
     provider_config: AiProviderConfig,

@@ -48,6 +48,9 @@
 
 ## Geändert
 
+### Dokumentation
+
+- Rollen und Berechtigungen, Plattform-Admin: Die Seiten sagen jetzt, was gilt — eine Standort-Zuweisung schränkt das Bearbeiten nicht ein, das erste registrierte Konto wird nicht automatisch Plattform-Administrator (eingerichtet wird es auf dem Server), ein Plattform-Administrator sieht keine Pflanzen oder Ernten fremder Gärten, und der geführte Umstieg vom Light-Modus ist als noch nicht gebaut gekennzeichnet.
 
 ### Frontend
 

@@ -174,7 +174,7 @@ This data is bound to a garden. Anyone who is a member of the garden sees it **i
 - Care profiles and overwintering profiles
 - Dashboard metrics and calendar
 
-Concretely this means: in a community garden **all members see all plots** — including those not assigned to them. Location assignment governs editing, not reading. A community garden is deliberately transparent: who turned the compost, or when plot 7 was last watered, should be traceable for everyone.
+Concretely this means: in a community garden **all members see all plots** — including those not assigned to them. Location assignment only records who looks after a plot — it governs neither reading nor editing. A community garden is deliberately transparent: who turned the compost, or when plot 7 was last watered, should be traceable for everyone.
 
 ### What Belongs to You Personally — Across All Gardens
 
@@ -276,9 +276,9 @@ Besides the roles inside gardens there is a level above them: administering the 
 |------|----------------|
 | **Platform administrator** | Maintain the global master-data catalog; decide which global species a garden sees; overview of all gardens and user accounts; configure login providers; enable image recognition; promote a garden's own species and cultivars into the global catalog; suspend or reactivate gardens and accounts |
 
-The platform administrator is therefore the only role that can look across garden boundaries — but only at **administrative data**: they see that a garden exists, what it is called and who is a member. This does not automatically grant read access to another garden's plants and harvests; for that, an admin of that garden would have to add them as a regular member.
+The platform administrator is therefore the only role that can look across garden boundaries — but only at **administrative data**: they see that a garden exists, what it is called and who is a member. This does not automatically grant read access to another garden's plants and harvests; for that, someone holding the management scope in that garden would have to add them as a regular member.
 
-The role is independent of the garden roles: a platform administrator is still not a member of your private garden. Conversely, being admin in a community garden makes nobody a platform administrator.
+The role is independent of the garden roles: a platform administrator is still not a member of your private garden. Conversely, being lead or holding management in a community garden makes nobody a platform administrator.
 
 What the platform area offers in detail is described under [Platform Admin](../user-guide/admin.md).
 
@@ -310,10 +310,13 @@ Kamerplanter can be run without sign-in — as a local single-person installatio
 <!-- Quelle: src/backend/app/common/auth.py is_platform_admin -->
 
 - There is exactly one account, and it is signed in automatically.
-- That account is admin in its garden **and** platform administrator.
+- That account holds the lead role with both additional permissions in its garden **and** is platform administrator.
 - There is no member management, no invitations and no role selection — there is nobody to assign a role to.
 
-Everything described on this page only becomes relevant once the installation runs with sign-in. Switching is possible: on migration, the first registered account becomes admin of the existing garden and platform administrator. Details under [Light Mode](../user-guide/light-mode.md).
+Everything described on this page only becomes relevant once the installation runs with sign-in. Details under [Light Mode](../user-guide/light-mode.md).
+
+!!! warning "Not implemented yet"
+    A guided switch from light mode to sign-in mode, in which the first registered account takes over the existing garden, is planned but not built yet. After a switch the data stay with the former single account; a newly registered account starts with its own empty garden.
 
 ---
 
@@ -356,7 +359,7 @@ Assignments are managed under the path `/api/v1/t/{garden-slug}/assignments`; al
     No. Your houseplants live in your personal garden, which is completely separate from all other gardens. In the member list, association members only see your display name and your role in the association.
 
 ??? question "Do other association members see my plot in the association?"
-    Yes. Inside a garden all members may read everything — including other people's plots. Location assignment is meant to govern *editing*, not reading. If you want to keep something truly private, it belongs in your personal garden.
+    Yes. Inside a garden all members may read everything — including other people's plots. Location assignment only shows who looks after a plot — it restricts neither reading nor editing. If you want to keep something truly private, it belongs in your personal garden.
 
 ??? question "Can the association's Management change my role without asking me?"
     Yes, inside their garden. They can demote you to viewer there or remove you entirely. They have no access to your personal garden or your other memberships.
@@ -368,7 +371,7 @@ Assignments are managed under the path `/api/v1/t/{garden-slug}/assignments`; al
     No. You always see exactly one garden. Notifications are the exception: they reach you regardless of which garden is currently open.
 
 ??? question "How do I get permissions for the platform area?"
-    Through an admin membership in the technical platform tenant — granted by an existing platform administrator. On your own installation, the first registered account receives this role automatically.
+    Through a membership with the lead role in the technical platform tenant — granted by an existing platform administrator, confirmed with their password. Nobody can give the role to themselves. On your own installation you set up the first platform admin account on the server (`python -m app.migrations.add_platform_admin <email>`); a first registered account does not become platform administrator automatically.
 
 ??? question "Does Home Assistant need an account with administrative scopes?"
     No. A service account with the Grower role is enough to read and document. Only creating locations would need the Lead role, and *setting up* the Home Assistant connection itself needs the Technical scope.
