@@ -223,10 +223,16 @@ def test_the_ownable_params_track_the_ownership_allowlist() -> None:
     ``OWNABLE_PARAMS`` is the name map onto
     ``OWNERSHIP_VERIFIABLE_COLLECTIONS``; if that frozenset grows and the map
     does not, every route taking the new key is out of class and nobody is told.
+
+    ``observation_key`` stays a tenant-ownable *parameter* although #2107 took
+    ``harvest_observations`` off the allowlist: an observation is owned through its
+    plant, so a route taking one must still pass it on with a tenant.
     """
     from app.data_access.arango.tenant_ownership import OWNERSHIP_VERIFIABLE_COLLECTIONS
 
-    assert len(check_module.OWNABLE_PARAMS) == len(OWNERSHIP_VERIFIABLE_COLLECTIONS), (
+    parent_anchored = {"observation_key"}
+    assert parent_anchored <= check_module.OWNABLE_PARAMS
+    assert len(check_module.OWNABLE_PARAMS - parent_anchored) == len(OWNERSHIP_VERIFIABLE_COLLECTIONS), (
         "OWNABLE_PARAMS and OWNERSHIP_VERIFIABLE_COLLECTIONS have drifted — "
         f"{sorted(check_module.OWNABLE_PARAMS)} vs {sorted(OWNERSHIP_VERIFIABLE_COLLECTIONS)}"
     )

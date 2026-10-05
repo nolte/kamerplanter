@@ -113,11 +113,6 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
 
     # ── Slot-based queries ────────────────────────────────────────────
 
-    def get_by_slot(self, slot_key: SlotKey) -> list[PlantInstance]:
-        slot_id = f"{col.SLOTS}/{slot_key}"
-        results = self.get_edges(col.PLACED_IN, slot_id, direction="inbound")
-        return [PlantInstance(**self._resolve_phase_name(self._from_doc(r["vertex"]))) for r in results]
-
     def get_active_by_slot(self, slot_key: SlotKey, *, tenant_key: str) -> list[PlantInstance]:
         """Plants currently occupying a slot, **inside one tenant** (#927).
 

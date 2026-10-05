@@ -237,7 +237,7 @@ class _NutrientPlanService:
         self.assignments: list[tuple[str, str, str]] = []
         self.seen_tenants: list[str] = []
 
-    def get_plan(self, key, tenant_key="", *, for_write=False):
+    def get_plan(self, key, *, tenant_key, for_write=False):
         self.seen_tenants.append(tenant_key)
         plan = self._plans.get(key)
         if plan is None:

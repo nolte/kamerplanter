@@ -331,9 +331,6 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
     def get_active_auto_create_schedules(self) -> list[MaintenanceSchedule]:
         return self._schedules.find_by_field("auto_create_task", True, extra_filters=[("is_active", "==", True)])
 
-    def get_tanks_for_location(self, location_key: LocationKey) -> list[Tank]:
-        return self.find_by_field("location_key", location_key)
-
     def count_below_threshold(self, tenant_key: str) -> int:
         """Count ``tenant_key`` tanks whose latest fill is below their threshold (REQ-009).
 

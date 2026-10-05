@@ -68,25 +68,6 @@ class IWateringLogRepository(ABC):
     ) -> list[WateringLog]: ...
 
     @abstractmethod
-    def get_latest_by_plant(
-        self,
-        plant_key: str,
-        tenant_key: str = "",
-        *,
-        all_tenants: bool = False,
-    ) -> WateringLog | None: ...
-
-    @abstractmethod
-    def get_recent_runoff_logs(
-        self,
-        plant_key: str,
-        limit: int = 5,
-        tenant_key: str = "",
-        *,
-        all_tenants: bool = False,
-    ) -> list[WateringLog]: ...
-
-    @abstractmethod
     def resolve_plant_names(self, plant_keys: list[str], *, tenant_key: str) -> dict[str, str]:
         """Resolve plant keys to display names inside ``tenant_key`` (#952)."""
         ...

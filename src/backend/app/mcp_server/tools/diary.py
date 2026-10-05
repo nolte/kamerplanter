@@ -236,7 +236,7 @@ def _location_name(ctx: ToolContext, location_key: str | None) -> str | None:
     if not location_key:
         return None
     try:
-        return getattr(ctx.site_service.get_location(location_key, ctx.tenant_key), "name", None)
+        return getattr(ctx.site_service.get_location(location_key, tenant_key=ctx.tenant_key), "name", None)
     except KamerplanterError:
         return None
 

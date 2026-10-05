@@ -160,9 +160,10 @@ HYBRID_CATALOGUES: frozenset[str] = frozenset(_TENANT_OWNED_CATALOG_COLLECTIONS)
 #: Collections whose tenant is reachable only through a parent document, as
 #: ``collection -> ((foreign-key field, parent collection), ...)``. More than one
 #: pair means "exactly one of these parents" (``Sensor`` validates at most one).
-#: ``locations`` and ``slots`` *have* a ``tenant_key`` field, but no write path
-#: fills it (#1397) — the site is the only document in the chain that carries it,
-#: which is why they are declared here and not left to the model.
+#: ``locations`` and ``slots`` used to declare a ``tenant_key`` field no write path
+#: filled (#1397); #2107 removed it — the site is the only document in the chain
+#: that carries a tenant, and ``test_parent_scoped_models_declare_no_tenant.py``
+#: holds every collection declared here to a model without the field.
 #:
 #: Checked both ways by :class:`TestTheParentChainsAreDeclaredOnceAndComplete`:
 #: every field named here exists on the model and every parent carries a tenant,
@@ -335,9 +336,19 @@ _LITERAL_LOOP = re.compile(r"\bIN\s+([a-z_][a-z_0-9]*)\b")
 #: another row, so the row it returns is whatever that key names — including a
 #: document of another tenant (#2099: a global fertilizer's usage listed the plans
 #: of every tenant). Read from the f-string's own source, so the ``{col.X}`` hole
-#: is still visible. A bind-var spelling (``DOCUMENT(@col, …)``) is not matched —
-#: named, not discovered later.
+#: is still visible.
 _REVERSE_LOOKUP = re.compile(r"DOCUMENT\(\s*(?:CONCAT\(\s*)?[\"']?\{col\.([A-Z][A-Z_0-9]*)\}")
+
+#: The same reverse lookup with the collection behind a **bind variable**
+#: (``DOCUMENT(CONCAT(@plants, "/", row.fk))``, ``DOCUMENT(@@col, row.fk)``) — #2120:
+#: #2148 named this spelling as unmatched, and five repositories use it. The
+#: variable is resolved through the ``bind_vars`` dict literals of the same method
+#: (``{"plants": col.PLANT_INSTANCES}``); a variable that resolves to no
+#: collection constant adds nothing (named here, not discovered later).
+_REVERSE_LOOKUP_BIND = re.compile(r"DOCUMENT\(\s*(?:CONCAT\(\s*)?@@?([a-z_][a-z_0-9]*)")
+
+#: And with the collection spelled **literally** (``DOCUMENT(CONCAT('growth_phases/', …))``).
+_REVERSE_LOOKUP_LITERAL = re.compile(r"DOCUMENT\(\s*CONCAT\(\s*[\"']([a-z_][a-z_0-9]*)/")
 
 #: Measured on 2026-09-24. Pinned exactly: raising it means a new method took the
 #: tenant positionally instead of keyword-only; lowering it is the conversion
@@ -587,9 +598,20 @@ def build_inventory(app_root: Path) -> Inventory:
 
         def dereferences(fn: ast.AST) -> set[str]:
             found: set[str] = set()
+            bound: dict[str, str] = {}
+            for node in ast.walk(fn):
+                if isinstance(node, ast.Dict):
+                    for name, value in zip(node.keys, node.values, strict=True):
+                        is_col = isinstance(value, ast.Attribute) and isinstance(value.value, ast.Name)
+                        is_col = is_col and value.value.id == "col" and value.attr in constants  # type: ignore[union-attr]
+                        if isinstance(name, ast.Constant) and isinstance(name.value, str) and is_col:
+                            bound[name.value.lstrip("@")] = constants[value.attr]  # type: ignore[union-attr]
             for node in ast.walk(fn):
                 if isinstance(node, ast.JoinedStr | ast.Constant):
-                    found.update(constants[m] for m in _REVERSE_LOOKUP.findall(ast.unparse(node)) if m in constants)
+                    text = ast.unparse(node)
+                    found.update(constants[m] for m in _REVERSE_LOOKUP.findall(text) if m in constants)
+                    found.update(bound[m] for m in _REVERSE_LOOKUP_BIND.findall(text) if m in bound)
+                    found.update(m for m in _REVERSE_LOOKUP_LITERAL.findall(text) if m in names)
             return found
 
         def direct(fn: ast.AST, repo=repo, methods=methods) -> tuple[set[str], bool, set[str], set[str]]:
@@ -1234,6 +1256,42 @@ class TestTheRuleFires:
         target.write_text(target.read_text(encoding="utf-8") + planted, encoding="utf-8")
         verdicts = [v for v in _verdicts(build_inventory(root)) if v.method.name == "plans_using"]
         assert [(v.passed, v.category) for v in verdicts] == [(True, "anchored")]
+
+    #: #2120: the same lookup with the collection behind a bind variable, and spelled literally.
+    _PLANTED_REVERSE_BIND = (
+        "\n    def plans_using(self, key: str) -> list[dict]:\n"
+        '        query = """FOR e IN nutrient_plan_phase_entries '
+        'LET p = DOCUMENT(CONCAT(@plans, \'/\', e.plan_key)) RETURN p.name"""\n'
+        "        return list(self._db.aql.execute(query, bind_vars={'k': key, 'plans': col.NUTRIENT_PLANS}))\n"
+    )
+
+    _PLANTED_REVERSE_LITERAL = _PLANTED_REVERSE_BIND.replace("CONCAT(@plans, '/',", "CONCAT('nutrient_plans/',")
+
+    @pytest.mark.parametrize("spelling", [_PLANTED_REVERSE_BIND, _PLANTED_REVERSE_LITERAL], ids=["bind-var", "literal"])
+    def test_a_reverse_lookup_in_any_spelling_is_a_finding(self, tmp_path: Path, spelling: str) -> None:
+        assert self._PLANTED_REVERSE_LITERAL != self._PLANTED_REVERSE_BIND
+        assert "@plans" not in self._PLANTED_REVERSE_LITERAL
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "fertilizer_repository.py"
+        target.write_text(target.read_text(encoding="utf-8") + spelling, encoding="utf-8")
+        hits = [v for v in findings(build_inventory(root), EXCLUSIONS) if v.method.name == "plans_using"]
+        assert [v.category for v in hits] == ["unscoped"]
+
+    def test_an_unresolvable_bind_variable_adds_nothing(self, tmp_path: Path) -> None:
+        """The counterpart: a variable no dict literal binds to a collection names nothing."""
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "fertilizer_repository.py"
+        planted = self._PLANTED_REVERSE_BIND.replace(", 'plans': col.NUTRIENT_PLANS", "")
+        assert planted != self._PLANTED_REVERSE_BIND
+        target.write_text(target.read_text(encoding="utf-8") + planted, encoding="utf-8")
+        verdicts = [v for v in _verdicts(build_inventory(root)) if v.method.name == "plans_using"]
+        assert [(v.passed, v.category) for v in verdicts] == [(True, "anchored")]
+
+    def test_the_spellings_are_seen_on_the_real_tree(self) -> None:
+        """Anti-vacuity: the bind-var and literal spellings occur in today's repositories."""
+        derefs = {(m.owner, m.name): m.dereferenced for m in build_inventory(_APP).reads}
+        assert col.PLANT_INSTANCES in derefs[("ArangoWateringLogRepository", "resolve_plant_names")]
+        assert col.GROWTH_PHASES in derefs[("ArangoTankRepository", "get_active_nutrient_plans")]
 
     #: The #2102 shape: a traversal that names only the edge, so the vertex collection it
     #: returns never appears in the body.

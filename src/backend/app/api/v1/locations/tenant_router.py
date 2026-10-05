@@ -42,11 +42,11 @@ def list_locations(
     service.get_site(site_key, tenant_key=ctx.tenant_key)
     if parent_location_key:
         # The parent is resolved under the tenant too (#1871 B14): checking only
-        # the site listed the children of any tenant's location.
-        _verify_location_tenant(parent_location_key, ctx, service)
-        items = service.list_location_children(parent_location_key)
+        # the site listed the children of any tenant's location. The service does
+        # it itself since #2107.
+        items = service.list_location_children(parent_location_key, tenant_key=ctx.tenant_key)
     else:
-        items = service.list_locations(site_key)
+        items = service.list_locations(site_key, tenant_key=ctx.tenant_key)
     return [to_response(loc, LocationResponse) for loc in items]
 
 
@@ -68,8 +68,7 @@ def list_location_children(
     service: SiteService = Depends(get_site_service),
 ):
     """List the child locations of a location."""
-    _verify_location_tenant(key, ctx, service)
-    items = service.list_location_children(key)
+    items = service.list_location_children(key, tenant_key=ctx.tenant_key)
     return [to_response(loc, LocationResponse) for loc in items]
 
 
@@ -80,7 +79,6 @@ def create_location(
     service: SiteService = Depends(get_site_service),
 ):
     """Create a location within a site."""
-    service.get_site(body.site_key, tenant_key=ctx.tenant_key)
     location = Location(**body.model_dump())
     created = service.create_location(location, tenant_key=ctx.tenant_key)
     return to_response(created, LocationResponse)
@@ -94,9 +92,7 @@ def update_location(
     service: SiteService = Depends(get_site_service),
 ):
     """Update a location."""
-    _verify_location_tenant(key, ctx, service)
     location = Location(**body.model_dump())
-    service.get_site(location.site_key, tenant_key=ctx.tenant_key)
     updated = service.update_location(key, location, tenant_key=ctx.tenant_key)
     return to_response(updated, LocationResponse)
 
@@ -108,8 +104,7 @@ def delete_location(
     service: SiteService = Depends(get_site_service),
 ):
     """Delete a location."""
-    _verify_location_tenant(key, ctx, service)
-    service.delete_location(key)
+    service.delete_location(key, tenant_key=ctx.tenant_key)
 
 
 # ── Sensors ──────────────────────────────────────────────────────────

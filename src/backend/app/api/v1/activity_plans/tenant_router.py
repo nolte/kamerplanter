@@ -124,11 +124,7 @@ def apply_plan(
     if body.run_key:
         # Refuses a run of another tenant with 404 before any task is created.
         run_service.get_run(body.run_key, tenant_key=ctx.tenant_key)
-        result = service.apply_plan_to_run(
-            body.workflow_template_key,
-            body.run_key,
-            ctx.tenant_key,
-        )
+        result = service.apply_plan_to_run(body.workflow_template_key, body.run_key, tenant_key=ctx.tenant_key)
         return ActivityPlanApplyResponse(
             created_count=result["total_tasks"],
             task_keys=result["task_keys"],
@@ -139,11 +135,7 @@ def apply_plan(
     if body.plant_key:
         # Refuses a plant of another tenant with 404 before any task is created.
         plant_service.get_plant(body.plant_key, tenant_key=ctx.tenant_key)
-        result = service.apply_plan_to_plant(
-            body.workflow_template_key,
-            body.plant_key,
-            ctx.tenant_key,
-        )
+        result = service.apply_plan_to_plant(body.workflow_template_key, body.plant_key, tenant_key=ctx.tenant_key)
         return ActivityPlanApplyResponse(
             created_count=result["created_count"],
             task_keys=result["task_keys"],

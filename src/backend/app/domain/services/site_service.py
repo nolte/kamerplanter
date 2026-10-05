@@ -32,25 +32,32 @@ class SiteService:
     def list_sites(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[Site], int]:
         return self._repo.get_all_sites(offset, limit, tenant_key=tenant_key)
 
-    def get_site(self, key: SiteKey, tenant_key: str = "") -> Site:
+    # #2107 (MT-010): every method below that addresses a site, location or slot by
+    # key takes ``tenant_key`` keyword-only without a default and resolves the key
+    # under it itself. The routers used to call ``get_site(key, tenant_key=…)`` and
+    # then an unscoped ``update_site(key, …)`` — check-then-act, correct only as long
+    # as every handler and MCP tool remembered the first call.
+
+    def get_site(self, key: SiteKey, *, tenant_key: str) -> Site:
         site = self._repo.get_site_or_raise(key)
-        if tenant_key:
-            verify_tenant_ownership(site, tenant_key, "Site")
+        verify_tenant_ownership(site, tenant_key, "Site")
         return site
 
     def create_site(self, site: Site) -> Site:
         return self._repo.create_site(site)
 
-    def update_site(self, key: SiteKey, site: Site) -> Site:
-        self.get_site(key)
+    def update_site(self, key: SiteKey, site: Site, *, tenant_key: str) -> Site:
+        """Rewrite a site of ``tenant_key``; ownership stays with it whatever the body says."""
+        self.get_site(key, tenant_key=tenant_key)
+        site.tenant_key = tenant_key
         return self._repo.update_site(key, site)
 
-    def delete_site(self, key: SiteKey) -> bool:
-        self.get_site(key)
+    def delete_site(self, key: SiteKey, *, tenant_key: str) -> bool:
+        self.get_site(key, tenant_key=tenant_key)
         return self._repo.delete_site(key)
 
-    def get_water_config(self, key: SiteKey) -> SiteWaterConfig | None:
-        site = self.get_site(key)
+    def get_water_config(self, key: SiteKey, *, tenant_key: str) -> SiteWaterConfig | None:
+        site = self.get_site(key, tenant_key=tenant_key)
         return site.water_config
 
     def get_water_warnings(self, site: Site) -> list[WaterSourceWarning]:
@@ -63,21 +70,21 @@ class SiteService:
 
     # --- Locations ---
 
-    def list_locations(self, site_key: SiteKey) -> list[Location]:
-        self.get_site(site_key)
+    def list_locations(self, site_key: SiteKey, *, tenant_key: str) -> list[Location]:
+        self.get_site(site_key, tenant_key=tenant_key)
         return self._repo.get_locations_by_site(site_key)
 
-    def get_location(self, key: LocationKey, tenant_key: str = "") -> Location:
-        """A location, optionally required to belong to ``tenant_key``.
+    def get_location(self, key: LocationKey, *, tenant_key: str) -> Location:
+        """A location of ``tenant_key`` — anchored on its site, 404 otherwise.
 
         Anchored on the parent site (#1397). This used to compare against
-        ``location.tenant_key``, which the write path never fills — so with a
-        tenant key supplied it refused **every** location including the caller's
-        own, and MCP ``set_plant_location`` answered 404 to every legitimate move.
+        ``location.tenant_key``, which the write path never filled (the field is
+        gone since #2107) — so with a tenant key supplied it refused **every**
+        location including the caller's own, and MCP ``set_plant_location``
+        answered 404 to every legitimate move.
         """
         location = self._repo.get_location_or_raise(key)
-        if tenant_key:
-            require_owned_site(self._repo, location.site_key, tenant_key, "Location", key)
+        require_owned_site(self._repo, location.site_key, tenant_key, "Location", key)
         return location
 
     def create_location(self, location: Location, *, tenant_key: str) -> Location:
@@ -111,6 +118,8 @@ class SiteService:
         a location cannot be its own parent.
         """
         self.get_location(key, tenant_key=tenant_key)
+        # The body's site too (#2107): the router used to check it before this call.
+        self.get_site(location.site_key, tenant_key=tenant_key)
         if location.parent_location_key:
             parent = self.get_location(location.parent_location_key, tenant_key=tenant_key)
             # Not itself, not one of its own descendants (/code-review of #1899): a
@@ -135,12 +144,12 @@ class SiteService:
                 self._repo.get_location_by_key(current.parent_location_key) if current.parent_location_key else None
             )
 
-    def delete_location(self, key: LocationKey) -> bool:
-        self.get_location(key)
+    def delete_location(self, key: LocationKey, *, tenant_key: str) -> bool:
+        self.get_location(key, tenant_key=tenant_key)
         return self._repo.delete_location(key)
 
-    def list_location_children(self, parent_key: LocationKey) -> list[Location]:
-        self.get_location(parent_key)
+    def list_location_children(self, parent_key: LocationKey, *, tenant_key: str) -> list[Location]:
+        self.get_location(parent_key, tenant_key=tenant_key)
         return self._repo.get_location_children(parent_key)
 
     def get_location_tree(self, site_key: SiteKey, *, tenant_key: str) -> list[Location]:
@@ -154,29 +163,27 @@ class SiteService:
 
     # --- Slots ---
 
-    def list_slots(self, location_key: LocationKey) -> list[Slot]:
-        self.get_location(location_key)
+    def list_slots(self, location_key: LocationKey, *, tenant_key: str) -> list[Slot]:
+        self.get_location(location_key, tenant_key=tenant_key)
         return self._repo.get_slots_by_location(location_key)
 
-    def get_slot(self, key: SlotKey, tenant_key: str = "") -> Slot:
-        """A slot, optionally required to belong to ``tenant_key``.
-
-        Two hops — slot → location → site — for the reason ``get_location`` gives:
-        ``Slot.tenant_key`` is as empty as ``Location.tenant_key`` (#1397).
-        """
+    def get_slot(self, key: SlotKey, *, tenant_key: str) -> Slot:
+        """A slot of ``tenant_key`` — two hops, slot → location → site (#1397), 404 otherwise."""
         slot = self._repo.get_slot_or_raise(key)
-        if tenant_key:
-            resolve_owned_slot(self._repo, key, tenant_key)
+        resolve_owned_slot(self._repo, key, tenant_key)
         return slot
 
-    def create_slot(self, slot: Slot) -> Slot:
-        self.get_location(slot.location_key)
+    def create_slot(self, slot: Slot, *, tenant_key: str) -> Slot:
+        """Create a slot in a location of ``tenant_key``."""
+        self.get_location(slot.location_key, tenant_key=tenant_key)
         return self._repo.create_slot(slot)
 
-    def update_slot(self, key: SlotKey, slot: Slot) -> Slot:
-        self.get_slot(key)
+    def update_slot(self, key: SlotKey, slot: Slot, *, tenant_key: str) -> Slot:
+        """Rewrite a slot of ``tenant_key``; the location it names is resolved under the tenant too (#1871 B1)."""
+        self.get_slot(key, tenant_key=tenant_key)
+        self.get_location(slot.location_key, tenant_key=tenant_key)
         return self._repo.update_slot(key, slot)
 
-    def delete_slot(self, key: SlotKey) -> bool:
-        self.get_slot(key)
+    def delete_slot(self, key: SlotKey, *, tenant_key: str) -> bool:
+        self.get_slot(key, tenant_key=tenant_key)
         return self._repo.delete_slot(key)

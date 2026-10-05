@@ -146,6 +146,31 @@ class TestTemplatePlanSummaries:
         assert row["fertilizer_count"] == 2
         assert {f["key"] for f in row["fertilizers"]} == {"f-edge", "f-embedded"}
 
+    def test_a_foreign_fertilizer_named_by_an_own_entry_is_not_labelled(self, db) -> None:
+        """#2120: the plan loop was scoped, the fertilizer loop resolving its names was not.
+
+        An entry key is verified on write only since #1713, so a legacy entry can still
+        name another tenant's private product; its name and brand must not come back.
+        """
+        db.collection(col.NUTRIENT_PLANS).insert(
+            {"_key": "plan-own", "tenant_key": CALLER_TENANT, "is_template": True, "species_keys": [SPECIES]}
+        )
+        fertilizers = db.collection(col.FERTILIZERS)
+        fertilizers.insert({"_key": "f-foreign", "tenant_key": FOREIGN_TENANT, "product_name": "Secret", "brand": "B"})
+        fertilizers.insert({"_key": "f-global", "tenant_key": "", "product_name": "Seed", "brand": "B"})
+        fertilizers.insert({"_key": "f-own", "tenant_key": CALLER_TENANT, "product_name": "Mine", "brand": "B"})
+        dosages = [{"fertilizer_key": key} for key in ("f-foreign", "f-global", "f-own")]
+        db.collection(col.NUTRIENT_PLAN_PHASE_ENTRIES).insert(
+            {"_key": "pe-1", "plan_key": "plan-own", "delivery_channels": [{"fertilizer_dosages": dosages}]}
+        )
+
+        (row,) = ArangoNutrientPlanRepository(db).list_template_plan_summaries(
+            tenant_key=CALLER_TENANT, species_keys=[SPECIES]
+        )
+
+        assert {f["key"] for f in row["fertilizers"]} == {"f-global", "f-own"}
+        assert "Secret" not in {f["product_name"] for f in row["fertilizers"]}
+
 
 class TestEdgeFertilizerKeys:
     def test_only_the_named_plans_fertilizers_are_returned(self, db) -> None:
