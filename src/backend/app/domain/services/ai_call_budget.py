@@ -40,7 +40,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Protocol
 
 import structlog
 
@@ -60,6 +60,18 @@ TENANT_TOKENS = "tenant_tokens"
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+class AiBudgetStore(Protocol):
+    """The four commands of a ``decode_responses=True`` Valkey client the budget uses."""
+
+    def get(self, name: str) -> str | None: ...
+
+    def incr(self, name: str) -> int: ...
+
+    def incrby(self, name: str, amount: int) -> int: ...
+
+    def expire(self, name: str, time: int) -> bool: ...
 
 
 @dataclass(frozen=True)
@@ -85,7 +97,7 @@ class AiCallBudget:
 
     def __init__(
         self,
-        redis_client: Any,
+        redis_client: AiBudgetStore,
         limits: AiBudgetLimits,
         *,
         clock: Callable[[], datetime] = _utc_now,
@@ -109,9 +121,12 @@ class AiCallBudget:
         return f"ai_budget:{day}:tokens:t:{tenant_key}"
 
     def _day_and_retry_after(self) -> tuple[str, int]:
-        now = self._clock()
+        now: datetime = self._clock()
+        # recurrence-owner-ok: the budget window is the current UTC calendar day;
+        # its end is only the Retry-After of a refusal, nothing recurs on it.
         next_midnight = datetime.combine(now.date() + timedelta(days=1), datetime.min.time(), tzinfo=UTC)
-        return now.date().isoformat(), max(1, int((next_midnight - now).total_seconds()))
+        remaining: timedelta = next_midnight - now
+        return now.date().isoformat(), max(1, int(remaining.total_seconds()))
 
     # ── charging ───────────────────────────────────────────────────────
 
