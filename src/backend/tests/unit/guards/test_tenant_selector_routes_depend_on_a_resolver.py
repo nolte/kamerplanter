@@ -102,6 +102,12 @@ _FOREIGN_SELECTORS_WITH_REASON: dict[tuple[str, str], tuple[str, str]] = {
         )
         for path in ("/api/v1/admin/oidc-providers", "/api/v1/admin/oidc-providers/{key}")
     },
+    ("/api/v1/tenants/{tenant_slug}/erasure/cancel", "tenant_slug"): (
+        "require_account_principal",
+        "#2123 — a pending_deletion tenant resolves for nobody (#2105), so the slug cannot pass "
+        "get_current_tenant; TenantService.cancel_tenant_erasure_by_slug resolves it, refuses every API "
+        "key and proves lead + management from the stored membership (unknown slug = the same 403)",
+    ),
     **{
         (path, "grantee_tenant_key"): (
             "get_active_tenant_context",

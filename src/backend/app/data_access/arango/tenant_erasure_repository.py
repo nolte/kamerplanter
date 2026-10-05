@@ -179,7 +179,35 @@ class ArangoTenantErasureRepository(BaseArangoRepository[TenantErasureRecord], I
             raise
         return bool(removed)
 
-    def list_due(self, *, stale_before_iso: str) -> list[TenantErasureRecord]:
+    def delete_scheduled(self, key: str) -> bool:
+        """Remove the record only while it is ``scheduled``: one AQL ``REMOVE`` on one document (#2123).
+
+        The mirror of :meth:`claim_for_run`, which flips a due ``scheduled`` record to
+        ``in_progress`` in one ``UPDATE``: ArangoDB serialises the two on the document,
+        so either the claim finds no record or this finds it ``in_progress``. A
+        write-write conflict (``1200``) means the claim is landing now — *not removed*.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key
+            AND doc.status == 'scheduled'
+            AND doc.last_attempt_at == null
+          REMOVE doc IN @@collection
+          RETURN OLD._key
+        """
+        try:
+            removed = list(
+                self._db.aql.execute(query, bind_vars={"@collection": col.TENANT_ERASURE_RECORDS, "key": key})
+            )
+        except AQLQueryExecuteError as exc:
+            if exc.error_code == 1200:
+                return False
+            raise
+        return bool(removed)
+
+    def list_due(
+        self, *, stale_before_iso: str, scheduled_due_before_iso: str | None = None
+    ) -> list[TenantErasureRecord]:
         query = """
         FOR doc IN @@collection
           FILTER doc.status == 'partially_completed'
@@ -187,11 +215,21 @@ class ArangoTenantErasureRepository(BaseArangoRepository[TenantErasureRecord], I
               doc.status == 'in_progress'
               AND (doc.updated_at == null OR DATE_TIMESTAMP(doc.updated_at) <= DATE_TIMESTAMP(@stale_before))
             )
+            OR (
+              @due_before != null
+              AND doc.status == 'scheduled'
+              AND doc.scheduled_for != null
+              AND DATE_TIMESTAMP(doc.scheduled_for) <= DATE_TIMESTAMP(@due_before)
+            )
           SORT DATE_TIMESTAMP(doc.requested_at) ASC
           RETURN doc
         """
         cursor = self._db.aql.execute(
             query,
-            bind_vars={"@collection": col.TENANT_ERASURE_RECORDS, "stale_before": stale_before_iso},
+            bind_vars={
+                "@collection": col.TENANT_ERASURE_RECORDS,
+                "stale_before": stale_before_iso,
+                "due_before": scheduled_due_before_iso,
+            },
         )
         return [TenantErasureRecord(**self._from_doc(doc)) for doc in cursor]

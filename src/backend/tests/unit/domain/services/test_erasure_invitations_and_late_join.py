@@ -90,6 +90,15 @@ class FakeTenantRepo:
     def get_by_key(self, key: str) -> Tenant | None:
         return self.stored.get(key)
 
+    def update_fields(self, key: str, fields: dict[str, Any]) -> Tenant | None:
+        """The real merge-and-revalidate (``ArangoTenantRepository.update_fields``): the lifecycle state, #2123."""
+        current = self.stored.get(key)
+        if current is None:
+            return None
+        merged = Tenant.model_validate({**current.model_dump(by_alias=True), **fields})
+        self.stored[key] = merged
+        return merged
+
     def personal_tenant_keys_by_owner(self, user_key: str) -> list[str]:
         """The real query: by owner **and** type."""
         return [
@@ -194,6 +203,17 @@ class FakeMembershipRepo:
                 if m.tenant_key == tenant_key and m.is_active and m.user_key not in self.inactive_accounts
             }
         )
+
+    def list_by_user(self, user_key: str) -> list[Membership]:
+        return [m for m in self.stored.values() if m.user_key == user_key]
+
+    def active_memberships_of(self, *, tenant_key: str) -> list[Membership]:
+        """The real predicate of :meth:`active_member_user_keys`, as whole memberships (#2134)."""
+        return [
+            m
+            for m in self.stored.values()
+            if m.tenant_key == tenant_key and m.is_active and m.user_key not in self.inactive_accounts
+        ]
 
     def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
         return {

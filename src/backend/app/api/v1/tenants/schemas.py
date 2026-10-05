@@ -8,9 +8,15 @@ from app.common.enums import (
     InvitationStatus,
     InvitationType,
     TenantRole,
+    TenantStatus,
     TenantType,
 )
-from app.domain.models.tenant_erasure import TenantDeletionConfirmation, TenantErasureRecord, TenantErasureStatus
+from app.domain.models.tenant_erasure import (
+    TenantDeletionConfirmation,
+    TenantErasureCancelConfirmation,
+    TenantErasureRecord,
+    TenantErasureStatus,
+)
 
 # ── Tenant schemas ───────────────────────────────────────────────────
 
@@ -29,7 +35,7 @@ class TenantCreateRequest(BaseModel):
 class TenantUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
-    #: Omitted = unchanged. At most the platform ceiling (REQ-024 AK-64, #2133); lowering it below the
+    #: Omitted = unchanged. At most the platform ceiling (REQ-024 AK-65, #2133); lowering it below the
     #: current member count removes nobody and stops the next join.
     max_members: int | None = Field(
         default=None,
@@ -97,13 +103,18 @@ class TenantDeleteRequest(BaseModel):
 
 
 class TenantDeletionAcceptedResponse(BaseModel):
-    """The ``202 Accepted`` body of both tenant-deletion routes (#1792, REQ-024 AK-53).
+    """The ``202 Accepted`` body of both tenant-deletion routes (#1792, #2123, REQ-024 AK-52/53).
 
-    The deletion is *recorded* and the tenant *frozen* (memberships deactivated);
-    the erasure itself runs afterwards in a Celery task, in bounded batches. The
-    body says so — it is never "deleted". ``status`` is ``in_progress`` for a
-    deletion just recorded and ``partially_completed`` for one an earlier run left
-    open and this request re-dispatched. Names no slug and no account.
+    **Scheduled since #2123 (breaking).** With a grace
+    (``RETENTION_TENANT_ERASURE_GRACE_DAYS``, default 90) the deletion is
+    *scheduled*: ``status`` is ``scheduled`` and ``scheduled_for`` says when the
+    erasure runs; until then the tenant is closed for everybody
+    (``pending_deletion``) and its management can cancel
+    (``POST /tenants/{slug}/erasure/cancel``). With a grace of ``0`` the deletion is
+    *recorded* and the tenant *frozen* (memberships deactivated) and a Celery task
+    erases it: ``status`` is ``in_progress`` for a deletion just recorded and
+    ``partially_completed`` for one an earlier run left open and this request
+    re-dispatched. Never "deleted". Names no slug and no account.
     """
 
     model_config = ConfigDict(
@@ -111,9 +122,10 @@ class TenantDeletionAcceptedResponse(BaseModel):
             "examples": [
                 {
                     "tenant_key": "4711",
-                    "status": "in_progress",
+                    "status": "scheduled",
                     "requested_at": "2026-10-02T10:00:00Z",
-                    "message": "Tenant deletion accepted: the tenant is frozen and its data is being erased.",
+                    "scheduled_for": "2026-12-31T10:00:00Z",
+                    "message": "Tenant deletion scheduled: the tenant is closed and is erased after the grace period.",
                 }
             ]
         }
@@ -122,11 +134,40 @@ class TenantDeletionAcceptedResponse(BaseModel):
     tenant_key: str
     status: TenantErasureStatus
     requested_at: datetime | None = None
+    #: The end of the cancellable grace; ``None`` when the erasure runs at once.
+    scheduled_for: datetime | None = None
     message: str = "Tenant deletion accepted: the tenant is frozen and its data is being erased."
 
     @classmethod
     def from_record(cls, record: TenantErasureRecord) -> TenantDeletionAcceptedResponse:
+        if record.status == "scheduled":
+            return cls(
+                tenant_key=record.tenant_key,
+                status=record.status,
+                requested_at=record.requested_at,
+                scheduled_for=record.scheduled_for,
+                message="Tenant deletion scheduled: the tenant is closed and is erased after the grace period.",
+            )
         return cls(tenant_key=record.tenant_key, status=record.status, requested_at=record.requested_at)
+
+
+class TenantErasureCancelRequest(CredentialStepUp):
+    """The step-up a cancellation of a scheduled tenant deletion carries (#2123, REQ-024 AK-52).
+
+    The requester's own factor (``tenant_erasure_cancel``, bound to the tenant's key):
+    ``current_password`` for an account with a local password, otherwise
+    ``step_up_token`` / ``step_up_code``. No slug echo — cancelling destroys nothing.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"examples": [{"current_password": "<your current password>"}]},
+    )
+
+    def to_confirmation(self) -> TenantErasureCancelConfirmation:
+        return TenantErasureCancelConfirmation(
+            password=self.current_password, step_up_code=self.step_up_code, step_up_token=self.step_up_token
+        )
 
 
 class TenantResponse(BaseModel):
@@ -136,7 +177,12 @@ class TenantResponse(BaseModel):
     tenant_type: TenantType
     description: str | None
     owner_user_key: str
+    #: Derived from ``status`` (only ``active`` is active) — kept for clients written before #2123.
     is_active: bool
+    #: Lifecycle state (REQ-024 AK-65, #2123).
+    status: TenantStatus = TenantStatus.ACTIVE
+    #: When a ``pending_deletion`` / ``orphaned`` tenant is erased; ``None`` otherwise.
+    deletion_scheduled_at: datetime | None = None
     max_members: int
     created_at: datetime | None
     updated_at: datetime | None

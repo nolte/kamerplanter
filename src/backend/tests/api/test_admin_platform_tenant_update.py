@@ -71,7 +71,7 @@ def _tenant_doc() -> dict[str, Any]:
         "tenant_type": "organization",
         "description": "The old description",
         "owner_user_key": "u-owner",
-        "is_active": True,
+        "status": "active",  # v0085 (#2123): the lifecycle state replaced the bool
         "is_platform": False,
         "max_members": 50,
         "settings": {},
@@ -90,7 +90,7 @@ def _platform_tenant_doc() -> dict[str, Any]:
         "tenant_type": "organization",
         "description": "System platform tenant",
         "owner_user_key": "u-owner",
-        "is_active": True,
+        "status": "active",  # v0085 (#2123): the lifecycle state replaced the bool
         "is_platform": True,
         "max_members": 50,
         "settings": {},
@@ -299,7 +299,7 @@ class TestExistingBehaviourIsPreserved:
 
         assert response.status_code == 200
         assert response.json()["is_active"] is False
-        assert store[TENANT_KEY]["is_active"] is False
+        assert store[TENANT_KEY]["status"] == "suspended"
 
     def test_response_carries_the_live_member_count(self, client):
         response = _patch(client, {"description": "A new description"})
@@ -353,7 +353,7 @@ class TestPlatformTenantCannotBeDeactivated:
         )
 
         assert response.status_code == 403
-        assert store[PLATFORM_KEY]["is_active"] is True
+        assert store[PLATFORM_KEY]["status"] == "active"
 
     def test_an_ordinary_tenant_stays_deactivable(self, client, store):
         """The half that catches a guard refusing everyone (with the #2009 step-up)."""
@@ -361,7 +361,7 @@ class TestPlatformTenantCannotBeDeactivated:
 
         assert response.status_code == 200
         assert response.json()["is_active"] is False
-        assert store[TENANT_KEY]["is_active"] is False
+        assert store[TENANT_KEY]["status"] == "suspended"
 
     def test_platform_tenant_non_deactivation_updates_still_pass(self, client, store):
         """The guard is scoped to deactivation — a rename must still work."""
@@ -374,4 +374,4 @@ class TestPlatformTenantCannotBeDeactivated:
 
         assert response.status_code == 200
         assert store[PLATFORM_KEY]["description"] == "Renamed platform description"
-        assert store[PLATFORM_KEY]["is_active"] is True
+        assert store[PLATFORM_KEY]["status"] == "active"

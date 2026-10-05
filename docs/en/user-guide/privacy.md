@@ -75,8 +75,9 @@ The export contains the data Kamerplanter attributes to you as a person:
 - what you recorded: tasks and comments, diary entries, harvests and quality assessments, inspections and treatments, plant identifications and diagnoses, pest detections, attachments and contributed reference images, imports
 - your conversations with the AI assistant, dismissed tips and the related logs
 - notifications and their settings, calendar feeds, weather sources and manual device overrides
+- **your personal garden**: sites with their GPS coordinates, beds and slots, plants, planting runs, all tasks, the diary and the details of photos and files (not the files themselves) — including entries other members created in your personal garden, but without their account identifiers. Not yet included are the sensor readings and the garden's tank, watering and feeding logs. <!-- Issue #2135 -->
 
-Plants, locations and sensor data belong to the garden, not to one person, so they are not part of your personal export. Location assignments hang off your membership; your garden's lead can show you which locations are assigned to you.
+In an **organization** (community garden), plants, locations and sensor data belong to the group, not to one person, so they are not part of your personal export — only your membership and what you recorded yourself. Location assignments hang off your membership; your garden's lead can show you which locations are assigned to you.
 
 !!! tip "Data portability"
     The JSON export file complies with GDPR Art. 20 (data portability). You can use it to transfer your data to another system.

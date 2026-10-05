@@ -69,7 +69,6 @@ def add_platform_admin(email: str) -> None:
             slug="platform",
             tenant_type=TenantType.ORGANIZATION,
             owner_user_key=user_key,
-            is_active=True,
             is_platform=True,
             max_members=999,
         )

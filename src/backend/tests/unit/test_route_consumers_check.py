@@ -138,7 +138,7 @@ class TestTheRouteOperand:
         assert mine == theirs
 
     def test_the_measured_candidate_count(self) -> None:
-        """810 mounted ``/api/v1`` operations.
+        """812 mounted ``/api/v1`` operations.
 
         Pinned deliberately. The candidate *count* moves with every triage
         decision and is not pinned anywhere; the denominator moving is a route
@@ -190,9 +190,14 @@ class TestTheRouteOperand:
         allowlist; inventory, grant and revoke are consumed by
         ``src/frontend/src/api/endpoints/adminHaEntityGrants.ts``, the plain grant list is read
         through the API directly (a reported candidate).
+
+        +2: ``POST /tenants/{tenant_slug}/erasure/cancel`` and
+        ``POST /admin/platform/tenants/{key}/erasure/cancel`` (#2123) — cancelling a
+        scheduled tenant deletion; the admin one is consumed by ``cancelAdminTenantErasure``
+        in ``src/frontend/src/api/endpoints/adminPlatform.ts``, the tenant one is API-only.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 810
+        assert len(checker.collect_operations(app)) == 812
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

@@ -162,6 +162,45 @@ describe('erasure preview — texts', () => {
   });
 });
 
+describe('erasure preview — organizations the erasure changes (#2134)', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+  });
+  afterEach(cleanup);
+
+  it('names the last-management handover and the orphaned organization, also without a personal tenant', async () => {
+    server.use(
+      http.get('/api/v1/privacy/erasure-preview', () =>
+        HttpResponse.json({
+          personal_tenants: [],
+          organizations: [
+            { name: 'Lindenhof', outcome: 'management_passes_to_lead' },
+            { name: 'Kleingarten', outcome: 'orphaned' },
+          ],
+        }),
+      ),
+    );
+    await openPrivacyErasureTab();
+
+    const panel = await screen.findByTestId('privacy-erasure-preview');
+    expect(within(panel).getByTestId('privacy-erasure-preview-org-handover')).toHaveTextContent(
+      /„Lindenhof“.*letzte Person mit Verwaltungsrecht.*dienstälteste Leitung/,
+    );
+    expect(within(panel).getByTestId('privacy-erasure-preview-org-orphaned')).toHaveTextContent(
+      /„Kleingarten“.*niemand.*gelöscht/,
+    );
+    expect(within(panel).queryByTestId('privacy-erasure-preview-tenant')).toBeNull();
+  });
+
+  it('keeps working against a backend without the organizations field', async () => {
+    previewResponse([{ name: 'Ada', other_member_count: 0 }]);
+    await openPrivacyErasureTab();
+
+    await screen.findByTestId('privacy-erasure-preview');
+    expect(screen.queryByTestId('privacy-erasure-preview-org-orphaned')).toBeNull();
+  });
+});
+
 describe('useErasurePreview', () => {
   afterEach(cleanup);
 

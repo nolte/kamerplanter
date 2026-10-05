@@ -870,6 +870,13 @@
       "personal": "Persönlich",
       "organization": "Organisation"
     },
+    "tenantStatus": {
+      "active": "Aktiv",
+      "suspended": "Gesperrt",
+      "pending_deletion": "Löschung geplant",
+      "orphaned": "Verwaist",
+      "deleted": "Wird gelöscht"
+    },
     "invitationStatus": {
       "pending": "Ausstehend",
       "accepted": "Angenommen",

@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.auth.schemas import CredentialStepUp
-from app.common.enums import TenantRole, TenantType
+from app.common.enums import TenantRole, TenantStatus, TenantType
 from app.common.validators import DisplayName
 
 
@@ -14,7 +14,13 @@ class AdminTenantResponse(BaseModel):
     tenant_type: TenantType
     description: str | None
     owner_user_key: str
+    #: Derived from ``status`` — kept for clients written before #2123.
     is_active: bool
+    #: Lifecycle state (REQ-024 AK-65, #2123): ``orphaned`` marks an organisation an
+    #: account erasure left without anybody who can administer it (#2134).
+    status: TenantStatus = TenantStatus.ACTIVE
+    #: When a ``pending_deletion`` / ``orphaned`` tenant is erased; ``None`` otherwise.
+    deletion_scheduled_at: datetime | None = None
     is_platform: bool
     max_members: int
     member_count: int

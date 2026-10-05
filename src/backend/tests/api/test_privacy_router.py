@@ -196,13 +196,16 @@ class TestErasureEndpoints:
         response = client.get("/api/v1/privacy/erasure-preview")
 
         assert response.status_code == 200
-        assert response.json() == {"personal_tenants": [{"name": "Ada", "other_member_count": 2}]}
+        assert response.json() == {
+            "personal_tenants": [{"name": "Ada", "other_member_count": 2}],
+            "organizations": [],  # #2134 - no organisation changed by this erasure
+        }
         service.erasure_preview.assert_called_once_with(USER_KEY)
 
     def test_erasure_preview_is_not_shadowed_by_the_status_route(self, client: TestClient, service: MagicMock) -> None:
         service.erasure_preview.return_value = []
 
-        assert client.get("/api/v1/privacy/erasure-preview").json() == {"personal_tenants": []}
+        assert client.get("/api/v1/privacy/erasure-preview").json() == {"personal_tenants": [], "organizations": []}
         service.get_erasure_status.assert_not_called()
 
     def test_request_erasure(self, client: TestClient, service: MagicMock) -> None:

@@ -39,7 +39,7 @@ _ENTRIES = {"verify", "issue_code", "admit_reauth", "issue_reauth_token"}
 #: 11 at #1884; 13 since #2009 (``TenantService.admin_update_tenant`` / ``admin_remove_membership``);
 #: 16 since #2032 (``admin_change_membership_role``, ``change_member_role``, ``remove_member``);
 #: 17 since #2106 (``admin_add_membership``).
-EXPECTED_CALL_SITES = 17
+EXPECTED_CALL_SITES = 18  # +1 tenant_erasure_cancel (#2123)
 
 
 def _receiver_spelling(node: ast.expr) -> str:

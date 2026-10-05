@@ -1253,6 +1253,10 @@ def get_tenant_service() -> TenantService:
         security_audit=get_security_audit_service(),
         # #2114 — a membership that ends takes the member off the tenant's task assignments.
         task_repo=get_task_repo(),
+        # #2123 (MT-027) — a tenant deletion is scheduled this many days ahead and its members are told.
+        tenant_erasure_grace_days=settings.retention_tenant_erasure_grace_days,
+        email_service=get_email_service(),
+        user_repo=get_user_repo(),
         # #2133 (REQ-024 AK-64) — no tenant's member limit exceeds the platform ceiling.
         max_members_ceiling=settings.tenant_max_members_ceiling,
     )

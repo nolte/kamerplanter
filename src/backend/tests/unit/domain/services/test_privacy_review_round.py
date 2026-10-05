@@ -224,9 +224,12 @@ class TestTheWalkIsBoundToTheSubjectsTenants:
 
         scoped = [s for s in DataExportEngine.USER_DATA_MANIFEST if s.tenant_scoped and not s.disclosure_gap]
         assert scoped, "guard against a vacuous loop"
-        asked = dict(reader.asked)
+        # Positional: since #2135 a collection can be a source twice (``tasks`` by the
+        # assignee and as part of the personal garden), each with its own bound.
+        walked = [s for s in DataExportEngine.USER_DATA_MANIFEST if s.disclosure_gap is None]  # a gap is never asked
+        asked = {id(source): keys for source, (_collection, keys) in zip(walked, reader.asked, strict=True)}
         for source in scoped:
-            assert asked[source.collection] == ("t-a", "t-b"), source.collection
+            assert asked[id(source)] == ("t-a", "t-b"), source.collection
 
 
 # ── SCR-001 (b): a category that cannot be disclosed says so ────────

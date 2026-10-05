@@ -123,7 +123,6 @@ def run_seed_e2e_platform_admin() -> None:
         slug=tenant_engine.generate_slug("E2E Admin"),
         tenant_type=TenantType.PERSONAL,
         owner_user_key=user_key,
-        is_active=True,
     )
     created_tenant = tenant_repo.create(tenant)
     membership_repo.create(

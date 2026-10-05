@@ -80,6 +80,7 @@ describe('stepUpReauth storage (#1815)', () => {
       'oidc_provider_change',
       'provider_unlink',
       'tenant_deletion',
+      'tenant_erasure_cancel',
       'tenant_member_removal',
       'tenant_member_role_change',
     ]);

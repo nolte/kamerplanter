@@ -75,8 +75,9 @@ Der Export enthält die Daten, die Kamerplanter dir als Person zuordnet:
 - was du erfasst hast: Aufgaben und Kommentare, Tagebucheinträge, Ernten und Qualitätsbewertungen, Inspektionen und Behandlungen, Pflanzenbestimmungen und Diagnosen, Schädlingserkennungen, Anhänge und beigetragene Referenzbilder, Importe
 - deine Gespräche mit dem KI-Assistenten, ausgeblendete Tipps und die zugehörigen Protokolle
 - Benachrichtigungen und deren Einstellungen, Kalender-Feeds, Wetterquellen und manuelle Eingriffe in Geräte
+- **dein persönlicher Garten**: Standorte mit ihren GPS-Koordinaten, Beete und Stellplätze, Pflanzen, Pflanzdurchläufe, alle Aufgaben, das Tagebuch und die Angaben zu Fotos und Dateien (ohne die Dateien selbst) — auch Einträge, die andere Mitglieder in deinem persönlichen Garten angelegt haben, aber ohne deren Kontokennungen. Noch nicht enthalten sind die Messwerte der Sensoren sowie Tank-, Gieß- und Düngeprotokolle des Gartens. <!-- Issue #2135 -->
 
-Pflanzen, Standorte und Sensordaten gehören dem Garten, nicht einer einzelnen Person. Sie sind deshalb nicht im persönlichen Export enthalten. Die Standort-Zuweisungen hängen an deiner Mitgliedschaft; welche Standorte dir zugewiesen sind, kann dir die Leitung deines Gartens zeigen.
+Aus einer **Organisation** (Gemeinschaftsgarten) gehören Pflanzen, Standorte und Sensordaten der Gruppe, nicht einer einzelnen Person. Sie sind deshalb nicht im persönlichen Export enthalten — nur deine Mitgliedschaft und das, was du selbst erfasst hast. Die Standort-Zuweisungen hängen an deiner Mitgliedschaft; welche Standorte dir zugewiesen sind, kann dir die Leitung deines Gartens zeigen.
 
 !!! tip "Datenportabilität"
     Die JSON-Export-Datei entspricht DSGVO Art. 20 (Datenportabilität). Du kannst sie nutzen, um deine Daten in ein anderes System zu übertragen.

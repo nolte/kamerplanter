@@ -384,6 +384,14 @@ class FakePersonalTenants:
         """The accounts the pre-erasure notice goes to (#1824): ``others[tenant]`` anonymous keys per owned tenant."""
         return [f"member-{tenant}-{index}" for tenant in self.owned for index in range(self.others.get(tenant, 0))]
 
+    def settle_organisations_of_erased_account(self, user_key: str, *, now: Any = None) -> list[Any]:
+        """#2134 — the subject is a member of no organisation in these doubles; recorded as an event."""
+        self.events.append("organisations")
+        return []
+
+    def organisation_erasure_preview(self, user_key: str) -> list[Any]:
+        return []
+
     def revoke_invitations_into_personal_tenants_of(self, user_key: str) -> int:
         """REQ-025 AK-IE-06 — recorded, so a test can pin *when* the entry point revokes."""
         self.invitation_revocations.append(user_key)

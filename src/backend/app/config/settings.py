@@ -113,6 +113,9 @@ RETENTION_CEILINGS: dict[str, int] = {
     # request that was not told at request time. It lengthens how long personal data of an erasure
     # request stays, so it has a ceiling like the periods above: a week, the NFR's own default.
     "retention_erasure_member_notice_days": 7,  # R-01a
+    # #2123 (MT-027) — the cancellable grace between a tenant deletion being accepted and the
+    # erasure running. Operator decision 2026-10-04: as long as an account's (R-01), never longer.
+    "retention_tenant_erasure_grace_days": 90,  # R-01b
 }
 
 
@@ -959,6 +962,21 @@ class Settings(BaseSettings):
         ge=1,
         le=RETENTION_CEILINGS["retention_erasure_member_notice_days"],
         validation_alias=AliasChoices("retention_erasure_member_notice_days"),
+    )
+    #: NFR-011 R-01b / REQ-024 AK-52 (#2123, MT-027) — a tenant deletion (its
+    #: management, a platform admin, or an organisation orphaned by an account
+    #: erasure) is *scheduled* this many days ahead: the tenant is frozen
+    #: (``pending_deletion``), its members are told the date so they can export what
+    #: is theirs (Art. 20), and the management can cancel until then
+    #: (``POST /tenants/{slug}/erasure/cancel``). ``tenant_tasks.resume_tenant_erasures``
+    #: erases it afterwards. ``0`` (self-hosted, single household) keeps the
+    #: immediate erasure of #1792; the default and the ceiling are the 90 days of an
+    #: account's grace (operator decision 2026-10-04).
+    retention_tenant_erasure_grace_days: int = Field(
+        default=90,
+        ge=0,
+        le=RETENTION_CEILINGS["retention_tenant_erasure_grace_days"],
+        validation_alias=AliasChoices("retention_tenant_erasure_grace_days"),
     )
     #: NFR-011 R-03 — the IP address of a login session is anonymised this many
     #: days after the session was issued (``auth_tasks.anonymize_old_ips``).

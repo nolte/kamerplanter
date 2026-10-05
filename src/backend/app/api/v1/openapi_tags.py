@@ -10,6 +10,10 @@ OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "activities", "description": "Manual activity log entries for plants and locations."},
     {"name": "activity-plans", "description": "Generated activity plans and recurring activity templates."},
     {"name": "actuators", "description": "Actuator registration and rule-based environmental control (REQ-018)."},
+    {
+        "name": "admin-ha-entity-grants",
+        "description": "Platform administration of the per-tenant Home Assistant entity allowlist (REQ-005, REQ-018).",
+    },
     {"name": "admin-oidc", "description": "Platform administration of OIDC identity providers (REQ-023)."},
     {
         "name": "admin-harvest-indicators",

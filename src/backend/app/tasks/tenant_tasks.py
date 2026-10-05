@@ -29,11 +29,13 @@ def cleanup_expired_invitations() -> dict:
 
 @celery_app.task(name="app.tasks.tenant_tasks.resume_tenant_erasures")
 def resume_tenant_erasures() -> dict:
-    """Retry tenant deletions left open (#1769). Runs daily at 04:30 UTC.
+    """Start tenant deletions whose grace has ended, and retry those left open (#1769, #2123). Daily 04:30 UTC.
 
-    A deletion is open when its run failed (an external store, the database) or
-    when the executor found something still holding the tenant. The service
-    applies the backoff and holds every record while the deployment cannot erase.
+    A deletion is *scheduled* while its grace (``RETENTION_TENANT_ERASURE_GRACE_DAYS``,
+    REQ-024 AK-52) runs; this beat claims it once ``scheduled_for`` has passed. A
+    deletion is open when its run failed (an external store, the database) or when
+    the executor found something still holding the tenant. The service applies the
+    backoff and holds every record while the deployment cannot erase.
     """
     return get_tenant_service().resume_tenant_erasures(datetime.now(UTC))
 

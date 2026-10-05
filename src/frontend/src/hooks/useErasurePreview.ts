@@ -1,15 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getAdminUserErasurePreview } from '@/api/endpoints/adminPlatform';
 import { getErasurePreview } from '@/api/endpoints/privacy';
-import type { ErasurePreviewTenant } from '@/api/types';
+import type { ErasurePreviewOrganization, ErasurePreviewTenant } from '@/api/types';
 
 export type ErasurePreviewStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 export interface ErasurePreviewState {
   /** The caller's personal tenants an account erasure takes with it, with a count of the others. */
   tenants: readonly ErasurePreviewTenant[];
+  /** The organizations the erasure changes (#2134): management passes on, or the organization is orphaned. */
+  organizations: readonly ErasurePreviewOrganization[];
   status: ErasurePreviewStatus;
 }
+
+interface PreviewResult {
+  tenants: readonly ErasurePreviewTenant[];
+  organizations: readonly ErasurePreviewOrganization[];
+}
+
+const NOTHING: readonly never[] = [];
 
 /**
  * Which personal tenants confirming the account erasure would delete (REQ-025
@@ -25,7 +34,7 @@ export interface ErasurePreviewState {
 export function useErasurePreview(enabled: boolean, targetUserKey?: string): ErasurePreviewState {
   // `null` — not answered yet; `'error'` — the read failed. Deriving the status
   // from it keeps a state write out of the effect body.
-  const [result, setResult] = useState<readonly ErasurePreviewTenant[] | 'error' | null>(null);
+  const [result, setResult] = useState<PreviewResult | 'error' | null>(null);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -33,7 +42,8 @@ export function useErasurePreview(enabled: boolean, targetUserKey?: string): Era
     const read = targetUserKey === undefined ? getErasurePreview() : getAdminUserErasurePreview(targetUserKey);
     read
       .then((preview) => {
-        if (!cancelled) setResult(preview.personal_tenants);
+        if (!cancelled)
+          setResult({ tenants: preview.personal_tenants, organizations: preview.organizations ?? NOTHING });
       })
       .catch(() => {
         if (!cancelled) setResult('error');
@@ -47,8 +57,8 @@ export function useErasurePreview(enabled: boolean, targetUserKey?: string): Era
   }, [enabled, targetUserKey]);
 
   return useMemo(() => {
-    if (result === 'error') return { tenants: [], status: 'error' };
-    if (result !== null) return { tenants: result, status: 'ready' };
-    return { tenants: [], status: enabled ? 'loading' : 'idle' };
+    if (result === 'error') return { tenants: NOTHING, organizations: NOTHING, status: 'error' };
+    if (result !== null) return { ...result, status: 'ready' };
+    return { tenants: NOTHING, organizations: NOTHING, status: enabled ? 'loading' : 'idle' };
   }, [result, enabled]);
 }
