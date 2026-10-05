@@ -10,12 +10,12 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 
+from app.common.dependencies import get_db
 from app.common.held_count import held_undated_count
 from app.data_access.arango.ai_repository import (
     ArangoAiAuditRepository,
     ArangoAiConversationRepository,
 )
-from app.data_access.arango.connection import ArangoConnection
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -27,7 +27,7 @@ _AUDIT_RETENTION_DAYS = 30
 @celery_app.task(name="ai.cleanup_expired_conversations")
 def cleanup_expired_conversations() -> int:
     """Remove ``ai_conversations`` whose ``expires_at`` has passed (§4.6)."""
-    db = ArangoConnection().db
+    db = get_db()
     removed = ArangoAiConversationRepository(db).delete_expired()
     logger.info("ai_cleanup_conversations", removed=removed)
     return removed
@@ -36,7 +36,7 @@ def cleanup_expired_conversations() -> int:
 @celery_app.task(name="ai.cleanup_expired_audit_log")
 def cleanup_expired_audit_log() -> int:
     """Remove ``ai_audit_log`` entries older than the retention window (§4.6)."""
-    db = ArangoConnection().db
+    db = get_db()
     cutoff = datetime.now(UTC) - timedelta(days=_AUDIT_RETENTION_DAYS)
     repo = ArangoAiAuditRepository(db)
     removed = repo.delete_older_than(cutoff)
