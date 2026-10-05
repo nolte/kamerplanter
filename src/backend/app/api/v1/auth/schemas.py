@@ -191,8 +191,35 @@ class ApiKeyControls(BaseModel):
         ),
     )
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "ip_allowlist": ["192.168.1.0/24", "2001:db8::/48"],
+                    "rate_limit_per_minute": 600,
+                    "expires_at": "2027-04-01T00:00:00+02:00",
+                }
+            ]
+        }
+    )
+
 
 class ApiKeyCreateRequest(ApiKeyControls, CredentialStepUp):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "label": "Home Assistant",
+                    "tenant_scope": "community-garden",
+                    "ip_allowlist": ["192.168.1.0/24"],
+                    "rate_limit_per_minute": 600,
+                    "expires_at": "2027-04-01T00:00:00+02:00",
+                    "current_password": "<your current password>",
+                }
+            ]
+        }
+    )
+
     label: str = Field(min_length=1, max_length=100)
     tenant_scope: str | None = Field(
         default=None,
@@ -411,6 +438,24 @@ class OAuthProviderListItem(BaseModel):
 
 
 class ApiKeyCreatedResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "a7d2c1",
+                    "label": "Home Assistant",
+                    "raw_key": "kp_<shown once>",
+                    "key_prefix": "kp_Xy1aB",
+                    "tenant_scope": "t-garden",
+                    "created_at": "2026-10-05T10:00:00Z",
+                    "ip_allowlist": ["192.168.1.0/24"],
+                    "rate_limit_per_minute": 600,
+                    "expires_at": "2027-03-31T22:00:00Z",
+                }
+            ]
+        }
+    )
+
     key: str
     label: str
     raw_key: str
@@ -423,6 +468,25 @@ class ApiKeyCreatedResponse(BaseModel):
 
 
 class ApiKeySummaryResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "a7d2c1",
+                    "label": "Home Assistant",
+                    "key_prefix": "kp_Xy1aB",
+                    "tenant_scope": "t-garden",
+                    "revoked": False,
+                    "last_used_at": "2026-10-05T10:15:00Z",
+                    "created_at": "2026-10-05T10:00:00Z",
+                    "ip_allowlist": ["192.168.1.0/24"],
+                    "rate_limit_per_minute": 600,
+                    "expires_at": "2027-03-31T22:00:00Z",
+                }
+            ]
+        }
+    )
+
     key: str
     label: str
     key_prefix: str

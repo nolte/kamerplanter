@@ -92,6 +92,15 @@ class IMembershipRepository(ABC):
         """
 
     @abstractmethod
+    def active_service_account_memberships(self, *, tenant_key: str) -> list[Membership]:
+        """The active memberships of active service accounts in the tenant (#2137, REQ-023 §5b).
+
+        The population the per-tenant service-account quota counts and the tenant's service-account
+        list shows: membership ``is_active != false``, account ``is_active != false`` and
+        ``account_type == "service"``.
+        """
+
+    @abstractmethod
     def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
         """Active member account key → when that membership began (``None`` when not recorded), #1824.
 

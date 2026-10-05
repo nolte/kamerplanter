@@ -129,6 +129,18 @@ class MembershipEngine:
         return MembershipEngine.can_delete_resource(role) and AdminScope.MANAGEMENT in admin_scopes
 
     @staticmethod
+    def can_manage_service_accounts(role: TenantRole, admin_scopes: list[AdminScope]) -> bool:
+        """Creating, re-keying or removing a tenant's service account takes the lead role *and* ``technical`` (#2137).
+
+        REQ-023 §5b / MT-041. A service account is an integration (axis 2, ``technical`` —
+        :meth:`can_configure_integrations`) **and** a member that acts with its own role in the tenant,
+        whose credential outlives every session: handing one out sits on the lead boundary of axis 1
+        as well. Intersected like :meth:`can_delete_tenant`: a lead without ``technical`` and a technician
+        who is not a lead are both refused.
+        """
+        return role == TenantRole.LEAD and AdminScope.TECHNICAL in admin_scopes
+
+    @staticmethod
     def can_view_resource(role: TenantRole) -> bool:
         """Every domain role may read."""
         return role in ROLE_HIERARCHY

@@ -115,6 +115,7 @@ def test_the_lookup_scan_flags_what_it_should(source: str, offending: bool) -> N
 #: no read any more fails too.
 _REQUEST_BODY_READS = {
     "app/api/v1/auth/router.py",
+    "app/api/v1/service_accounts/tenant_router.py",
 }
 
 

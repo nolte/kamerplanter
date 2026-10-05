@@ -47,6 +47,7 @@ from app.api.v1.print.tenant_router import router as tenant_print_router
 from app.api.v1.propagation.tenant_router import router as tenant_propagation_router
 from app.api.v1.recognition.tenant_router import router as tenant_recognition_router
 from app.api.v1.season.tenant_router import router as tenant_season_router
+from app.api.v1.service_accounts.tenant_router import router as tenant_service_accounts_router
 from app.api.v1.sites.tenant_router import router as tenant_sites_router
 from app.api.v1.slots.tenant_router import router as tenant_slots_router
 from app.api.v1.starter_kits.tenant_router import router as tenant_starter_kits_router
@@ -72,6 +73,8 @@ tenant_scoped_router = APIRouter(
 # Mount tenant-scoped resource routers
 # These routers enforce tenant isolation via get_current_tenant() dependency.
 tenant_scoped_router.include_router(tenant_sites_router)
+# REQ-023 §5b (#2137) — the tenant's service accounts (lead ∧ technical, step-up on every write).
+tenant_scoped_router.include_router(tenant_service_accounts_router)
 tenant_scoped_router.include_router(tenant_locations_router)
 tenant_scoped_router.include_router(tenant_slots_router)
 tenant_scoped_router.include_router(tenant_plants_router)

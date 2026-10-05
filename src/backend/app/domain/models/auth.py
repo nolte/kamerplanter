@@ -233,7 +233,7 @@ def api_key_control_errors(
         canonical = []
         for entry in ip_allowlist:
             try:
-                network = ipaddress.ip_network(entry.strip(), strict=True)
+                network = ipaddress.ip_network(entry, strict=True)
             except ValueError:
                 errors.append(
                     {
@@ -303,6 +303,35 @@ class ApiKey(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+
+def successor_api_key(
+    previous: ApiKey | None,
+    *,
+    user_key: str,
+    tenant_scope: str,
+    label: str,
+    key_hash: str,
+    key_prefix: str,
+    expires_at: datetime | None,
+) -> ApiKey:
+    """The key a rotation mints (#2137): the predecessor's network controls, a new secret and expiry.
+
+    The allowlist and the rate limit carry over from *previous* — a rotation replaces the secret, it
+    must not quietly widen what the key admits. The tenant scope is the caller's (the service account's
+    tenant), never read off the predecessor. Built here because the controls are read off a stored key
+    in this module only (``test_api_key_controls_bind_every_key_surface``).
+    """
+    return ApiKey(
+        user_key=user_key,
+        label=label,
+        key_hash=key_hash,
+        key_prefix=key_prefix,
+        tenant_scope=tenant_scope,
+        ip_allowlist=previous.ip_allowlist if previous else None,
+        rate_limit_per_minute=previous.rate_limit_per_minute if previous else None,
+        expires_at=expires_at,
+    )
 
 
 def api_key_scope_admits(scope: str | None, *, tenant_key: str) -> bool:
@@ -399,5 +428,14 @@ class ApiKeyCreated(BaseModel):
 
     @classmethod
     def minted(cls, api_key: ApiKey, raw_key: str) -> ApiKeyCreated:
-        summary = ApiKeySummary.of(api_key)
-        return cls(**summary.model_dump(exclude={"revoked", "last_used_at"}), raw_key=raw_key)
+        return cls(
+            key=api_key.key or "",
+            label=api_key.label,
+            raw_key=raw_key,
+            key_prefix=api_key.key_prefix,
+            tenant_scope=api_key.tenant_scope,
+            created_at=api_key.created_at,
+            ip_allowlist=api_key.ip_allowlist,
+            rate_limit_per_minute=api_key.rate_limit_per_minute,
+            expires_at=api_key.expires_at,
+        )

@@ -1,5 +1,9 @@
 """ArangoDB implementation of the API key repository."""
 
+from datetime import datetime
+from typing import cast
+
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.common.types import ApiKeyKey, UserKey
@@ -71,6 +75,24 @@ class ArangoApiKeyRepository(BaseArangoRepository[ApiKey], IApiKeyRepository):
             return True
         except Exception:
             return False
+
+    def expire_no_later_than(self, key: ApiKeyKey, at: datetime) -> bool:
+        """Set ``expires_at`` to *at* unless the key already ends at or before it (#2137).
+
+        One statement, compared with ``DATE_TIMESTAMP`` rather than as strings: a stored value written
+        as ``...Z`` and one written as ``...+00:00`` order wrongly lexicographically.
+        """
+        cursor = self._db.aql.execute(
+            """
+            FOR doc IN @@collection
+              FILTER doc._key == @key
+              FILTER doc.expires_at == null OR DATE_TIMESTAMP(doc.expires_at) > DATE_TIMESTAMP(@at)
+              UPDATE doc WITH { expires_at: @at, updated_at: @now } IN @@collection
+              RETURN NEW._key
+            """,
+            bind_vars={"@collection": col.API_KEYS, "key": key, "at": at.isoformat(), "now": self._now()},
+        )
+        return bool(list(cast(Cursor, cursor)))
 
     def delete(self, key: ApiKeyKey) -> bool:
         return super().delete(key)

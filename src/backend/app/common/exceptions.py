@@ -688,6 +688,28 @@ class MemberLimitReachedError(KamerplanterError):
         )
 
 
+class ServiceAccountLimitReachedError(KamerplanterError):
+    """REQ-023 §5b AK-30 (#2137) — the tenant holds as many active service accounts as it may.
+
+    422 like :class:`MemberLimitReachedError`: the request asks for an account the tenant's quota does not
+    admit; no concurrent write is in the way. The quota is the setting ``TENANT_MAX_SERVICE_ACCOUNTS``.
+    """
+
+    def __init__(self, limit: int) -> None:
+        super().__init__(
+            message=f"This tenant has reached its limit of {limit} service accounts.",
+            error_code="SERVICE_ACCOUNT_LIMIT_REACHED",
+            status_code=422,
+            details=[
+                {
+                    "field": "tenant",
+                    "reason": f"The tenant admits at most {limit} active service accounts.",
+                    "code": "SERVICE_ACCOUNT_LIMIT_REACHED",
+                }
+            ],
+        )
+
+
 class InvalidFileTypeError(KamerplanterError):
     """NFR-013 §5.1 steps 2 & 3 — type not allowed, or content/MIME mismatch."""
 
