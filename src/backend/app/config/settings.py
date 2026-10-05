@@ -583,6 +583,20 @@ class Settings(BaseSettings):
     ai_circuit_breaker_cooldown_s: float = 60.0
     # Light-mode public /ai/ask rate limit (per client IP).
     ai_public_rate_limit_per_min: int = 10
+    # REQ-031 §3 (#2110, MT-013) — daily budgets of LLM calls, counted in Valkey
+    # per UTC day, on top of the per-minute ``rate_limit_inference`` every
+    # generating KI route carries. ``0`` switches one budget off.
+    #: Calls one account may start in one tenant per day (tips, daily tip,
+    #: "why?", chat message, glossary generation, KI diagnosis together).
+    ai_budget_user_calls_per_day: int = Field(default=50, ge=0)
+    #: Calls all members of one tenant may start together per day. Sized for a
+    #: community garden of about ten active growers.
+    ai_budget_tenant_calls_per_day: int = Field(default=500, ge=0)
+    #: LLM tokens (prompt + completion, as the knowledge service reports them)
+    #: one tenant may spend per day. A RAG answer costs roughly 2 000-5 000
+    #: tokens, so the default sits above the call budget and binds only when
+    #: answers grow unusually long.
+    ai_budget_tenant_tokens_per_day: int = Field(default=2_000_000, ge=0)
 
     # REQ-033 MCP server (Model Context Protocol). Opt-in aggregation layer over
     # the existing services, served in-process by the backend and gated by

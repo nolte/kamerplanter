@@ -197,6 +197,11 @@ class AiAuditLogEntry(BaseModel):
     uses_tenant_data: bool = False
     uses_cloud_provider: bool = False
     latency_ms: int = 0
+    #: LLM tokens of the answer as the knowledge service reports them (#2110):
+    #: what makes the AI cost of a tenant countable over the retention window.
+    #: ``0`` where no answer came back or the provider reported none.
+    prompt_tokens: int = Field(default=0, ge=0)
+    completion_tokens: int = Field(default=0, ge=0)
     status: AuditStatus = "ok"
     error_class: str | None = None
     created_at: datetime | None = None

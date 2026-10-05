@@ -36,7 +36,7 @@ def app_error_response(request: Request, exc: KamerplanterError) -> JSONResponse
         path=loggable_path(request.url.path),
         method=request.method,
     )
-    return JSONResponse(
+    response = JSONResponse(
         status_code=exc.status_code,
         content={
             "error_id": exc.error_id,
@@ -48,6 +48,13 @@ def app_error_response(request: Request, exc: KamerplanterError) -> JSONResponse
             "method": request.method,
         },
     )
+    # A domain 429 (``RateLimitError`` and its subclasses) knows when its window
+    # frees a request; until #2110 that number reached the message text only, so
+    # every 429 not raised by slowapi went out without ``Retry-After``.
+    retry_after = getattr(exc, "retry_after", None)
+    if exc.status_code == 429 and isinstance(retry_after, int) and retry_after > 0:
+        response.headers["Retry-After"] = str(retry_after)
+    return response
 
 
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:

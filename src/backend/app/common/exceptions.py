@@ -869,6 +869,44 @@ class AiDisabledError(KamerplanterError):
         )
 
 
+class AiBudgetExceededError(RateLimitError):
+    """REQ-031 §3 (#2110, MT-013) — a daily budget of LLM calls is used up (HTTP 429).
+
+    ``scope`` names which budget refused the call — ``user_calls`` (this account
+    in this tenant), ``tenant_calls`` (every member of the tenant together) or
+    ``tenant_tokens`` (the tenant's LLM tokens) — and travels as
+    ``details[0].code`` so the client can tell "you" from "your garden" apart.
+    ``retry_after`` is the number of seconds until the UTC day ends, when every
+    daily budget starts again; the error handler sends it as ``Retry-After``.
+    """
+
+    def __init__(self, scope: str, retry_after: int) -> None:
+        KamerplanterError.__init__(
+            self,
+            message=f"The daily AI budget '{scope}' is used up. Retry after {retry_after}s.",
+            error_code="AI_BUDGET_EXCEEDED",
+            status_code=429,
+            details=[{"field": "ai_budget", "reason": "Daily budget used up.", "code": scope}],
+        )
+        self.retry_after = retry_after
+
+
+class AiBudgetUnavailableError(KamerplanterError):
+    """REQ-031 §3 (#2110, MT-013) — the AI budget cannot be checked (HTTP 503).
+
+    The budget counters live in Valkey. When it cannot be reached no LLM call
+    runs: an outage of the counter store must not turn into unbounded spending
+    on a paid provider or an unbounded queue on a shared GPU (fail-closed).
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="The AI budget cannot be checked right now. Try again shortly.",
+            error_code="AI_BUDGET_UNAVAILABLE",
+            status_code=503,
+        )
+
+
 class AdapterNotAvailableError(KamerplanterError):
     """REQ-034 §4a.3 — the requested recognition adapter cannot be used here.
 

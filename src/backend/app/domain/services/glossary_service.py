@@ -10,8 +10,21 @@ fallback text and marks the answer ``is_fallback=true`` (§4.1 step 6).
 The service consumes the REQ-031 foundation rather than rebuilding it: the async
 :class:`~app.domain.interfaces.knowledge_service.IKnowledgeService` adapter (with
 its circuit breaker), the :class:`~app.domain.services.ai_audit_logger.AiAuditLogger`,
-and — for the tenant cloud-processing gate — the REQ-031 ``ConsentGuard`` and
-provider repository. The Knowledge-Service LLM layer itself
+the daily :class:`~app.domain.services.ai_call_budget.AiCallBudget` (#2110) and —
+for the cloud-processing gate — the REQ-031 ``ConsentGuard`` and provider
+repository.
+
+**The cache is platform output, so its generation is classified by the
+platform (#2110).** One cached answer per term/language/level is served to every
+tenant, built from a curated prompt with ``context=null``. Whether it counts as
+a cloud answer used to be read from the *requesting* tenant's default provider,
+so the first tenant to ask decided a label every other tenant was then shown,
+and whether that tenant's member had to consent — while the model that actually
+answers is the knowledge service's own (the ``/ask`` request names no
+provider). It is now read from the platform's system default provider
+(:meth:`ArangoAiProviderRepository.get_system_default`), stored on the entry
+(``uses_cloud_provider``) and served from there to every reader. A member who
+triggers a cloud generation still needs the ``ai_cloud_processing`` consent. The Knowledge-Service LLM layer itself
 (``app/llm/{ollama,anthropic,openai_compatible}.py``) is never touched here; it
 is reached only through the adapter's ``/ask`` call.
 """
@@ -40,6 +53,7 @@ from app.domain.models.glossary_term import (
     Language,
 )
 from app.domain.services.ai_audit_logger import AiAuditLogger
+from app.domain.services.ai_call_budget import AiCallBudget
 
 logger = structlog.get_logger(__name__)
 
@@ -73,6 +87,7 @@ class GlossaryService:
     def __init__(
         self,
         *,
+        call_budget: AiCallBudget,
         term_repo,
         cache_repo,
         knowledge_adapter: IKnowledgeService,
@@ -81,6 +96,7 @@ class GlossaryService:
         provider_repo=None,
         redis_client=None,
     ) -> None:
+        self._budget = call_budget
         self._terms = term_repo
         self._cache = cache_repo
         self._ks = knowledge_adapter
@@ -134,7 +150,8 @@ class GlossaryService:
 
         No cloud gate either, for the same reason: with no LLM call there is no
         cloud processing to consent to. The gate stays on
-        :meth:`generate_term`.
+        :meth:`generate_term`. The ``uses_cloud_provider`` label is the cached
+        entry's own (#2110), the same for every reader.
         """
         language = self._normalise_language(language)
         expertise_level = self._normalise_level(expertise_level)
@@ -152,7 +169,7 @@ class GlossaryService:
         # come into effect.
         cached = self._load_cache(canonical, language, expertise_level) if settings.ai_features_enabled else None
         entry = cached if cached is not None else self._fallback_entry(term, language, expertise_level, _now())
-        return self._to_answer(term, entry, language, expertise_level, uses_cloud=False)
+        return self._to_answer(term, entry, language, expertise_level)
 
     async def generate_term(
         self,
@@ -162,7 +179,6 @@ class GlossaryService:
         expertise_level: str = "beginner",
         tenant_key: str | None = None,
         user_key: str | None = None,
-        allow_cloud: bool = False,
     ) -> GlossaryTermAnswer:
         """Ask the Knowledge Service for a term explanation and cache it — the write path.
 
@@ -174,6 +190,10 @@ class GlossaryService:
         request is not a second LLM call. With ``ai_features_enabled`` off there
         is no RAG stack to ask: the curated fallback is returned and nothing is
         cached, because a curated text is not a generated one.
+
+        On the tenant path (``tenant_key`` set) a cache miss is charged to the
+        caller's daily AI budget before the call (#2110); the warm-up task is
+        the platform's own generation and is bounded by the curated catalogue.
         """
         language = self._normalise_language(language)
         expertise_level = self._normalise_level(expertise_level)
@@ -190,18 +210,20 @@ class GlossaryService:
         if not settings.ai_features_enabled:
             return self._fallback_answer(term, language, expertise_level, tenant_key=tenant_key, user_key=user_key)
 
-        uses_cloud = self._enforce_cloud_gate(tenant_key=tenant_key, user_key=user_key, allow_cloud=allow_cloud)
+        uses_cloud = self._enforce_cloud_gate(tenant_key=tenant_key, user_key=user_key)
 
         cached = self._load_cache(canonical, language, expertise_level)
         if cached is not None:
-            return self._to_answer(term, cached, language, expertise_level, uses_cloud=uses_cloud)
+            return self._to_answer(term, cached, language, expertise_level)
 
-        entry = await self._generate(term, language, expertise_level)
+        if tenant_key is not None:
+            self._budget.charge(tenant_key=tenant_key, user_key=user_key or "")
+        entry, usage = await self._generate(term, language, expertise_level, uses_cloud=uses_cloud)
+        if tenant_key is not None:
+            self._budget.record_usage(tenant_key=tenant_key, usage=usage)
         self._store_cache(entry)
-        self._audit_ok(
-            term, language, expertise_level, entry, uses_cloud=uses_cloud, tenant_key=tenant_key, user_key=user_key
-        )
-        return self._to_answer(term, entry, language, expertise_level, uses_cloud=uses_cloud)
+        self._audit_ok(term, language, expertise_level, entry, tenant_key=tenant_key, user_key=user_key, usage=usage)
+        return self._to_answer(term, entry, language, expertise_level)
 
     def catalogue_slugs(self) -> list[str]:
         """Every active term slug — what the warm-up task iterates (§4.3)."""
@@ -262,27 +284,40 @@ class GlossaryService:
 
     # ── Cloud-processing consent gate (§6) ─────────────────────────────
 
-    def _enforce_cloud_gate(self, *, tenant_key: str | None, user_key: str | None, allow_cloud: bool) -> bool:
-        """Return whether the answer is produced by a cloud provider.
+    def _platform_uses_cloud(self) -> bool:
+        """Whether the platform's default provider is a cloud LLM (#2110).
 
-        The public light-mode path (``tenant_key is None``) is always local — no
-        cloud, no consent. On the tenant path, when the tenant both allows cloud
-        providers *and* has a cloud provider as its effective default, the caller
-        must hold the REQ-031 ``ai_cloud_processing`` consent before the RAG call
-        runs (mirrors REQ-031 SEC-001). No PII is ever sent regardless (§6).
+        Read from the system rows only (``tenant_key == null``): the cache this
+        generation fills is shared by every tenant, so no tenant's provider
+        records may decide how it is classified.
         """
-        if tenant_key is None or self._providers is None or not allow_cloud:
+        if self._providers is None:
             return False
-        provider = self._providers.get_default(tenant_key, None)
+        provider = self._providers.get_system_default()
         if provider is None:
             return False
-        uses_cloud = provider.provider_type != "ollama" or provider.requires_consent
-        if uses_cloud:
+        return bool(provider.provider_type != "ollama" or provider.requires_consent)
+
+    def _enforce_cloud_gate(self, *, tenant_key: str | None, user_key: str | None) -> bool:
+        """Return whether the answer is produced by a cloud provider.
+
+        The classification is the platform's (:meth:`_platform_uses_cloud`), the
+        same for every caller. When it is a cloud provider and a tenant member
+        triggers the call (``tenant_key`` set), the caller must hold the REQ-031
+        ``ai_cloud_processing`` consent before the RAG call runs (mirrors REQ-031
+        SEC-001). The warm-up task (no tenant, no user) is the platform's own
+        generation and asks nobody. No PII is ever sent regardless (§6).
+
+        The tenant's ``ai_allow_cloud_providers`` flag is not consulted: it keeps
+        *tenant data* away from a cloud LLM, and this prompt carries none — a
+        curated label and an expertise level.
+        """
+        uses_cloud = self._platform_uses_cloud()
+        if uses_cloud and tenant_key is not None:
             # Fail closed: a cloud call must be attributable and consent-checked.
             # A missing principal (no ``user_key``) or an unwired consent guard is
             # treated as consent-denied, never a silent bypass (mirrors REQ-031
-            # SEC-001). The public/anonymous path never reaches here because
-            # ``uses_cloud`` is forced false above (``tenant_key is None``).
+            # SEC-001).
             if self._consent is None or not user_key:
                 raise ConsentRequiredError(AI_CLOUD_PROCESSING)
             self._consent.require_consent(user_key, AI_CLOUD_PROCESSING)
@@ -290,8 +325,14 @@ class GlossaryService:
 
     # ── RAG generation ─────────────────────────────────────────────────
 
-    async def _generate(self, term: GlossaryTerm, language: str, expertise_level: str) -> GlossaryTermCacheEntry:
-        """Ask the Knowledge Service and build a cache entry (fallback on miss)."""
+    async def _generate(
+        self, term: GlossaryTerm, language: str, expertise_level: str, *, uses_cloud: bool
+    ) -> tuple[GlossaryTermCacheEntry, dict[str, int]]:
+        """Ask the Knowledge Service and build a cache entry (fallback on miss).
+
+        Returns the entry and the token usage the answer reported (empty when no
+        answer came back).
+        """
         question = self._build_question(term, expertise_level)
         now = datetime.now(UTC)
         try:
@@ -316,13 +357,13 @@ class GlossaryService:
                 status="knowledge_service_error",
                 error_class="knowledge_service_unavailable",
             )
-            return self._fallback_entry(term, language, expertise_level, now)
+            return self._fallback_entry(term, language, expertise_level, now), {}
 
         max_score = max((chunk.score for chunk in result.sources), default=0.0)
         if not result.sources or max_score < _MIN_SCORE:
-            return self._fallback_entry(term, language, expertise_level, now)
+            return self._fallback_entry(term, language, expertise_level, now), result.usage
 
-        return GlossaryTermCacheEntry(
+        entry = GlossaryTermCacheEntry(
             term_slug=term.slug,
             language=language,  # type: ignore[arg-type]
             expertise_level=expertise_level,  # type: ignore[arg-type]
@@ -341,9 +382,11 @@ class GlossaryService:
             provider_type=result.provider_type or "ollama",
             kb_version=result.kb_version,
             is_fallback=False,
+            uses_cloud_provider=uses_cloud,
             generated_at=now,
             valid_until=now + _CACHE_TTL,
         )
+        return entry, result.usage
 
     def _fallback_answer(
         self,
@@ -361,10 +404,8 @@ class GlossaryService:
         audited (PII-free) for parity with the RAG path.
         """
         entry = self._fallback_entry(term, language, expertise_level, datetime.now(UTC))
-        self._audit_ok(
-            term, language, expertise_level, entry, uses_cloud=False, tenant_key=tenant_key, user_key=user_key
-        )
-        return self._to_answer(term, entry, language, expertise_level, uses_cloud=False)
+        self._audit_ok(term, language, expertise_level, entry, tenant_key=tenant_key, user_key=user_key)
+        return self._to_answer(term, entry, language, expertise_level)
 
     def _fallback_entry(
         self, term: GlossaryTerm, language: str, expertise_level: str, now: datetime
@@ -461,8 +502,6 @@ class GlossaryService:
         entry: GlossaryTermCacheEntry,
         language: str,
         expertise_level: str,
-        *,
-        uses_cloud: bool,
     ) -> GlossaryTermAnswer:
         return GlossaryTermAnswer(
             slug=term.slug,
@@ -479,7 +518,7 @@ class GlossaryService:
             model_name=entry.model_name,
             provider_type=entry.provider_type,
             uses_tenant_data=False,
-            uses_cloud_provider=uses_cloud,
+            uses_cloud_provider=entry.uses_cloud_provider,
             kb_version=entry.kb_version,
             generated_at=entry.generated_at,
         )
@@ -500,9 +539,9 @@ class GlossaryService:
         expertise_level: str,
         entry: GlossaryTermCacheEntry,
         *,
-        uses_cloud: bool,
         tenant_key: str | None = None,
         user_key: str | None = None,
+        usage: dict[str, int] | None = None,
     ) -> None:
         """Write a PII-free audit record for a served answer (§4.1 step 9, §6).
 
@@ -524,6 +563,7 @@ class GlossaryService:
             kb_version=entry.kb_version,
             language=language,
             uses_tenant_data=False,
-            uses_cloud_provider=uses_cloud,
+            uses_cloud_provider=entry.uses_cloud_provider,
             status="ok",
+            usage=usage,
         )
