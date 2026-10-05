@@ -608,6 +608,30 @@ ClamAV muss als separates Deployment im Cluster laufen. Das Backend blockiert ei
 
 ---
 
+## Metriken (Prometheus) {#metriken-prometheus}
+
+Ein Schalter: `monitoring.enabled: true`. Damit setzt das Chart `METRICS_PORT=9464` am Backend, ergänzt den Service-Port `metrics`, legt einen `ServiceMonitor` an und die NetworkPolicy `backend-metrics`, die genau die Prometheus-Pods auf diesen Port lässt.
+
+```yaml
+monitoring:
+  enabled: true
+  scrapeInterval: 30s
+  prometheus:
+    namespace: monitoring          # Namespace, in dem Prometheus läuft
+    podName: prometheus            # Wert des Labels app.kubernetes.io/name der Prometheus-Pods
+    serviceMonitorLabels:
+      release: kube-prometheus-stack   # was der serviceMonitorSelector des Operators erwartet
+```
+
+!!! warning "Prometheus Operator erforderlich"
+    Der `ServiceMonitor` ist eine Ressource des Prometheus Operators (`monitoring.coreos.com/v1`). Fehlt dessen CRD im Cluster, schlägt die Installation mit eingeschaltetem `monitoring` fehl. Deshalb ist der Standard `false`.
+
+Die Metriken sind **nicht öffentlich**: Sie laufen auf einem eigenen Port, nie als Route der API. Der Ingress führt `/` und `/api` zum Frontend-nginx, und der leitet nur an Port 8000 weiter. Die Backend-Policy lässt weiter nur das Frontend auf 8000 zu, sodass Prometheus über den Scrape-Weg nicht an nginx vorbei auf die API kommt.
+
+Ausgeliefert werden `http_request_duration_seconds` (Histogramm) und `http_requests_total` mit den Labels `method`, `handler` (Routenmuster, nie der Pfad; `unmatched` für eine Anfrage ohne Route) und `status`, `http_requests_in_progress` sowie Prozess-Metriken (Speicher, CPU, Dateideskriptoren). Ein Mandant ist bewusst **kein** Label — das vervielfacht jede Zeitreihe mit der Mandantenzahl und legt die Mandantenliste jedem offen, der scrapen darf. Für die Sicht pro Mandant tragen die Logzeilen `tenant=ten_…`.
+
+Noch nicht enthalten: Metriken des Celery-Workers, Recording- und Alert-Regeln (`PrometheusRule`) aus NFR-007.
+
 ## Siehe auch
 
 - [Kubernetes-Deployment](kubernetes.md) — Schritt-für-Schritt-Anleitung

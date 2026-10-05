@@ -46,6 +46,12 @@ dependencies = [
     # initialised and the process is unchanged. The [fastapi] extra pulls the
     # Starlette/FastAPI integration that installs the global exception handler.
     "sentry-sdk[fastapi]>=2.20.0,<3.0.0",
+    # #2129 (MT-033) — Prometheus exposition for the NFR-007 SLOs. The official
+    # client only (Apache-2.0 + a bundled BSD-2-Clause `decorator`, no transitive
+    # dependencies); the HTTP histogram is recorded by our own ASGI middleware
+    # (app/observability/metrics.py) so the label set — route pattern, never the
+    # raw path, never a tenant — is ours.
+    "prometheus-client>=0.21.0,<1.0.0",
 ]
 
 [project.optional-dependencies]

@@ -283,6 +283,15 @@ When a diary entry is created, Kamerplanter reads the sensor values covering the
 
 ---
 
+## Metrics (Prometheus) {#metrics-prometheus}
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `METRICS_PORT` | `0` | No | Port on which the backend serves `/metrics` in the Prometheus format. `0` starts no listener. The Helm chart sets `9464` once `monitoring.enabled` is on. |
+| `METRICS_BIND_ADDRESS` | `0.0.0.0` | No | Address the metrics listener binds to. |
+
+The metrics run on a **port of their own**, never as a route of the API on port 8000. The path from outside (ingress → frontend nginx → backend :8000) therefore cannot reach them; inside the cluster the NetworkPolicy admits only the configured Prometheus. The series carry neither tenant nor person: `handler` is the route pattern (`/api/v1/t/{tenant_slug}/…`), never the requested path. Details: [Helm — metrics](../deployment/helm.md#metrics-prometheus).
+
 ## mDNS / Zeroconf Discovery
 
 | Variable | Default | Required | Description |

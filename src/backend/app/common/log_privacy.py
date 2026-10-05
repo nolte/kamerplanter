@@ -178,6 +178,16 @@ def log_tenant(tenant_key: str | None) -> str | None:
     return ErasureEngine.log_tenant(tenant_key, settings.log_pseudonym_salt)
 
 
+def log_api_key(api_key_key: str | None) -> str | None:
+    """The reference an audit row carries instead of an API key's document key; ``None`` for none (#2130).
+
+    ``ErasureEngine.log_api_key`` keyed with ``LOG_PSEUDONYM_SALT``, read at call time.
+    """
+    if not api_key_key:
+        return None
+    return ErasureEngine.log_api_key(api_key_key, settings.log_pseudonym_salt)
+
+
 def log_tenant_record_key(record_key: str | None) -> str | None:
     """A tenant-erasure record key as a log line may carry it (#1928).
 

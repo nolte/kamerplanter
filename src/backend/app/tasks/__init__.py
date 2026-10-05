@@ -1,9 +1,19 @@
 import structlog
 from celery import Celery
 from celery.schedules import crontab
-from celery.signals import after_setup_logger, after_setup_task_logger, beat_init, celeryd_init, worker_process_init
+from celery.signals import (
+    after_setup_logger,
+    after_setup_task_logger,
+    beat_init,
+    before_task_publish,
+    celeryd_init,
+    task_postrun,
+    task_prerun,
+    worker_process_init,
+)
 
 from app.common.log_privacy import loggable_path, redact_text_in_flight
+from app.common.request_context import TELEMETRY_KEYS, current_request
 from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH, MIN_TOMBSTONE_SALT_LENGTH
 from app.config.logging import install_sink_redaction, setup_logging
 from app.config.settings import settings
@@ -157,6 +167,77 @@ def _refuse_worker_start_without_a_usable_fernet_key(**_kwargs: object) -> None:
         "the worker in production (INF-S5); without it secrets are stored in plaintext."
     )
 
+
+#: Message headers that carry the dispatching request's context into the worker
+#: (#2130). Prefixed so they cannot collide with Celery's own protocol headers.
+#: Values are the request id and the *pseudonyms* ``log_subject``/``log_tenant`` —
+#: never an account or tenant key: a message header sits in the broker and in
+#: the worker's logs, which have no retention rule of their own (NFR-011 L-1).
+TASK_CONTEXT_HEADERS = {key: f"kp_{key}" for key in TELEMETRY_KEYS}
+#: The longest header value accepted back; a request id is 36 chars, a pseudonym 20.
+_MAX_CONTEXT_VALUE = 64
+
+
+def _publishing_context() -> dict[str, str]:
+    """The context of whatever is dispatching: a request, or a task running in the worker."""
+    telemetry = current_request()
+    if telemetry is not None:
+        return telemetry.fields()
+    bound = structlog.contextvars.get_contextvars()
+    return {key: str(bound[key]) for key in TELEMETRY_KEYS if bound.get(key)}
+
+
+def _attach_request_context(headers: dict[str, object] | None = None, **_kwargs: object) -> None:
+    """``before_task_publish``: put the dispatcher's request id, actor and tenant into the message.
+
+    Runs in the dispatching thread — the request's (a sync endpoint's copy of the
+    request context still holds the telemetry object) or a task's in the worker
+    (re-dispatch keeps the original request id). Beat publishes with no context
+    and adds nothing. A header the caller set explicitly is kept.
+    """
+    if headers is None:
+        return
+    for key, value in _publishing_context().items():
+        headers.setdefault(TASK_CONTEXT_HEADERS[key], value)
+
+
+def _bind_task_context(task_id: str | None = None, task: object = None, **_kwargs: object) -> None:
+    """``task_prerun``: bind the task id and the dispatcher's context for the task's log lines."""
+    request = getattr(task, "request", None)
+    if getattr(request, "is_eager", False):
+        # ``.apply()`` inside a request runs the task in the request's own thread:
+        # it inherits that context, and wiping it would strip the request id from
+        # the endpoint's remaining lines.
+        if task_id:
+            structlog.contextvars.bind_contextvars(task_id=str(task_id))
+        return
+    context: dict[str, str] = {"task_id": str(task_id)} if task_id else {}
+    for key, header in TASK_CONTEXT_HEADERS.items():
+        value = getattr(request, header, None)
+        if isinstance(value, str) and 0 < len(value) <= _MAX_CONTEXT_VALUE:
+            context[key] = value
+    structlog.contextvars.clear_contextvars()
+    structlog.contextvars.bind_contextvars(**context)
+
+
+def _clear_task_context(task: object = None, **_kwargs: object) -> None:
+    """``task_postrun``: the worker reuses its thread; the next task starts clean.
+
+    An eager task only takes its own ``task_id`` back off the caller's context.
+    """
+    if getattr(getattr(task, "request", None), "is_eager", False):
+        structlog.contextvars.unbind_contextvars("task_id")
+        return
+    structlog.contextvars.clear_contextvars()
+
+
+# #2130 — request/task correlation. ``before_task_publish`` fires in the process
+# that dispatches (the API, or the worker for a chained task); the other two in
+# the process that executes. Connecting is inert on import: nothing runs until a
+# task is published or executed.
+before_task_publish.connect(_attach_request_context, weak=False)
+task_prerun.connect(_bind_task_context, weak=False)
+task_postrun.connect(_clear_task_context, weak=False)
 
 # The salt gate runs on ``celeryd_init`` only — the worker program. Beat
 # schedules, it runs no task and writes no subject reference.

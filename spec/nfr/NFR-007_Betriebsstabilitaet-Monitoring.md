@@ -6,7 +6,7 @@ Kategorie: Betrieb / Observability Unterkategorie: SLA, Alerting, Incident Manag
 Technologie: Prometheus, Alertmanager, Grafana, Python, FastAPI, Kubernetes
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.0
+Version: 1.1 (§2.1 Umsetzungsstand: `/metrics` auf eigenem Port, ServiceMonitor hinter `monitoring.enabled`, #2129) — 1.0
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-26
 Tags: [sli, slo, alerting, incident-response, resilience, circuit-breaker, monitoring, operational-stability]
@@ -82,6 +82,17 @@ Alle SLIs basieren auf Prometheus-Metriken (vgl. NFR-001 Abschnitt 8.1, NFR-002 
 | **Latenz** | Request-Dauer für API-Requests | `http_request_duration_seconds` (Histogram) |
 | **Error Rate** | Anteil der Requests mit HTTP 5xx | `http_requests_total{status=~"5.."}` / `http_requests_total` |
 | **Throughput** | Requests pro Sekunde unter Last | `rate(http_requests_total[5m])` |
+
+#### Umsetzungsstand (2026-10-05, #2129 / MT-033)
+
+| Teil | Stand |
+|---|---|
+| `http_request_duration_seconds` (Histogramm), `http_requests_total`, `http_requests_in_progress`, Prozess-Metriken | **Umgesetzt** im Backend (`app/observability/metrics.py`). Labels `method`, `handler`, `status`; `handler` ist das Routenmuster, nie der aufgerufene Pfad, eine Anfrage ohne Route `unmatched`. |
+| Auslieferung | **Umgesetzt** auf eigenem Port (`METRICS_PORT`, Chart: 9464), nie als Route der API auf 8000 — der öffentliche Weg Ingress → nginx → :8000 erreicht sie nicht. Aus, solange `METRICS_PORT=0` (App-Standard). |
+| `ServiceMonitor` + NetworkPolicy | **Umgesetzt** im Chart hinter `monitoring.enabled` (Standard `false`, setzt die Prometheus-Operator-CRD voraus); die Policy `backend-metrics` lässt nur die konfigurierten Prometheus-Pods (Namespace *und* Pod-Label) auf den Metrik-Port. Prometheus vergibt `job` aus dem Service-Label `app.kubernetes.io/name` (`kamerplanter`), nicht `backend` wie in §2.5 — Regeln filtern auf `service`. |
+| Mandant als Label | **Bewusst nicht**: vervielfacht jede Zeitreihe mit der Mandantenzahl und legt die Mandantenliste offen. Pro-Mandant-Sicht über das Log-Feld `tenant=ten_…` (#2130). Top-N-Gauges pro Mandant (Speicher, LLM-Aufrufe) sind nicht umgesetzt: billig nur mit einer Aggregation je Scrape, die es nicht gibt. |
+| Celery-Metriken (Exporter/Queue-Länge) | **Offen**: verlangt ein Fremd-Image unter der Digest-Pinning-Invariante des Charts und Task-Events des Workers. |
+| §2.5 Recording-Rules, §3.2 Alert-Regeln (`PrometheusRule`), §4 Circuit-Breaker-/Pool-/Rate-Limit-Metriken, §6 externer Prober | **Offen**. |
 
 ### 2.2 SLO-Definitionen
 

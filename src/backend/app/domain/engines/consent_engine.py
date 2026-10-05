@@ -6,6 +6,18 @@ from app.domain.models.privacy import ConsentPurpose, ConsentRecord
 #: own AI agent. Exported as a constant so the enforcement path and the
 #: dependency wiring refer to the same string as the registry below.
 DIARY_AI_ANALYSIS = "diary_ai_analysis"
+#: #2136 (MT-040) — whether an error event may name the person and their tenant
+#: (pseudonymously). Read by ``app.observability.event_user`` at capture time.
+ERROR_TRACKING = "error_tracking"
+
+# Retired in #2136 (MT-040, REQ-025 §3.6), because no code ever read them:
+# ``hibp_check`` — no HaveIBeenPwned check exists; ``external_enrichment`` — the
+# GBIF/Perenual sync is a platform-admin and scheduled catalogue job that sends
+# species names, no personal data, and has no user whose consent it could ask.
+# A purpose comes back with the feature that reads it. Stored records for the two
+# stay as they are (Art. 15 export, erasure and the R-04 purge are generic over
+# ``consent_records``); they are no longer listed and can no longer be granted or
+# revoked — there is no processing left that either would switch.
 
 
 class ConsentEngine:
@@ -26,29 +38,23 @@ class ConsentEngine:
             required=True,
         ),
         ConsentPurpose(
-            key="error_tracking",
-            label_de="Fehler-Tracking (Sentry)",
-            label_en="Error tracking (Sentry)",
-            description_de=("Automatische Erfassung von Fehlern zur Verbesserung der Software-Qualitaet."),
-            description_en=("Automatic error capture to improve software quality."),
-            legal_basis="Art. 6(1)(a) GDPR — consent",
-            required=False,
-        ),
-        ConsentPurpose(
-            key="hibp_check",
-            label_de="Passwort-Sicherheitscheck (HaveIBeenPwned)",
-            label_en="Password security check (HaveIBeenPwned)",
-            description_de=("Pruefung ob Passwort in bekannten Datenlecks vorkommt (k-Anonymity, SHA-1-Praefix)."),
-            description_en=("Check whether password appears in known breaches (k-anonymity, SHA-1 prefix)."),
-            legal_basis="Art. 6(1)(a) GDPR — consent",
-            required=False,
-        ),
-        ConsentPurpose(
-            key="external_enrichment",
-            label_de="Externe Stammdatenanreicherung",
-            label_en="External master-data enrichment",
-            description_de=("Abfrage botanischer Daten bei GBIF, Perenual und anderen externen Diensten."),
-            description_en=("Querying botanical data from GBIF, Perenual and other external services."),
+            key=ERROR_TRACKING,
+            label_de="Fehlerberichte meinem Konto zuordnen (Sentry)",
+            label_en="Attribute error reports to my account (Sentry)",
+            description_de=(
+                "Wenn bei einer deiner Anfragen ein Fehler auftritt und der Betreiber Fehler-Tracking "
+                "eingeschaltet hat, trägt der Fehlerbericht ein Pseudonym deines Kontos und deines Gartens "
+                "(nie Name, E-Mail oder IP-Adresse). So lässt sich ein Fehler, der dich betrifft, gezielt "
+                "nachverfolgen. Ohne Einwilligung wird der Bericht ohne diese Zuordnung übermittelt. "
+                "Jederzeit widerrufbar; der Widerruf wirkt ab der nächsten Anfrage."
+            ),
+            description_en=(
+                "When an error occurs in one of your requests and the operator has switched error tracking on, "
+                "the error report carries a pseudonym of your account and your garden (never name, e-mail or IP "
+                "address). This lets an error that affects you be traced specifically. Without consent the "
+                "report is sent without this attribution. Revocable at any time; revocation applies from the "
+                "next request."
+            ),
             legal_basis="Art. 6(1)(a) GDPR — consent",
             required=False,
         ),

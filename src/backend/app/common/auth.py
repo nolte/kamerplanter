@@ -8,6 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.common.dependencies import get_auth_provider, get_tenant_service
 from app.common.enums import AdminScope, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, UnauthorizedError
+from app.common.request_context import bind_actor, bind_tenant
 from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
@@ -130,6 +131,9 @@ def _resolve_principal(
     else:
         user = auth_provider.resolve_user(authorization, client_ip=client_ip)
     setattr(request.state, _PRINCIPAL_STATE, (authorization, user))
+    # The request's log lines, the tasks it dispatches and its error events name
+    # the principal by pseudonym from here on (#2130).
+    bind_actor(user.key if user is not None else None)
     return user
 
 
@@ -267,6 +271,10 @@ def get_current_tenant(
     and its ``details``.
     """
     tenant, membership = _membership_for_slug(tenant_service, user.key or "", tenant_slug, key_scope=_key_scope(user))
+    # Recorded on the request's telemetry holder, not with ``bind_contextvars``:
+    # this dependency runs in a worker thread on a copy of the request context,
+    # and a contextvar set there is lost when it returns (#2130).
+    bind_tenant(tenant.key)
 
     return TenantContext(
         tenant_key=tenant.key or "",
@@ -480,7 +488,9 @@ def get_active_tenant_key(
     path (:func:`get_current_tenant`), and favourites stay personal across
     tenants; a future consumer opts in by depending on this function.
     """
-    return _resolve_active_tenant(user, tenant_service, active_tenant_slug).key
+    key = _resolve_active_tenant(user, tenant_service, active_tenant_slug).key
+    bind_tenant(key)
+    return key
 
 
 def get_active_tenant_context(
@@ -516,6 +526,7 @@ def get_active_tenant_context(
     widening the role here.
     """
     resolved = _resolve_active_tenant(user, tenant_service, active_tenant_slug)
+    bind_tenant(resolved.key)
     membership = resolved.membership()
     active = membership if (membership and membership.is_active) else None
     return TenantContext(

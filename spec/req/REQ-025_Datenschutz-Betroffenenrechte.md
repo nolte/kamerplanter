@@ -7,7 +7,7 @@ Kategorie: Plattform & Datenschutz
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.30 (REQ-055 v1.4: Consent-Text `social_publishing` nennt auch Freigeben/Senden) — v1.29 (REQ-055: Consent-Zweck `social_publishing` für die Übermittlung an soziale Netzwerke) — v1.28 (#1924 Beitritt/Einladung während der Gnadenfrist: genau ein Ausgang, keine Einladung mehr — v1.27 (#1949 Admin-Kontolöschung asynchron, #1992 Bereinigung verschont herabgestufte Konten — v1.26 (#1960/#1961: Benachrichtigung dauerhaft, Admin-Vorschau — v1.25 (#1834: AK-OS-10 Objekt-Rekonziliation — v1.24 Erasure-together + Mandanten-Vorschau, #1824 — v1.23 Beat-Takt von R-02/R-03/R-11 nach der Uhr, #1946 — v1.22 AK-02a/AK-15a/AK-15b umgesetzt: #1806 GDPR-006/-007/-010 — v1.21 #1793: Art. 15 findet pseudonymisierte Aufbewahrungszeilen über den Tombstone-Hash — v1.20 #1825/#1843: Einladungen bei Löschantrag widerrufen, Mitgliederprüfung nach dem Einfrieren — v1.19 Datenschutzplan-Entscheidungen Batch 4-6: Q-T2/Q-T3/Q-T4/Q-T5/Q-E8/Q-R12, #1806/#1839/#1793 — v1.18 Batch 1-3 #1789/#1793/#1800/#1824/#1825 — v1.17 #1848/#1856: eigene Mail und Seite für die E-Mail-Änderung, Formular in den Kontoeinstellungen, Rückgängig-Link an die vorherige Adresse; keine vom Anfragenden gewählten Texte in Mails an unbestätigte Adressen — v1.16 Betreiber-Entscheid Variante 1 zu #1815: E-Mail-Änderung bestätigt sich ohne lokales Passwort primär über eine frische OIDC-Anmeldung, der E-Mail-Code ist nur noch Ausweichweg für ausschließlich GitHub/Apple — v1.15 /code-review of #1862: zustandslose Prüfungen der E-Mail-Änderung laufen jetzt vor dem Step-up, nur der Adress-Nachschlag bleibt dahinter — v1.14 #1841: Step-up auf der E-Mail-Änderung, AK-06 umgesetzt — v1.13 #1813/#1814: Step-up auf jeder Kontolöschung; `DELETE /users/me` eröffnet den Art.-17-Auftrag — v1.12 #1770: deduplizierte Anhänge und Referenz-Vektoren gehören jedem Beitragenden selbst — v1.11 #1768: Löschumfang aus #1761/#1766/#1776 als Abnahmekriterien — v1.10 #1719: Art. 15 legt offen, was Art. 17 löscht; Inventar-Kopie durch Regeln ersetzt))
+Version: 1.31 (#2136: §3.6 nur gelesene Consent-Zwecke, `hibp_check`/`external_enrichment` entfernt, `error_tracking` steuert die Zuordnung des Fehlerberichts) — v1.30 (REQ-055 v1.4: Consent-Text `social_publishing` nennt auch Freigeben/Senden) — v1.29 (REQ-055: Consent-Zweck `social_publishing` für die Übermittlung an soziale Netzwerke) — v1.28 (#1924 Beitritt/Einladung während der Gnadenfrist: genau ein Ausgang, keine Einladung mehr — v1.27 (#1949 Admin-Kontolöschung asynchron, #1992 Bereinigung verschont herabgestufte Konten — v1.26 (#1960/#1961: Benachrichtigung dauerhaft, Admin-Vorschau — v1.25 (#1834: AK-OS-10 Objekt-Rekonziliation — v1.24 Erasure-together + Mandanten-Vorschau, #1824 — v1.23 Beat-Takt von R-02/R-03/R-11 nach der Uhr, #1946 — v1.22 AK-02a/AK-15a/AK-15b umgesetzt: #1806 GDPR-006/-007/-010 — v1.21 #1793: Art. 15 findet pseudonymisierte Aufbewahrungszeilen über den Tombstone-Hash — v1.20 #1825/#1843: Einladungen bei Löschantrag widerrufen, Mitgliederprüfung nach dem Einfrieren — v1.19 Datenschutzplan-Entscheidungen Batch 4-6: Q-T2/Q-T3/Q-T4/Q-T5/Q-E8/Q-R12, #1806/#1839/#1793 — v1.18 Batch 1-3 #1789/#1793/#1800/#1824/#1825 — v1.17 #1848/#1856: eigene Mail und Seite für die E-Mail-Änderung, Formular in den Kontoeinstellungen, Rückgängig-Link an die vorherige Adresse; keine vom Anfragenden gewählten Texte in Mails an unbestätigte Adressen — v1.16 Betreiber-Entscheid Variante 1 zu #1815: E-Mail-Änderung bestätigt sich ohne lokales Passwort primär über eine frische OIDC-Anmeldung, der E-Mail-Code ist nur noch Ausweichweg für ausschließlich GitHub/Apple — v1.15 /code-review of #1862: zustandslose Prüfungen der E-Mail-Änderung laufen jetzt vor dem Step-up, nur der Adress-Nachschlag bleibt dahinter — v1.14 #1841: Step-up auf der E-Mail-Änderung, AK-06 umgesetzt — v1.13 #1813/#1814: Step-up auf jeder Kontolöschung; `DELETE /users/me` eröffnet den Art.-17-Auftrag — v1.12 #1770: deduplizierte Anhänge und Referenz-Vektoren gehören jedem Beitragenden selbst — v1.11 #1768: Löschumfang aus #1761/#1766/#1776 als Abnahmekriterien — v1.10 #1719: Art. 15 legt offen, was Art. 17 löscht; Inventar-Kopie durch Regeln ersetzt))
 Abhängigkeit: REQ-023 v1.18 (Benutzerverwaltung), REQ-024 v1.7 (Mandantenverwaltung), NFR-011 v1.4 (Retention Policy), NFR-013 v1.5 (Object Storage), REQ-029-A v1.2 (DINOv2-Referenz-Index), REQ-034 v1.1 (Pflanzenfoto-Galerie), REQ-050 v1.5 (KI-Analyse von Tagebuch-Einträgen), REQ-051 v1.0 (Pflanzen-Tagebuch — Analyse-Archiv)
 Security-Review-Referenz: SEC-K-001, SEC-K-003
 ```
@@ -16,6 +16,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-003
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.31 | 2026-10-05 | **#2136 (MT-040) Consent-Zwecke ehrlich gemacht — Orchestrator-Entscheidung im Auftrag des Betreibers, rechtlich zu bestätigen und umkehrbar:** (1) `hibp_check` und `external_enrichment` sind aus `PURPOSES` entfernt: Kein Code las sie. Eine HaveIBeenPwned-Prüfung existiert nicht (`HIBP_ENABLED` ohne Adapter); die GBIF/Perenual-Anreicherung ist ein vom Plattform-Admin bzw. Beat ausgelöster Katalog-Job, der Artnamen und keine personenbezogenen Daten sendet und keinen Nutzer hat, dessen Einwilligung er prüfen könnte. Ein Zweck kommt mit dem Feature zurück, das ihn liest. **Bestehende Einwilligungsdatensätze** zu den beiden Zwecken bleiben unverändert (keine Migration): Art.-15-Export, Kontolöschung und die R-04-Bereinigung behandeln `consent_records` unabhängig vom Zweck; sie erscheinen nicht mehr in der Einwilligungsliste und in der Datenschutzerklärung, Erteilen und Widerrufen antworten mit `422` — es gibt keine Verarbeitung, die eines von beiden schalten könnte. (2) `error_tracking` wird gelesen: Ein Fehlerbericht des Backends trägt die Pseudonyme von Konto und Mandant (`user.id = sub_…`, `user.tenant = ten_…`) **nur** mit erteilter Einwilligung der anfragenden Person; ohne Einwilligung (oder wenn sie nicht lesbar ist) geht der Bericht ohne `user`-Block. Text und Bezeichnung des Zwecks beschreiben das jetzt. Das Ereignis selbst (bereits ohne Bodies, Header-Werte, Rohpfade und Freitexte) hängt nicht an der Einwilligung — §9 nennt dafür das berechtigte Interesse, **rechtlich zu bestätigen**. (3) §3.6 beschreibt den tatsächlichen Mechanismus (`ConsentGuard` in der Fachlogik, nicht eine FastAPI-Dependency) und die Regel, dass nur ein Zweck angeboten wird, den Code liest (Guard `test_consent_purposes_are_read.py`). §2, §3.1, §5 und §9 angeglichen. |
 | 1.30 | 2026-10-04 | **Consent-Text `social_publishing` korrigiert (Pre-Merge-Review PR #2096):** Der Zwecktext versprach, ohne Einwilligung sei „nur das Verknüpfen" gesperrt; REQ-055 PS-PRI-054 prüft den Consent aber auch bei Freigeben und sofortigem Senden durch die handelnde Person (z. B. die Leitung, die einen fremden Entwurf freigibt). Beide Texte (DE/EN) nennen jetzt Verknüpfen, Freigeben und Senden. |
 | 1.29 | 2026-10-04 | **REQ-055 Plant Identity / Plant Social:** Neuer Consent-Zweck `social_publishing` (§5): Übermittlung von Pflanzen-Beiträgen (Text, Fotos als EXIF-freie Renditions) an einen vom Nutzer gewählten Mastodon-Server, der eigenständiger Verantwortlicher ist und außerhalb der EU stehen kann. Rechtsgrundlage: nutzerinitiierte Veröffentlichung Art. 6(1)(b), automatische Veröffentlichung Art. 6(1)(a); der Consent wird beim ersten Verknüpfen je Nutzer abgefragt und bei `auto`-Regeln für die Person geprüft, die die Regel gesetzt hat (REQ-055 PS-PRI-054). Widerruf: eigene Pflanzen-Verknüpfungen werden widerrufen, eine selbst angelegte Garten-Verknüpfung wird pausiert und die übrigen Leitungen benachrichtigt (PS-PRI-050). Art. 15/17: REQ-055 PS-PRI-051/052 ergänzen `USER_DATA_MANIFEST` (u. a. `plant_events` als Aktivität der Person) und den Erasure-Plan feldgenau; Aufbewahrung NFR-011 R-28…R-37. Light-Modus: Verknüpfungen sind dort verweigert, der Consent entfällt. |
 | 1.28 | 2026-10-04 | **#1924 AK-IE-06/AK-IE-07 geschlossen:** (1) **Kein Restfenster mehr** — ein Beitritt, der mit der zweiten Mitgliederlesung der Kontolöschung zusammenfällt, endet in genau einem Ausgang: entweder bleibt die Mitgliedschaft bestehen und der Mandant wird erhalten (`retained_late_joiner`), oder die Mitgliedschaft wird abgelehnt und der Mandant gelöscht — nie „erhalten, aber ohne den Beitretenden“. Die Rücknahme des Beitritts (`delete_while_tenant_frozen`) ist ein einziges AQL-Statement, das den Löschauftrag liest, **schreibt** und die Mitgliedschaft entfernt; die Rücknahme des Eintrags durch die Kontolöschung (`delete_unclaimed`) schreibt dasselbe Dokument, sodass beide nicht nebeneinander gewinnen. `TenantService._decide_retention_under_freeze` nimmt den Eintrag **zuerst** zurück und liest die Mitglieder danach erneut; findet die erneute Lesung niemanden mehr, wurde der Beitretende zurückgenommen — der Mandant wird erneut eingefroren und die Entscheidung wiederholt (höchstens dreimal, danach `WriteConflictError` und Wiederholung durch den täglichen Lauf). (2) **Einladungen während der Gnadenfrist:** `create_email_invitation`, `create_link_invitation` und `accept_invitation` lehnen eine Einladung in einen persönlichen Mandanten ab (403), dessen Eigentümer einen offenen Löschauftrag hat (`find_active_for_user`); organisatorische Mandanten sind nicht betroffen. Das Prädikat steht einmal im Dienst (`_refuse_invitation_while_owner_erasing`), ein Guard (`test_joins_and_invitations_ask_the_erasure_freeze`) leitet jeden Mitgliedschafts- und Einladungs-Schreibaufruf aus dem Quelltext ab. |
@@ -178,7 +179,7 @@ umkehrbar und darf ihr Passwort nicht verlieren.
   - Collection: `consent_records`
   - Properties:
     - `user_key: str` (Referenz auf `users`)
-    - `purpose: str` (z.B. `sentry_tracking`, `hibp_check`, `external_enrichment`)
+    - `purpose: str` (Schlüssel aus `ConsentEngine.PURPOSES`, z.B. `error_tracking`, `plant_identification`; Datensätze zu seit #2136 entfernten Zwecken bleiben erhalten)
     - `granted: bool` (true = erteilt, false = widerrufen)
     - `granted_at: Optional[datetime]`
     - `revoked_at: Optional[datetime]`
@@ -584,29 +585,14 @@ class ConsentEngine:
             required=True,  # Nicht widerrufbar
         ),
         ConsentPurpose(
-            key="error_tracking",
-            label_de="Fehler-Tracking (Sentry)",
-            label_en="Error Tracking (Sentry)",
-            description_de="Automatische Erfassung von Fehlern zur Verbesserung der Software-Qualität",
+            key="error_tracking",  # #2136: gelesen von app/observability/event_user.py
+            label_de="Fehlerberichte meinem Konto zuordnen (Sentry)",
+            label_en="Attribute error reports to my account (Sentry)",
+            description_de="Ein Fehlerbericht zu einer deiner Anfragen trägt ein Pseudonym deines Kontos und Gartens; ohne Einwilligung wird er ohne diese Zuordnung übermittelt",
             legal_basis="Art. 6(1)(a) Einwilligung",
             required=False,
         ),
-        ConsentPurpose(
-            key="hibp_check",
-            label_de="Passwort-Sicherheitscheck (HaveIBeenPwned)",
-            label_en="Password Security Check (HaveIBeenPwned)",
-            description_de="Prüfung ob Passwort in bekannten Datenlecks vorkommt (k-Anonymity, SHA-1-Prefix)",
-            legal_basis="Art. 6(1)(a) Einwilligung",
-            required=False,
-        ),
-        ConsentPurpose(
-            key="external_enrichment",
-            label_de="Externe Stammdatenanreicherung",
-            label_en="External Master Data Enrichment",
-            description_de="Abfrage botanischer Daten bei GBIF, Perenual und anderen externen Diensten",
-            legal_basis="Art. 6(1)(a) Einwilligung",
-            required=False,
-        ),
+        # #2136: `hibp_check` und `external_enrichment` entfernt — kein Code las sie (§3.6).
         # REQ-034 §4.4 — opt-in Foto-Beitrag zum DINOv2-Referenz-Index (REQ-029-A).
         # Granularität: global pro Nutzer (die UNIQUE(user_key, purpose)-Constraint
         # auf consent_records erlaubt genau einen Datensatz pro Zweck → O-04 in
@@ -1214,35 +1200,29 @@ async def execute_scheduled_erasures():
             })
 ```
 
-### 3.6 Middleware: Consent-Prüfung
+### 3.6 Consent-Prüfung
 
-Für Features die eine Einwilligung erfordern, wird eine Dependency bereitgestellt:
+**Regel (#2136, MT-040): Ein optionaler Zweck steht nur dann in `ConsentEngine.PURPOSES`, wenn Code ihn liest.** Ein Zweck, der in der Einwilligungsliste und in der Datenschutzerklärung (Art. 13) erscheint, verspricht eine Verarbeitung, die die Einwilligung schaltet; liest ihn nichts, startet eine Erteilung nichts und ein Widerruf stoppt nichts (Art. 7 (3)). Der Guard `tests/unit/guards/test_consent_purposes_are_read.py` verlangt, dass jeder optionale Schlüssel außerhalb seiner Deklaration unter `app/` genannt wird (als Literal oder über die Konstante aus `consent_engine.py`). Ein Zweck kommt mit dem Feature, das ihn liest.
+
+Geprüft wird in der Fachlogik, nicht in einer FastAPI-Dependency: `ConsentGuard.require_consent(user_key, purpose)` (`app/domain/guards/consent_guard.py`) wirft `ConsentRequiredError` (403), `has_consent` antwortet mit `bool`. Beide lesen den Datensatz und fragen `ConsentEngine.is_processing_allowed` — ein fehlender Datensatz heißt „nicht erteilt".
+
+| Zweck | Wo gelesen | Wirkung ohne Einwilligung |
+|---|---|---|
+| `ai_tenant_data_access`, `ai_cloud_processing` | `ConsentGuard.require_consent` in KI-Assistent, Diagnose, Glossar (REQ-031/035/036) | 403 |
+| `diary_ai_analysis` | Tagebuch-Freigabe (REQ-050) | 403 |
+| `plant_identification`, `pest_detection_cloud`, `plant_diagnosis`, `reference_contribution` | jeweilige Fachservices (REQ-029/034/038/044) | 403 bzw. kein Beitrag |
+| `error_tracking` | `app/observability/event_user.py` beim Erfassen eines Fehlerberichts, höchstens einmal je Anfrage | Bericht ohne `user`-Block (keine Konto-/Mandanten-Pseudonyme); nicht lesbare Einwilligung zählt als „nein" |
 
 ```python
-def require_consent(purpose: str):
-    """FastAPI Dependency Factory: Prüft ob Einwilligung für den Zweck erteilt wurde."""
-    async def check_consent(
-        current_user: User = Depends(get_current_user),
-        consent_repo: ConsentRepository = Depends(get_consent_repo),
-        consent_engine: ConsentEngine = Depends(get_consent_engine),
-    ) -> None:
-        consent = await consent_repo.get_by_user_and_purpose(
-            current_user.key, purpose
-        )
-        if not consent_engine.is_processing_allowed(purpose, consent):
-            raise HTTPException(
-                status_code=403,
-                detail=f"Einwilligung für '{purpose}' nicht erteilt."
-            )
-    return check_consent
+# Fachlogik (Beispiel REQ-031):
+self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
 
-# Verwendung in Endpunkten:
-@router.post("/enrichment/trigger")
-async def trigger_enrichment(
-    _consent: None = Depends(require_consent("external_enrichment")),
-    ...
-): ...
+# Fehler-Tracking (#2136): der user-Block des Ereignisses nur mit Einwilligung
+if not telemetry.consent(ERROR_TRACKING, has_consent):
+    return None  # Ereignis ohne user
 ```
+
+**Entfernte Zwecke (#2136):** `hibp_check` (keine HaveIBeenPwned-Prüfung vorhanden) und `external_enrichment` (Katalog-Job ohne Personenbezug und ohne Nutzer). Gespeicherte Datensätze bleiben, werden exportiert, gelöscht und nach R-04 bereinigt wie jeder andere; sie werden nicht mehr gelistet, Erteilen und Widerrufen antworten mit `422`.
 
 ### 3.7 Middleware: Restriction-Prüfung
 
@@ -1358,22 +1338,8 @@ pages.privacy.objection.title: "Widerspruch"
   },
   {
     "key": "error_tracking",
-    "label_de": "Fehler-Tracking (Sentry)",
-    "label_en": "Error Tracking (Sentry)",
-    "required": false,
-    "legal_basis": "Art. 6(1)(a)"
-  },
-  {
-    "key": "hibp_check",
-    "label_de": "Passwort-Sicherheitscheck",
-    "label_en": "Password Security Check",
-    "required": false,
-    "legal_basis": "Art. 6(1)(a)"
-  },
-  {
-    "key": "external_enrichment",
-    "label_de": "Externe Stammdatenanreicherung",
-    "label_en": "External Data Enrichment",
+    "label_de": "Fehlerberichte meinem Konto zuordnen (Sentry)",
+    "label_en": "Attribute error reports to my account (Sentry)",
     "required": false,
     "legal_basis": "Art. 6(1)(a)"
   },
@@ -1604,10 +1570,10 @@ Kamerplanter kommuniziert mit mehreren externen Diensten. Für jeden Dienst MUSS
 
 | Dienst | Übertragene Daten | Rechtsgrundlage | Schutzmaßnahmen | Consent-pflichtig |
 |--------|-------------------|-----------------|-----------------|-------------------|
-| **GBIF** (REQ-011) | Artname (Suchanfrage) | Art. 6(1)(a) Einwilligung | Keine PII übertragen; `external_enrichment`-Consent | Ja |
-| **Perenual** (REQ-011) | Artname (Suchanfrage) | Art. 6(1)(a) Einwilligung | Keine PII übertragen; `external_enrichment`-Consent | Ja |
-| **HaveIBeenPwned** (REQ-023) | SHA-1-Prefix (5 Zeichen) des Passwort-Hashs | Art. 6(1)(a) Einwilligung | k-Anonymity — kein Rückschluss auf Passwort möglich; `hibp_check`-Consent | Ja |
-| **Sentry** (NFR-001 §8.3) | IP (anon.), User-Agent, Stack-Traces, URLs | Art. 6(1)(a) Einwilligung | PII-Scrubbing, EU-Hosting oder AVV; `error_tracking`-Consent | Ja |
+| **GBIF** (REQ-011) | Artname (Suchanfrage) | Kein Personenbezug (Katalog-Job, vom Plattform-Admin oder Beat ausgelöst) | Keine PII übertragen; Zweck `external_enrichment` entfernt (#2136) | Nein |
+| **Perenual** (REQ-011) | Artname (Suchanfrage) | Kein Personenbezug (Katalog-Job, vom Plattform-Admin oder Beat ausgelöst) | Keine PII übertragen; Zweck `external_enrichment` entfernt (#2136) | Nein |
+| **HaveIBeenPwned** (REQ-023) | — (nicht implementiert) | — | Zweck `hibp_check` bis zur Umsetzung entfernt (#2136); kommt mit dem Adapter zurück | — |
+| **Sentry** (NFR-001 §8.3) | Backend: Stack-Traces, Routenmuster, User-Agent (keine Bodies, keine IP); mit Einwilligung zusätzlich Konto-/Mandanten-Pseudonym | Ereignis: berechtigtes Interesse Art. 6(1)(f) (Betriebsstabilität) — **#2136, rechtlich zu bestätigen**; Zuordnung (`user`-Block): Art. 6(1)(a) | PII-Scrubbing, EU-Hosting oder AVV; `error_tracking`-Consent für die Zuordnung | Nur die Zuordnung |
 | **DWD / OpenWeatherMap / Open-Meteo** (REQ-005) | GPS-Koordinaten des Standorts (Site.latitude/longitude) | Art. 6(1)(b) Vertragserfüllung | Koordinaten auf 2 Dezimalstellen gerundet (~1 km Genauigkeit); kein Personenbezug | Nein |
 | **InvenTree** (REQ-016) | Produktreferenzen, Bestandsänderungen | Art. 6(1)(b) Vertragserfüllung | Self-Hosted; kein externer Dienst im Regelfall | Nein |
 | **OAuth-Provider** (REQ-023) | E-Mail, Name (vom Provider empfangen) | Art. 6(1)(b) Vertragserfüllung | Nur bei explizitem Nutzer-Login; Daten vom Provider kontrolliert | Nein (funktional) |
@@ -1616,7 +1582,7 @@ Kamerplanter kommuniziert mit mehreren externen Diensten. Für jeden Dienst MUSS
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| DP-001 | Externe API-Aufrufe DÜRFEN NUR nach Prüfung der Consent-Pflicht erfolgen. Consent-pflichtige Dienste MÜSSEN die `require_consent()`-Dependency verwenden. | MUSS |
+| DP-001 | Externe API-Aufrufe DÜRFEN NUR nach Prüfung der Consent-Pflicht erfolgen. Consent-pflichtige Dienste MÜSSEN `ConsentGuard.require_consent()` (bzw. `has_consent()`) in der Fachlogik verwenden (§3.6). | MUSS |
 | DP-002 | GPS-Koordinaten MÜSSEN vor Übertragung an Wetter-APIs auf maximal 2 Dezimalstellen gerundet werden. | MUSS |
 | DP-003 | Bei Nutzung von Sentry SaaS MUSS ein AVV nach Art. 28 DSGVO vorliegen (siehe NFR-001 §8.3 SE-004). | MUSS |
 

@@ -16,6 +16,7 @@ from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials
 from app.common.auth import bearer_scheme
 from app.common.dependencies import get_mcp_authenticator, get_mcp_dispatcher, get_mcp_session_store
 from app.common.exceptions import NotFoundError, UnauthorizedError
+from app.common.request_context import bind_actor
 from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.mcp_server.auth import McpAuthenticator
@@ -61,7 +62,11 @@ def get_mcp_principal(
         raw_key = bearer.credentials
     if not raw_key:
         raise UnauthorizedError("Missing MCP API key (X-API-Key).")
-    return authenticator.authenticate(raw_key, client_ip=resolve_client_ip(request))
+    principal = authenticator.authenticate(raw_key, client_ip=resolve_client_ip(request))
+    # The MCP transport authenticates outside ``get_current_user``; its lines and the
+    # tasks its tools dispatch name the caller by pseudonym all the same (#2130).
+    bind_actor(principal.account_key)
+    return principal
 
 
 def get_dispatcher(

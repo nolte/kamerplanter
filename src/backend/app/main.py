@@ -29,6 +29,8 @@ from app.data_access.arango.collections import ensure_collections
 from app.data_access.external.registration import register_external_adapters
 from app.domain.engines.encryption_engine import is_usable_fernet_key
 from app.observability.error_tracking import init_error_tracking, resolve_release
+from app.observability.event_user import error_event_user
+from app.observability.metrics import MetricsMiddleware, start_configured_metrics_server, stop_metrics_server
 
 # Redaction before anything below can log (#1832): error tracking, adapter
 # registration and a failing startup all ran under structlog's defaults (a
@@ -49,6 +51,8 @@ init_error_tracking(
     release=resolve_release("kamerplanter-backend", settings.app_version),
     redact_text=redact_text_in_flight,
     redact_path=loggable_path,
+    # An event names the request's account and tenant by pseudonym (#2129).
+    user_context=error_event_user,
 )
 
 # Register every self-registering adapter (weather, pest, identification, storage
@@ -267,8 +271,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         else:
             logger.warning("timescaledb_enabled_but_connection_failed")
 
+    # NFR-007 metrics on their own port (#2129); off unless METRICS_PORT is set.
+    metrics_server = start_configured_metrics_server()
+
     yield
 
+    stop_metrics_server(metrics_server)
     if mdns_announcer:
         mdns_announcer.stop()
     close_connection()
@@ -425,6 +433,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Outermost: records every request, including one CORS or the security
+# middleware answered, with the route pattern the router matched (#2129).
+app.add_middleware(MetricsMiddleware)
 
 app.include_router(api_router)
 

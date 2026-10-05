@@ -409,7 +409,19 @@ class DataExportEngine:
             collection="mcp_audit_log",
             filter_field="service_account_key",
             label="MCP tool calls (service accounts)",
-            fields=["tenant_key", "tool_name", "status", "created_at"],
+            # #2130: the correlation references of a call are about the caller too —
+            # which of its keys, from which (truncated) network, on which request,
+            # touching which records.
+            fields=[
+                "tenant_key",
+                "tool_name",
+                "status",
+                "created_at",
+                "api_key_ref",
+                "client_ip_ref",
+                "request_id",
+                "entity_keys",
+            ],
         ),
         # MT-014 (#2111): the security audit names two accounts per row. The rows about the
         # subject's own memberships (target) and the rows of changes the subject made (actor)

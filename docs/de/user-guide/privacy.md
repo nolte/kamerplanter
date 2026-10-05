@@ -164,9 +164,7 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 | Zweck | Typ | Widerrufbar |
 |-------|-----|:-----------:|
 | **Grundfunktionen** (Pflanzenverwaltung, Erinnerungen) | Pflicht | Nein |
-| **Fehler-Tracking (Sentry)** | Optional | Ja |
-| **HaveIBeenPwned Passwort-Check** | Optional | Ja |
-| **Externe Stammdatenanreicherung** (GBIF, Perenual) | Optional | Ja |
+| **Fehlerberichte meinem Konto zuordnen** (Sentry) | Optional | Ja |
 | **Foto-Identifikation** (Pl@ntNet) | Optional | Ja |
 | **Cloud-basierte Schädlingserkennung** (Kindwise plant.health) | Optional | Ja |
 | **KI-Krankheitsdiagnose** (Bilderkennung für Krankheiten/Mängel) | Optional | Ja |
@@ -174,6 +172,11 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 | **KI-Zugriff auf deine Pflanzendaten** (`ai_tenant_data_access`) | Optional | Ja |
 | **KI-Verarbeitung über Cloud-Provider** (`ai_cloud_processing`) | Optional | Ja |
 | **Tagebuch-Einträge zur KI-Analyse freigeben** (`diary_ai_analysis`) | Optional | Ja |
+
+!!! info "Was die Fehlerbericht-Zuordnung bewirkt"
+    Hat der Betreiber Fehler-Tracking eingeschaltet und tritt bei einer deiner Anfragen ein Fehler auf, geht ein Fehlerbericht an den Tracker — ohne Anfrage-Inhalte, ohne IP-Adresse und ohne den aufgerufenen Pfad. Mit deiner Einwilligung trägt er zusätzlich ein Pseudonym deines Kontos und deines Gartens, nie Name oder E-Mail. So lässt sich ein Fehler, der dich betrifft, gezielt nachverfolgen. Widerrufst du, gilt das ab deiner nächsten Anfrage.
+
+Eine Passwort-Prüfung gegen bekannte Datenlecks und eine Einwilligung für die externe Stammdatenanreicherung gibt es nicht mehr in der Liste: Die Passwort-Prüfung existiert nicht, und die Anreicherung von Arten-Stammdaten (GBIF, Perenual) überträgt nur Artnamen, keine Daten über dich. Hattest du eine der beiden erteilt, bleibt der Eintrag in deinem Datenexport sichtbar und wird mit deinem Konto gelöscht.
 
 ### Einwilligung widerrufen
 

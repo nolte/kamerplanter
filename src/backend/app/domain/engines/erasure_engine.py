@@ -47,6 +47,8 @@ UNAVAILABLE_LOG_SUBJECT = "anon_unavailable"
 #: Prefix of :meth:`ErasureEngine.log_tenant`, and its constant for an unusable salt (#1928).
 LOG_TENANT_PREFIX = "ten_"
 UNAVAILABLE_LOG_TENANT = "ten_unavailable"
+LOG_API_KEY_PREFIX = "key_"
+UNAVAILABLE_LOG_API_KEY = "key_unavailable"
 
 
 class ErasureEngine:
@@ -1037,6 +1039,24 @@ class ErasureEngine:
             return UNAVAILABLE_LOG_TENANT
         digest = hmac.new(salt.encode(), f"log-tenant:{tenant_key}".encode(), hashlib.sha256).hexdigest()
         return f"{LOG_TENANT_PREFIX}{digest[:16]}"
+
+    @staticmethod
+    def log_api_key(api_key_key: str, salt: str) -> str:
+        """The reference an audit row or log line carries instead of an API key's document key (#2130).
+
+        ``key_`` + 16 hex chars of an HMAC-SHA256 over the ``api_keys`` document
+        key (never the secret, which nothing but the authenticator ever holds),
+        under the log salt with its own purpose label (``log-api-key``). Calls of
+        one key stay correlatable — which tells two keys of one service account
+        apart when one is compromised — and an operator holding the salt can map
+        a reference back to a key that still exists. Once the key document is
+        deleted (revocation cleanup, account erasure) the reference names nothing.
+        A missing or short salt yields ``key_unavailable``.
+        """
+        if not salt or len(salt) < MIN_LOG_PSEUDONYM_SALT_LENGTH:
+            return UNAVAILABLE_LOG_API_KEY
+        digest = hmac.new(salt.encode(), f"log-api-key:{api_key_key}".encode(), hashlib.sha256).hexdigest()
+        return f"{LOG_API_KEY_PREFIX}{digest[:16]}"
 
     @staticmethod
     def redact_subject(text: str, user_key: str, salt: str) -> str:

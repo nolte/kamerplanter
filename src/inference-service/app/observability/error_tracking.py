@@ -104,6 +104,21 @@ PathRedactor = Callable[[str], str]
 #: Set by :func:`init_error_tracking`. ``None``: the service has no route table
 #: to consult, and :func:`_redact_path` keeps only ``api`` and ``v<digits>``.
 _path_redactor: PathRedactor | None = None
+
+#: What a service hands :func:`init_error_tracking` to name *who* an event is
+#: about: called at capture time, in the context of the code that failed, it
+#: returns the event's ``user`` block — ``{"id": …, "tenant": …}``, pseudonyms
+#: the service may send — or ``None`` for none. The service decides there
+#: whether the person agreed to be named (the backend asks the request's
+#: ``error_tracking`` consent, #2136). Only ``id`` and ``tenant`` string values
+#: survive; whatever else it returns is dropped.
+UserContext = Callable[[], Mapping[str, Any] | None]
+
+#: Set by :func:`init_error_tracking`. ``None``: no event carries a ``user`` block.
+_user_context: UserContext | None = None
+#: The keys a ``user`` block may carry, and the longest value kept.
+_USER_KEYS = ("id", "tenant")
+_MAX_USER_VALUE = 64
 _PATH_SAFE_SEGMENT = re.compile(r"api|v\d+")
 #: ``transaction_info.source`` values for which the SDK's ``transaction`` is a
 #: route *template* (``/t/{tenant_slug}/attachments/{key}``), not the raw path.
@@ -485,6 +500,25 @@ def install_uncaught_exception_redaction() -> None:
         sys.unraisablehook = unraisable_hook
 
 
+def _event_user() -> dict[str, str] | None:
+    """The ``user`` block the service's :data:`UserContext` names; fails closed to none."""
+    provider = _user_context
+    if provider is None:
+        return None
+    try:
+        named = provider()
+    except Exception:
+        return None
+    if not isinstance(named, Mapping):
+        return None
+    user: dict[str, str] = {}
+    for key in _USER_KEYS:
+        value = named.get(key)
+        if isinstance(value, str) and 0 < len(value) <= _MAX_USER_VALUE:
+            user[key] = value
+    return user or None
+
+
 def scrub_event(event: MutableMapping[str, Any], _hint: Mapping[str, Any] | None = None) -> MutableMapping[str, Any]:
     """``before_send`` hook: strip personal data before the event leaves the process.
 
@@ -501,11 +535,15 @@ def scrub_event(event: MutableMapping[str, Any], _hint: Mapping[str, Any] | None
     if isinstance(request, dict):
         _scrub_request(request)
 
-    user = event.get("user")
-    if isinstance(user, dict):
-        # A tenant/user id is the join key that makes an issue actionable; the
-        # attributes that identify the human are not.
-        event["user"] = {k: v for k, v in user.items() if k in ("id", "tenant")}
+    # The ``user`` block comes from the service's :data:`UserContext` and from
+    # nothing else (#2129). Whatever the SDK or an integration put there — an
+    # address, a username, a raw account key handed to ``set_user`` — is dropped:
+    # the join key that makes an issue actionable is the service's pseudonym, and
+    # the service alone knows whether the person agreed to be named (#2136).
+    event.pop("user", None)
+    user = _event_user()
+    if user is not None:
+        event["user"] = user
 
     for section in ("extra", "tags", "contexts"):
         value = event.get(section)
@@ -573,6 +611,7 @@ def init_error_tracking(
     release: str,
     redact_text: TextRedactor | None,
     redact_path: PathRedactor | None = None,
+    user_context: UserContext | None = None,
 ) -> bool:
     """Initialise the Sentry-compatible SDK if a DSN is configured.
 
@@ -592,14 +631,18 @@ def init_error_tracking(
             :data:`PathRedactor`), used for the event's request URL and
             transaction name when the framework provided no route pattern.
             ``None`` keeps only ``api`` and ``v<digits>`` segments.
+        user_context: The service's :data:`UserContext` — who an event is about,
+            as pseudonyms, decided at capture time. ``None``: events carry no
+            ``user`` block at all.
 
     Returns:
         ``True`` when the SDK was initialised, ``False`` when it stayed a no-op.
         Callers ignore this; it exists so the behaviour is directly testable.
     """
-    global _text_redactor, _path_redactor
+    global _text_redactor, _path_redactor, _user_context
     _text_redactor = redact_text
     _path_redactor = redact_path
+    _user_context = user_context
 
     dsn = environ.get("SENTRY_DSN", "").strip()
     if not dsn:
