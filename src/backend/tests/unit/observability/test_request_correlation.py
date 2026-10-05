@@ -102,7 +102,7 @@ class _AuthProvider:
 
 class _TenantService:
     def get_tenant_by_slug(self, slug: str) -> SimpleNamespace:
-        return SimpleNamespace(key=_TENANT_KEY, slug=slug)
+        return SimpleNamespace(key=_TENANT_KEY, slug=slug, is_active=True)
 
     def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace:
         return SimpleNamespace(role=TenantRole.LEAD, admin_scopes=[], is_active=True)

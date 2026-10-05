@@ -65,7 +65,7 @@ class AuthProvider:
 
 class TenantService:
     def get_tenant_by_slug(self, slug):
-        return SimpleNamespace(key=os.environ["PROBE_TENANT"], slug=slug)
+        return SimpleNamespace(key=os.environ["PROBE_TENANT"], slug=slug, is_active=True)
     def get_membership(self, user_key, tenant_key):
         return SimpleNamespace(role=TenantRole.LEAD, admin_scopes=[], is_active=True)
 
