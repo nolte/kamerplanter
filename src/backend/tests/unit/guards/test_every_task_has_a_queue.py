@@ -63,7 +63,8 @@ def _registered() -> dict[str, Any]:
 
 
 def _declared_queues() -> set[str]:
-    return {queue.name for queue in celery_app.conf.task_queues}
+    """The queues Celery built from ``task_queues`` — what a worker without ``-Q`` consumes."""
+    return set(celery_app.amqp.queues)
 
 
 def test_every_registered_task_is_classified_exactly_once() -> None:

@@ -43,8 +43,6 @@ from __future__ import annotations
 
 from typing import Final
 
-from kombu import Exchange, Queue
-
 QUEUE_CRITICAL: Final = "critical"
 QUEUE_DEFAULT: Final = "celery"
 QUEUE_BULK: Final = "bulk"
@@ -193,8 +191,9 @@ def celery_queue_config() -> dict[str, object]:
         "task_default_queue": QUEUE_DEFAULT,
         # Exchange and routing key named after the queue: for ``celery`` that is
         # exactly Celery's own default declaration, so messages an older image
-        # publishes still reach it.
-        "task_queues": tuple(Queue(name, Exchange(name, type="direct"), routing_key=name) for name in QUEUES),
+        # publishes still reach it. The mapping form is Celery's own
+        # (``Queues.add_compat``), so no kombu import is needed here.
+        "task_queues": {name: {"exchange": name, "exchange_type": "direct", "routing_key": name} for name in QUEUES},
         "task_routes": task_routes(),
         "task_annotations": task_annotations(),
         "task_soft_time_limit": SOFT_TIME_LIMIT_SECONDS,
