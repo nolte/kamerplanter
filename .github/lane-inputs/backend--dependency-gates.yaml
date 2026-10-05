@@ -9,10 +9,10 @@ job: dependency-gates
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-28'
-measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
-replay_seconds: 10
-job_spec_sha256: 12f8314c394f484dd60d2b5dbd1436e1d1e0057128f8641d2595745eefe665e2
+measured_on: '2026-10-05'
+measured_at_commit: b84592b0423e8106218d048d4b3fd5b83cf83226
+replay_seconds: 13
+job_spec_sha256: c02d23fc6df5717243f60216ae66dd36d664c82b5b6a80469bddd16d96c2fc92
 invocations:
 - command: task deps:check
   cwd: src/backend
@@ -20,7 +20,7 @@ invocations:
   exit_code: 0
   env:
   - UV_PROJECT_ENVIRONMENT=/tmp/lane-inputs-scratch/depsenv
-  untracked_reads_dropped: 1
+  untracked_reads_dropped: 7
 - command: uv sync --locked --no-install-project
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -34,7 +34,7 @@ invocations:
   exit_code: 0
   env:
   - UV_PROJECT_ENVIRONMENT=/tmp/lane-inputs-scratch/depsenv
-  untracked_reads_dropped: 34
+  untracked_reads_dropped: 35
 - command: uv export --locked --no-emit-project --format requirements.txt -o /tmp/lane-inputs-scratch/requirements.txt
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -77,6 +77,7 @@ reads:
 - src/backend/app/common/__init__.py
 - src/backend/app/common/error_ids.py
 - src/backend/app/common/exceptions.py
+- src/backend/app/common/url_safety.py
 - src/backend/app/config/
 - src/backend/app/config/__init__.py
 - src/backend/app/config/settings.py

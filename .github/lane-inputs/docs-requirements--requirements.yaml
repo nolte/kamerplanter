@@ -9,9 +9,9 @@ job: requirements
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-28'
-measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
-replay_seconds: 50
+measured_on: '2026-10-05'
+measured_at_commit: b84592b0423e8106218d048d4b3fd5b83cf83226
+replay_seconds: 36
 job_spec_sha256: 069485b9a5b2e59c9e38dc728738b2aaf5978deef56ca75b97546259e1ff536f
 invocations:
 - command: task docs:venv
@@ -19,7 +19,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 19952
+  untracked_reads_dropped: 19959
 - command: task docs:lock
   cwd: .
   recorder: strace -ff -y -z
