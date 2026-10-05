@@ -1,5 +1,6 @@
 import client, { tenantClient, getActiveTenantSlug } from '../client';
 import { fetchAllPages } from '../paginate';
+import { ApiError } from '../errors';
 import { isLightMode } from '@/config/mode';
 import type {
   AiConversationSummary,
@@ -8,6 +9,7 @@ import type {
   AiStatus,
   AiTipCard,
   AiTipListResponse,
+  ApiErrorResponse,
 } from '../types';
 
 /**
@@ -124,6 +126,43 @@ export interface AiChatEvent {
 }
 
 /**
+ * A chat request the backend refused without the JSON error envelope (e.g. the
+ * per-minute rate limit, a proxy error page). Carries the HTTP status so the
+ * caller can still tell a 429 apart.
+ */
+export class ChatStreamError extends Error {
+  readonly statusCode: number;
+
+  constructor(statusCode: number) {
+    super(`chat_stream_failed_${statusCode}`);
+    this.name = 'ChatStreamError';
+    this.statusCode = statusCode;
+  }
+}
+
+/**
+ * The error of a refused chat request. The backend refuses before the stream
+ * starts (consent, AI budget — #2110), with the same JSON envelope the axios
+ * client turns into an {@link ApiError}; `fetch` does not, so it is done here.
+ */
+async function chatStreamError(response: Response): Promise<Error> {
+  try {
+    const body: unknown = await response.json();
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      'error_id' in body &&
+      'error_code' in body
+    ) {
+      return new ApiError(body as ApiErrorResponse, response.status);
+    }
+  } catch {
+    // Not JSON — fall through to the status-only error.
+  }
+  return new ChatStreamError(response.status);
+}
+
+/**
  * Send a chat message and consume the SSE stream token-by-token (§5.4).
  *
  * Uses `fetch` with a streaming reader rather than axios, because axios does not
@@ -145,8 +184,11 @@ export async function streamChatMessage(
     body: JSON.stringify({ message, language }),
     signal,
   });
-  if (!response.ok || !response.body) {
-    throw new Error(`chat_stream_failed_${response.status}`);
+  if (!response.ok) {
+    throw await chatStreamError(response);
+  }
+  if (!response.body) {
+    throw new ChatStreamError(response.status);
   }
 
   const reader = response.body.getReader();

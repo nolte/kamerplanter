@@ -39,8 +39,15 @@ class SiteWaterConfig(BaseModel):
 
 
 class Slot(BaseModel):
+    """A plant position within a location.
+
+    Carries **no** ``tenant_key`` (#2107): its tenant is its location's site's, and
+    the field it used to declare was never written — every document held ``""``,
+    which read as "global" to any check that trusted it (#1397). Ownership is
+    resolved slot → location → site (``location_ownership.resolve_owned_slot``).
+    """
+
     key: str | None = Field(default=None, alias="_key")
-    tenant_key: str = ""
     slot_id: str
     location_key: str = ""
     position: tuple[int, int] = (0, 0)
@@ -63,8 +70,15 @@ class Slot(BaseModel):
 
 
 class Location(BaseModel):
+    """A place within a site (room, tent, bed …).
+
+    Carries **no** ``tenant_key`` (#2107), for the reason :class:`Slot` gives: the
+    site is the tenant anchor (``location_ownership.require_owned_site``). Legacy
+    documents may still hold a ``tenant_key`` stamped by migration v0004; it is
+    ignored on read and dropped by the next update.
+    """
+
     key: str | None = Field(default=None, alias="_key")
-    tenant_key: str = ""
     name: str
     site_key: str = ""
     parent_location_key: str | None = None

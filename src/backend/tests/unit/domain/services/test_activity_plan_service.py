@@ -286,7 +286,7 @@ class TestApplyPlanToPlant:
         created_task.key = "t1"
         service._task_repo.create_task.return_value = created_task
 
-        result = service.apply_plan_to_plant("wt1", "plant1")
+        result = service.apply_plan_to_plant("wt1", "plant1", tenant_key="tenant-a")
 
         # Only 1 enabled template
         assert result["created_count"] == 1
@@ -302,7 +302,7 @@ class TestApplyPlanToPlant:
         created_task.key = "t1"
         service._task_repo.create_task.return_value = created_task
 
-        service.apply_plan_to_plant("wt1", "plant1")
+        service.apply_plan_to_plant("wt1", "plant1", tenant_key="tenant-a")
 
         service._task_repo.create_task_activity_edge.assert_called_once_with("t1", "act1")
 
@@ -314,7 +314,7 @@ class TestApplyPlanToPlant:
             _make_task_template(key="tt2", enabled=False),
         ]
 
-        result = service.apply_plan_to_plant("wt1", "plant1")
+        result = service.apply_plan_to_plant("wt1", "plant1", tenant_key="tenant-a")
         assert result["created_count"] == 0
         assert service._task_repo.create_task.call_count == 0
 
@@ -338,6 +338,6 @@ class TestApplyPlanToRun:
         created_task.key = "t1"
         service._task_repo.create_task.return_value = created_task
 
-        result = service.apply_plan_to_run("wt1", "run1")
+        result = service.apply_plan_to_run("wt1", "run1", tenant_key="tenant-a")
         assert result["plant_count"] == 2
         assert result["total_tasks"] == 2  # 1 enabled x 2 plants

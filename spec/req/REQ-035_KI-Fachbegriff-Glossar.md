@@ -7,7 +7,7 @@ Kategorie: KI & Beratung
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, Redis, React 19, TypeScript 5.9, MUI 7
 Status: Entwurf
-Version: 1.1 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
+Version: 1.2 (Glossar-Cache plattformseitig klassifiziert, KI-Budget, #2110)
 Abhängigkeit: REQ-021 v1.0 (Erfahrungsstufen), REQ-024 v1.4 (Mandantenverwaltung — fuer optionalen Tenant-Kontext), REQ-027 v1.2 (Light-Modus), REQ-031 v2.0 (KI-Assistent / Knowledge Service)
 Wird benoetigt von: —
 ```
@@ -17,6 +17,7 @@ Wird benoetigt von: —
 | Version | Datum | Aenderung |
 |---------|-------|-----------|
 | 1.0 | 2026-04-25 | Initialer Entwurf — auf Basis Knowledge-Service-Realität (REQ-031 v2.0) |
+| 1.2 | 2026-10-05 | **#2110 (MT-013):** Der Glossar-Cache ist Plattform-Output und wird vom **System-Default-Provider** der Plattform klassifiziert, nicht vom Default des zuerst anfragenden Mandanten (§6). Der Cache-Eintrag trägt `uses_cloud_provider` (§2.2); jeder Leser sieht dieses Label. Ein Cache-Miss auf dem Tenant-Pfad belastet das KI-Budget des Aufrufers (REQ-031 §3.4) und trägt das Minutenbudget `RATE_LIMIT_INFERENCE`. Die frühere Aussage „geht auch der Glossar-Aufruf an den Cloud-Provider des Tenants“ war unzutreffend: Der Knowledge Service antwortet immer mit seinem eigenen, per Umgebung konfigurierten LLM; die `/ask`-Anfrage nennt keinen Provider. Der in §6 genannte Schalter `AI_PUBLIC_PROVIDER_KEY` existiert im Code nicht. |
 
 ## 1. Business Case
 
@@ -115,6 +116,7 @@ Cache-Schicht fuer LLM-Antworten pro Begriff/Sprache/Erfahrungsstufe (analog `ai
   "provider_type": "ollama",
   "kb_version": "ks-1.4.2-idx-20260420",
   "is_fallback": false,
+  "uses_cloud_provider": false,
   "generated_at": "2026-04-25T10:00:00Z",
   "valid_until": "2026-05-02T10:00:00Z"
 }
@@ -148,7 +150,7 @@ Begriffsliste wird in `spec/knowledge/glossary/seed_terms.yaml` versioniert und 
 | Methode | Pfad | Beschreibung | Berechtigung | Consent |
 |---------|------|-------------|--------------|---------|
 | `GET` | `/term/{slug}` | Vorbereitete Erklaerung **lesen**. Query: `?expertise=beginner|intermediate|expert&language=de|en` | Alle Rollen | — (kein Tenant-Daten-Zugriff) |
-| `POST` | `/term/{slug}/generate` | Erklaerung **erzeugen** und zwischenspeichern. Gleiche Query-Parameter | Ab Gärtner (`glossary`/`create`) | `ai_cloud_processing`, wenn der Mandant einen Cloud-Provider als Standard hat |
+| `POST` | `/term/{slug}/generate` | Erklaerung **erzeugen** und zwischenspeichern. Gleiche Query-Parameter | Ab Gärtner (`glossary`/`create`) | `ai_cloud_processing`, wenn der **System-Default-Provider der Plattform** ein Cloud-Provider ist (#2110) |
 | `GET` | `/terms` | Liste aller aktiven Begriffe (slug + label + category). Query: `?category=&language=` | Alle Rollen | — |
 
 <!-- #1460 -->
@@ -338,7 +340,9 @@ Die Migration der bestehenden Tooltips ist nicht Teil von REQ-035 (separate UX-A
 - **Keine PII:** Glossar-Aufrufe enthalten weder Tenant- noch User-Daten.
 - **Audit-Log:** Aufrufe werden in `ai_audit_log` mit `endpoint=glossary`, `uses_tenant_data=false`, `uses_cloud_provider=false` (im lokalen Default) erfasst. Retention 30 Tage (NFR-011).
 - **Rate-Limit Light-Modus:** 30 GET/min pro IP fuer `/term/{slug}`, 10 GET/min fuer `/terms`. Token-Bucket via Redis. Bei Ueberschreitung HTTP 429 mit `Retry-After`-Header.
-- **Cloud-Provider-Hinweis:** Wenn ein Tenant einen Cloud-Provider als Default hat, geht auch der Glossar-Aufruf an den Cloud-Provider — daher ist im Light-Modus AUSSCHLIESSLICH der lokale Default-Provider verwendbar (Konfiguration: `AI_PUBLIC_PROVIDER_KEY` zeigt auf einen lokalen System-Default-Provider).
+- **Plattform-Klassifikation (#2110):** Ein Glossar-Eintrag wird einmal erzeugt und allen Mandanten ausgeliefert. Ob seine Erzeugung als Cloud-Verarbeitung gilt, entscheidet daher der **System-Default-Provider** der Plattform (`ai_provider_configs` mit `tenant_key == null`), nicht der Default des zuerst anfragenden Mandanten. Das Ergebnis steht am Eintrag (`uses_cloud_provider`, §2.2) und wird jedem Leser so ausgeliefert. Löst ein Mitglied eine Cloud-Generierung aus, braucht es den Consent `ai_cloud_processing` (fail-closed ohne Prinzipal oder ohne verdrahteten Guard); der Warm-up-Task (§4.3) ist die Generierung der Plattform selbst und fragt niemanden. Der Mandanten-Schalter `ai_allow_cloud_providers` wird hier nicht ausgewertet: Er hält *Mandantendaten* von einem Cloud-LLM fern, und der Glossar-Prompt enthält keine — nur ein kuratiertes Label und eine Erfahrungsstufe.
+- **Welches Modell antwortet:** Der Knowledge Service antwortet mit seinem eigenen, per Umgebung konfigurierten LLM (`LLM_PROVIDER`); die `/ask`-Anfrage des Backends nennt keinen Provider. Die Provider-Datensätze klassifizieren den Aufruf, sie wählen ihn nicht aus (Audit-Lücke G-4).
+- **KI-Budget (#2110):** Ein Cache-Miss auf `POST …/generate` belastet das Tagesbudget des Aufrufers (REQ-031 §3.4) und trägt das Konto-Minutenbudget `RATE_LIMIT_INFERENCE`; ein Cache-Treffer belastet nichts.
 - **Prompt-Injection-Schutz (NFR-007):** Slug ist eine kontrollierte Whitelist; freier User-Input fliesst NICHT in den LLM-Prompt. Damit ist Prompt-Injection ueber den Glossar-Endpoint nicht moeglich.
 
 ## 7. Multilingual

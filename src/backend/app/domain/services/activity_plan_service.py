@@ -280,7 +280,8 @@ class ActivityPlanService:
         self,
         workflow_template_key: str,
         plant_key: str,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
     ) -> dict:
         """Create tasks from a workflow template's task templates for a single plant.
 
@@ -339,7 +340,8 @@ class ActivityPlanService:
         self,
         workflow_template_key: str,
         run_key: str,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
     ) -> dict:
         """Create tasks from a workflow template for all plants in a run."""
         self._run_repo.get_or_raise(run_key)
@@ -351,11 +353,7 @@ class ActivityPlanService:
         total_keys: list[str] = []
         for pd in plant_dicts:
             plant_key = pd.get("key", pd.get("_key", ""))
-            result = self.apply_plan_to_plant(
-                workflow_template_key,
-                plant_key,
-                tenant_key,
-            )
+            result = self.apply_plan_to_plant(workflow_template_key, plant_key, tenant_key=tenant_key)
             total_keys.extend(result["task_keys"])
 
         return {

@@ -143,7 +143,7 @@ def update_site(
         site.mean_annual_minimum_c = existing.mean_annual_minimum_c
     else:
         site.hardiness_zone_source = "manual"
-    updated = service.update_site(key, site)
+    updated = service.update_site(key, site, tenant_key=ctx.tenant_key)
     return _site_response(updated, service)
 
 
@@ -154,8 +154,7 @@ def delete_site(
     service: SiteService = Depends(get_site_service),
 ):
     """Delete a site."""
-    service.get_site(key, tenant_key=ctx.tenant_key)
-    service.delete_site(key)
+    service.delete_site(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}/hardiness", response_model=SiteHardinessResponse)
@@ -210,7 +209,7 @@ def get_location_tree(
     slots_by_location: dict[str, int] = {}
     for loc in all_locations:
         loc_key = loc.key or ""
-        slots = service.list_slots(loc_key)
+        slots = service.list_slots(loc_key, tenant_key=ctx.tenant_key)
         slots_by_location[loc_key] = len(slots)
 
     # Count active plants per location

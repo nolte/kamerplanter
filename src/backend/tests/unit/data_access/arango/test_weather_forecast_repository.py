@@ -102,13 +102,3 @@ class TestFindBySite:
         bind = mock_db.aql.execute.call_args.kwargs["bind_vars"]
         assert bind["site_key"] == "site1"
         assert bind["tenant_key"] == "tenantA"
-
-
-class TestGet:
-    def test_found(self, repo, mock_db):
-        mock_db.collection.return_value.get.return_value = _doc()
-        assert isinstance(repo.get("wf1"), WeatherForecast)
-
-    def test_missing(self, repo, mock_db):
-        mock_db.collection.return_value.get.return_value = None
-        assert repo.get("wf1") is None

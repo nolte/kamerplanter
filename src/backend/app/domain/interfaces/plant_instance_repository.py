@@ -52,9 +52,6 @@ class IPlantInstanceRepository(ABC):
     def delete(self, key: PlantID) -> bool: ...
 
     @abstractmethod
-    def get_by_slot(self, slot_key: SlotKey) -> list[PlantInstance]: ...
-
-    @abstractmethod
     def get_active_by_slot(self, slot_key: SlotKey, *, tenant_key: str) -> list[PlantInstance]:
         """Return the plants occupying a slot inside ``tenant_key`` (#927)."""
         ...

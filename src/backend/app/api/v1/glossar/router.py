@@ -4,8 +4,8 @@ Mounted under ``/api/v1/t/{tenant_slug}/glossary``. The endpoints are reachable
 for any tenant member (viewer/grower/admin) via ``get_current_tenant``, but they
 use **no** tenant data: the Knowledge-Service call runs strictly with
 ``context=null`` (§3.1). The tenant context is only used to enforce the REQ-031
-cloud-processing consent gate when the tenant's default provider is a cloud LLM
-(§6).
+cloud-processing consent gate when the platform's default provider is a cloud LLM
+(§6, #2110) and to charge the caller's daily AI budget.
 
 The router is intentionally **not** gated by ``require_ai_feature_flag``: the
 term list and the editorial fallback text need no AI/RAG stack and must stay
@@ -20,10 +20,12 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Request
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.glossar.deps import get_glossary_service
 from app.common.auth import get_current_tenant, require_permission
+from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.models.glossary_term import (
     ExpertiseLevel,
@@ -69,7 +71,9 @@ def get_term(
 
 
 @router.post("/term/{slug}/generate", response_model=GlossaryTermAnswer)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def generate_term(
+    request: Request,
     slug: Annotated[str, Path(description="Slug identifier of the glossary term.")],
     expertise: ExpertiseLevel = Query("beginner", description="Experience level the explanation targets."),
     language: Language = Query("de", description="Language of the returned explanation (de or en)."),
@@ -83,10 +87,12 @@ async def generate_term(
     entry is still valid, so a second request is not a second call.
 
     ``context=null`` at the Knowledge Service — no tenant data leaves the backend.
-    ``allow_cloud=True`` merely asks the service to *evaluate* the cloud gate: a
-    consent check only fires when the tenant actually has a cloud default provider
-    (§6). That gate lives here rather than on the read for the same reason the LLM
-    call does — with no call there is no cloud processing to consent to.
+    The cached answer is shared by every tenant, so it is classified by the
+    platform's default provider, not this tenant's (#2110): a consent check only
+    fires when that provider is a cloud LLM (§6). That gate lives here rather than
+    on the read for the same reason the LLM call does — with no call there is no
+    cloud processing to consent to. A cache miss is charged to the caller's daily
+    AI budget (#2110).
     """
     return await service.generate_term(
         slug,
@@ -94,5 +100,4 @@ async def generate_term(
         expertise_level=expertise,
         tenant_key=ctx.tenant_key,
         user_key=ctx.user_key,
-        allow_cloud=True,
     )

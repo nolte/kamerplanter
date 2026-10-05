@@ -10,9 +10,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Request
 from fastapi.responses import StreamingResponse
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.ki_assistent.deps import require_ai_tenant_enabled
 from app.api.v1.ki_assistent.schemas import (
     AiResponseSchema,
@@ -30,6 +31,7 @@ from app.common.dependencies import get_ai_assistant_service
 from app.common.enums import TenantRole
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.config.settings import settings
 from app.domain.models.ai_assistant import AiResponse, AiTenantSettings, AiTipCard
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.ai_assistant_service import AiAssistantService
@@ -125,7 +127,9 @@ def get_tips(
 
 
 @router.post("/tips/refresh", response_model=TipListResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 def refresh_tips(
+    request: Request,
     context_type: str = Query(..., description="Context entity type the tips relate to (e.g. plant, location)."),
     context_key: str = Query(..., description="Document key of the context entity."),
     language: str = Query("de", description="Preferred answer language (ISO 639-1)."),
@@ -183,7 +187,9 @@ def get_daily_tip(
 
 
 @router.post("/daily-tip/refresh", response_model=TipCardSchema | None)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 def refresh_daily_tip(
+    request: Request,
     language: str = Query("de", description="Preferred answer language (ISO 639-1)."),
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
@@ -211,7 +217,9 @@ def dismiss_daily_tip(
 
 
 @router.post("/explain", response_model=AiResponseSchema)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 def explain(
+    request: Request,
     body: ExplainRequest,
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
@@ -276,7 +284,9 @@ def create_conversation(
 
 
 @router.post("/conversations/{conversation_key}/messages")
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def send_message(
+    request: Request,
     conversation_key: Annotated[str, Path(description="Document key of the conversation.")],
     body: ChatMessageRequest,
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),

@@ -8,7 +8,9 @@ tip cache, audit log). They are tenant-scoped and back the retention cleanups in
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
@@ -69,6 +71,26 @@ class ArangoAiProviderRepository(BaseArangoRepository[AiProviderConfig]):
             if provider.is_default:
                 return provider
         return providers[0] if providers else None
+
+    def get_system_default(self) -> AiProviderConfig | None:
+        """The platform's own default provider — a system row (``tenant_key == null``).
+
+        For output that is shared by every tenant (the glossary cache, #2110):
+        its classification must not depend on which tenant happened to ask
+        first, so it is read from the platform's provider records only, never
+        from a tenant's. Same ordering as :meth:`list_for_tenant`.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.is_active == true
+          FILTER doc.tenant_key == null
+          SORT doc.is_default DESC, doc.display_name ASC
+          LIMIT 1
+          RETURN doc
+        """
+        cursor = cast(Cursor, self._db.aql.execute(query, bind_vars={"@collection": self._collection_name}))
+        rows = list(cursor)
+        return AiProviderConfig(**rows[0]) if rows else None
 
 
 class ArangoAiConversationRepository(BaseArangoRepository[AiConversation]):

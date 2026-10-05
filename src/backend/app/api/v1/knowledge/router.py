@@ -2,8 +2,9 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.knowledge.schemas import (
     KnowledgeAskRequest,
     KnowledgeAskResponse,
@@ -13,6 +14,7 @@ from app.api.v1.knowledge.schemas import (
 from app.common.auth import get_current_user
 from app.common.dependencies import get_knowledge_client
 from app.common.openapi_responses import AUTH_RESPONSES
+from app.config.settings import settings
 from app.data_access.external.knowledge_service_client import KnowledgeServiceClient
 
 router = APIRouter(
@@ -56,11 +58,19 @@ def search_knowledge(
 
 
 @router.post("/ask", response_model=KnowledgeAskResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 def ask_knowledge(
+    request: Request,
     body: KnowledgeAskRequest,
     client: KnowledgeServiceClient = Depends(_require_knowledge_client),
 ) -> KnowledgeAskResponse:
-    """RAG question answering (proxied to Knowledge Service)."""
+    """RAG question answering (proxied to Knowledge Service).
+
+    An LLM call per request, so it carries the per-account
+    ``rate_limit_inference`` like every other generating route (#2110). It has
+    no tenant, so the daily AI budget — which is per (tenant, account) and per
+    tenant — cannot apply here.
+    """
     context_dict = body.context.model_dump(exclude_none=True) if body.context else None
     data = client.ask(
         body.question,

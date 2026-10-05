@@ -45,6 +45,10 @@ _EXPENSIVE_PROVIDER_NAMES = frozenset(
         "get_identification_service",
         "get_reference_image_service",
         "get_print_service",
+        # #2110 (MT-013) — the services that put a prompt in front of an LLM.
+        "get_ai_assistant_service",
+        "get_glossary_service",
+        "get_diagnose_service",
     }
 )
 
@@ -74,6 +78,31 @@ _CLASSIFIED: dict[str, str] = {
     "GET /api/v1/t/{tenant_slug}/plant-instances/{key}/photos/assess/adapters": (
         "lists the configured assessment adapters: no assessment runs"
     ),
+    # #2110 (MT-013) — routes of the LLM services that put no prompt in front of a model.
+    "GET /api/v1/t/{tenant_slug}/ai/tips": "a read of stored tip cards: it never generates (#1461)",
+    "POST /api/v1/t/{tenant_slug}/ai/tips/{tip_key}/dismiss": "flags a stored tip card: no LLM call",
+    "POST /api/v1/t/{tenant_slug}/ai/tips/{tip_key}/acted-on": "flags a stored tip card: no LLM call",
+    "GET /api/v1/t/{tenant_slug}/ai/daily-tip": "a read of today's stored card: it never generates (#1461)",
+    "POST /api/v1/t/{tenant_slug}/ai/daily-tip/dismiss": "flags today's stored card: no LLM call",
+    "GET /api/v1/t/{tenant_slug}/ai/conversations": "lists the caller's conversations: no LLM call",
+    "POST /api/v1/t/{tenant_slug}/ai/conversations": "creates an empty conversation: no LLM call",
+    "DELETE /api/v1/t/{tenant_slug}/ai/conversations/{conversation_key}": "an Art. 17 delete: no LLM call",
+    "GET /api/v1/t/{tenant_slug}/ai/providers": "lists provider records: no LLM call",
+    "GET /api/v1/ai/knowledge-service/health": "a readiness probe of the knowledge service: no LLM call",
+    "GET /api/v1/public/ai/health": "a readiness probe of the knowledge service: no LLM call",
+    "POST /api/v1/public/ai/ask": (
+        "anonymous light-mode route: there is no account to bucket on; it carries the per-address "
+        "limit AI_PUBLIC_RATE_LIMIT_PER_MIN instead"
+    ),
+    "GET /api/v1/t/{tenant_slug}/diagnosis/symptoms": "reads the symptom catalogue: no LLM call",
+    "GET /api/v1/t/{tenant_slug}/glossary/terms": "lists curated terms: no LLM call",
+    "GET /api/v1/t/{tenant_slug}/glossary/term/{slug}": "serves a cached or curated text: it never generates (#1460)",
+    "GET /api/v1/public/glossary/terms": "lists curated terms: no LLM call",
+    "GET /api/v1/public/glossary/term/{slug}": "serves a cached or curated text: it never generates (#1460)",
+    "PUT /api/v1/admin/glossary/term/{slug}": "platform-admin catalogue write: no LLM call",
+    "DELETE /api/v1/admin/glossary/term/{slug}": "platform-admin catalogue write: no LLM call",
+    "POST /api/v1/admin/glossary/cache/invalidate-all": "platform-admin cache drop: no LLM call",
+    "POST /api/v1/admin/glossary/term/{slug}/cache/invalidate": "platform-admin cache drop: no LLM call",
 }
 
 #: Pinned member set (#2109): the routes the predicate must reach.
@@ -92,6 +121,13 @@ _EXPECTED_LIMITED = frozenset(
         "GET /api/v1/t/{tenant_slug}/print/nutrient-plan/{plan_key}",
         "GET /api/v1/t/{tenant_slug}/print/care-checklist",
         "GET /api/v1/t/{tenant_slug}/print/plant-labels",
+        # #2110 (MT-013) — every route that puts a prompt in front of an LLM.
+        "POST /api/v1/t/{tenant_slug}/ai/tips/refresh",
+        "POST /api/v1/t/{tenant_slug}/ai/daily-tip/refresh",
+        "POST /api/v1/t/{tenant_slug}/ai/explain",
+        "POST /api/v1/t/{tenant_slug}/ai/conversations/{conversation_key}/messages",
+        "POST /api/v1/t/{tenant_slug}/glossary/term/{slug}/generate",
+        "POST /api/v1/t/{tenant_slug}/diagnosis/analyze",
     }
 )
 

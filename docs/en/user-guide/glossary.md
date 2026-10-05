@@ -8,7 +8,8 @@ The terminology glossary explains terms like VPD, EC, or the pre-harvest interva
 
 - Your instance operator must have AI features enabled instance-wide. If not, the glossary page is just as unreachable as the [AI Assistant](ai-assistant.md) — details under [For Technical Users / Self-Hosters](#for-technical-users-self-hosters).
 - Logging in is **not** required: the glossary is purely factual knowledge with no reference to your specific plants, so it also works in anonymous [Light Mode](light-mode.md).
-- If your garden (tenant) uses a cloud provider instead of a local model as its default, you additionally need your "AI processing via cloud provider" consent — see [Granting consent](ai-assistant.md#granting-consent). This doesn't apply in Light Mode, since it always processes locally.
+- If the instance uses a cloud provider instead of a local model as its default, **generating** a new explanation additionally needs your "AI processing via cloud provider" consent — see [Granting consent](ai-assistant.md#granting-consent). What counts is the instance's default provider, not your garden's: an explanation is generated once and shown to every garden. Reading an existing explanation needs no consent. This doesn't apply in Light Mode, since it always processes locally.
+- Generating a new explanation counts towards your daily quota of AI requests, as with the [AI Assistant](ai-assistant.md). <!-- #2110 -->
 
 ## Browsing the glossary
 
@@ -63,7 +64,7 @@ The glossary is one of the few features that works entirely without a user accou
 
 The glossary uses the same instance-wide AI toggle as the [AI Assistant](ai-assistant.md#for-technical-users-self-hosters) (`AI_FEATURES_ENABLED=true`), but **not** the additional garden-level toggle (stage 2) — it needs no tenant-level AI activation because it doesn't use any plant data. Details on the environment variable are in [Environment Variables — AI Assistant](../reference/environment-variables.md#ki-assistent).
 
-If your garden (tenant) uses a cloud provider as its default provider, the regular "AI processing via cloud provider" consent check (`ai_cloud_processing`) still applies before a request reaches the cloud provider — see [Privacy & GDPR](privacy.md#for-technical-users-self-hosters). If consent is missing or the associated user can't be determined unambiguously, the request is rejected outright rather than silently redirected to a local model.
+If the **instance's system default provider** (a provider record without a tenant) is a cloud provider, generating runs the regular "AI processing via cloud provider" consent check (`ai_cloud_processing`). A single garden's default provider plays no part, because an explanation is generated once and served to every garden; its cloud notice is stored with the entry. Which language model actually answers is set by the Knowledge Service through its own environment (`LLM_PROVIDER`) <!-- #2110 --> — see [Privacy & GDPR](privacy.md#for-technical-users-self-hosters). If consent is missing or the associated user can't be determined unambiguously, the request is rejected outright rather than silently redirected to a local model.
 
 Like the AI Assistant, every **AI request to the knowledge base** is logged, without any plant or account data included in it. Simply reading an already-prepared term makes no such request and therefore writes no log entry; previously every anonymous call wrote one. <!-- #1460 -->
 

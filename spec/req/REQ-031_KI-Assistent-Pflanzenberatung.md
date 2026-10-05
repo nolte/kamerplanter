@@ -7,7 +7,7 @@ Kategorie: KI & Beratung
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Celery, ArangoDB, Redis, PostgreSQL 17 + pgvector 0.8, ONNX Embedding Service, bge-reranker-v2-m3, React 19, TypeScript 5.9, MUI 7, Ollama / Anthropic / OpenAI-kompatible APIs
 Status: Entwurf
-Version: 2.1 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
+Version: 2.3 (KI-Budget pro Konto und Tenant, #2110)
 Abhängigkeit: REQ-001 v5.0 (Stammdaten), REQ-003 v1.0 (Phasensteuerung), REQ-004 v3.1 (Düngung), REQ-005 v2.3 (Sensorik), REQ-006 v2.7 (Aufgabenplanung), REQ-009 v1.0 (Dashboard), REQ-011 v1.0 (Adapter-Pattern), REQ-013 v2.0 (Pflanzdurchlauf), REQ-021 v1.0 (Erfahrungsstufen), REQ-022 v2.4 (Pflegeerinnerungen), REQ-023 v1.7 (Auth), REQ-024 v1.4 (Mandantenverwaltung), REQ-025 v1.0 (DSGVO), REQ-027 v1.2 (Light-Modus), NFR-007 (LLM-Sicherheit), NFR-011 (Retention)
 Wird benoetigt von: REQ-033 v1.1 (MCP-Server), REQ-035 (Fachbegriff-Glossar), REQ-036 (Diagnose-Assistent)
 ```
@@ -19,6 +19,7 @@ Wird benoetigt von: REQ-033 v1.1 (MCP-Server), REQ-035 (Fachbegriff-Glossar), RE
 | 1.0 | 2026-03-28 | Initialer Entwurf: pgvector-im-Backend, MiniLM-L6-v2, Ollama/OpenAI/Anthropic Adapter, TipCardsPanel, AiChatDrawer |
 | **2.0** | **2026-04-25** | **Major Refactor: Knowledge Service als externes Microservice, multilingual-e5-large + Hybrid Search + bge-reranker, Backend wird zum duennen KnowledgeServiceAdapter, neue Features "Warum?"-Buttons (`POST /ai/explain`) und expliziter Tipp-des-Tages, dreistufiger Feature-Toggle (Deployment / Tenant / User-Consent), Light-Modus-Verhalten, Multilingual-Vorbereitung, neuer Consent-Typ `ai_tenant_data_access`, Abgrenzung zu REQ-033/REQ-035/REQ-036** |
 | 2.2 | 2026-04-27 | **W-011 (KI-Fallback offline):** §1 Klarstellung — regelbasierte Fallback-Tipps gelten **backend-seitig** bei Knowledge-Service-Ausfällen, nicht für Frontend-Offline-Phasen. Frontend-Offline behandelt KI-Features als Online-only (UI-NFR-012 R-042a). Verhindert Drift durch dupliziertes Mini-Regelwerk im Frontend. |
+| 2.3 | 2026-10-05 | **KI-Budget (#2110, MT-013):** §3.4 neu — jeder Aufruf, der ein LLM anspricht (Tipps, Tagestipp, „Warum?“, Chat-Nachricht, Glossar-Generierung auf dem Tenant-Pfad, KI-Diagnose REQ-036), belastet vor dem Aufruf ein Tagesbudget pro (Tenant, Konto), pro Tenant und ein Token-Budget pro Tenant (Valkey, UTC-Tag); darüber `429 AI_BUDGET_EXCEEDED` mit `Retry-After` bis Tagesende, bei nicht erreichbarem Zähler `503 AI_BUDGET_UNAVAILABLE` (fail-closed). Dazu das Minutenbudget `RATE_LIMIT_INFERENCE` je Konto auf allen generierenden Routen. `ai_audit_log` (§3.1) trägt `prompt_tokens`/`completion_tokens` — die Kosten eines Tenants sind zählbar. Chat (§5.4) prüft Consent, Provider und Budget vor dem Stream. DoD (§11) um das Budget ergänzt. |
 | 2.1 | 2026-04-27 | **ADR-002 (W-006 Tenant-Species im KI-Kontext):** Genus/Family-Fallback in `AiContextBuilder.resolve_species_for_ks()` ergaenzt — tenant-eigene Species werden via `parent_species_key` → Genus → Family auf KS-aufloesbare Werte gemappt. `QuestionContext` erweitert um `cultivar_hint` und `confidence`-Felder. Antwortstruktur (§5.5) liefert `confidence`, `fallback_species`, `cultivar_hint` an Frontend. `<AIResponse>`-Komponente bekommt sichtbares Confidence-Badge bei `low`. |
 
 ## 1. Business Case
@@ -355,6 +356,8 @@ Neue Felder ggu. v1.0:
   "uses_tenant_data": "boolean",
   "uses_cloud_provider": "boolean",
   "latency_ms": "int",
+  "prompt_tokens": "int (>= 0, vom Knowledge Service gemeldet; 0 ohne Antwort) — #2110",
+  "completion_tokens": "int (>= 0) — #2110",
   "status": "ok | denied | provider_error | knowledge_service_error | timeout",
   "error_class": "string | null",
   "created_at": "datetime"
@@ -392,6 +395,24 @@ ai_audit_about            ai_audit_log -> plant_instances | planting_runs (optio
 ### 3.3 Verzicht auf eigene Vektor-Tabellen im Backend
 
 Im Gegensatz zu v1.0 enthaelt das Backend KEINE Tabelle `ai_vector_chunks` mehr. Vektoren leben ausschliesslich im Knowledge Service (PostgreSQL+pgvector). Der Backend-Code spricht den Knowledge Service ueber HTTP an. TimescaleDB im Kamerplanter-Backend wird damit von der KI-Last entkoppelt.
+
+### 3.4 KI-Budget pro Konto und Tenant (#2110, MT-013)
+
+Jeder Aufruf, der ein LLM anspricht, belastet **vor** dem Aufruf drei Tageszähler (UTC-Tag, Valkey, kein ArangoDB-Dokument). Belastet wird erst nach allen Prüfungen, die aus anderem Grund ablehnen (Consent, Kontext-Eigentum, Provider-Gate) — ein ohnehin abgelehnter Aufruf verbraucht kein Budget.
+
+| Zähler | Schlüssel | Setting (Default) | Ablehnung |
+|---|---|---|---|
+| Aufrufe je Konto **in einem Tenant** | `ai_budget:{tag}:calls:t:{tenant}:u:{user}` | `AI_BUDGET_USER_CALLS_PER_DAY` (50) | `429`, `details[0].code = user_calls` |
+| Aufrufe aller Mitglieder eines Tenants | `ai_budget:{tag}:calls:t:{tenant}` | `AI_BUDGET_TENANT_CALLS_PER_DAY` (500) | `429`, `tenant_calls` |
+| LLM-Tokens eines Tenants (Prompt + Completion, wie der Knowledge Service sie meldet) | `ai_budget:{tag}:tokens:t:{tenant}` | `AI_BUDGET_TENANT_TOKENS_PER_DAY` (2 000 000) | `429`, `tenant_tokens` |
+
+- **Reihenfolge:** erst das Konto, dann der Tenant. Eine Ablehnung am Kontobudget berührt den Tenant-Zähler nicht — sonst würde ein einzelnes Mitglied, das über sein Budget hinaus weiterklickt, das Tenant-Budget aufbrauchen und alle anderen aussperren.
+- **Token-Budget:** Die Tokens sind erst nach der Antwort bekannt. Geprüft wird daher vor dem nächsten Aufruf, ob der Tag bereits ausgeschöpft ist; eine einzelne Antwort kann das Budget überschreiten.
+- **`Retry-After`:** Sekunden bis zum Ende des UTC-Tags. `0` in einem Setting schaltet das jeweilige Budget ab.
+- **Fail-closed:** Ist Valkey nicht erreichbar, läuft kein LLM-Aufruf (`503 AI_BUDGET_UNAVAILABLE`) — unabhängig vom Provider. Begründung (gemessen, #2110): Das Backend kann nicht feststellen, welches Modell antwortet. Der Knowledge Service wählt sein LLM aus seiner eigenen Umgebung; die `/ask`-Anfrage nennt keinen Provider und die Antwort meldet keinen. Ein Ausfall des Zählers darf weder zu unbegrenzten Kosten (Cloud) noch zu einer unbegrenzten GPU-Warteschlange (Ollama) werden.
+- **Minutenbudget:** Zusätzlich trägt jede generierende Route das Konto-Limit `RATE_LIMIT_INFERENCE` (Default `20/minute`, slowapi, `user_rate_limit_key`).
+- **Nicht belastet:** Lesende Routen (gespeicherte Tipps, Glossar-Lesepfad), der Glossar-Warm-up-Task (Plattform-Generierung, durch den kuratierten Katalog begrenzt) und `POST /public/ai/ask` (anonym, Light-Modus; trägt das Adress-Limit `AI_PUBLIC_RATE_LIMIT_PER_MIN`).
+- **Kosten zählbar:** Die Tageszähler je Tenant sind über `AiCallBudget.usage()` lesbar; jeder auditierte Aufruf trägt seine Tokens im `ai_audit_log` (Retention 30 Tage). Pläne/Quoten pro Tenant (MT-049) setzen hierauf auf.
 
 ## 4. Technische Umsetzung (Backend)
 
@@ -696,6 +717,8 @@ Im Light-Modus existieren KEINE Tenants und kein User-Login. KI-Nutzung beschrae
 Der Chat-Endpunkt `POST /conversations/{key}/messages` liefert die LLM-Antwort als Server-Sent-Events (`text/event-stream`) Token-fuer-Token. Streaming ist transparent durchgereicht — sowohl der Knowledge Service als auch die LLM-Adapter unterstuetzen Streaming. Andere Endpunkte (`/tips`, `/daily-tip`, `/explain`) liefern komplette JSON-Antworten mit Spinner-Anzeige im Frontend.
 
 **Begruendung der UX-Entscheidung:** Tipp-Karten und "Warum?"-Antworten sind kurz und werden gecacht — Spinner ist akzeptabel und macht die Antwort kompakter. Chat-Antworten sind potentiell laenger und profitieren von Streaming.
+
+**Ablehnungen vor dem Stream (#2110):** Consent, Provider-Gate und KI-Budget (§3.4) werden geprueft, **bevor** die Streaming-Antwort beginnt. Ein `StreamingResponse` hat seinen Status `200` bereits gesendet, wenn das erste Frame entsteht; eine Ablehnung im Stream kam beim Client als abgebrochene Verbindung an statt als `403`/`429` mit Fehlercode.
 
 ### 5.5 Antwortstruktur
 
@@ -1035,6 +1058,7 @@ Lebt in der Knowledge-Service-Postgres-Instanz, NICHT mehr im TimescaleDB des Ba
 - [ ] **Light-Modus-Endpunkte** (`/api/v1/public/ai/*`) liefern Wissensantworten ohne Tenant-Kontext, mit Rate-Limit pro IP.
 - [ ] **Multilingual-Felder** (`language`, `language_mismatch_warning`) in allen Antworten gesetzt; UI rendert Sprach-Badge.
 - [ ] **Audit-Log** (`ai_audit_log`) fuer jeden KI-Aufruf mit gehashter Frage; KEIN Klartext.
+- [ ] **KI-Budget (§3.4, #2110):** Der 51. LLM-Aufruf eines Kontos in einem Tenant am selben UTC-Tag wird mit `429 AI_BUDGET_EXCEEDED` und `Retry-After` abgelehnt, ohne den Knowledge Service anzusprechen; das Tenant-Budget greift über alle Mitglieder; ein Mitglied über seinem Kontobudget verbraucht das Tenant-Budget nicht; bei nicht erreichbarem Valkey `503 AI_BUDGET_UNAVAILABLE` ohne LLM-Aufruf; Chat-Ablehnungen kommen als HTTP-Status, nicht als abgebrochener Stream; Tokens je Aufruf stehen im `ai_audit_log`.
 - [ ] **PII-Stripping** im Context-Builder (Test: Tenant-Name, Nutzername, Diary-Freitext erscheinen NIE im Knowledge-Service-Aufruf).
 - [ ] **Graceful Degradation**: Knowledge Service nicht erreichbar -> Backend liefert regelbasierte Fallback-Tipps und HTTP 200 (statt 5xx); im Audit-Log status=`knowledge_service_error`.
 - [ ] **Retention-Tasks**: `cleanup_expired_conversations`, `cleanup_expired_audit_log` laufen taeglich und entfernen abgelaufene Eintraege.
