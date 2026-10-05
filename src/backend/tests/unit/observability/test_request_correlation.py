@@ -153,7 +153,7 @@ def test_an_explicit_tenant_on_the_line_wins_over_the_request_tenant(capture: _C
 
 
 @pytest.fixture
-def worker_app() -> Iterator[Celery]:
+def worker_app(isolated_logging: None) -> Iterator[Celery]:  # noqa: F811
     """A Celery app on the in-memory broker with a real worker thread consuming it.
 
     A separate app rather than the production ``celery_app``: the signal handlers
@@ -169,9 +169,12 @@ def worker_app() -> Iterator[Celery]:
         structlog.get_logger("probe.task").info("probe_task_line", label=label)
         return dict(structlog.contextvars.get_contextvars())
 
-    # Started before ``capture`` (see the parameter order of the tests): the worker's
-    # own logging setup replaces the root handlers, and the capture handler must be
-    # installed after it.
+    # Started after the ``isolated_logging`` snapshot and before ``capture`` (see the
+    # parameter order of the tests): the worker's own logging setup replaces the root
+    # handlers, sets root to ERROR and configures structlog with cached loggers — the
+    # capture handler must come after it, and all of it must be undone afterwards, or
+    # every later test's ``capture_logs`` misses the lines of a module logger cached
+    # meanwhile (measured: three task modules' log tests failed in the full run).
     with start_worker(probe, perform_ping_check=False, shutdown_timeout=10):
         yield probe
 
