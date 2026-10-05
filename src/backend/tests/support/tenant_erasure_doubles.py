@@ -172,14 +172,30 @@ class FakeTenantErasureRepository(ITenantErasureRepository):
         self.records[key] = merged
         return self._model(key)
 
-    def list_due(self, *, stale_before_iso: str) -> list[TenantErasureRecord]:
-        due = [
-            key
-            for key, doc in self.records.items()
-            if doc["status"] == "partially_completed"
-            or (doc["status"] == "in_progress" and (doc.get("updated_at") or "") <= stale_before_iso)
-        ]
-        return [self._model(key) for key in due]
+    def delete_scheduled(self, key: str) -> bool:
+        """The real conditional remove: only a record still ``scheduled`` and never claimed (#2123)."""
+        doc = self.records.get(key)
+        if doc is None or doc["status"] != "scheduled" or doc.get("last_attempt_at") is not None:
+            return False
+        del self.records[key]
+        return True
+
+    def list_due(
+        self, *, stale_before_iso: str, scheduled_due_before_iso: str | None = None
+    ) -> list[TenantErasureRecord]:
+        def due(doc: dict[str, Any]) -> bool:
+            if doc["status"] == "scheduled":
+                scheduled_for = doc.get("scheduled_for")
+                return (
+                    scheduled_due_before_iso is not None
+                    and scheduled_for is not None
+                    and datetime.fromisoformat(scheduled_for) <= datetime.fromisoformat(scheduled_due_before_iso)
+                )
+            return doc["status"] == "partially_completed" or (
+                doc["status"] == "in_progress" and (doc.get("updated_at") or "") <= stale_before_iso
+            )
+
+        return [self._model(key) for key, doc in self.records.items() if due(doc)]
 
 
 class RecordingTenantErasureExecutor(ITenantErasureExecutor):
@@ -250,6 +266,9 @@ def tenant_service_for_deletion(
         "tenant_erasure_repo": record_repo if record_repo is not None else FakeTenantErasureRepository(),
         "tombstone_salt": salt,
         "observation_repo": MagicMock(**{"delete_by_tenant.return_value": 0}),
+        # The immediate erasure of #1792 — what these deletion tests drive. The grace of #2123
+        # (``RETENTION_TENANT_ERASURE_GRACE_DAYS``) is driven in test_tenant_erasure_grace.py.
+        "tenant_erasure_grace_days": 0,
     }
     kwargs.update(overrides)
     service = TenantService(**kwargs)

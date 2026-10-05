@@ -1043,6 +1043,34 @@ class TenantType(StrEnum):
     ORGANIZATION = "organization"
 
 
+class TenantStatus(StrEnum):
+    """Lifecycle state of a tenant (REQ-024 AK-64, AK-52, MT-027 #2123).
+
+    Replaces the ``is_active`` bool (migration v0084). Only ``ACTIVE`` resolves
+    into an authorization context; every other state answers like a slug that
+    names no tenant (#2105) — ``Tenant.is_active`` is derived from this value.
+
+    * ``ACTIVE`` — in use.
+    * ``SUSPENDED`` — a platform admin switched it off (REQ-024 AK-56); reversible
+      by the same admin, nothing is scheduled.
+    * ``PENDING_DELETION`` — its management (or a platform admin) asked for the
+      deletion; the erasure runs once ``deletion_scheduled_at`` has passed
+      (``RETENTION_TENANT_ERASURE_GRACE_DAYS``) and can be cancelled until then.
+    * ``ORPHANED`` — the account erasure of its last member (or of its last
+      ``management`` holder with no ``lead`` left to take over) left nobody who
+      can administer it (MT-038 #2134); it runs into the same deletion grace.
+    * ``DELETED`` — the grace has passed and the erasure has claimed it; no
+      longer cancellable. The tenant document itself is removed by the erasure,
+      so the state is seen only while the inventory runs (or is retried).
+    """
+
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+    PENDING_DELETION = "pending_deletion"
+    ORPHANED = "orphaned"
+    DELETED = "deleted"
+
+
 class TenantRole(StrEnum):
     """Axis 1 of the REQ-049 role model: the domain role, exactly one per membership.
 

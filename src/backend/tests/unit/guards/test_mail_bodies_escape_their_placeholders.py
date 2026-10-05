@@ -34,8 +34,9 @@ SCOPES = (APP / "data_access" / "external", APP / "domain" / "services", APP / "
 _TAG = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]*(\s[^<>]*)?/?>|<[a-zA-Z][a-zA-Z0-9]*\s")
 
 #: The class size measured when this guard was written (#1856): 8 on develop, +1 the e-mail change mail (#1848),
-#: +1 the notice to the other members of a personal tenant its owner has asked to erase (#1824; the date is escaped).
-EXPECTED_HTML_FSTRINGS = 10
+#: +1 the notice to the other members of a personal tenant its owner has asked to erase (#1824; the date is escaped),
+#: +2 the notice to the members of a tenant whose deletion is scheduled (#2123; name and date are escaped).
+EXPECTED_HTML_FSTRINGS = 12
 
 
 def _is_escape_call(node: ast.expr) -> bool:

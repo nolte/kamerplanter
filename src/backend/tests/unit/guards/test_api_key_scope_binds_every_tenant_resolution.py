@@ -155,19 +155,37 @@ def _routes(routes, prefix: str = "", inherited: tuple = ()) -> list[tuple[str, 
     return out
 
 
+#: Slug routes that cannot stand on :func:`get_current_tenant`, with the reason. Each must
+#: instead depend on ``require_account_principal`` — so a tenant-scoped key is refused before
+#: the handler runs — and its service must refuse every API key; both are checked below.
+_SLUG_ROUTES_WITHOUT_THE_RESOLVER: dict[str, str] = {
+    "POST /api/v1/tenants/{tenant_slug}/erasure/cancel": (
+        "#2123 — the tenant is pending_deletion and resolves for nobody (#2105); the service resolves the "
+        "slug, refuses any API key and proves lead + management from the stored membership"
+    ),
+}
+
+
 def test_every_tenant_slug_route_depends_on_get_current_tenant() -> None:
-    from app.common.auth import get_current_tenant
+    from app.common.auth import get_current_tenant, require_account_principal
     from app.main import app
 
     slug_routes = [(path, r, deps) for path, r, deps in _routes(app.routes) if "{tenant_slug}" in path]
-    missing = [
-        f"{sorted(r.methods)} {path}"
-        for path, r, deps in slug_routes
-        if get_current_tenant not in (_dependency_calls(r.dependant) | deps)
-    ]
+    missing = []
+    exempted_seen = set()
+    for path, r, deps in slug_routes:
+        calls = _dependency_calls(r.dependant) | deps
+        if get_current_tenant in calls:
+            continue
+        name = f"{' '.join(sorted(r.methods))} {path}"
+        if name in _SLUG_ROUTES_WITHOUT_THE_RESOLVER and require_account_principal in calls:
+            exempted_seen.add(name)
+            continue
+        missing.append(f"{sorted(r.methods)} {path}")
 
     assert len(slug_routes) > 100, len(slug_routes)  # non-vacuity: the walk reaches nested routers
     assert missing == [], f"tenant-slug routes that bypass the scope-checking resolver: {missing}"
+    assert exempted_seen == set(_SLUG_ROUTES_WITHOUT_THE_RESOLVER), "stale or ungated exemption entries"
 
 
 def _scope_comparisons(tree: ast.Module) -> list[int]:

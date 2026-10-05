@@ -4900,15 +4900,25 @@ export interface TaskTemplateUpdateRequest {
 // ── Admin Platform Types ──────────────────────────────────────────────
 
 /**
+ * Lifecycle state of a tenant (REQ-024 AK-64, #2123) — mirrors `TenantStatus` in the
+ * backend. Only `active` resolves for its members; `orphaned` marks an organization an
+ * account deletion left without anybody who can administer it (#2134).
+ */
+export type TenantStatus = 'active' | 'suspended' | 'pending_deletion' | 'orphaned' | 'deleted';
+
+/**
  * Response of `DELETE /tenants/{slug}` and `DELETE /admin/platform/tenants/{key}`.
- * Since #1792 both answer `202 Accepted` with this body: the deletion is recorded
- * and the tenant frozen, the erasure itself runs afterwards in a worker.
+ * Since #1792 both answer `202 Accepted` with this body. Since #2123 a deletion with a
+ * grace period is `scheduled` (until `scheduled_for`, cancellable); with a grace of 0 the
+ * deletion is recorded and the tenant frozen, the erasure itself runs afterwards in a worker.
  */
 export interface TenantDeletionAccepted {
   tenant_key: string;
-  /** `in_progress` for a deletion just recorded; `partially_completed` for one an earlier run left open. */
-  status: 'in_progress' | 'partially_completed' | 'completed';
+  /** `scheduled` inside the grace; `in_progress` for a deletion just recorded; `partially_completed` for one an earlier run left open. */
+  status: 'scheduled' | 'in_progress' | 'partially_completed' | 'completed';
   requested_at: string | null;
+  /** End of the cancellable grace (#2123); `null` when the erasure runs at once. */
+  scheduled_for?: string | null;
   message: string;
 }
 
@@ -5014,7 +5024,9 @@ export type StepUpAction =
   // #2032 — a tenant's member administrator changing a member's role.
   | 'tenant_member_role_change'
   // #2106 — a platform admin adding an account to a tenant (bound to `<tenant_key>|<user_key>`).
-  | 'admin_membership_add';
+  | 'admin_membership_add'
+  // #2123 — cancelling a scheduled tenant deletion (bound to the tenant's key).
+  | 'tenant_erasure_cancel';
 
 /**
  * The step-up a credential change carries in its body (#1847, #1857, REQ-023
@@ -5086,7 +5098,12 @@ export interface AdminTenant {
   tenant_type: TenantType;
   description: string | null;
   owner_user_key: string;
+  /** Derived from `status` — `true` only for `active`. */
   is_active: boolean;
+  /** Lifecycle state (#2123); absent only from a backend older than #2123. */
+  status?: TenantStatus;
+  /** When a `pending_deletion` / `orphaned` tenant is erased (#2123). */
+  deletion_scheduled_at?: string | null;
   is_platform: boolean;
   max_members: number;
   member_count: number;

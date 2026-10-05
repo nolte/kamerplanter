@@ -90,6 +90,15 @@ class FakeTenantRepo:
     def get_by_key(self, key: str) -> Tenant | None:
         return self.stored.get(key)
 
+    def update_fields(self, key: str, fields: dict[str, Any]) -> Tenant | None:
+        """The real merge-and-revalidate (``ArangoTenantRepository.update_fields``): the lifecycle state, #2123."""
+        current = self.stored.get(key)
+        if current is None:
+            return None
+        merged = Tenant.model_validate({**current.model_dump(by_alias=True), **fields})
+        self.stored[key] = merged
+        return merged
+
     def personal_tenant_keys_by_owner(self, user_key: str) -> list[str]:
         """The real query: by owner **and** type."""
         return [

@@ -50,7 +50,6 @@ def run_seed_auth() -> None:
         slug=slug,
         tenant_type=TenantType.PERSONAL,
         owner_user_key=user_key,
-        is_active=True,
     )
     created_tenant = tenant_repo.create(tenant)
     tenant_key = created_tenant.key or ""
@@ -100,7 +99,6 @@ def _ensure_platform_admin(
             slug="platform",
             tenant_type=TenantType.ORGANIZATION,
             owner_user_key=user_key,
-            is_active=True,
             is_platform=True,
             max_members=999,
         )

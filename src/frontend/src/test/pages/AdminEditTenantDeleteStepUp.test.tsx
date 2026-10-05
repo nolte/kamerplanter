@@ -58,6 +58,9 @@ const TENANT = {
   is_platform: false,
 };
 
+/** The 202 body of an immediate deletion (grace 0); the scheduled one is pinned in AdminEditTenantErasureLifecycle. */
+const ACCEPTED = { tenant_key: 'garden-key', status: 'in_progress', requested_at: null, message: '' };
+
 function providers(list: { provider: string }[] | Error) {
   const mock = auth.listProviders as ReturnType<typeof vi.fn>;
   if (list instanceof Error) mock.mockRejectedValue(list);
@@ -75,7 +78,7 @@ describe('AdminEditTenantPage — tenant deletion step-up (#1791)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (admin.fetchAdminTenants as ReturnType<typeof vi.fn>).mockResolvedValue([TENANT]);
-    (admin.deleteAdminTenant as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    (admin.deleteAdminTenant as ReturnType<typeof vi.fn>).mockResolvedValue(ACCEPTED);
   });
   afterEach(() => cleanup());
 
@@ -241,7 +244,7 @@ describe('AdminEditTenantPage — back from the fresh sign-in (#1815)', () => {
     vi.clearAllMocks();
     sessionStorage.clear();
     (admin.fetchAdminTenants as ReturnType<typeof vi.fn>).mockResolvedValue([TENANT]);
-    (admin.deleteAdminTenant as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    (admin.deleteAdminTenant as ReturnType<typeof vi.fn>).mockResolvedValue(ACCEPTED);
   });
   afterEach(() => {
     cleanup();

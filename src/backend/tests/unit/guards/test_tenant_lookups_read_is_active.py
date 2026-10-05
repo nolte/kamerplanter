@@ -107,6 +107,18 @@ _SITES: dict[str, tuple[str, str, str]] = {
     f"{_TS}:TenantService._apply_tenant_update": (_DECIDED, "", "mutation; the route resolved the tenant"),
     f"{_TS}:TenantService.delete_tenant": (_DECIDED, "", "erasure must reach a deactivated tenant"),
     f"{_TS}:TenantService.erase_personal_tenant_of": (_DECIDED, "", "erasure must reach a deactivated tenant"),
+    # #2123 — the lifecycle of a deletion acts on tenants that resolve for nobody by design.
+    f"{_TS}:TenantService._mark_tenant_erasing": (_DECIDED, "", "erasure claim; marks the tenant deleted"),
+    f"{_TS}:TenantService.cancel_tenant_erasure": (
+        _DECIDED,
+        "",
+        "must reach a pending_deletion tenant; authorised from the stored lead+management membership",
+    ),
+    f"{_TS}:TenantService.cancel_tenant_erasure_by_slug": (
+        _DECIDED,
+        "",
+        "must reach a pending_deletion tenant; delegates to cancel_tenant_erasure, unknown slug is the same 403",
+    ),
     f"{_TS}:TenantService.personal_tenant_erasure_preview": (_DECIDED, "", "erasure preview of the owner's tenants"),
     f"{_TS}:TenantService._refuse_invitation_while_owner_erasing": (_DECIDED, "", "erasure-freeze check only"),
     f"{_TS}:TenantService._refuse_role_grant": (_DECIDED, "", "escalation check inside a resolved context"),

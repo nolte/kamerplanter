@@ -18,6 +18,7 @@ from app.api.v1.tenants.schemas import (
     TenantCreateRequest,
     TenantDeleteRequest,
     TenantDeletionAcceptedResponse,
+    TenantErasureCancelRequest,
     TenantResponse,
     TenantUpdateRequest,
     TenantWithRoleResponse,
@@ -52,6 +53,8 @@ def _tenant_response(t: Tenant) -> TenantResponse:
         description=t.description,
         owner_user_key=t.owner_user_key,
         is_active=t.is_active,
+        status=t.status,
+        deletion_scheduled_at=t.deletion_scheduled_at,
         max_members=t.max_members,
         created_at=t.created_at,
         updated_at=t.updated_at,
@@ -132,6 +135,15 @@ def delete_tenant(
 ):
     """Accept the deletion of the tenant and all its data (declared tenant-erasure inventory, #1769).
 
+    **Scheduled since #2123 (breaking, REQ-024 AK-52).** With a grace
+    (``RETENTION_TENANT_ERASURE_GRACE_DAYS``, default 90 days) nothing is erased and no
+    membership is touched: the tenant becomes ``pending_deletion`` — closed for every
+    member, API key and MCP client like a suspended one (#2105) — its members are mailed
+    the date (Art. 20 export window), and the body says ``scheduled`` with
+    ``scheduled_for``. ``POST /tenants/{slug}/erasure/cancel`` withdraws it until then;
+    the daily ``resume_tenant_erasures`` beat erases it afterwards. A grace of ``0``
+    keeps the contract below.
+
     **Asynchronous since #1792 (breaking: ``200`` -> ``202``).** The request
     authorises, records the deletion and freezes the tenant (every membership is
     deactivated), then answers ``202 Accepted``; a Celery task runs the external
@@ -165,6 +177,43 @@ def delete_tenant(
         client_ip=client_ip,
     )
     return TenantDeletionAcceptedResponse.from_record(record)
+
+
+@router.post(
+    "/{tenant_slug}/erasure/cancel",
+    response_model=TenantResponse,
+    responses=STEP_UP_RESPONSES,
+)
+def cancel_tenant_erasure(
+    body: TenantErasureCancelRequest,
+    tenant_slug: str = Path(description="URL slug of the tenant whose scheduled deletion is cancelled."),
+    user: User = Depends(require_account_principal),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
+    service: TenantService = Depends(get_tenant_service),
+):
+    """Cancel the scheduled deletion of a tenant inside its grace (#2123, REQ-024 AK-52).
+
+    **Not behind** :func:`~app.common.auth.get_current_tenant`: a ``pending_deletion``
+    tenant resolves for nobody (#2105), so the slug is resolved by the service, which
+    then requires — from the stored membership — the lead role **and** the
+    ``management`` scope (the rule of the deletion itself), never an API key, plus the
+    requester's own step-up (``tenant_erasure_cancel``, bound to the tenant's key).
+    An unknown slug and a tenant the caller may not administer are one answer (403).
+
+    422 when nothing is scheduled any more (the grace has ended and the erasure runs —
+    ``deleted`` — or the tenant is not pending); 401/429 for the step-up. On success
+    the tenant is ``active`` again with every membership as it was.
+    """
+    tenant = service.cancel_tenant_erasure_by_slug(
+        tenant_slug,
+        requester=user,
+        authenticated_with_api_key=via_api_key,
+        confirmation=body.to_confirmation(),
+        origin="tenant_management",
+        client_ip=client_ip,
+    )
+    return _tenant_response(tenant)
 
 
 # ── Members ──────────────────────────────────────────────────────────

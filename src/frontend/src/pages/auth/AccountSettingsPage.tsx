@@ -83,6 +83,7 @@ import {
   revokeApiKey,
 } from '@/api/endpoints/auth';
 import { fetchAdminStats, fetchAdminTenants, fetchAdminUsers } from '@/api/endpoints/adminPlatform';
+import TenantStatusChip from '@/components/tenants/TenantStatusChip';
 import EditIcon from '@mui/icons-material/Edit';
 import {
   getSystemSettings,
@@ -1889,10 +1890,10 @@ export default function AccountSettingsPage() {
                               </TableCell>
                               <TableCell align="right">{tenant.member_count}</TableCell>
                               <TableCell>
-                                <Chip
-                                  label={tenant.is_active ? t('pages.auth.adminStatusActive') : t('pages.auth.adminStatusInactive')}
-                                  size="small"
-                                  color={tenant.is_active ? 'success' : 'default'}
+                                <TenantStatusChip
+                                  status={tenant.status}
+                                  isActive={tenant.is_active}
+                                  testId={`tenant-status-${tenant.key}`}
                                 />
                               </TableCell>
                               <TableCell align="right">

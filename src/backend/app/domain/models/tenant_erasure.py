@@ -32,7 +32,12 @@ type TenantErasureAction = Literal["delete", "pseudonymize", "retain"]
 #: is an active member of it (#1788, erasure together #1824).
 type TenantErasureOrigin = Literal["tenant_management", "platform_admin", "account_erasure"]
 
-type TenantErasureStatus = Literal["in_progress", "completed", "partially_completed"]
+#: ``scheduled`` (#2123, MT-027) — accepted and inside its cancellable grace
+#: (``scheduled_for``); nothing has been erased and no run has claimed it. The daily
+#: ``resume_tenant_erasures`` beat claims it once ``scheduled_for`` has passed, and
+#: ``cancel_tenant_erasure`` withdraws it until then. A record is never ``scheduled``
+#: again once a run has claimed it.
+type TenantErasureStatus = Literal["scheduled", "in_progress", "completed", "partially_completed"]
 
 #: How the requester of a tenant deletion confirmed it was really them (#1791):
 #: ``password`` — the current password of an account that has one; ``oidc_reauth`` —
@@ -61,6 +66,23 @@ class TenantDeletionConfirmation(BaseModel):
     model_config = {"frozen": True}
 
     confirm_slug: str
+    password: str | None = None
+    step_up_code: str | None = None
+    step_up_token: str | None = None
+
+
+class TenantErasureCancelConfirmation(BaseModel):
+    """The step-up a cancellation of a scheduled tenant deletion carries (#2123).
+
+    No slug echo: cancelling destroys nothing. Still a step-up act — it reopens a
+    tenant its management (or a platform admin) deliberately froze, so it is the
+    requester's own current password, the mailed code of an account without one, or
+    the token of a fresh re-authentication (``tenant_erasure_cancel``, bound to the
+    tenant's key).
+    """
+
+    model_config = {"frozen": True}
+
     password: str | None = None
     step_up_code: str | None = None
     step_up_token: str | None = None
@@ -197,6 +219,10 @@ class TenantErasureRecord(BaseModel):
     slug_digest: str | None = None
     status: TenantErasureStatus = "in_progress"
     requested_at: datetime | None = None
+    #: The end of the cancellable grace of a ``scheduled`` deletion (#2123): the
+    #: request time plus ``RETENTION_TENANT_ERASURE_GRACE_DAYS``. ``None`` for a
+    #: deletion that ran at once (grace ``0``, an account erasure's personal tenant).
+    scheduled_for: datetime | None = None
     completed_at: datetime | None = None
     attempt_count: int = Field(default=0, ge=0)
     last_attempt_at: datetime | None = None

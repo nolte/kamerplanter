@@ -36,6 +36,7 @@ import {
   fetchAdminUsers,
   updateAdminTenant,
   deleteAdminTenant,
+  cancelAdminTenantErasure,
   fetchTenantMembers,
   addTenantMember,
   removeTenantMember,
@@ -52,6 +53,7 @@ import type {
   TenantRole,
 } from '@/api/types';
 import TenantDeleteDialog from '@/components/tenants/TenantDeleteDialog';
+import TenantStatusChip from '@/components/tenants/TenantStatusChip';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
@@ -97,6 +99,9 @@ export default function AdminEditTenantPage() {
   // #2106 — adding an account to the tenant passes it too, bound to `<tenant>|<user>`; the chosen
   // user and role do not survive the identity-provider round trip either.
   useStepUpResume('add-member');
+  // #2123 — cancelling a scheduled deletion passes it too, bound to the tenant.
+  useStepUpResume('cancel-tenant-erasure');
+  const [confirmCancelErasure, setConfirmCancelErasure] = useState(false);
   const [roleChange, setRoleChange] = useState<{ member: AdminTenantMember; role: TenantRole } | null>(null);
   const [confirmActiveChange, setConfirmActiveChange] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<AdminTenantMember | null>(null);
@@ -111,6 +116,14 @@ export default function AdminEditTenantPage() {
   const [confirmAdd, setConfirmAdd] = useState(false);
 
   const isPlatform = tenant?.is_platform === true;
+  // #2123 — a tenant whose deletion is scheduled (or that was orphaned, #2134) can only be
+  // cancelled, never toggled or deleted again; one being erased can no longer be touched.
+  const lifecycle = tenant?.status ?? (tenant?.is_active === false ? 'suspended' : 'active');
+  const deletionScheduled = lifecycle === 'pending_deletion' || lifecycle === 'orphaned';
+  const lifecycleLocked = deletionScheduled || lifecycle === 'deleted';
+  const scheduledDate = tenant?.deletion_scheduled_at
+    ? new Date(tenant.deletion_scheduled_at).toLocaleDateString()
+    : '';
 
   // Load tenant
   useEffect(() => {
@@ -223,10 +236,27 @@ export default function AdminEditTenantPage() {
   // a refusal is thrown back to the dialog, which shows it and stays open.
   const handleDelete = async (stepUp: TenantDeleteRequest) => {
     if (!tenant || isPlatform) return;
-    await deleteAdminTenant(tenant.key, stepUp);
+    const accepted = await deleteAdminTenant(tenant.key, stepUp);
     setConfirmDelete(false);
-    enqueueSnackbar(t('pages.auth.adminTenantDeletionAccepted'), { variant: 'success' });
+    // #2123 — with a grace period the deletion is only scheduled and can still be cancelled.
+    const message =
+      accepted.status === 'scheduled' && accepted.scheduled_for
+        ? t('pages.auth.adminTenantDeletionScheduled', {
+            date: new Date(accepted.scheduled_for).toLocaleDateString(),
+          })
+        : t('pages.auth.adminTenantDeletionAccepted');
+    enqueueSnackbar(message, { variant: 'success' });
     navigate('/settings#platform');
+  };
+
+  // #2123 — the admin's OWN step-up; a rejection is shown inside the dialog, which stays open.
+  const handleCancelErasure = async (credentials: StepUpConfirmation) => {
+    if (!tenant) return;
+    const restored = await cancelAdminTenantErasure(tenant.key, toCredentialStepUpBody(credentials));
+    setTenant(restored);
+    setIsActive(restored.is_active);
+    setConfirmCancelErasure(false);
+    enqueueSnackbar(t('pages.auth.adminTenantDeletionCancelled'), { variant: 'success' });
   };
 
   // Adding a member only opens the confirmation (#2106): nothing is written until the admin's OWN
@@ -311,12 +341,55 @@ export default function AdminEditTenantPage() {
         </IconButton>
         <PageTitle title={`${t('pages.auth.editTenantTitle')}: ${tenant.name}`} />
         {isPlatform && <Chip label="Platform" color="warning" size="small" />}
-        <Chip
-          label={tenant.is_active ? t('pages.auth.adminStatusActive') : t('pages.auth.adminStatusInactive')}
-          color={tenant.is_active ? 'success' : 'default'}
-          size="small"
-        />
+        <TenantStatusChip status={tenant.status} isActive={tenant.is_active} testId="edit-tenant-status-chip" />
       </Box>
+
+      {deletionScheduled && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          data-testid="edit-tenant-deletion-scheduled"
+          action={
+            // #2134 — an orphaned organization has nobody left who could administer it; it is
+            // not handed back, only deleted after the grace (REQ-023 §5a.5 dropped).
+            lifecycle === 'pending_deletion' ? (
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => setConfirmCancelErasure(true)}
+                data-testid="cancel-tenant-erasure-btn"
+              >
+                {t('pages.auth.adminTenantCancelDeletion')}
+              </Button>
+            ) : undefined
+          }
+        >
+          {lifecycle === 'orphaned'
+            ? t('pages.auth.adminTenantOrphanedInfo', { date: scheduledDate })
+            : t('pages.auth.adminTenantPendingDeletionInfo', { date: scheduledDate })}
+        </Alert>
+      )}
+      {lifecycle === 'deleted' && (
+        <Alert severity="error" sx={{ mb: 2 }} data-testid="edit-tenant-being-erased">
+          {t('pages.auth.adminTenantErasingInfo')}
+        </Alert>
+      )}
+      {lifecycle === 'pending_deletion' && (
+        <StepUpConfirmDialog
+          open={confirmCancelErasure}
+          title={t('pages.auth.adminTenantCancelDeletionTitle')}
+          description={t('pages.auth.adminTenantCancelDeletionDescription', { name: tenant.name })}
+          passwordLabel={t('pages.auth.adminDeleteUserPasswordLabel')}
+          passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
+          confirmLabel={t('pages.auth.adminTenantCancelDeletion')}
+          confirmColor="primary"
+          testIdPrefix="cancel-tenant-erasure"
+          stepUpAction="tenant_erasure_cancel"
+          stepUpTarget={tenant.key}
+          onConfirm={handleCancelErasure}
+          onCancel={() => setConfirmCancelErasure(false)}
+        />
+      )}
 
       <Box sx={GRID_2COL}>
         {/* Left: Tenant properties */}
@@ -354,7 +427,7 @@ export default function AdminEditTenantPage() {
               </Box>
               <FormControlLabel
                 control={
-                  <Switch checked={isActive} onChange={(e) => setIsActive(e.target.checked)} disabled={isPlatform} data-testid="edit-tenant-active-switch" />
+                  <Switch checked={isActive} onChange={(e) => setIsActive(e.target.checked)} disabled={isPlatform || lifecycleLocked} data-testid="edit-tenant-active-switch" />
                 }
                 label={t('pages.auth.adminUserIsActive')}
               />
@@ -395,7 +468,7 @@ export default function AdminEditTenantPage() {
                 <Typography variant="subtitle2" color="error" gutterBottom>
                   {t('pages.auth.dangerZone')}
                 </Typography>
-                <Button variant="outlined" color="error" onClick={() => setConfirmDelete(true)} data-testid="delete-tenant-btn">
+                <Button variant="outlined" color="error" onClick={() => setConfirmDelete(true)} disabled={lifecycleLocked} data-testid="delete-tenant-btn">
                   {t('pages.auth.adminDeleteTenant')}
                 </Button>
                 <TenantDeleteDialog

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import html
 import re
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -18,12 +19,14 @@ from app.common.enums import (
     SecurityAuditAction,
     SecurityAuditVia,
     TenantRole,
+    TenantStatus,
     TenantType,
 )
 from app.common.exceptions import (
     DuplicateError,
     FeatureNotConfiguredError,
     ForbiddenError,
+    InvalidStatusTransitionError,
     NotFoundError,
     TenantErasureClaimLostError,
     TenantErasureIncompleteError,
@@ -37,6 +40,7 @@ from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
+from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.invitation_repository import IInvitationRepository
 from app.domain.interfaces.location_assignment_repository import (
@@ -52,6 +56,7 @@ from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.tenant_erasure_executor import ITenantErasureExecutor
 from app.domain.interfaces.tenant_erasure_repository import ITenantErasureRepository
 from app.domain.interfaces.tenant_repository import ITenantRepository
+from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.invitation import Invitation, InvitationLink
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
@@ -61,6 +66,7 @@ from app.domain.models.tenant import Tenant, TenantWithRole
 from app.domain.models.tenant_erasure import (
     TenantDeletionConfirmation,
     TenantDeletionStepUp,
+    TenantErasureCancelConfirmation,
     TenantErasureOrigin,
     TenantErasureRecord,
 )
@@ -84,6 +90,15 @@ _TENANT_ERASURE_RETRY_SLACK = timedelta(hours=1)
 #: Key of the technical tenant whose ``lead`` members are platform admins
 #: (REQ-049 §2.5; the same lookup ``app.common.auth.is_platform_admin`` makes).
 _PLATFORM_TENANT_KEY = "platform"
+
+#: The states a platform admin's ``is_active`` toggle moves between (REQ-024 AK-56).
+#: A tenant whose deletion is scheduled, running or that was orphaned leaves its state
+#: only through the erasure itself or :meth:`TenantService.cancel_tenant_erasure` (#2123).
+_TOGGLEABLE_STATUSES = frozenset({TenantStatus.ACTIVE, TenantStatus.SUSPENDED})
+
+#: Fields of the tenant document no partial update may write: the lifecycle state
+#: moves only through the step-up paths that own it (#2009, #2123).
+_LIFECYCLE_FIELDS = frozenset({"is_active", "status", "deletion_scheduled_at"})
 
 
 class TenantService:
@@ -111,7 +126,25 @@ class TenantService:
         erasure_repo: IErasureRepository | None = None,
         security_audit: SecurityAuditService | None = None,
         task_repo: ITaskRepository | None = None,
+        tenant_erasure_grace_days: int | None = None,
+        email_service: IEmailService | None = None,
+        user_repo: IUserRepository | None = None,
     ) -> None:
+        # #2123 (MT-027, REQ-024 AK-52) — how long an accepted tenant deletion stays
+        # cancellable. ``None`` reads ``RETENTION_TENANT_ERASURE_GRACE_DAYS`` (default 90):
+        # an unwired construction schedules rather than erases at once. ``0`` keeps the
+        # immediate erasure of #1792 (self-hosted floor).
+        if tenant_erasure_grace_days is None:
+            from app.config.settings import settings as _settings
+
+            tenant_erasure_grace_days = _settings.retention_tenant_erasure_grace_days
+        if tenant_erasure_grace_days < 0:
+            raise ValueError("tenant_erasure_grace_days must not be negative")
+        self._tenant_erasure_grace = timedelta(days=tenant_erasure_grace_days)
+        # #2123 — the members of a tenant whose deletion is scheduled are told the date
+        # (Art. 20 export window). Best effort: ``None`` (doubles, light mode) skips the mail.
+        self._email_service = email_service
+        self._user_repo = user_repo
         # The tasks a membership that ends takes its assignee off (#2114). ``None`` only where no membership
         # is ever ended (doubles); ``get_tenant_service`` always wires it, and the class guard holds that every
         # method that deletes a membership calls :meth:`_end_task_assignments`.
@@ -320,8 +353,11 @@ class TenantService:
         programming error (no request schema of this path has the field), so it
         fails loudly instead of writing the flag past the step-up.
         """
-        if "is_active" in data:
-            raise ValueError("is_active changes go through admin_update_tenant, which verifies the step-up (#2009)")
+        if _LIFECYCLE_FIELDS & set(data):
+            raise ValueError(
+                "lifecycle changes go through admin_update_tenant / delete_tenant / cancel_tenant_erasure, "
+                "which verify the step-up (#2009, #2123)"
+            )
         return self._apply_tenant_update(tenant_key, data)
 
     def admin_update_tenant(
@@ -361,10 +397,19 @@ class TenantService:
         current = self._tenant_repo.get_by_key(tenant_key)
         if current is None:
             raise NotFoundError("Tenant", tenant_key)
+        if (_LIFECYCLE_FIELDS - {"is_active"}) & set(data):
+            raise ValueError("status changes go through delete_tenant / cancel_tenant_erasure (#2123)")
         wanted = data.get("is_active")
         changes_active = wanted is not None and bool(wanted) != bool(current.is_active)
         if changes_active and not wanted and current.is_platform:
             raise ForbiddenError("The platform tenant cannot be deactivated.")
+        if changes_active and current.status not in _TOGGLEABLE_STATUSES:
+            # #2123 — reactivating a tenant whose deletion is scheduled would hand it back to
+            # its members while the beat still erases it at the end of the grace; a running
+            # (``deleted``) one cannot be stopped at all. Cancel the deletion instead.
+            raise InvalidStatusTransitionError(
+                str(current.status), str(TenantStatus.ACTIVE if wanted else TenantStatus.SUSPENDED)
+            )
         if changes_active:
             self._step_up_verifier.verify(
                 requester,
@@ -378,7 +423,10 @@ class TenantService:
                 authenticated_with_api_key=authenticated_with_api_key,
                 client_ip=client_ip,
             )
-        data = {k: v for k, v in data.items() if k != "is_active" or changes_active}
+        data = {k: v for k, v in data.items() if k != "is_active"}
+        if changes_active:
+            # #2123 — the bool of the request is the admin's suspension switch on the status model.
+            data["status"] = TenantStatus.ACTIVE if wanted else TenantStatus.SUSPENDED
         if not data:
             return current
         return self._apply_tenant_update(tenant_key, data)
@@ -388,13 +436,13 @@ class TenantService:
 
         **The platform tenant cannot be deactivated (#1021).** ``delete_tenant``
         refuses the platform tenant (``is_platform`` → 403); deactivating it via
-        ``{"is_active": False}`` slipped through because this path had no such
+        ``{"is_active": False}`` (since #2123 ``{"status": "suspended"}``) slipped through because this path had no such
         guard. It stays here, under both entry points, with the same
         :class:`ForbiddenError` (403) shape ``delete_tenant`` uses, scoped to
         deactivation only — renaming or re-describing the platform tenant still
         works.
         """
-        if data.get("is_active") is False:
+        if data.get("status", TenantStatus.ACTIVE) != TenantStatus.ACTIVE:
             tenant = self._tenant_repo.get_by_key(tenant_key)
             if not tenant:
                 raise NotFoundError("Tenant", tenant_key)
@@ -465,11 +513,17 @@ class TenantService:
            a wrong slug echo (422), a missing or wrong password (401) and a
            deployment that cannot erase (503) — before anything changes.
         2. Persist the record (one per tenant, so a concurrent second deletion
-           collides, 409) and freeze the tenant: every membership is deactivated,
-           so no member request writes into it while it is erased.
-        3. Run the erasure. ``completed`` only when the executor found nothing
-           left; otherwise ``partially_completed`` with a backoff that
-           :meth:`resume_tenant_erasures` (daily beat) retries.
+           collides, 409). **With a grace (#2123, REQ-024 AK-52)** the record is
+           ``scheduled`` until ``now + RETENTION_TENANT_ERASURE_GRACE_DAYS``, the tenant
+           becomes ``pending_deletion`` (it resolves for nobody, its memberships stay
+           as they are so :meth:`cancel_tenant_erasure` restores them unchanged), the
+           members are told the date, and the request returns. A repeated request
+           inside the grace re-asserts the state and returns the same record.
+        3. After the grace (or at once with a grace of ``0``) the tenant becomes
+           ``deleted``, every membership is deactivated and the erasure runs:
+           ``completed`` only when the executor found nothing left; otherwise
+           ``partially_completed`` with a backoff that :meth:`resume_tenant_erasures`
+           (daily beat) retries.
 
         Raises:
             NotFoundError: no such tenant (and no open record for it).
@@ -527,6 +581,12 @@ class TenantService:
         )
 
         if record is None:
+            # #2123 (MT-027) — a tenant that still exists is scheduled, not erased: the
+            # grace is the window in which the management can cancel and every member can
+            # export what is theirs (Art. 20). ``0`` keeps the immediate erasure.
+            scheduled_for = now + self._tenant_erasure_grace if tenant is not None else None
+            if scheduled_for is not None and scheduled_for <= now:
+                scheduled_for = None
             try:
                 record = self._require_tenant_erasure_repo().create_with_key(
                     TenantErasureRecord(
@@ -536,12 +596,25 @@ class TenantService:
                         requested_by_subject=requested_by_ref,
                         step_up=step_up,
                         slug_digest=self._tenant_slug_digest(tenant.slug) if tenant is not None else None,
+                        status="scheduled" if scheduled_for is not None else "in_progress",
                         requested_at=now,
+                        scheduled_for=scheduled_for,
                     ),
                     record_key,
                 )
             except (DuplicateError, WriteConflictError) as exc:
                 raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
+            if scheduled_for is not None and tenant is not None:
+                self._schedule_tenant_erasure(tenant, scheduled_for, requester_key=requester.key)
+                return record
+
+        elif record.status == "scheduled":
+            # #2123 — a repeated request inside the grace changes nothing but re-asserts the
+            # freeze (a first request whose status write failed left the record only); the
+            # date stays the one the members were told.
+            if tenant is not None and record.scheduled_for is not None:
+                self._set_tenant_status(tenant_key, TenantStatus.PENDING_DELETION, record.scheduled_for)
+            return record
 
         elif self._is_held_by_a_live_run(record, now):
             # An earlier request's run is working on it right now (its heartbeat is
@@ -554,9 +627,203 @@ class TenantService:
         # Freeze, then hand the work to a Celery task (#1792). The task claims the
         # record atomically; a request that repeats an open deletion only
         # re-dispatches it, and of two tasks the claim lets one run.
+        self._mark_tenant_erasing(tenant_key)
         self._membership_repo.deactivate_all_for_tenant(tenant_key)
         self._dispatch_tenant_erasure(record_key)
         return record
+
+    # --- Tenant lifecycle: grace and cancellation (REQ-024 AK-52, MT-027 #2123) ---
+
+    def _set_tenant_status(self, tenant_key: str, status: TenantStatus, scheduled_at: datetime | None) -> None:
+        """Write the lifecycle state; a tenant document an earlier attempt already removed is left alone."""
+        self._tenant_repo.update_fields(tenant_key, {"status": status, "deletion_scheduled_at": scheduled_at})
+
+    def _mark_tenant_erasing(self, tenant_key: str) -> None:
+        """The grace is over and a run holds the deletion: the tenant is ``deleted``, no longer cancellable.
+
+        Called after every claim (and on the immediate path of a zero grace). The tenant
+        already resolved for nobody while ``pending_deletion``; the state now tells the
+        admin panel and :meth:`cancel_tenant_erasure` that nothing can be taken back.
+        """
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        if tenant is None or tenant.status == TenantStatus.DELETED:
+            return
+        self._set_tenant_status(tenant_key, TenantStatus.DELETED, tenant.deletion_scheduled_at)
+
+    def _schedule_tenant_erasure(
+        self, tenant: Tenant, scheduled_for: datetime, *, requester_key: str | None, orphaned: bool = False
+    ) -> None:
+        """Freeze *tenant* for the grace and tell its members the date (#2123).
+
+        The freeze is the state, not the memberships: a ``pending_deletion`` (or
+        ``orphaned``) tenant resolves for nobody (``Tenant.is_active``, #2105), while
+        every membership stays as it is — so a cancellation restores each member's
+        access unchanged, and the management that may cancel is still provable from the
+        stored membership. The memberships are deactivated when the grace is over and a
+        run claims the deletion (:meth:`_mark_tenant_erasing`).
+        """
+        tenant_key = tenant.key or ""
+        status = TenantStatus.ORPHANED if orphaned else TenantStatus.PENDING_DELETION
+        self._set_tenant_status(tenant_key, status, scheduled_for)
+        logger.info(
+            "tenant_erasure.scheduled",
+            tenant=log_tenant(tenant_key),
+            status=status.value,
+            scheduled_for=scheduled_for.isoformat(),
+        )
+        self._notify_members_of_scheduled_erasure(tenant, scheduled_for, skip_user_key=requester_key, orphaned=orphaned)
+
+    def _notify_members_of_scheduled_erasure(
+        self, tenant: Tenant, scheduled_for: datetime, *, skip_user_key: str | None, orphaned: bool = False
+    ) -> int:
+        """Mail every active member the deletion date and how to keep what is theirs (Art. 20); best effort.
+
+        Never raises: the deletion is accepted whatever a mailbox does. Organisations are
+        named (their members know them by that name); a personal tenant is not — its name
+        is its owner's display name (the rule of the account-erasure notice, #1824).
+        Returns how many members were mailed.
+        """
+        if self._email_service is None or self._user_repo is None:
+            logger.warning("tenant_erasure.members_not_notified", tenant=log_tenant(tenant.key), reason="no_mailer")
+            return 0
+        body = self._scheduled_erasure_notice_body(tenant, scheduled_for, orphaned=orphaned)
+        sent = 0
+        try:
+            member_keys = self._membership_repo.active_member_user_keys(tenant_key=tenant.key or "")
+        except Exception as exc:  # noqa: BLE001 - the deletion stands; the notice is best effort
+            logger.error(
+                "tenant_erasure.members_notice_failed", tenant=log_tenant(tenant.key), error_type=type(exc).__name__
+            )
+            return 0
+        for member_key in member_keys:
+            if member_key == skip_user_key:
+                continue
+            try:
+                member = self._user_repo.get_by_key(member_key)
+                if member is None or not member.email:
+                    continue
+                self._email_service.send_notification_email(
+                    to_email=member.email,
+                    subject="Kamerplanter — a garden you are a member of will be deleted",
+                    html_body=body,
+                )
+            except Exception as exc:  # noqa: BLE001 - one mailbox must not stop the others
+                logger.warning(
+                    "tenant_erasure.member_notice_failed", member=log_subject(member_key), error_type=type(exc).__name__
+                )
+                continue
+            sent += 1
+        logger.info("tenant_erasure.members_notified", tenant=log_tenant(tenant.key), notified=sent)
+        return sent
+
+    @staticmethod
+    def _scheduled_erasure_notice_body(tenant: Tenant, scheduled_for: datetime, *, orphaned: bool = False) -> str:
+        due = html.escape(scheduled_for.strftime("%Y-%m-%d"))
+        if tenant.tenant_type == TenantType.ORGANIZATION:
+            which = f"The organisation <strong>{html.escape(tenant.name)}</strong>"
+        else:
+            which = "A personal garden you are a member of"
+        if orphaned:
+            # #2134 — nobody is left who could administer it, so nobody can cancel.
+            who_can_stop = (
+                "Nobody is left who can administer it: its last person with the management right deleted their account."
+            )
+        else:
+            who_can_stop = "The garden's management can cancel the deletion until then."
+        return (
+            "<h2>A garden you are a member of will be deleted</h2>"
+            f"<p>{which} is scheduled for deletion on {due} (UTC), including its sites, plants, diary entries, "
+            "tasks and photos. Until then it is closed for everybody.</p>"
+            "<p>What you entered there yourself is part of your personal data export: download it under "
+            f"<em>Settings &rarr; Privacy</em> before that date if you want to keep it. {who_can_stop}</p>"
+            "<p>Your own account is not affected.</p>"
+        )
+
+    def _is_due(self, record: TenantErasureRecord, now: datetime) -> bool:
+        """Whether *record* may be run now: not ``scheduled``, or its grace has ended (#2123)."""
+        if record.status != "scheduled":
+            return True
+        due_at = ensure_aware_utc(record.scheduled_for)
+        return due_at is None or due_at <= now
+
+    def cancel_tenant_erasure(
+        self,
+        tenant_key: str,
+        *,
+        requester: User,
+        authenticated_with_api_key: bool,
+        confirmation: TenantErasureCancelConfirmation,
+        origin: TenantErasureOrigin,
+        client_ip: str | None,
+    ) -> Tenant:
+        """Withdraw a scheduled tenant deletion inside its grace and reopen the tenant (#2123, REQ-024 AK-52).
+
+        **Who may** is the rule of :meth:`delete_tenant`, proven from the stored
+        membership: ``tenant_management`` — the requester's active membership holds the
+        lead role **and** the ``management`` scope; ``platform_admin`` — an active
+        ``lead`` membership in the platform tenant. Never a service account, never an
+        API key. Then the requester's own step-up (``tenant_erasure_cancel``, bound to
+        the tenant's key). Nothing changes before both pass.
+
+        The record is removed only while it is still ``scheduled``
+        (:meth:`ITenantErasureRepository.delete_scheduled`): of a cancellation and the
+        beat's claim exactly one wins, and a deletion a run already holds cannot be
+        taken back (422, ``deleted``). The tenant returns to ``active`` with every
+        membership as it was — the grace never touched them. An ``orphaned``
+        organisation (#2134) is not cancellable (422): nobody is left who could
+        administer it, so it runs out its grace and is erased (REQ-024 AK-64).
+
+        Raises:
+            ForbiddenError: the requester may not, or authenticated with an API key.
+            NotFoundError: no such tenant.
+            InvalidStatusTransitionError: nothing is scheduled (HTTP 422).
+            UnauthorizedError / StepUpLockedError: the step-up failed (401 / 429).
+        """
+        self._authorize_tenant_deletion(
+            tenant_key, requester=requester, authenticated_with_api_key=authenticated_with_api_key, origin=origin
+        )
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        if tenant is None:
+            raise NotFoundError("Tenant", tenant_key)
+        if tenant.status not in (TenantStatus.PENDING_DELETION, TenantStatus.ORPHANED):
+            raise InvalidStatusTransitionError(str(tenant.status), str(TenantStatus.ACTIVE))
+        self._step_up_verifier.verify(
+            requester,
+            action="tenant_erasure_cancel",
+            # #1884 — a factor obtained to cancel this tenant's deletion confirms this one only.
+            target=tenant_key,
+            echo_ok=None,
+            password=confirmation.password,
+            code=confirmation.step_up_code,
+            reauth_token=confirmation.step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+        record_key = TenantErasureEngine.record_key(tenant_key)
+        if not self._require_tenant_erasure_repo().delete_scheduled(record_key):
+            # A run claimed it between the read above and now (or nothing was recorded).
+            raise InvalidStatusTransitionError(str(TenantStatus.DELETED), str(TenantStatus.ACTIVE))
+        self._set_tenant_status(tenant_key, TenantStatus.ACTIVE, None)
+        logger.info(
+            "tenant_erasure.cancelled", tenant=log_tenant(tenant_key), origin=origin, subject=log_subject(requester.key)
+        )
+        restored = self._tenant_repo.get_by_key(tenant_key)
+        if restored is None:  # pragma: no cover - the tenant was read above and nothing deletes it in between
+            raise NotFoundError("Tenant", tenant_key)
+        return restored
+
+    def cancel_tenant_erasure_by_slug(self, slug: str, **kwargs: Any) -> Tenant:
+        """:meth:`cancel_tenant_erasure` for the tenant-scoped route, which knows the slug only (#2123).
+
+        A ``pending_deletion`` tenant resolves for nobody (#2105), so the route cannot go
+        through :func:`~app.common.auth.get_current_tenant`. An unknown slug answers like
+        a tenant the requester may not administer (403, one message): the route is no
+        existence oracle.
+        """
+        tenant = self._tenant_repo.get_by_slug(slug)
+        if tenant is None or not tenant.key:
+            raise ForbiddenError("Deleting a tenant requires the lead role and the management scope.")
+        return self.cancel_tenant_erasure(tenant.key, **kwargs)
 
     def _is_held_by_a_live_run(self, record: TenantErasureRecord, now: datetime) -> bool:
         """Whether a run claimed *record* and its heartbeat is still inside the stale window."""
@@ -606,6 +873,9 @@ class TenantService:
         record = repo.get(record_key)
         if record is None or record.status == "completed":
             return {"record_key": log_tenant_record_key(record_key), "outcome": "nothing_to_do"}
+        if not self._is_due(record, now):
+            # #2123 — inside its grace a deletion is the beat's to start, never a stray dispatch's.
+            return {"record_key": log_tenant_record_key(record_key), "outcome": "scheduled"}
         configuration_error = self._tenant_erasure_configuration_error()
         if configuration_error is not None:
             logger.error(
@@ -617,6 +887,7 @@ class TenantService:
         claimed = self._claim_tenant_erasure(record_key, now)
         if claimed is None:
             return {"record_key": log_tenant_record_key(record_key), "outcome": "not_claimed"}
+        self._mark_tenant_erasing(claimed.tenant_key)
         self._membership_repo.deactivate_all_for_tenant(claimed.tenant_key)
         finished = self._run_tenant_erasure(claimed, now, raise_on_failure=False)
         return {"record_key": log_tenant_record_key(record_key), "outcome": finished.status}
@@ -700,7 +971,8 @@ class TenantService:
         """
         repo = self._require_tenant_erasure_repo()
         stale_before = now - timedelta(hours=TenantErasureEngine.STALE_AFTER_HOURS)
-        candidates = repo.list_due(stale_before_iso=stale_before.isoformat())
+        # #2123 — a scheduled deletion is due once its grace has ended.
+        candidates = repo.list_due(stale_before_iso=stale_before.isoformat(), scheduled_due_before_iso=now.isoformat())
         result = {"candidates": len(candidates), "completed": 0, "open": 0, "deferred": 0, "held": 0, "escalated": 0}
         if not candidates:
             return result
@@ -710,6 +982,9 @@ class TenantService:
             logger.error("tenant_erasure.retry_not_configured", reason=configuration_error, held=len(candidates))
             return result
         for record in candidates:
+            if not self._is_due(record, now):
+                result["deferred"] += 1
+                continue
             if record.next_attempt_at is not None and record.next_attempt_at > now + _TENANT_ERASURE_RETRY_SLACK:
                 result["deferred"] += 1
                 logger.info(
@@ -730,6 +1005,7 @@ class TenantService:
             claimed = self._claim_tenant_erasure(record.key or "", now)
             if claimed is None:
                 continue
+            self._mark_tenant_erasing(claimed.tenant_key)
             self._membership_repo.deactivate_all_for_tenant(claimed.tenant_key)
             finished = self._run_tenant_erasure(claimed, now, raise_on_failure=False)
             result["completed" if finished.status == "completed" else "open"] += 1
@@ -1136,6 +1412,9 @@ class TenantService:
         claimed = self._claim_tenant_erasure(record_key, now)
         if claimed is None:
             raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
+        # #2123 — a deletion scheduled by the tenant's management does not wait out its grace
+        # here: the account erasure decided this personal tenant goes with its owner.
+        self._mark_tenant_erasing(tenant_key)
         self._membership_repo.deactivate_all_for_tenant(tenant_key)
         return self._run_tenant_erasure(claimed, now, raise_on_failure=True)
 

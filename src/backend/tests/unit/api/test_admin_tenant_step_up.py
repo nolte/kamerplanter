@@ -320,8 +320,9 @@ def test_a_tenant_is_deactivated_with_the_admins_own_password() -> None:
     assert resp.status_code == 200, resp.text
     assert resp.json()["is_active"] is False
     assert world.garden_active() is False
-    # The step-up field is the admin's, never written to the tenant.
-    assert world.tenants.writes == [(GARDEN, {"is_active": False})]
+    # The step-up field is the admin's, never written to the tenant; the bool is the
+    # suspension switch on the status model (#2123).
+    assert world.tenants.writes == [(GARDEN, {"status": "suspended"})]
 
 
 def test_an_api_key_cannot_deactivate_a_tenant_even_with_the_password() -> None:

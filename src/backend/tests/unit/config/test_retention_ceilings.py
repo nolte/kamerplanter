@@ -13,8 +13,8 @@ import pytest
 
 from app.config.settings import Settings, SettingsError, load_settings
 
-# (environment variable, ceiling) — NFR-011 §4, the eleven settings with a ceiling
-# (the seven of Q-R9 plus R-04 / R-04a / R-12, #1946, and R-01a, #1960).
+# (environment variable, ceiling) — NFR-011 §4, the twelve settings with a ceiling
+# (the seven of Q-R9 plus R-04 / R-04a / R-12, #1946, R-01a, #1960, and R-01b, #2123).
 CEILINGS = [
     ("RETENTION_SOFT_DELETE_RETENTION_DAYS", 90),
     ("RETENTION_UNVERIFIED_ACCOUNT_DAYS", 7),
@@ -27,6 +27,8 @@ CEILINGS = [
     ("RETENTION_CONSENT_IP_ANONYMIZATION_DAYS", 7),
     ("RETENTION_INVITATION_RETENTION_DAYS", 30),
     ("RETENTION_ERASURE_MEMBER_NOTICE_DAYS", 7),
+    # #2123 (MT-027) — the cancellable grace of a tenant deletion; floor 0 (self-hosted).
+    ("RETENTION_TENANT_ERASURE_GRACE_DAYS", 90),
 ]
 # The pre-#1782 names still accepted as aliases (NFR-011 §4 last column).
 ALIAS_CEILINGS = [

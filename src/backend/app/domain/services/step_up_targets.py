@@ -20,6 +20,8 @@ on a kind of target learns nothing about which targets of that kind exist (403 b
   in the tenant (``MembershipEngine.can_delete_tenant``) or is a platform admin; the
   tenant exists and is not the platform tenant, or an erasure of it is still open
   (a deletion an earlier attempt left partial is resumed by the same act);
+* ``tenant_erasure_cancel`` (#2123) — the rule of ``tenant_deletion``: whoever may request a
+  tenant's deletion may obtain the factor that cancels a scheduled one;
 * ``provider_unlink`` — the link is one of the requester's own;
 * ``oidc_provider_change`` (#1883) — a platform admin; the configuration exists, or,
   for ``new:<slug>``, no configuration uses that slug yet;
@@ -100,7 +102,8 @@ class StepUpTargetAuthorizer:
                 raise ForbiddenError("You cannot delete your own account from the admin panel.")
             if self._users.get_by_key(target) is None:
                 raise NotFoundError("User", target)
-        elif action == "tenant_deletion":
+        elif action in ("tenant_deletion", "tenant_erasure_cancel"):
+            # #2123 — cancelling a scheduled deletion is open to whoever may request one.
             self._authorize_tenant_deletion(user_key, target)
         elif action == "provider_unlink":
             if not any(link.key == target for link in self._providers.list_by_user(user_key)):

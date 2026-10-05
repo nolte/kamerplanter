@@ -25,7 +25,11 @@ from app.api.v1.privacy.schemas import (
     ErasureResponse,
     PersonalTenantErasurePreviewItem,
 )
-from app.api.v1.tenants.schemas import TenantDeleteRequest, TenantDeletionAcceptedResponse
+from app.api.v1.tenants.schemas import (
+    TenantDeleteRequest,
+    TenantDeletionAcceptedResponse,
+    TenantErasureCancelRequest,
+)
 from app.common.auth import get_authenticated_with_api_key, require_platform_admin
 from app.common.dependencies import (
     get_privacy_service,
@@ -109,6 +113,8 @@ def list_all_tenants(
                 description=tenant.description,
                 owner_user_key=tenant.owner_user_key,
                 is_active=tenant.is_active,
+                status=tenant.status,
+                deletion_scheduled_at=tenant.deletion_scheduled_at,
                 is_platform=tenant.is_platform,
                 max_members=tenant.max_members,
                 member_count=member_count,
@@ -230,6 +236,8 @@ def update_tenant(
         description=tenant.description,
         owner_user_key=tenant.owner_user_key,
         is_active=tenant.is_active,
+        status=tenant.status,
+        deletion_scheduled_at=tenant.deletion_scheduled_at,
         is_platform=tenant.is_platform,
         max_members=tenant.max_members,
         member_count=member_count,
@@ -350,6 +358,55 @@ def delete_tenant(
         client_ip=client_ip,
     )
     return TenantDeletionAcceptedResponse.from_record(record)
+
+
+@router.post(
+    "/tenants/{key}/erasure/cancel",
+    response_model=AdminTenantResponse,
+    responses=STEP_UP_RESPONSES,
+)
+def cancel_tenant_erasure(
+    key: Annotated[str, Path(description="Document key of the tenant.")],
+    body: TenantErasureCancelRequest,
+    user: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
+    tenant_service: TenantService = Depends(get_tenant_service),
+):
+    """Cancel a scheduled tenant deletion inside its grace (#2123, REQ-024 AK-52). Platform admin only.
+
+    The platform-admin counterpart of ``POST /tenants/{slug}/erasure/cancel``, through
+    the same ``TenantService.cancel_tenant_erasure``: the admin's own step-up
+    (``tenant_erasure_cancel``, bound to the tenant's key; never an API key), the
+    service re-proves the platform-admin membership. Also the rescue of an
+    ``orphaned`` organisation (#2134): it returns to ``active``; give it a member with
+    the ``management`` scope afterwards. 422 when nothing is scheduled any more.
+    """
+    tenant = tenant_service.cancel_tenant_erasure(
+        key,
+        requester=user,
+        authenticated_with_api_key=via_api_key,
+        confirmation=body.to_confirmation(),
+        origin="platform_admin",
+        client_ip=client_ip,
+    )
+    member_count = sum(1 for member in tenant_service.list_members(key) if member.is_active)
+    return AdminTenantResponse(
+        key=tenant.key or key,
+        name=tenant.name,
+        slug=tenant.slug,
+        tenant_type=tenant.tenant_type,
+        description=tenant.description,
+        owner_user_key=tenant.owner_user_key,
+        is_active=tenant.is_active,
+        status=tenant.status,
+        deletion_scheduled_at=tenant.deletion_scheduled_at,
+        is_platform=tenant.is_platform,
+        max_members=tenant.max_members,
+        member_count=member_count,
+        created_at=tenant.created_at,
+        updated_at=tenant.updated_at,
+    )
 
 
 @router.get("/users/{key}/erasure-preview", response_model=ErasurePreviewResponse)
