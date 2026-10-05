@@ -7,13 +7,14 @@ Kategorie: Monitoring
 Fokus: Beides
 Technologie: Python, Home Assistant API, MQTT, TimescaleDB
 Status: Entwurf
-Version: 2.9 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 2.10 (#2112 / MT-015: Single-Household-Instanz, HA-Entity-Freigaben je Mandant); 2.9 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.10 | 2026-10-05 | **#2112 / MT-015 umgesetzt (Betreiberentscheidung Modell A, 2026-10-04).** Neuer §4c: Kamerplanter ist mit **einer** Home-Assistant-Instanz verbunden (Single-Household-Instanz, ein Token des Betreibers für alle Mandanten). Welche Entitäten dieser Instanz ein Mandant nutzen darf, legt der Plattform-Admin je Mandant fest (`tenant_ha_entity_grants`). Anlegen/Ändern von Sensor, Aktor (REQ-018), Wetterquelle (REQ-046) und HA-Benachrichtigungsziel (REQ-030) mit nicht freigegebener Entität → `422 HA_ENTITY_NOT_GRANTED` (wertfrei). Live-Lesen, Ingest, Tank-Sync, Regelkreis und Wetterabruf überspringen nicht freigegebene Entitäten (Zähler im Log, nie Entity-ID oder Wert). Die Entity-Listen der Instanz (`/ha/weather-entities`, `/ha/sensor-entities`, `/tanks/ha-entities`) verlangen jetzt `technical` und enthalten nur freigegebene Entitäten. Bestand: Migration v0084 gibt jede vorher referenzierte Entität dem referenzierenden Mandanten frei. Im Light-Modus gibt das Binden die Entität frei (kein Admin-Bereich). §4a korrigiert: die HA-Verbindung ist installationsweit und wird vom Plattform-Admin eingerichtet, nicht von jedem Nutzer für sich. Rechte-Tabelle §4 um Entity-Liste und Freigaben ergänzt. |
 | 2.7 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** Klassifizierungs-getriebener Drop-Chunks-Job `enforce_classified_sensor_retention` ergänzt — differenzierte Retention pro `Location.data_classification` (REQ-002). Default 5y Stufe 3, Opt-in-Verlängerungen für `greenhouse` (10y) und `outdoor_open` (20y, Stufe 2 = 5y). Forward-only-Klassifizierungs-Wechsel-Semantik. Saison-Aggregat (REQ-003 §2 `sensor_aggregates`) als 4. Datenebene ergänzt. |
 | 2.6 | (vorher) | Smart-Home-Gesamtdeaktivierung über UserPreference. |
 | 2.8 | 2026-07-11 | Konsistenz-Klarstellung (Überwinterungs-Cluster, REQ-047 v1.1): Bei fehlenden Livedaten degradiert REQ-047 auf die klimatologische Stufe (Ist-Stand: Standort-Durchschnittsfrostdaten + Zonen-Frosttermine); ClimateNormal (REQ-041) ist Ausbaupfad. Keine Modell-/Feld-Änderung. |
@@ -1716,6 +1717,8 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | Sensor-Daten (Tenant-scoped) | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 | Sensor-Konfiguration | Alle Rollen | Technik | Technik | Technik | Technische Konfiguration im Mandanten, §3.4 |
 | HA-Integration-Config | Technik | Technik | Technik | Technik | Enthält Zugangsdaten — auch Lesen ist Technik |
+| HA-Entity-Liste der Instanz (`/ha/*-entities`, `/tanks/ha-entities`) | Technik | — | — | — | Nur die dem Mandanten freigegebenen Entitäten (§4c) |
+| HA-Entity-Freigaben (`tenant_ha_entity_grants`) | Plattform-Admin | Plattform-Admin | — | Plattform-Admin | Instanzweit, je Mandant (§4c) |
 | Manuelle Messwert-Eingabe | — | Ab Gärtner | Ab Gärtner | — | — |
 
 ## 4a. Home Assistant — Optionalitätsprinzip
@@ -1724,7 +1727,7 @@ adressierten Mandanten, sofern nicht anders angegeben.
 
 ### Aktivierungsbedingung
 
-Die HA-Integration gilt als **aktiviert**, wenn der Nutzer in seinen Kontoeinstellungen (REQ-023 Tab „Integrationen") eine `ha_url` und einen `ha_token` hinterlegt hat UND der Verbindungstest erfolgreich war (`ha_token_set == true`).
+Die HA-Integration gilt als **aktiviert**, wenn der **Plattform-Admin** in den Kontoeinstellungen (Tab „Home Assistant", nur für Plattform-Admins sichtbar; `PUT /api/v1/admin/settings/home-assistant`) oder per Umgebung (`HA_URL`/`HA_ACCESS_TOKEN`) eine `ha_url` und ein Token hinterlegt hat (`ha_token_set == true` in `GET …/weather-sources/available`). Es gibt **eine** Verbindung je Installation, keine je Nutzer oder Mandant (§4c). *(Korrigiert in v2.10: bis dahin stand hier, jeder Nutzer hinterlege URL und Token in seinen eigenen Kontoeinstellungen — die Einstellung ist installationsweit und dem Plattform-Admin vorbehalten; ein `ha_token` am Nutzer gibt es nicht.)*
 
 ### UI-Visibility-Regel (systemweit)
 
@@ -1813,6 +1816,36 @@ function useSmartHomeEnabled(): { isSmartHomeEnabled: boolean } {
 - **US-005-SH-01:** "Als Hobby-Gärtner ohne Smart-Home-Geräte möchte ich eine aufgeräumte Oberfläche ohne Sensor- und Aktor-Elemente sehen, damit ich mich auf die reine Pflanzenpflege konzentrieren kann."
 - **US-005-SH-02:** "Als Nutzer, der später Sensoren nachrüsten möchte, möchte ich die Smart-Home-Funktionen jederzeit in den Einstellungen aktivieren können, ohne Daten zu verlieren."
 - **US-005-SH-03:** "Als fortgeschrittener Nutzer mit Smart-Home möchte ich beim Düngen den EC-Wert automatisch aus dem Tank-Sensor übernehmen können, damit ich keine Werte manuell abtippen muss." (Nur bei `smart_home_enabled == true`)
+
+## 4c. Home Assistant — Single-Household-Instanz und Entity-Freigaben (MT-015)
+
+**Betreiberentscheidung (Modell A, 2026-10-04, #2112):** Kamerplanter ist mit **einer** Home-Assistant-Instanz verbunden — der des Betreibers, mit seinem Token — und diese Verbindung gilt für **alle** Mandanten. Das ist für eine selbst gehostete Haushalts-Installation gedacht. Ein geteiltes SaaS-Angebot braucht eine HA-Verbindung je Mandant (Modell B, Audit MT-015); bis dahin begrenzt eine Freigabeliste, was ein Mandant von dieser einen Instanz nutzen kann.
+
+**Freigaben (`tenant_ha_entity_grants`):** eine Zeile je `(tenant_key, entity_id)`, eindeutig. Gepflegt vom **Plattform-Admin** (`/api/v1/admin/ha-entity-grants/tenants/{tenant_key}`: Liste, Inventur mit Freigabestand, Freigeben, Zurückziehen; UI: Admin → Mandant bearbeiten → „Home-Assistant-Entitäten"). Ein `notify`-Dienst wird wie eine Entität als `notify.<dienst>` freigegeben. Gelöscht mit dem Mandanten (REQ-024-Löschinventar).
+
+**Wo die Freigabe gilt:**
+
+| Pfad | Verhalten ohne Freigabe |
+|------|------------------------|
+| Sensor anlegen / `ha_entity_id` ändern (Tank, Standort, Location) | `422 HA_ENTITY_NOT_GRANTED`, wertfrei (keine Entity-ID im Fehler) |
+| Aktor anlegen / `ha_entity_id` ändern (REQ-018) | `422 HA_ENTITY_NOT_GRANTED` |
+| Wetterquelle speichern oder testen, HA-Modus A/B (REQ-046) | `422 HA_ENTITY_NOT_GRANTED` je Feld |
+| HA-Benachrichtigungsziel ändern (`notify_service`, `tts_entity_id`, REQ-030) | `422 HA_ENTITY_NOT_GRANTED` |
+| `…/sensors/live`, Tank-Live-Status, Frostwarnung, Tagebuch-Umweltsnapshot, Gieß-Vorschlag | Entität wird nicht abgefragt; `errors` meldet `not_granted` |
+| Ingest (`ingest_ha_readings`), Tank-Sync, Aktor-Status-Sync, Regelkreis-Messwerte | übersprungen, im Log nur gezählt (`not_granted`), nie Entity-ID oder Wert |
+| Aktor schalten (Befehl, Regel, Zeitplan, Not-Aus) | kein HA-Aufruf; Rückfall auf die manuelle Aufgabe wie bei HA-Ausfall |
+| Wetterabruf (`fetch_weather_forecasts`) | nicht freigegebene Einzelsensoren bleiben unzugeordnet; nicht freigegebene `weather.*`-Entität → Quelle gilt als nicht verfügbar, die Fallback-Kette geht weiter |
+| HA-Benachrichtigung senden | `notify`/`tts` nur, wenn für den **Mandanten der Benachrichtigung** freigegeben (Präferenzen sind nutzerweit) |
+
+Geprüft wird immer gegen den Mandanten des **Elternobjekts** (Tank, Standort, Location über ihren Standort, Aktor). Ein unverändert gespeicherter Bestandswert blockiert das Ändern anderer Felder nicht (Sensor, Aktor, Benachrichtigungsziel); beim Wetter wird die ganze Quellenliste gespeichert, eine zurückgezogene Entität muss dort aus der HA-Quelle entfernt werden.
+
+**Entity-Listen:** `GET /t/{slug}/ha/weather-entities`, `/ha/sensor-entities` und `/tanks/ha-entities` verlangen `technical` (wie `actuators/integrations/home-assistant/entities`) und liefern nur freigegebene Entitäten. Ohne `technical` fragt das Frontend die Listen nicht ab und erklärt stattdessen; die Entity-ID eines Sensors bleibt von Hand eintragbar und wird beim Speichern gegen die Freigaben geprüft.
+
+**Bestand (Migration v0084):** Beim Upgrade wird jede bereits referenzierte Entität dem referenzierenden Mandanten freigegeben (`source: migration`) — Sensoren (Mandant des Elternobjekts), Aktoren, HA-Wetterquellen und HA-Benachrichtigungsziele **aktivierter** Kanäle (allen Mandanten, in denen der Nutzer aktives Mitglied ist; ohne gesetzten Dienst `notify.notify`, der Sende-Standard). Nichts, was vor dem Upgrade funktionierte, hört dadurch auf. Bewusst **keine** zeitliche Altbestandsregel ohne Zeile: eine gesäte Freigabe ist sichtbar und vom Plattform-Admin zurückziehbar. Nicht wohlgeformte Entity-IDs werden nicht freigegeben (sie waren nie lesbar).
+
+**Light-Modus (REQ-027):** ein Haushalt, ein Mandant, der einzige Nutzer ist der Betreiber, und es gibt keinen Admin-Bereich für Mandanten. Dort **gibt das Binden eine Entität frei** (`source: light_mode`) statt mit 422 abzulehnen, und die Entity-Listen zeigen die ganze Inventur; das Speichern eines HA-Benachrichtigungskanals gibt auch den Standarddienst frei, den ein Versand anwählt. Lesen bleibt an echte Freigabe-Zeilen gebunden — dieselben, gegen die nach einem Wechsel in den Full-Modus geprüft wird. Nicht wohlgeformte Entity-IDs werden auch hier abgelehnt.
+
+**Nicht abgedeckt:** HA-Events (`kamerplanter_notification`) und persistente Benachrichtigungen gehen weiter an die eine Instanz; sie adressieren keine Entität.
 
 ## 5. Abhängigkeiten
 

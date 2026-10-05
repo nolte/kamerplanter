@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/mocks/server';
-import { renderWithProviders } from '@/test/helpers';
+import { createStoreWithTenantRole, renderWithProviders } from '@/test/helpers';
 import WeatherSourceSection from '@/pages/standorte/WeatherSourceSection';
 import type {
   AvailableSourcesResponse,
@@ -97,7 +97,10 @@ function setup(opts: Opts = {}) {
     ),
   );
 
-  const result = renderWithProviders(<WeatherSourceSection siteKey={SITE} />);
+  // MT-015 (#2112): the HA entity pickers need the `technical` scope.
+  const result = renderWithProviders(<WeatherSourceSection siteKey={SITE} />, {
+    store: createStoreWithTenantRole('lead', ['technical']),
+  });
   return { ...result, getPutBody: () => putBody, getTestBody: () => testBody };
 }
 

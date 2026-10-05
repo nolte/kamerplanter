@@ -89,6 +89,10 @@ _FOREIGN_SELECTORS_WITH_REASON: dict[tuple[str, str], tuple[str, str]] = {
             "/api/v1/admin/platform/users/{user_key}/memberships",
             # MT-014 (#2111): the security audit is read across tenants, or of one the caller names.
             "/api/v1/admin/platform/security-audit",
+            # MT-015 (#2112): the platform admin maintains each tenant's Home Assistant entity allowlist.
+            "/api/v1/admin/ha-entity-grants/tenants/{tenant_key}",
+            "/api/v1/admin/ha-entity-grants/tenants/{tenant_key}/inventory",
+            "/api/v1/admin/ha-entity-grants/tenants/{tenant_key}/{entity_id}",
         )
     },
     **{

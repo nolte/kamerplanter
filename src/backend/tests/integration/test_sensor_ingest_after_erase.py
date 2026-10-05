@@ -49,6 +49,7 @@ from app.common.dependencies import get_observation_service
 from app.common.enums import TenantRole
 from app.common.exceptions import KamerplanterError
 from app.data_access.arango import collections as col
+from app.data_access.arango.ha_entity_grant_repository import ArangoHaEntityGrantRepository
 from app.data_access.arango.sensor_repository import ArangoSensorRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.tank_repository import ArangoTankRepository
@@ -56,6 +57,7 @@ from app.data_access.timescale.observation_repository import TimescaleObservatio
 from app.data_access.timescale.schema import ensure_timescale_schema
 from app.domain.models.sensor import Sensor
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.ha_entity_grant_service import HaEntityGrantService
 from app.domain.services.observation_service import ObservationService
 from app.domain.services.sensor_service import SensorService
 from app.domain.services.tenant_service import TenantService
@@ -117,6 +119,10 @@ class World:
             Sensor(name="Air", metric_type="temperature_celsius", site_key=self.site, ha_entity_id="sensor.air")
         )
         self.sensor = created.key or ""
+        # MT-015 (#2112): ingest reads only entities granted to the sensor's tenant — the
+        # real allowlist on this database, granted the way the platform admin would.
+        self.grants = HaEntityGrantService(ArangoHaEntityGrantRepository(arango))
+        self.grants.grant(self.tenant, ["sensor.air"])
         self.obs_repo = TimescaleObservationRepository(pool)
         self.observation_service = ObservationService(
             self.obs_repo,
@@ -310,6 +316,7 @@ def ha_poll(world: World, monkeypatch):
         monkeypatch.setattr(dependencies, "get_sensor_repo", lambda: world.sensor_repo)
         monkeypatch.setattr(dependencies, "get_observation_repo", lambda: world.obs_repo)
         monkeypatch.setattr(dependencies, "get_observation_service", lambda: world.observation_service, raising=False)
+        monkeypatch.setattr(dependencies, "get_ha_entity_grant_service", lambda: world.grants)
         return task.ingest_ha_readings()
 
     return run

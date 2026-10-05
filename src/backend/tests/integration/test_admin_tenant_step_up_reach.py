@@ -4,7 +4,7 @@ Driven end to end against a **real** ArangoDB: the real platform-admin routes, t
 ``TenantService`` with its real step-up verifier, over the real
 ``ArangoTenantRepository`` and ``ArangoMembershipRepository`` (which own the
 ``has_membership`` / ``membership_in`` edges). What survives a refused request is read
-straight off the collections — the tenant document's ``status`` (``is_active`` until v0084), the membership
+straight off the collections — the tenant document's ``status`` (``is_active`` until v0085), the membership
 document and both of its edges — so a refusal observed here is the production path
 leaving the store as it was, not a double that never wrote.
 
@@ -86,7 +86,7 @@ def db(database):
             "slug": "community-garden",
             "tenant_type": "organization",
             "owner_user_key": MEMBER,
-            "status": "active",  # v0084 (#2123): the lifecycle state replaced the bool
+            "status": "active",  # v0085 (#2123): the lifecycle state replaced the bool
             "is_platform": False,
             "max_members": 50,
             "settings": {},

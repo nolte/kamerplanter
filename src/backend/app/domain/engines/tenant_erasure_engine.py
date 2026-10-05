@@ -221,6 +221,11 @@ class TenantErasureEngine:
         # (``tenant_scope``) authorises nothing once the tenant is gone; its
         # label and IP allowlist are the member's. Account-scoped keys stay.
         TenantErasureEntry(collection="api_keys", action="delete", tenant_field="tenant_scope"),
+        # ── Platform-admin grants *for* the tenant ──
+        # MT-015 (#2112): which entities of the operator's Home Assistant the
+        # tenant may use. Meaningless without the tenant; a re-created tenant of
+        # the same key must not inherit them.
+        _delete("tenant_ha_entity_grants"),
         # ── Audit logs with their own retention purge ──
         TenantErasureEntry(
             collection="ai_audit_log",

@@ -14,7 +14,10 @@ classes) because different sources need different constructor dependencies:
   decrypted here (the resolver owns the :class:`EncryptionEngine`) and the
   **plaintext** key is passed to ``AdapterCls(api_key=...)``
 * ha_weather -> built from the ``ha_client_factory``; when it returns ``None``
-  (no HA token) the source is treated as unavailable and skipped.
+  (no HA token) the source is treated as unavailable and skipped. Only the
+  entities granted to the configuration's tenant are read (MT-015, #2112): an
+  ungranted mapped sensor is left unmapped, an ungranted ``weather.*`` entity
+  makes the source unavailable — the fallback chain continues either way.
 """
 
 from __future__ import annotations
@@ -29,11 +32,14 @@ from app.common.log_privacy import loggable_error
 from app.domain.engines.encryption_engine import SecretKeyMismatchError
 from app.domain.interfaces.weather_adapter import WeatherAdapter
 from app.domain.models.weather import (
+    HaSensorMapping,
     WeatherForecast,
     WeatherSourceConfig,
     WeatherSourceEntry,
+    WeatherSourceHaConfig,
     WeatherSourcePublicConfig,
 )
+from app.domain.services.ha_entity_grant_service import DenyAllHaEntityGate, HaEntityGate
 from app.domain.services.weather_adapter_registry import WeatherAdapterRegistry
 from app.domain.services.weather_settings_service import (
     EffectiveWeatherSettings,
@@ -61,9 +67,12 @@ class WeatherSourceResolver:
         encryption: EncryptionEngine,
         ha_client_factory: Callable[[], HomeAssistantClient | None],
         weather_settings_provider: Callable[[], EffectiveWeatherSettings] | None = None,
+        ha_entity_gate: HaEntityGate | None = None,
     ) -> None:
         self._encryption = encryption
         self._ha_client_factory = ha_client_factory
+        # MT-015 (#2112): absent, no Home Assistant entity is granted (fail-closed).
+        self._ha_entity_gate: HaEntityGate = ha_entity_gate or DenyAllHaEntityGate()
         # DB-backed effective provider config (base URL, timeout, enable flags,
         # global OWM fallback key). When absent, falls back to the env defaults so
         # the resolver stays usable in isolation.
@@ -109,6 +118,36 @@ class WeatherSourceResolver:
         # zero-argument constructor.
         return adapter_cls()
 
+    def _only_granted_entities(self, entry: WeatherSourceEntry, tenant_key: str) -> WeatherSourceEntry | None:
+        """The HA entry reduced to the entities granted to ``tenant_key``; ``None`` when nothing is left.
+
+        Logs how many references were dropped — never which (MT-015, #2112).
+        """
+        config = entry.config
+        if not isinstance(config, WeatherSourceHaConfig):
+            return entry
+        refused = 0
+        weather_entity_id = config.weather_entity_id
+        if weather_entity_id and not self._ha_entity_gate.is_granted(tenant_key, weather_entity_id):
+            weather_entity_id = None
+            refused += 1
+        mapping = config.sensor_mapping
+        if mapping is not None:
+            fields = mapping.model_dump()
+            for field, entity_id in fields.items():
+                if entity_id and not self._ha_entity_gate.is_granted(tenant_key, entity_id):
+                    fields[field] = None
+                    refused += 1
+            mapping = HaSensorMapping(**fields)
+        if refused:
+            logger.info("weather_source_ha_entities_not_granted", source=entry.source_name, refused_count=refused)
+        if config.mode == "weather_entity" and not weather_entity_id:
+            return None
+        if config.mode == "sensor_mapping" and (mapping is None or not any(mapping.model_dump().values())):
+            return None
+        reduced = config.model_copy(update={"weather_entity_id": weather_entity_id, "sensor_mapping": mapping})
+        return entry.model_copy(update={"config": reduced})
+
     @staticmethod
     def _build_public(
         adapter_cls: type[WeatherAdapter],
@@ -139,7 +178,13 @@ class WeatherSourceResolver:
         if not entries:
             entries = self._default_entries(effective)
 
+        tenant_key = cfg.tenant_key if cfg is not None else ""
         for entry in entries:
+            if entry.kind == "home_assistant":
+                granted_entry = self._only_granted_entities(entry, tenant_key)
+                if granted_entry is None:
+                    continue
+                entry = granted_entry
             try:
                 adapter = self._build(entry, effective)
             except SecretKeyMismatchError:

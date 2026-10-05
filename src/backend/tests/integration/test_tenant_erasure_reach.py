@@ -183,7 +183,7 @@ def _service(database) -> TenantService:
         "tombstone_salt": SALT,
         "observation_repo": NullObservationRepository(),
         # The inventory run is what these tests measure; the grace of #2123 in front of it is
-        # held by tests/unit/domain/services/test_tenant_erasure_grace.py and test_v0084_tenant_status_model.py.
+        # held by tests/unit/domain/services/test_tenant_erasure_grace.py and test_v0085_tenant_status_model.py.
         "tenant_erasure_grace_days": 0,
     }
     accepted = inspect.signature(TenantService).parameters

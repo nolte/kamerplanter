@@ -200,6 +200,7 @@ if TYPE_CHECKING:
     from app.domain.services.environment_snapshot_service import EnvironmentSnapshotService
     from app.domain.services.favorites_service import FavoritesService
     from app.domain.services.glossary_service import GlossaryService
+    from app.domain.services.ha_entity_grant_service import HaEntityGrantService
     from app.domain.services.ha_publish_service import HaPublishService
     from app.domain.services.hardiness_zone_service import HardinessZoneService
     from app.domain.services.identification_service import IdentificationService
@@ -298,6 +299,8 @@ def get_actuator_service() -> ActuatorService:
         # #1397: a location's tenant is its site's tenant, and the actuator
         # repository cannot reach sites.
         site_repo=get_site_repo(),
+        # MT-015 (#2112): an actuator only switches an entity granted to its tenant.
+        ha_entity_grants=get_ha_entity_grant_service(),
     )
 
 
@@ -1650,6 +1653,8 @@ def get_weather_source_service() -> WeatherSourceService:
         ha_client_factory=get_ha_client,
         weather_settings_provider=_effective_weather_settings,
         climate_normal_repo=get_climate_normal_repo(),
+        # MT-015 (#2112): HA weather entities must be granted to the site's tenant.
+        ha_entity_grants=get_ha_entity_grant_service(),
     )
 
 
@@ -1676,6 +1681,19 @@ def get_ha_publish_service() -> HaPublishService:
 
     return HaPublishService(
         get_ha_publish_repo(), plant_repo=get_plant_repo(), tank_repo=get_tank_repo(), site_anchors=get_site_repo()
+    )
+
+
+def get_ha_entity_grant_service() -> HaEntityGrantService:
+    """MT-015 (#2112) — which entities of the one Home Assistant instance a tenant may use."""
+    from app.data_access.arango.ha_entity_grant_repository import ArangoHaEntityGrantRepository
+    from app.domain.services.ha_entity_grant_service import HaEntityGrantService
+
+    return HaEntityGrantService(
+        ArangoHaEntityGrantRepository(get_db()),
+        ha_client_factory=get_ha_client,
+        # Light mode (REQ-027): one household, its operator is the only user — binding grants.
+        grant_on_use=settings.kamerplanter_mode == "light",
     )
 
 
@@ -1734,6 +1752,8 @@ def get_sensor_service() -> SensorService:
         # review). Resolves to the null repository when TimescaleDB is absent,
         # which makes the readings step a no-op rather than a failure.
         observation_repo=get_observation_repo(),
+        # MT-015 (#2112): a sensor only reads an entity granted to its tenant.
+        ha_entity_gate=get_ha_entity_grant_service(),
     )
 
 
@@ -1894,6 +1914,8 @@ def get_notification_service() -> NotificationService:
         engine=engine,
         notification_repo=get_notification_repo(),
         preference_repo=get_notification_preference_repo(),
+        # MT-015 (#2112): HA notify / TTS destinations must be granted to the tenant.
+        ha_entity_grants=get_ha_entity_grant_service(),
     )
 
 

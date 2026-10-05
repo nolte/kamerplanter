@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 from app.api.v1.tenant_scoped.weather.tenant_router import router as weather_router
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_sensor_service, get_weather_source_service
-from app.common.enums import TenantRole
+from app.common.enums import AdminScope, TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
 from app.domain.engines.encryption_engine import EncryptionEngine
@@ -268,23 +268,33 @@ def test_test_endpoint_unreachable_no_500():
     assert body["error"] == "Connection refused"
 
 
+def _technical_ctx() -> TenantContext:
+    """MT-015 (#2112): the HA entity listings require the TECHNICAL scope."""
+    return _ctx().model_copy(update={"admin_scopes": [AdminScope.TECHNICAL]})
+
+
 def test_ha_weather_entities():
     service = MagicMock()
     service.list_ha_weather_entities.return_value = [
         {"entity_id": "weather.home", "friendly_name": "Home Weather", "state": "sunny"}
     ]
-    client = TestClient(_build_app(service))
+    app = _build_app(service)
+    app.dependency_overrides[get_current_tenant] = _technical_ctx
+    client = TestClient(app)
 
     resp = client.get(f"{BASE}/ha/weather-entities")
 
     assert resp.status_code == 200
     assert resp.json()[0]["entity_id"] == "weather.home"
+    service.list_ha_weather_entities.assert_called_once_with(tenant_key=TENANT_KEY)
 
 
 def test_ha_sensor_entities_empty_without_token():
     service = MagicMock()
     service.list_ha_sensor_entities.return_value = []
-    client = TestClient(_build_app(service))
+    app = _build_app(service)
+    app.dependency_overrides[get_current_tenant] = _technical_ctx
+    client = TestClient(app)
 
     resp = client.get(f"{BASE}/ha/sensor-entities")
 

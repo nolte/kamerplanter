@@ -22,6 +22,7 @@ from app.domain.models.site import Site
 from app.domain.models.weather import WeatherForecast
 from app.domain.services.environment_snapshot_service import EnvironmentSnapshotService
 from app.domain.services.sensor_service import SensorService
+from tests.support.ha_entity_grants import EverythingGrantedTo
 
 TENANT = "tenant-a"
 FOREIGN_TENANT = "tenant-b"
@@ -193,7 +194,7 @@ def _build(
     return EnvironmentSnapshotService(
         plant_repo=FakePlantRepo(plants or {PLANT: _plant()}),
         sensor_repo=sensor_repo,
-        sensor_service=SensorService(sensor_repo, ha),
+        sensor_service=SensorService(sensor_repo, ha, ha_entity_gate=EverythingGrantedTo(TENANT)),
         observation_repo=observations,
         weather_forecast_repo=weather,
         site_repo=FakeSiteRepo(sites if sites is not None else {SITE: Site(_key=SITE, tenant_key=TENANT, name="Beet")}),

@@ -145,7 +145,7 @@ def create_location_sensor(
         mqtt_topic=body.mqtt_topic,
         location_key=key,
     )
-    created = sensor_service.create_sensor(sensor)
+    created = sensor_service.create_sensor(sensor, tenant_key=ctx.tenant_key)
     return to_response(created, SensorResponse)
 
 
@@ -175,6 +175,7 @@ def update_location_sensor(
         body.model_dump(exclude_unset=True),
         parent_field="location_key",
         parent_key=key,
+        tenant_key=ctx.tenant_key,
     )
     return to_response(updated, SensorResponse)
 
@@ -202,7 +203,7 @@ def get_location_sensors_live(
     """Return the latest live readings for a location's sensors."""
     _verify_location_tenant(key, ctx, service)
     sensors = sensor_service.get_sensors_for_location(key)
-    result = sensor_service.get_live_state_for_sensors(sensors)
+    result = sensor_service.get_live_state_for_sensors(sensors, tenant_key=ctx.tenant_key)
     return LiveStateResponse(**result)
 
 
@@ -227,5 +228,5 @@ def get_location_frost_warning(
     hot path.
     """
     _verify_location_tenant(key, ctx, service)
-    result = sensor_service.get_location_frost_warning(key)
+    result = sensor_service.get_location_frost_warning(key, tenant_key=ctx.tenant_key)
     return FrostWarningResponse(**result)

@@ -1,4 +1,4 @@
-"""v0084 — a tenant's ``is_active`` bool becomes the ``status`` lifecycle state (#2123, MT-027).
+"""v0085 — a tenant's ``is_active`` bool becomes the ``status`` lifecycle state (#2123, MT-027).
 
 REQ-024 AK-65 / AK-52: a tenant is ``active | suspended | pending_deletion |
 orphaned | deleted``. ``Tenant.is_active`` is no longer stored — it is derived
@@ -77,7 +77,7 @@ FOR doc IN @@collection
 
 
 class TenantStatusModelMigration(Migration):
-    version = "0084"
+    version = "0085"
     name = "tenant_status_model"
     description = (
         "Replace the tenant is_active bool by the status lifecycle state "

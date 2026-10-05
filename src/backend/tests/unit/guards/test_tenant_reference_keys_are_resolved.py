@@ -61,7 +61,6 @@ _WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _TENANT_WORDS = {"tenant_key", "ctx", "tenant", "tenant_slug"}
 
 _REQUIRE_OWNED_PLANT = "router dependency require_owned_plant resolves the plant under the active tenant (#1402)"
-_PARENT_SENSOR = "the parent is resolved under the tenant; get_sensor_in_parent 404s a sensor of another parent"
 _REPO_PLANT_GUARD = "the repository verifies plant_key with verify_entity_ownership before the insert"
 
 #: ``(method, path, key)`` → how the key is verified although the handler passes
@@ -84,9 +83,6 @@ _PATH_KEYS_VERIFIED_ELSEWHERE: dict[tuple[str, str, str], str] = {
     ("DELETE", "/api/v1/plant-instances/{plant_key}/phases/history/{history_key}", "history_key"): (
         "resolved within the owned plant's history (phase_service)"
     ),
-    ("PUT", "/api/v1/t/{tenant_slug}/sites/{key}/sensors/{sensor_key}", "sensor_key"): _PARENT_SENSOR,
-    ("PUT", "/api/v1/t/{tenant_slug}/locations/{key}/sensors/{sensor_key}", "sensor_key"): _PARENT_SENSOR,
-    ("PUT", "/api/v1/t/{tenant_slug}/tanks/{key}/sensors/{sensor_key}", "sensor_key"): _PARENT_SENSOR,
     ("POST", "/api/v1/t/{tenant_slug}/harvest/plants/{plant_key}/batches", "plant_key"): (
         "create_harvest_batch runs check_harvest_safety → verify_plant_ownership before writing"
     ),

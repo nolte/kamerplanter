@@ -154,7 +154,7 @@ _UNCALLED_OIDC_REQUEST_DTO = _NoStoredDocuments(
 _CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
     ("substrate.py", "Substrate", "cec_meq_per_100g"): _MigratedBy("0051"),
     # #2123 (MT-027) — the bool became the ``status`` lifecycle state; ``is_active`` is a derived property now.
-    ("tenant.py", "Tenant", "is_active"): _MigratedBy("0084"),
+    ("tenant.py", "Tenant", "is_active"): _MigratedBy("0085"),
     ("actuator.py", "Actuator", "state"): _NoStoredDocuments(
         "Renamed to current_state in 426be8b4e (#561), the same commit whose v0015 "
         "CREATES the actuators collection — no actuator document can predate it."

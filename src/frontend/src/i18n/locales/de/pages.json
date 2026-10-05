@@ -658,6 +658,26 @@
           "skippedKeys": "Übersprungen: {{count}}",
           "failedToRun": "Der Test konnte nicht ausgeführt werden."
         }
+      },
+      "haGrants": {
+        "title": "Home-Assistant-Entitäten",
+        "intro": "Kamerplanter ist mit einer einzigen Home-Assistant-Instanz verbunden – deiner. „{{tenant}}“ kann nur die Entitäten nutzen, die du hier freigibst: als Sensor, Aktor, Wetterquelle oder Benachrichtigungsziel. Ziehst du eine Freigabe zurück, liest und schaltet Kamerplanter diese Entität für den Garten nicht mehr.",
+        "grantedCount": "{{count}} freigegeben",
+        "search": "Entität suchen",
+        "onlyGranted": "Nur freigegebene",
+        "emptyInventory": "Home Assistant meldet keine Entitäten und es gibt noch keine Freigaben.",
+        "noMatch": "Keine Entität passt zur Suche.",
+        "notPresent": "nicht mehr in Home Assistant",
+        "truncated": "{{shown}} von {{total}} Treffern angezeigt – grenze die Suche weiter ein.",
+        "toggleAria": "{{entity}} für diesen Garten freigeben",
+        "granted": "{{entity}} freigegeben",
+        "revoked": "Freigabe für {{entity}} zurückgezogen",
+        "loadError": "Die Home-Assistant-Freigaben konnten nicht geladen werden.",
+        "notConfigured": "Home Assistant ist nicht verbunden. Bestehende Freigaben siehst du trotzdem; neue Entitäten kannst du unten per ID freigeben.",
+        "manualLabel": "Entität per ID freigeben",
+        "manualHelper": "Z. B. notify.mobile_app_handy für ein Benachrichtigungsziel – Dienste tauchen nicht in der Liste oben auf.",
+        "manualInvalid": "Eine Entity-ID hat die Form bereich.name, nur Kleinbuchstaben, Ziffern und Unterstriche.",
+        "manualSubmit": "Freigeben"
       }
     },
     "privacy": {
@@ -3163,16 +3183,18 @@
       "name": "Sensorname",
       "metricType": "Messgröße",
       "haEntityId": "HA Entity-ID",
-      "haEntityIdHelper": "z.B. sensor.tank_ec",
+      "haEntityIdHelper": "Z. B. sensor.tank_ec – die Entität muss für diesen Garten freigegeben sein.",
       "haEntitySelect": "HA-Sensor auswählen",
-      "haEntitySelectHelper": "Verfügbare Home Assistant Sensoren",
+      "haEntitySelectHelper": "Für diesen Garten freigegebene Home-Assistant-Sensoren",
       "mqttTopic": "MQTT-Topic",
       "active": "Aktiv",
       "noSensors": "Keine Sensoren zugeordnet",
       "created": "Sensor erstellt",
       "deleted": "Sensor gelöscht",
       "liveState": "Live-Status",
-      "metricTypeHelper": "ph = Säuregrad · ec_ms = Leitfähigkeit · vpd_kpa = Dampfdruckdefizit · ppfd = Lichtintensität · orp_mv = Redoxpotenzial · tds_ppm = Gesamtgelöste Stoffe · dissolved_oxygen_mgl = Gelöster Sauerstoff"
+      "metricTypeHelper": "ph = Säuregrad · ec_ms = Leitfähigkeit · vpd_kpa = Dampfdruckdefizit · ppfd = Lichtintensität · orp_mv = Redoxpotenzial · tds_ppm = Gesamtgelöste Stoffe · dissolved_oxygen_mgl = Gelöster Sauerstoff",
+      "haEntitiesTechnicalOnly": "Die Liste der Home-Assistant-Entitäten sehen nur Mitglieder mit dem Recht „Technik“. Du kannst die Entity-ID trotzdem eintragen – sie muss vom Plattform-Admin für diesen Garten freigegeben sein.",
+      "haEntitiesNoneReleased": "Keine Home-Assistant-Sensoren verfügbar – entweder ist Home Assistant nicht verbunden oder für diesen Garten ist noch nichts freigegeben. Freigaben erteilt der Plattform-Admin; die ID einer freigegebenen Entität kannst du auch unten eintragen."
     },
     "nutrientCalc": {
       "title": "Nährstoff-Berechnungen",
@@ -4635,9 +4657,9 @@
       "toggleKeyVisibility": "Schlüssel anzeigen/verbergen",
       "weatherEntity": "Wetter-Entität",
       "weatherEntityHelper": "Eine HA weather.*-Entität (z. B. Met.no) liefert bereits eine fertige Tagesvorhersage – meist die einfachere Wahl.",
-      "noWeatherEntities": "Keine Wetter-Entitäten gefunden. Prüfe, ob deine Home-Assistant-Integration weather.*-Entitäten bereitstellt, oder nutze stattdessen die Einzelsensoren-Zuordnung.",
+      "noWeatherEntities": "Für diesen Garten sind keine Wetter-Entitäten freigegeben. Bitte den Plattform-Admin, eine weather.*-Entität freizugeben, oder nutze die Einzelsensoren-Zuordnung.",
       "sensorMappingHelper": "Ordne einzelne HA-Sensoren den Wetterfeldern zu. Nicht zugeordnete Felder bleiben leer. Mindestens ein Feld muss zugeordnet sein.",
-      "noSensorEntities": "Keine Sensoren gefunden. Prüfe deine Home-Assistant-Verbindung und ob passende Sensor-Entitäten vorhanden sind.",
+      "noSensorEntities": "Für diesen Garten sind keine Home-Assistant-Sensoren freigegeben. Bitte den Plattform-Admin, die benötigten Sensoren freizugeben.",
       "sensorGroupTemperature": "Temperatur",
       "sensorGroupPrecipitationWind": "Niederschlag & Wind",
       "sensorGroupOther": "Weitere Messwerte",
@@ -4662,7 +4684,8 @@
       "testUnreachable": "Quelle nicht erreichbar.",
       "previewValues": "min {{min}} °C / max {{max}} °C / Regen {{rain}} mm",
       "attribution": "Datenquellen: Deutscher Wetterdienst (DWD, GeoNutzV) · Weather data by Open-Meteo.com (CC BY 4.0) · OpenWeatherMap gemäß deren Nutzungsbedingungen.",
-      "gpsRequiredHint": "Für diesen Standort können Wetterquellen konfiguriert werden, sobald GPS-Koordinaten hinterlegt sind."
+      "gpsRequiredHint": "Für diesen Standort können Wetterquellen konfiguriert werden, sobald GPS-Koordinaten hinterlegt sind.",
+      "haEntitiesTechnicalOnly": "Home-Assistant-Entitäten auswählen können nur Mitglieder mit dem Recht „Technik“. Bitte eine Person mit diesem Recht, die Quelle einzurichten – eine bestehende Quelle bleibt unverändert."
     },
     "weatherProviders": {
       "title": "Wetterdienste",

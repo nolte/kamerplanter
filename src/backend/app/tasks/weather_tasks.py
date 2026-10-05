@@ -27,6 +27,7 @@ def fetch_weather_forecasts(self) -> dict:  # noqa: ANN001 — Celery bound-task
         _effective_weather_settings,
         get_encryption_engine,
         get_ha_client,
+        get_ha_entity_grant_service,
         get_site_repo,
         get_weather_forecast_repo,
         get_weather_source_config_repo,
@@ -44,6 +45,8 @@ def fetch_weather_forecasts(self) -> dict:  # noqa: ANN001 — Celery bound-task
         get_encryption_engine(),
         get_ha_client,
         weather_settings_provider=_effective_weather_settings,
+        # MT-015 (#2112): one read of every tenant's grants for the whole run.
+        ha_entity_gate=get_ha_entity_grant_service().snapshot(),
     )
 
     db = config_repo._db  # noqa: SLF001 — direct AQL for cross-tenant iteration

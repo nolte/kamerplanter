@@ -65,7 +65,7 @@ def test_frost_warning_true():
     assert body["source"] == "ha_live"
     # Issue #409 (F1): the per-location hot path no longer reads the site forecast,
     # so no site_key/tenant_key is threaded into the reactive call.
-    sensor_service.get_location_frost_warning.assert_called_once_with("loc-1")
+    sensor_service.get_location_frost_warning.assert_called_once_with("loc-1", tenant_key=TENANT_KEY)
 
 
 def test_frost_warning_unknown_when_no_temperature():

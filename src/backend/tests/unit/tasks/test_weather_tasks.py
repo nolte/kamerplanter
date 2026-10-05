@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.domain.models.weather import WeatherForecast
+from tests.support.ha_entity_grants import grant_service
 
 
 @pytest.fixture
@@ -21,6 +22,7 @@ def task_module(monkeypatch):
     mock_deps.get_weather_forecast_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_encryption_engine = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_ha_client = MagicMock()  # type: ignore[attr-defined]
+    mock_deps.get_ha_entity_grant_service = lambda: grant_service()  # type: ignore[attr-defined]
     mock_deps.get_site_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps._effective_weather_settings = MagicMock()  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)

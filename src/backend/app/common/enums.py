@@ -1046,7 +1046,7 @@ class TenantType(StrEnum):
 class TenantStatus(StrEnum):
     """Lifecycle state of a tenant (REQ-024 AK-65, AK-52, MT-027 #2123).
 
-    Replaces the ``is_active`` bool (migration v0084). Only ``ACTIVE`` resolves
+    Replaces the ``is_active`` bool (migration v0085). Only ``ACTIVE`` resolves
     into an authorization context; every other state answers like a slug that
     names no tenant (#2105) — ``Tenant.is_active`` is derived from this value.
 

@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 from app.api.v1.auth.router import limiter, process_memory_limiter
 from app.api.v1.openapi_tags import OPENAPI_TAGS
 from app.api.v1.router import api_router
-from app.common.dependencies import close_connection, get_connection, get_ha_client
+from app.common.dependencies import close_connection, get_connection, get_ha_client, get_ha_entity_grant_service
 from app.common.error_handlers import (
     app_error_handler,
     unhandled_error_handler,
@@ -214,7 +214,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if ha_client is not None:
             from app.data_access.external.ha_notification_channel import HomeAssistantNotificationChannel
 
-            NotificationChannelRegistry.register(HomeAssistantNotificationChannel(ha_client))
+            NotificationChannelRegistry.register(
+                HomeAssistantNotificationChannel(ha_client, ha_entity_grants=get_ha_entity_grant_service())
+            )
             logger.info("notification_channel_registered", channel="home_assistant")
     except Exception:
         logger.warning("notification_channel_registration_failed", channel="home_assistant", exc_info=True)

@@ -14,7 +14,7 @@ class Tenant(BaseModel):
     description: str | None = None
     owner_user_key: str
     #: Lifecycle state (REQ-024 AK-65, MT-027 #2123). Replaced the ``is_active``
-    #: bool (migration v0084): ``is_active`` is now *derived* — only ``active``
+    #: bool (migration v0085): ``is_active`` is now *derived* — only ``active``
     #: resolves into an authorization context (#2105).
     status: TenantStatus = TenantStatus.ACTIVE
     #: When the erasure of a ``pending_deletion`` / ``orphaned`` tenant runs — the
@@ -37,7 +37,7 @@ class Tenant(BaseModel):
     def _legacy_is_active(cls, data: Any) -> Any:
         """Read a document (or a constructor call) that still carries the retired bool (#2123).
 
-        v0084 moves every stored tenant to ``status`` and drops ``is_active``. A
+        v0085 moves every stored tenant to ``status`` and drops ``is_active``. A
         document read before it ran — or code that still passes ``is_active=False`` —
         must not come out *active* just because the bool is no field any more: without
         a ``status``, ``is_active == false`` reads as ``suspended``. A ``status`` that

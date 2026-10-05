@@ -71,7 +71,7 @@ def _tenant_doc() -> dict[str, Any]:
         "tenant_type": "organization",
         "description": "The old description",
         "owner_user_key": "u-owner",
-        "status": "active",  # v0084 (#2123): the lifecycle state replaced the bool
+        "status": "active",  # v0085 (#2123): the lifecycle state replaced the bool
         "is_platform": False,
         "max_members": 50,
         "settings": {},
@@ -90,7 +90,7 @@ def _platform_tenant_doc() -> dict[str, Any]:
         "tenant_type": "organization",
         "description": "System platform tenant",
         "owner_user_key": "u-owner",
-        "status": "active",  # v0084 (#2123): the lifecycle state replaced the bool
+        "status": "active",  # v0085 (#2123): the lifecycle state replaced the bool
         "is_platform": True,
         "max_members": 50,
         "settings": {},

@@ -1,6 +1,6 @@
-"""#2123 (MT-027) — v0084 and the scheduled tenant deletion, measured on a real ArangoDB.
+"""#2123 (MT-027) — v0085 and the scheduled tenant deletion, measured on a real ArangoDB.
 
-* v0084 turns every stored ``is_active`` into the ``status`` it meant — ``false``
+* v0085 turns every stored ``is_active`` into the ``status`` it meant — ``false``
   → ``suspended``, a tenant whose erasure is already open → ``deleted``, the rest
   → ``active`` — drops the bool, and changes nothing on a second run;
 * ``list_due`` lists a ``scheduled`` record only once its grace has ended, and
@@ -10,7 +10,7 @@
 Locally it needs a database::
 
     docker run -d -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
-    pytest tests/integration/test_v0084_tenant_status_model.py -v
+    pytest tests/integration/test_v0085_tenant_status_model.py -v
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from app.data_access.arango.tenant_erasure_repository import ArangoTenantErasure
 from app.data_access.arango.tenant_repository import ArangoTenantRepository
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.models.tenant_erasure import TenantErasureRecord
-from app.migrations.versions.v0084_tenant_status_model import migration
+from app.migrations.versions.v0085_tenant_status_model import migration
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = [
@@ -34,7 +34,7 @@ pytestmark = [
     pytest.mark.allow_db_connection("the migration and the conditional claim/remove are AQL over a real server"),
 ]
 
-_DB_NAME = run_database_name("v0084_tenant_status_model")
+_DB_NAME = run_database_name("v0085_tenant_status_model")
 NOW = datetime(2026, 10, 5, 9, 0, tzinfo=UTC)
 
 

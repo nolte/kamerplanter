@@ -19,6 +19,12 @@ from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.weather_forecast_repository import IWeatherForecastRepository
 from app.domain.models.sensor import Sensor
 from app.domain.models.weather import WeatherForecast
+from app.domain.services.ha_entity_grant_service import (
+    DenyAllHaEntityGate,
+    HaEntityGate,
+    only_granted,
+    require_granted,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -37,9 +43,15 @@ class SensorService:
         weather_forecast_repo: IWeatherForecastRepository | None = None,
         site_repo: ISiteRepository | None = None,
         observation_repo: IObservationRepository | None = None,
+        ha_entity_gate: HaEntityGate | None = None,
     ) -> None:
         self._repo = repo
         self._ha_client = ha_client
+        # MT-015 (#2112): the one Home Assistant instance is the operator's; a
+        # tenant reads only the entities the platform admin granted it. Assembled
+        # without the allowlist, the service grants nothing — it cannot tell, and
+        # "cannot tell" is not a reason to read somebody's door contact.
+        self._ha_entity_gate: HaEntityGate = ha_entity_gate or DenyAllHaEntityGate()
         # Optional (Issue #392): the proactive forecast path degrades gracefully
         # when either is absent — the reactive path never depends on them.
         self._weather_forecast_repo = weather_forecast_repo
@@ -51,7 +63,18 @@ class SensorService:
         # — see :meth:`delete_sensor`.
         self._observation_repo = observation_repo
 
-    def create_sensor(self, sensor: Sensor) -> Sensor:
+    def create_sensor(self, sensor: Sensor, *, tenant_key: str) -> Sensor:
+        """Store a sensor whose Home Assistant entity, if any, is granted to the tenant.
+
+        ``tenant_key`` is keyword-only without a default — the tenant of the
+        parent the route verified — so no create route can skip the allowlist
+        (MT-015, #2112; the three sibling routes are tank, site and location).
+
+        Raises:
+            ValidationError: 422 ``HA_ENTITY_NOT_GRANTED`` when ``ha_entity_id``
+                names an entity the tenant has not been granted.
+        """
+        require_granted(self._ha_entity_gate, tenant_key, {"ha_entity_id": sensor.ha_entity_id})
         return self._repo.create(sensor)
 
     def get_sensors_for_tank(self, tank_key: str) -> list[Sensor]:
@@ -105,7 +128,7 @@ class SensorService:
             raise NotFoundError("Sensor", key)
         return sensor
 
-    def update_sensor(self, key: str, changes: dict, *, parent_field: str, parent_key: str) -> Sensor:
+    def update_sensor(self, key: str, changes: dict, *, parent_field: str, parent_key: str, tenant_key: str) -> Sensor:
         """Apply ``changes`` to a sensor of the given parent (REQ-005, #1339).
 
         Only the fields named in ``changes`` are written, and the parent keys are
@@ -118,11 +141,20 @@ class SensorService:
                 ``SensorUpdate`` rather than a raw request body.
             parent_field: One of ``tank_key``, ``site_key``, ``location_key``.
             parent_key: Document key of that parent, already tenant-verified.
+            tenant_key: The parent's tenant. A changed ``ha_entity_id`` must be
+                granted to it (MT-015, #2112); an update that leaves the entity
+                alone needs no grant, so editing the name of a sensor stored
+                before the allowlist still works.
 
         Returns:
             The updated sensor.
+
+        Raises:
+            ValidationError: 422 ``HA_ENTITY_NOT_GRANTED`` for an ungranted entity.
         """
         sensor = self.get_sensor_in_parent(key, parent_field=parent_field, parent_key=parent_key)
+        if "ha_entity_id" in changes and changes["ha_entity_id"] != sensor.ha_entity_id:
+            require_granted(self._ha_entity_gate, tenant_key, {"ha_entity_id": changes["ha_entity_id"]})
         for field, value in changes.items():
             if field in SENSOR_PARENT_FIELDS:
                 continue
@@ -175,7 +207,9 @@ class SensorService:
             logger.info("sensor_readings_deleted", sensor_key=key, readings=deleted)
         return self._repo.delete(key)
 
-    def get_live_state_for_sensors(self, sensors: list[Sensor], *, deadline: float | None = None) -> dict:
+    def get_live_state_for_sensors(
+        self, sensors: list[Sensor], *, tenant_key: str, deadline: float | None = None
+    ) -> dict:
         """Read-through live query for a list of sensors — NO persistence.
 
         The map is keyed by **sensor**, so nothing collapses: two thermometers at
@@ -189,6 +223,12 @@ class SensorService:
         Args:
             sensors: The sensors to read. Those without an ``ha_entity_id`` are
                 skipped — they have nothing live to read.
+            tenant_key: The tenant the sensors belong to (their parent's,
+                verified by the caller). Keyword-only without a default: an
+                entity not granted to it is **never** asked of Home Assistant
+                (MT-015, #2112) — it is reported in ``errors`` as
+                ``not_granted`` instead, so a sensor stored before the allowlist,
+                or one whose grant was withdrawn, says why it shows nothing.
             deadline: Optional :func:`time.monotonic` instant after which no
                 further entity is read. ``None`` (the default) keeps the previous
                 behaviour: every sensor is read with the client's own timeout, so
@@ -229,6 +269,9 @@ class SensorService:
         errors: list[dict] = []
         for sensor in sensors:
             if not sensor.ha_entity_id:
+                continue
+            if not self._ha_entity_gate.is_granted(tenant_key, sensor.ha_entity_id):
+                errors.append({"entity_id": sensor.ha_entity_id, "error": "not_granted"})
                 continue
             remaining: float | None = None
             if deadline is not None:
@@ -280,8 +323,12 @@ class SensorService:
             "source": "ha_live",
         }
 
-    def get_ha_entities(self) -> list[dict]:
-        """Return HA sensor entities with inferred metric_type and suggested name."""
+    def get_ha_entities(self, *, tenant_key: str) -> list[dict]:
+        """Return the tenant's granted HA sensor entities with inferred metric_type and suggested name.
+
+        Only entities granted to ``tenant_key`` are listed (MT-015, #2112): the
+        instance is the operator's, and its inventory is not the tenant's to see.
+        """
         if not self._ha_client:
             return []
 
@@ -305,7 +352,7 @@ class SensorService:
             "pH": "ph",
         }
 
-        entities = self._ha_client.list_sensor_entities()
+        entities = only_granted(self._ha_entity_gate, tenant_key, self._ha_client.list_sensor_entities())
         result = []
         for e in entities:
             if e["entity_id"].startswith("sensor.kp_"):
@@ -331,15 +378,17 @@ class SensorService:
         result.sort(key=lambda x: (x["suggested_metric_type"] is None, x["friendly_name"].lower()))
         return result
 
-    def get_live_state(self, tank_key: str) -> dict:
+    def get_live_state(self, tank_key: str, *, tenant_key: str) -> dict:
         """Read-through live query for a tank — NO persistence."""
         sensors = self._repo.find_by_tank(tank_key)
-        return self.get_live_state_for_sensors(sensors)
+        return self.get_live_state_for_sensors(sensors, tenant_key=tenant_key)
 
     def get_location_frost_warning(
         self,
         location_key: str,
         threshold_celsius: float | None = None,
+        *,
+        tenant_key: str,
     ) -> dict:
         """Compute the reactive frost-warning state for a location — NO persistence.
 
@@ -363,7 +412,7 @@ class SensorService:
         threshold = threshold_celsius if threshold_celsius is not None else settings.frost_warning_threshold_celsius
 
         sensors = self._repo.find_by_location(location_key)
-        live = self.get_live_state_for_sensors(sensors)
+        live = self.get_live_state_for_sensors(sensors, tenant_key=tenant_key)
         temperature, entity_id = pick_air_temperature(live["readings"])
         frost_warning = evaluate_frost_warning(temperature, threshold)
 

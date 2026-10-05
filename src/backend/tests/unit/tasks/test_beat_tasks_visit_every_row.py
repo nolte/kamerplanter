@@ -22,6 +22,7 @@ import pytest
 from app.common.enums import TaskCategory, TaskStatus
 from app.domain.models.task import Task
 from app.domain.models.tenant import Tenant
+from tests.support.ha_entity_grants import EverythingGrantedTo
 
 
 class PagingRepo:
@@ -76,6 +77,9 @@ def deps(monkeypatch):
         "get_membership_repo",
     ):
         setattr(module, name, MagicMock(name=name))
+    # MT-015 (#2112): every actuator here is t1's and its entity granted to t1 — these
+    # tests are about paging; the allowlist has its own tests.
+    module.get_ha_entity_grant_service = lambda: SimpleNamespace(snapshot=lambda: EverythingGrantedTo("t1"))  # type: ignore[attr-defined]
     # #2114 — the notification beat asks the stored membership of (user, tenant); these tests are about
     # paging, so everyone is an active member (the membership rule has its own tests).
     module.get_membership_repo.return_value = SimpleNamespace(
@@ -163,7 +167,8 @@ class TestPlantTasks:
 
 def _actuators(n: int):
     return [
-        SimpleNamespace(key=k, location_key="loc1", ha_entity_id="switch.x", is_online=True) for k in _keys(n, "act")
+        SimpleNamespace(key=k, tenant_key="t1", location_key="loc1", ha_entity_id="switch.x", is_online=True)
+        for k in _keys(n, "act")
     ]
 
 

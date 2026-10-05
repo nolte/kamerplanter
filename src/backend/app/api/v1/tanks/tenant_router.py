@@ -32,8 +32,9 @@ from app.api.v1.tanks.schemas import (
     TankStateResponse,
     TankUpdate,
 )
-from app.common.auth import get_current_tenant, require_permission
+from app.common.auth import get_current_tenant, require_admin_scope, require_permission
 from app.common.dependencies import get_sensor_service, get_tank_service
+from app.common.enums import AdminScope
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action, ResourceType
@@ -101,11 +102,16 @@ def create_tank(
 
 @router.get("/ha-entities", response_model=list[HAEntitySuggestion])
 def list_ha_entities(
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
-    """List Home Assistant entities suggested for tank sensors."""
-    return sensor_service.get_ha_entities()
+    """List the Home Assistant entities granted to the tenant, as tank-sensor suggestions.
+
+    TECHNICAL scope only, like the actuator entity listing (MT-015, #2112): the
+    Home Assistant instance is the operator's, and only the entities the platform
+    admin granted to this tenant are listed.
+    """
+    return sensor_service.get_ha_entities(tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}", response_model=TankResponse)
@@ -402,7 +408,7 @@ def get_live_state(
 ):
     """Return a tank's live sensor readings."""
     tank_service.get_tank(key, tenant_key=ctx.tenant_key)
-    result = sensor_service.get_live_state(key)
+    result = sensor_service.get_live_state(key, tenant_key=ctx.tenant_key)
     return LiveStateResponse(**result)
 
 
@@ -430,7 +436,7 @@ def create_sensor(
     """Attach a sensor to a tank."""
     tank_service.get_tank(key, tenant_key=ctx.tenant_key)
     sensor = Sensor(**body.model_dump(exclude={"tank_key"}), tank_key=key)
-    created = sensor_service.create_sensor(sensor)
+    created = sensor_service.create_sensor(sensor, tenant_key=ctx.tenant_key)
     return to_response(created, SensorResponse)
 
 
@@ -459,6 +465,7 @@ def update_sensor(
         body.model_dump(exclude_unset=True),
         parent_field="tank_key",
         parent_key=key,
+        tenant_key=ctx.tenant_key,
     )
     return to_response(updated, SensorResponse)
 

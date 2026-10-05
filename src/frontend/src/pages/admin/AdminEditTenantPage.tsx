@@ -54,6 +54,7 @@ import type {
 } from '@/api/types';
 import TenantDeleteDialog from '@/components/tenants/TenantDeleteDialog';
 import TenantStatusChip from '@/components/tenants/TenantStatusChip';
+import HaEntityGrantsCard from '@/components/admin/HaEntityGrantsCard';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
@@ -640,6 +641,14 @@ export default function AdminEditTenantPage() {
           </CardContent>
         </Card>
       </Box>
+
+      {/* MT-015 (#2112): the Home Assistant entities this garden may use. The
+          technical platform tenant runs no garden, so it has nothing to release. */}
+      {!isPlatform && (
+        <Box sx={{ mt: 3 }}>
+          <HaEntityGrantsCard tenantKey={tenant.key} tenantName={tenant.name} />
+        </Box>
+      )}
     </Box>
   );
 }

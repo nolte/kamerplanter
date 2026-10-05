@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from app.api.v1.activities.router import router as activities_router
+from app.api.v1.admin.ha_entity_grants.router import router as ha_entity_grants_admin_router
 from app.api.v1.admin.harvest_indicators.router import router as harvest_indicators_admin_router
 from app.api.v1.admin.pests.router import router as pests_admin_router
 from app.api.v1.admin.recognition.router import router as recognition_admin_router
@@ -111,6 +112,9 @@ api_router.include_router(admin_settings_router)
 # (light-mode-aware, like admin/settings/storage), so it is mode-agnostic and
 # registered once for both light and full mode.
 api_router.include_router(weather_providers_admin_router)
+# MT-015 (#2112) — per-tenant Home Assistant entity allowlist, platform-admin-gated
+# (light-mode-aware), registered once for both modes.
+api_router.include_router(ha_entity_grants_admin_router)
 # Recognition admin, available in both light and full mode (the inference feature
 # itself is optional). Platform-admin-gated on both its operations since #1401,
 # matching the pests router mounted below.
