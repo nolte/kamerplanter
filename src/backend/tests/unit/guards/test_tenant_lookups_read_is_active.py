@@ -126,6 +126,11 @@ _SITES: dict[str, tuple[str, str, str]] = {
     ),
     f"{_TS}:TenantService.personal_tenant_erasure_preview": (_DECIDED, "", "erasure preview of the owner's tenants"),
     f"{_TS}:TenantService._refuse_invitation_while_owner_erasing": (_DECIDED, "", "erasure-freeze check only"),
+    f"{_TS}:TenantService._refuse_beyond_member_limit": (
+        _DECIDED,
+        "",
+        "member-limit check of a join (#2133); a membership in a deactivated tenant resolves for nobody",
+    ),
     f"{_TS}:TenantService._refuse_role_grant": (_DECIDED, "", "escalation check inside a resolved context"),
     f"{_TS}:TenantService._ensure_unique_slug": (_DECIDED, "", "slug collision probe; no tenant is resolved"),
     # -- migrations: no request, no principal --------------------------------------------

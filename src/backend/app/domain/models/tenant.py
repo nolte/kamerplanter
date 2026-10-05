@@ -13,7 +13,7 @@ class Tenant(BaseModel):
     tenant_type: TenantType = TenantType.PERSONAL
     description: str | None = None
     owner_user_key: str
-    #: Lifecycle state (REQ-024 AK-64, MT-027 #2123). Replaced the ``is_active``
+    #: Lifecycle state (REQ-024 AK-65, MT-027 #2123). Replaced the ``is_active``
     #: bool (migration v0084): ``is_active`` is now *derived* — only ``active``
     #: resolves into an authorization context (#2105).
     status: TenantStatus = TenantStatus.ACTIVE

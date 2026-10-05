@@ -28,6 +28,9 @@ Hier erfährst du, wie du ein Kamerplanter-Konto anlegst, dich anmeldest und dei
 
 3. Klicke auf **Registrieren**
 
+!!! info "Nur mit Einladung oder gar nicht"
+    Die Betreiber deiner Installation legen fest, wer sich registrieren kann. Fehlt der Registrieren-Link, legt die Installation keine neuen Konten an. Steht dort **Mit Einladung registrieren**, brauchst du eine Einladung: Gib die E-Mail-Adresse an, an die sie ging, und den **Einladungscode** — öffnest du die Registrierung über einen Link mit `?invitation=…`, ist er schon eingetragen. Ist die Registrierung auf bestimmte E-Mail-Domains beschränkt, sagt dir die Seite das; eine Einladung für deine Adresse gilt auch dann. Meldest du dich zum ersten Mal über einen Anbieter wie Google an, muss der Anbieter die eingeladene Adresse bestätigen. <!-- Issue #2132 -->
+
 Bei der Registrierung legt das System automatisch deinen **persönlichen Tenant** an (siehe [Mandanten & Gärten](tenants.md)) — dein privater Bereich für Pflanzen, Standorte und Aufgaben.
 
 ### E-Mail-Adresse bestätigen

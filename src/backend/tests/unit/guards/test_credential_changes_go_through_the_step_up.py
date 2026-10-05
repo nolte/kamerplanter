@@ -162,6 +162,11 @@ _MEMBERSHIP_CLASSIFIED: dict[tuple[str, str], str] = {
         "compensation of a creation made one statement earlier by the caller (_create_membership_unless_erasing): "
         "takes back the membership it just inserted when the tenant froze meanwhile (#1825, #1924)"
     ),
+    ("tenant_service.py", "TenantService._settle_join_against_member_limit"): (
+        "compensation of a creation made one statement earlier by the caller (_create_membership_unless_erasing): "
+        "takes back the membership it just inserted when a concurrent join pushed the tenant over its member "
+        "limit (#2133); the join never stood, so nobody is locked out"
+    ),
     ("tenant_service.py", "TenantService.change_member_scopes"): (
         "no route or other caller reaches it today (pinned by test_the_unrouted_scope_change_has_no_caller); "
         "the scopes (axis 2) carry INV-1, and a route that wires it must pass the step-up like change_member_role "
@@ -346,7 +351,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
 EXPECTED_MEMBERS = (
-    36  # +1 with #2134: _hand_management_to (classified);
+    37  # +1 with #2134: _hand_management_to (classified);
+    # +1 with #2133: _settle_join_against_member_limit (classified, the take-back of an overshooting join);
     # +2 with #2106: admin_add_membership (gated) and accept_invitation (classified), both via the insert helper;
     # +7 with #2032: the membership writes (_MEMBERSHIP_CLASSIFIED and the four gated role/removal methods);
     # +3 with #1883: OidcProviderAdminService.create/update/delete_provider; +1 with #1987: _login_link;

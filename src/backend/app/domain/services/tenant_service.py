@@ -27,6 +27,7 @@ from app.common.exceptions import (
     FeatureNotConfiguredError,
     ForbiddenError,
     InvalidStatusTransitionError,
+    MemberLimitReachedError,
     NotFoundError,
     TenantErasureClaimLostError,
     TenantErasureIncompleteError,
@@ -134,7 +135,14 @@ class TenantService:
         tenant_erasure_grace_days: int | None = None,
         email_service: IEmailService | None = None,
         user_repo: IUserRepository | None = None,
+        max_members_ceiling: int = 50,
     ) -> None:
+        # REQ-024 AK-64 (#2133) — the platform ceiling of every tenant's member limit
+        # (``TENANT_MAX_MEMBERS_CEILING``); ``get_tenant_service`` passes the setting, and the class guard
+        # ``test_membership_mutations_write_the_security_audit`` holds that it does.
+        if max_members_ceiling < 1:
+            raise ValueError("max_members_ceiling must be at least 1")
+        self._max_members_ceiling = max_members_ceiling
         # #2123 (MT-027, REQ-024 AK-52) — how long an accepted tenant deletion stays
         # cancellable. ``None`` reads ``RETENTION_TENANT_ERASURE_GRACE_DAYS`` (default 90):
         # an unwired construction schedules rather than erases at once. ``0`` keeps the
@@ -226,12 +234,18 @@ class TenantService:
         return tenant
 
     def create_organization(
-        self, user_key: str, name: str, description: str | None = None, max_members: int = 50
+        self, user_key: str, name: str, description: str | None = None, max_members: int | None = None
     ) -> Tenant:
-        """Create an organization tenant."""
+        """Create an organization tenant.
+
+        ``max_members`` is at most the platform ceiling (REQ-024 AK-65, 422 above it); omitted, the
+        organisation takes the ceiling.
+        """
         errors = self._tenant_engine.validate_tenant_name(name)
         if errors:
             raise ValidationError(errors[0])
+        member_limit = self._max_members_ceiling if max_members is None else max_members
+        self._refuse_limit_above_ceiling(member_limit)
 
         org_count = self._tenant_repo.count_organizations_by_owner(user_key)
         if not self._tenant_engine.can_create_organization(org_count):
@@ -246,7 +260,7 @@ class TenantService:
             tenant_type=TenantType.ORGANIZATION,
             description=description,
             owner_user_key=user_key,
-            max_members=max_members,
+            max_members=member_limit,
         )
         tenant = self._found_tenant(tenant, user_key, via=SecurityAuditVia.TENANT_CREATION)
 
@@ -453,6 +467,11 @@ class TenantService:
                 raise NotFoundError("Tenant", tenant_key)
             if tenant.is_platform:
                 raise ForbiddenError("The platform tenant cannot be deactivated.")
+
+        if "max_members" in data:
+            # REQ-024 AK-64 (#2133): set to at most the ceiling, by a tenant manager and a platform admin
+            # alike. Lowering it below the current member count removes nobody; it stops the next join.
+            self._refuse_limit_above_ceiling(data["max_members"])
 
         if "name" in data:
             errors = self._tenant_engine.validate_tenant_name(data["name"])
@@ -776,7 +795,7 @@ class TenantService:
         taken back (422, ``deleted``). The tenant returns to ``active`` with every
         membership as it was — the grace never touched them. An ``orphaned``
         organisation (#2134) is not cancellable (422): nobody is left who could
-        administer it, so it runs out its grace and is erased (REQ-024 AK-64).
+        administer it, so it runs out its grace and is erased (REQ-024 AK-65).
 
         Raises:
             ForbiddenError: the requester may not, or authenticated with an API key.
@@ -1656,10 +1675,68 @@ class TenantService:
         a tenant that is being erased — the counterpart of the second membership
         read in :meth:`erase_personal_tenant_of`. Every path that joins an
         account to an existing tenant goes through here.
+
+        **The member limit (REQ-024 AK-65, #2133)** is decided here too, for the same
+        reason: it is the one door every join passes (the class guards in
+        ``tests/unit/guards/`` hold that). Counted before the insert and again after
+        it - two concurrent joins can both pass the first count, and the one that
+        finds the tenant over its limit afterwards takes itself back
+        (:meth:`_settle_join_against_member_limit`).
         """
+        limit = self._refuse_beyond_member_limit(membership.tenant_key)
         created = self._membership_repo.create(membership)
         self._settle_join_against_freeze(created)
+        self._settle_join_against_member_limit(created, limit)
         return created
+
+    def _member_limit(self, tenant: Tenant) -> int:
+        """The effective member limit: the tenant's own, never above the platform ceiling (REQ-024 AK-65)."""
+        return min(tenant.max_members, self._max_members_ceiling)
+
+    def _refuse_limit_above_ceiling(self, max_members: int) -> None:
+        """422 for a ``max_members`` above the platform ceiling (REQ-024 AK-65, #2133)."""
+        if max_members > self._max_members_ceiling:
+            raise ValidationError(
+                f"max_members may not exceed the platform ceiling of {self._max_members_ceiling}.",
+                details=[
+                    {
+                        "field": "max_members",
+                        "reason": f"At most {self._max_members_ceiling}.",
+                        "code": "max_members_above_ceiling",
+                    }
+                ],
+            )
+
+    def _refuse_beyond_member_limit(self, tenant_key: str) -> int:
+        """422 ``MEMBER_LIMIT_REACHED`` when the tenant's active memberships reached its limit; else the limit.
+
+        REQ-024 AK-64 (#2133). Counts *active* memberships against the effective limit
+        (:meth:`_member_limit`). Applies to a new membership only: a tenant that already
+        holds more members than its limit - written before the limit was enforced, or
+        after it was lowered - keeps all of them and refuses the next join.
+        """
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        if tenant is None:
+            raise NotFoundError("Tenant", tenant_key)
+        limit = self._member_limit(tenant)
+        if self._membership_repo.count_active_members(tenant_key=tenant_key) >= limit:
+            logger.info("member_limit_reached", tenant=log_tenant(tenant_key), limit=limit)
+            raise MemberLimitReachedError(limit)
+        return limit
+
+    def _settle_join_against_member_limit(self, created: Membership, limit: int) -> None:
+        """Take a join back that a concurrent join pushed over the limit after the first count (#2133).
+
+        The count before the insert and the insert are two statements: two joins can both
+        see one free seat. Re-counted once the membership exists, an overshoot is undone
+        and refused - both racing joins may be refused then, never both kept.
+        """
+        if self._membership_repo.count_active_members(tenant_key=created.tenant_key) <= limit:
+            return
+        if created.key:
+            self._membership_repo.delete(created.key)
+        logger.info("member_limit_join_taken_back", tenant=log_tenant(created.tenant_key), limit=limit)
+        raise MemberLimitReachedError(limit)
 
     def _settle_join_against_freeze(self, created: Membership) -> None:
         """The re-check of a join after its insert: raises ``ForbiddenError`` when the membership was taken back.
@@ -2103,8 +2180,9 @@ class TenantService:
         forget them. What cannot succeed is refused first and is not asked for a password: an unknown
         tenant (404), a platform admin adding themselves to the platform tenant (422), a ``lead`` in
         the platform tenant by someone who does not hold it (403, :meth:`_refuse_role_grant`), a tenant
-        being erased (403), an account that is already a member (409). Without a valid step-up nothing
-        is written; the written membership is recorded in the security audit (#2111).
+        being erased (403), an account that is already a member (409), a tenant at its member limit (422
+        ``MEMBER_LIMIT_REACHED``, #2133). Without a valid step-up nothing is written; the written membership
+        is recorded in the security audit (#2111).
 
         Raises :class:`NotFoundError` when the tenant is unknown and
         :class:`DuplicateError` when the user is already a member. The *user's*
@@ -2130,6 +2208,8 @@ class TenantService:
         existing = self._membership_repo.get_by_user_and_tenant(user_key, tenant_key)
         if existing:
             raise DuplicateError("memberships", "user_key+tenant_key", "already a member")
+        # #2133 - a full tenant cannot succeed, so it is refused before the step-up asks for a password.
+        self._refuse_beyond_member_limit(tenant_key)
 
         self._step_up_verifier.verify(
             requester,
@@ -2698,6 +2778,39 @@ class TenantService:
             expires_at=expires_at,
         )
 
+    def email_invitation_admits(self, *, email: str, token: str) -> bool:
+        """Whether *token* names an e-mail invitation that admits creating an account for *email* (#2132).
+
+        REQ-023 §3.2d: the exception to ``invite_only`` and to the domain allowlist on a **local**
+        registration. The token proves that its holder received the invitation; the invitation must be
+        of type ``email``, pending, unexpired and issued for *email* (case-insensitive). A link
+        invitation admits nobody: it is meant to be shared, and one leaked link would reopen the
+        installation to everybody holding it.
+        """
+        invitation = self._invitation_repo.get_by_token_hash(self._invitation_engine.hash_token(token))
+        return invitation is not None and self._invitation_admits_address(invitation, email)
+
+    def email_invitation_pending_for(self, *, email: str) -> bool:
+        """Whether a pending, unexpired e-mail invitation was issued for *email* (#2132).
+
+        The exception on the **first OIDC sign-in**, which carries no token: the caller asks only for an
+        address its identity provider asserted as verified, which is the proof the token is locally.
+        """
+        return any(
+            self._invitation_admits_address(invitation, email)
+            for invitation in self._invitation_repo.list_pending_email_invitations(email)
+        )
+
+    def _invitation_admits_address(self, invitation: Invitation, email: str) -> bool:
+        address = email.strip().lower()
+        return (
+            bool(address)
+            and invitation.invitation_type == InvitationType.EMAIL
+            and invitation.status == InvitationStatus.PENDING
+            and (invitation.email or "").strip().lower() == address
+            and not self._invitation_engine.is_expired(invitation.expires_at)
+        )
+
     def list_invitations(self, tenant_key: str) -> list[Invitation]:
         return self._invitation_repo.list_by_tenant(tenant_key)
 
@@ -2742,6 +2855,8 @@ class TenantService:
         )
         if not can_accept:
             raise ValidationError(reason)
+        # #2133 - a full tenant is refused before the invitation is touched; it stays pending.
+        self._refuse_beyond_member_limit(invitation.tenant_key)
 
         # Accepted first, and only while still pending (#1825 SEC-001 and PR
         # review): a revocation that landed after the status read above — the

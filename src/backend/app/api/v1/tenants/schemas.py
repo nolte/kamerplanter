@@ -24,13 +24,24 @@ from app.domain.models.tenant_erasure import (
 class TenantCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
-    max_members: int = Field(default=50, ge=1)
+    #: REQ-024 AK-64 (#2133): at most ``TENANT_MAX_MEMBERS_CEILING`` (422 above it); omitted, the ceiling.
+    max_members: int | None = Field(
+        default=None,
+        ge=1,
+        description="Member limit, at most the platform ceiling (TENANT_MAX_MEMBERS_CEILING); omitted = the ceiling.",
+    )
 
 
 class TenantUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
-    max_members: int | None = Field(default=None, ge=1)
+    #: Omitted = unchanged. At most the platform ceiling (REQ-024 AK-65, #2133); lowering it below the
+    #: current member count removes nobody and stops the next join.
+    max_members: int | None = Field(
+        default=None,
+        ge=1,
+        description="New member limit, at most the platform ceiling (TENANT_MAX_MEMBERS_CEILING); omitted = unchanged.",
+    )
 
 
 class TenantDeleteRequest(BaseModel):
@@ -168,7 +179,7 @@ class TenantResponse(BaseModel):
     owner_user_key: str
     #: Derived from ``status`` (only ``active`` is active) — kept for clients written before #2123.
     is_active: bool
-    #: Lifecycle state (REQ-024 AK-64, #2123).
+    #: Lifecycle state (REQ-024 AK-65, #2123).
     status: TenantStatus = TenantStatus.ACTIVE
     #: When a ``pending_deletion`` / ``orphaned`` tenant is erased; ``None`` otherwise.
     deletion_scheduled_at: datetime | None = None

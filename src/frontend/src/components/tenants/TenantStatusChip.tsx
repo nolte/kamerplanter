@@ -19,7 +19,7 @@ interface TenantStatusChipProps {
 }
 
 /**
- * The lifecycle state of a tenant as a chip (REQ-024 AK-64, #2123): active, suspended,
+ * The lifecycle state of a tenant as a chip (REQ-024 AK-65, #2123): active, suspended,
  * deletion scheduled, orphaned (#2134) or being deleted. Falls back to active/suspended
  * from `is_active` when the response carries no `status`.
  */

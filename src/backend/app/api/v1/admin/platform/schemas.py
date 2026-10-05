@@ -16,7 +16,7 @@ class AdminTenantResponse(BaseModel):
     owner_user_key: str
     #: Derived from ``status`` — kept for clients written before #2123.
     is_active: bool
-    #: Lifecycle state (REQ-024 AK-64, #2123): ``orphaned`` marks an organisation an
+    #: Lifecycle state (REQ-024 AK-65, #2123): ``orphaned`` marks an organisation an
     #: account erasure left without anybody who can administer it (#2134).
     status: TenantStatus = TenantStatus.ACTIVE
     #: When a ``pending_deletion`` / ``orphaned`` tenant is erased; ``None`` otherwise.

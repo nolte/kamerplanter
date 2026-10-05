@@ -222,6 +222,10 @@ class FakeMembershipRepo:
             if m.tenant_key == tenant_key and m.is_active and m.user_key not in self.inactive_accounts
         }
 
+    def count_active_members(self, *, tenant_key: str) -> int:
+        """The seats the member limit counts (#2133): active memberships, as the real AQL counts them."""
+        return sum(1 for m in self.stored.values() if m.tenant_key == tenant_key and m.is_active)
+
     def deactivate_all_for_tenant(self, tenant_key: str) -> int:
         hit = [m for m in self.stored.values() if m.tenant_key == tenant_key and m.is_active]
         for membership in hit:
@@ -260,7 +264,16 @@ class HookedTenantErasureRepo(FakeTenantErasureRepository):
 
 
 def _personal_tenant(key: str = PERSONAL, owner: str = OWNER) -> Tenant:
-    return Tenant(_key=key, name="Garden", slug=f"garden-{key}", tenant_type=TenantType.PERSONAL, owner_user_key=owner)
+    # A personal tenant whose lead raised the member limit from its founding value 1 (#2133, REQ-049 AK-19):
+    # these tests are about members joining a personal tenant during its owner's erasure, not about the limit.
+    return Tenant(
+        _key=key,
+        name="Garden",
+        slug=f"garden-{key}",
+        tenant_type=TenantType.PERSONAL,
+        owner_user_key=owner,
+        max_members=10,
+    )
 
 
 def _member(user_key: str, tenant_key: str = PERSONAL, joined_at: datetime | None = None) -> Membership:

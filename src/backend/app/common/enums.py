@@ -1044,7 +1044,7 @@ class TenantType(StrEnum):
 
 
 class TenantStatus(StrEnum):
-    """Lifecycle state of a tenant (REQ-024 AK-64, AK-52, MT-027 #2123).
+    """Lifecycle state of a tenant (REQ-024 AK-65, AK-52, MT-027 #2123).
 
     Replaces the ``is_active`` bool (migration v0084). Only ``ACTIVE`` resolves
     into an authorization context; every other state answers like a slug that
@@ -1104,6 +1104,19 @@ class AdminScope(StrEnum):
 
     MANAGEMENT = "management"
     TECHNICAL = "technical"
+
+
+class RegistrationMode(StrEnum):
+    """Who may create an account on an installation (REQ-023 §3.2d, #2132; ``REGISTRATION_MODE``).
+
+    ``open`` - anybody (the default; with ``REGISTRATION_ALLOWED_DOMAINS``, the listed domains);
+    ``invite_only`` - only an address a pending e-mail invitation was issued for;
+    ``closed`` - nobody, an invitation included. Existing accounts sign in in every mode.
+    """
+
+    OPEN = "open"
+    INVITE_ONLY = "invite_only"
+    CLOSED = "closed"
 
 
 class InvitationStatus(StrEnum):

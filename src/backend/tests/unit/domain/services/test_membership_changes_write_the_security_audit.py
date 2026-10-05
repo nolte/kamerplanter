@@ -71,7 +71,10 @@ def _service(membership: Membership | None = None) -> tuple[TenantService, _Audi
     memberships.update_fields.side_effect = lambda key, fields: stored.model_copy(update=fields)
     memberships.create.side_effect = lambda m: m.model_copy(update={"key": "m-new"})
     tenants = MagicMock()
-    tenants.get_by_key.return_value = Tenant(_key="t1", name="Garden", slug="garden", owner_user_key="o")
+    tenants.get_by_key.return_value = Tenant(
+        _key="t1", name="Garden", slug="garden", owner_user_key="o", max_members=50
+    )
+    memberships.count_active_members.return_value = 1  # a seat is free (#2133)
     tenants.get_by_slug.return_value = None
     tenants.create.side_effect = lambda t: t.model_copy(update={"key": "t-new"})
 

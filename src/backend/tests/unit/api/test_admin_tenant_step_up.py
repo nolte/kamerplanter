@@ -96,6 +96,8 @@ def _tenant(key: str, *, is_active: bool = True, is_platform: bool = False) -> T
             "owner_user_key": MEMBER,
             "is_active": is_active,
             "is_platform": is_platform,
+            # An organisation is stored with its member limit (#2133); 50 is the founding default.
+            "max_members": 50,
         }
     )
 
@@ -161,6 +163,9 @@ class _Memberships:
 
     def count_managers(self, tenant_key: str) -> int:
         return sum(1 for m in self.rows.values() if m.tenant_key == tenant_key and m.is_active and m.has_management)
+
+    def count_active_members(self, *, tenant_key: str) -> int:
+        return sum(1 for m in self.rows.values() if m.tenant_key == tenant_key and m.is_active)
 
     def list_by_tenant(self, tenant_key: str) -> list[MemberInfo]:
         return [

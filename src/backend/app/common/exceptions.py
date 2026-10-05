@@ -372,6 +372,20 @@ class ForbiddenError(KamerplanterError):
         )
 
 
+class RegistrationNotAllowedError(ForbiddenError):
+    """REQ-023 §3.2d (#2132) — the installation's registration mode does not admit this new account.
+
+    One answer for every reason (mode closed, no or no valid invitation, domain not on the allowlist,
+    an address the provider did not prove): the reason is the operator's configuration, and a finer
+    answer would only tell a caller which invitation tokens exist. Decided before any stored account
+    is read, so it says nothing about whether the address has an account.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("Registration is not open for this address.")
+        self.error_code = "REGISTRATION_NOT_ALLOWED"
+
+
 class AccountLockedError(KamerplanterError):
     def __init__(self, retry_after_minutes: int) -> None:
         super().__init__(
@@ -647,6 +661,28 @@ class PhotoQuotaExceededError(KamerplanterError):
                         f"Plant instance '{plant_instance_key}' already holds the maximum of {limit} gallery photos."
                     ),
                     "code": "PHOTO_QUOTA_EXCEEDED",
+                }
+            ],
+        )
+
+
+class MemberLimitReachedError(KamerplanterError):
+    """REQ-024 AK-64 (#2133) — the tenant's active memberships reached its effective member limit.
+
+    422, not 409: no concurrent write is in the way; the request asks for a membership the tenant's
+    limit does not admit. The limit is named, the members are not.
+    """
+
+    def __init__(self, limit: int) -> None:
+        super().__init__(
+            message=f"This tenant has reached its limit of {limit} members.",
+            error_code="MEMBER_LIMIT_REACHED",
+            status_code=422,
+            details=[
+                {
+                    "field": "tenant",
+                    "reason": f"The tenant admits at most {limit} active members.",
+                    "code": "MEMBER_LIMIT_REACHED",
                 }
             ],
         )

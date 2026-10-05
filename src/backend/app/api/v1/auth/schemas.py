@@ -55,6 +55,15 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=10, max_length=128)
     display_name: DisplayName
+    #: The token of a pending e-mail invitation for ``email`` (#2132, REQ-023 §3.2d): required in
+    #: ``REGISTRATION_MODE=invite_only``, and admits an address outside the domain allowlist. A link
+    #: invitation unlocks no registration.
+    invitation_token: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=512,
+        description="Token of a pending e-mail invitation for this address; required when registration is invite-only.",
+    )
 
 
 class LoginRequest(BaseModel):

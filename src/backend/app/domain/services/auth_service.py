@@ -13,7 +13,7 @@ import structlog
 
 from app.common.datetimes import now_utc
 from app.common.decoys import decoy_document_key, email_digest
-from app.common.enums import AuthProviderType, TenantRole
+from app.common.enums import AuthProviderType, RegistrationMode, TenantRole
 from app.common.exceptions import (
     AccountLockedError,
     EmailNotVerifiedError,
@@ -21,6 +21,7 @@ from app.common.exceptions import (
     InvalidTokenError,
     NotFoundError,
     OAuthAutoLinkRefusedError,
+    RegistrationNotAllowedError,
     StepUpCodeUndeliverableError,
     StepUpReauthFailedError,
     StepUpReauthUnavailableError,
@@ -50,6 +51,7 @@ from app.domain.engines.oauth_engine import (
     supports_fresh_reauth,
 )
 from app.domain.engines.password_engine import PasswordEngine
+from app.domain.engines.registration_engine import RegistrationPolicy
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.interfaces.auth_provider_repository import IAuthProviderRepository
@@ -361,7 +363,12 @@ class AuthService:
         verification_resend_store: IStepUpThrottleStore | None = None,
         password_reset_store: IStepUpThrottleStore | None = None,
         verification_resend_proven_store: IStepUpThrottleStore | None = None,
+        registration_policy: RegistrationPolicy | None = None,
     ) -> None:
+        # #2132 (REQ-023 §3.2d) — who may create an account. ``None`` is ``open`` without an allowlist,
+        # the behaviour before the switch existed; ``get_auth_service`` passes the settings, and the class
+        # guard ``test_account_creation_asks_the_registration_policy`` holds that it does.
+        self._registration_policy = registration_policy or RegistrationPolicy()
         self._user_repo = user_repo
         self._auth_provider_repo = auth_provider_repo
         self._refresh_token_repo = refresh_token_repo
@@ -477,6 +484,7 @@ class AuthService:
         *,
         on_existing_address: Callable[[UserKey], None] | None = None,
         defer_mail: MailDeferrer | None = None,
+        invitation_token: str | None = None,
     ) -> UserProfile:
         """Register a local account, or answer as if one had been registered.
 
@@ -496,6 +504,8 @@ class AuthService:
             defer_mail: Runs the verification mail after the response (#1890);
                 see :meth:`_deliver_mail`. ``None`` sends inline, still without
                 letting a delivery failure out.
+            invitation_token: The token of an e-mail invitation for *email* (#2132);
+                the exception to ``invite_only`` and to the domain allowlist.
 
         Returns:
             The profile of the created account — or, for a taken address, one
@@ -503,7 +513,12 @@ class AuthService:
 
         Raises:
             ValidationError: If the password violates the policy.
+            RegistrationNotAllowedError: 403, the registration mode does not admit
+                the address (#2132) — decided first, before any stored account is
+                read, so the refusal is the same for a taken and a free address.
         """
+        self._require_registration_admitted(email, invitation_token=invitation_token, provider_proven=None)
+
         # The soft-delete tombstone domain is reserved (#1525 SCR-014). `users.email`
         # is uniquely indexed, so an account registered at
         # `deleted_<key>@deleted.example.com` would make the eventual soft-delete of
@@ -1980,6 +1995,42 @@ class AuthService:
         except Exception as exc:  # noqa: BLE001 - the primary error is the one to raise
             logger.error("registration_take_back_failed", error_type=type(exc).__name__)
 
+    def _require_registration_admitted(
+        self, email: str, *, invitation_token: str | None = None, provider_proven: bool | None
+    ) -> None:
+        """Raise unless the registration policy admits creating an account for *email* (REQ-023 §3.2d, #2132).
+
+        The one gate every account-creating path asks (the class guard
+        ``test_account_creation_asks_the_registration_policy`` holds that). ``provider_proven`` is
+        ``None`` for a local registration — its invitation is proven by ``invitation_token`` — and the
+        provider's ``email_verified`` assertion for the first OIDC sign-in, whose invitation is proven by
+        that assertion (an unproven address is never looked up). Decides from the configuration, the
+        submitted address and the invitations only — never from stored accounts — so the refusal is no
+        enumeration oracle. In the default configuration (``open``, no allowlist) nothing is read.
+
+        Raises:
+            RegistrationNotAllowedError: 403 ``REGISTRATION_NOT_ALLOWED``.
+        """
+        policy = self._registration_policy
+        if policy.admits(email, invited=False, provider_proven=provider_proven):
+            return
+        invited = False
+        if policy.mode != RegistrationMode.CLOSED and self._tenant_service is not None:
+            if provider_proven is None:
+                token = (invitation_token or "").strip()
+                invited = bool(token) and self._tenant_service.email_invitation_admits(email=email, token=token)
+            elif provider_proven:
+                invited = self._tenant_service.email_invitation_pending_for(email=email)
+        if policy.admits(email, invited=invited, provider_proven=provider_proven):
+            return
+        logger.info(
+            "registration_refused",
+            mode=str(policy.mode),
+            via="local" if provider_proven is None else "oidc",
+            email_sha256=email_digest(email),
+        )
+        raise RegistrationNotAllowedError()
+
     def _register_oauth_user(self, oauth_user: OAuthUserInfo) -> User:
         """Create a new user from OAuth info (no password).
 
@@ -1998,7 +2049,12 @@ class AuthService:
         `is True` and not a truthiness test: `None` means the provider said
         nothing, and under the decision recorded on `should_auto_link` silence is
         not an assertion.
+
+        **The registration mode decides first (#2132):** a first sign-in creates an account, so it asks
+        the same policy a local registration does — an invitation counts only for an address the provider
+        asserted as verified, and so does the domain allowlist.
         """
+        self._require_registration_admitted(oauth_user.email, provider_proven=oauth_user.email_verified is True)
 
         user = User(
             email=oauth_user.email,

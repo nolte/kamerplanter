@@ -407,7 +407,7 @@ Die Engines sind reine Logik ohne I/O. Das Manifest liest
    alle verbleibenden Mitglieder werden per E-Mail benachrichtigt (ohne Namen der Person).
    **(b)** Bleibt keine Leitung oder überhaupt kein anderes aktives Mitglied (ein Konto,
    dessen eigene Löschung beantragt ist, zählt nicht), wird die Organisation **`orphaned`**
-   (REQ-024 AK-64): Sie ist für alle gesperrt und wird nach der Gnadenfrist der
+   (REQ-024 AK-65): Sie ist für alle gesperrt und wird nach der Gnadenfrist der
    Mandantenlöschung (REQ-024 AK-52, NFR-011 R-01b) über das Mandanten-Löschinventar
    gelöscht; die verbleibenden Mitglieder (Exportfenster, Art. 20) und die Plattform-Admins
    werden benachrichtigt. Eine verwaiste Organisation lässt sich nicht zurückholen — die

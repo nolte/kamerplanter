@@ -1,6 +1,6 @@
 """v0084 — a tenant's ``is_active`` bool becomes the ``status`` lifecycle state (#2123, MT-027).
 
-REQ-024 AK-64 / AK-52: a tenant is ``active | suspended | pending_deletion |
+REQ-024 AK-65 / AK-52: a tenant is ``active | suspended | pending_deletion |
 orphaned | deleted``. ``Tenant.is_active`` is no longer stored — it is derived
 from ``status`` (only ``active`` resolves, #2105) — so every stored tenant needs
 the state its old flag meant:

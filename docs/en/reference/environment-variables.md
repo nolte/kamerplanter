@@ -56,6 +56,9 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 | `SESSION_TOKEN_EXPIRE_HOURS` | `24` | No | Validity of server-side session tokens, in hours. |
 | `FERNET_KEY` | — | Yes | Fernet key for encrypting OIDC provider secrets and integration tokens. **Required regardless of whether OIDC is used** — the startup gate refuses to start in production when this is empty (AP-4, INF-S5). Must be a valid Fernet key: 32 bytes, url-safe base64-encoded (44 characters) — generate e.g. with `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. The celery worker now checks the same gate at start-up and also refuses to start with `DEBUG=false` when the value is missing or not a valid Fernet key — the backend and the celery worker must use the same key. Decrypting a stored value with a different key now fails loudly (`SecretKeyMismatchError`) instead of silently handing the ciphertext to the integration as its credential. The Home Assistant token, the Pl@ntNet key and users' Apprise URLs are encrypted too (#2113): after a key change they can no longer be read and must be entered again. |
 | `REQUIRE_EMAIL_VERIFICATION` | `true` | No | Require email verification at registration. An installation without outbound mail sets `false` explicitly |
+| `REGISTRATION_MODE` | `open` | No | Who may create an account (local and first OIDC sign-in): `open` (anybody), `invite_only` (only with a pending email invitation for the address), `closed` (nobody, not even with an invitation). Existing accounts sign in in every mode. An unknown value refuses startup |
+| `REGISTRATION_ALLOWED_DOMAINS` | — (empty) | No | Optional comma-separated email domains (e.g. `club.example,garden.example`), exact, no subdomains. Empty = any domain. An email invitation for the address is the exception; through OIDC only an address the provider verified counts |
+| `TENANT_MAX_MEMBERS_CEILING` | `50` | No | Platform ceiling of every tenant's member limit (at least `1`). The effective limit is `min(max_members, TENANT_MAX_MEMBERS_CEILING)`; a `max_members` above it is refused (`422`), a new organization created without one takes this value. A full tenant refuses further joins with `422 MEMBER_LIMIT_REACHED`. Lowering it removes nobody |
 | `HIBP_ENABLED` | `false` | No | Enable "Have I Been Pwned" check on password change |
 | `COOKIE_SECURE` | `true` | No | Sets the `Secure` flag on the refresh-token cookie. Only set to `false` for plain-HTTP E2E test environments without TLS — **always** leave `true` in production. |
 
@@ -744,6 +747,8 @@ ERASURE_TOMBSTONE_SALT=generate-with-openssl-rand-hex-32
 LOG_PSEUDONYM_SALT=generate-with-openssl-rand-hex-32
 # Default true; set false only without outbound mail
 REQUIRE_EMAIL_VERIFICATION=true
+# Who may create an account: open | invite_only | closed (default open)
+REGISTRATION_MODE=open
 
 # CORS
 CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]

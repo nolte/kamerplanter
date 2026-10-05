@@ -287,6 +287,24 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         )
         return next(cursor, 0)
 
+    def count_active_members(self, *, tenant_key: str) -> int:
+        """Active memberships of the tenant - the seats its member limit counts (REQ-024 AK-64, #2133).
+
+        "Active" as :meth:`deactivate_all_for_tenant` switches it off (``is_active != false``), so a
+        missing flag counts, as the model default says. Not narrowed to active *accounts*: a seat is held
+        by the membership, and a deactivated account's membership comes back with the account.
+        """
+        cursor = self._db.aql.execute(
+            """
+            FOR m IN @@collection
+              FILTER m.tenant_key == @tenant_key AND m.is_active != false
+              COLLECT WITH COUNT INTO cnt
+              RETURN cnt
+            """,
+            bind_vars={"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key},
+        )
+        return int(next(cast(Cursor, cursor), 0))
+
     def deactivate_all_for_tenant(self, tenant_key: str) -> int:
         """Deactivate every membership of the tenant; the rows are removed by the tenant erasure (#1769).
 

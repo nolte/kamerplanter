@@ -118,6 +118,9 @@ def personal_tenant(database) -> str:
             "tenant_type": "personal",
             "owner_user_key": OWNER,
             "is_active": True,
+            # The lead raised the member limit from its founding value 1 (#2133): the joiner must get a
+            # seat, or every race below would end in a member-limit refusal and prove nothing.
+            "max_members": 10,
             "created_at": "2026-09-01T00:00:00+00:00",
         }
     )
@@ -309,6 +312,7 @@ def test_unhooked_concurrent_joins_never_leave_a_tenant_retained_for_nobody(data
                 "tenant_type": "personal",
                 "owner_user_key": OWNER,
                 "is_active": True,
+                "max_members": 10,  # a seat for the joiner (#2133), as above
                 "created_at": "2026-09-01T00:00:00+00:00",
             }
         )

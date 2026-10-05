@@ -356,6 +356,22 @@ class Settings(BaseSettings):
     require_email_verification: bool = True
     cookie_secure: bool = True  # Set False for HTTP-only E2E environments
 
+    #: REQ-023 §3.2d (#2132) — who may create an account (``POST /auth/register`` and the first OIDC
+    #: sign-in). ``open`` (default, unchanged behaviour), ``invite_only`` (a pending e-mail invitation
+    #: for the address is required), ``closed`` (nobody, not even with an invitation). Existing
+    #: accounts sign in in every mode. A ``Literal``: a typo refuses startup instead of opening up.
+    registration_mode: Literal["open", "invite_only", "closed"] = "open"
+    #: Optional comma-separated e-mail domain allowlist for registration (``club.example,garden.example``;
+    #: exact, case-insensitive, no subdomains). Empty = any domain. An e-mail invitation for the
+    #: address is the exception; the first OIDC sign-in counts only a provider-verified address.
+    registration_allowed_domains: str = ""
+
+    #: REQ-024 AK-64 (#2133) — the platform ceiling of every tenant's member limit. A tenant's
+    #: effective limit is ``min(tenant.max_members, this)``; ``max_members`` is set to at most this
+    #: value, and an organisation founded without one takes it. A tenant stored above a lowered
+    #: ceiling keeps its members; only the next join is refused.
+    tenant_max_members_ceiling: int = Field(default=50, ge=1)
+
     #: E2E only (#1155) — email of a second, platform-admin account to seed.
     #:
     #: The full-mode E2E suite needs an account that may mutate the global

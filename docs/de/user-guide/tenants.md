@@ -23,6 +23,9 @@ Bei der Registrierung erstellt das System automatisch deinen **persönlichen Ten
 !!! warning "Dein persönlicher Tenant endet mit deinem Konto"
     Lädst du jemanden in deinen persönlichen Tenant ein, wird er mit deinem Konto gelöscht — auch mit allem, was die anderen Mitglieder darin angelegt haben. Sie bekommen eine E-Mail, sobald du die Löschung beantragst. Für einen Garten, den ihr gemeinsam und dauerhaft führen wollt, lege deshalb einen eigenen Gemeinschaftsgarten an. Details: [Datenaufbewahrung](../guides/data-retention.md#was-mit-deinem-personlichen-garten-passiert).
 
+!!! info "Mitgliederlimit"
+    Jeder Tenant hat ein Mitgliederlimit. Dein persönlicher Tenant startet mit **1** — dir selbst. Willst du jemanden in deinen persönlichen Tenant einladen, hebe das Limit vorher an; sonst bekommt die eingeladene Person beim Annehmen die Meldung, dass der Tenant voll ist. Ein Gemeinschaftsgarten startet mit dem Höchstwert, den der Betreiber der Plattform festlegt (Standard: 50); höher geht es nicht. <!-- Issue #2133 -->
+
 ---
 
 ## Zwischen Tenants wechseln
@@ -75,6 +78,9 @@ Du bist automatisch Admin des neuen Tenants.
 ## Mitglieder einladen
 
 Als Admin kannst du Mitglieder auf drei Wegen einladen:
+
+!!! note "Ist der Tenant voll, bleibt die Einladung offen"
+    Hat dein Tenant sein Mitgliederlimit erreicht, kann niemand mehr beitreten — weder über eine E-Mail-Einladung noch über einen Einladungslink. Die Einladung verfällt dadurch nicht: Sobald ein Platz frei wird (jemand verlässt den Tenant) oder du das Limit anhebst, kann sie angenommen werden. Mitglieder, die schon dabei sind, bleiben es in jedem Fall — auch wenn du das Limit unter die aktuelle Mitgliederzahl senkst. <!-- Issue #2133 -->
 
 ### Methode 1: E-Mail-Einladung
 
