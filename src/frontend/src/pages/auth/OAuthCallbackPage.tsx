@@ -24,6 +24,8 @@ const OAUTH_ERROR_KEYS: Record<string, string> = {
   // own key because the generic `providerError` is wrong in both halves here —
   // the provider reported nothing wrong, and "try again later" cannot help.
   link_requires_password: 'pages.auth.oauthErrors.linkRequiresPassword',
+  // #2132: a first sign-in the instance's registration mode does not admit.
+  registration_not_allowed: 'pages.auth.oauthErrors.registrationNotAllowed',
 };
 
 /**

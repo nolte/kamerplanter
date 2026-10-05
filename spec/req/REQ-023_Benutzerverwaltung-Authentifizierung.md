@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.41 (Step-up `admin_membership_add`, #2106); 1.40 (Restbefunde #2062: Valkey-Clients, Token-Reihenfolge, Summe je Postfach); 1.39 (Admin-Seite für OIDC-Provider, #1906); 1.38 (Bestätigungsnachweis `email_confirmed_at`, #1948); 1.37 (Step-up für Rollenwechsel und Mitglieder-Entfernen, #2032); 1.36 (Bereinigung abgebrochener lokaler Registrierungen: Trockenlauf, #2010); 1.35 (Anonyme Routen und Reset-Budget nach den Prüfungen von #2043/#2045 gehärtet, #2048/#2052/#2058/#2059/#2060); 1.34 (Wartezeit der Mail-Budgets bei hängendem Valkey begrenzt, Aussagen der Bündel-Prüfung korrigiert, #2045/#2043/#2046); 1.33 (Login-Ablehnung `EMAIL_NOT_VERIFIED` mit korrektem Passwort verschickt den neuen Bestätigungslink selbst, #2046); 1.32 (Budget je Adresse für `POST /auth/password-reset/request`, #2043); 1.31 (IP-Rate-Limits zählen in geteiltem Speicher, #2045); 1.30 (Neuer Bestätigungslink per `POST /auth/resend-verification`, #2037); 1.29 (SEC-H-009 Bedingung 1 an den neuen Default angepasst, #1948)
+Version: 1.42 (Registrierungsmodus `REGISTRATION_MODE` und Domain-Allowlist, §3.2d, AK-56; #2132); 1.41 (Step-up `admin_membership_add`, #2106); 1.40 (Restbefunde #2062: Valkey-Clients, Token-Reihenfolge, Summe je Postfach); 1.39 (Admin-Seite für OIDC-Provider, #1906); 1.38 (Bestätigungsnachweis `email_confirmed_at`, #1948); 1.37 (Step-up für Rollenwechsel und Mitglieder-Entfernen, #2032); 1.36 (Bereinigung abgebrochener lokaler Registrierungen: Trockenlauf, #2010); 1.35 (Anonyme Routen und Reset-Budget nach den Prüfungen von #2043/#2045 gehärtet, #2048/#2052/#2058/#2059/#2060); 1.34 (Wartezeit der Mail-Budgets bei hängendem Valkey begrenzt, Aussagen der Bündel-Prüfung korrigiert, #2045/#2043/#2046); 1.33 (Login-Ablehnung `EMAIL_NOT_VERIFIED` mit korrektem Passwort verschickt den neuen Bestätigungslink selbst, #2046); 1.32 (Budget je Adresse für `POST /auth/password-reset/request`, #2043); 1.31 (IP-Rate-Limits zählen in geteiltem Speicher, #2045); 1.30 (Neuer Bestätigungslink per `POST /auth/resend-verification`, #2037); 1.29 (SEC-H-009 Bedingung 1 an den neuen Default angepasst, #1948)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.42 | 2026-10-05 | **#2132 (MT-036, §3.2d, AK-56):** Im Full-Modus legte `POST /auth/register` — und ebenso die erste OIDC-Anmeldung einer unbekannten Adresse — für jeden ein Konto an; es gab keinen Schalter. Neu (**Betreiberentscheidung 2026-10-04**): `REGISTRATION_MODE` = `open` (Default, unverändertes Verhalten) \| `invite_only` \| `closed` und eine optionale Domain-Allowlist `REGISTRATION_ALLOWED_DOMAINS`. Gelesen gilt: Eine **E-Mail-Einladung** (offen, nicht abgelaufen, für genau diese Adresse) ist die Ausnahme von `invite_only` und von der Allowlist — lokal bewiesen durch ihr Token (`invitation_token` im Registrierungs-Body), bei der ersten OIDC-Anmeldung durch die vom Anbieter bestätigte Adresse (`email_verified`); **`closed` lässt niemanden zu, auch nicht mit Einladung** (sonst wären `closed` und `invite_only` derselbe Modus). Eine Link-Einladung öffnet keine Registrierung. Jede Ablehnung ist dieselbe `403 REGISTRATION_NOT_ALLOWED`, entschieden vor jedem Lesen gespeicherter Konten (kein Enumerations-Orakel). `GET /mode` meldet `registration: {mode, domain_restricted}`; Login- und Registrierungsseite passen sich an. Bestehende Konten melden sich in jedem Modus an. Light-Modus unberührt (keine `/auth`-Routen; `/mode` meldet dort `closed`). Guard: `test_account_creation_asks_the_registration_policy.py` — jede Funktion, die ein Konto anlegt, fragt die eine Prüfstelle. |
 | 1.41 | 2026-10-04 | **#2106 (§3.9):** Eine weitere Aktion läuft durch den Step-up: `admin_membership_add` (das Hinzufügen eines Kontos zu einem Mandanten durch einen Plattform-Admin, `POST /admin/platform/tenants/{key}/members` und `…/users/{key}/memberships`), gebunden an das Paar `<tenant_key>|<user_key>` (die Mitgliedschaft gibt es noch nicht; `|` ist kein Zeichen eines Dokumentschlüssels, das Paar ist eindeutig). Die Zielprüfung beim Ausstellen verlangt einen Plattform-Admin sowie einen vorhandenen Mandanten und ein vorhandenes Konto (403 vor 404). Die Registrierung nimmt ein angelegtes Konto zurück, wenn der Anbieter- oder Mandant-Schreibvorgang scheitert (#2118). |
 | 1.40 | 2026-10-04 | **Restbefunde aus #2043/#2045/#2046 (#2062):** (1) **Alle Valkey-Clients der Request-Pfade warten höchstens 0,5 s** (§3.2c): `_get_redis_client()` (Geräte-Kopplung, API-Key-Limiter, MCP-Sitzungen, Identifikations-Limiter) und der OAuth-State-Store nutzten die redis-py-Vorgabe von 5 s je Socket-Operation — gemessen gegen einen Socket, der annimmt und nie antwortet: 5,01 s je Aufruf, die anonyme Kopplungs-Einlösung 10,10 s; jetzt 0,50 s und 1,10 s. Ein Guard verlangt `bounded_redis_client_options()` von jedem in `app/` gebauten Valkey-Client. (2) **Reihenfolge von Token und Mail** (§3.2b): Token-Schreiben und Versand laufen je Konto und Tokenart unter einem Prozess-Lock; vorher konnte die zuletzt eintreffende Mail ein bereits überschriebenes Token tragen (deterministisch reproduziert, Bestätigung und Reset). Je Prozess, nicht je Replik. (3) **Summe je Postfach gemessen** (§3.2b): 16 Mails in einem Fenster (3 anonym, 3 bewiesen, 10 Reset), nicht „bis zu 9“; bewusst kein gemeinsames Budget (ein Squatter könnte sonst den Reset der Inhaberin verbrauchen, vgl. §3.2c „Aussperren durch Dritte“). (4) **Valkey ohne AUTH** (§3.2c): Entscheidung für den Betreiber festgehalten. (5) Guard `anonymous_mail_routes`: anonym heißt „kein `get_current_user` im Abhängigkeitsbaum“ (vorher: Namenspräfix `require_*`/`get_current_*`), `async def`-Methoden werden gelesen. |
 | 1.39 | 2026-10-04 | **#1906 (§4.1, §3.9):** Die OIDC-Provider-Konfigurationen haben eine eigene Admin-Seite `/admin/oidc-providers` (Plattform-Admin, erreichbar im Tab „Plattform-Modus" der Kontoeinstellungen): Liste, Anlegen, Bearbeiten, Löschen und Discovery-Test über `/api/v1/admin/oidc-providers`. Anlegen, Löschen und jede Änderung außer `display_name` und `icon_url` laufen im Dialog `StepUpConfirmDialog` mit der Aktion `oidc_provider_change` (Ziel: Schlüssel der Konfiguration, beim Anlegen `new:<slug>`); `display_name` und `icon_url` speichern ohne Dialog. Das Client-Secret ist schreibgeschützt: Die Schnittstelle gibt es nie zurück, die Seite zeigt es nie an, ein leeres Feld beim Bearbeiten behält das gespeicherte. Feste Endpunkte (`authorization_url`, `token_url`, `userinfo_url`, `jwks_url`) und der Standard-Mandant lassen sich beim Anlegen setzen; die Antwort enthält sie nicht, die Seite zeigt sie später nicht an. Die Aussage „nur über die API verwaltbar" im Admin-Handbuch (#1980) entfällt. Testfälle TC-023-077 bis TC-023-079. |
@@ -1183,6 +1184,35 @@ getrennt, ein flatternder Valkey kann deshalb bis zu 3 weitere Links freigeben �
 solange Valkey seine Schlüssel behält. Ein Neustart, der sie verliert, gibt je
 Budget weitere 3 frei.
 
+### 3.2d Registrierungsmodus (`REGISTRATION_MODE`, #2132)
+
+**Betreiberentscheidung 2026-10-04.** Wer ein Konto anlegen darf, entscheidet der Betreiber, nicht der Zufall der
+Erreichbarkeit. Zwei Einstellungen:
+
+| Einstellung | Werte | Default |
+|---|---|---|
+| `REGISTRATION_MODE` | `open` · `invite_only` · `closed` | `open` (unverändertes Verhalten) |
+| `REGISTRATION_ALLOWED_DOMAINS` | kommagetrennte E-Mail-Domains, exakt, Groß-/Kleinschreibung egal, keine Subdomains | leer = jede Domain |
+
+**Regel** (in dieser Reihenfolge entschieden, `RegistrationPolicy.admits`):
+
+1. `closed` lässt **niemanden** zu — auch nicht mit Einladung. Begründung: Ließe die Einladung auch hier zu, wären `closed` und `invite_only` derselbe Modus. Neue Konten entstehen dann nur durch den Betreiber (Seeds, Plattform-Admin).
+2. Eine **E-Mail-Einladung**, die die Adresse zulässt — Typ `email`, Status `pending`, nicht abgelaufen, ausgestellt für genau diese Adresse (Groß-/Kleinschreibung egal) —, ist die Ausnahme von `invite_only` **und** von der Allowlist. Bewiesen wird sie
+   - bei der **lokalen Registrierung** durch ihr Token (`invitation_token` im Body von `POST /auth/register`) — die bloße Existenz einer Einladung für eine Adresse genügt nicht, sonst könnte jemand die eingeladene Adresse vor ihrem Inhaber belegen;
+   - bei der **ersten OIDC-Anmeldung** ohne Token durch die vom Anbieter bestätigte Adresse (`email_verified: true`). Eine unbestätigte Adresse wird gar nicht erst nachgeschlagen.
+3. `invite_only` lässt sonst niemanden zu.
+4. `open` lässt jeden zu; mit Allowlist nur Adressen ihrer Domains. Bei der ersten OIDC-Anmeldung zählt die Allowlist nur für eine vom Anbieter bestätigte Adresse.
+
+Eine **Link-Einladung** öffnet keine Registrierung: Sie ist zum Teilen gedacht, ein weitergegebener Link würde die Installation für jeden öffnen, der ihn hat. Die Annahme einer Einladung durch ein bestehendes Konto (REQ-024 §1a.2) bleibt von der Einstellung unberührt.
+
+**Antwort.** Jede Ablehnung ist `403 REGISTRATION_NOT_ALLOWED` mit derselben Meldung — gleich, ob der Modus, das Token oder die Domain der Grund ist, und gleich, ob die Adresse bereits ein Konto hat: Die Entscheidung fällt vor jedem Lesen gespeicherter Konten und vor der bcrypt-Runde. Die erste OIDC-Anmeldung leitet mit `?error=registration_not_allowed` zurück; es wird nichts angelegt. Die Ablehnung wird nur mit dem gesalzenen Adress-Digest geloggt (`registration_refused`). Das IP-Rate-Limit von `/auth/register` gilt unverändert.
+
+**Bestehende Konten** melden sich in jedem Modus an (lokal und über OIDC, inklusive Auto-Link nach §2); der Modus entscheidet nur über das **Anlegen**.
+
+**Frontend.** `GET /mode` liefert `registration: {mode, domain_restricted}` (die Domains selbst werden nicht veröffentlicht). Die Anmeldeseite blendet den Registrieren-Link bei `closed` aus und beschriftet ihn bei `invite_only` als „Mit Einladung registrieren"; die Registrierungsseite zeigt bei `closed` nur einen Hinweis, bei `invite_only` ein Pflichtfeld „Einladungscode" (vorbelegt aus `/register?invitation=<token>`). Das Frontend ist nur Hinweis — durchgesetzt wird im Backend.
+
+**Light-Modus** ist unberührt: Er bindet keine `/auth`-Routen ein; `/mode` meldet dort `closed`.
+
 <!-- Quelle: Smart-Home-HA-Integration Review A-003 -->
 ### 3.7 M2M-Authentifizierung (API-Keys)
 
@@ -1326,7 +1356,7 @@ class UserService:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| POST | `/auth/register` | Lokale Registrierung | Nein |
+| POST | `/auth/register` | Lokale Registrierung; Body optional `invitation_token`. `403 REGISTRATION_NOT_ALLOWED`, wenn der Registrierungsmodus die Adresse nicht zulässt (§3.2d, #2132) | Nein |
 | POST | `/auth/login` | Lokaler Login (Body: `email`, `password`, `remember_me: bool = false`); `403 EMAIL_NOT_VERIFIED` nach korrektem Passwort verschickt einen neuen Bestätigungslink, 3 je Konto und Stunde (§3.2b, #2046) | Nein |
 | POST | `/auth/logout` | Logout (aktuelles Gerät) | Ja |
 | POST | `/auth/logout-all` | Logout (alle Geräte) | Ja |
@@ -1562,7 +1592,7 @@ Nach Ablauf einer Sperre wird genau ein weiterer Versuch geprüft; schlägt er f
 | Seite | Route | Beschreibung |
 |-------|-------|-------------|
 | `LoginPage` | `/login` | E-Mail/Passwort-Login + SSO-Buttons |
-| `RegisterPage` | `/register` | Lokale Registrierung |
+| `RegisterPage` | `/register` | Lokale Registrierung; folgt dem Registrierungsmodus aus `GET /mode` (§3.2d): `closed` nur Hinweis, `invite_only` mit Pflichtfeld „Einladungscode" (`?invitation=` belegt es vor) |
 | `EmailVerificationPage` | `/verify-email/:token` | E-Mail-Bestätigung; im Fehlerfall Verweis auf `ResendVerificationPage` |
 | `ResendVerificationPage` | `/resend-verification` | Neuen Bestätigungslink anfordern (§3.2b, #2037) |
 | `PasswordResetRequestPage` | `/password-reset` | Passwort-Reset anfordern |
@@ -1582,7 +1612,7 @@ Nach Ablauf einer Sperre wird genau ein weiterer Versuch geprüft; schlägt er f
   - Apple: Offizielles Apple-Sign-In-Branding (Dark/Light Modus)
   - Generische OIDC: icon_url + display_name
 - Link zu "Passwort vergessen"
-- Link zu "Registrieren"
+- Link zu "Registrieren" — entfällt bei `REGISTRATION_MODE=closed`, lautet bei `invite_only` „Mit Einladung registrieren" (§3.2d)
 
 **`AccountSettingsPage`:**
 - **Tab "Profil":** Anzeigename, Avatar (URL-Eingabe), Sprache (DE/EN), Zeitzone
@@ -2513,6 +2543,7 @@ Membership: `grower` im Demo-Tenant. API-Key: `kp_demo00000000000000000000000000
 | AK-53 | User-Suspendierung: Platform-Admin kann sich NICHT selbst suspendieren (400) | Unit |
 | AK-54 | User-Suspendierung: Wenn User letzter Admin eines Tenants → Tenant als verwaist markiert | Integration |
 | AK-55 | Celery-Task erkennt verwaiste Tenants wöchentlich und setzt `orphaned_since` | Integration |
+| AK-56 | **Registrierungsmodus (#2132, umgesetzt; Betreiberentscheidung 2026-10-04, §3.2d):** `REGISTRATION_MODE=invite_only` + `POST /auth/register` ohne gültiges E-Mail-Einladungs-Token für die Adresse → `403 REGISTRATION_NOT_ALLOWED` (gleiche Antwort für vergebene und freie Adresse, nichts geschrieben); mit Token einer offenen, gültigen E-Mail-Einladung für genau diese Adresse → `201`. Erste OIDC-Anmeldung ohne Einladung für die vom Anbieter bestätigte Adresse → Weiterleitung `?error=registration_not_allowed`, kein Konto. `closed` lehnt auch mit Einladung ab; bestehende Konten melden sich an. `REGISTRATION_ALLOWED_DOMAINS` beschränkt `open` auf die gelisteten Domains (OIDC nur mit bestätigter Adresse). `GET /mode` meldet `registration.mode`. Default `open` ändert nichts. Tests: `test_registration_mode.py` (Unit), `test_registration_mode_api.py` (API), `RegisterPage.test.tsx`, `LoginPage.test.tsx` | Unit + API + Frontend |
 <!-- /Quelle: Tenant-Notfallverwaltung v1.7 -->
 
 ### Sicherheitskriterien:

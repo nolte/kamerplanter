@@ -18,13 +18,24 @@ from app.domain.models.tenant_erasure import TenantDeletionConfirmation, TenantE
 class TenantCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
-    max_members: int = Field(default=50, ge=1)
+    #: REQ-024 AK-64 (#2133): at most ``TENANT_MAX_MEMBERS_CEILING`` (422 above it); omitted, the ceiling.
+    max_members: int | None = Field(
+        default=None,
+        ge=1,
+        description="Member limit, at most the platform ceiling (TENANT_MAX_MEMBERS_CEILING); omitted = the ceiling.",
+    )
 
 
 class TenantUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
-    max_members: int | None = Field(default=None, ge=1)
+    #: Omitted = unchanged. At most the platform ceiling (REQ-024 AK-64, #2133); lowering it below the
+    #: current member count removes nobody and stops the next join.
+    max_members: int | None = Field(
+        default=None,
+        ge=1,
+        description="New member limit, at most the platform ceiling (TENANT_MAX_MEMBERS_CEILING); omitted = unchanged.",
+    )
 
 
 class TenantDeleteRequest(BaseModel):

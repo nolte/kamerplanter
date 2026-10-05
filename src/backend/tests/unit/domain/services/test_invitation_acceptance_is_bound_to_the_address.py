@@ -64,7 +64,10 @@ class _World:
         self.memberships.get_by_user_and_tenant.return_value = None
         self.memberships.create.side_effect = lambda m: m.model_copy(update={"key": "m-new"})
         tenants = MagicMock()
-        tenants.get_by_key.return_value = Tenant(_key=TENANT, name="Garden", slug="garden", owner_user_key="u-lead")
+        tenants.get_by_key.return_value = Tenant(
+            _key=TENANT, name="Garden", slug="garden", owner_user_key="u-lead", max_members=50
+        )
+        self.memberships.count_active_members.return_value = 1  # a seat is free (#2133)
         self.audit = MagicMock()
         self.service = TenantService(
             tenant_repo=tenants,

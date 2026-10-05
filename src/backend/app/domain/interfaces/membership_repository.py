@@ -67,6 +67,10 @@ class IMembershipRepository(ABC):
     def count_managers(self, tenant_key: str) -> int: ...
 
     @abstractmethod
+    def count_active_members(self, *, tenant_key: str) -> int:
+        """Active memberships of the tenant (``is_active != false``) - the seats its member limit counts (#2133)."""
+
+    @abstractmethod
     def count(self) -> int:
         """Total number of membership documents (platform-admin statistics, #1019)."""
 

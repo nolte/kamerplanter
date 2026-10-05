@@ -259,6 +259,14 @@ export const handlers = [
   http.get('/api/v1/users/me', () => {
     return HttpResponse.json({ key: 'user-1', email: 'demo@kamerplanter.local', display_name: 'Demo' });
   }),
+  // Deployment mode (#2132) — default: full mode, open registration, no domain allowlist
+  http.get('/api/v1/mode', () => {
+    return HttpResponse.json({
+      mode: 'full',
+      features: { auth: true, multi_tenant: true, privacy_consent: true },
+      registration: { mode: 'open', domain_restricted: false },
+    });
+  }),
   // OAuth providers (login page) — default: none configured
   http.get('/api/v1/auth/oauth/providers', () => {
     return HttpResponse.json([]);

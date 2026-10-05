@@ -291,6 +291,48 @@ describe('LoginPage', () => {
   it('offers a link to the registration page', async () => {
     renderWithProviders(<LoginPage />, { store: idleAuthStore() });
     const card = await screen.findByText('E-Mail');
-    expect(within(card.ownerDocument.body).getByText('Noch kein Konto? Registrieren')).toBeTruthy();
+    // The entry follows the registration mode, read from `GET /mode` (#2132) — so it appears once that answered.
+    expect(await within(card.ownerDocument.body).findByText('Noch kein Konto? Registrieren')).toBeTruthy();
+  });
+});
+
+describe('LoginPage registration entry (#2132)', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+  });
+
+  function registrationMode(mode: 'open' | 'invite_only' | 'closed') {
+    server.use(
+      http.get('/api/v1/mode', () =>
+        HttpResponse.json({
+          mode: 'full',
+          features: { auth: true, multi_tenant: true, privacy_consent: true },
+          registration: { mode, domain_restricted: false },
+        }),
+      ),
+    );
+  }
+
+  it('offers the registration link when registration is open', async () => {
+    registrationMode('open');
+    renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+
+    expect(await screen.findByTestId('login-register-link')).toHaveTextContent('Noch kein Konto? Registrieren');
+  });
+
+  it('labels the link as registration with an invitation when invite-only', async () => {
+    registrationMode('invite_only');
+    renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+
+    expect(await screen.findByTestId('login-register-link')).toHaveTextContent(/Mit Einladung registrieren/);
+  });
+
+  it('hides the registration link and says so when registration is closed', async () => {
+    registrationMode('closed');
+    renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+
+    expect(await screen.findByTestId('login-registration-closed')).toBeTruthy();
+    expect(screen.queryByTestId('login-register-link')).toBeNull();
+    expect(screen.getByRole('link', { name: /Passwort vergessen/ })).toBeTruthy();
   });
 });
