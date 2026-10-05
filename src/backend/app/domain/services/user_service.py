@@ -4,6 +4,7 @@ import structlog
 
 from app.common.exceptions import NotFoundError
 from app.common.types import UserKey
+from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.user import User, UserProfile, UserProfileUpdate
 from app.domain.services.step_up_service import StepUpVerifier, default_step_up_verifier
@@ -22,8 +23,12 @@ class UserService:
         self,
         user_repo: IUserRepository,
         step_up_verifier: StepUpVerifier | None = None,
+        refresh_token_repo: IRefreshTokenRepository | None = None,
     ) -> None:
         self._user_repo = user_repo
+        # #2116 — a deactivation ends every session, refresh and access tokens alike, so a
+        # later reactivation does not bring the old ones back. ``None`` only in doubles.
+        self._refresh_token_repo = refresh_token_repo
         # #1857 — the admin's own step-up before an update that raises trust.
         self._step_up_verifier = step_up_verifier or default_step_up_verifier()
 
@@ -146,6 +151,10 @@ class UserService:
         user = self._user_repo.update_fields(user_key, data)
         if not user:
             raise NotFoundError("User", user_key)
+        if data.get("is_active") is False and self._refresh_token_repo is not None:
+            # The flag alone already refuses the account on every request; ending the sessions
+            # is what keeps a reactivation from reviving the tokens issued before (#2116).
+            self._refresh_token_repo.revoke_all_for_user(user_key)
         return user
 
     def list_all_users(self) -> list[User]:

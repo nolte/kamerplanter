@@ -195,7 +195,10 @@ Im Tab **Sitzungen** siehst du alle Geräte und Browser, auf denen du aktuell an
 | **IP** | IP-Adresse, von der aus die Sitzung erstellt wurde |
 | **Läuft ab** | Ablaufdatum der Sitzung |
 
-Um eine fremde oder nicht mehr benötigte Sitzung zu beenden, klicke auf das Papierkorb-Symbol in der jeweiligen Zeile. Deine aktuelle Sitzung kannst du hier nicht beenden — dafür meldest du dich über **Abmelden** im Konto-Menü ab.
+Um eine fremde oder nicht mehr benötigte Sitzung zu beenden, klicke auf das Papierkorb-Symbol in der jeweiligen Zeile. Das Gerät ist damit sofort abgemeldet, nicht erst nach einigen Minuten; deine übrigen Geräte bleiben angemeldet. Deine aktuelle Sitzung kannst du hier nicht beenden — dafür meldest du dich über **Abmelden** im Konto-Menü ab.
+
+!!! info "Abmelden auf einem gemeinsam genutzten Gerät"
+    Beim **Abmelden** entfernt Kamerplanter aus diesem Browser alles, was zu deinem Konto gehört: angezeigte Daten, den zuletzt gewählten Garten und die Browser-Push-Registrierung. Wer sich danach auf demselben Gerät anmeldet, sieht nichts davon und bekommt keine Push-Nachrichten für dich. Willst du auf deinem eigenen Gerät nach dem nächsten Anmelden wieder Push-Nachrichten, aktiviere sie unter **Benachrichtigungen** erneut. <!-- #2117 -->
 
 !!! tip "Verdächtige Sitzung entdeckt?"
     Beende die Sitzung sofort und ändere anschließend dein Passwort — das beendet automatisch alle verbleibenden Sitzungen (siehe oben).

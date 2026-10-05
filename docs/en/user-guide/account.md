@@ -195,7 +195,10 @@ The **Sessions** tab shows all devices and browsers you are currently signed in 
 | **IP** | IP address the session was created from |
 | **Expires** | Expiry date of the session |
 
-To end a session you don't recognize or no longer need, click the trash icon on that row. You cannot end your current session here — for that, use **Log out** in the account menu.
+To end a session you don't recognize or no longer need, click the trash icon on that row. The device is signed out at once, not a few minutes later; your other devices stay signed in. You cannot end your current session here — for that, use **Log out** in the account menu.
+
+!!! info "Logging out on a shared device"
+    When you **log out**, Kamerplanter removes everything that belongs to your account from this browser: the data on screen, the garden you last selected and the browser push registration. Whoever signs in on the same device afterwards sees none of it and receives no push messages for you. If you want push messages again on your own device after the next sign-in, turn them on again under **Notifications**. <!-- #2117 -->
 
 !!! tip "Found a suspicious session?"
     End it immediately, then change your password — that automatically ends all remaining sessions (see above).

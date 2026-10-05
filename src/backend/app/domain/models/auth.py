@@ -84,6 +84,22 @@ class RefreshToken(BaseModel):
     is_persistent: bool = False
     revoked: bool = False
     created_at: datetime | None = None
+    #: The login this token descends from (REQ-023 §3.2a, #2116): every successor a
+    #: rotation mints inherits it, every new login starts a new one. A replayed
+    #: rotated token revokes the whole family. ``None`` on a token minted before
+    #: families existed; its first rotation adopts the token's own key as the family.
+    family_key: str | None = None
+    #: When a rotation consumed this token; ``None`` while it is the live end of its
+    #: family. A rotated token is also ``revoked`` and is kept until ``expires_at``,
+    #: because presenting it again is the replay signal.
+    rotated_at: datetime | None = None
+    #: Document key of the token the rotation minted in its place.
+    successor_key: str | None = None
+    #: ``User.session_generation`` at the login the family descends from (#2116).
+    #: A refresh is refused once the account's generation moved past it (logout
+    #: everywhere, password reset or change, deactivation) — even if a revocation
+    #: write raced the rotation that minted this token.
+    session_generation: int = 0
 
     model_config = {"populate_by_name": True}
 
@@ -96,6 +112,13 @@ class TokenPayload(BaseModel):
     iat: int
     jti: str
     type: str = "access"
+    #: ``User.access_token_generation`` when the token was minted (#2116, claim
+    #: ``gen``). A token minted before the claim existed reads as ``0`` and stays
+    #: valid until its expiry unless the account's generation has moved since.
+    gen: int = 0
+    #: The refresh-token family the token was minted for (claim ``sid``); ``None``
+    #: on tokens minted before #2116.
+    sid: str | None = None
 
 
 class TokenPair(BaseModel):

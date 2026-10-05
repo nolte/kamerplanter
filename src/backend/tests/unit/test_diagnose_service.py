@@ -69,6 +69,7 @@ def _service(*, analyze_result=None, analyze_exc=None, provider=None, consent_gu
     provider_repo.get_default.return_value = provider
 
     return DiagnoseService(
+        call_budget=MagicMock(),
         analysis_engine=engine,
         consent_guard=guard,
         audit_logger=MagicMock(),

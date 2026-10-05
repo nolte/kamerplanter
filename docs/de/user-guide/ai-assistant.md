@@ -128,6 +128,21 @@ Details zu allen KI-Endpunkten (inkl. Chat, Tipps, Erklärungen) stehen in der [
 
 ---
 
+## Tageskontingent für KI-Anfragen {#tageskontingent}
+
+Jede Anfrage, die ein Sprachmodell anspricht — Tipps oder den Tipp des Tages erzeugen, „Warum?“, eine Chat-Nachricht, eine Glossar-Erklärung erzeugen, eine KI-Diagnose —, zählt zu einem Tageskontingent. Es gibt drei Grenzen, alle pro Kalendertag (UTC):
+
+- **Dein Kontingent in einem Garten** — standardmäßig 50 Anfragen. Bist du Mitglied in mehreren Gärten, hast du in jedem ein eigenes.
+- **Das Kontingent des Gartens** — standardmäßig 500 Anfragen aller Mitglieder zusammen. Wer an seinem eigenen Kontingent abgewiesen wird, verbraucht das des Gartens nicht.
+- **Die Textmenge des Gartens** — eine Obergrenze für die vom Sprachmodell verarbeiteten Tokens.
+
+Ist eine Grenze erreicht, erklärt dir die Oberfläche, welche — ab Mitternacht (UTC) kannst du wieder fragen. Zusätzlich gilt pro Konto eine Grenze von 20 Anfragen pro Minute. Das Lesen bereits erzeugter Tipps und Erklärungen zählt nicht.
+
+!!! info "Für Betreiber"
+    Die Grenzen sind über `AI_BUDGET_USER_CALLS_PER_DAY`, `AI_BUDGET_TENANT_CALLS_PER_DAY` und `AI_BUDGET_TENANT_TOKENS_PER_DAY` einstellbar (`0` schaltet eine Grenze ab), die Minutengrenze über `RATE_LIMIT_INFERENCE` — siehe [Umgebungsvariablen](../reference/environment-variables.md). Die Zähler liegen in Valkey; ist Valkey nicht erreichbar, läuft keine KI-Anfrage. <!-- #2110 -->
+
+---
+
 ## Verhalten ohne erreichbare Wissensbasis
 
 Ist die zugrunde liegende Wissensbasis (Knowledge Service) nicht erreichbar, liefert der KI-Assistent statt eines Fehlers eine regelbasierte Antwort ohne Sprachmodell — die Anwendung bleibt nutzbar, die Qualität der Antwort ist dann aber geringer.

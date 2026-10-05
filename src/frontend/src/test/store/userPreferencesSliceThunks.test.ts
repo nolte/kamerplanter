@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createTestStore } from '../helpers';
+import { authState, createTestStore } from '../helpers';
 
 // REQ-045 / REQ-042 — the persistence thunks branch on Light vs Full mode and
 // touch localStorage + the preferences API. Mock all three so we can drive both
@@ -43,13 +43,19 @@ import {
   migrateLocalDashboardLayout,
 } from '@/store/slices/userPreferencesSlice';
 
+// Signed in as `user-1` (`authState`): the carry-over thunks only write into the
+// profile of the account that owns the browser's leftovers (#2117).
 function createStore(preloaded?: unknown) {
-  return createTestStore(
-    preloaded ? { userPreferences: { preferences: preloaded, loading: false, error: null } } : undefined,
-  );
+  return createTestStore({
+    ...authState(),
+    ...(preloaded ? { userPreferences: { preferences: preloaded, loading: false, error: null } } : {}),
+  });
 }
 
+const OWNER_KEY = 'kp_local_data_owner';
+
 beforeEach(() => {
+  localStorage.removeItem(OWNER_KEY);
   vi.clearAllMocks();
   modeMock.isLightMode = false;
   storage.readLocalModuleVisibility.mockReturnValue({});
@@ -170,5 +176,40 @@ describe('migrateLocalDashboardLayout thunk body', () => {
     await store.dispatch(migrateLocalDashboardLayout());
     expect(apiMock.updatePreferences).toHaveBeenCalledWith({ dashboard_layout: layout });
     expect(storage.clearLocalDashboardLayout).toHaveBeenCalled();
+  });
+});
+
+describe('leftovers of another account on this browser (#2117)', () => {
+  it('module visibility stays local when another account owns it', async () => {
+    localStorage.setItem(OWNER_KEY, 'user-0');
+    storage.readLocalModuleVisibility.mockReturnValue({ pests: 'enabled' });
+    const store = createStore({ module_visibility: {} });
+
+    const res = await store.dispatch(migrateLocalModuleVisibility());
+
+    expect(res.payload).toBeNull();
+    expect(apiMock.updatePreferences).not.toHaveBeenCalled();
+    expect(storage.clearLocalModuleVisibility).not.toHaveBeenCalled();
+  });
+
+  it('the dashboard layout stays local when another account owns it', async () => {
+    localStorage.setItem(OWNER_KEY, 'user-0');
+    storage.readLocalDashboardLayout.mockReturnValue({ widgets: [] });
+    const store = createStore({ dashboard_layout: null });
+
+    await store.dispatch(migrateLocalDashboardLayout());
+
+    expect(apiMock.updatePreferences).not.toHaveBeenCalled();
+    expect(storage.clearLocalDashboardLayout).not.toHaveBeenCalled();
+  });
+
+  it('nothing is adopted before the profile is known', async () => {
+    storage.readLocalModuleVisibility.mockReturnValue({ pests: 'enabled' });
+    const store = createTestStore({ userPreferences: { preferences: {}, loading: false, error: null } });
+
+    await store.dispatch(migrateLocalModuleVisibility());
+
+    expect(apiMock.updatePreferences).not.toHaveBeenCalled();
+    expect(localStorage.getItem(OWNER_KEY)).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import re
 import secrets
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -222,6 +223,11 @@ _UNKNOWN_SOURCE = "unknown"
 #: Lifetime of a mailed e-mail verification link — at registration and on every
 #: resend (#2037). One constant, so the two issuance paths cannot drift apart.
 _VERIFICATION_TOKEN_TTL = timedelta(hours=24)
+
+#: How long a rotated refresh token is still answered for the same client (REQ-023 §3.2a,
+#: #2116): two tabs refreshing with one cookie, or a PWA reconnecting from its service worker
+#: and its UI thread at once. Beyond it, a rotated token presented again is a replay.
+REFRESH_GRACE_WINDOW = timedelta(seconds=60)
 
 #: Serialises "write a fresh token, then mail it" per account and token kind (#2062). Two such
 #: issues for one account — an anonymous resend and a proven login refusal, or two reset requests
@@ -597,7 +603,10 @@ class AuthService:
             display_name=display_name,
             password_hash=self._password_engine.hash_password(password),
             email_verified=skip_verification,
-            email_verification_token=verification_token,
+            # Only the digest is stored (#2158); the raw token goes into the mail below.
+            email_verification_token_hash=(
+                self._token_engine.hash_token(verification_token) if verification_token else None
+            ),
             email_verification_expires=(None if skip_verification else datetime.now(UTC) + _VERIFICATION_TOKEN_TTL),
         )
         created = self._user_repo.create(user)
@@ -830,50 +839,140 @@ class AuthService:
         raw_refresh_token: str,
         user_agent: str | None = None,
         ip_address: str | None = None,
-    ) -> tuple[TokenPair, str, bool]:
-        """Rotate refresh token. Returns (new_token_pair, new_raw_refresh_token, is_persistent)."""
-        token_hash = self._token_engine.hash_token(raw_refresh_token)
-        stored = self._refresh_token_repo.get_by_hash(token_hash)
+        *,
+        allow_grace: bool = False,
+    ) -> tuple[TokenPair, str | None, bool]:
+        """Rotate a refresh token within its family (REQ-023 §3.2a, #2116).
 
-        if stored is None:
+        Returns ``(token_pair, new_raw_refresh_token, is_persistent)``. The raw
+        token is ``None`` only on the grace path below: the caller then keeps the
+        refresh credential the client already holds.
+
+        * **Live token:** claimed atomically, a successor of the same family is
+          minted and linked (``successor_key``). Of two requests presenting the
+          same token exactly one gets here.
+        * **Rotated token inside the grace window** (``allow_grace``, rotated at
+          most :data:`REFRESH_GRACE_WINDOW` ago, the same client — equal, non-empty
+          ``User-Agent`` — and the family still live): a fresh access token, no new
+          refresh token. This is two browser tabs refreshing with the same cookie;
+          the winner's ``Set-Cookie`` already put the successor into the shared
+          cookie jar, so the loser needs no second one. Only the cookie transport
+          allows it: a body-transport client holds exactly one token and must not
+          double-rotate (REQ-023 §3.2a, ``device_id`` = ``null``).
+        * **Any other rotated token:** a replay. The family is revoked and the
+          account's access tokens end (``revoke_family``), so whichever side holds
+          the stolen chain loses it; a warning is logged. Answered like an unknown
+          token (401 ``INVALID_TOKEN``).
+        * **Revoked, expired, or minted under an older session generation:** 401.
+        """
+        token_hash = self._token_engine.hash_token(raw_refresh_token)
+        stored = self._refresh_token_repo.find_by_hash(token_hash)
+
+        if stored is None or stored.key is None:
             raise InvalidTokenError("refresh token")
 
-        # Check expiry
-        if stored.expires_at < datetime.now(UTC):
-            if stored.key:
+        now = datetime.now(UTC)
+        if stored.expires_at < now:
+            if not stored.revoked:
                 self._refresh_token_repo.revoke(stored.key)
             raise InvalidTokenError("refresh token")
 
-        # Preserve persistence flag from old token
-        is_persistent = stored.is_persistent
-        # …and the device label with it (#1118). Rotation replaces the session
-        # document, so a label that is not carried over survives exactly one
-        # refresh: the paired phone would silently turn back into an anonymous
-        # user-agent row in the session list, which is the visibility this
-        # feature exists to provide.
-        device_name = stored.device_name
+        if stored.rotated_at is not None:
+            return self._refresh_rotated(stored, user_agent, now=now, allow_grace=allow_grace)
+        if stored.revoked:
+            raise InvalidTokenError("refresh token")
 
-        # Revoke old token (rotation)
-        if stored.key:
-            self._refresh_token_repo.revoke(stored.key)
-
-        # Load user
         user = self._user_repo.get_by_key(stored.user_key)
         if user is None or not user.is_active:
+            self._refresh_token_repo.revoke(stored.key)
             raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
+        if stored.session_generation != user.session_generation:
+            # Every session of the account was ended after this family began; a
+            # revocation write that raced the rotation minting this token missed it.
+            self._refresh_token_repo.revoke(stored.key)
+            raise InvalidTokenError("refresh token")
 
-        return self._create_tokens(
+        family_key = stored.family_key or stored.key
+        if not self._refresh_token_repo.claim_rotation(stored.key, family_key, now):
+            # Another request rotated it between the read and the claim.
+            reread = self._refresh_token_repo.find_by_hash(token_hash)
+            if reread is None or reread.rotated_at is None:
+                raise InvalidTokenError("refresh token")
+            return self._refresh_rotated(reread, user_agent, now=now, allow_grace=allow_grace)
+
+        pair, raw, is_persistent, successor = self._issue_session(
             user,
             user_agent,
             ip_address,
-            is_persistent=is_persistent,
-            device_name=device_name,
+            is_persistent=stored.is_persistent,
+            # …and the device label with it (#1118). Rotation replaces the session
+            # document, so a label that is not carried over survives exactly one
+            # refresh: the paired phone would silently turn back into an anonymous
+            # user-agent row in the session list.
+            device_name=stored.device_name,
+            family_key=family_key,
+            session_generation=stored.session_generation,
         )
+        if successor.key:
+            self._refresh_token_repo.set_successor(stored.key, successor.key)
+        return pair, raw, is_persistent
+
+    def _refresh_rotated(
+        self,
+        stored: RefreshToken,
+        user_agent: str | None,
+        *,
+        now: datetime,
+        allow_grace: bool,
+    ) -> tuple[TokenPair, str | None, bool]:
+        """A rotated token presented again: the concurrent-tab grace path or a replay (#2116)."""
+        assert stored.rotated_at is not None  # noqa: S101 - the caller's branch condition
+        family_key = stored.family_key or stored.key or ""
+        age = now - stored.rotated_at
+        same_client = bool(user_agent) and user_agent == stored.user_agent
+        if (
+            allow_grace
+            and age <= REFRESH_GRACE_WINDOW
+            and same_client
+            and self._refresh_token_repo.family_is_live(stored.user_key, family_key)
+        ):
+            user = self._user_repo.get_by_key(stored.user_key)
+            if user is None or not user.is_active:
+                raise UnauthorizedError(_INACTIVE_ACCOUNT_MESSAGE)
+            if stored.session_generation != user.session_generation:
+                raise InvalidTokenError("refresh token")
+            pair = self._mint_access_token(user, family_key)
+            return pair, None, stored.is_persistent
+
+        reason = (
+            "grace_expired"
+            if age > REFRESH_GRACE_WINDOW
+            else "no_grace_transport"
+            if not allow_grace
+            else "client_mismatch"
+            if not same_client
+            else "family_ended"
+        )
+        revoked = self._refresh_token_repo.revoke_family(stored.user_key, family_key)
+        # A flag, not the count: the log guards treat a value derived from the account key as personal (#1830).
+        logger.warning(
+            "auth.refresh_replay_detected",
+            subject=self._log_subject(stored.user_key),
+            reason=reason,
+            family_revoked=bool(revoked),
+            token_age_seconds=int(age.total_seconds()),
+        )
+        raise InvalidTokenError("refresh token")
 
     # ── Email verification ──────────────────────────────────────────────
 
     def verify_email(self, token: str) -> UserProfile:
-        user = self._user_repo.get_by_email_verification_token(token)
+        # Looked up by digest (#2158): the account holds only the hash of the mailed token.
+        user = (
+            self._user_repo.get_by_email_verification_token_hash(self._token_engine.hash_token(token))
+            if token
+            else None
+        )
         if user is None:
             raise InvalidTokenError("verification token")
 
@@ -884,7 +983,7 @@ class AuthService:
         confirmed_at = datetime.now(UTC)
         user.email_verified = True
         user.email_confirmed_at = confirmed_at
-        user.email_verification_token = None
+        user.email_verification_token_hash = None
         user.email_verification_expires = None
         if user.key:
             updated = self._user_repo.update_fields(
@@ -892,7 +991,7 @@ class AuthService:
                 {
                     "email_verified": True,
                     "email_confirmed_at": confirmed_at,
-                    "email_verification_token": None,
+                    "email_verification_token_hash": None,
                     "email_verification_expires": None,
                 },
             )
@@ -984,7 +1083,7 @@ class AuthService:
             self._user_repo.update_fields(
                 user.key,
                 {
-                    "email_verification_token": token,
+                    "email_verification_token_hash": self._token_engine.hash_token(token),
                     "email_verification_expires": _iso(now_utc() + _VERIFICATION_TOKEN_TTL),
                 },
             )
@@ -1086,7 +1185,11 @@ class AuthService:
                 if user.key:
                     self._user_repo.update_fields(
                         user.key,
-                        {"password_reset_token": token, "password_reset_expires": _iso(expires)},
+                        # Only the digest is stored (#2158); the raw token goes into the mail.
+                        {
+                            "password_reset_token_hash": self._token_engine.hash_token(token),
+                            "password_reset_expires": _iso(expires),
+                        },
                     )
                 # The stored spelling, never the typed one (#2060): the lookup matches
                 # case-insensitively, and a mail server may not — a link for
@@ -1134,7 +1237,8 @@ class AuthService:
         if errors:
             raise ValidationError("; ".join(errors))
 
-        user = self._user_repo.get_by_password_reset_token(token)
+        # Looked up by digest (#2158): the account holds only the hash of the mailed token.
+        user = self._user_repo.get_by_password_reset_token_hash(self._token_engine.hash_token(token)) if token else None
         if user is None:
             raise InvalidTokenError("reset token")
 
@@ -1149,7 +1253,7 @@ class AuthService:
         self._refuse_interactive_credential(user)
 
         user.password_hash = self._password_engine.hash_password(new_password)
-        user.password_reset_token = None
+        user.password_reset_token_hash = None
         user.password_reset_expires = None
         user.failed_login_attempts = 0
         user.locked_until = None
@@ -1158,7 +1262,7 @@ class AuthService:
                 user.key,
                 {
                     "password_hash": user.password_hash,
-                    "password_reset_token": None,
+                    "password_reset_token_hash": None,
                     "password_reset_expires": None,
                     "failed_login_attempts": 0,
                     "locked_until": None,
@@ -1174,10 +1278,17 @@ class AuthService:
     # ── Logout ──────────────────────────────────────────────────────────
 
     def logout(self, raw_refresh_token: str) -> None:
+        """End this session: its family, and the account's access tokens with it (#2116).
+
+        The family rather than the one token, so nothing minted from this login
+        survives; the access-token generation moves, so the access token this
+        browser held stops resolving at once instead of 15 minutes later. The
+        account's other sessions keep their refresh tokens and refresh once.
+        """
         token_hash = self._token_engine.hash_token(raw_refresh_token)
         stored = self._refresh_token_repo.get_by_hash(token_hash)
         if stored and stored.key:
-            self._refresh_token_repo.revoke(stored.key)
+            self._refresh_token_repo.revoke_family(stored.user_key, stored.family_key or stored.key)
 
     def logout_all(self, user_key: UserKey) -> int:
         """Revoke every session — and withdraw a pending e-mail change (#1841), the owner's other lever."""
@@ -1332,7 +1443,9 @@ class AuthService:
         target = next((t for t in tokens if t.key == session_key), None)
         if target is None:
             raise NotFoundError("Session", session_key)
-        self._refresh_token_repo.revoke(session_key)
+        # The whole login, and the account's access tokens with it (#2116): the
+        # revoked device's access token stops resolving now, not in 15 minutes.
+        self._refresh_token_repo.revoke_family(user_key, target.family_key or session_key)
 
     # ── Change password ─────────────────────────────────────────────────
 
@@ -1395,13 +1508,13 @@ class AuthService:
         # the password — can take the account back over afterwards. Mirrors what
         # ``reset_password`` already clears, and relies on ``update_fields``
         # persisting an explicit ``None`` (``keep_none=True``).
-        user.password_reset_token = None
+        user.password_reset_token_hash = None
         user.password_reset_expires = None
         self._user_repo.update_fields(
             user_key,
             {
                 "password_hash": user.password_hash,
-                "password_reset_token": None,
+                "password_reset_token_hash": None,
                 "password_reset_expires": None,
             },
         )
@@ -2513,6 +2626,13 @@ class AuthService:
 
     # ── Helpers ─────────────────────────────────────────────────────────
 
+    def _holds_platform_lead(self, user: User) -> bool:
+        """The ``is_platform_admin`` claim: an active lead membership in the ``platform`` tenant."""
+        if self._tenant_service and user.key:
+            membership = self._tenant_service.get_membership(user.key, "platform")
+            return bool(membership and membership.is_active and membership.role == TenantRole.LEAD)
+        return False
+
     def _create_tokens(
         self,
         user: User,
@@ -2521,7 +2641,28 @@ class AuthService:
         is_persistent: bool = False,
         device_name: str | None = None,
     ) -> tuple[TokenPair, str, bool]:
+        """Mint the REQ-023 token pair for a **new** login — a new refresh-token family (#2116)."""
+        pair, raw, persistent, _session = self._issue_session(
+            user, user_agent, ip_address, is_persistent=is_persistent, device_name=device_name
+        )
+        return pair, raw, persistent
+
+    def _issue_session(
+        self,
+        user: User,
+        user_agent: str | None,
+        ip_address: str | None,
+        is_persistent: bool = False,
+        device_name: str | None = None,
+        *,
+        family_key: str | None = None,
+        session_generation: int | None = None,
+    ) -> tuple[TokenPair, str, bool, RefreshToken]:
         """Mint the REQ-023 token pair and persist its session document.
+
+        ``family_key`` / ``session_generation`` are the rotated predecessor's when
+        ``refresh_tokens`` calls this; a login passes neither and starts a new
+        family under the account's current generation (#2116).
 
         ``device_name`` defaults to ``None`` so the browser login and OAuth
         paths keep calling this unchanged and keep producing sessions that carry
@@ -2574,17 +2715,15 @@ class AuthService:
         if not allows_interactive_auth(user):
             raise UnauthorizedError(_SERVICE_ACCOUNT_LOGIN_MESSAGE)
 
-        # Determine platform admin status from membership in "platform" tenant
-        is_platform_admin = False
-        if self._tenant_service and user.key:
-            membership = self._tenant_service.get_membership(user.key, "platform")
-            if membership and membership.is_active and membership.role == TenantRole.LEAD:
-                is_platform_admin = True
+        is_platform_admin = self._holds_platform_lead(user)
 
+        family = family_key or uuid.uuid4().hex
         token_pair = self._token_engine.create_access_token(
             user_key=user.key or "",
             expire_minutes=self._access_expire_min,
             is_platform_admin=is_platform_admin,
+            generation=user.access_token_generation,
+            session_id=family,
         )
 
         raw_refresh, refresh_hash = self._token_engine.create_refresh_token()
@@ -2600,10 +2739,22 @@ class AuthService:
             ip_address=ip_address,
             expires_at=expires_at,
             is_persistent=is_persistent,
+            family_key=family,
+            session_generation=user.session_generation if session_generation is None else session_generation,
         )
-        self._refresh_token_repo.create(refresh)
+        created = self._refresh_token_repo.create(refresh)
 
-        return token_pair, raw_refresh, is_persistent
+        return token_pair, raw_refresh, is_persistent, created
+
+    def _mint_access_token(self, user: User, family_key: str) -> TokenPair:
+        """An access token for an existing session, no refresh token (the #2116 grace path)."""
+        return self._token_engine.create_access_token(
+            user_key=user.key or "",
+            expire_minutes=self._access_expire_min,
+            is_platform_admin=self._holds_platform_lead(user),
+            generation=user.access_token_generation,
+            session_id=family_key,
+        )
 
     @staticmethod
     def _to_profile(user: User) -> UserProfile:

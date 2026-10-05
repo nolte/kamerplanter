@@ -12,9 +12,10 @@ The domain model never sees the ciphertext; the API masks the plaintext
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import structlog
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -129,6 +130,40 @@ class ArangoNotificationPreferenceRepository(
                 "gone": list(endpoints),
                 "now": datetime.now(UTC).isoformat(),
             },
+        )
+        return sum(cursor)
+
+    def remove_endpoint_from_other_users(self, channel_key: str, endpoint: str, holder_user_key: str) -> int:
+        """Drop ``endpoint`` from every other account's channel subscriptions (#2117).
+
+        A scan of the preferences collection (one document per account that ever
+        saved preferences), run only when a device subscribes; the update merges
+        only ``channels.<key>.config.subscriptions``, as :meth:`remove_subscriptions`.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.user_key != @holder
+          LET current = doc.channels[@channel].config.subscriptions || []
+          FILTER @endpoint IN current[*].endpoint
+          LET kept = (FOR s IN current FILTER s.endpoint != @endpoint RETURN s)
+          UPDATE doc WITH {
+            channels: { [@channel]: { config: { subscriptions: kept } } },
+            updated_at: @now
+          } IN @@collection
+          RETURN LENGTH(current) - LENGTH(kept)
+        """
+        cursor = cast(
+            Cursor,
+            self._db.aql.execute(
+                query,
+                bind_vars={
+                    "@collection": NOTIFICATION_PREFERENCES,
+                    "holder": holder_user_key,
+                    "channel": channel_key,
+                    "endpoint": endpoint,
+                    "now": datetime.now(UTC).isoformat(),
+                },
+            ),
         )
         return sum(cursor)
 

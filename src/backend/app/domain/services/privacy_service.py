@@ -800,7 +800,7 @@ class PrivacyService:
                     "email": previous,
                     "email_verified": True,
                     "email_confirmed_at": now.isoformat(),
-                    "password_reset_token": None,
+                    "password_reset_token_hash": None,
                     "password_reset_expires": None,
                 },
             )
@@ -966,7 +966,7 @@ class PrivacyService:
         # A *narrow* write (#1525 SCR-003). The full-model form read the user at the
         # top of this method, verified a bcrypt hash and created the erasure record
         # before writing — hundreds of milliseconds during which a parallel
-        # `request_password_reset` could set `password_reset_token`. Since
+        # `request_password_reset` could set `password_reset_token_hash`. Since
         # `ArangoUserRepository` became full-replace, writing the stale model back
         # would not just lose that value, it would **remove** the attribute.
         # `update_fields` re-reads the stored user inside the call.

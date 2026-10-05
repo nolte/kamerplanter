@@ -766,7 +766,10 @@ class TestDeviceName:
         )
         # Rotation reads the stored token back, so the repo has to answer with
         # what redemption wrote rather than with a bare MagicMock.
-        harness.refresh_token_repo.get_by_hash.return_value = harness.created_tokens[0]
+        # Keyed the way the database hands a stored document back (#2116 claims it by key).
+        harness.refresh_token_repo.find_by_hash.return_value = harness.created_tokens[0].model_copy(
+            update={"key": "sess-1"}
+        )
 
         harness.service.refresh_tokens(raw_refresh, USER_AGENT, IP)
 

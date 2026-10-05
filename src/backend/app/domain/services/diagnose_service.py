@@ -36,6 +36,7 @@ from app.domain.models.diagnosis import (
 )
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.ai_audit_logger import AiAuditLogger
+from app.domain.services.ai_call_budget import AiCallBudget
 from app.domain.services.ai_context_builder import AiContextBuilder
 from app.domain.services.species_visibility import readable_species
 from app.domain.services.symptom_catalog import SymptomCatalog
@@ -62,6 +63,7 @@ class DiagnoseService:
     def __init__(
         self,
         *,
+        call_budget: AiCallBudget,
         analysis_engine: DiagnosisAnalysisEngine,
         consent_guard: ConsentGuard,
         audit_logger: AiAuditLogger,
@@ -72,6 +74,8 @@ class DiagnoseService:
         species_repo=None,
         provider_repo=None,
     ) -> None:
+        # #2110 (MT-013): the diagnosis is an LLM call like the KI-Assistent's.
+        self._budget = call_budget
         self._engine = analysis_engine
         self._consent = consent_guard
         self._audit = audit_logger
@@ -113,6 +117,7 @@ class DiagnoseService:
         symptoms = self._catalog.resolve(symptom_slugs)
         provider_type, uses_cloud = self._resolve_cloud(ctx, allow_cloud)
         context, confidence = self._build_context(ctx, plant_instance_key)
+        self._budget.charge(tenant_key=ctx.tenant_key, user_key=ctx.user_key)
         has_notes = bool(extra_notes and extra_notes.strip())
 
         # A stable, PII-free question fingerprint for the audit hash.
@@ -173,6 +178,7 @@ class DiagnoseService:
             )
 
         candidates = [self._enrich(candidate, rank=index + 1) for index, candidate in enumerate(candidates_raw)]
+        self._budget.record_usage(tenant_key=ctx.tenant_key, usage=ask_result.usage)
         self._audit.record(
             tenant_key=ctx.tenant_key,
             user_key=ctx.user_key,
@@ -185,6 +191,7 @@ class DiagnoseService:
             uses_cloud_provider=uses_cloud,
             latency_ms=int((time.monotonic() - started) * 1000),
             status="ok",
+            usage=ask_result.usage,
         )
         return DiagnosisResult(
             candidates=candidates,

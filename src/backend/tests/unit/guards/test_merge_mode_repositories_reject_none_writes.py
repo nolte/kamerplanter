@@ -159,7 +159,7 @@ _REVIEWED: dict[str, str] = {
         "is full-replace."
     ),
     "privacy_service::revert_email_change": (
-        "SAFE (#1848) — the cleared password_reset_token/_expires go to ArangoUserRepository.update_fields, "
+        "SAFE (#1848) — the cleared password_reset_token_hash/_expires go to ArangoUserRepository.update_fields, "
         "which is full-replace, so the reset link mailed to the new address dies with the revert. The "
         "email-change write clears nothing: single use is the status, the R-07 task nulls the revert hash."
     ),

@@ -195,9 +195,12 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   // Fetch profile, tenants and preferences after login
   useEffect(() => {
     if (isAuthenticated && !isRefreshing) {
-      dispatch(fetchProfile());
+      const profile = dispatch(fetchProfile());
       dispatch(loadMyTenants());
-      dispatch(fetchPreferences()).then(() =>
+      const preferences = dispatch(fetchPreferences());
+      // The carry-over writes into the signed-in account's profile, so it waits
+      // for the account to be known as well as for its preferences (#2117).
+      void Promise.all([profile, preferences]).then(() =>
         dispatch(migrateLocalModuleVisibility()),
       );
     }

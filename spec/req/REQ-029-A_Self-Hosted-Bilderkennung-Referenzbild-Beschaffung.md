@@ -7,11 +7,12 @@ Kategorie: Integration / KI
 Fokus: Backend (Inferenz-Microservice), Datenbeschaffung, Architektur
 Technologie: Python 3.14+, ONNX Runtime, FastAPI, ArangoDB (Vektor-Index), Celery, React/TypeScript
 Status: Entwurf
-Version: 1.3 (Punkt 4 verweist auf REQ-052)
+Version: 1.4 (Mandantengrenze des Referenz-Index festgehalten, G-3/#2145)
 Quelle: spec/analysis/n-001-pflanzenerkennung-bilderkennung-research.md (Deep-Research, 2026-06-15)
 Korrigiert: REQ-029 v1.0 (primärer Dienst Plant.id ist kostenpflichtig → disqualifiziert; siehe §0)
 Geändert (v1.1): Roll-out in zwei Phasen — Pl@ntNet-Free-Tier-Adapter als sofort lauffähiger Phase-1-Primäradapter, DINOv2-Embedding-Matching als Phase-2-Zielarchitektur (siehe §0.1)
 Geändert (v1.2): REQ-034 Foto-Beitrag (Security-Review SR-003/SR-007) — `species_embeddings` um Provenienz-Felder `tenant_key`/`contributed_by`/`contributed_at` für `user_contributed`-Beiträge erweitert (§5.1, Migration 003); `POST /reference`-Endpunkt-Vertrag + `InferenceServiceClient.reference()` in §3.3 definiert (erzwingt `is_active=false` + Provenienz bei user_contributed).
+Geändert (v1.4): Audit-Lücke G-3 (#2145) — §5.4 hält die gemessene Mandantengrenze des Referenz-Index als Designentscheidung fest: Nutzerbeiträge wirken erst nach Platform-Admin-Freigabe und dann für alle Mandanten; `/match` liefert keine Beitragsherkunft. §3.3 korrigiert: Die Quarantäne erzwingt das Backend, nicht der Inferenz-Service.
 Abhängigkeit: REQ-001 v5.0 (Stammdaten/Species), REQ-010 v1.0 (IPM), REQ-011 v1.0 (Adapter-Pattern), REQ-025 v1.4 (Datenschutz, Referenz-Index-Erasure), REQ-029 v1.0 (Adapter-Interface, Consent, EXIF, Frontend — wiederverwendet), REQ-034 v1.1 (Pflanzenfoto-Galerie, user_contributed-Beitrag)
 ```
 
@@ -193,7 +194,9 @@ def preprocess(image_bytes: bytes) -> "np.ndarray":
 #   Das Originalbild wird NUR zur Embedding-Berechnung gelesen und NICHT persistiert (§4.4).
 ```
 
-> **`InferenceServiceClient.reference(...)`** (Backend-Client, von REQ-034 §4.1 aufgerufen) kapselt `POST /reference`. Bei `source="user_contributed"` erzwingt der Service `is_active=false` sowie gesetzte `tenant_key`/`contributed_by` (sonst HTTP 422) — damit der DSGVO-Erasure-Cleanup (REQ-025 Phase 0.5) die Provenienz garantiert vorfindet.
+> **`InferenceServiceClient.reference(...)`** (Backend-Client, von REQ-034 §4.1 aufgerufen) kapselt `POST /reference`. Bei `source="user_contributed"` müssen `is_active=false` sowie gesetzte `tenant_key`/`contributed_by` mitgeschickt werden — damit der DSGVO-Erasure-Cleanup (REQ-025 Phase 0.5) die Provenienz garantiert vorfindet.
+>
+> **Ist-Stand (gemessen 2026-10-05, #2145):** Erzwungen wird das im **Backend** (`ReferenceImageService.contribute_user_reference` schickt `is_active=False` und beide Provenienzfelder; die Gallery-Hook-Variante `add_user_contribution` ist inert). Der Inferenz-Service selbst prüft es nicht: `POST /reference` übernimmt `is_active` (Default `true`) und die Provenienz ungeprüft. Er ist nur mit dem internen Service-Token erreichbar (ClusterIP); die Server-seitige 422 ist offen (Defense-in-Depth).
 
 ### 3.4 LocalEmbeddingAdapter (im Hauptbackend, registriert in der REQ-029-Registry)
 
@@ -373,6 +376,18 @@ FOR e IN species_embeddings
 ```
 
 > **Versions-Voraussetzung prüfen:** Unterstützt die Cluster-ArangoDB-Version (`3.11+` lt. Stack) keinen Vektor-Index, dient ein **In-App-Cosine über alle Referenz-Embeddings** als Fallback — bei n≈210 Arten × ~20 Embeddings (≈4.200 Vektoren) performant genug. Diese Entscheidung ist in der Implementierung zu treffen und zu dokumentieren.
+
+### 5.4 Mandantengrenze des Referenz-Index (Designentscheidung, G-3 / #2145)
+
+Der Referenz-Index (`species_embeddings` in pgvector) ist **global**: Die Vektorsuche `/match` filtert nur auf `is_active` und `model`, nicht auf `tenant_key`. Für Nutzerbeiträge (`source = 'user_contributed'`) ist das so gewollt und abgesichert:
+
+- **Beitrag = Quarantäne.** Ein Beitrag (`POST /t/{slug}/identification/reference`, ab Gärtner) wird mit `is_active = false` geschrieben und fließt in **keine** Erkennung ein — auch nicht in die des beitragenden Mandanten.
+- **Freigabe = Promotion zu global.** Nur ein Platform-Admin aktiviert einen Beitrag (Kuratierungsansicht §4.5). Ab dann verbessert er die Erkennung **aller** Mandanten der Instanz — wie ein kuratiertes GBIF-/Wikimedia-Bild. Das ist der Zweck des Beitrags; die Nutzerdoku nennt es („hilft … auch für andere Nutzer deiner Instanz“).
+- **Keine Herkunft im Ergebnis.** `/match` liefert je Treffer nur `species_key`, `scientific_name`, `score`, `confidence` — keinen Mandanten, kein Konto, keine Bild-URL. Das Originalfoto wird nie gespeichert (§4.4), nur der EXIF-bereinigte Vektor.
+- **Keine Herkunft in der Galerie.** Die öffentliche Galerie zeigt nur Zeilen mit `source_url`; Beiträge haben keine. Provenienz (`tenant_key`, `contributed_by`) sieht nur die Platform-Admin-Kuratierung.
+- **Löschung.** Account- und Mandantenlöschung entfernen die Beitragsvektoren (REQ-025 Phase 0.5), aktiv oder nicht.
+
+**Offen (nicht Teil dieser Entscheidung):** Der Index unterscheidet nicht zwischen globalen und **mandanteneigenen Arten**. Referenzbilder, die für eine mandanteneigene Art indiziert werden (Beschaffung über alle Arten, oder ein freigegebener Beitrag zu einer solchen Art), erscheinen mit deren `species_key` und `scientific_name` in den Treffern anderer Mandanten; der Beitragsweg löst die Art zudem ohne Mandantenprüfung auf. Folge-Befund aus #2145, gesondert zu bewerten.
 
 ---
 

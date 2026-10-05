@@ -583,6 +583,20 @@ class Settings(BaseSettings):
     ai_circuit_breaker_cooldown_s: float = 60.0
     # Light-mode public /ai/ask rate limit (per client IP).
     ai_public_rate_limit_per_min: int = 10
+    # REQ-031 §3 (#2110, MT-013) — daily budgets of LLM calls, counted in Valkey
+    # per UTC day, on top of the per-minute ``rate_limit_inference`` every
+    # generating KI route carries. ``0`` switches one budget off.
+    #: Calls one account may start in one tenant per day (tips, daily tip,
+    #: "why?", chat message, glossary generation, KI diagnosis together).
+    ai_budget_user_calls_per_day: int = Field(default=50, ge=0)
+    #: Calls all members of one tenant may start together per day. Sized for a
+    #: community garden of about ten active growers.
+    ai_budget_tenant_calls_per_day: int = Field(default=500, ge=0)
+    #: LLM tokens (prompt + completion, as the knowledge service reports them)
+    #: one tenant may spend per day. A RAG answer costs roughly 2 000-5 000
+    #: tokens, so the default sits above the call budget and binds only when
+    #: answers grow unusually long.
+    ai_budget_tenant_tokens_per_day: int = Field(default=2_000_000, ge=0)
 
     # REQ-033 MCP server (Model Context Protocol). Opt-in aggregation layer over
     # the existing services, served in-process by the backend and gated by
@@ -722,10 +736,13 @@ class Settings(BaseSettings):
     #: the gallery (the clients upload one request per photo).
     rate_limit_upload: str = "30/minute"
     #: ``rate_limit_inference`` — routes that run a model per request (CV
-    #: diagnosis, pest detection, plant identification, reference contribution).
-    #: Below the upload budget: one inference costs more than one upload, and
-    #: nobody photographs twenty plants a minute for a diagnosis. The per-day
-    #: caps of identification and contribution stay in force on top.
+    #: diagnosis, pest detection, plant identification, reference contribution,
+    #: and since #2110 every route that puts a prompt in front of an LLM: tip and
+    #: daily-tip generation, "why?", chat message, glossary generation, KI
+    #: diagnosis). Below the upload budget: one inference costs more than one
+    #: upload, and nobody photographs twenty plants a minute for a diagnosis. The
+    #: per-day caps of identification and contribution and the daily AI budgets
+    #: (``ai_budget_*``) stay in force on top.
     rate_limit_inference: str = "20/minute"
     #: ``rate_limit_export`` — the PDF renders under ``/print``. A print is a
     #: deliberate act; twenty a minute leaves room for retries and several

@@ -41,6 +41,7 @@ from app.domain.models.ai_assistant import (
 )
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.ai_audit_logger import AiAuditLogger
+from app.domain.services.ai_call_budget import AiCallBudget
 
 logger = structlog.get_logger(__name__)
 
@@ -59,6 +60,7 @@ class AiAssistantService:
     def __init__(
         self,
         *,
+        call_budget: AiCallBudget,
         knowledge_adapter: IKnowledgeService,
         consent_guard: ConsentGuard,
         audit_logger: AiAuditLogger,
@@ -82,6 +84,9 @@ class AiAssistantService:
             "task": ("Task", task_lookup),
             "feeding_event": ("FeedingEvent", feeding_event_lookup),
         }
+        # #2110 (MT-013): required, not optional — a service built without it
+        # would make every LLM call of this class unbounded again, silently.
+        self._budget = call_budget
         self._ks = knowledge_adapter
         self._consent = consent_guard
         self._audit = audit_logger
@@ -153,6 +158,15 @@ class AiAssistantService:
 
         return (provider.key or "", provider.provider_type, uses_cloud)
 
+    def _charge(self, ctx: TenantContext) -> None:
+        """Count one LLM call against the daily budgets, or refuse it (#2110).
+
+        Called after every gate that can refuse for another reason (consent,
+        context ownership, provider) and right before the call, so a request
+        that would have been refused anyway does not use up the day.
+        """
+        self._budget.charge(tenant_key=ctx.tenant_key, user_key=ctx.user_key)
+
     def _local_provider(self, tenant_key: str):
         """Return the first local Ollama provider for a tenant, or ``None``."""
         for provider in self._providers.list_for_tenant(tenant_key):
@@ -210,6 +224,7 @@ class AiAssistantService:
         question_context = self._resolve_context(ctx.tenant_key, context_type, context_key)
         question = self._tips.build_question(question_context, language)
         provider_key, provider_type, uses_cloud = self._resolve_provider(ctx, None, allow_cloud=allow_cloud)
+        self._charge(ctx)
         started = time.monotonic()
 
         try:
@@ -257,6 +272,7 @@ class AiAssistantService:
             valid_until=datetime.now(UTC) + _TIP_TTL,
         )
         persisted = self._tip_cache.create(card)
+        self._budget.record_usage(tenant_key=ctx.tenant_key, usage=result.usage)
         self._audit.record(
             tenant_key=ctx.tenant_key,
             user_key=ctx.user_key,
@@ -271,6 +287,7 @@ class AiAssistantService:
             uses_cloud_provider=uses_cloud,
             latency_ms=int((time.monotonic() - started) * 1000),
             status="ok",
+            usage=result.usage,
         )
         return [persisted]
 
@@ -312,6 +329,7 @@ class AiAssistantService:
         question_context = self._resolve_context(ctx.tenant_key, "daily", today)
         question = self._tips.build_question(question_context, language)
         provider_key, provider_type, uses_cloud = self._resolve_provider(ctx, None, allow_cloud=allow_cloud)
+        self._charge(ctx)
         started = time.monotonic()
         try:
             result = self._run_ask(question, question_context, language)
@@ -350,6 +368,7 @@ class AiAssistantService:
             valid_until=midnight,
         )
         persisted = self._tip_cache.create(card)
+        self._budget.record_usage(tenant_key=ctx.tenant_key, usage=result.usage)
         self._audit.record(
             tenant_key=ctx.tenant_key,
             user_key=ctx.user_key,
@@ -362,6 +381,7 @@ class AiAssistantService:
             uses_cloud_provider=uses_cloud,
             latency_ms=int((time.monotonic() - started) * 1000),
             status="ok",
+            usage=result.usage,
         )
         return persisted
 
@@ -422,6 +442,7 @@ class AiAssistantService:
 
         question_context = self._resolve_context(ctx.tenant_key, subject_type, subject_key)
         provider_key, provider_type, uses_cloud = self._resolve_provider(ctx, None, allow_cloud=allow_cloud)
+        self._charge(ctx)
         started = time.monotonic()
         try:
             result = self._run_ask(question, question_context, language)
@@ -453,6 +474,7 @@ class AiAssistantService:
                 generated_at=datetime.now(UTC),
             )
 
+        self._budget.record_usage(tenant_key=ctx.tenant_key, usage=result.usage)
         self._audit.record(
             tenant_key=ctx.tenant_key,
             user_key=ctx.user_key,
@@ -467,6 +489,7 @@ class AiAssistantService:
             uses_cloud_provider=uses_cloud,
             latency_ms=int((time.monotonic() - started) * 1000),
             status="ok",
+            usage=result.usage,
         )
         return self._to_response(
             result,
@@ -528,6 +551,7 @@ class AiAssistantService:
             uses_tenant_data=False,
             latency_ms=int((time.monotonic() - started) * 1000),
             status="ok",
+            usage=result.usage,
         )
         return self._to_response(
             result,
@@ -585,7 +609,7 @@ class AiAssistantService:
             return False
         return self._conversations.delete(key)
 
-    async def stream_chat(
+    def stream_chat(
         self,
         ctx: TenantContext,
         *,
@@ -594,22 +618,53 @@ class AiAssistantService:
         language: str = "de",
         allow_cloud: bool = False,
     ) -> AsyncIterator[str]:
-        """Yield the assistant answer token-wise as SSE ``data:`` frames (§5.4).
+        """Admit a chat message, then return the SSE frames of its answer (§5.4).
 
-        The Knowledge Service answers in one shot; the backend streams the answer
+        Every gate runs **here, eagerly**, before a single frame exists: the
+        consent, the provider gate and the AI budget (#2110). The caller hands
+        the returned iterator to a ``StreamingResponse``, whose ``200`` is on the
+        wire before the first frame is produced — a refusal raised inside the
+        stream used to arrive as a broken connection instead of a 403/429 the
+        client can show.
+
+        The Knowledge Service answers in one shot; the stream sends the answer
         word-by-word so the client renders progressively. A trailing ``event:
         done`` frame carries the metadata for the ``<AIResponse>`` envelope.
         """
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
         conv = self.get_conversation(ctx, conversation_key)
         if conv is None:
-            yield _sse_event("error", '{"detail":"conversation_not_found"}')
-            return
+            return _frames(_sse_event("error", '{"detail":"conversation_not_found"}'))
 
         question_context = self._resolve_context(ctx.tenant_key, conv.context_type, conv.context_key or "")
         provider_key, provider_type, uses_cloud = self._resolve_provider(
             ctx, conv.provider_key or None, allow_cloud=allow_cloud
         )
+        self._charge(ctx)
+        return self._stream_answer(
+            ctx,
+            conv,
+            message=message,
+            language=language,
+            question_context=question_context,
+            provider_key=provider_key,
+            provider_type=provider_type,
+            uses_cloud=uses_cloud,
+        )
+
+    async def _stream_answer(
+        self,
+        ctx: TenantContext,
+        conv: AiConversation,
+        *,
+        message: str,
+        language: str,
+        question_context: QuestionContext,
+        provider_key: str,
+        provider_type: str,
+        uses_cloud: bool,
+    ) -> AsyncIterator[str]:
+        """The admitted half of :meth:`stream_chat`: one LLM call, streamed."""
         started = time.monotonic()
         try:
             result = await self._ks.ask(
@@ -651,6 +706,7 @@ class AiAssistantService:
             for c in result.sources
         ]
         self._persist_turn(conv, message, result.answer, sources, result.model_name, provider_key)
+        self._budget.record_usage(tenant_key=ctx.tenant_key, usage=result.usage)
         self._audit.record(
             tenant_key=ctx.tenant_key,
             user_key=ctx.user_key,
@@ -665,6 +721,7 @@ class AiAssistantService:
             uses_cloud_provider=uses_cloud,
             latency_ms=int((time.monotonic() - started) * 1000),
             status="ok",
+            usage=result.usage,
         )
         response = self._to_response(
             result,
@@ -764,6 +821,12 @@ class AiAssistantService:
 def _sse_event(event: str, data: str) -> str:
     """Format a single Server-Sent-Event frame."""
     return f"event: {event}\ndata: {data}\n\n"
+
+
+async def _frames(*frames: str) -> AsyncIterator[str]:
+    """A stream of fixed frames (an answer that needs no LLM call)."""
+    for frame in frames:
+        yield frame
 
 
 def _run_sync(coro):

@@ -107,6 +107,7 @@ def _service(
     redis.get.return_value = None
     return (
         GlossaryService(
+            call_budget=MagicMock(),
             term_repo=_term_repo(),
             cache_repo=cache,
             knowledge_adapter=adapter,  # type: ignore[arg-type]

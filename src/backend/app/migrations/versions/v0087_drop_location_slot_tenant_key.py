@@ -1,4 +1,4 @@
-"""v0086 — drop the never-written ``tenant_key`` from every location and slot (#2107, MT-010).
+"""v0087 — drop the never-written ``tenant_key`` from every location and slot (#2107, MT-010).
 
 ``Location.tenant_key`` and ``Slot.tenant_key`` were declared with a default of
 ``""`` and never written by any path, so every stored location and slot carries
@@ -53,7 +53,7 @@ FOR d IN @@collection
 
 
 class DropLocationSlotTenantKeyMigration(Migration):
-    version = "0086"
+    version = "0087"
     name = "drop_location_slot_tenant_key"
     description = (
         "Remove the never-written tenant_key attribute from every location and slot; their tenant is their "

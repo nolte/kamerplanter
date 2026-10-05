@@ -111,6 +111,8 @@ Enables Web Push notifications directly in the browser or in the app when instal
 
 If the channel is not supported in this browser (e.g. an older browser) or you previously blocked notifications, the page shows an explanatory message instead of the enable button. Use **Disable** to remove this device's push registration.
 
+A push registration always belongs to exactly one account: if someone else turns on push in the same browser, your account no longer receives messages through that device. **Logging out** removes this device's registration; after your next sign-in, turn push on there again if you want it. <!-- #2117 -->
+
 ### Apprise
 
 Connects to more than 100 messaging services via the open-source [Apprise](https://github.com/caronc/apprise) library — for example Telegram, Slack, Discord, ntfy, Gotify, or Pushover. Enter one or more **Apprise URLs** (one per line), for example:

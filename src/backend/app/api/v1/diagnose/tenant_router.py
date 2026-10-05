@@ -8,8 +8,9 @@ three-stage KI toggle: stage 1 (operator flag → 404) and stage 2 (tenant setti
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.diagnose.deps import require_ai_tenant_enabled
 from app.api.v1.diagnose.schemas import (
     DiagnoseRequest,
@@ -24,6 +25,7 @@ from app.common.auth import require_tenant_role
 from app.common.dependencies import get_diagnose_service
 from app.common.enums import TenantRole
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.config.settings import settings
 from app.domain.models.ai_assistant import AiTenantSettings
 from app.domain.models.diagnosis import DiagnosisCandidate, DiagnosisResult, SymptomCatalogEntry
 from app.domain.models.tenant_context import TenantContext
@@ -96,7 +98,9 @@ def list_symptoms(
 
 
 @router.post("/analyze", response_model=DiagnosisResultSchema)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def analyze(
+    request: Request,
     body: DiagnoseRequest,
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),

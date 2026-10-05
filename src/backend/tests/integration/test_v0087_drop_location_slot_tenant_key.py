@@ -1,4 +1,4 @@
-"""#2107 — v0086 removes the never-written ``tenant_key`` from locations and slots, against a real ArangoDB.
+"""#2107 — v0087 removes the never-written ``tenant_key`` from locations and slots, against a real ArangoDB.
 
 The rows carry the shapes a volume holds: ``tenant_key: ""`` (the model default
 every write stored), a v0004 stamp (the site's tenant), and a row already without
@@ -11,10 +11,10 @@ import pytest
 from arango import ArangoClient
 
 from app.data_access.arango import collections as col
-from app.migrations.versions.v0086_drop_location_slot_tenant_key import migration
+from app.migrations.versions.v0087_drop_location_slot_tenant_key import migration
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
-TEST_DATABASE = run_database_name("v0086_location_slot_tenant_key")
+TEST_DATABASE = run_database_name("v0087_location_slot_tenant_key")
 
 pytestmark = pytest.mark.usefixtures("arango_db")
 
@@ -39,7 +39,7 @@ def database():
     system.delete_database(TEST_DATABASE)
 
 
-def test_v0086_drops_only_the_attribute_and_is_idempotent(database) -> None:
+def test_v0087_drops_only_the_attribute_and_is_idempotent(database) -> None:
     locations, slots = database.collection(col.LOCATIONS), database.collection(col.SLOTS)
     clean_before = locations.get("clean")
 

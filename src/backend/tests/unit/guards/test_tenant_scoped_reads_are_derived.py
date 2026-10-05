@@ -256,7 +256,10 @@ ANCHOR_TARGETS: dict[str, str | None] = {
     "to_phase_key": None,
     "indicator_key": None,  # harvest indicator catalogue
     "mixing_result_key": None,  # a computed mixing result, stored on the event itself
-    "family_key": None,  # botanical families are global
+    # botanical families are global; on a refresh token it is the login a rotation chain
+    # descends from (#2116) - an account's session, not a tenant document either way
+    "family_key": None,
+    "successor_key": None,  # the refresh token a rotation minted (#2116): account-scoped, no tenant
     "pest_key": None,  # pests are global
     "workflow_template_key": col.WORKFLOW_TEMPLATES,
     "source_template_key": col.TASK_TEMPLATES,
@@ -804,6 +807,12 @@ _CATALOGUE_WRITTEN_BY_ADMINS = (
 #: entry that no longer matches a finding fails (:class:`TestTheExclusionsAreLive`).
 EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     # ── catalogue ──────────────────────────────────────────────────────────
+    ("ArangoAiProviderRepository", "get_system_default"): Exclusion(
+        "catalogue",
+        "reads only the platform's own provider rows (FILTER tenant_key == null), never a tenant's — the "
+        "filter is the scope, measured in tests/integration/test_ai_provider_system_default_reach.py; no "
+        "route writes ai_provider_configs at all, so no tenant can place a row there (#2110)",
+    ),
     ("ArangoActivityRepository", "get_all"): Exclusion("catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"),
     ("ArangoActivityRepository", "get_system_activities"): Exclusion(
         "catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"

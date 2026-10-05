@@ -123,6 +123,7 @@ from app.domain.models.site import Site
 from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
+from tests.support.refresh_family_fakes import RefreshFamilyMemoryMixin
 from tests.support.step_up import PassedStepUpVerifier
 
 _ISSUE_PATH = "/api/v1/auth/device-pairing"
@@ -210,7 +211,7 @@ class _ClockedCodeStore(IDevicePairingCodeStore):
         return code in self._records
 
 
-class _MemoryRefreshTokenRepository(IRefreshTokenRepository):
+class _MemoryRefreshTokenRepository(RefreshFamilyMemoryMixin, IRefreshTokenRepository):
     """A session store that actually forgets a revoked token.
 
     ``get_by_hash`` filtering revoked documents mirrors the AQL filter in

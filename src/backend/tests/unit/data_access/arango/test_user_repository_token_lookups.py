@@ -15,7 +15,7 @@ This move is a layering repair, not a validation repair, and the tests say so
 rather than claiming a fix that was never there.
 
 **The empty-token case is the one real behaviour change** and it is a
-narrowing, not a widening: an AQL ``FILTER doc.password_reset_token == null``
+narrowing, not a widening: an AQL ``FILTER doc.password_reset_token_hash == null``
 matches every user that holds no token, so a ``None`` reaching the old inline
 query would have handed back an arbitrary account as if it had presented a
 credential. The type says ``str``, which is not an enforcement.
@@ -78,7 +78,7 @@ def _repo(rows: list[dict[str, Any]] | None = None) -> tuple[ArangoUserRepositor
 class TestTheSeamExists:
     """The interface is the seam, so the interface has to declare it."""
 
-    @pytest.mark.parametrize("method", ["get_by_email_verification_token", "get_by_password_reset_token"])
+    @pytest.mark.parametrize("method", ["get_by_email_verification_token_hash", "get_by_password_reset_token_hash"])
     def test_the_interface_declares_the_lookup(self, method: str) -> None:
         """A ``MagicMock`` answers any attribute, so the *interface* is what pins this.
 
@@ -95,39 +95,39 @@ class TestTheSeamExists:
 
 class TestTheLookups:
     def test_the_verification_lookup_filters_on_its_own_attribute(self) -> None:
-        repo, db = _repo([_doc(email_verification_token=VERIFY_TOKEN)])
+        repo, db = _repo([_doc(email_verification_token_hash=VERIFY_TOKEN)])
 
-        user = repo.get_by_email_verification_token(VERIFY_TOKEN)
+        user = repo.get_by_email_verification_token_hash(VERIFY_TOKEN)
 
         assert user is not None
         assert user.email == "someone@example.com"
-        assert "doc.email_verification_token == @token" in db.aql.queries[0]
+        assert "doc.email_verification_token_hash == @token" in db.aql.queries[0]
         assert db.aql.bind_vars[0] == {"@collection": col.USERS, "token": VERIFY_TOKEN}
 
     def test_the_reset_lookup_filters_on_its_own_attribute(self) -> None:
-        repo, db = _repo([_doc(password_reset_token=RESET_TOKEN)])
+        repo, db = _repo([_doc(password_reset_token_hash=RESET_TOKEN)])
 
-        user = repo.get_by_password_reset_token(RESET_TOKEN)
+        user = repo.get_by_password_reset_token_hash(RESET_TOKEN)
 
         assert user is not None
-        assert "doc.password_reset_token == @token" in db.aql.queries[0]
+        assert "doc.password_reset_token_hash == @token" in db.aql.queries[0]
         assert db.aql.bind_vars[0] == {"@collection": col.USERS, "token": RESET_TOKEN}
 
     def test_the_token_is_bound_never_interpolated(self) -> None:
         """Only the attribute NAME is interpolated, and it is a code constant."""
         repo, db = _repo([])
-        repo.get_by_password_reset_token("' OR 1==1 //")
+        repo.get_by_password_reset_token_hash("' OR 1==1 //")
         assert "OR 1==1" not in db.aql.queries[0]
 
     def test_no_match_is_none_not_an_exception(self) -> None:
         repo, _ = _repo([])
-        assert repo.get_by_email_verification_token(VERIFY_TOKEN) is None
-        assert repo.get_by_password_reset_token(RESET_TOKEN) is None
+        assert repo.get_by_email_verification_token_hash(VERIFY_TOKEN) is None
+        assert repo.get_by_password_reset_token_hash(RESET_TOKEN) is None
 
     def test_the_key_is_derived_from_the_id_when_arango_omits_it(self) -> None:
         """``_from_doc``'s normalisation, which the service used to duplicate."""
-        repo, _ = _repo([_doc(password_reset_token=RESET_TOKEN)])
-        user = repo.get_by_password_reset_token(RESET_TOKEN)
+        repo, _ = _repo([_doc(password_reset_token_hash=RESET_TOKEN)])
+        user = repo.get_by_password_reset_token_hash(RESET_TOKEN)
         assert user is not None
         assert user.key == "u-1"
 
@@ -139,6 +139,6 @@ class TestTheEmptyToken:
     def test_an_empty_token_matches_nobody_without_reaching_the_database(self, empty: str | None) -> None:
         repo, db = _repo([_doc(), _doc(_id="users/u-2")])
 
-        assert repo.get_by_password_reset_token(empty) is None  # type: ignore[arg-type]
-        assert repo.get_by_email_verification_token(empty) is None  # type: ignore[arg-type]
+        assert repo.get_by_password_reset_token_hash(empty) is None  # type: ignore[arg-type]
+        assert repo.get_by_email_verification_token_hash(empty) is None  # type: ignore[arg-type]
         assert db.aql.queries == []
