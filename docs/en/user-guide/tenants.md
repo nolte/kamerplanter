@@ -23,6 +23,9 @@ When you register, the system automatically creates your **personal tenant**. Yo
 !!! warning "Your personal tenant ends with your account"
     If you invite someone into your personal tenant, it is deleted with your account — including everything the other members created in it. They receive an email as soon as you request the deletion. For a garden you want to run together for the long term, create a separate community garden instead. Details: [Data Retention](../guides/data-retention.md#what-happens-to-your-personal-garden).
 
+!!! info "Member limit"
+    Every tenant has a member limit. Your personal tenant starts at **1** — yourself. If you want to invite someone into your personal tenant, raise the limit first; otherwise the invited person is told on accepting that the tenant is full. A community garden starts at the maximum the platform operator sets (default: 50); it cannot go higher. <!-- Issue #2133 -->
+
 ---
 
 ## Switching Between Tenants
@@ -75,6 +78,9 @@ You are automatically the admin of the new tenant.
 ## Inviting Members
 
 As an admin you can invite members in three ways:
+
+!!! note "When the tenant is full, the invitation stays open"
+    Once your tenant has reached its member limit, nobody else can join — neither through an email invitation nor through an invitation link. The invitation does not expire because of it: as soon as a seat is free (somebody leaves the tenant) or you raise the limit, it can be accepted. Members who are already in always stay — even if you lower the limit below the current number of members. <!-- Issue #2133 -->
 
 ### Method 1: Email Invitation
 

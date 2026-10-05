@@ -52,6 +52,8 @@ Content-Type: application/json
 }
 ```
 
+**Registration mode (`REGISTRATION_MODE`).** Depending on the operator's setting the registration answers `403` (`REGISTRATION_NOT_ALLOWED`): always for `closed`, without a valid invitation token for `invite_only`, and for an address outside the list with `REGISTRATION_ALLOWED_DOMAINS`. The optional field `invitation_token` carries the token of a pending **email** invitation for exactly this address; it is the exception to `invite_only` and to the domain list (not to `closed`). The answer is the same for taken and free addresses. A client reads the mode from `GET /api/v1/mode` (`registration.mode`, `registration.domain_restricted`). A first OIDC sign-in the mode does not admit redirects to `/auth/callback?error=registration_not_allowed`. <!-- Issue #2132 -->
+
 After registration, a personal tenant is automatically created. If email verification is active (`REQUIRE_EMAIL_VERIFICATION=true`, the default), the email address must be confirmed before the first login. An installation without outbound mail sets the variable to `false` explicitly.
 
 ### Email Verification

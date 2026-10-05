@@ -117,6 +117,9 @@ class InMemoryMembershipRepo:
         self.edges.append(("membership_in", f"memberships/{key}", f"tenants/{created.tenant_key}"))
         return created
 
+    def count_active_members(self, *, tenant_key: str) -> int:
+        return sum(1 for m in self._store.values() if m.tenant_key == tenant_key and m.is_active)
+
     def update_fields(self, key: str, fields: dict[str, Any]) -> Membership | None:
         existing = self._store.get(key)
         if existing is None:

@@ -38,6 +38,13 @@ class IInvitationRepository(ABC):
     def list_by_tenant(self, tenant_key: str) -> list[Invitation]: ...
 
     @abstractmethod
+    def list_pending_email_invitations(self, email: str) -> list[Invitation]:
+        """The pending ``email`` invitations issued for *email*, compared case-insensitively (#2132).
+
+        Expiry is the caller's to check (:meth:`InvitationEngine.is_expired`).
+        """
+
+    @abstractmethod
     def mark_accepted_if_pending(self, key: str, fields: dict[str, Any]) -> Invitation | None:
         """Set *key* to ``accepted`` with *fields*, only while it is still ``pending``; else ``None``.
 

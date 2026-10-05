@@ -48,11 +48,22 @@ export const loginLocal = createAsyncThunk(
   },
 );
 
+/** The backend's `error_code` for a registration the instance's registration mode refuses (#2132). */
+export const REGISTRATION_NOT_ALLOWED = 'REGISTRATION_NOT_ALLOWED';
+
 export const registerLocal = createAsyncThunk(
   'auth/registerLocal',
-  async (data: { email: string; password: string; display_name: string }) => {
+  async (data: { email: string; password: string; display_name: string; invitation_token?: string }) => {
     const profile = await authApi.register(data);
     return profile;
+  },
+  {
+    // The backend's code travels as `code` (as for `loginLocal`, #2037), so the
+    // register page can answer a refused registration in the user's language.
+    serializeError: (error) => ({
+      ...miniSerializeError(error),
+      ...(isApiError(error) ? { code: error.errorCode } : {}),
+    }),
   },
 );
 

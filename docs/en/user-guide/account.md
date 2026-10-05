@@ -28,6 +28,9 @@ This page explains how to create a Kamerplanter account, sign in, and manage you
 
 3. Click **Register**
 
+!!! info "Invitation only, or not at all"
+    The operators of your installation decide who can register. If the register link is missing, the installation creates no new accounts. If it reads **Register with your invitation**, you need an invitation: enter the email address it was sent to and the **invitation code** — if you open the registration through a link with `?invitation=…`, it is already filled in. If registration is limited to certain email domains, the page tells you; an invitation for your address works then too. If you sign in through a provider like Google for the first time, the provider must confirm the invited address. <!-- Issue #2132 -->
+
 Registration automatically creates your **personal tenant** (see [Tenants & Gardens](tenants.md)) — your private space for plants, locations and tasks.
 
 ### Confirming Your Email Address

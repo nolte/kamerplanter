@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
-from app.common.enums import InvitationStatus
+from app.common.enums import InvitationStatus, InvitationType
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.invitation_repository import IInvitationRepository
@@ -18,6 +19,24 @@ class ArangoInvitationRepository(BaseArangoRepository[Invitation], IInvitationRe
 
     def get_by_token_hash(self, token_hash: str) -> Invitation | None:
         return self.find_one_by_field("token_hash", token_hash)
+
+    def list_pending_email_invitations(self, email: str) -> list[Invitation]:
+        """The pending ``email`` invitations issued for *email*, case-insensitively (REQ-023 §3.2d, #2132)."""
+        cursor = self._db.aql.execute(
+            """
+            FOR inv IN @@collection
+              FILTER inv.invitation_type == @type AND inv.status == @status
+                AND LOWER(inv.email) == LOWER(@email)
+              RETURN inv
+            """,
+            bind_vars={
+                "@collection": col.INVITATIONS,
+                "type": InvitationType.EMAIL.value,
+                "status": InvitationStatus.PENDING.value,
+                "email": email.strip(),
+            },
+        )
+        return [Invitation(**self._from_doc(doc)) for doc in cast(Cursor, cursor)]
 
     def create(self, invitation: Invitation) -> Invitation:
         created = super().create(invitation)

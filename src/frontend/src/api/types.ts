@@ -4077,6 +4077,30 @@ export interface RegisterRequest {
   email: string;
   password: string;
   display_name: string;
+  /**
+   * The token of a pending **e-mail** invitation for this address (#2132). Required
+   * when the registration mode is `invite_only`; with a domain allowlist it admits an
+   * address outside the list. A link invitation unlocks no registration.
+   */
+  invitation_token?: string;
+}
+
+/** Who may create an account (#2132, REQ-023 §3.2d). `closed` admits nobody, not even with an invitation. */
+export type RegistrationMode = 'open' | 'invite_only' | 'closed';
+
+/** `GET /mode` (REQ-027) — the deployment mode, its feature flags and the registration mode (#2132). */
+export interface ModeResponse {
+  mode: 'light' | 'full';
+  features: {
+    auth: boolean;
+    multi_tenant: boolean;
+    privacy_consent: boolean;
+  };
+  registration: {
+    mode: RegistrationMode;
+    /** An allowlist of e-mail domains applies; the list itself is not published. */
+    domain_restricted: boolean;
+  };
 }
 
 export interface LoginResponse {

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -41,6 +43,7 @@ from app.api.v1.tenants.router import router as tenants_router
 from app.api.v1.users.router import router as users_router
 from app.common.openapi_responses import VALIDATION_RESPONSE
 from app.config.settings import settings
+from app.domain.engines.registration_engine import parse_domain_allowlist
 
 # The 422 envelope is documented globally: every operation is behind the same
 # RequestValidationError handler, and the envelope replaces FastAPI's default
@@ -60,16 +63,29 @@ class ModeFeatures(BaseModel):
     privacy_consent: bool
 
 
+class RegistrationInfo(BaseModel):
+    """Who may create an account (REQ-023 §3.2d, #2132) — what the auth pages offer."""
+
+    mode: Literal["open", "invite_only", "closed"]
+    #: Whether an e-mail domain allowlist applies; the list itself is not published.
+    domain_restricted: bool
+
+
 class ModeResponse(BaseModel):
-    """Current deployment mode and its feature flags (REQ-027)."""
+    """Current deployment mode, its feature flags and the registration mode (REQ-027, #2132)."""
 
     mode: str
     features: ModeFeatures
+    registration: RegistrationInfo
 
 
 @mode_router.get("/mode", response_model=ModeResponse)
 def get_mode():
-    """Return current deployment mode and feature flags."""
+    """Return current deployment mode, feature flags and the registration mode.
+
+    ``registration`` (#2132) tells the frontend whether to offer the registration entry. Light mode
+    mounts no ``/auth`` routes — nobody can register there — so it reports ``closed``.
+    """
     is_full = settings.kamerplanter_mode == "full"
     return {
         "mode": settings.kamerplanter_mode,
@@ -77,6 +93,10 @@ def get_mode():
             "auth": is_full,
             "multi_tenant": is_full,
             "privacy_consent": is_full,
+        },
+        "registration": {
+            "mode": settings.registration_mode if is_full else "closed",
+            "domain_restricted": is_full and bool(parse_domain_allowlist(settings.registration_allowed_domains)),
         },
     }
 
