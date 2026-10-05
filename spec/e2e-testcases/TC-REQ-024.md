@@ -1126,7 +1126,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 ### TC-024-043: Platform-Viewer kann Tenant-Übersicht nur lesen
 
-> **Blockiert:** Der Plattform-Viewer ist nicht implementiert (REQ-024 v1.26 §1a.4); eine `viewer`-Mitgliedschaft im Platform-Tenant gewährt heute keinen Admin-Zugriff.
+> **Blockiert:** Der Plattform-Viewer ist nicht implementiert (REQ-024 v1.26 §1a.4, #2179); eine `viewer`-Mitgliedschaft im Platform-Tenant gewährt heute keinen Admin-Zugriff.
 
 **Requirement**: REQ-024 §1a.4 (Platform-Viewer: Tenant-Übersicht read-only), AK-38, AK-39
 **Priority**: High
@@ -1352,7 +1352,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 ### TC-024-052: Platform-Viewer kann keine Stammdaten ändern
 
-> **Blockiert:** Der Plattform-Viewer ist nicht implementiert (REQ-024 v1.26 §1a.4).
+> **Blockiert:** Der Plattform-Viewer ist nicht implementiert (REQ-024 v1.26 §1a.4, #2179).
 
 **Requirement**: REQ-024 §1a.4 (Platform-Viewer: Globale Species nur lesen), AK-40
 **Priority**: High

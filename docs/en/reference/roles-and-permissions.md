@@ -283,7 +283,7 @@ The role is independent of the garden roles: a platform administrator is still n
 What the platform area offers in detail is described under [Platform Admin](../user-guide/admin.md).
 
 !!! warning "Not yet implemented"
-    A read-only role for the platform area is planned — intended for monitoring and audits, without write access to global data. It will make it possible to view the administration area without being able to change anything. Currently only the full platform administrator exists. <!-- REQ-024 §1a.4 Platform-Viewer -->
+    A read-only role for the platform area is planned — intended for monitoring and audits, without write access to global data. It will make it possible to view the administration area without being able to change anything. Currently only the full platform administrator exists. <!-- REQ-024 §1a.4 Platform-Viewer, #2179 -->
 
 ---
 
@@ -316,7 +316,7 @@ Kamerplanter can be run without sign-in — as a local single-person installatio
 Everything described on this page only becomes relevant once the installation runs with sign-in. Details under [Light Mode](../user-guide/light-mode.md).
 
 !!! warning "Not implemented yet"
-    A guided switch from light mode to sign-in mode, in which the first registered account takes over the existing garden, is planned but not built yet. After a switch the data stay with the former single account; a newly registered account starts with its own empty garden.
+    A guided switch from light mode to sign-in mode, in which the first registered account takes over the existing garden, is planned but not built yet. After a switch the data stay with the former single account; a newly registered account starts with its own empty garden. <!-- REQ-027 §7a, #1855 -->
 
 ---
 

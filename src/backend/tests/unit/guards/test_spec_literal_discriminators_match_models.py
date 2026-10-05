@@ -57,8 +57,8 @@ migration ``v0032`` retired the value — in prose, in pseudocode, in JSON examp
   :data:`_ROLE_MODEL_ENUMS` (directly, ``| None``, ``Optional[...]`` or
   ``list[...]``). A spec ``Literal`` for such a field must name exactly the enum's
   values. Limited to the role model on purpose: the same join over *every* enum
-  finds further divergent pairs in REQ-001/002/004/006/007/014/019, recorded in the
-  #2121 PR as a follow-up rather than silently registered here.
+  finds further divergent pairs in REQ-001/002/004/006/007/014/019, tracked in
+  #2183 rather than silently registered here.
 * **Role literals in REQ-023/024/049** — every value written for a role-bearing key
   (``role: lead``, ``"new_role": "lead"``, ``tenant_roles[...] == "lead"``,
   ``Rolle 'lead'``, ``grower → lead``) is a ``TenantRole`` value, every

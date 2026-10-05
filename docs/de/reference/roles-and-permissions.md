@@ -283,7 +283,7 @@ Die Rolle ist unabhängig von den Garten-Rollen: Ein Plattform-Administrator ist
 Was der Plattform-Bereich im Detail bietet, steht unter [Plattform-Admin](../user-guide/admin.md).
 
 !!! warning "Noch nicht implementiert"
-    Eine reine Lese-Rolle für den Plattform-Bereich ist geplant — gedacht für Monitoring und Prüfungen, ohne Schreibrechte auf globale Daten. Sie wird es ermöglichen, den Verwaltungsbereich einzusehen, ohne etwas ändern zu können. Derzeit gibt es nur den vollen Plattform-Administrator. <!-- REQ-024 §1a.4 Platform-Viewer -->
+    Eine reine Lese-Rolle für den Plattform-Bereich ist geplant — gedacht für Monitoring und Prüfungen, ohne Schreibrechte auf globale Daten. Sie wird es ermöglichen, den Verwaltungsbereich einzusehen, ohne etwas ändern zu können. Derzeit gibt es nur den vollen Plattform-Administrator. <!-- REQ-024 §1a.4 Platform-Viewer, #2179 -->
 
 ---
 
@@ -316,7 +316,7 @@ Kamerplanter kann ohne Anmeldung betrieben werden — als lokale Einzelinstallat
 Alles auf dieser Seite Beschriebene wird erst relevant, wenn die Installation mit Anmeldung betrieben wird. Details unter [Light-Modus](../user-guide/light-mode.md).
 
 !!! warning "Noch nicht implementiert"
-    Ein geführter Umstieg vom Light-Modus auf den Betrieb mit Anmeldung, bei dem das erste registrierte Konto den bestehenden Garten übernimmt, ist geplant, aber noch nicht gebaut. Nach einem Wechsel bleiben die Daten beim bisherigen Einzelkonto; ein neu registriertes Konto beginnt mit einem eigenen, leeren Garten.
+    Ein geführter Umstieg vom Light-Modus auf den Betrieb mit Anmeldung, bei dem das erste registrierte Konto den bestehenden Garten übernimmt, ist geplant, aber noch nicht gebaut. Nach einem Wechsel bleiben die Daten beim bisherigen Einzelkonto; ein neu registriertes Konto beginnt mit einem eigenen, leeren Garten. <!-- REQ-027 §7a, #1855 -->
 
 ---
 
