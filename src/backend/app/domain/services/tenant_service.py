@@ -234,13 +234,20 @@ class TenantService:
         return tenant
 
     def create_organization(
-        self, user_key: str, name: str, description: str | None = None, max_members: int | None = None
+        self, founder: User, name: str, description: str | None = None, max_members: int | None = None
     ) -> Tenant:
         """Create an organization tenant.
 
         ``max_members`` is at most the platform ceiling (REQ-024 AK-65, 422 above it); omitted, the
         organisation takes the ceiling.
+
+        **Not by a service account (#2137, MT-041 / audit ID-14):** founding a tenant makes the founder its
+        ``lead`` with both administrative scopes — a person's choice. A machine identity (REQ-023 §5b) is
+        placed in a tenant by that tenant's lead and founds none (403, nothing written). The account, not
+        its key, is passed in so the gate cannot be skipped by handing over a bare key.
         """
+        self._refuse_service_account(founder, "A service account cannot found a tenant.")
+        user_key = founder.key or ""
         errors = self._tenant_engine.validate_tenant_name(name)
         if errors:
             raise ValidationError(errors[0])
@@ -266,6 +273,16 @@ class TenantService:
 
         logger.info("organization_created", subject=log_subject(user_key), tenant=log_tenant(tenant.key))
         return tenant
+
+    @staticmethod
+    def _refuse_service_account(account: User, message: str) -> None:
+        """403 for a service account on a door meant for a person (#2137, REQ-023 §5b).
+
+        The rule is :func:`~app.domain.models.user.allows_interactive_auth`, the predicate the credential
+        gates already decide on — not a restated ``account_type`` comparison.
+        """
+        if not allows_interactive_auth(account):
+            raise ForbiddenError(message)
 
     def _found_tenant(self, tenant: Tenant, user_key: str, *, via: SecurityAuditVia) -> Tenant:
         """Write a new tenant, its founder's lead membership, both edges and the audit row atomically (#2118).
@@ -2835,6 +2852,10 @@ class TenantService:
         403, before anything about the invitation (status, tenant, role) is told and with nothing
         written. A link invitation is meant to be shared and stays open to any account.
         """
+        # #2137 (MT-041 / audit ID-14) — joining a tenant is a person's act; a machine identity is placed in
+        # its one tenant by the service-account route and accepts no invitation. Before the token is looked
+        # up, so the refusal says nothing about the invitation.
+        self._refuse_service_account(account, "A service account cannot accept an invitation.")
         user_key = account.key or ""
         token_hash = self._invitation_engine.hash_token(token)
         invitation = self._invitation_repo.get_by_token_hash(token_hash)

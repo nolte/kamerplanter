@@ -30,6 +30,12 @@ from app.domain.services.security_audit_service import SecurityAuditService
 from app.domain.services.tenant_service import TenantService
 from tests.support.step_up import STEP_UP_PASSED, PassedStepUpVerifier
 
+
+def _founder(key: str) -> User:
+    """The founding account (#2137: ``create_organization`` takes the account, not its key)."""
+    return User.model_validate({"_key": key, "email": f"{key}@example.org", "display_name": key})
+
+
 _ADMIN = MagicMock(key="admin-1")
 _STEP_UP = {"requester": _ADMIN, "client_ip": None, **STEP_UP_PASSED}
 _STEP_UP_ONLY = {"client_ip": None, **STEP_UP_PASSED}
@@ -244,7 +250,7 @@ def test_the_registration_writes_the_founders_lead_membership() -> None:
 def test_the_organisation_creation_writes_the_founders_lead_membership() -> None:
     service, audit, _ = _service()
 
-    service.create_organization("founder-1", "Community Garden")
+    service.create_organization(_founder("founder-1"), "Community Garden")
 
     row = _only(audit)
     assert (row.action, row.via) == (SecurityAuditAction.MEMBERSHIP_ADDED, SecurityAuditVia.TENANT_CREATION)

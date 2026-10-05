@@ -31,10 +31,17 @@ from app.domain.engines.login_throttle_engine import LoginThrottleEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
+from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
 from app.domain.services.security_audit_service import SecurityAuditService
 from app.domain.services.tenant_service import TenantService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+
+
+def _founder(key: str) -> User:
+    """The founding account (#2137: ``create_organization`` takes the account, not its key)."""
+    return User.model_validate({"_key": key, "email": f"{key}@example.org", "display_name": key})
+
 
 TEST_DATABASE = run_database_name("tenant_founding_atomicity")
 # Assembled at runtime: a literal shaped like a credential trips the secret scanner (#1838).
@@ -124,21 +131,21 @@ def test_a_failed_founding_leaves_the_slug_free_and_the_next_one_gets_it(db, mon
     with monkeypatch.context() as patched:
         _fail_on(patched, col.MEMBERSHIP_IN)
         with pytest.raises(RuntimeError):
-            service.create_organization("u-1", "Community Garden")
+            service.create_organization(_founder("u-1"), "Community Garden")
 
-    founded = service.create_organization("u-1", "Community Garden")
+    founded = service.create_organization(_founder("u-1"), "Community Garden")
 
     assert founded.slug == "community-garden"  # not "-2": the failed attempt took nothing
 
 
 def test_a_taken_slug_is_a_duplicate_and_the_existing_tenant_is_untouched(db, monkeypatch) -> None:
     service = _tenant_service(db)
-    first = service.create_organization("u-1", "Community Garden")
+    first = service.create_organization(_founder("u-1"), "Community Garden")
     before = _counts(db)
     monkeypatch.setattr(service, "_ensure_unique_slug", lambda slug, exclude_key=None: first.slug)
 
     with pytest.raises(DuplicateError):
-        service.create_organization("u-2", "Community Garden")
+        service.create_organization(_founder("u-2"), "Community Garden")
 
     assert _counts(db) == before
 
