@@ -6,7 +6,7 @@ Kategorie: Infrastruktur / Deployment Unterkategorie: Container-Orchestrierung, 
 Technologie: Python 3.14, ArangoDB, Kubernetes 1.28+, Helm, Docker, Traefik
 Status: Genehmigt
 Priorität: Kritisch
-Version: 2.4
+Version: 2.5
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [kubernetes, helm, docker, deployment, scaling, high-availability, ci-cd, network-policies, seccomp, container-security]
@@ -325,6 +325,11 @@ spec:
 ```
 
 **Startup-Budget im Chart (#2125, v2.3):** Das Chart setzte bis v2.3 keinen `startupProbe`; die Liveness-Probe (15 s Verzoegerung, 10 s Periode, 3 Fehlschlaege) beendete den Backend-Container etwa 35 s nach dem Start. Der Lifespan fuehrt aber vor dem ersten `listen` `ensure_collections`, alle offenen Migrationen und die Seeds aus (gemessen 2026-10-04 auf leerer ArangoDB 3.12.12: ~6 s Import, ~33 s Datenbankarbeit), und eine Replica, die den Migrations-Lock belegt findet, wartet bis `BARRIER_TIMEOUT_SECONDS` (600 s, NFR-016). Verbindlich ist deshalb: Der Backend-Container hat einen `startupProbe` auf `/api/v1/health/live`, dessen Budget (`initialDelaySeconds + periodSeconds × failureThreshold`, im Chart 10 s × 90 = 900 s) **groesser** als `BARRIER_TIMEOUT_SECONDS` ist — die begrenzte Wartezeit der Anwendung, nicht das Kubelet, entscheidet ueber einen gescheiterten Start. Geprueft durch `tests/unit/guards/test_chart_backend_startup_budget.py` (liest die Code-Konstante) und `scripts/ci/assert_chart_contracts.sh`. Offen (Betreiberentscheidung): Migrationen und Seeds aus dem Lifespan in einen Helm-`pre-upgrade`-Job verlagern.
+
+**Celery-Worker (#2128, #2154, #2153, v2.5):**
+- **Queues:** Der Worker liest `critical` (Aufbewahrung/Loeschung, Benachrichtigungen, Frost, Aktoren), `celery` (Standard) und `bulk` (lange externe Laeufe), im Chart als `-Q critical,celery,bulk`. Eine Queue ohne lesenden Worker haelt ihre Aufgaben stillschweigend; Guard `test_every_task_has_a_queue` und `assert_chart_contracts.sh` binden die Liste an `app/tasks/routing.py`. Zeitlimits je Aufgabe (30/35 min, fortsetzbare Laeufe 3 h), `worker_prefetch_multiplier=1`, `visibility_timeout` 4 h ueber dem laengsten harten Limit.
+- **Bereitschaft:** Ohne HTTP-Endpunkt ist Readiness eine Datei, die der Worker selbst schreibt, sobald sein Consumer laeuft (`WORKER_READY_FILE`); vorher prueft er seine ArangoDB-Anmeldung 60 s lang und beendet sich ohne Erfolg. `startupProbe` (5 s x 36 = 180 s, Guard `test_chart_worker_probes` gegen `WORKER_DATABASE_START_BUDGET_SECONDS`) und `readinessProbe` testen die Datei; ein Rollout behaelt den alten Worker, bis der neue Aufgaben annimmt. Liveness fragt den eigenen Knoten (`inspect ping -d celery@$HOSTNAME`); ein `inspect ping` ohne Ziel antwortet fuer jeden Worker im Cluster.
+- **Anhaenge-Volume:** Liegen die Anhaenge auf einem `ReadWriteOnce`-PVC (`storage.backend: local-fs`), verlangen Backend und Worker per `podAffinity` denselben Node (`topologyKey: kubernetes.io/hostname`); das Rolling Update (surge 1, unavailable 0) bleibt ohne Unterbrechung. Mit S3 oder `ReadWriteMany` rendert der Schluessel auf `kubernetes.io/os` und schraenkt nichts ein.
 
 **Health Check Endpoints (FastAPI)**:
 
@@ -1968,6 +1973,7 @@ helm dependency build <chart-path>
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.5 | 2026-10-05 | **Celery-Worker im Chart (#2128 MT-032 teilweise, #2154, #2153):** §3.2 neuer Absatz — drei Queues mit `-Q` und Vertrags-Pruefung, Zeitlimits, Prefetch 1, `visibility_timeout`; Readiness ueber eine vom Worker geschriebene Datei mit vorgeschalteter Datenbank-Anmeldepruefung, Liveness gezielt auf den eigenen Knoten; Backend und Worker per `podAffinity` auf dem Node des `ReadWriteOnce`-Anhaenge-Volumes. Offen aus MT-032: eigener Worker je Queue, Beat-Abfragen je Mandant. |
 | 2.4 | 2026-10-04 | **Least-Privilege-Datenbankzugaenge (#2126, MT-030):** §3.7 — ArangoDB-Pod erhaelt nur `ARANGO_ROOT_PASSWORD` (vorher `envFrom` des ganzen Anwendungs-Secrets), Anwendungskonto mit `rw` nur auf der eigenen Datenbank statt `root`, Provisionierung im Chart (`app-user`), Betreiberschritte zur Trennung des Root-Passworts. |
 | 2.3 | 2026-10-04 | **Backend-`startupProbe` im Chart (#2125, MT-029):** Budget 900 s > `BARRIER_TIMEOUT_SECONDS` (600 s); Liveness beendete den migrierenden Lifespan zuvor nach ~35 s (§3.2 Hinweis). Verlagerung von Migrationen/Seeds in einen Pre-Upgrade-Job bleibt offen. |
 | 2.2 | 2026-10-04 | **Backup im Chart umgesetzt (#2122, MT-026):** neuer §8.0 — ArangoDB-`arangodump`-CronJob nach S3 (`backup.enabled`, Default aus), `LATEST`-Marker als messbarer RPO, Aufbewahrung ohne den letzten Dump zu loeschen, Restore-Runbook und protokollierte Wiederherstellungsuebung; §8.1/§8.2 als Vor-Helm-Skizze gekennzeichnet (die `k8s/...`-Pfade existieren nicht). |
