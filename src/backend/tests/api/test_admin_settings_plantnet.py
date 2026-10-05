@@ -17,6 +17,7 @@ from app.common.dependencies import (
     get_identification_service,
     get_system_settings_service,
 )
+from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.models.system_settings import (
     HomeAssistantSettings,
     PlantIdentificationSettings,
@@ -67,11 +68,11 @@ def _set_storage_env_defaults(env: MagicMock) -> None:
 def _service_with(db_key: str = "", env_key: str = "") -> SystemSettingsService:
     repo = MagicMock()
     stored = SystemSettings(
-        plant_identification=PlantIdentificationSettings(plantnet_api_key=db_key),
+        plant_identification=PlantIdentificationSettings(plantnet_api_key_encrypted=db_key),
     )
     repo.get.return_value = stored
     repo.upsert.side_effect = lambda s: s
-    service = SystemSettingsService(repo)
+    service = SystemSettingsService(repo, EncryptionEngine(""))
     return service, repo, env_key
 
 
@@ -139,7 +140,7 @@ def test_put_sets_key_and_returns_masked():
     assert resp.status_code == 200
     repo.upsert.assert_called_once()
     upserted = repo.upsert.call_args[0][0]
-    assert upserted.plant_identification.plantnet_api_key == "brand-new-key-9999"
+    assert upserted.plant_identification.plantnet_api_key_encrypted == "brand-new-key-9999"
 
 
 def test_delete_clears_db_key():
@@ -155,7 +156,7 @@ def test_delete_clears_db_key():
     assert resp.status_code == 204
     repo.upsert.assert_called_once()
     upserted = repo.upsert.call_args[0][0]
-    assert upserted.plant_identification.plantnet_api_key == ""
+    assert upserted.plant_identification.plantnet_api_key_encrypted is None
 
 
 def test_recognition_status_available_with_db_only_key():
@@ -212,10 +213,10 @@ def test_unused_ha_settings_fixture_keeps_ha_intact():
     repo = MagicMock()
     repo.get.return_value = SystemSettings(
         home_assistant=HomeAssistantSettings(ha_url="http://ha:8123"),
-        plant_identification=PlantIdentificationSettings(plantnet_api_key="k12345"),
+        plant_identification=PlantIdentificationSettings(plantnet_api_key_encrypted="k12345"),
     )
     repo.upsert.side_effect = lambda s: s
-    service = SystemSettingsService(repo)
+    service = SystemSettingsService(repo, EncryptionEngine(""))
     with patch("app.domain.services.system_settings_service.env_settings") as env:
         env.plantnet_api_key = ""
         env.ha_url = ""

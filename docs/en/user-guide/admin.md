@@ -201,6 +201,9 @@ The key is stored in masked form — it is never visible in plain text in API re
 
 After saving, click **Test Connection**. The backend sends a test request to Pl@ntNet and reports whether the key is valid and how many requests remain for today.
 
+!!! info "Stored encrypted"
+    Kamerplanter stores the Pl@ntNet key and the Home Assistant token encrypted with the instance's `FERNET_KEY`; the interface shows only the last four characters. Without a `FERNET_KEY` — possible only with `DEBUG=true` — they stay plaintext and the log reports `encryption_disabled`. <!-- #2113 -->
+
 **Optional: Remove the key**
 
 Click **Remove** to delete the database-stored key. If no environment variable is set either, photo identification is deactivated immediately.

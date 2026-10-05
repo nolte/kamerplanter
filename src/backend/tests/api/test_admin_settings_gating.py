@@ -44,6 +44,7 @@ from app.common.dependencies import get_system_settings_service, get_tenant_serv
 from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError
+from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.models.system_settings import SystemSettings
 from app.domain.services.system_settings_service import SystemSettingsService
 
@@ -97,7 +98,7 @@ def _service() -> tuple[SystemSettingsService, MagicMock]:
     repo = MagicMock()
     repo.get.return_value = SystemSettings()
     repo.upsert.side_effect = lambda s: s
-    return SystemSettingsService(repo), repo
+    return SystemSettingsService(repo, EncryptionEngine("")), repo
 
 
 def _app(service: SystemSettingsService, tenant_service: MagicMock) -> FastAPI:

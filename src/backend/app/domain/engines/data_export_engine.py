@@ -3,6 +3,7 @@
 from datetime import datetime
 from typing import Any
 
+from app.domain.engines.apprise_url_secrets import APPRISE_CHANNEL, export_config
 from app.domain.engines.storage.export_bundle_key import export_bundle_key
 from app.domain.models.privacy import DataExportRequest, DataSourceDefinition, DisclosureExclusion
 
@@ -692,10 +693,34 @@ class DataExportEngine:
                     "not_disclosed_reason": source.disclosure_gap,
                     "attribution_gap": source.attribution_gap,
                     "record_count": len(records),
-                    "records": records,
+                    "records": [self.disclosable_record(source.collection, record) for record in records],
                 }
                 for source, records in sections
             ],
+        }
+
+    @staticmethod
+    def disclosable_record(collection: str, record: dict[str, Any]) -> dict[str, Any]:
+        """The form of one collected row the bundle may carry (#2113).
+
+        A ``notification_preferences`` row carries the Apprise URLs — credentials,
+        stored as Fernet ciphertext (or, before migration v0083, in clear). The
+        bundle states how many are configured, never the value: the category and
+        its extent are disclosed (Art. 15(1)), and a leaked bundle is no
+        credential. Every other row is returned as collected; the input is never
+        mutated.
+        """
+        if collection != "notification_preferences":
+            return record
+        channels = record.get("channels")
+        if not isinstance(channels, dict):
+            return record
+        apprise = channels.get(APPRISE_CHANNEL)
+        if not isinstance(apprise, dict) or not isinstance(apprise.get("config"), dict):
+            return record
+        return {
+            **record,
+            "channels": {**channels, APPRISE_CHANNEL: {**apprise, "config": export_config(apprise["config"])}},
         }
 
     @staticmethod

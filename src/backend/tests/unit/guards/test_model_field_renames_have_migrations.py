@@ -172,6 +172,10 @@ _CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
         ("oidc_config.py", class_name, field_name): _UNCALLED_OIDC_REQUEST_DTO
         for class_name, field_name in _VANISHED_OIDC_REQUEST_FIELDS
     },
+    # #2113: the plaintext secrets became ``*_encrypted``; v0083 encrypts every stored
+    # value and removes the legacy attribute (the model also reads it, lazily).
+    ("system_settings.py", "HomeAssistantSettings", "ha_access_token"): _MigratedBy("0083"),
+    ("system_settings.py", "PlantIdentificationSettings", "plantnet_api_key"): _MigratedBy("0083"),
 }
 
 

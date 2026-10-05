@@ -8,6 +8,7 @@ import structlog
 from app.common.log_privacy import log_subject, log_tenant, loggable_endpoint_host, loggable_error
 from app.common.notification_targets import validate_ha_channel_config
 from app.common.url_safety import validate_apprise_urls, validate_push_endpoint
+from app.domain.engines.apprise_url_secrets import APPRISE_CHANNEL, URLS, URLS_ENCRYPTED, resolve_masked_urls
 from app.domain.engines.notification_engine import NotificationEngine
 from app.domain.interfaces.notification_preference_repository import (
     INotificationPreferenceRepository,
@@ -404,13 +405,25 @@ class NotificationService:
         ``tts_entity_id`` / ``tts_service`` inside their shape (#1985) —
         refused with a value-free 422 before anything is stored.
         """
-        apprise = preferences.channels.get("apprise")
-        if apprise is not None and "urls" in apprise.config:
-            validate_apprise_urls(apprise.config["urls"], owner_key=user_key)
+        apprise = preferences.channels.get(APPRISE_CHANNEL)
+        if apprise is not None:
+            # #2113: the stored form is derived from ``urls`` only; and a masked
+            # placeholder the client sends back stands for the stored URL.
+            apprise.config.pop(URLS_ENCRYPTED, None)
+            if URLS in apprise.config:
+                apprise.config[URLS] = resolve_masked_urls(apprise.config[URLS], self._stored_apprise_urls(user_key))
+                validate_apprise_urls(apprise.config[URLS], owner_key=user_key)
         home_assistant = preferences.channels.get("home_assistant")
         if home_assistant is not None:
             validate_ha_channel_config(home_assistant.config)
         return self._store_preferences(user_key, preferences)
+
+    def _stored_apprise_urls(self, user_key: str) -> list[str]:
+        """The decrypted Apprise URLs stored for *user_key* — what a masked placeholder resolves to."""
+        stored = self._preference_repo.get_by_user(user_key)
+        apprise = stored.channels.get(APPRISE_CHANNEL) if stored is not None else None
+        urls = apprise.config.get(URLS) if apprise is not None else None
+        return [url for url in urls if isinstance(url, str)] if isinstance(urls, list) else []
 
     def _store_preferences(
         self,

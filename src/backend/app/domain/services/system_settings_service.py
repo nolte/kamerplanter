@@ -1,7 +1,27 @@
+"""Instance-wide settings: Home Assistant, Pl@ntNet, object storage (DB override over env).
+
+SECRETS AT REST (#2113): the Home Assistant long-lived token and the Pl@ntNet key
+are stored **Fernet-encrypted** (``*_encrypted``, :class:`EncryptionEngine`), like
+the OpenWeatherMap key next to them. A new value is encrypted on write; every value
+stored in clear before #2113 is encrypted once by migration v0083 at startup. A
+read never writes (the GET routes that reach it must not persist —
+``tests/unit/api/test_write_route_gates.py``): a value still in clear (a debug
+instance that had no key when v0083 ran) is read through the engine's legacy
+passthrough and encrypted by the next save through this service (``_save``).
+Without a ``FERNET_KEY`` (debug only: the API and the worker refuse to start
+without one otherwise) the engine stores plaintext and logs
+``encryption_disabled``; nothing crashes. The secret is decrypted for internal use
+only (the HA client, the Pl@ntNet adapter, the connection tests) and leaves the
+API masked (:meth:`SystemSettingsService.mask_token`). It is never logged.
+"""
+
 from typing import Any
+
+import structlog
 
 from app.config.settings import settings as env_settings
 from app.data_access.arango.system_settings_repository import ArangoSystemSettingsRepository
+from app.domain.engines.encryption_engine import EncryptionEngine, SecretKeyMismatchError, is_fernet_token
 from app.domain.models.system_settings import (
     HomeAssistantSettings,
     PlantIdentificationSettings,
@@ -9,18 +29,56 @@ from app.domain.models.system_settings import (
     SystemSettings,
 )
 
+logger = structlog.get_logger()
+
 #: Supported storage backends (NFR-013 §3.1). Validated on update so the UI
 #: cannot persist an unknown backend that would later break the adapter build.
 _VALID_STORAGE_BACKENDS = ("local-fs", "s3")
 
 
 class SystemSettingsService:
-    def __init__(self, repo: ArangoSystemSettingsRepository) -> None:
+    def __init__(self, repo: ArangoSystemSettingsRepository, encryption: EncryptionEngine) -> None:
         self._repo = repo
+        self._encryption = encryption
 
     def get_settings(self) -> SystemSettings:
         stored = self._repo.get()
         return stored if stored else SystemSettings()
+
+    # ── #2113 secrets at rest ────────────────────────────────────────────
+
+    def _seal(self, plaintext: str) -> str:
+        """Encrypt a secret for storage (plaintext passthrough without a key, logged by the engine)."""
+        return self._encryption.encrypt(plaintext)
+
+    def _save(self, stored: SystemSettings) -> SystemSettings:
+        """Upsert, sealing a secret still held in clear (a debug instance that had no key before).
+
+        With a key, every write through this service leaves both secrets as
+        ciphertext — including a value v0083 could not encrypt because the key
+        arrived after it ran. Reads never write.
+        """
+        if self._encryption.enabled:
+            ha, pi = stored.home_assistant, stored.plant_identification
+            if ha.ha_access_token_encrypted and not is_fernet_token(ha.ha_access_token_encrypted):
+                ha.ha_access_token_encrypted = self._seal(ha.ha_access_token_encrypted)
+            if pi.plantnet_api_key_encrypted and not is_fernet_token(pi.plantnet_api_key_encrypted):
+                pi.plantnet_api_key_encrypted = self._seal(pi.plantnet_api_key_encrypted)
+        return self._repo.upsert(stored)
+
+    def _open(self, stored: str | None, *, setting: str) -> str:
+        """Decrypt a stored secret for internal use; ``""`` when absent or unopenable.
+
+        A token the configured key cannot open (a drifted ``FERNET_KEY``) is treated
+        as absent — the env fallback applies — and logged by name, never by value.
+        """
+        if not stored:
+            return ""
+        try:
+            return self._encryption.decrypt(stored)
+        except SecretKeyMismatchError:
+            logger.error("stored_secret_unreadable", setting=setting)
+            return ""
 
     def update_ha_settings(
         self,
@@ -28,6 +86,7 @@ class SystemSettingsService:
         ha_access_token: str | None,
         ha_timeout: int | None,
     ) -> SystemSettings:
+        """Persist the HA override. ``None`` keeps a field; an empty token removes the stored one."""
         stored = self._repo.get()
         if stored is None:
             stored = SystemSettings()
@@ -36,28 +95,32 @@ class SystemSettingsService:
         if ha_url is not None:
             ha.ha_url = ha_url
         if ha_access_token is not None:
-            ha.ha_access_token = ha_access_token
+            ha.ha_access_token_encrypted = self._seal(ha_access_token) if ha_access_token else None
         if ha_timeout is not None:
             ha.ha_timeout = ha_timeout
 
         stored.home_assistant = ha
-        return self._repo.upsert(stored)
+        return self._save(stored)
 
     def delete_ha_settings(self) -> bool:
         stored = self._repo.get()
         if stored is None:
             return False
         stored.home_assistant = HomeAssistantSettings()
-        self._repo.upsert(stored)
+        self._save(stored)
         return True
 
     def get_effective_ha_settings(self) -> dict[str, str | int]:
-        """Return effective HA settings: DB values take precedence over env."""
-        stored = self.get_settings()
-        ha = stored.home_assistant
+        """Return effective HA settings: DB values take precedence over env.
 
+        The token is decrypted here — internal use only (the HA client and the
+        connection test); never hand this dict to a response.
+        """
+        ha = self.get_settings().home_assistant
+
+        db_token = self._open(ha.ha_access_token_encrypted, setting="ha_access_token")
         ha_url = ha.ha_url if ha.ha_url else env_settings.ha_url
-        ha_access_token = ha.ha_access_token if ha.ha_access_token else env_settings.ha_access_token
+        ha_access_token = db_token if db_token else env_settings.ha_access_token
         ha_timeout = ha.ha_timeout if ha.ha_timeout is not None else env_settings.ha_timeout
 
         return {
@@ -67,9 +130,12 @@ class SystemSettingsService:
         }
 
     def get_ha_settings_with_source(self) -> dict:
-        """Return effective HA settings with source info for each field."""
-        stored = self.get_settings()
-        ha = stored.home_assistant
+        """Return effective HA settings with source info for each field.
+
+        Carries the decrypted token so the caller can mask it
+        (:meth:`mask_token`); the admin router never returns it unmasked.
+        """
+        ha = self.get_settings().home_assistant
 
         def _resolve(db_val: str | int | None, env_val: str | int, default: str | int | None = None) -> tuple:
             if db_val is not None and db_val != "":
@@ -79,7 +145,9 @@ class SystemSettingsService:
             return default if default is not None else env_val, "default"
 
         ha_url, url_source = _resolve(ha.ha_url, env_settings.ha_url)
-        ha_token, token_source = _resolve(ha.ha_access_token, env_settings.ha_access_token)
+        ha_token, token_source = _resolve(
+            self._open(ha.ha_access_token_encrypted, setting="ha_access_token"), env_settings.ha_access_token
+        )
         ha_timeout, timeout_source = _resolve(ha.ha_timeout, env_settings.ha_timeout, env_settings.ha_timeout)
 
         return {
@@ -97,17 +165,20 @@ class SystemSettingsService:
         self,
         plantnet_api_key: str | None,
     ) -> SystemSettings:
-        """Persist the instance-wide Pl@ntNet API key (DB overrides env)."""
+        """Persist the instance-wide Pl@ntNet API key, encrypted (DB overrides env).
+
+        ``None`` keeps the stored key; an empty key removes it (env fallback).
+        """
         stored = self._repo.get()
         if stored is None:
             stored = SystemSettings()
 
         pi = stored.plant_identification
         if plantnet_api_key is not None:
-            pi.plantnet_api_key = plantnet_api_key
+            pi.plantnet_api_key_encrypted = self._seal(plantnet_api_key) if plantnet_api_key else None
 
         stored.plant_identification = pi
-        return self._repo.upsert(stored)
+        return self._save(stored)
 
     def delete_plant_identification_settings(self) -> bool:
         """Clear the DB Pl@ntNet key so resolution falls back to the env value."""
@@ -115,21 +186,23 @@ class SystemSettingsService:
         if stored is None:
             return False
         stored.plant_identification = PlantIdentificationSettings()
-        self._repo.upsert(stored)
+        self._save(stored)
         return True
 
+    def _stored_plantnet_api_key(self) -> str:
+        stored = self.get_settings().plant_identification
+        return self._open(stored.plantnet_api_key_encrypted, setting="plantnet_api_key")
+
     def get_effective_plantnet_api_key(self) -> str:
-        """Return the effective Pl@ntNet key: DB value takes precedence over env."""
-        stored = self.get_settings()
-        db_key = stored.plant_identification.plantnet_api_key
+        """Return the effective Pl@ntNet key: DB value takes precedence over env (decrypted, internal use)."""
+        db_key = self._stored_plantnet_api_key()
         if db_key:
             return db_key
         return env_settings.plantnet_api_key
 
     def get_plantnet_settings_with_source(self) -> dict:
-        """Return effective Pl@ntNet key with its source (``db``/``env``/``none``)."""
-        stored = self.get_settings()
-        db_key = stored.plant_identification.plantnet_api_key
+        """Return effective Pl@ntNet key with its source (``db``/``env``/``none``) — for masking only."""
+        db_key = self._stored_plantnet_api_key()
 
         if db_key:
             return {"plantnet_api_key": db_key, "source_plantnet_api_key": "db"}
@@ -196,7 +269,7 @@ class SystemSettingsService:
             st.s3_force_tls = s3_force_tls
 
         stored.storage = st
-        return self._repo.upsert(stored)
+        return self._save(stored)
 
     def get_effective_storage_settings(self) -> dict[str, Any]:
         """Return effective storage config: DB override on top of env.
@@ -257,7 +330,7 @@ class SystemSettingsService:
         if stored is None:
             return False
         stored.storage = StorageSettings()
-        self._repo.upsert(stored)
+        self._save(stored)
         return True
 
     @staticmethod

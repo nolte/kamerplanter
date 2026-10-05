@@ -1,4 +1,9 @@
-"""Fernet-based encryption engine for OIDC client secrets (SK-06)."""
+"""Fernet-based encryption engine for stored secrets (SK-06, #2113).
+
+OIDC client secrets, OAuth tokens, the InvenTree / AI-provider / OpenWeatherMap
+keys and — since #2113 — the Home Assistant long-lived token, the Pl@ntNet key
+and the Apprise URLs.
+"""
 
 import structlog
 from cryptography.fernet import Fernet, InvalidToken
@@ -34,6 +39,17 @@ def is_usable_fernet_key(key: str) -> bool:
 
 def _looks_like_a_fernet_token(value: str) -> bool:
     return value.startswith(_FERNET_TOKEN_PREFIX) and len(value) >= _MIN_FERNET_TOKEN_LENGTH
+
+
+def is_fernet_token(value: object) -> bool:
+    """Whether a stored value is already Fernet ciphertext (#2113).
+
+    The test the lazy re-encryption and the one-shot migration share: a value that
+    is not a token was stored before encryption reached its field and is encrypted
+    on the next read that has a key. Shape only — it does not prove the configured
+    key can open it (that refusal is :meth:`EncryptionEngine.decrypt`'s).
+    """
+    return isinstance(value, str) and _looks_like_a_fernet_token(value)
 
 
 class EncryptionEngine:
