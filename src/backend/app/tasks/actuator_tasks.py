@@ -23,13 +23,20 @@ from app.common.exceptions import NotFoundError
 from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.data_access.arango.base_repository import get_all_pages
+from app.domain.services.ha_entity_grant_service import HaEntityGate
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
 
 
-def _resolve_location_readings(sensor_repo, ha_client, location_key: str) -> dict[str, float]:
-    """Best-effort map of ``metric_type -> latest value`` for a location's sensors."""
+def _resolve_location_readings(
+    sensor_repo, ha_client, location_key: str, *, tenant_key: str, grants: HaEntityGate
+) -> dict[str, float]:
+    """Best-effort map of ``metric_type -> latest value`` for a location's sensors.
+
+    Only entities granted to ``tenant_key`` — the actuator's, which is its
+    location's — are read (MT-015, #2112).
+    """
     readings: dict[str, float] = {}
     if not location_key:
         return readings
@@ -42,6 +49,8 @@ def _resolve_location_readings(sensor_repo, ha_client, location_key: str) -> dic
         return readings
     for sensor in sensors:
         if not sensor.is_active or not sensor.ha_entity_id:
+            continue
+        if not grants.is_granted(tenant_key, sensor.ha_entity_id):
             continue
         try:
             state = ha_client.get_state(sensor.ha_entity_id)
@@ -58,25 +67,34 @@ def evaluate_control_rules(self) -> dict:  # noqa: ANN001 — Celery bound-task 
     if not settings.actuator_control_loop_enabled:
         return {"status": "skipped", "reason": "actuator_control_loop_disabled"}
 
-    from app.common.dependencies import get_actuator_repo, get_actuator_service, get_ha_client, get_sensor_repo
+    from app.common.dependencies import (
+        get_actuator_repo,
+        get_actuator_service,
+        get_ha_client,
+        get_ha_entity_grant_service,
+        get_sensor_repo,
+    )
 
     repo = get_actuator_repo()
     service = get_actuator_service()
     sensor_repo = get_sensor_repo()
     ha_client = get_ha_client()
+    # MT-015 (#2112): one read of every tenant's grants for the whole run.
+    grants = get_ha_entity_grant_service().snapshot()
 
     actuators = get_all_pages(repo, all_tenants=True)  # system task: all tenants
     evaluated = 0
     dispatched = 0
     errors = 0
-    readings_cache: dict[str, dict[str, float]] = {}
+    readings_cache: dict[tuple[str, str], dict[str, float]] = {}
     for actuator in actuators:
         try:
-            if actuator.location_key not in readings_cache:
-                readings_cache[actuator.location_key] = _resolve_location_readings(
-                    sensor_repo, ha_client, actuator.location_key
+            cache_key = (actuator.tenant_key, actuator.location_key)
+            if cache_key not in readings_cache:
+                readings_cache[cache_key] = _resolve_location_readings(
+                    sensor_repo, ha_client, actuator.location_key, tenant_key=actuator.tenant_key, grants=grants
                 )
-            event = service.evaluate_actuator(actuator, readings_cache[actuator.location_key])
+            event = service.evaluate_actuator(actuator, readings_cache[cache_key])
             evaluated += 1
             if event is not None:
                 dispatched += 1
@@ -112,18 +130,24 @@ def sync_actuator_states(self) -> dict:  # noqa: ANN001 — Celery bound-task se
 
     from datetime import UTC, datetime
 
-    from app.common.dependencies import get_actuator_repo, get_ha_client
+    from app.common.dependencies import get_actuator_repo, get_ha_client, get_ha_entity_grant_service
 
     repo = get_actuator_repo()
     ha_client = get_ha_client()
     if ha_client is None:
         return {"status": "skipped", "reason": "ha_not_configured"}
+    # MT-015 (#2112): an ungranted entity is not polled on the tenant's behalf.
+    grants = get_ha_entity_grant_service().snapshot()
 
     actuators = get_all_pages(repo, all_tenants=True)  # system task: all tenants
     synced = 0
     offline = 0
+    not_granted = 0
     for actuator in actuators:
         if actuator.ha_entity_id is None:
+            continue
+        if not grants.is_granted(actuator.tenant_key, actuator.ha_entity_id):
+            not_granted += 1
             continue
         try:
             state = ha_client.get_state(actuator.ha_entity_id)
@@ -143,5 +167,5 @@ def sync_actuator_states(self) -> dict:  # noqa: ANN001 — Celery bound-task se
             synced += 1
         if not is_online:
             offline += 1
-    logger.info("actuator_states_synced", synced=synced, offline=offline)
-    return {"status": "ok", "synced": synced, "offline": offline}
+    logger.info("actuator_states_synced", synced=synced, offline=offline, not_granted=not_granted)
+    return {"status": "ok", "synced": synced, "offline": offline, "not_granted": not_granted}

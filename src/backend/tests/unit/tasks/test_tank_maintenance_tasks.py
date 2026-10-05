@@ -14,6 +14,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.support.ha_entity_grants import grant_service
+
 
 @pytest.fixture(autouse=True)
 def _mock_dependencies(monkeypatch):
@@ -26,6 +28,8 @@ def _mock_dependencies(monkeypatch):
     mock_deps.get_tank_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_task_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_ha_client = MagicMock()  # type: ignore[attr-defined]
+    # MT-015 (#2112): tenant_1's tank sensors are granted; the allowlist has its own tests.
+    mock_deps.get_ha_entity_grant_service = lambda: grant_service({"tenant_1": {"sensor.ph"}})  # type: ignore[attr-defined]
     mock_deps.get_sensor_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_feeding_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_plant_repo = MagicMock()  # type: ignore[attr-defined]
@@ -160,14 +164,14 @@ class TestSyncTankStatesFromHa:
         _mock_dependencies.get_sensor_repo.return_value = sensor_repo
 
         tank_repo = MagicMock()
-        tank_repo.get_all.return_value = ([SimpleNamespace(key="tank_1")], 1)
+        tank_repo.get_all.return_value = ([SimpleNamespace(key="tank_1", tenant_key="tenant_1")], 1)
         _mock_dependencies.get_tank_repo.return_value = tank_repo
 
         from app.tasks.tank_maintenance_tasks import sync_tank_states_from_ha
 
         result = sync_tank_states_from_ha()
 
-        assert result == {"updated": 0, "skipped": 1, "errors": 0}
+        assert result == {"updated": 0, "skipped": 1, "errors": 0, "not_granted": 0}
         tank_repo.create_state.assert_not_called()
 
     def test_persists_state_from_ha_values(self, _mock_dependencies):
@@ -180,14 +184,14 @@ class TestSyncTankStatesFromHa:
         _mock_dependencies.get_sensor_repo.return_value = sensor_repo
 
         tank_repo = MagicMock()
-        tank_repo.get_all.return_value = ([SimpleNamespace(key="tank_1")], 1)
+        tank_repo.get_all.return_value = ([SimpleNamespace(key="tank_1", tenant_key="tenant_1")], 1)
         _mock_dependencies.get_tank_repo.return_value = tank_repo
 
         from app.tasks.tank_maintenance_tasks import sync_tank_states_from_ha
 
         result = sync_tank_states_from_ha()
 
-        assert result == {"updated": 1, "skipped": 0, "errors": 0}
+        assert result == {"updated": 1, "skipped": 0, "errors": 0, "not_granted": 0}
         tank_repo.create_state.assert_called_once()
         state = tank_repo.create_state.call_args.args[0]
         assert state.ph == 6.2
@@ -203,7 +207,7 @@ class TestSyncTankStatesFromHa:
         _mock_dependencies.get_sensor_repo.return_value = sensor_repo
 
         tank_repo = MagicMock()
-        tank_repo.get_all.return_value = ([SimpleNamespace(key="tank_1")], 1)
+        tank_repo.get_all.return_value = ([SimpleNamespace(key="tank_1", tenant_key="tenant_1")], 1)
         _mock_dependencies.get_tank_repo.return_value = tank_repo
 
         from app.tasks.tank_maintenance_tasks import sync_tank_states_from_ha

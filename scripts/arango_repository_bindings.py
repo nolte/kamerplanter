@@ -68,6 +68,7 @@ MODEL_COLLECTIONS_BY_HAND: dict[str, str] = {
     "McpAuditLog": "mcp_audit_log",  # mcp_repository.ArangoMcpAuditRepository
     "McpIdempotencyRecord": "mcp_idempotency_record",  # mcp_repository.ArangoMcpIdempotencyRepository
     "SecurityAuditEntry": "security_audit_log",  # security_audit_repository.ArangoSecurityAuditRepository (#2111)
+    "HaEntityGrant": "tenant_ha_entity_grants",  # ha_entity_grant_repository.ArangoHaEntityGrantRepository (#2112)
     # Added by #1708: raw-written collections the tenant-scope guard must place.
     # None of these carries a user-reference field, so R6 of the privacy gate
     # is unaffected by them.

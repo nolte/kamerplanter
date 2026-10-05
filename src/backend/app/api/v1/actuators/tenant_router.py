@@ -485,8 +485,8 @@ def ha_entities(
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
-    """List the controllable Home Assistant entities."""
-    return service.ha_entities()
+    """List the Home Assistant entities granted to the tenant (MT-015, #2112)."""
+    return service.ha_entities(ctx.tenant_key)
 
 
 @router.post("/integrations/home-assistant/test")

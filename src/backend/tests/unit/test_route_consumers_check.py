@@ -138,7 +138,7 @@ class TestTheRouteOperand:
         assert mine == theirs
 
     def test_the_measured_candidate_count(self) -> None:
-        """806 mounted ``/api/v1`` operations.
+        """810 mounted ``/api/v1`` operations.
 
         Pinned deliberately. The candidate *count* moves with every triage
         decision and is not pinned anywhere; the denominator moving is a route
@@ -184,9 +184,15 @@ class TestTheRouteOperand:
         +1: ``GET /admin/platform/security-audit`` (#2111) — the platform admin's read of the persistent
         security audit; no page consumes it yet (a reported candidate of ``check_route_consumers.py``, read
         through the API directly).
+
+        +4: ``/admin/ha-entity-grants/tenants/{tenant_key}`` GET/POST, ``…/inventory`` GET and
+        ``…/{entity_id}`` DELETE (#2112) — the platform admin's per-tenant Home Assistant entity
+        allowlist; inventory, grant and revoke are consumed by
+        ``src/frontend/src/api/endpoints/adminHaEntityGrants.ts``, the plain grant list is read
+        through the API directly (a reported candidate).
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 806
+        assert len(checker.collect_operations(app)) == 810
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

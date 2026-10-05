@@ -273,7 +273,7 @@ def update_preferences(
         type_overrides=body.type_overrides,
         daily_summary=body.daily_summary,
     )
-    updated = service.update_preferences(ctx.user_key, prefs)
+    updated = service.update_preferences(ctx.user_key, prefs, tenant_key=ctx.tenant_key)
     return NotificationPreferencesResponse(
         key=updated.key,
         user_key=updated.user_key,

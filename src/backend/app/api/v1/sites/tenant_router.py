@@ -264,7 +264,7 @@ def create_site_sensor(
         mqtt_topic=body.mqtt_topic,
         site_key=key,
     )
-    created = sensor_service.create_sensor(sensor)
+    created = sensor_service.create_sensor(sensor, tenant_key=ctx.tenant_key)
     return to_response(created, SensorResponse)
 
 
@@ -293,6 +293,7 @@ def update_site_sensor(
         body.model_dump(exclude_unset=True),
         parent_field="site_key",
         parent_key=key,
+        tenant_key=ctx.tenant_key,
     )
     return to_response(updated, SensorResponse)
 
@@ -320,5 +321,5 @@ def get_site_sensors_live(
     """Return the live sensor readings for a site."""
     site_service.get_site(key, tenant_key=ctx.tenant_key)
     sensors = sensor_service.get_sensors_for_site(key)
-    result = sensor_service.get_live_state_for_sensors(sensors)
+    result = sensor_service.get_live_state_for_sensors(sensors, tenant_key=ctx.tenant_key)
     return LiveStateResponse(**result)

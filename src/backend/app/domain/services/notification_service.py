@@ -2,11 +2,12 @@
 
 from collections import defaultdict
 from datetime import UTC, date, datetime
+from typing import Any
 
 import structlog
 
 from app.common.log_privacy import log_subject, log_tenant, loggable_endpoint_host, loggable_error
-from app.common.notification_targets import validate_ha_channel_config
+from app.common.notification_targets import ha_channel_grant_references, validate_ha_channel_config
 from app.common.url_safety import validate_apprise_urls, validate_push_endpoint
 from app.domain.engines.apprise_url_secrets import APPRISE_CHANNEL, URLS, URLS_ENCRYPTED, resolve_masked_urls
 from app.domain.engines.notification_engine import NotificationEngine
@@ -21,6 +22,7 @@ from app.domain.models.notification import (
     NotificationStatus,
     NotificationUrgency,
 )
+from app.domain.services.ha_entity_grant_service import DenyAllHaEntityGate, HaEntityGate, require_granted
 
 logger = structlog.get_logger()
 
@@ -43,10 +45,14 @@ class NotificationService:
         engine: NotificationEngine,
         notification_repo: INotificationRepository,
         preference_repo: INotificationPreferenceRepository,
+        ha_entity_grants: HaEntityGate | None = None,
     ) -> None:
         self._engine = engine
         self._notification_repo = notification_repo
         self._preference_repo = preference_repo
+        # MT-015 (#2112): a Home Assistant destination must be granted to the tenant
+        # it is saved in. Absent, nothing is granted (fail-closed).
+        self._ha_entity_gate: HaEntityGate = ha_entity_grants or DenyAllHaEntityGate()
 
     # ── Sending ───────────────────────────────────────────────────────
 
@@ -397,6 +403,8 @@ class NotificationService:
         self,
         user_key: str,
         preferences: NotificationPreferences,
+        *,
+        tenant_key: str,
     ) -> NotificationPreferences:
         """Create or update user notification preferences.
 
@@ -404,6 +412,13 @@ class NotificationService:
         (#1947) and a Home Assistant channel's ``notify_service`` /
         ``tts_entity_id`` / ``tts_service`` inside their shape (#1985) —
         refused with a value-free 422 before anything is stored.
+
+        A Home Assistant ``notify_service`` or ``tts_entity_id`` that *changes*
+        must be granted to ``tenant_key`` — the tenant the preferences are saved
+        in (MT-015, #2112). An unchanged value is not re-checked, so a user can
+        still edit quiet hours with a destination stored before the allowlist;
+        the send path checks every destination against the notification's own
+        tenant regardless.
         """
         apprise = preferences.channels.get(APPRISE_CHANNEL)
         if apprise is not None:
@@ -416,7 +431,27 @@ class NotificationService:
         home_assistant = preferences.channels.get("home_assistant")
         if home_assistant is not None:
             validate_ha_channel_config(home_assistant.config)
+            self._require_granted_ha_destinations(user_key, tenant_key, home_assistant.config)
         return self._store_preferences(user_key, preferences)
+
+    def _require_granted_ha_destinations(self, user_key: str, tenant_key: str, config: dict[str, Any]) -> None:
+        stored = self._preference_repo.get_by_user(user_key)
+        stored_channel = stored.channels.get("home_assistant") if stored is not None else None
+        stored_refs = (
+            ha_channel_grant_references(stored_channel.config, include_defaults=False) if stored_channel else {}
+        )
+        changed = {
+            f"channels.home_assistant.config.{key}": grant_id
+            for key, grant_id in ha_channel_grant_references(config, include_defaults=False).items()
+            if stored_refs.get(key) != grant_id
+        }
+        require_granted(self._ha_entity_gate, tenant_key, changed)
+        if self._ha_entity_gate.admits_on_use():
+            # Light mode: the destination a send will dial — the default broadcast
+            # service included — is granted when the channel is saved.
+            require_granted(
+                self._ha_entity_gate, tenant_key, ha_channel_grant_references(config, include_defaults=True)
+            )
 
     def _stored_apprise_urls(self, user_key: str) -> list[str]:
         """The decrypted Apprise URLs stored for *user_key* — what a masked placeholder resolves to."""

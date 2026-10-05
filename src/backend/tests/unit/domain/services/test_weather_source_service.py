@@ -35,6 +35,7 @@ from app.domain.models.weather import (
 )
 from app.domain.services.weather_adapter_registry import WeatherAdapterRegistry
 from app.domain.services.weather_source_service import _MASKED_SECRET, WeatherSourceService
+from tests.support.ha_entity_grants import grant_service
 
 TENANT_KEY = "t-1"
 SITE_KEY = "site-1"
@@ -75,6 +76,9 @@ def _build_service(*, site=None, existing=None, ha_client=None, encryption=None)
         site_repo=site_repo,
         encryption_engine=engine,
         ha_client_factory=lambda: ha_client,
+        # MT-015 (#2112): the HA entities these tests name are granted to the site's
+        # tenant; the allowlist has its own tests.
+        ha_entity_grants=grant_service({TENANT_KEY: {"weather.home", "sensor.outside_temp"}}),
     )
     return service, config_repo, site_repo, engine
 
@@ -379,11 +383,13 @@ class TestHaEntities:
         ha_client.list_weather_entities.return_value = [{"entity_id": "weather.home", "friendly_name": "Home"}]
         service, _, _, _ = _build_service(ha_client=ha_client)
 
-        assert service.list_ha_weather_entities() == [{"entity_id": "weather.home", "friendly_name": "Home"}]
+        assert service.list_ha_weather_entities(tenant_key=TENANT_KEY) == [
+            {"entity_id": "weather.home", "friendly_name": "Home"}
+        ]
 
     def test_sensor_entities_without_token_returns_empty(self):
         service, _, _, _ = _build_service(ha_client=None)
-        assert service.list_ha_sensor_entities() == []
+        assert service.list_ha_sensor_entities(tenant_key=TENANT_KEY) == []
 
 
 # ── Stub adapter registration helpers ──────────────────────────────────────

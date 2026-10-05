@@ -91,6 +91,8 @@ class _NoopCollection:
             # above; the two account lookups are bootstrapped on a fresh volume too.
             {"type": "persistent", "fields": ["target_user_key"], "unique": False},
             {"type": "persistent", "fields": ["actor_user_key"], "unique": False},
+            # v0084 (#2112) tenant_ha_entity_grants: one row per (tenant, entity), bootstrapped too.
+            {"type": "persistent", "fields": ["tenant_key", "entity_id"], "unique": True},
             # v0018 propagation indexes
             {"type": "persistent", "fields": ["tenant_key", "batch_key"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "species_key"], "unique": False},

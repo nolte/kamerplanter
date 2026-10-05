@@ -13,8 +13,10 @@ the operator's settings, one client for every tenant), so these values are the o
 thing a user steers. A value outside the shape is refused on save (422, value-free)
 and dropped again at send time. The shape closes URL-path injection into
 ``/api/services/{domain}/{service}`` and calls to any domain other than
-``notify`` / ``tts``; it does not decide *which* ``notify.*`` service of the
-operator's instance a user may address (REQ-030 §3.2).
+``notify`` / ``tts``. *Which* ``notify.*`` service and which ``tts`` /
+``media_player`` entity of the operator's instance a notification may address is
+the per-tenant allowlist's answer (MT-015, #2112, REQ-030 §3.2):
+:func:`ha_channel_grant_references` names the allowlist ids of a config.
 """
 
 from __future__ import annotations
@@ -67,6 +69,39 @@ _REASONS = {
     "tts_entity_id": "Must be a tts.* or media_player.* entity id.",
     "tts_service": "Must be a lowercase service name of the tts domain.",
 }
+
+
+def ha_notify_grant_id(value: object) -> str | None:
+    """The allowlist id (``notify.<slug>``) of a ``notify_service`` value, or ``None`` if not allowed."""
+    slug = ha_notify_service_slug(value)
+    return f"notify.{slug}" if slug is not None else None
+
+
+def ha_channel_grant_references(config: object, *, include_defaults: bool) -> dict[str, str]:
+    """``config key -> allowlist id`` of the Home Assistant destinations a channel config addresses.
+
+    Args:
+        config: ``channels.home_assistant.config``.
+        include_defaults: Also name the destination an *unset* ``notify_service``
+            falls back to (``notify.notify``) when mobile push is on — what a send
+            actually dials. A save names only what the user typed.
+
+    A value outside its shape has no allowlist id and is left out — the shape check
+    refuses it on its own.
+    """
+    if not isinstance(config, dict):
+        return {}
+    references: dict[str, str] = {}
+    notify_value = config.get("notify_service") or (
+        HA_DEFAULT_NOTIFY_SERVICE if include_defaults and config.get("mobile_push", True) else None
+    )
+    notify_id = ha_notify_grant_id(notify_value) if notify_value else None
+    if notify_id is not None:
+        references["notify_service"] = notify_id
+    tts_entity = ha_tts_entity_id(config.get("tts_entity_id"))
+    if tts_entity is not None and (not include_defaults or config.get("tts_enabled", False)):
+        references["tts_entity_id"] = tts_entity
+    return references
 
 
 def validate_ha_channel_config(config: object) -> None:

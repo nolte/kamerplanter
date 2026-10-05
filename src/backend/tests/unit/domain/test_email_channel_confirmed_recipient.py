@@ -124,7 +124,7 @@ def _put_preferences_as_the_route_does(service: NotificationService, config: dic
     """The PUT /preferences body -> model -> service, exactly as ``update_preferences`` does."""
     body = NotificationPreferencesRequest(channels={"email": ChannelPreference(enabled=True, config=config)})
     prefs = NotificationPreferences(user_key="u1", channels=body.channels)
-    service.update_preferences("u1", prefs)
+    service.update_preferences("u1", prefs, tenant_key="t1")
 
 
 async def test_typed_in_recipient_is_not_mailed_the_account_address_is(mail):

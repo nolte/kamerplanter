@@ -936,6 +936,11 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ("ArangoSecurityAuditRepository", "count_undated"): Exclusion(
         "system", "held-count of the installation-wide security_audit_log retention task (NFR-011 R-38, #2111)"
     ),
+    ("ArangoHaEntityGrantRepository", "all_granted"): Exclusion(
+        "system",
+        "every tenant's Home Assistant entity grants, read once by the cross-tenant ingest/control/weather "
+        "beat tasks so each row is checked against its own tenant's allowlist (MT-015, #2112)",
+    ),
     ("ArangoNotificationRepository", "find_overdue_watering"): Exclusion(
         "system", "the escalation Celery task re-notifies every overdue watering reminder"
     ),

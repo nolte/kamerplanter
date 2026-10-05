@@ -98,6 +98,11 @@ _SITES: dict[str, tuple[str, str, str]] = {
         "platform admin; a membership in a deactivated tenant resolves for nobody",
     ),
     f"{_TS}:TenantService.list_all_tenants": (_DECIDED, "", "platform-admin catalogue listing"),
+    "app/api/v1/admin/ha_entity_grants/router.py:_existing_tenant": (
+        _DECIDED,
+        "",
+        "platform admin maintains the HA entity allowlist of any tenant, a deactivated one included (MT-015)",
+    ),
     # -- reads behind an already-resolved context, mutations, erasure -------------------
     "app/api/v1/ki_assistent/deps.py:require_ai_tenant_enabled": (
         _DECIDED,
