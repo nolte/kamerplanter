@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Kubernetes 1.28+, ArangoDB 3.11+, TimescaleDB 2.13+, PostgreSQL 18, Valkey 8.0+, Traefik, Prometheus, Grafana
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.0
+Version: 1.1 (§9.1/§9.2 Umsetzungsstand: nur das nächtliche ArangoDB-Backup ist gebaut; #2121)
 Autor: Business Analyst - Agrotech
 Datum: 2026-03-31
 Tags: [cloud, enterprise, scaling, ha, dsgvo, backup, disaster-recovery, cost-estimation, sla]
@@ -16,6 +16,13 @@ Betroffene Module: [ALL]
 ---
 
 # NFR-012: Cloud-Provider-Anforderungen & Enterprise-Skalierung
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.1 | 2026-10-05 | **#2121 (MT-025):** §9.1/§9.2 tragen einen Umsetzungsstand. Gemessen: Der Chart liefert seit #2122 ein nächtliches `arangodump`-Backup nach S3 (Default aus, NFR-002 §8.0); Cluster-Replikation, WAL-Archivierung, pgvector-Snapshots, Cross-Region-Kopie und ein RPO von 1 h existieren nicht. Die Tabelle ist Zielbild für den Enterprise-Betrieb. |
+| 1.0 | 2026-03-31 | Erstfassung. |
 
 ## 1. Business Case
 
@@ -250,7 +257,7 @@ Für lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 | **IP-Anonymisierung** | IPv4 letztes Oktett → 0, IPv6 → /48-Präfix, nach 7 Tagen | NFR-011 R-03 |
 | **Retention Enforcement** | Celery-Beat-Einzel-Tasks je Regel (täglich bzw. stündlich) | NFR-011 §3 |
 | **Sensordaten-Downsampling** | 90d raw → 2y hourly → 5y daily | NFR-011 §2.2 |
-| **Consent-Middleware** | Optionale Features nur mit aktiver Einwilligung | REQ-025 |
+| **Consent-Guard** (Service-Schicht, keine Middleware) | Optionale Features nur mit aktiver Einwilligung | REQ-025 |
 | **Betroffenenrechte** | Self-Service API /api/v1/privacy/ (Art. 15–21) | REQ-025 |
 
 ---
@@ -272,6 +279,9 @@ Für lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 ## 9. Backup & Disaster Recovery
 
 ### 9.1 RPO/RTO-Ziele
+
+!!! warning "Noch nicht implementiert"
+    Stand v1.1 (#2121): Die Tabelle ist das **Zielbild** für den Enterprise-Betrieb, nicht der ausgelieferte Zustand. Gebaut ist nur das ArangoDB-Backup im Chart (NFR-002 §8.0, #2122): `arangodump` nach S3, Schalter `backup.enabled` (Default **aus**), Zeitplan `backup.schedule` (Default täglich 02:15 UTC) — das RPO ist damit der Abstand der Läufe (Default 24 h), messbar über `<prefix>/LATEST`; Restore-Runbook `docs/de/deployment/backup-restore.md`, ein Drill am 2026-10-04. **Nicht** gebaut: Cluster-Replikation, TimescaleDB-Streaming/WAL-Archivierung (TimescaleDB ist in den Produktions-Values aus), pgvector-Snapshots, Anhänge (NFR-013 §7), Cross-Region-Kopie und Multi-AZ (§9.2). Die externen Datenbank-Schalter und die HA-Bausteine verfolgt #2127.
 
 | Kategorie | RPO | RTO | Backup-Methode |
 |-----------|-----|-----|----------------|

@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, Helm, Kubernetes 1.28+, S3-kompatibles Object Storage, ReadWriteMany-PVs
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.10 (#2153: Backend und Worker per `podAffinity` auf dem Node des `ReadWriteOnce`-PVC); 1.9 (#2124: Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb — v1.7 #1834 Objekt-Rekonziliation); 1.8 (#2108/#2139: Pixelgrenze, HEIC/HEIF nicht mehr zulässig, Thumbnail-Auftrag je Fenster)
+Version: 1.11 (§7 Umsetzungsstand: kein Anhang-Backup im Chart; #2121); 1.10 (#2153: Backend und Worker per `podAffinity` auf dem Node des `ReadWriteOnce`-PVC); 1.9 (#2124: Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb — v1.7 #1834 Objekt-Rekonziliation); 1.8 (#2108/#2139: Pixelgrenze, HEIC/HEIF nicht mehr zulässig, Thumbnail-Auftrag je Fenster)
 Autor: Business Analyst - Agrotech
 Datum: 2026-04-27
 Tags: [storage, object-storage, s3, minio, local-fs, adapter, photos, attachments, dsgvo, multi-tenant]
@@ -21,6 +21,7 @@ Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachmen
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.11 | 2026-10-05 | **#2121 (MT-025):** §7 trägt einen Umsetzungsstand. Gemessen: Der Chart sichert Anhänge nicht (NFR-002 §8.0 nimmt sie ausdrücklich aus); PV-Snapshot, `rsync`-Job, Bucket-Versionierung, Replikation und `scripts/storage/migrate.py` (§7.3) liefert das Repository nicht — sie sind Betreiber-Aufgabe bzw. Zielbild. |
 | 1.10 | 2026-10-05 | **#2153 Rollout auf `ReadWriteOnce`:** Backend und Celery-Worker tragen das Label `kamerplanter.io/attachments-volume` und verlangen per `podAffinity` einen Pod mit diesem Label auf demselben Node, solange die Anhaenge auf einem `ReadWriteOnce`-PVC liegen; mit S3 oder `ReadWriteMany` keine Einschraenkung (`topologyKey` rendert auf `kubernetes.io/os`). Kein `Recreate`: das Rolling Update bleibt ohne Unterbrechung. |
 | 1.9 | 2026-10-04 | **Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb (#2124, MT-028):** Der Block `storage` in `helm/kamerplanter/values.yaml` war bis hierher wirkungslos (das Chart las ihn nicht; `storage.backend: s3` lieferte `local-fs` mit PVC). Jetzt leitet das Chart daraus die `STORAGE_*`-Variablen von Backend und Celery-Worker, das PVC `backend-attachments` (nur bei `local-fs`) und dessen Mounts ab; die S3-Credentials kommen als zwei `secretKeyRef` aus `credentialsRef` (Default-Schluessel jetzt `STORAGE_S3_ACCESS_KEY_ID` / `STORAGE_S3_SECRET_ACCESS_KEY`, wie in der Betriebsdoku). Neuer §10.1: Das Chart verweigert das Rendern von mehr als einer Backend- oder Worker-Replica auf einem `ReadWriteOnce`-Anhang-Volume (Ausweg: S3, RWX oder `storage.localFs.singleNode: true`). Das PVC traegt `Prune=false,Delete=false` fuer ArgoCD. Render-Vertraege in `scripts/ci/assert_chart_contracts.sh`. |
 | 1.8 | 2026-10-04 | **#2108 Pixelgrenze und Thumbnail-Verstärkung (MT-011):** §5.1 Schritt 5a — jedes Bild wird vor dem Dekodieren an seiner Kopfzeile gegen **40 Megapixel** geprüft (`app.common.image_bounds`, HTTP 413 `IMAGE_PIXEL_LIMIT_EXCEEDED`); die Grenze gilt für jede Bild-Dekodierung des Backends, ein Guard hält jedes `Image.open` in diesem Modul. Die EXIF-Bereinigung kodiert das dekodierte Bild neu statt es aus Pixel-Tupeln aufzubauen (gemessen 80 Byte je Pixel). Die DSGVO-Bereinigung gespeicherter Objekte nimmt bis 80 MPx an und zählt größere als `skipped_over_limit`. §8.2 — die Thumbnail-Erzeugung wird je Anhang höchstens einmal in 300 s angestoßen (Valkey `SET NX EX`), endgültig gescheiterte Erzeugung setzt `renditions_failed`, der Abruf antwortet dann 404 statt 202. **#2139 HEIC/HEIF (MT-043):** §5.2 — nicht mehr in der Foto-Whitelist; solange `STORAGE_STRIP_EXIF` aktiv ist, lehnt Schritt 4 jeden Bildtyp ab, den die Bereinigung nicht neu kodieren kann, auch per Kategorie-Override. |
@@ -495,6 +496,9 @@ Refs #1770, REQ-025, NFR-013.
 ---
 
 ## 7. Backup, Replikation, RPO/RTO
+
+!!! warning "Noch nicht implementiert"
+    Stand v1.11 (#2121): Das Repository liefert **kein** Backup der Anhänge. Das Chart-Backup (NFR-002 §8.0, #2122) sichert nur ArangoDB; Anhänge sind dort ausdrücklich ausgenommen. Die Mechanismen in §7.1 (CSI-Snapshot, `rsync`-Job, Bucket-Versionierung, Replikation) richtet der Betreiber selbst ein; ein Skript `scripts/storage/migrate.py` (§7.3) existiert nicht. Die RPO/RTO-Spalten sind Zielwerte (NFR-012 §9.1, dort ebenfalls Zielbild).
 
 ### 7.1 Backend-spezifische Strategien
 
