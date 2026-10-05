@@ -94,7 +94,7 @@ def test_a_workflow_template_is_not_bound_to_another_tenants_species() -> None:
 
     class _Tenants:
         def get_tenant_by_slug(self, slug):
-            return SimpleNamespace(key="t_a", slug=slug)
+            return SimpleNamespace(key="t_a", slug=slug, is_active=True)
 
         def get_membership(self, user_key, tenant_key):
             return SimpleNamespace(role=TenantRole.LEAD, admin_scopes=[], is_active=True)

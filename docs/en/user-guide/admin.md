@@ -36,6 +36,9 @@ In the **Admin > Tenants** section you can:
 - View tenant quotas and limits
 - Manage a tenant's members on their behalf
 
+!!! info "A deactivated tenant locks every member out"
+    When you deactivate a tenant, no member can reach it any more — not in the app, not with an API key, not from an MCP client. To its members it then looks like a tenant that does not exist. If it was their personal garden, they only see the shared plant catalogue. The memberships and all data are kept: when you reactivate the tenant, every member immediately has their previous access with the same role again. You yourself keep administering a deactivated tenant here in the admin area. <!-- Issue #2105 -->
+
 !!! danger "Deleting a tenant is irreversible"
     Deleting a tenant first deactivates every membership immediately, then removes its contributed recognition vectors, its object storage (photos, attachments) and every domain record it holds — sites, plants, planting runs, diary entries, tasks, tanks, sensors and every other location-bound record — and finally the tenant record itself. Harvest and treatment documentation is exempt because it must be kept for several years under statutory law (CanG, German Plant Protection Act): those records are retained but pseudonymized. This action cannot be undone. Create a data export for the affected tenant beforehand. <!-- Issue #1769 -->
 
