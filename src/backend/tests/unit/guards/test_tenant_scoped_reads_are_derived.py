@@ -160,9 +160,10 @@ HYBRID_CATALOGUES: frozenset[str] = frozenset(_TENANT_OWNED_CATALOG_COLLECTIONS)
 #: Collections whose tenant is reachable only through a parent document, as
 #: ``collection -> ((foreign-key field, parent collection), ...)``. More than one
 #: pair means "exactly one of these parents" (``Sensor`` validates at most one).
-#: ``locations`` and ``slots`` *have* a ``tenant_key`` field, but no write path
-#: fills it (#1397) — the site is the only document in the chain that carries it,
-#: which is why they are declared here and not left to the model.
+#: ``locations`` and ``slots`` used to declare a ``tenant_key`` field no write path
+#: filled (#1397); #2107 removed it — the site is the only document in the chain
+#: that carries a tenant, and ``test_parent_scoped_models_declare_no_tenant.py``
+#: holds every collection declared here to a model without the field.
 #:
 #: Checked both ways by :class:`TestTheParentChainsAreDeclaredOnceAndComplete`:
 #: every field named here exists on the model and every parent carries a tenant,
