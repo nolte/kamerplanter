@@ -63,7 +63,7 @@ class GetLocation(ToolBase):
         # reasonable choice for two rooms and a poor one for a balcony, and the
         # only thing that distinguishes them is ``frost_exposed`` on the location
         # record — which MCP could not read.
-        location = ctx.site_service.get_location(args.location_key, ctx.tenant_key)
+        location = ctx.site_service.get_location(args.location_key, tenant_key=ctx.tenant_key)
         return self._response(
             summary=f"Location '{location.name}' ({location.location_type_key or 'untyped'}).",
             data={
