@@ -722,10 +722,13 @@ class Settings(BaseSettings):
     #: the gallery (the clients upload one request per photo).
     rate_limit_upload: str = "30/minute"
     #: ``rate_limit_inference`` — routes that run a model per request (CV
-    #: diagnosis, pest detection, plant identification, reference contribution).
-    #: Below the upload budget: one inference costs more than one upload, and
-    #: nobody photographs twenty plants a minute for a diagnosis. The per-day
-    #: caps of identification and contribution stay in force on top.
+    #: diagnosis, pest detection, plant identification, reference contribution,
+    #: and since #2110 every route that puts a prompt in front of an LLM: tip and
+    #: daily-tip generation, "why?", chat message, glossary generation, KI
+    #: diagnosis). Below the upload budget: one inference costs more than one
+    #: upload, and nobody photographs twenty plants a minute for a diagnosis. The
+    #: per-day caps of identification and contribution and the daily AI budgets
+    #: (``ai_budget_*``) stay in force on top.
     rate_limit_inference: str = "20/minute"
     #: ``rate_limit_export`` — the PDF renders under ``/print``. A print is a
     #: deliberate act; twenty a minute leaves room for retries and several

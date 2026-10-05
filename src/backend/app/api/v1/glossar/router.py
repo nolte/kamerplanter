@@ -20,10 +20,12 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Request
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.glossar.deps import get_glossary_service
 from app.common.auth import get_current_tenant, require_permission
+from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.models.glossary_term import (
     ExpertiseLevel,
@@ -69,7 +71,9 @@ def get_term(
 
 
 @router.post("/term/{slug}/generate", response_model=GlossaryTermAnswer)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def generate_term(
+    request: Request,
     slug: Annotated[str, Path(description="Slug identifier of the glossary term.")],
     expertise: ExpertiseLevel = Query("beginner", description="Experience level the explanation targets."),
     language: Language = Query("de", description="Language of the returned explanation (de or en)."),
