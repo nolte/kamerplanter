@@ -30,6 +30,7 @@ from app.common.exceptions import ForbiddenError, NotFoundError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
+from app.domain.engines.apprise_url_secrets import masked_channels
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.models.notification import NotificationPreferences
 from app.domain.models.tenant_context import TenantContext
@@ -234,12 +235,12 @@ def get_preferences(
     ctx: TenantContext = Depends(get_current_tenant),
     service: NotificationService = Depends(get_notification_service),
 ) -> NotificationPreferencesResponse:
-    """Get notification preferences for the current user."""
+    """Get notification preferences for the current user (Apprise URLs masked, #2113)."""
     prefs = service.get_preferences(ctx.user_key)
     return NotificationPreferencesResponse(
         key=prefs.key,
         user_key=prefs.user_key or ctx.user_key,
-        channels=prefs.channels,
+        channels=masked_channels(prefs.channels),
         quiet_hours=prefs.quiet_hours,
         batching=prefs.batching,
         escalation=prefs.escalation,
@@ -258,7 +259,11 @@ def update_preferences(
     ctx: TenantContext = Depends(get_current_tenant),
     service: NotificationService = Depends(get_notification_service),
 ) -> NotificationPreferencesResponse:
-    """Update notification preferences for the current user."""
+    """Update notification preferences for the current user.
+
+    A masked Apprise placeholder (``tgram://****#1``) sent back keeps the stored URL
+    it stands for; the answer is masked like the GET (#2113).
+    """
     prefs = NotificationPreferences(
         user_key=ctx.user_key,
         channels=body.channels,
@@ -272,7 +277,7 @@ def update_preferences(
     return NotificationPreferencesResponse(
         key=updated.key,
         user_key=updated.user_key,
-        channels=updated.channels,
+        channels=masked_channels(updated.channels),
         quiet_hours=updated.quiet_hours,
         batching=updated.batching,
         escalation=updated.escalation,

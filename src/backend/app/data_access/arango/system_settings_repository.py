@@ -89,7 +89,15 @@ class ArangoSystemSettingsRepository(
 
         existing = self.collection.get(SINGLETON_KEY)
         if existing:
-            result = self.collection.update({"_key": SINGLETON_KEY, **data}, return_new=True)
+            # ``merge=False`` (#2113): a settings block is written whole. With the
+            # default merge, ``exclude_none`` dropped a cleared field from the
+            # payload and the stored value survived — ``delete_ha_settings`` left
+            # the HA token in the document and ``delete_global_openweathermap_key``
+            # the OWM ciphertext, both answering success (measured 2026-10-05). It
+            # also removes a legacy plaintext key (``ha_access_token``) the model
+            # no longer carries. Top-level fields not in the payload (the
+            # self-written ones above) are untouched: merge concerns nested objects.
+            result = self.collection.update({"_key": SINGLETON_KEY, **data}, return_new=True, merge=False)
         else:
             data["_key"] = SINGLETON_KEY
             data["created_at"] = now

@@ -1,23 +1,62 @@
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+#: #2113 — the plaintext field names these secrets were stored under before they
+#: were encrypted. A document written before #2113 (or before v0083 ran) still
+#: carries them; the model reads such a value into the ``_encrypted`` field, where
+#: ``EncryptionEngine.decrypt`` passes a non-token value through as legacy plaintext
+#: and ``SystemSettingsService._save`` encrypts it on the next save. The model
+#: dropping the legacy name is what removes it from the document on that save.
+LEGACY_HA_ACCESS_TOKEN_FIELD = "ha_access_token"
+LEGACY_PLANTNET_API_KEY_FIELD = "plantnet_api_key"
+
+
+def _carry_legacy_plaintext(data: Any, legacy: str, field: str) -> Any:
+    if not isinstance(data, dict) or legacy not in data:
+        return data
+    carried = {k: v for k, v in data.items() if k != legacy}
+    if not carried.get(field) and data[legacy]:
+        carried[field] = data[legacy]
+    return carried
 
 
 class HomeAssistantSettings(BaseModel):
+    """Instance-wide Home Assistant connection (REQ-018).
+
+    The long-lived access token is stored **Fernet-encrypted** (#2113,
+    ``ha_access_token_encrypted``) and never returned by the API — the admin
+    settings answer with ``SystemSettingsService.mask_token``.
+    """
+
     ha_url: str | None = None
-    ha_access_token: str | None = None
+    #: Fernet ciphertext of the long-lived token (plaintext only without a FERNET_KEY, debug).
+    ha_access_token_encrypted: str | None = None
     ha_timeout: int | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_legacy_plaintext_token(cls, data: Any) -> Any:
+        return _carry_legacy_plaintext(data, LEGACY_HA_ACCESS_TOKEN_FIELD, "ha_access_token_encrypted")
 
 
 class PlantIdentificationSettings(BaseModel):
     """Instance-wide plant identification settings (REQ-029 Phase 1).
 
     The Pl@ntNet API key applies to the whole instance (free-tier key,
-    not tenant-scoped). An empty value means "fall back to the environment
-    variable ``PLANTNET_API_KEY``" — see ``SystemSettingsService``.
+    not tenant-scoped). No stored value means "fall back to the environment
+    variable ``PLANTNET_API_KEY``" — see ``SystemSettingsService``. The stored
+    key is **Fernet-encrypted** (#2113, ``plantnet_api_key_encrypted``).
     """
 
-    plantnet_api_key: str = ""
+    #: Fernet ciphertext of the Pl@ntNet key (plaintext only without a FERNET_KEY, debug).
+    plantnet_api_key_encrypted: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_legacy_plaintext_key(cls, data: Any) -> Any:
+        return _carry_legacy_plaintext(data, LEGACY_PLANTNET_API_KEY_FIELD, "plantnet_api_key_encrypted")
 
 
 class StorageSettings(BaseModel):

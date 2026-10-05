@@ -1651,7 +1651,7 @@ def get_system_settings_repo() -> ArangoSystemSettingsRepository:
 def get_system_settings_service() -> SystemSettingsService:
     from app.domain.services.system_settings_service import SystemSettingsService
 
-    return SystemSettingsService(get_system_settings_repo())
+    return SystemSettingsService(get_system_settings_repo(), get_encryption_engine())
 
 
 def get_ha_publish_repo() -> ArangoHaPublishRepository:
@@ -1786,7 +1786,7 @@ def get_notification_preference_repo() -> ArangoNotificationPreferenceRepository
         ArangoNotificationPreferenceRepository,
     )
 
-    return ArangoNotificationPreferenceRepository(get_db())
+    return ArangoNotificationPreferenceRepository(get_db(), get_encryption_engine())
 
 
 class _DecodedRedis(Protocol):

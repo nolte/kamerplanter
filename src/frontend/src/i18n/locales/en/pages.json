@@ -3965,6 +3965,7 @@
         "emailDaily": "Daily digest",
         "emailDailyHelper": "You will receive one bundled email per day with all due tasks (digest).",
         "appriseUrls": "Apprise URLs (one per line)",
+        "appriseUrlsHelper": "Saved URLs contain access tokens and are shown masked (for example tgram://****#1). Keep a masked line to keep that URL, delete it to remove the URL, or enter a new URL on its own line.",
         "quietHours": "Quiet hours",
         "quietHoursDesc": "During quiet hours no notifications will be delivered (except critical alerts like frost or sensor warnings).",
         "quietHoursStart": "From",

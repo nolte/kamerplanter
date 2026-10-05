@@ -201,6 +201,9 @@ Der Key wird maskiert gespeichert (nie im Klartext in Antworten oder Logs sichtb
 
 Nach dem Speichern kannst du auf **Verbindung prüfen** klicken. Das Backend sendet eine Testanfrage an Pl@ntNet und meldet, ob der Key gültig ist und wie viele Anfragen heute noch verfügbar sind.
 
+!!! info "Verschlüsselt gespeichert"
+    Den Pl@ntNet-Key und den Home-Assistant-Token speichert Kamerplanter verschlüsselt mit dem `FERNET_KEY` der Instanz; die Oberfläche zeigt nur die letzten vier Zeichen. Ohne `FERNET_KEY` — das geht nur mit `DEBUG=true` — bleiben sie im Klartext, und das Log meldet `encryption_disabled`. <!-- #2113 -->
+
 **Optional: Key entfernen**
 
 Klicke auf **Entfernen**, um den in der Datenbank gespeicherten Key zu löschen. Ist keine Umgebungsvariable gesetzt, wird die Foto-Identifikation damit deaktiviert.
