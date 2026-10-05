@@ -138,6 +138,8 @@ Der Chart startet den Worker mit `-Q critical,celery,bulk`. **Eine Queue, die ke
 
 Willst du `bulk` in einem eigenen Worker laufen lassen, gib diesem `-Q bulk` und dem bestehenden `-Q critical,celery` — nie eine Queue bei beiden weglassen. Ein zusätzlicher Worker braucht dieselbe Umgebung, dieselben Secrets und dieselbe NetworkPolicy wie `celery-worker`.
 
+**Bereitschaft (Issue #2154).** Der Worker gilt erst als bereit, wenn er Aufgaben annimmt: Mit `WORKER_READY_FILE` prüft er beim Start seine ArangoDB-Anmeldung (bis zu 60 Sekunden), schreibt die Datei, sobald sein Consumer läuft, und Startup- und Readiness-Probe testen sie (`test -f`, kostet praktisch nichts). Kann sich ein neuer Worker nach einem Upgrade nicht anmelden — falsches Passwort, Anwendungskonto nicht angelegt —, beendet er sich, wird nie bereit, und der Rollout behält den alten Worker. Die Liveness-Probe fragt mit `inspect ping -d "celery@${HOSTNAME}"` gezielt den eigenen Worker; ein `inspect ping` ohne Ziel gelingt, solange irgendein Worker antwortet.
+
 Jede Aufgabe hat ein Zeitlimit als Notbremse: 30 Minuten (weich, die Aufgabe kann aufräumen), nach 35 Minuten wird der Prozess beendet. Läufe, die fortsetzbar sind oder bewusst gestartet werden (Löschläufe, Datenexport, Storage-Migration, Datensatz-Erfassung), haben drei Stunden. Jeder Worker-Prozess reserviert nur noch eine Nachricht im Voraus statt vier.
 
 #### Frontend

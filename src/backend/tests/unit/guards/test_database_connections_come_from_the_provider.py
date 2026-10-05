@@ -47,6 +47,10 @@ CONNECTION_CLASSES = frozenset({"ArangoConnection", "TimescaleConnection", "Aran
 ALLOWED: dict[tuple[str, str], str] = {
     ("common/dependencies.py", "get_connection"): "the ArangoDB provider: the one construction, with the settings",
     ("common/dependencies.py", "get_timescale_connection"): "the TimescaleDB provider",
+    ("common/dependencies.py", "check_database_access"): (
+        "#2154 worker start gate: a throwaway connection that proves the login and is closed again, so the "
+        "prefork parent never holds the process-wide client its children would inherit"
+    ),
     ("data_access/arango/connection.py", "connect"): "the connection class building its own HTTP client",
     ("migrations/purge_orphan_ha_readings.py", "__init__"): (
         "an operator-invoked purge that must NOT create a missing database, which ArangoConnection.connect() does"

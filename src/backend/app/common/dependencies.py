@@ -267,6 +267,23 @@ def get_db() -> StandardDatabase:
     return get_connection().db
 
 
+def check_database_access() -> None:
+    """Open the application database with the configured account, then close it again (#2154).
+
+    The Celery worker's start gate. A throwaway connection rather than
+    :func:`get_connection`: the gate runs in the worker's parent process, and a
+    process-wide client opened there would be inherited by every forked pool
+    child. Raises whatever opening the database raises —
+    ``ArangoDatabaseAccessError`` for a refused login or missing rights, a
+    connection error for an unreachable server.
+    """
+    connection = ArangoConnection(settings)
+    try:
+        connection.connect()
+    finally:
+        connection.close()
+
+
 def get_aquaponik_repo() -> ArangoAquaponikRepository:
     """REQ-026 aquaponics repository (systems + fish/water child collections)."""
     from app.data_access.arango.aquaponik_repository import ArangoAquaponikRepository

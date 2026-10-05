@@ -314,6 +314,29 @@ expect profile-values-dev "the dev worker consumes critical, celery and bulk" "$
 expect storage-default "the worker excludes no queue" \
   "$(main_of celery-worker) | .args[] | select(test(\"^(-X|--exclude-queues)\"))" '[]'
 
+# ---------------------------------------------------------------------------
+# #2154 — the worker is ready when its consumer runs, and only then.
+#
+# No readiness probe meant a worker counted ready at container start: an
+# upgrade whose worker could not log in to ArangoDB replaced the old worker
+# anyway. The worker now writes WORKER_READY_FILE once it consumes (after
+# proving its database login); startup and readiness probes test that same
+# path. The startup budget's relation to the worker's database gate is held by
+# tests/unit/guards/test_chart_worker_probes.py.
+# ---------------------------------------------------------------------------
+ready_file="$(yq e '[.[] | select(.kind == "Deployment" and .metadata.name == "kamerplanter-celery-worker") | .spec.template.spec.containers[] | select(.name == "main") | .env[] | select(.name == "WORKER_READY_FILE") | .value] | .[0] // ""' "${work}/storage-default.yaml")"
+if [[ -z "${ready_file}" ]]; then
+  fail "storage-default: the worker sets no WORKER_READY_FILE"
+fi
+for probe in startupProbe readinessProbe; do
+  expect storage-default "the worker ${probe} tests the file the worker writes" \
+    "$(main_of celery-worker) | .${probe}.exec.command | join(\" \")" "[\"test -f ${ready_file}\"]"
+done
+expect storage-default "the worker liveness asks this pod's own worker, not any worker" \
+  "$(main_of celery-worker) | .livenessProbe.exec.command | join(\" \") | (contains(\"inspect ping -d\") and contains(\"celery@\") and contains(\"HOSTNAME\"))" '[true]'
+expect profile-values-dev "the dev worker carries the readiness probe too" \
+  "$(main_of celery-worker) | .readinessProbe.exec.command | join(\" \")" "[\"test -f ${ready_file}\"]"
+
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2
   exit 1

@@ -20,3 +20,11 @@ MIN_TOMBSTONE_SALT_LENGTH: int = 32
 # Same floor as the tombstone salt; read by both start-up gates, by
 # ``ErasureEngine.log_subject`` and by ``app.common.decoys.email_digest``.
 MIN_LOG_PSEUDONYM_SALT_LENGTH: int = 32
+
+# #2154: how long a Celery worker that reports readiness (WORKER_READY_FILE set)
+# keeps trying to open ArangoDB before it refuses to start, and how long it waits
+# between tries. One unreachable-server attempt itself takes ~18 s (python-arango's
+# own retries, measured), so the worst case is about budget + 18 s. The chart's
+# worker startupProbe must outlast it (tests/unit/guards/test_chart_worker_probes.py).
+WORKER_DATABASE_START_BUDGET_SECONDS: int = 60
+WORKER_DATABASE_START_RETRY_SECONDS: int = 5

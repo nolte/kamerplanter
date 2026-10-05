@@ -374,6 +374,7 @@ probes:
 - **Separate** Liveness- und Readiness-Endpunkte
 - Readiness hat kuerzere Intervalle als Liveness
 - ArangoDB: Basic Auth Header in Probe
+- Container ohne HTTP-Endpunkt (Celery-Worker): Readiness ist eine Datei, die der Prozess selbst schreibt, sobald er arbeitet (`WORKER_READY_FILE`, `exec: test -f`), mit `startupProbe`, dessen Budget das Start-Gate des Prozesses uebersteigt (#2154). Eine Probe per `celery inspect` fragt den **eigenen** Knoten (`-d celery@${HOSTNAME}`): ohne Ziel antwortet irgendein Worker und die Probe ist fuer diesen Pod bedeutungslos
 
 ---
 

@@ -1018,6 +1018,11 @@ controllers:
           # rule for it. Events would be dropped silently — the SDK does not
           # surface a blocked connection. Enabling the DSN is therefore two
           # changes, not one.
+          # #2154 — the readiness file the probes below test. With it set the
+          # worker proves its ArangoDB login before consuming (and exits when
+          # it cannot), writes the file once its consumer runs and removes it
+          # on shutdown. Lives on the writable /tmp emptyDir.
+          WORKER_READY_FILE: &worker-ready-file /tmp/worker-ready
           # NFR-013 — the worker generates thumbnails (§8.2) and runs the DSGVO
           # storage erasure (§6.2), so it MUST see the same backend + volume as
           # the backend pod: these lines are the backend's, verbatim (#2124).
@@ -1047,18 +1052,48 @@ controllers:
                 key: '{{ .Values.storage.s3.credentialsRef.secretAccessKeyKey }}'
                 optional: true
         probes:
+          # #2154 — a worker is ready when its consumer runs, which the worker
+          # itself records (WORKER_READY_FILE above): `test -f` costs nothing
+          # (measured: <1 ms, ~2 MB) where a `celery inspect` probe starts a
+          # Python interpreter that imports the whole application (~6 s,
+          # ~95 MB, inside this container's memory limit). Until the file
+          # exists the rollout keeps the old worker (surge 1, unavailable 0).
+          # Startup budget 5 s x 36 = 180 s: import (~6 s) + the database gate
+          # (WORKER_DATABASE_START_BUDGET_SECONDS 60 s, one attempt up to
+          # ~18 s more) + broker connect — tests/unit/guards/test_chart_worker_probes.py.
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["test", "-f", *worker-ready-file]
+              periodSeconds: 5
+              timeoutSeconds: 2
+              failureThreshold: 36
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["test", "-f", *worker-ready-file]
+              periodSeconds: 10
+              timeoutSeconds: 2
+              failureThreshold: 3
+          # Liveness asks THIS worker (`-d celery@$HOSTNAME`; the pod name is
+          # the node name). Plain `inspect ping` broadcasts and passes when ANY
+          # worker answers — measured: exit 0 with this pod's own worker dead
+          # and another one alive — so during a rollout the old pod kept the
+          # new one "alive". It still costs an interpreter start, hence the
+          # long period; it runs only after the startup probe succeeded.
           liveness:
             enabled: true
             custom: true
             spec:
               exec:
-                command: ["celery", "-A", "app.tasks", "inspect", "ping", "--timeout", "5"]
-              initialDelaySeconds: 30
-              periodSeconds: 30
-              timeoutSeconds: 10
+                command: ["sh", "-c", "exec celery -A app.tasks inspect ping -d \"celery@${HOSTNAME}\" --timeout 10"]
+              periodSeconds: 60
+              timeoutSeconds: 20
               failureThreshold: 3
-          readiness:
-            enabled: false
         # The worker does the same in-memory Pillow image decoding as the
         # backend (thumbnail generation §8.2), so 512Mi OOMKills it under load.
         # Match the backend's 2Gi headroom.

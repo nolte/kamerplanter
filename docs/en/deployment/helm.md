@@ -137,6 +137,8 @@ The chart starts the worker with `-Q critical,celery,bulk`. **A queue no worker 
 
 To run `bulk` in a worker of its own, give that worker `-Q bulk` and the existing one `-Q critical,celery` — never leave a queue out of both. An additional worker needs the same environment, Secrets and NetworkPolicy as `celery-worker`.
 
+**Readiness (issue #2154).** The worker counts as ready only once it takes tasks: with `WORKER_READY_FILE` it checks its ArangoDB login at start (for up to 60 seconds), writes the file as soon as its consumer runs, and the startup and readiness probes test it (`test -f`, which costs next to nothing). If a new worker cannot log in after an upgrade — wrong password, application account not provisioned — it exits, never becomes ready, and the rollout keeps the old worker. The liveness probe asks its own worker with `inspect ping -d "celery@${HOSTNAME}"`; an `inspect ping` without a destination succeeds as long as any worker answers.
+
 Every task has a time limit as a backstop: 30 minutes (soft, the task can clean up), after 35 minutes the process is ended. Runs that are resumable or started on purpose (erasure runs, data export, storage migration, dataset acquisition) get three hours. Each worker process now reserves one message ahead instead of four.
 
 #### Frontend
