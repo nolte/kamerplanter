@@ -30,7 +30,7 @@ def _client() -> TestClient:
 
     @app.get("/missing")
     def _missing() -> None:
-        raise NotFoundError("Plant", "p-1")
+        raise NotFoundError("PlantInstance", "p-1")
 
     return TestClient(app)
 
