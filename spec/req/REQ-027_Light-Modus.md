@@ -7,7 +7,7 @@ Kategorie: Plattform & Deployment
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.5 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
+Version: 1.6 (Umsetzungsstand: Moduswechsel §7a nicht implementiert #1855, AI-Provider-Guard W-001 nicht implementiert #2176, Plattform-Rolle im Light-Modus über den Modus statt über eine Mitgliedschaft; #2121); 1.5 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Abhängigkeit: REQ-023 v1.6, REQ-024 v1.3, REQ-025, REQ-031
 ```
 
@@ -15,6 +15,8 @@ Abhängigkeit: REQ-023 v1.6, REQ-024 v1.3, REQ-025, REQ-031
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.6 | 2026-10-05 | **#2121 (MT-025, Umsetzungsstand markiert; reine Spec-Änderung).** Gemessen gegen `develop` (`b064e63b7`): (1) **Moduswechsel (§1.1 Szenarien 5–8, §7a, AK-15–AK-28) ist nicht implementiert** (#1855): kein Code liest oder schreibt `system_meta`, es gibt weder `POST /system/takeover` noch `GET /system/takeover-status`, der System-User bleibt nach einem Wechsel auf `full` aktiv; `OnboardingService` trägt nur ein `takeover_accepted`-Flag. Die Abschnitte bleiben als Zielbild, jeweils mit Status. Neues **AK-35**: ein im Light-Modus ausgestellter API-Key ist nach dem Wechsel auf `full` ungültig — heute bleibt er gültig (der Key prüft nur sich selbst und `is_active` des System-Users), ebenfalls #1855. (2) **AI-Provider-Guard (§6.1.1, AK-29–AK-34) ist nicht implementiert** (#2176): `validate_light_mode_ai_config` und `StartupConfigurationError` existieren nicht. (3) **§3.4/AK-12:** Der System-User erhält **keine** Mitgliedschaft im Platform-Tenant; Plattform-Admin ist er, weil `is_platform_admin` im Light-Modus immer wahr ist. Die Szenario-Rollen auf `lead` (+ Zusatzberechtigungen) nachgezogen (vorher `admin`). |
+| 1.5 | (vorher) | Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt. |
 | 1.4 | 2026-04-27 | **W-012 + W-015 + W-017:** §1 Klarstellungs-Tabelle „Was deaktiviert / was aktiv bleibt" — technische Datenschutz-Maßnahmen (GPS-Rundung, IP-Anonymisierung, EXIF-Strip, HTTPS, Rate Limiting) bleiben aktiv (W-012). Service Accounts in §2.1 als deaktiviert markiert; §1.1 Szenario 5 um Migrations-Hinweis für externe Integrationen erweitert (W-015). §6.1 Lifespan ruft `ensure_system_user_calendar_feed_token()` auf; §6.2 Klarstellung dass CalendarFeed-Endpunkt in beiden Modi aktiv ist (W-017). |
 | 1.3 | 2026-04-27 | **W-001 Fix (AI-Provider-Guard):** Startup-Validierung `validate_light_mode_ai_config()` ergänzt (§6.1). Whitelist `LIGHT_MODE_ALLOWED_PROVIDER_TYPES = {'ollama', 'openai_compatible'}` + Loopback-Heuristik für `base_url` bei `openai_compatible`. Hard-Crash bei Cloud-Provider-Konfiguration im Light-Modus. Kein Override-Flag. Sechs neue Abnahmekriterien (AK-29 bis AK-34). |
 | 1.2 | 2026-03-16 | **Bidirektionaler Moduswechsel:** Upgrade Light→Full (System-Tenant-Übernahme durch ersten registrierten User, Platform-Admin-Transfer), Downgrade Full→Light (Datenverlust akzeptabel, System-User/Tenant-Reaktivierung, Multi-Tenant-Daten verwaist). Neue Szenarien 5–8, Upgrade-/Downgrade-API, Abnahmekriterien. |
@@ -153,6 +155,10 @@ Voraussetzung: Light-Modus
 ```
 
 <!-- Quelle: Bidirektionaler Moduswechsel v1.2 -->
+> **Nicht implementiert (v1.6, #1855):** Die Szenarien 5–8 und §7a beschreiben das Zielbild. Heute erkennt kein Code einen
+> Moduswechsel; nach einem Wechsel auf `full` bleibt der System-User aktiv, ein neu registriertes Konto erhält einen eigenen
+> leeren persönlichen Mandanten, und die Light-Daten sind nur dem System-User zugänglich.
+
 **Szenario 5: Upgrade von Light auf Full — System-Tenant-Übernahme**
 ```
 Voraussetzung: Nutzer hat im Light-Modus 30 Pflanzen, 3 Standorte, 5 Nährstoffpläne angelegt
@@ -170,9 +176,9 @@ Voraussetzung: Nutzer hat im Light-Modus 30 Pflanzen, 3 Standorte, 5 Nährstoffp
 7. Nutzer bestätigt → System-Tenant wird in-place übernommen:
    a) system-tenant.name → "{display_name}s Garten"
    b) system-tenant.type bleibt "personal"
-   c) Neue Membership: registrierter User → system-tenant (role: admin)
+   c) Neue Membership: registrierter User → system-tenant (role: lead, admin_scopes: [management, technical])
    d) System-User-Membership wird auf status: "left" gesetzt
-   e) Neuer User erhält admin-Membership im Platform-Tenant (= erster KA-Admin)
+   e) Neuer User erhält lead-Membership im Platform-Tenant (= erster KA-Admin)
 8. Alle 30 Pflanzen, Standorte, Nährstoffpläne etc. gehören jetzt dem neuen User
 9. Neuer User kann jetzt weitere Mitglieder einladen (REQ-024)
 10. **Externe Integrationen (W-015):** Home Assistant, Grafana, CI/CD und ähnliche M2M-Clients riefen die API im Light-Modus ohne Auth auf. Nach dem Upgrade müssen sie auf **Service-Account-API-Keys** umgestellt werden (REQ-023 §3.7). Tenant-Admin generiert die Keys über die Settings → Integrationen-Sektion und konfiguriert sie in den externen Systemen. Bestehende HA-Konfigurationen funktionieren ohne Anpassung weiter, bis das nächste API-Polling den 401 zurückbekommt — dann ist Migration fällig.
@@ -187,7 +193,7 @@ Voraussetzung: Wie Szenario 5
 7. System erstellt persönlichen Tenant für den neuen User (Standard REQ-024)
 8. System-Tenant bleibt mit status: "active" bestehen (verwaist)
    → Nur über KA-Admin-Panel einsehbar/löschbar
-9. Neuer User erhält admin-Membership im Platform-Tenant (= KA-Admin)
+9. Neuer User erhält lead-Membership im Platform-Tenant (= KA-Admin)
 10. KA-Admin kann System-Tenant später über Admin-Panel löschen oder
     einem anderen User zuweisen
 ```
@@ -204,7 +210,7 @@ Voraussetzung: Full-Modus mit 3 Usern, 2 Tenants, 50 Pflanzen verteilt
 4. System prüft: System-Tenant vorhanden?
    a) Ja → System-Tenant wird reaktiviert (status: "active")
    b) Nein → System-Tenant wird neu erstellt
-5. System-User erhält admin-Membership in System-Tenant + Platform-Tenant
+5. System-User erhält lead-Membership in System-Tenant + Platform-Tenant
 6. Auto-Assign: Alle globalen Stammdaten → System-Tenant
 7. Frontend: Kein Login-Screen, arbeitet als System-User im System-Tenant
 
@@ -368,7 +374,11 @@ SYSTEM_MEMBERSHIP = Membership(
 <!-- Quelle: Platform-Tenant & Auto-Assign v1.1 -->
 ### 3.4 Platform-Tenant-Membership im Light-Modus
 
-Im Light-Modus erhält der System-User automatisch eine admin-Membership im Platform-Tenant (REQ-024 v1.3). Damit ist der System-User gleichzeitig:
+> **Umsetzungsstand (v1.6, #2121):** Der Light-Seed (`seed_light_mode.py`) legt nur die Mitgliedschaft im System-Tenant an
+> (`lead` + `management` + `technical`). Eine Mitgliedschaft im Platform-Tenant entsteht **nicht**; Plattform-Admin ist der
+> System-User, weil `app.common.auth.is_platform_admin` im Light-Modus immer `True` liefert. Das Code-Beispiel unten ist Zielbild.
+
+Im Light-Modus soll der System-User eine lead-Membership im Platform-Tenant erhalten (REQ-024 v1.3). Damit ist der System-User gleichzeitig:
 - **KA-Admin** (via Platform-Tenant-Membership) → kann globale Stammdaten verwalten
 - **Tenant-Admin** (via System-Tenant-Membership) → kann Pflanzen, Standorte etc. verwalten
 
@@ -601,6 +611,9 @@ async def lifespan(app: FastAPI):
 
 <!-- Quelle: Widerspruchsanalyse W-001 -->
 #### 6.1.1 AI-Provider-Guard (W-001)
+
+> **Nicht implementiert (v1.6, #2176):** Weder `validate_light_mode_ai_config` noch `StartupConfigurationError` noch
+> `AI_PUBLIC_PROVIDER_KEY` existieren im Code; ein Cloud-Provider im Light-Modus wird beim Start nicht abgewiesen.
 
 Im Light-Modus existiert kein Consent-Mechanismus (REQ-025 deaktiviert). Cloud-Provider dürfen daher nicht als System-Default für KI-Anfragen verwendet werden, weil keine Einwilligung für `ai_cloud_processing` erteilt werden kann.
 
@@ -879,6 +892,10 @@ apiClient.interceptors.request.use((config) => {
 <!-- Quelle: Bidirektionaler Moduswechsel v1.2 -->
 ## 7a. Moduswechsel-Mechanik
 
+> **Nicht implementiert (v1.6, #1855):** Weder `system_meta` noch `detect_mode_change`, `handle_upgrade_light_to_full`,
+> `handle_downgrade_full_to_light`, `POST /system/takeover` oder `GET /system/takeover-status` existieren. Der Abschnitt ist
+> Zielbild; #1855 entscheidet, ob er so oder als engerer Betreiber-Weg (Übertragung des System-Tenants per Kommando) umgesetzt wird.
+
 ### 7a.1 Modus-Erkennung beim Start
 
 Das Backend erkennt einen Moduswechsel durch Vergleich des gespeicherten Modus mit dem aktuellen:
@@ -1080,33 +1097,34 @@ def get_takeover_status() -> dict:
 | AK-10 | `GET /api/v1/mode` gibt den korrekten Modus und Feature-Flags zurück | Unit |
 <!-- Quelle: Platform-Tenant & Auto-Assign v1.1 -->
 | AK-11 | Platform-Tenant wird beim Light-Modus-Start automatisch erstellt (idempotent) | Integration |
-| AK-12 | System-User hat admin-Membership im Platform-Tenant (= KA-Admin) | Integration |
+| AK-12 | System-User ist KA-Admin — **anders umgesetzt** (v1.6): nicht über eine Mitgliedschaft im Platform-Tenant, sondern weil `is_platform_admin` im Light-Modus immer wahr ist | Integration |
 | AK-13 | Alle globalen Stammdaten (Species, Pests, Diseases, Treatments, Fertilizers, NutrientPlans) haben `tenant_has_access`-Kanten zum System-Tenant | Integration |
 | AK-14 | Light-Modus-Nutzer sieht alle verfügbaren Stammdaten ohne manuelle Zuweisung | E2E |
 <!-- /Quelle: Platform-Tenant & Auto-Assign v1.1 -->
 <!-- Quelle: Bidirektionaler Moduswechsel v1.2 -->
-| AK-15 | Moduswechsel wird erkannt: `system_meta.deployment_mode` wird beim Start verglichen und aktualisiert | Integration |
-| AK-16 | **Upgrade Light→Full:** System-User wird auf `status: inactive` gesetzt | Integration |
-| AK-17 | **Upgrade Light→Full:** `pending_takeover` wird in `system_meta` gesetzt | Integration |
-| AK-18 | **Upgrade Light→Full:** Erster registrierter User kann System-Tenant übernehmen (`POST /system/takeover`, accept=true) | Integration |
-| AK-19 | **Upgrade Light→Full:** Bei Übernahme erhält User admin-Membership in System-Tenant + Platform-Tenant | Integration |
-| AK-20 | **Upgrade Light→Full:** Bei Ablehnung wird persönlicher Tenant erstellt, System-Tenant bleibt verwaist | Integration |
-| AK-21 | **Upgrade Light→Full:** `pending_takeover` wird nach Übernahme/Ablehnung entfernt | Integration |
-| AK-22 | **Downgrade Full→Light:** System-User wird reaktiviert oder neu erstellt | Integration |
-| AK-23 | **Downgrade Full→Light:** System-Tenant wird reaktiviert oder neu erstellt | Integration |
-| AK-24 | **Downgrade Full→Light:** Auto-Assign aller Stammdaten zum System-Tenant wird ausgeführt | Integration |
-| AK-25 | **Downgrade Full→Light:** Andere Tenants/Users bleiben in DB erhalten (kein Löschen) | Integration |
-| AK-26 | **Downgrade Full→Light:** App arbeitet sofort als System-User im System-Tenant | E2E |
-| AK-27 | **Roundtrip:** Light→Full→Light→Full: Alle Daten bleiben erhalten und sind nach erneutem Upgrade zugänglich | Integration |
-| AK-28 | `GET /api/v1/system/takeover-status` gibt korrekte Ressourcen-Zählung zurück | Integration |
+| AK-15 | **Nicht implementiert (#1855):** Moduswechsel wird erkannt: `system_meta.deployment_mode` wird beim Start verglichen und aktualisiert | Integration |
+| AK-16 | **Nicht implementiert (#1855):** **Upgrade Light→Full:** System-User wird auf `status: inactive` gesetzt | Integration |
+| AK-17 | **Nicht implementiert (#1855):** **Upgrade Light→Full:** `pending_takeover` wird in `system_meta` gesetzt | Integration |
+| AK-18 | **Nicht implementiert (#1855):** **Upgrade Light→Full:** Erster registrierter User kann System-Tenant übernehmen (`POST /system/takeover`, accept=true) | Integration |
+| AK-19 | **Nicht implementiert (#1855):** **Upgrade Light→Full:** Bei Übernahme erhält User lead-Membership in System-Tenant + Platform-Tenant | Integration |
+| AK-20 | **Nicht implementiert (#1855):** **Upgrade Light→Full:** Bei Ablehnung wird persönlicher Tenant erstellt, System-Tenant bleibt verwaist | Integration |
+| AK-21 | **Nicht implementiert (#1855):** **Upgrade Light→Full:** `pending_takeover` wird nach Übernahme/Ablehnung entfernt | Integration |
+| AK-22 | **Nicht implementiert (#1855):** **Downgrade Full→Light:** System-User wird reaktiviert oder neu erstellt | Integration |
+| AK-23 | **Nicht implementiert (#1855):** **Downgrade Full→Light:** System-Tenant wird reaktiviert oder neu erstellt | Integration |
+| AK-24 | **Nicht implementiert (#1855):** **Downgrade Full→Light:** Auto-Assign aller Stammdaten zum System-Tenant wird ausgeführt | Integration |
+| AK-25 | **Nicht implementiert (#1855):** **Downgrade Full→Light:** Andere Tenants/Users bleiben in DB erhalten (kein Löschen) | Integration |
+| AK-26 | **Nicht implementiert (#1855):** **Downgrade Full→Light:** App arbeitet sofort als System-User im System-Tenant | E2E |
+| AK-27 | **Nicht implementiert (#1855):** **Roundtrip:** Light→Full→Light→Full: Alle Daten bleiben erhalten und sind nach erneutem Upgrade zugänglich | Integration |
+| AK-28 | **Nicht implementiert (#1855):** `GET /api/v1/system/takeover-status` gibt korrekte Ressourcen-Zählung zurück | Integration |
 <!-- /Quelle: Bidirektionaler Moduswechsel v1.2 -->
 <!-- Quelle: Widerspruchsanalyse W-001 -->
-| AK-29 | **Light-Modus + Cloud-Provider:** Wenn `KAMERPLANTER_MODE=light`, `AI_FEATURES_ENABLED=true` und der konfigurierte `AI_PUBLIC_PROVIDER_KEY` auf einen Provider mit `provider_type='anthropic'` zeigt, MUSS der Backend-Start mit `StartupConfigurationError` abgebrochen werden (Hard-Crash). | Integration |
-| AK-30 | **Light-Modus + Ollama-Provider:** Wenn `KAMERPLANTER_MODE=light`, `AI_FEATURES_ENABLED=true` und ein Ollama-Provider (`provider_type='ollama'`) konfiguriert ist, MUSS der Backend-Start fehlerfrei durchlaufen — unabhängig davon, ob die `base_url` localhost oder ein internes Netz ist. | Integration |
-| AK-31 | **Light-Modus + lokaler `openai_compatible`-Provider:** Wenn `provider_type='openai_compatible'` und die `base_url` auf `localhost`/`127.0.0.1`/`::1`/private IP/`*.local`/`*.internal`/`*.svc.cluster.local` zeigt, MUSS der Backend-Start fehlerfrei durchlaufen. | Integration |
-| AK-32 | **Light-Modus + öffentlicher `openai_compatible`-Provider:** Wenn `provider_type='openai_compatible'` und die `base_url` auf einen öffentlichen Host zeigt (z.B. `api.openai.com`, `api.groq.com`, `api.together.xyz`), MUSS der Backend-Start mit `StartupConfigurationError` abgebrochen werden. | Integration |
-| AK-33 | **Light-Modus + AI deaktiviert:** Wenn `KAMERPLANTER_MODE=light` und `AI_FEATURES_ENABLED=false`, MUSS der Backend-Start auch ohne `AI_PUBLIC_PROVIDER_KEY` fehlerfrei durchlaufen — der Validator wird kurzgeschlossen. | Integration |
-| AK-34 | **Kein Override:** Es existiert KEIN Environment-Flag (z.B. `LIGHT_MODE_ALLOW_CLOUD_AI`), das `validate_light_mode_ai_config()` umgehen kann. Wer Cloud-AI braucht, muss in den Full-Modus wechseln. | Code-Review |
+| AK-29 | **Nicht implementiert (#2176):** **Light-Modus + Cloud-Provider:** Wenn `KAMERPLANTER_MODE=light`, `AI_FEATURES_ENABLED=true` und der konfigurierte `AI_PUBLIC_PROVIDER_KEY` auf einen Provider mit `provider_type='anthropic'` zeigt, MUSS der Backend-Start mit `StartupConfigurationError` abgebrochen werden (Hard-Crash). | Integration |
+| AK-30 | **Nicht implementiert (#2176):** **Light-Modus + Ollama-Provider:** Wenn `KAMERPLANTER_MODE=light`, `AI_FEATURES_ENABLED=true` und ein Ollama-Provider (`provider_type='ollama'`) konfiguriert ist, MUSS der Backend-Start fehlerfrei durchlaufen — unabhängig davon, ob die `base_url` localhost oder ein internes Netz ist. | Integration |
+| AK-31 | **Nicht implementiert (#2176):** **Light-Modus + lokaler `openai_compatible`-Provider:** Wenn `provider_type='openai_compatible'` und die `base_url` auf `localhost`/`127.0.0.1`/`::1`/private IP/`*.local`/`*.internal`/`*.svc.cluster.local` zeigt, MUSS der Backend-Start fehlerfrei durchlaufen. | Integration |
+| AK-32 | **Nicht implementiert (#2176):** **Light-Modus + öffentlicher `openai_compatible`-Provider:** Wenn `provider_type='openai_compatible'` und die `base_url` auf einen öffentlichen Host zeigt (z.B. `api.openai.com`, `api.groq.com`, `api.together.xyz`), MUSS der Backend-Start mit `StartupConfigurationError` abgebrochen werden. | Integration |
+| AK-33 | **Nicht implementiert (#2176):** **Light-Modus + AI deaktiviert:** Wenn `KAMERPLANTER_MODE=light` und `AI_FEATURES_ENABLED=false`, MUSS der Backend-Start auch ohne `AI_PUBLIC_PROVIDER_KEY` fehlerfrei durchlaufen — der Validator wird kurzgeschlossen. | Integration |
+| AK-34 | **Nicht implementiert (#2176):** **Kein Override:** Es existiert KEIN Environment-Flag (z.B. `LIGHT_MODE_ALLOW_CLOUD_AI`), das `validate_light_mode_ai_config()` umgehen kann. Wer Cloud-AI braucht, muss in den Full-Modus wechseln. | Code-Review |
+| AK-35 | **Light-Keys nach dem Wechsel (v1.6, nicht implementiert, #1855):** Ein API-Key, der im Light-Modus für den System-User ausgestellt wurde, ist nach dem Wechsel auf `full` ungültig (401) — er wurde ohne Authentifizierung ausgestellt und belegt nichts (#1844). Heute bleibt er gültig, solange der System-User aktiv ist | Integration |
 <!-- /Quelle: Widerspruchsanalyse W-001 -->
 
 ### Frontend-Kriterien:

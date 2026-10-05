@@ -7,7 +7,7 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.24 (Mandanten-Lebenszyklus `status` statt `is_active`, Löschung mit 90 Tagen Gnadenfrist und Abbruch, AK-52 umgesetzt, AK-65; #2123); 1.23 (Mitgliederlimit durchgesetzt, Plattform-Obergrenze `TENANT_MAX_MEMBERS_CEILING`, AK-64; #2133); 1.22 (Deaktivierter Mandant sperrt alle Mitglieder aus, AK-48 umgesetzt; #2105); 1.21 (Mitgliedschafts-Audit, Step-up für das Hinzufügen, adressgebundene E-Mail-Einladung, Zuweisungen enden mit der Mitgliedschaft, atomare Mandantengründung, AK-59 bis AK-63; #2111, #2106, #2115, #2114, #2118); 1.20 (Rollen-Eskalation: keine Selbst-Beförderung, `lead` in `platform` nur durch eine Leitung, AK-58; #2078); 1.19 (Step-up für Rollenwechsel und Entfernen eines Mitglieds, AK-56 umgesetzt und AK-57; #2009, #2032); 1.18 (Mandantenlöschung entfernt auch `is_system`-Zeilen des Mandanten; `v0078`, #2027)
+Version: 1.26 (Spec an den Code angeglichen: Plattform-Viewer nicht implementiert, Datenmodell `Tenant`/`Membership`/`Invitation` nach Code, AK-58 Rangregel beschlossen, AK-56 Wirkung, Status für AK-06/07/09/38–51; #2121); 1.24 (Mandanten-Lebenszyklus `status` statt `is_active`, Löschung mit 90 Tagen Gnadenfrist und Abbruch, AK-52 umgesetzt, AK-65; #2123); 1.23 (Mitgliederlimit durchgesetzt, Plattform-Obergrenze `TENANT_MAX_MEMBERS_CEILING`, AK-64; #2133); 1.22 (Deaktivierter Mandant sperrt alle Mitglieder aus, AK-48 umgesetzt; #2105); 1.21 (Mitgliedschafts-Audit, Step-up für das Hinzufügen, adressgebundene E-Mail-Einladung, Zuweisungen enden mit der Mitgliedschaft, atomare Mandantengründung, AK-59 bis AK-63; #2111, #2106, #2115, #2114, #2118); 1.20 (Rollen-Eskalation: keine Selbst-Beförderung, `lead` in `platform` nur durch eine Leitung, AK-58; #2078); 1.19 (Step-up für Rollenwechsel und Entfernen eines Mitglieds, AK-56 umgesetzt und AK-57; #2009, #2032); 1.18 (Mandantenlöschung entfernt auch `is_system`-Zeilen des Mandanten; `v0078`, #2027)
 Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autorität bei Widerspruch**), REQ-023 v1.13 (Service Accounts, Plattform-Admin), NFR-016 (Migrations-Framework — `v0032`)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-049 v1.4 (Rollenmodell & verbindliches Vokabular — **Autori
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.26 | 2026-10-05 | **#2121 (MT-025, Spec an den Code angeglichen) und #2078 (AK-58 beschlossen).** Gemessen gegen `develop` (`b064e63b7`): (1) **Plattform-Viewer (§1a.4, AK-38–AK-40, AK-46, AK-50, AK-51) ist nicht implementiert.** `is_platform_admin` kennt nur eine aktive `lead`-Mitgliedschaft in `platform`; eine `viewer`-Mitgliedschaft dort gewährt keinerlei Admin-Zugriff (auch keinen lesenden). Markiert statt gestrichen; kein Issue vorhanden (Kandidat im PR). (2) **Datenmodell nach Code (§2):** `Tenant.type` heißt `tenant_type`; `Tenant.status` hat fünf Werte (`active`, `suspended`, `pending_deletion`, `orphaned`, `deleted`, AK-65) und `deletion_scheduled_at`; `orphaned_since` entfällt (REQ-023 v1.43), `suspended_reason` ist nicht implementiert (#2143). `Membership` trägt `is_active: bool` statt `status`; Austritt und Entfernen löschen die Mitgliedschaft. `Invitation` heißt im Code `invitation_type`/`invited_by_user_key`; `admin_scopes`, `max_uses`/`use_count` und ein offenes `expires_at` gibt es nicht — eine Einladung gilt 7 Tage und genau einmal (AK-07 nicht implementiert). `max_members` war mit #2133 schon angeglichen. (3) **AK-58 beschlossen (Betreiberentscheidung 2026-10-04, #2078):** die umgesetzte Regel (keine Selbst-Erhöhung; `lead` in `platform` nur durch eine Leitung dort; sonst keine Rangdecke) ist die Entscheidung, nicht mehr Vorschlag. **Datenschritt gemessen:** `accept_invitation` prüft die Rangregel beim Annehmen nicht erneut — eine vor #2084 von einem Nicht-`lead` ausgestellte `lead`-Einladung in `platform` macht den Annehmenden heute noch zum Plattform-Admin (Messung über den echten `TenantService`). Widerruf solcher Einladungen bleibt Betreiber-Schritt beim Rollout; die Prüfung beim Annehmen ist ein Issue-Kandidat. (4) **AK-56** nennt die Wirkung (Zustand `suspended`, AK-48/AK-65). **AK-52**: der überholte Kasten „Noch nicht implementiert“ entfernt (umgesetzt seit v1.24). **AK-06** (E-Mail wird nie zugestellt, #2162), **AK-09** (`default_tenant_key` ohne Verbraucher), **AK-47** (gesperrter Mandant wird ausgeblendet statt ausgegraut) und **AK-49** mit Status. |
 | 1.24 | 2026-10-05 | **#2123 (MT-027, AK-52 entschieden und umgesetzt, Betreiberentscheidung 2026-10-04, brechend):** Bis v1.22 löschte `DELETE /tenants/{slug}` (und `DELETE /admin/platform/tenants/{key}`) **sofort**: Mitgliedschaften deaktiviert, Celery-Task ausgelöst, kein Rückweg — gemessen in `TenantService.delete_tenant` (Nachweis anlegen → `deactivate_all_for_tenant` → `_dispatch_tenant_erasure`). Neu: (1) **Zustandsmodell** `Tenant.status: active \| suspended \| pending_deletion \| orphaned \| deleted` ersetzt `is_active` (Migration `v0085`: `is_active=false` → `suspended`, offener Löschnachweis → `deleted`, sonst `active`; das Feld `is_active` wird entfernt). `is_active` bleibt in den API-Antworten als **abgeleiteter** Wert (`status == active`) erhalten; jeder Resolver aus #2105 liest ihn, deshalb wird **jeder** Zustand außer `active` für niemanden aufgelöst (dieselbe `403`). (2) **Gnadenfrist** `RETENTION_TENANT_ERASURE_GRACE_DAYS` (Standard **90 Tage** wie bei Konten, Untergrenze 0 für Self-Hosted, Obergrenze 90, NFR-011 R-01b): Die Anfrage plant die Löschung (`202`, `status: scheduled`, `scheduled_for`), setzt den Mandanten auf `pending_deletion` und **lässt die Mitgliedschaften unverändert** — das Einfrieren ist der Zustand, nicht die Mitgliedschaft. Der tägliche Lauf `resume_tenant_erasures` beansprucht den Nachweis erst nach Fristablauf, setzt `deleted`, deaktiviert die Mitgliedschaften und löscht wie bisher (AK-53). Mit Frist 0 bleibt der Sofort-Pfad. (3) **Abbruch** `POST /tenants/{slug}/erasure/cancel` (Leitung **und** Verwaltung aus der gespeicherten Mitgliedschaft, Step-up `tenant_erasure_cancel`, nie per API-Schlüssel) und `POST /admin/platform/tenants/{key}/erasure/cancel` (Plattform-Admin, Step-up): Nachweis wird nur entfernt, solange er `scheduled` ist (atomar gegen den Claim des Laufs), der Mandant ist danach wieder `active` mit allen Mitgliedschaften. (4) **Benachrichtigung** aller aktiven Mitglieder mit dem Datum und dem Hinweis auf den persönlichen Datenexport (Art.-20-Fenster). **Exportfenster (gemessen):** Der persönliche Export (`POST /privacy/export`) ist kontobezogen, nicht mandantenaufgelöst — er erreicht die eigenen Beiträge im Mandanten ohne den Slug-Resolver. Ein `pending_deletion`-Mandant bleibt deshalb für alle gesperrt (`403`-Vertrag von #2105 unverändert); nur die Abbruch-Route ist ausgenommen und begründet in den Guards registriert. (5) Der Admin-Schalter `is_active` bewegt nur zwischen `active` und `suspended`; ein Mandant in `pending_deletion`, `orphaned` oder `deleted` wird darüber nicht reaktiviert (`422`). AK-52 umgesetzt, AK-16/AK-53 nachgeführt, **AK-65** neu (bei der Zusammenführung mit #2133 umnummeriert; AK-64 ist dort das Mitgliederlimit). |
 | 1.23 | 2026-10-05 | **#2133 (MT-037, AK-64, brechend):** `max_members` wurde gespeichert und angezeigt, aber von keiner Entscheidung gelesen. Gemessen über die echte Route `POST /tenants/invitations/accept` auf ArangoDB 3.12: ein persönlicher Mandant mit `max_members=1` nahm ein zweites und drittes Mitglied mit `200` auf. **Betreiberentscheidung 2026-10-04:** (1) Eine **Plattform-Obergrenze** `TENANT_MAX_MEMBERS_CEILING` (Setting, Default `50`, mindestens 1); das wirksame Limit eines Mandanten ist `min(max_members, Obergrenze)`. (2) `max_members` ist `int` (kein `null` = unbegrenzt mehr; §2 angeglichen), wird beim Anlegen und bei jeder Änderung höchstens auf die Obergrenze gesetzt (darüber `422`, Detail-Code `max_members_above_ceiling`) — vom Mitglied mit Verwaltung (`PATCH /tenants/{slug}`) wie vom Plattform-Admin (`PATCH /admin/platform/tenants/{key}`); eine Organisation ohne Angabe erhält die Obergrenze. (3) Ein **persönlicher Mandant** wird mit `max_members=1` gegründet; ein weiteres Mitglied nimmt er erst auf, nachdem jemand mit Verwaltung das Limit angehoben hat (REQ-049 AK-19 angepasst). (4) Jeder Weg, der ein Konto einem **bestehenden** Mandanten hinzufügt — Einladungsannahme und `admin_add_membership` —, läuft durch die eine Einfügestelle `_create_membership_unless_erasing`; sie zählt die aktiven Mitgliedschaften (`is_active != false`) vor dem Einfügen und noch einmal danach (zwei gleichzeitige Beitritte können beide den letzten Platz sehen; der überzählige nimmt sich zurück). Voll → `422 MEMBER_LIMIT_REACHED`, nichts geschrieben: die Einladung bleibt offen, der Plattform-Admin wird nicht erst nach dem Step-up gefragt. (5) Ein Mandant, der heute **mehr** Mitglieder hat als sein Limit (vor dieser Version beigetreten oder nach einer Absenkung), behält alle; nur der nächste Beitritt wird verweigert. Keine Migration: gemessen kann ein Mandanten-Dokument `max_members` nur im Light-Modus-Mandanten auslassen (liest als `1`, dort gibt es keine Beitritte), `null` schreibt kein Pfad (`exclude_none`), und Werte über der Obergrenze (Plattform-Mandant `999`) werden zur Laufzeit gekappt. Die Ableitung des Limits aus einem Tarif (MT-049, #2142) ist **nicht** Teil dieser Version. Guard: `test_membership_mutations_write_the_security_audit.py` (Abschnitt #2133) hält, dass eine Mitgliedschaft nur in der begrenzten Einfügestelle entsteht (Gründung klassifiziert: der Gründer nimmt den ersten Platz). |
 | 1.22 | 2026-10-05 | **#2105 (MT-007, AK-48 umgesetzt):** `PATCH /admin/platform/tenants/{key}` mit `is_active=false` (Step-up, AK-56) entfernte den Mandanten nur aus `GET /tenants`; der Resolver `_membership_for_slug` las `membership.is_active`, nie `tenant.is_active`. Gemessen über die echten Routen auf ArangoDB 3.12: `GET /tenants/{slug}` und ein globaler Katalog mit `X-Active-Tenant` antworteten einem Mitglied des deaktivierten Mandanten mit `200`, der Fallback ohne Header las weiter den deaktivierten persönlichen Mandanten. Neu: (1) Pfad `/t/{slug}/` und Header `X-Active-Tenant` verweigern einen deaktivierten Mandanten mit **derselben** `403` wie einen unbekannten Slug (kein Existenz-Orakel, kein neuer Statuscode); (2) ohne Header fällt ein deaktivierter persönlicher Mandant auf den globalen Katalog zurück (`""`, niedrigste Rolle), nie auf einen Fehler; (3) MCP war bereits dicht (`list_my_tenants` filtert `tenant.is_active`; `list_tenants` ohne ihn, Werkzeugaufruf `not_found`) und ist jetzt durch einen Test gehalten. Mitgliedschaften bleiben unverändert gespeichert; Reaktivieren stellt den Zugriff mit derselben Rolle wieder her. **Plattform-Admins** verwalten einen deaktivierten Mandanten weiter über `/admin/platform/…` (Zugriff per Schlüssel hinter `require_platform_admin`, nicht über den Slug-Resolver); der Mandant `platform` kann nicht deaktiviert werden (#1021). Bewusst **nicht** Teil dieser Version (Betreiberentscheidung: minimale Prüfung): `409` für Einladungsannahme und Admin-Hinzufügen in einen deaktivierten Mandanten, `401` für einen API-Schlüssel, dessen `tenant_scope` einen deaktivierten Mandanten nennt (er erhält dort die `403` des Resolvers). Guard `test_tenant_lookups_read_is_active.py`: jede Mandanten-Abfrage liest `is_active` auf der geladenen Variablen oder ist begründet klassifiziert. |
@@ -259,12 +260,19 @@ Technische Konfiguration innerhalb des Mandanten — Home-Assistant- und InvenTr
 
 #### 1a.4 Platform-Rollen — Differenziertes Admin-Panel
 
-Der Platform-Tenant (§2, `is_platform: true`) trägt zusätzlich die Rolle Beobachter. Die Plattform-Rolle wird über die höchste fachliche Rolle im technischen Mandanten `platform` abgebildet (REQ-049 §2.5); der frühere Schlüssel `admin` heißt dort seit `v0032` `lead`.
+Der Platform-Tenant (§2, `is_platform: true`) soll zusätzlich die Rolle Beobachter tragen (Plattform-Viewer).
+
+> **Nicht implementiert (Stand v1.26, #2121):** Umgesetzt ist allein der **Plattform-Admin**. `app.common.auth.is_platform_admin`
+> prüft eine aktive Mitgliedschaft mit `lead` in `platform`; eine `viewer`-Mitgliedschaft dort gewährt **keinen** Zugriff auf
+> `/admin/platform/…`, auch keinen lesenden. Die Spalte „Platform-Viewer“ unten und AK-38–AK-40, AK-46, AK-50, AK-51 sind
+> Zielbild. Ein Folge-Issue für die Umsetzung oder Streichung existiert noch nicht.
+
+Die Plattform-Rolle wird über die höchste fachliche Rolle im technischen Mandanten `platform` abgebildet (REQ-049 §2.5); der frühere Schlüssel `admin` heißt dort seit `v0032` `lead`.
 
 | Platform-Rolle | Schlüssel | Rechte |
 |---------------|-----------|--------|
 | **Platform-Admin** | `lead` im Platform-Tenant | Voller KA-Admin-Zugriff: Globale Stammdaten CRUD, `tenant_has_access`-Verwaltung, Tenant-Übersicht, OIDC-Provider-Konfiguration, Platform Service Accounts, Species-Promotion, User-Übersicht |
-| **Platform-Viewer** | `viewer` im Platform-Tenant | Read-Only Admin-Panel: Globale Stammdaten lesen, Tenant-Übersicht (read-only), OIDC-Provider-Liste, User-Statistiken. Kein Schreibzugriff auf globale Daten. Typischer Use-Case: Monitoring-Dashboards, Audit. |
+| **Platform-Viewer** (nicht implementiert) | `viewer` im Platform-Tenant | Read-Only Admin-Panel: Globale Stammdaten lesen, Tenant-Übersicht (read-only), OIDC-Provider-Liste, User-Statistiken. Kein Schreibzugriff auf globale Daten. Typischer Use-Case: Monitoring-Dashboards, Audit. |
 
 **Platform-Permission-Matrix:**
 
@@ -291,6 +299,8 @@ Der Platform-Tenant (§2, `is_platform: true`) trägt zusätzlich die Rolle Beob
 | **User reaktivieren** | ✅ | ❌ |
 | **Tenant-Mitgliederliste einsehen (Cross-Tenant)** | ✅ | ✅ (read-only) |
 <!-- /Quelle: Tenant-Notfallverwaltung v1.7 -->
+
+**Umsetzungsstand der Admin-Spalte (v1.26):** „Notfall-Admin ernennen“ und „Verwaiste Tenants einsehen“ entfallen (REQ-023 v1.43, #2134 — eine Organisation ohne Verwaltung wird `orphaned` und gelöscht). Mandanten sperren und reaktivieren läuft über `PATCH /admin/platform/tenants/{key}` (`is_active` → Zustand `suspended`/`active`, AK-56/AK-65), Nutzer sperren und reaktivieren über `PATCH /admin/platform/users/{key}` (`is_active`); beides mit Step-up. „Platform Service Accounts verwalten“ ist offen (REQ-023 §5b.4).
 
 #### 1a.5 Zuweisungsbasierte Write-Kontrolle — **entfallen**
 
@@ -460,7 +470,7 @@ Max ist Mitglied in:
 5. URL ändert sich zu /t/gruene-oase/dashboard (Tenant-Slug in URL)
 ```
 
-**Szenario 4: OIDC-Auto-Join — Anbauvereinigung mit Keycloak**
+**Szenario 4: OIDC-Auto-Join — Anbauvereinigung mit Keycloak** (**nicht implementiert**, AK-09: `default_tenant_key` hat keinen Verbraucher)
 ```
 Voraussetzung:
   - OIDC-Provider "keycloak-anbauverein" konfiguriert (REQ-023)
@@ -551,7 +561,7 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 aktiven Mitgliedern
   - Properties:
     - `name: str` (Anzeigename, z.B. "Grüne Oase e.V.")
     - `slug: str` (URL-sicher, UNIQUE, z.B. `gruene-oase`)
-    - `type: Literal['personal', 'organization']`
+    - `tenant_type: Literal['personal', 'organization']` (bis v1.25 hier `type`; der Code heißt `tenant_type`)
     <!-- Quelle: Platform-Tenant v1.3 -->
     - `is_platform: bool` (Default: `false`) — `true` nur für den einen Platform-Tenant. Platform-Tenant-Admins haben KA-Admin-Rechte (REQ-023 v1.6). Wird beim Seeding automatisch erstellt. Reguläre Tenants können `is_platform` nicht auf `true` setzen.
     <!-- /Quelle: Platform-Tenant v1.3 -->
@@ -559,10 +569,11 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 aktiven Mitgliedern
     - `avatar_url: Optional[str]` (Logo/Bild der Organisation)
     - `settings: dict` (Tenant-spezifische Einstellungen, z.B. Default-Sprache, Zeitzone)
     - `max_members: int` (Mitgliederlimit, mindestens 1; wirksam ist `min(max_members, TENANT_MAX_MEMBERS_CEILING)`, Plattform-Obergrenze Default 50; persönlicher Mandant bei Gründung `1`, Organisation ohne Angabe die Obergrenze; darüber `422`. Ein voller Mandant verweigert jeden weiteren Beitritt mit `422 MEMBER_LIMIT_REACHED`, AK-64)
-    - `status: Literal['active', 'suspended', 'deleted']`
+    - `status: Literal['active', 'suspended', 'pending_deletion', 'orphaned', 'deleted']` (Lebenszyklus, AK-65; nur `active` wird aufgelöst. `is_active` ist daraus abgeleitet, Migration `v0085`)
+    - `deletion_scheduled_at: Optional[datetime]` (Ende der Gnadenfrist bei `pending_deletion`/`orphaned`, AK-52)
     <!-- Quelle: Tenant-Notfallverwaltung v1.4 -->
-    - `orphaned_since: Optional[datetime]` (Zeitpunkt seit dem der Tenant keine aktiven Admins hat. `null` = Tenant hat aktive Admins. Wird von Celery-Task wöchentlich geprüft und bei Emergency-Admin-Ernennung auf `null` zurückgesetzt.)
-    - `suspended_reason: Optional[str]` (Grund der Suspendierung durch Platform-Admin. `null` = nicht suspendiert oder kein Grund angegeben.)
+    - ~~`orphaned_since: Optional[datetime]`~~ — **entfällt** (REQ-023 v1.43, #2134): Verwaist ist ein Zustand (`status: orphaned`), kein Zeitstempel; es gibt keinen wöchentlichen Prüf-Task.
+    - `suspended_reason: Optional[str]` (Grund der Suspendierung durch Platform-Admin) — **nicht implementiert**; gehört zur Suspendierungs-Semantik von #2143.
     <!-- /Quelle: Tenant-Notfallverwaltung v1.4 -->
     - `created_at: datetime`
     - `updated_at: datetime`
@@ -572,23 +583,22 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 aktiven Mitgliedern
   - Properties:
     - `role: Literal['viewer', 'grower', 'lead']` (Achse 1, genau eine — REQ-049 §2.3)
     - `admin_scopes: list[Literal['management', 'technical']]` (Achse 2, keine bis beide — REQ-049 §2.4; unabhaengig vom Rang)
-    - `display_name_override: Optional[str]` (Spitzname im Garten, z.B. "Max der Tomatenkönig")
+    - `display_name_override: Optional[str]` (Spitzname im Garten, z.B. "Max der Tomatenkönig") — **nicht implementiert**
     - `joined_at: datetime`
-    - `invited_by: Optional[str]` (user_key des Einladenden)
-    - `status: Literal['active', 'suspended', 'left']`
+    - `invited_by: Optional[str]` (user_key des Einladenden) — **nicht implementiert** (die Einladung trägt `invited_by_user_key`)
+    - `is_active: bool` (Default `true`; bis v1.25 hier `status: Literal['active', 'suspended', 'left']` — umgesetzt ist der Bool. Austritt und Entfernen **löschen** die Mitgliedschaft, ein Zustand `left` entsteht nicht)
 
 - **`:Invitation`** — Einladung (E-Mail oder Link)
   - Collection: `invitations`
   - Properties:
-    - `type: Literal['email', 'link']`
-    - `email: Optional[str]` (Nur bei `type: email`)
+    - `invitation_type: Literal['email', 'link']` (bis v1.25 hier `type`)
+    - `email: Optional[str]` (Nur bei `invitation_type: email`; bindet die Einladung an die Adresse, AK-61)
     - `token_hash: str` (SHA-256 Hash des Einladungstokens)
     - `role: Literal['viewer', 'grower', 'lead']` (fachliche Rolle bei Beitritt)
-    - `admin_scopes: list[Literal['management', 'technical']]` (Zusatzberechtigungen bei Beitritt, Vorgabe `[]`)
-    - `max_uses: Optional[int]` (Nur bei `type: link`, `null` = unbegrenzt)
-    - `use_count: int` (Default: 0)
-    - `expires_at: Optional[datetime]` (`null` = kein Ablauf)
-    - `created_by: str` (user_key des Erstellers)
+    - `admin_scopes` (Zusatzberechtigungen bei Beitritt) — **nicht implementiert**: eine Einladung vergibt nur die fachliche Rolle, Zusatzberechtigungen vergibt die Verwaltung nach dem Beitritt
+    - `max_uses` / `use_count` (Mehrfach-Links) — **nicht implementiert**: jede Einladung, auch ein Link, wird genau einmal angenommen (AK-07)
+    - `expires_at: datetime` (immer gesetzt: 7 Tage nach Ausstellung; ein unbefristeter Link ist nicht vorgesehen)
+    - `invited_by_user_key: str` (user_key des Erstellers; bis v1.25 hier `created_by`)
     - `status: Literal['pending', 'accepted', 'expired', 'revoked']`
     - `created_at: datetime`
 
@@ -1484,8 +1494,8 @@ PLATFORM_TENANT = Tenant(
 **Seed-Logik:**
 - Wird in `seed_initial_data()` erstellt (beide Modi: light + full)
 - Idempotent: Doppelter Aufruf erzeugt keine Duplikate
-- Im Light-Modus: System-User erhält automatisch eine Membership mit `role: lead` und beiden Zusatzberechtigungen im Platform-Tenant
-- Im Full-Modus: Der erste Betreiber sollte manuell als Platform-Admin (`role: lead` im Platform-Tenant) hinzugefügt werden (oder über Environment Variable `KAMERPLANTER_INITIAL_ADMIN_EMAIL` beim ersten Start)
+- Im Light-Modus: System-User erhält automatisch eine Membership mit `role: lead` und beiden Zusatzberechtigungen im Platform-Tenant — **anders umgesetzt** (v1.26): der Light-Seed legt keine Mitgliedschaft im Platform-Tenant an; `is_platform_admin` ist im Light-Modus immer wahr (REQ-027 §3.4)
+- Im Full-Modus: Der erste Betreiber sollte manuell als Platform-Admin (`role: lead` im Platform-Tenant) hinzugefügt werden (oder über Environment Variable `KAMERPLANTER_INITIAL_ADMIN_EMAIL` beim ersten Start) — **umgesetzt ist nur der manuelle Weg** (v1.26): `python -m app.migrations.add_platform_admin <email>`; eine Variable `KAMERPLANTER_INITIAL_ADMIN_EMAIL` gibt es nicht, und das erste registrierte Konto wird nicht automatisch Plattform-Admin
 
 ### 5.3 Auto-Assign Seed-Logik
 
@@ -1525,10 +1535,10 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 | AK-03 | Tenant-Slug wird URL-sicher generiert (Umlaute, Sonderzeichen korrekt) | Unit |
 | AK-04 | User kann zwischen Tenants wechseln ohne Neuanmeldung | E2E |
 | AK-05 | Ein User kann in Tenant A Leitung und in Tenant B Beobachter sein; die Zusatzberechtigungen werden je Mandant getrennt geführt | Integration |
-| AK-06 | E-Mail-Einladung sendet E-Mail und erstellt bei Annahme korrekte Membership | Integration |
-| AK-07 | Einladungslink mit `max_uses: 5` wird nach 5 Nutzungen ungültig | Integration |
+| AK-06 | E-Mail-Einladung sendet E-Mail und erstellt bei Annahme korrekte Membership — **teilweise:** die Annahme ist umgesetzt (adressgebunden, AK-61), die E-Mail wird **nicht** zugestellt (#2162) | Integration |
+| AK-07 | Einladungslink mit `max_uses: 5` wird nach 5 Nutzungen ungültig — **nicht implementiert** (v1.26): jede Einladung gilt genau einmal; ein Mehrfach-Link ist offen (kein Issue) | Integration |
 | AK-08 | Einladungslink mit `expires_at` wird nach Ablauf ungültig | Integration |
-| AK-09 | OIDC-Provider mit `default_tenant_key` weist neue User automatisch dem Tenant zu | Integration |
+| AK-09 | OIDC-Provider mit `default_tenant_key` weist neue User automatisch dem Tenant zu — **nicht implementiert** (v1.26): das Feld steht am `OidcProviderConfig`, kein Codepfad liest es (kein Issue) | Integration |
 | AK-10 | Das letzte Mitglied mit der Zusatzberechtigung **Verwaltung** kann weder entfernt noch dieser Berechtigung entzogen werden (INV-1). Der Anker ist die Verwaltung, **nicht** die Rolle Leitung: Ein Mandant ohne Leitung ist bedienbar, ein Mandant ohne Verwaltung ist verwaist (REQ-023 §5a.5) | Unit + Integration |
 | AK-11 | Ein Gärtner sieht **und bearbeitet** alle Locations des Mandanten — zugewiesene wie fremde. Löschen gelingt ihm bei keiner (REQ-049 §2.3, §3.5) | Integration |
 | AK-12 | Ein Beobachter kann keine Ressource des Mandanten erstellen, ändern oder löschen | Integration |
@@ -1560,9 +1570,9 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 | AK-35 | Ein Gärtner kann **eigene** Pinnwand-Posts löschen, die Leitung alle. Das ist die eine dokumentierte Ausnahme von der Irreversibilitätsgrenze: REQ-049 §3.1 lässt „Eigene" ausdrücklich für **verfasste Inhalte** (Pinnwand-Beiträge, Kommentare) zu und verbietet es nur für Fachdaten. Ein Beitrag ist die Äußerung seines Verfassers, kein Datensatz über die Pflanze | Integration |
 | AK-36 | `require_permission(resource, action)` antwortet `403` mit klarer Meldung; eine Rolle, auf die keine Regel passt, wird abgewiesen (fehl-geschlossen), nicht durchgelassen | Unit + Integration |
 | AK-37 | Alle drei Wächter verhalten sich identisch für `account_type: 'human'` und `'service'` | Integration |
-| AK-38 | Platform-Viewer (`viewer` im Platform-Tenant) kann das Admin-Panel read-only sehen, aber keine Daten ändern | Integration |
-| AK-39 | Platform-Viewer kann keine `tenant_has_access`-Kanten erstellen oder löschen | Integration |
-| AK-40 | Platform-Viewer kann keine Species promoten oder globale Stammdaten ändern | Integration |
+| AK-38 | **Nicht implementiert (Plattform-Viewer, §1a.4, v1.26):** Platform-Viewer (`viewer` im Platform-Tenant) kann das Admin-Panel read-only sehen, aber keine Daten ändern | Integration |
+| AK-39 | **Nicht implementiert (Plattform-Viewer, §1a.4, v1.26):** Platform-Viewer kann keine `tenant_has_access`-Kanten erstellen oder löschen | Integration |
+| AK-40 | **Nicht implementiert (Plattform-Viewer, §1a.4, v1.26):** Platform-Viewer kann keine Species promoten oder globale Stammdaten ändern | Integration |
 | AK-41 | **Die Standort-Zuweisung wirkt nicht auf Schreibrechte:** Ein Gärtner bearbeitet eine Location, die einem anderen Mitglied zugewiesen ist, erfolgreich. Ein `403` an dieser Stelle ist ein Fehlschlag des Kriteriums | Integration |
 | AK-42 | **`can_edit_resource` nimmt keine Zuweisungen entgegen.** Ein Test weist die **Abwesenheit** eines solchen Parameters in der Signatur nach — wird er wieder eingeführt, ist die gestrichene Regel zurück, ohne dass ein Verhaltenstest anschlägt | Unit |
 | AK-43 | Eine `LocationAssignment` mit abgelaufenem `valid_until` verändert **keine** Berechtigung; sie verschwindet lediglich aus der Ansicht „meine Parzelle" und aus der Vorsortierung | Unit + Integration |
@@ -1574,21 +1584,15 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 <!-- /Quelle: RBAC Permission-Matrix v1.4 -->
 <!-- Quelle: Tenant-Notfallverwaltung v1.4 -->
 | AK-45 | Der Platform-Admin kann die Mitgliederliste eines fremden Mandanten einsehen — die einzige Cross-Tenant-Leseerlaubnis der Plattform-Ebene | Integration |
-| AK-46 | Platform-Viewer kann Mitgliederliste eines fremden Tenants read-only einsehen | Integration |
-| AK-47 | Suspendierter Tenant: TenantSwitcher zeigt Tenant ausgegraut mit Hinweis "Suspendiert" | E2E |
+| AK-46 | **Nicht implementiert (Plattform-Viewer, §1a.4, v1.26):** Platform-Viewer kann Mitgliederliste eines fremden Tenants read-only einsehen | Integration |
+| AK-47 | Suspendierter Tenant: TenantSwitcher zeigt Tenant ausgegraut mit Hinweis "Suspendiert" — **nicht so umgesetzt** (v1.26): `GET /tenants` blendet einen nicht aktiven Mandanten aus (#2105); ein ausgegrauter Eintrag mit Hinweis gehört zur Suspendierungs-Semantik von #2143 | E2E |
 | AK-48 | **Deaktivierter Tenant sperrt aus (#2105, umgesetzt v1.22):** Ein Mandant mit `is_active=false` wird für kein Mitglied aufgelöst: `/t/{slug}/…` und `X-Active-Tenant` antworten mit **derselben** `403` wie für einen unbekannten Slug (die frühere Forderung „klare Fehlermeldung“ ist damit bewusst ersetzt — eine eigene Meldung wäre ein Existenz-Orakel); ohne Header fällt ein deaktivierter persönlicher Mandant auf den globalen Katalog zurück; MCP führt den Mandanten nicht in `list_tenants`, ein Werkzeugaufruf mit seinem Slug antwortet `not_found`. Reaktivieren stellt den Zugriff mit unveränderter Rolle wieder her. Die Plattform-Administration (`/admin/platform/…`) erreicht den Mandanten weiterhin. Test: `tests/integration/test_inactive_tenant_resolution_reach.py`. | Integration |
-| AK-49 | Notfall-Admin ernennen, Tenant und User suspendieren und reaktivieren gelingt ausschließlich dem Platform-Admin (`lead` im Platform-Tenant) | Unit |
-| AK-50 | Der Platform-Viewer darf Mitgliederlisten fremder Mandanten **lesen** — das ist die einzige Cross-Tenant-Leseerlaubnis der Rolle | Unit |
-| AK-51 | Der Platform-Viewer kann weder einen Notfall-Admin ernennen noch Mandanten oder Nutzer suspendieren | Unit |
+| AK-49 | Notfall-Admin ernennen, Tenant und User suspendieren und reaktivieren gelingt ausschließlich dem Platform-Admin (`lead` im Platform-Tenant) — **umgesetzt** für Sperren/Reaktivieren (`require_platform_admin` + Step-up); der Notfall-Admin ist gestrichen (REQ-023 v1.43) | Unit |
+| AK-50 | **Nicht implementiert (Plattform-Viewer, §1a.4, v1.26):** Der Platform-Viewer darf Mitgliederlisten fremder Mandanten **lesen** — das ist die einzige Cross-Tenant-Leseerlaubnis der Rolle | Unit |
+| AK-51 | **Nicht implementiert (Plattform-Viewer, §1a.4, v1.26):** Der Platform-Viewer kann weder einen Notfall-Admin ernennen noch Mandanten oder Nutzer suspendieren | Unit |
 <!-- /Quelle: Tenant-Notfallverwaltung v1.4 -->
 <!-- Quelle: #1790, Betreiberentscheidung Q-O2 -->
 | AK-52 | **Gnadenfrist für die Mandantenlöschung (Q-O2, #1790; entschieden und umgesetzt v1.23, #2123):** `DELETE /tenants/{slug}` markiert den Mandanten zur Löschung vor (`pending_deletion`, `deletion_scheduled_at`) und führt das Mandanten-Löschinventar erst nach der Gnadenfrist `RETENTION_TENANT_ERASURE_GRACE_DAYS` (NFR-011 R-01b; **Betreiberentscheidung 2026-10-04: 90 Tage** wie R-01, Untergrenze 0 für Self-Hosted, Obergrenze 90) tatsächlich aus; innerhalb der Frist kann ein Mitglied mit Verwaltung **und** Leitung (oder ein Plattform-Admin) die Löschung mit Step-up widerrufen (`POST /tenants/{slug}/erasure/cancel`). Alle Mitglieder werden mit dem Datum benachrichtigt (Art.-20-Exportfenster über den persönlichen Export). Tests: `tests/unit/domain/services/test_tenant_erasure_grace.py`, `tests/integration/test_v0085_tenant_status_model.py`. | Unit + Integration |
-
-    !!! warning "Noch nicht implementiert"
-        `TenantService.delete_tenant` löscht heute sofort, ohne Gnadenfrist und ohne
-        Widerrufsmöglichkeit. Diese Anforderung ist eine bewusste Betreiberentscheidung
-        (2026-09-26) für ein künftiges Implementierungs-Issue, keine Beschreibung des
-        Ist-Zustands.
 <!-- /Quelle: #1790 -->
 <!-- Quelle: Datenschutzplan Q-O1, #1792 -->
 | AK-53 | **Umgesetzt (v1.11, #1792; seit v1.23 hinter der Gnadenfrist AK-52, #2123):** Nach Ablauf der AK-52-Gnadenfrist (mit Frist 0: nach Annahme) antworten `DELETE /tenants/{slug}` und `DELETE /admin/platform/tenants/{key}` mit `202 Accepted`, der Mandant ist eingefroren (Memberships deaktiviert, Löschnachweis angelegt), und ein Celery-Task führt das Mandanten-Löschinventar in begrenzten, idempotenten Batches mit fortlaufendem Heartbeat aus. Ein deterministisch scheiternder Batch eskaliert nach N = 3 Versuchen (`TenantErasureEngine.ESCALATE_AFTER_ATTEMPTS`), statt täglich lautlos zu wiederholen. Dies ist eine brechende API-Änderung gegenüber dem bis v1.10 synchronen `200`/`204`-Vertrag (§1a.2, §3.6). | Unit (`test_tenant_erasure_async.py`, `test_tenant_delete_authorization.py`) + Integration (`test_tenant_erasure_batches.py`, `test_tenant_erasure_reach.py`) |
@@ -1599,9 +1603,9 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 <!-- Quelle: Datenschutzplan Q-L3, #1878 -->
 | AK-55 | **Umgesetzt (v1.13, #1878; Migration `v0067`, Test `test_v0067_clean_legacy_foreign_references.py`):** Ein geteiltes globales Template mit dem Namen einer privaten Species wird der aktuellen Eigentümerin dieser Species als privates Template zugeordnet; eine fremde Kante aus den #1871-Lücken wird bei eindeutigem Ziel auf den korrekten Mandanten umgehängt, sonst gelöscht; die Korrektur-Migration ist idempotent und protokolliert nur Anzahlen | Integration |
 | AK-65 | **Mandanten-Lebenszyklus (v1.24, #2123):** Ein Mandant hat genau einen Zustand `active`, `suspended` (Plattform-Admin-Schalter, AK-56), `pending_deletion` (Löschung geplant, AK-52), `orphaned` (nach einer Kontolöschung verwaltet ihn niemand mehr, REQ-025 §3.1.3, #2134 — läuft in dieselbe Gnadenfrist) oder `deleted` (Frist abgelaufen, Inventar läuft, nicht mehr abbrechbar). Nur `active` wird aufgelöst; alle anderen antworten wie AK-48. Der Admin-Schalter wechselt nur zwischen `active` und `suspended`; aus `pending_deletion`/`orphaned` führt nur der Abbruch (zurück zu `active`) oder der Fristablauf (`deleted`). Das Admin-Panel zeigt den Zustand und das Löschdatum. | Unit + Integration |
-| AK-56 | **Step-up für Admin-Eingriffe in Mandanten (Betreiberentscheidung #2009, umgesetzt):** Das Deaktivieren eines Mandanten und das Entfernen eines Mitglieds durch einen Plattform-Admin verlangen wie die übrigen Admin-Löschpfade (#2011) einen Step-up des handelnden Admins (REQ-023 §3.9); ohne gültigen Step-up bleibt der Zustand unverändert (401). Die **Wirkung** der Deaktivierung hält AK-48 (#2105). | Integrationstest |
+| AK-56 | **Step-up für Admin-Eingriffe in Mandanten (Betreiberentscheidung #2009, umgesetzt):** Das Deaktivieren eines Mandanten und das Entfernen eines Mitglieds durch einen Plattform-Admin verlangen wie die übrigen Admin-Löschpfade (#2011) einen Step-up des handelnden Admins (REQ-023 §3.9); ohne gültigen Step-up bleibt der Zustand unverändert (401). **Wirkung (v1.26, #2105/#2123):** Der Schalter setzt den Zustand `suspended`; ab der nächsten Anfrage löst der Mandant für **kein** Mitglied mehr auf — Pfad `/t/{slug}/…`, Header `X-Active-Tenant` und MCP antworten wie für einen unbekannten Kurznamen (AK-48, AK-65), ein auf den Mandanten gescopter API-Key ebenso (der Resolver prüft den Zustand vor dem Key-Scope; ein eigener Negativtest für den Key-Weg fehlt noch). Sitzungen der Mitglieder bleiben bestehen und wirken in ihren anderen Mandanten weiter; Reaktivieren stellt den Zugriff unverändert her. Celery-Tasks des Mandanten laufen weiter (offen, #2143). | Integrationstest |
 | AK-57 | **Step-up für Rollenwechsel und Entfernen eines Mitglieds (Betreiberentscheidung #2032, umgesetzt):** Eine tatsächliche Änderung der Rolle einer Mitgliedschaft (`PATCH /admin/platform/tenants/{tenant_key}/members/{membership_key}/role`, `PATCH /admin/platform/users/{user_key}/memberships/{membership_key}/role`, `PATCH /tenants/{slug}/members/{membership_key}/role`) und das Entfernen eines Mitglieds über `DELETE /tenants/{slug}/members/{membership_key}` verlangen den Step-up des **handelnden** Kontos (REQ-023 §3.9; Aktionen `admin_membership_role_change`, `tenant_member_role_change`, `tenant_member_removal`, gebunden an den Schlüssel der Mitgliedschaft, #1884); ohne gültigen Step-up bleibt der Zustand unverändert (401), ein API-Key-Aufruf ist 403, eine Sperre 429 `STEP_UP_LOCKED`. Die Prüfung läuft im Service (`TenantService`), beide Admin-Sichten und der Mandanten-Pfad teilen sie. Der Mandanten-Pfad prüft zuerst den Verwaltungsbereich (403), die Zugehörigkeit zum Mandanten (404) und INV-1 (422), dann den Step-up. Ein Faktor wird nur für eine Mitgliedschaft des eigenen Mandanten ausgestellt, in dem das Konto `management` hält (403 für eine unbekannte und eine fremde Mitgliedschaft gleichermaßen). `DELETE /tenants/{slug}/assignments/{key}` ist **kein** Step-up-Akt. | Integrationstest |
-| AK-58 | **Rollen-Eskalation (#2078, umgesetzt):** Über `PATCH /tenants/{slug}/members/{membership_key}/role` erhöht niemand die Rolle der **eigenen** Mitgliedschaft (403, auch mit gültigem Step-up; Herabstufen und unveränderter Wert bleiben möglich). Im Mandanten `platform` vergibt `lead` — per Rollenwechsel und über `POST /tenants/platform/invitations/email|link` — nur ein dort aktives Mitglied mit der Rolle `lead` (403, kein Schreibzugriff, kein Einladungsdatensatz). Außerhalb von `platform` darf die Verwaltung weiterhin jede Rolle vergeben (REQ-049 §2.4; Vorschlag, Betreiberprüfung offen, s. v1.20). Jede Dienstfunktion, die eine Rolle an Mitgliedschaft oder Einladung schreibt, ruft `_refuse_role_grant` oder ist begründet klassifiziert (Guard `test_membership_role_grants_check_for_escalation.py`). | Integrationstest (`test_member_role_escalation_reach.py`) + Unit |
+| AK-58 | **Rollen-Eskalation (#2078, umgesetzt):** Über `PATCH /tenants/{slug}/members/{membership_key}/role` erhöht niemand die Rolle der **eigenen** Mitgliedschaft (403, auch mit gültigem Step-up; Herabstufen und unveränderter Wert bleiben möglich). Im Mandanten `platform` vergibt `lead` — per Rollenwechsel und über `POST /tenants/platform/invitations/email|link` — nur ein dort aktives Mitglied mit der Rolle `lead` (403, kein Schreibzugriff, kein Einladungsdatensatz). Außerhalb von `platform` darf die Verwaltung weiterhin jede Rolle vergeben (REQ-049 §2.4). **Beschlossen (Betreiberentscheidung 2026-10-04, #2078):** Diese Rangregel ist die Entscheidung, nicht mehr Vorschlag (s. v1.20, v1.26). **Datenschritt beim Rollout (offen):** Einladungen in `platform` mit `role: lead`, die vor #2084 (2026-10-04) von einem Mitglied ohne `lead` ausgestellt wurden, werden beim Annehmen **nicht** erneut geprüft und machen den Annehmenden zum Plattform-Admin (gemessen v1.26); sie gelten 7 Tage und sind je Installation vor dem Deploy der Korrektur zu widerrufen (`status: revoked`). Die Prüfung beim Annehmen fehlt im Code (Issue-Kandidat). Jede Dienstfunktion, die eine Rolle an Mitgliedschaft oder Einladung schreibt, ruft `_refuse_role_grant` oder ist begründet klassifiziert (Guard `test_membership_role_grants_check_for_escalation.py`). | Integrationstest (`test_member_role_escalation_reach.py`) + Unit |
 | AK-59 | **Step-up für das Hinzufügen eines Mitglieds (#2106, umgesetzt):** `POST /admin/platform/tenants/{tenant_key}/members` und `POST /admin/platform/users/{user_key}/memberships` verlangen den Step-up des Administrators (`current_password`, oder `step_up_token` / `step_up_code` für `admin_membership_add`, gebunden an `<tenant_key>|<user_key>`): 401 ohne, 403 aus einem API-Schlüssel, 429 `STEP_UP_LOCKED`; ohne gültigen Step-up bleibt der Bestand unverändert. Vor dem Passwort wird abgewiesen, was nicht gelingen kann (unbekannter Mandant 404, Mandant in Löschung 403, bereits Mitglied 409, `lead` in `platform` durch einen, der sie nicht hält 403, ein Plattform-Admin, der sich dem Mandanten `platform` hinzufügt, 422). Beide Admin-Seiten fragen den Step-up beim Hinzufügen ab. | Integrationstest (`test_admin_tenant_step_up_reach.py`) + Unit (`test_admin_membership_add_step_up.py`) + Frontend |
 | AK-60 | **Persistentes Sicherheits-Audit (#2111, umgesetzt; Migration `v0082`):** Jede Dienstfunktion, die eine Mitgliedschaft anlegt, ändert oder löscht, schreibt eine Zeile in `security_audit_log` oder ist begründet klassifiziert (Guard `test_membership_mutations_write_the_security_audit.py`); eine fehlschlagende Audit-Zeile wird nicht verschluckt. Aufbewahrung 730 Tage (NFR-011 R-38, Task `security_audit.purge_expired`); bei Kontolöschung werden `actor_user_key` und `target_user_key` zu Tombstone-Hashes, bei Mandantenlöschung bleibt die Zeile. Lesezugriff nur für Plattform-Admins. **Nicht erfasst (Rest von #2111):** Admin-Änderungen an Nutzer (`is_active`, `email_verified`) und Mandant (`is_active`), das Löschen eines Mandanten. | Integrationstest (`test_security_audit_log_reach.py`) + Unit + Guard |
 | AK-61 | **E-Mail-Einladung an die Adresse gebunden (#2115, umgesetzt, brechend):** `POST /tenants/invitations/accept` mit einer Einladung vom Typ `email` antwortet 403, wenn das Konto eine andere Adresse trägt, seine Adresse nicht belegt hat (`email_verified` **und** `email_confirmed_at`) oder die Einladung keine Adresse nennt; die Einladung bleibt `pending`, es entsteht keine Mitgliedschaft und keine Audit-Zeile, und die Antwort nennt die eingeladene Adresse nicht. Einladungslinks bleiben für jedes angemeldete Konto gültig. | Integrationstest (`test_email_invitation_address_binding_reach.py`) + Unit |
@@ -1628,7 +1632,7 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 
 | REQ/NFR | Bezug |
 |---------|-------|
-| **REQ-023 v1.7** | Benutzerverwaltung — User-Entität, JWT-Token mit `tenant_roles`, `account_type`, Service Accounts |
+| **REQ-023 v1.7** | Benutzerverwaltung — User-Entität, JWT-Token mit `tenant_roles` (informativ; Autorisierung liest Mitgliedschaften zur Laufzeit, REQ-023 v1.46), `account_type`, Service Accounts |
 | REQ-002 | Standortverwaltung — Site/Location/Slot-Hierarchie für Parzellen-Zuweisung |
 | REQ-006 | Aufgabenplanung — Task.assigned_to für Aufgaben-Delegation |
 | NFR-001 | Architektur-Layer |
@@ -1669,11 +1673,11 @@ def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
 - Gemeinsame Einkaufslisten (Sammelbestellungen koordinieren)
 <!-- Quelle: RBAC Permission-Matrix v1.4 -->
 - Granulare RBAC Permission-Matrix (§1a) mit ressourcentyp-spezifischen CRUD-Rechten pro Rolle
-- Platform-Rollen-Differenzierung: `lead` (KA-Admin) und `viewer` (Read-Only Admin-Panel) im Platform-Tenant
+- Platform-Rollen-Differenzierung: `lead` (KA-Admin, umgesetzt) und `viewer` (Read-Only Admin-Panel, **nicht implementiert**, §1a.4) im Platform-Tenant
 - Drei disjunkte FastAPI-Dependencies: `require_permission(resource, action)`, `require_tenant_role(min_role)`, `require_admin_scope(scope)` (§1a.6)
 - Service Account Integration: Permission-Matrix gilt identisch für `account_type: 'human'` und `'service'`
-- `orphaned_since` und `suspended_reason` auf Tenant-Modell
-- Platform-Admin-Notfallrechte: Emergency-Admin, Tenant-/User-Suspendierung (REQ-023 §5a.5)
+- ~~`orphaned_since`~~ (ersetzt durch `status: orphaned`, REQ-023 v1.43) und `suspended_reason` (nicht implementiert, #2143) auf Tenant-Modell
+- Platform-Admin-Notfallrechte: ~~Emergency-Admin~~ (gestrichen, REQ-023 v1.43), Tenant-/User-Suspendierung (umgesetzt, REQ-023 §5a.5)
 <!-- /Quelle: RBAC Permission-Matrix v1.4 -->
 
 **Ausdrücklich gestrichen (war bis v1.6 in Scope):**

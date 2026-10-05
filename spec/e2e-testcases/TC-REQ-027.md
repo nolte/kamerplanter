@@ -61,7 +61,7 @@ Der Light-Modus ist ein Deployment-Modus fuer lokale Instanzen (Raspberry Pi, Ho
 **Nachbedingungen**:
 - System-User (`system@local`, display_name="Gaertner") ist in der Datenbank angelegt
 - System-Tenant (slug="mein-garten", name="Mein Garten") ist in der Datenbank angelegt
-- System-User hat admin-Membership in System-Tenant und Platform-Tenant
+- System-User hat eine `lead`-Membership (mit `management` und `technical`) im System-Tenant; Plattform-Admin ist er im Light-Modus über den Modus, nicht über eine Platform-Tenant-Membership (REQ-027 v1.6 §3.4)
 
 **Tags**: [req-027, light-modus, app-start, login-screen, seed-logik, ak-01, fk-01]
 

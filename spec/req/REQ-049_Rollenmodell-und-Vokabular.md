@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 5.9
 Status: Entwurf
-Version: 1.9 (AK-19: ein persönlicher Mandant nimmt ein weiteres Mitglied nach Anheben des Mitgliederlimits auf, #2133); 1.8 (§2.5: Mitgliedschaft im Mandanten `platform` nur mit Step-up, nie selbst, mit Audit, #2106); 1.7 (§2.3/§2.5: globale Katalogzeile schreiben = nur Plattform-Admin, Düngemittel #2100; geteilte Workflow-Vorlagen #2101; mandantenlose MCP-Schreib-Werkzeuge #2103); 1.6 (§4.2: Mandant löschen braucht Verwaltung **und** Leitung, #1791)
+Version: 1.11 (§2.5 Plattform-Rolle = aktive `lead`-Mitgliedschaft in `platform`, Plattform-Viewer nicht implementiert; §2.6 Kontoart `human`; §2.10 Auswahl der Wetterquelle: Abweichung im Code markiert; #2121); 1.9 (AK-19: ein persönlicher Mandant nimmt ein weiteres Mitglied nach Anheben des Mitgliederlimits auf, #2133); 1.8 (§2.5: Mitgliedschaft im Mandanten `platform` nur mit Step-up, nie selbst, mit Audit, #2106); 1.7 (§2.3/§2.5: globale Katalogzeile schreiben = nur Plattform-Admin, Düngemittel #2100; geteilte Workflow-Vorlagen #2101; mandantenlose MCP-Schreib-Werkzeuge #2103); 1.6 (§4.2: Mandant löschen braucht Verwaltung **und** Leitung, #1791)
 Abhängigkeit: REQ-024 (Mandantenverwaltung — Permission-Matrix §1a, wird hier im Vokabular abgelöst und im Rollenumfang erweitert), REQ-023 (Authentifizierung — Kontoart, Dienstkonten), REQ-027 (Light-Modus — Einzelkonto), REQ-030 (Benachrichtigungssystem — übernimmt die Empfängerregel §2.8), REQ-022 (Pflegeerinnerungen — dieselbe Empfängerregel), REQ-046 (Wetterdienste — wandern auf die globale Ebene §2.9), REQ-005 + REQ-018 (Home Assistant — wandert auf die Mandantenebene §2.9), NFR-001 (Schichtenarchitektur), NFR-015 (OWASP-ZAP — Permission-Matrix-Tests), NFR-016 (Versioniertes Migrations-Framework — Datenmigration der Mitgliedschaften)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 (Mandantenverwaltung — Permission-Matrix §1a, wird hie
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.11 | 2026-10-05 | **#2121 (MT-025, Vokabular an den Code angeglichen):** (1) **§2.6** nannte die Kontoart eines Menschen `user`; Modell (`AccountType = Literal["human", "service"]`, `app/domain/models/user.py`) und REQ-023 sagen `human` — korrigiert. (2) **§2.5:** Die Plattform-Rolle ist keine Admin-, sondern eine **aktive `lead`-Mitgliedschaft** im Mandanten `platform` (`app.common.auth.is_platform_admin`); `platform_admin` ist kein gespeicherter Schlüssel, sondern das daraus berechnete Merkmal `is_platform_admin`. „Notfall-Admins ernennen“ ist gestrichen (REQ-023 v1.43). Der Plattform-Viewer ist **nicht implementiert** (REQ-024 §1a.4). (3) **§2.10/§4.4:** Die Quellenauswahl je Standort ist hier der Leitung zugeordnet; `PUT /t/{slug}/sites/{key}/weather-source` verlangt im Code nur `grower` (`require_tenant_role(TenantRole.GROWER)`) — als Abweichung markiert (REQ-046 §Autorisierung), Entscheidung offen. |
 | 1.9 | 2026-10-05 | **Mitgliederlimit (#2133, Betreiberentscheidung 2026-10-04, REQ-024 AK-64):** Jeder Mandant hat ein Mitgliederlimit `max_members`, gekappt auf die Plattform-Obergrenze `TENANT_MAX_MEMBERS_CEILING`. Ein persönlicher Mandant wird mit dem Limit `1` gegründet. **AK-19 angepasst:** Er nimmt ein weiteres Mitglied ohne Umstellung, Migration oder Moduswechsel auf, sobald jemand mit Verwaltung das Limit angehoben hat (`PATCH /tenants/{slug}`, höchstens die Obergrenze); vorher antwortet der Beitritt `422 MEMBER_LIMIT_REACHED`. **P3 bleibt gewahrt:** Das Limit gilt für jeden Mandanten gleich und wird nicht nach `tenant_type` verzweigt — der persönliche Mandant unterscheidet sich nur im Startwert, den jeder mit Verwaltung ändern kann (AK-18 unberührt). |
 | 1.8 | 2026-10-04 | **Mitgliedschaft in `platform` (§2.5, #2106):** Wer dem Mandanten `platform` hinzugefügt wird — erst recht mit `lead` — wird Plattform-Admin; das Hinzufügen verlangt deshalb den Step-up des Administrators (REQ-024 AK-59), die Rolle `lead` dort vergibt nur ein bestehender Plattform-Admin, ein Plattform-Admin fügt sich dem Mandanten `platform` nie selbst hinzu, und jede Vergabe steht im Sicherheits-Audit (REQ-024 AK-60, NFR-011 R-38). |
 | 1.7 | 2026-10-04 | **Globale Düngemittel (#2100):** Schreiben auf eine globale Katalogzeile (`tenant_key == ""`) ist Plattform-Admin vorbehalten; das gilt für Düngemittel wie für Substrate (eine gemeinsame Regel, `authorize_hybrid_catalogue_write`). Fremde Zeile → 404, eigene Zeile → fachliche Rolle (Löschen: Leitung, §2.3). **Geteilte Workflow-Vorlagen (#2101):** eine Vorlage ohne Eigentümer (`tenant_key == ""`, kein System-Seed) wird nie an Ort und Stelle geschrieben — Ändern legt dem Mandanten eine Kopie an, Löschen und das Schreiben ihrer Phasen/Task-Templates ist 403 (REQ-006 §4). **Mandantenlose MCP-Schreib-Werkzeuge (#2103):** Plattform-Admin (§2.5), nicht die stärkste Rolle irgendwo (REQ-033 §4.4). |
@@ -123,23 +124,23 @@ Nicht enthalten sind **global konfigurierte** externe Dienste — sie gehören z
 
 ### 2.5 Plattform-Ebene
 
-Die Plattform-Rolle wird über eine Admin-Mitgliedschaft im technischen Mandanten `platform` abgebildet und gilt einmal für die gesamte Installation.
+Die Plattform-Rolle wird über eine **aktive Mitgliedschaft mit der Rolle `lead`** im technischen Mandanten `platform` abgebildet und gilt einmal für die gesamte Installation (`app.common.auth.is_platform_admin`; bis `v0032` hieß der Wert dort `admin`). Im Light-Modus gilt der System-User als Plattform-Admin; ein auf einen Mandanten beschränkter API-Key nie.
 
 | Rolle | Schlüssel | Darf |
 |-------|-----------|------|
-| **Plattform-Admin** | `platform_admin` | Globalen Stammdaten-Katalog pflegen (Arten, Sorten, botanische Familien, Schädlinge, Krankheiten, Behandlungsmittel, globale Düngemittel und Nährstoffpläne); `tenant_has_access`-Zuweisungen; Arten und Sorten aus einem Mandanten in den globalen Katalog übernehmen; Companion- und Fruchtfolge-Graphkanten; **global konfigurierte externe Dienste samt Zugangsschlüsseln** (§2.9); Mandanten- und Nutzerübersicht; Anmeldeanbieter konfigurieren; Bilderkennung aktivieren; Mandanten und Konten sperren, reaktivieren und Notfall-Admins ernennen |
+| **Plattform-Admin** | `lead` in `platform` (berechnetes Merkmal `is_platform_admin`, kein gespeicherter Schlüssel) | Globalen Stammdaten-Katalog pflegen (Arten, Sorten, botanische Familien, Schädlinge, Krankheiten, Behandlungsmittel, globale Düngemittel und Nährstoffpläne); `tenant_has_access`-Zuweisungen; Arten und Sorten aus einem Mandanten in den globalen Katalog übernehmen; Companion- und Fruchtfolge-Graphkanten; **global konfigurierte externe Dienste samt Zugangsschlüsseln** (§2.9); Mandanten- und Nutzerübersicht; Anmeldeanbieter konfigurieren; Bilderkennung aktivieren; Mandanten und Konten sperren und reaktivieren (Notfall-Admins ernennen ist gestrichen, REQ-023 v1.43) |
 
 **Vergabe der Plattform-Rolle (#2106):** Die Mitgliedschaft im Mandanten `platform` vergibt nur ein bestehender Plattform-Admin, mit seinem eigenen Step-up (Aktion `admin_membership_add`, REQ-024 AK-59); die Rolle `lead` dort erst recht (§2.4, REQ-024 AK-58). Ein Plattform-Admin fügt sich dem Mandanten `platform` nie selbst hinzu. Jede Vergabe, Änderung und Entfernung steht im persistenten Sicherheits-Audit (REQ-024 AK-60).
 
 **Abgrenzung:** Der Plattform-Admin sieht *Verwaltungsdaten* über Mandanten hinweg (Existenz, Name, Mitgliederliste). Er erhält dadurch **keinen** Lesezugriff auf die Fachdaten eines Mandanten. Wer dorthin Zugriff braucht, muss regulär als Mitglied aufgenommen werden.
 
-Eine reine Lese-Variante (`platform_viewer`) für Monitoring und Prüfungen ist in REQ-024 §1a.4 vorgesehen und bleibt dort spezifiziert; sie ist nicht Gegenstand dieses Dokuments.
+Eine reine Lese-Variante (Plattform-Viewer: `viewer` in `platform`) für Monitoring und Prüfungen ist in REQ-024 §1a.4 vorgesehen und bleibt dort spezifiziert; sie ist nicht Gegenstand dieses Dokuments und **nicht implementiert** — eine `viewer`-Mitgliedschaft in `platform` gewährt heute keinerlei Admin-Zugriff.
 
 ### 2.6 Kontoart
 
 | Kontoart | Schlüssel | Bedeutung |
 |----------|-----------|-----------|
-| **Nutzerkonto** | `user` | Mensch. Meldet sich interaktiv an (lokal oder föderiert). |
+| **Nutzerkonto** | `human` | Mensch. Meldet sich interaktiv an (lokal oder föderiert). |
 | **Dienstkonto** | `service` | Maschine (Home Assistant, Auswertungs-Dashboard, KI-Assistent, CI/CD). Kein Passwort, keine interaktive Anmeldung; ausschließlich Schlüssel-Authentifizierung mit optionaler IP-Freigabeliste und Ratenbegrenzung. |
 
 Die Kontoart ändert **keine** Rechte: Ein Dienstkonto mit der Rolle Gärtner darf exakt, was ein menschlicher Gärtner darf. Für die Einrichtung gilt das Prinzip der geringsten Berechtigung — ein Anzeige-Dashboard erhält Beobachter, ein protokollierender Automatisierungsdienst Gärtner.
@@ -233,7 +234,7 @@ Daraus folgt normativ:
 - Die Quellenauswahl eines Standorts speist sich aus **zwei unabhängigen Töpfen**: den global angebotenen externen Diensten und den Entitäten der mandanteneigenen Home-Assistant-Instanz. Beide Töpfe dürfen einzeln leer sein.
 - Sind beide leer, hat der Standort keine automatischen Wetterdaten. Das ist ein **gültiger Zustand**, kein Fehler — die manuelle Erfassung bleibt der Rückfallweg.
 - Entfällt ein global angebotener Dienst oder wird sein Zugangsschlüssel entzogen, greift an jedem betroffenen Standort die nächste konfigurierte Priorität. Der Standort ist nicht defekt, und die Herkunftskennzeichnung der Daten macht den Wechsel nachvollziehbar.
-- Beobachter sehen die Auswahl, ändern sie nicht. Gärtner sehen sie ebenfalls; geändert wird sie von der Leitung.
+- Beobachter sehen die Auswahl, ändern sie nicht. Gärtner sehen sie ebenfalls; geändert wird sie von der Leitung. **Abweichung im Code (v1.11):** `PUT /t/{slug}/sites/{key}/weather-source` und der Verbindungstest verlangen nur `grower` — offen, ob der Code oder diese Zeile angepasst wird (REQ-046 §Autorisierung).
 
 Diese Dreiteilung ist auf jeden weiteren Dienst übertragbar, der sowohl betreiberseitig angeboten als auch mandantenseitig ersetzt werden kann — beim KI-Provider gilt sie bereits (§2.9, Zeile „Hybrid").
 

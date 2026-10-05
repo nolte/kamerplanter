@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.44 (Token-Familie mit Replay-Erkennung, Access Token endet mit seiner Sitzung, gehashte Reset-/Bestätigungs-Tokens; #2116, #2158); 1.43 (§5a.5.1/§5a.5.2 Notfall-Verwaltung gestrichen, ersetzt durch Übergabe/`orphaned` bei der Kontolöschung, #2134; Step-up `tenant_erasure_cancel`, #2123); 1.42 (Registrierungsmodus `REGISTRATION_MODE` und Domain-Allowlist, §3.2d, AK-56; #2132); 1.41 (Step-up `admin_membership_add`, #2106); 1.40 (Restbefunde #2062: Valkey-Clients, Token-Reihenfolge, Summe je Postfach); 1.39 (Admin-Seite für OIDC-Provider, #1906); 1.38 (Bestätigungsnachweis `email_confirmed_at`, #1948); 1.37 (Step-up für Rollenwechsel und Mitglieder-Entfernen, #2032); 1.36 (Bereinigung abgebrochener lokaler Registrierungen: Trockenlauf, #2010); 1.35 (Anonyme Routen und Reset-Budget nach den Prüfungen von #2043/#2045 gehärtet, #2048/#2052/#2058/#2059/#2060); 1.34 (Wartezeit der Mail-Budgets bei hängendem Valkey begrenzt, Aussagen der Bündel-Prüfung korrigiert, #2045/#2043/#2046); 1.33 (Login-Ablehnung `EMAIL_NOT_VERIFIED` mit korrektem Passwort verschickt den neuen Bestätigungslink selbst, #2046); 1.32 (Budget je Adresse für `POST /auth/password-reset/request`, #2043); 1.31 (IP-Rate-Limits zählen in geteiltem Speicher, #2045); 1.30 (Neuer Bestätigungslink per `POST /auth/resend-verification`, #2037); 1.29 (SEC-H-009 Bedingung 1 an den neuen Default angepasst, #1948)
+Version: 1.46 (§5a Plattform-Rolle auf `lead` nachgezogen, `tenant_roles` im Token informativ, Umsetzungsstand der Plattform-Admin-Rechte und AK-18/AK-42–AK-55; #2121); 1.44 (Token-Familie mit Replay-Erkennung, Access Token endet mit seiner Sitzung, gehashte Reset-/Bestätigungs-Tokens; #2116, #2158); 1.43 (§5a.5.1/§5a.5.2 Notfall-Verwaltung gestrichen, ersetzt durch Übergabe/`orphaned` bei der Kontolöschung, #2134; Step-up `tenant_erasure_cancel`, #2123); 1.42 (Registrierungsmodus `REGISTRATION_MODE` und Domain-Allowlist, §3.2d, AK-56; #2132); 1.41 (Step-up `admin_membership_add`, #2106); 1.40 (Restbefunde #2062: Valkey-Clients, Token-Reihenfolge, Summe je Postfach); 1.39 (Admin-Seite für OIDC-Provider, #1906); 1.38 (Bestätigungsnachweis `email_confirmed_at`, #1948); 1.37 (Step-up für Rollenwechsel und Mitglieder-Entfernen, #2032); 1.36 (Bereinigung abgebrochener lokaler Registrierungen: Trockenlauf, #2010); 1.35 (Anonyme Routen und Reset-Budget nach den Prüfungen von #2043/#2045 gehärtet, #2048/#2052/#2058/#2059/#2060); 1.34 (Wartezeit der Mail-Budgets bei hängendem Valkey begrenzt, Aussagen der Bündel-Prüfung korrigiert, #2045/#2043/#2046); 1.33 (Login-Ablehnung `EMAIL_NOT_VERIFIED` mit korrektem Passwort verschickt den neuen Bestätigungslink selbst, #2046); 1.32 (Budget je Adresse für `POST /auth/password-reset/request`, #2043); 1.31 (IP-Rate-Limits zählen in geteiltem Speicher, #2045); 1.30 (Neuer Bestätigungslink per `POST /auth/resend-verification`, #2037); 1.29 (SEC-H-009 Bedingung 1 an den neuen Default angepasst, #1948)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.46 | 2026-10-05 | **#2121 (MT-025, Spec an den Code angeglichen; reine Spec-Änderung).** Gemessen gegen `develop` (`b064e63b7`): (1) **§5a nannte die Plattform-Rolle `role: admin`** (Beispiel §5a.1, Ableitung §5a.2, Dependency §5a.3, Szenario §5a.6, §5b.3, AK-18, AK-28/AK-29) — seit Migration `v0032` heißt sie `lead` (`app.common.auth.is_platform_admin`: aktive Mitgliedschaft mit `TenantRole.LEAD` im Mandanten `platform`; REQ-049 §2.5). Alle Stellen auf `lead` umgestellt, auch im gestrichenen §5a.5.2 (Vokabular, keine Wiederbelebung). (2) **`tenant_roles` im Access Token ist informativ:** `AuthService` stellt das Token mit leerem `tenant_roles` aus; `is_platform_admin` wird beim Ausstellen aus der gespeicherten Mitgliedschaft abgeleitet. Keine Autorisierungsentscheidung liest einen der beiden Claims — die Wächter lesen Mitgliedschaften zur Laufzeit (§2 Abweichungstabelle, §3.1, §5a.2, AK-19). (3) **Plattform-Viewer** (`viewer` im Mandanten `platform`, §5a.1) ist **nicht implementiert**: eine solche Mitgliedschaft gewährt keinerlei Admin-Zugriff (REQ-024 §1a.4). (4) **§5a.4 Umsetzungsstand** und **AK-42–AK-55** mit Status: Notfall-Verwaltung gestrichen (v1.43), Mandanten-Sperre über den Zustand `suspended` (#2105, #2123), Konto-Sperre über `PATCH /admin/platform/users/{key}` (`is_active`, beendet Sitzungen, #2116); offen: Selbstsperre/letzter Plattform-Admin (#2144), Celery-Pause gesperrter Mandanten (#2143). Neuer Guard: `test_spec_literal_discriminators_match_models.py` prüft Rollen-Literale in REQ-023/024/049 gegen `TenantRole`/`AdminScope`. |
 | 1.44 | 2026-10-05 | **Sitzungs- und Token-Lebenszyklus (#2158, #2116, MT-019).** (1) **#2158:** Die Spezifikation verlangte für `email_verification_token` und `password_reset_token` schon „gehashed gespeichert"; gemessen wurde der Klartext gespeichert und per Wert gesucht (echter Dienst gegen echte ArangoDB, Dokument-Dump). Die Felder heißen jetzt `email_verification_token_hash` / `password_reset_token_hash` und halten den SHA-256-Hex-Digest (`TokenEngine.hash_token`, wie Refresh-Token und API-Keys; kein HMAC — 256 Bit Zufall sind ohne Schlüssel nicht zu erraten); die Suche hasht den vorgelegten Link. Ablauf und Einmalnutzung unverändert. Migration `v0086` hasht gespeicherte Klartexte per AQL `SHA256()` und entfernt die alten Attribute — vor dem Update verschickte Links funktionieren noch genau einmal (Entscheidung: hashen statt löschen, weil ein verlorener Bestätigungslink die Anmeldung blockiert, §3.2b). (2) **#2116, §3.2a umgesetzt** mit den unten im Abschnitt „Umsetzungsstand" genannten Abweichungen vom Pseudocode (kein Hard Cutover, Client-Abgleich über `User-Agent` statt `device_id`, Gnadenpfad gibt nur ein Access Token aus, kein eigener Fehlercode, keine Prometheus-Zähler). Rotierte Tokens bleiben bis zu ihrem eigenen `expires_at` gespeichert (Replay-Signal; NFR-011 R-11 v1.41). (3) **AK-14 gilt jetzt auch für Access Tokens:** `users.session_generation` und `users.access_token_generation` (§Datenmodell); jedes Access Token trägt `gen` (und `sid` = Family); `FullAuthProvider` lehnt ein Token ab, dessen `gen` nicht der des Kontos entspricht — ohne zusätzlichen Lesezugriff (gemessen: 1 Konto-Lesezugriff je Anfrage vorher wie nachher, der Vergleich kostet < 1 µs). Jeder Widerruf erhöht die Generation: Logout (Family), Session-Widerruf (Family), Logout-all, Passwort-Reset und -Wechsel, E-Mail-Wechsel und Rücknahme, Art.-17-Antrag, Admin-Deaktivierung (neu: beendet jetzt auch die Sitzungen), erkannter Replay. Ein Generationszähler statt `sessions_invalid_before`/`iat`-Zeitstempel: `iat` hat Sekundenauflösung und Replikas können in der Uhr abweichen; ein Zähler ist exakt. Rollenentzug braucht keinen Schnitt: Rollen und Plattform-Admin werden je Anfrage aus der Mitgliedschaft gelesen, nicht aus dem Token. Nur das Refresh-Token-Repository schreibt die Zähler (in derselben AQL-Anweisung wie der Widerruf); das User-Repository lässt sie aus jedem Schreibvorgang heraus, damit ein `update_fields` mit vor dem Widerruf gelesenem Konto sie nicht zurücksetzt. |
 | 1.43 | 2026-10-05 | **#2134 (MT-038) — §5a.5.1 Verwaist-Erkennung und §5a.5.2 Emergency-Admin-Ernennung gestrichen (Entscheidung „streichen“, nicht umsetzen).** Gemessen: Weder der wöchentliche Celery-Task noch `POST /admin/tenants/{tenant_key}/emergency-admin` noch `orphaned_since` existieren im Code; die Plattform-Admin-Routen kennen keine Vergabe des Scopes `management`. Die beiden Wege, auf denen eine Organisation ihre letzte Verwaltung verliert, sind jetzt geschlossen statt nachträglich repariert: freiwillig (Entfernen, Austritt, Scope-Entzug) verhindert INV-1 (REQ-024), und die Kontolöschung — der einzige Weg ohne INV-1 — übergibt die Verwaltung an die dienstälteste Leitung oder setzt die Organisation auf `orphaned` und plant ihre Löschung mit der Gnadenfrist (REQ-025 §3.1.3 Regel 4, REQ-024 AK-52/AK-65). Eine verwaiste Organisation wird nicht wiederbelebt (kein Notfall-Admin, kein Abbruch der Löschung); Mitglieder und Plattform-Admins werden benachrichtigt, das Admin-Panel zeigt sie. §5a.5.3 (Suspendierung) ist mit #2105/#2123 als Zustand `suspended` umgesetzt. **#2123 (§3.9):** neue Step-up-Aktion `tenant_erasure_cancel` (Abbruch einer geplanten Mandantenlöschung), gebunden an den Mandantenschlüssel; Zielprüfung wie `tenant_deletion`. |
 | 1.42 | 2026-10-05 | **#2132 (MT-036, §3.2d, AK-56):** Im Full-Modus legte `POST /auth/register` — und ebenso die erste OIDC-Anmeldung einer unbekannten Adresse — für jeden ein Konto an; es gab keinen Schalter. Neu (**Betreiberentscheidung 2026-10-04**): `REGISTRATION_MODE` = `open` (Default, unverändertes Verhalten) \| `invite_only` \| `closed` und eine optionale Domain-Allowlist `REGISTRATION_ALLOWED_DOMAINS`. Gelesen gilt: Eine **E-Mail-Einladung** (offen, nicht abgelaufen, für genau diese Adresse) ist die Ausnahme von `invite_only` und von der Allowlist — lokal bewiesen durch ihr Token (`invitation_token` im Registrierungs-Body), bei der ersten OIDC-Anmeldung durch die vom Anbieter bestätigte Adresse (`email_verified`); **`closed` lässt niemanden zu, auch nicht mit Einladung** (sonst wären `closed` und `invite_only` derselbe Modus). Eine Link-Einladung öffnet keine Registrierung. Jede Ablehnung ist dieselbe `403 REGISTRATION_NOT_ALLOWED`, entschieden vor jedem Lesen gespeicherter Konten (kein Enumerations-Orakel). `GET /mode` meldet `registration: {mode, domain_restricted}`; Login- und Registrierungsseite passen sich an. Bestehende Konten melden sich in jedem Modus an. Light-Modus unberührt (keine `/auth`-Routen; `/mode` meldet dort `closed`). Guard: `test_account_creation_asks_the_registration_policy.py` — jede Funktion, die ein Konto anlegt, fragt die eine Prüfstelle. |
@@ -112,7 +113,7 @@ Diese Spezifikation verwendet **Authlib** (aktiv maintained) anstelle von `pytho
 | Library | `python-jose` + `passlib` | `authlib` + `passlib` | `python-jose` unmaintained seit 2022; Authlib bietet OIDC/PKCE built-in |
 | Access Token TTL | 1 Stunde | **15 Minuten** | Kürzeres Fenster bei Token-Kompromittierung; Refresh-Token-Mechanismus kompensiert UX |
 | Refresh Token | Nicht spezifiziert | 30 Tage (persistent) oder 24h (Session), HttpOnly Cookie, Rotation, steuerbar via „Angemeldet bleiben" | Erforderlich für 15-Min-Access-Tokens ohne ständige Neuanmeldung; Session-Cookie als sicherer Standard für geteilte Geräte |
-| Token Payload | `sub`, `exp`, `type` | `sub`, `tenant_roles`, `is_platform_admin`, `exp`, `iat`, `type` | Mandanten-Rollen für REQ-024 im Token; PII-Minimierung (SEC-M-001): kein email/display_name |
+| Token Payload | `sub`, `exp`, `type` | `sub`, `tenant_roles`, `is_platform_admin`, `exp`, `iat`, `type` (dazu `jti`, `gen`, `sid`, §3.2a) | PII-Minimierung (SEC-M-001): kein email/display_name. **`tenant_roles` und `is_platform_admin` sind informativ** (v1.46, #2121): `tenant_roles` wird heute leer ausgestellt, keine Autorisierung liest einen der beiden Claims — die Wächter lesen die Mitgliedschaften zur Laufzeit, sodass eine Rollenänderung sofort wirkt und kein Token eine entzogene Rolle weiterträgt |
 | Refresh Grace Window <!-- W-004 --> | Nicht spezifiziert | **60 Sekunden** | Idempotenter Refresh innerhalb dieses Fensters (bei Device-Match) — toleriert paralleles `POST /auth/refresh` aus PWA-Reconnect (Service-Worker + UI-Thread). Nach 60s: strikte Replay-Detection mit Family-Sprengung. (UI-NFR-012 R-049) |
 | Token Family <!-- W-004 --> | Nicht spezifiziert | **`family_key` pro Login**, geteilt durch alle aus Rotation entstandenen Nachfolger | Replay-Detection sprengt die ganze Family; jeder neue Login startet eine neue Family — Multi-Device-Nutzung bleibt unbeeinträchtigt |
 
@@ -157,7 +158,7 @@ oidc_providers:
 | Refresh Token (persistent) | 30 Tage | HttpOnly Secure Cookie (`Expires` gesetzt) | Rotation bei Nutzung (altes Token wird invalidiert) |
 | Refresh Token (Session) | Browser-Session | HttpOnly Secure Session-Cookie (kein `Expires`/`Max-Age`) | Rotation bei Nutzung |
 
-- **Access Token:** Enthält `sub` (user_key), `tenant_roles` (Mapping tenant_key → role), `exp`, `iat`, `type`. Kurzlebig, wird bei jedem API-Request als `Authorization: Bearer <token>` mitgesendet.
+- **Access Token:** Enthält `sub` (user_key), `tenant_roles` (Mapping tenant_key → role; **informativ und heute leer** — Autorisierung liest die gespeicherte Mitgliedschaft, nie diesen Claim, v1.46), `exp`, `iat`, `type`. Kurzlebig, wird bei jedem API-Request als `Authorization: Bearer <token>` mitgesendet.
   - **PII-Minimierung (SEC-M-001):** `email` und `display_name` werden **nicht** im JWT-Payload übertragen, um die Exposition personenbezogener Daten bei Token-Leaks zu minimieren. Diese Daten werden bei Bedarf über `GET /api/v1/users/me` abgefragt (gecacht im Frontend-State).
 - **Refresh Token:** Wird als HttpOnly/Secure/SameSite=Lax Cookie gespeichert. Bei Nutzung wird ein neues Refresh-Token-Paar ausgestellt und das alte invalidiert (Token-Rotation verhindert Token-Diebstahl).
 - **Token-Revocation:** Logout invalidiert alle Refresh Tokens des Nutzers. Optional: "Von allen Geräten abmelden" invalidiert alle Sessions.
@@ -1815,7 +1816,7 @@ Der **Platform-Admin** (KA-Admin) ist ein Benutzer mit Membership im **Platform-
 
 **Architektur-Entscheidung:** Die Platform-Admin-Rolle nutzt das bestehende Membership-Modell (Variante 1: Platform-Tenant) statt eines `is_platform_admin`-Flags auf User-Ebene. Begründung:
 - Wiederverwendung der bestehenden Tenant/Membership-Mechanik
-- Differenzierte Rollen im Platform-Tenant möglich (z.B. `admin` = volle Rechte, `viewer` = Read-Only-Zugang zu globalem Admin-Panel)
+- Differenzierte Rollen im Platform-Tenant möglich: `lead` = Plattform-Admin (umgesetzt). Eine Lese-Variante `viewer` (Read-Only-Zugang zum Admin-Panel, REQ-024 §1a.4) ist vorgesehen, aber **nicht implementiert** — eine `viewer`-Mitgliedschaft in `platform` gewährt heute keinerlei Admin-Zugriff
 - Kein zweites Rollen-System neben dem Tenant-scoped-Modell
 
 **Doppelrolle:**
@@ -1823,8 +1824,8 @@ Ein User kann gleichzeitig Memberships in beliebig vielen Tenants haben, inklusi
 
 ```
 User "anna"
-  ├── Membership in tenant/platform (role: admin) → KA-Admin
-  ├── Membership in tenant/annas-garten (role: admin) → Privater Garten
+  ├── Membership in tenant/platform (role: lead) → KA-Admin
+  ├── Membership in tenant/annas-garten (role: lead, admin_scopes: [management, technical]) → Privater Garten
   └── Membership in tenant/gruene-oase (role: grower) → Gemeinschaftsgarten
 ```
 
@@ -1850,11 +1851,13 @@ Das JWT Access Token wird um ein `is_platform_admin`-Flag erweitert:
 }
 ```
 
-Das `is_platform_admin`-Flag wird beim Token-Erstellen aus den `tenant_roles` abgeleitet:
+Das `is_platform_admin`-Flag wird beim Token-Erstellen aus der gespeicherten Mitgliedschaft abgeleitet (`AuthService._holds_platform_lead`, dieselbe Regel wie `app.common.auth.is_platform_admin`):
 
 ```python
-is_platform_admin = "platform" in tenant_roles and tenant_roles["platform"] == "admin"
+is_platform_admin = membership("platform") is not None and membership.is_active and membership.role == "lead"
 ```
+
+**Umsetzungsstand (v1.46, #2121):** Das Beispiel oben zeigt das Zielbild. Ausgestellt wird `tenant_roles` heute **leer** (`{}`); `is_platform_admin` steht im Token, wird aber von keiner Autorisierung gelesen. Backend-Wächter und MCP lesen die Mitgliedschaft zur Laufzeit, das Frontend liest `is_platform_admin` aus `GET /users/me`. Beide Claims sind damit **informativ**: Eine Rollenänderung wirkt mit der nächsten Anfrage, nicht erst mit dem nächsten Token.
 
 ### 5a.3 Backend-Dependency
 
@@ -1866,14 +1869,16 @@ def get_platform_admin(
     membership_repo: IMembershipRepository = Depends(get_membership_repo),
 ) -> User:
     """Stellt sicher, dass der aktuelle User Platform-Admin ist.
-    Wirft ForbiddenError wenn keine admin-Membership im Platform-Tenant."""
+    Wirft ForbiddenError wenn keine aktive lead-Membership im Platform-Tenant."""
     platform_membership = membership_repo.get_by_user_and_tenant(
         current_user.key, "platform"
     )
-    if not platform_membership or platform_membership.role != "admin":
+    if not platform_membership or not platform_membership.is_active or platform_membership.role != "lead":
         raise ForbiddenError("Platform admin access required.")
     return current_user
 ```
+
+**Umgesetzt** als `require_platform_admin` über `get_is_platform_admin` in `app/common/auth.py` (Light-Modus: der System-User gilt als Plattform-Admin; ein auf einen Mandanten beschränkter API-Key ist nie Plattform-Admin, #1817).
 
 Verwendung in Routern:
 
@@ -1905,6 +1910,8 @@ def assign_species_to_tenant(
 | User-Status ändern (suspend/reactivate) | Plattform-Admin | `POST /api/v1/admin/users/{user_key}/suspend`, `POST .../reactivate` |
 <!-- /Quelle: Tenant-Notfallverwaltung v1.7 -->
 
+**Umsetzungsstand (v1.46, #2121):** Die Plattform-Admin-Routen liegen unter `/api/v1/admin/platform/...` (Mandanten, Nutzer, Mitgliedschaften, Löschungen, Sicherheits-Audit), die Katalog- und Anmeldeanbieter-Routen unter ihren eigenen Pfaden. Abweichend von der Tabelle: **Notfall-Admin ernennen** ist gestrichen (v1.43, #2134); **Mandant sperren/reaktivieren** ist `PATCH /admin/platform/tenants/{key}` mit `is_active` (Zustand `suspended`/`active`, Step-up, REQ-024 AK-56/AK-65); **Nutzer sperren/reaktivieren** ist `PATCH /admin/platform/users/{key}` mit `is_active` (Step-up; das Sperren beendet alle Sitzungen, #2116, und API-Keys des Kontos werden abgewiesen, solange es gesperrt ist). Einen **Plattform-Viewer** gibt es nicht (REQ-024 §1a.4).
+
 <!-- Quelle: Tenant-Notfallverwaltung v1.7 -->
 ### 5a.5 Tenant-Notfallverwaltung durch Platform-Admin
 
@@ -1915,6 +1922,15 @@ def assign_species_to_tenant(
 > Gnadenfrist gelöscht (REQ-025 §3.1.3 Regel 4, REQ-024 AK-65). Der Text unten bleibt als
 > Entscheidungshistorie stehen. §5a.5.3 ist als Mandantenzustand `suspended` umgesetzt
 > (#2105, #2123), mit `PATCH /admin/platform/tenants/{key}` statt der hier skizzierten Routen.
+>
+> **Umsetzungsstand §5a.5.3/§5a.5.4 (v1.46, #2121):** Ein gesperrter Mandant antwortet auf
+> `/t/{slug}/…`, `X-Active-Tenant` und MCP wie ein unbekannter Kurzname (`403` ohne eigene
+> Meldung — eine Meldung „suspendiert“ wäre ein Existenz-Orakel, REQ-024 AK-48) und erscheint
+> **nicht** im Mandanten-Wechsler (statt ausgegraut). **Nicht implementiert:** das Pausieren der
+> Celery-Tasks eines gesperrten Mandanten (Pflege-Erinnerungen, Gieß-Aufgaben laufen weiter) und
+> ein Sperrgrund (`suspended_reason`) — beides gehört zur Suspendierungs-Semantik von #2143. Die
+> Konto-Sperre (§5a.5.4) ist `PATCH /admin/platform/users/{key}` mit `is_active`; der Schutz
+> gegen Selbstsperre bzw. das Sperren des letzten Plattform-Admins fehlt (#2144, MT-045).
 
 **Problem:** Wenn alle Admins eines Organisations-Tenants ausfallen (Account gelöscht, suspended, alle verlassen den Tenant), ist der Tenant verwaist — kein Mitglied kann Verwaltungsaktionen durchführen. Ohne Eingriffsmöglichkeit ist der Tenant und alle seine Daten faktisch verloren.
 
@@ -1955,8 +1971,8 @@ def appoint_emergency_admin(
     1. Aufrufender muss Platform-Admin sein
     2. Tenant muss verwaist sein (keine aktiven Admins)
     3. Ziel-User muss existieren und status 'active' haben
-    4. Ziel-User darf bereits Mitglied sein (Rolle wird auf 'admin' hochgestuft)
-       ODER wird als neues Mitglied mit Rolle 'admin' hinzugefügt
+    4. Ziel-User darf bereits Mitglied sein (erhält Rolle 'lead' und Zusatzberechtigung `management`)
+       ODER wird als neues Mitglied mit Rolle 'lead' und `management` hinzugefügt
     5. Aktion wird im Audit-Log protokolliert
     """
 ```
@@ -1975,7 +1991,7 @@ def appoint_emergency_admin(
   "tenant_key": "gruene-oase",
   "user_key": "users/max",
   "previous_role": "grower",
-  "new_role": "admin",
+  "new_role": "lead",
   "reason": "Bisherige Admins Lisa und Tom haben Verein verlassen. Max ist stellvertretender Vorsitzender.",
   "appointed_by": "users/anna",
   "appointed_at": "2026-03-17T14:30:00Z",
@@ -2068,7 +2084,7 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 Mitgliedern
 4. Anna wählt "Notfall-Admin ernennen" → Max (Grower)
 5. Grund: "Bisherige Admins haben Verein verlassen. Max ist Kassenwart."
 6. System:
-   a) Max' Rolle: grower → admin
+   a) Max' Rolle: grower → lead, Zusatzberechtigung management
    b) orphaned_since: null (Tenant nicht mehr verwaist)
    c) E-Mail an alle 10 verbleibenden Mitglieder:
       "Max wurde von der Plattform-Administration als neuer Admin ernannt."
@@ -2107,7 +2123,7 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 Mitgliedern
 ### 5a.6 Szenario: Platform-Admin verwaltet Stammdaten
 
 ```
-1. Anna ist Platform-Admin (Membership in tenant/platform, role: admin)
+1. Anna ist Platform-Admin (Membership in tenant/platform, role: lead)
 2. Anna navigiert zum Admin-Panel (/admin/stammdaten)
 3. Anna sieht alle globalen Species mit Zuweisungsstatus pro Tenant
 4. Anna wählt Species "Cannabis sativa" und weist sie Tenant "grow-op" zu:
@@ -2131,9 +2147,9 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 Mitgliedern
 |--------|---------------|---------|
 | **Home Assistant** | `grower` im Tenant | Sensordaten schreiben, Aktoren steuern, Tasks lesen |
 | **Grafana/Prometheus** | `viewer` im Tenant | Metriken/Sensordaten lesen, Dashboard-Daten abfragen |
-| **CI/CD Pipeline** | `admin` im Tenant | Seed-Daten deployen, Konfiguration aktualisieren |
-| **Enrichment-Pipeline** | Platform `viewer` | Globale Stammdaten lesen, Enrichment-Ergebnisse schreiben |
-| **Backup-System** | Platform `admin` | Cross-Tenant Read-Access für Datensicherung |
+| **CI/CD Pipeline** | `grower` im Tenant (mehr vergibt ein Mandant an ein Dienstkonto nicht, §5b.3) | Seed-Daten deployen, Konfiguration aktualisieren |
+| **Enrichment-Pipeline** | Platform `viewer` (**nicht implementiert**, REQ-024 §1a.4) | Globale Stammdaten lesen, Enrichment-Ergebnisse schreiben |
+| **Backup-System** | Platform `lead` (= Plattform-Admin; Platform Service Accounts sind offen, §5b.4) | Cross-Tenant Read-Access für Datensicherung |
 
 **Architektur-Entscheidung:** Service Accounts als User-Subtyp (Variante B) statt separater Entity (Variante A). Begründung:
 - Wiederverwendung der gesamten Membership/API-Key/RBAC-Infrastruktur ohne Code-Duplikation
@@ -2161,9 +2177,9 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 Mitgliedern
 Tenant-Admins können Service Accounts für ihren Tenant erstellen. Der Service Account erhält eine Membership im Tenant mit einer vom Admin festgelegten Rolle.
 
 **Regeln:**
-- Nur Tenant-Admins dürfen Service Accounts erstellen (`role: admin` im Tenant erforderlich)
-- Die zugewiesene Rolle darf maximal `grower` sein — ein Service Account kann nicht `admin` im Tenant werden (verhindert Privilege Escalation über maschinelle Konten)
-- Ausnahme: Platform-Admins dürfen Service Accounts mit jeder Rolle erstellen (auch `admin`)
+- Service Accounts eines Mandanten erstellt nur, wem REQ-049 §2.4 diese Aufgabe zuweist (bis v1.45 stand hier der stillgelegte Wert `admin`; Umsetzung und endgültige Regel: #2137)
+- Die zugewiesene Rolle darf maximal `grower` sein — ein Service Account kann nicht `lead` im Tenant werden (verhindert Privilege Escalation über maschinelle Konten)
+- Ausnahme: Platform-Admins dürfen Service Accounts mit jeder Rolle erstellen (auch `lead`)
 - Service Accounts werden dem Tenant via Membership zugeordnet (analog zu menschlichen Usern)
 - Ein Service Account kann Memberships in mehreren Tenants haben (z.B. Home Assistant, das mehrere Growzelte überwacht)
 - Die `email` des Service Accounts folgt dem Pattern `{slugified-name}@service.{tenant_slug}.local` (nicht routbar, nur für Eindeutigkeit)
@@ -2174,8 +2190,8 @@ Platform-Admins können Service Accounts auf Plattformebene erstellen. Diese erh
 
 **Regeln:**
 - Nur Platform-Admins dürfen Platform Service Accounts erstellen
-- Platform Service Accounts können Rollen im Platform-Tenant haben (`admin` oder `viewer`)
-- Platform Service Accounts mit `admin`-Rolle im Platform-Tenant haben KA-Admin-Rechte (globale Stammdaten, `tenant_has_access`-Verwaltung)
+- Platform Service Accounts können Rollen im Platform-Tenant haben (`lead` oder `viewer`; `viewer` dort ist **nicht implementiert**, REQ-024 §1a.4)
+- Platform Service Accounts mit `lead`-Rolle im Platform-Tenant haben KA-Admin-Rechte (globale Stammdaten, `tenant_has_access`-Verwaltung)
 - Platform Service Accounts mit `viewer`-Rolle im Platform-Tenant haben Read-Only-Zugriff auf das Admin-Panel (z.B. für Monitoring/Dashboards)
 
 ### 5b.5 Service Account Lifecycle
@@ -2527,8 +2543,8 @@ Membership: `grower` im Demo-Tenant. API-Key: `kp_demo00000000000000000000000000
 | AK-16 | Account-Löschung setzt `status: deleted`, anonymisiert E-Mail, invalidiert alle Tokens | Integration |
 | AK-17 | Celery-Task bereinigt abgelaufene Tokens stündlich und unbestätigte Accounts nach 7 Tagen; abgebrochene lokale Registrierungen werden gezählt (Trockenlauf) und erst nach Freigabe gelöscht (#2010) | Integration |
 <!-- Quelle: Platform-Admin v1.6 -->
-| AK-18 | Platform-Admin-Dependency (`get_platform_admin`) prüft Membership im Platform-Tenant mit `role: admin` | Unit + Integration |
-| AK-19 | JWT Access Token enthält `is_platform_admin: true` wenn User Platform-Admin ist | Unit |
+| AK-18 | Platform-Admin-Dependency (`require_platform_admin` / `get_is_platform_admin`, `app/common/auth.py`) prüft eine **aktive** Membership im Platform-Tenant mit `role: lead` (v1.46: vorher `admin`, seit `v0032` stillgelegt) | Unit + Integration |
+| AK-19 | JWT Access Token enthält `is_platform_admin: true` wenn User Platform-Admin ist — **informativ**: keine Autorisierung liest den Claim (v1.46) | Unit |
 | AK-20 | User kann gleichzeitig Platform-Admin und regulärer Tenant-Nutzer sein (Doppelrolle) | Integration |
 | AK-21 | Nicht-Platform-Admins erhalten 403 bei Zugriff auf Platform-Admin-Endpunkte | Integration |
 | AK-22 | Platform-Admin kann globale Species/Cultivars erstellen, bearbeiten, löschen | Integration |
@@ -2539,8 +2555,8 @@ Membership: `grower` im Demo-Tenant. API-Key: `kp_demo00000000000000000000000000
 | AK-25 | Service Account Erstellung erzeugt User mit `account_type: 'service'`, generierter E-Mail und Membership im Tenant | Integration |
 | AK-26 | Service Account bekommt bei Erstellung automatisch einen API-Key (Klartext einmalig in Response) | Integration |
 | AK-27 | Service Account kann sich NICHT per Passwort oder SSO anmelden (kein `password_hash`, kein AuthProvider) | Unit + Integration |
-| AK-28 | Tenant-Admin kann Service Accounts nur mit Rolle `grower` oder `viewer` erstellen (kein `admin`) | Unit |
-| AK-29 | Platform-Admin kann Service Accounts mit jeder Rolle erstellen (inkl. `admin`) | Integration |
+| AK-28 | Auf Mandanten-Ebene werden Service Accounts nur mit Rolle `grower` oder `viewer` erstellt (kein `lead`; wer sie anlegen darf, regelt REQ-049 §2.4) | Unit |
+| AK-29 | Platform-Admin kann Service Accounts mit jeder Rolle erstellen (inkl. `lead`) | Integration |
 | AK-30 | Maximal 20 Service Accounts pro Tenant (429 bei Überschreitung) | Unit + Integration |
 | AK-31 | `allowed_ip_ranges` wird bei API-Key-Authentifizierung geprüft — Zugriff von nicht-erlaubter IP gibt 403 | Integration |
 | AK-32 | `rate_limit_rpm` wird als individuelles Rate Limit pro Service Account angewendet | Integration |
@@ -2555,20 +2571,20 @@ Membership: `grower` im Demo-Tenant. API-Key: `kp_demo00000000000000000000000000
 | AK-41 | `account_type` ist im JWT-Token enthalten und korrekt gesetzt (`human` oder `service`) | Unit |
 <!-- /Quelle: Service Accounts v1.7 -->
 <!-- Quelle: Tenant-Notfallverwaltung v1.7 -->
-| AK-42 | Verwaist-Erkennung: Tenant ohne aktive Admins wird korrekt als verwaist erkannt (`is_orphaned() == True`) | Unit + Integration |
-| AK-43 | Emergency-Admin-Ernennung nur bei verwaisten Tenants möglich (409 wenn aktive Admins vorhanden) | Integration |
-| AK-44 | Emergency-Admin-Ernennung erfordert Platform-Admin-Berechtigung (403 für Nicht-Platform-Admins) | Integration |
-| AK-45 | Emergency-Admin-Ernennung: `reason` ist Pflichtfeld (422 bei fehlendem Grund) | Unit |
-| AK-46 | Emergency-Admin-Ernennung: Ziel-User wird korrekt zum Admin befördert (bestehende Membership) oder als Admin hinzugefügt (neue Membership) | Integration |
-| AK-47 | Emergency-Admin-Ernennung: `orphaned_since` wird auf `null` zurückgesetzt | Integration |
-| AK-48 | Emergency-Admin-Ernennung: Alle aktiven Mitglieder des Tenants werden benachrichtigt | Integration |
-| AK-49 | Tenant-Suspendierung: Alle tenant-scoped API-Requests geben 403 zurück | Integration |
-| AK-50 | Tenant-Suspendierung: Platform-Tenant kann NICHT suspendiert werden (400) | Unit |
-| AK-51 | Tenant-Reaktivierung: Zugriff wird sofort wiederhergestellt | Integration |
-| AK-52 | User-Suspendierung: Alle Refresh Tokens invalidiert, alle API-Keys suspendiert | Integration |
-| AK-53 | User-Suspendierung: Platform-Admin kann sich NICHT selbst suspendieren (400) | Unit |
-| AK-54 | User-Suspendierung: Wenn User letzter Admin eines Tenants → Tenant als verwaist markiert | Integration |
-| AK-55 | Celery-Task erkennt verwaiste Tenants wöchentlich und setzt `orphaned_since` | Integration |
+| AK-42 | **Gestrichen (v1.43, #2134; Status v1.46):** Verwaist-Erkennung: Tenant ohne aktive Admins wird korrekt als verwaist erkannt (`is_orphaned() == True`) | Unit + Integration |
+| AK-43 | **Gestrichen (v1.43, #2134; Status v1.46):** Emergency-Admin-Ernennung nur bei verwaisten Tenants möglich (409 wenn aktive Admins vorhanden) | Integration |
+| AK-44 | **Gestrichen (v1.43, #2134; Status v1.46):** Emergency-Admin-Ernennung erfordert Platform-Admin-Berechtigung (403 für Nicht-Platform-Admins) | Integration |
+| AK-45 | **Gestrichen (v1.43, #2134; Status v1.46):** Emergency-Admin-Ernennung: `reason` ist Pflichtfeld (422 bei fehlendem Grund) | Unit |
+| AK-46 | **Gestrichen (v1.43, #2134; Status v1.46):** Emergency-Admin-Ernennung: Ziel-User wird korrekt zum Admin befördert (bestehende Membership) oder als Admin hinzugefügt (neue Membership) | Integration |
+| AK-47 | **Gestrichen (v1.43, #2134; Status v1.46):** Emergency-Admin-Ernennung: `orphaned_since` wird auf `null` zurückgesetzt | Integration |
+| AK-48 | **Gestrichen (v1.43, #2134; Status v1.46):** Emergency-Admin-Ernennung: Alle aktiven Mitglieder des Tenants werden benachrichtigt | Integration |
+| AK-49 | **Umgesetzt (#2105, #2123):** Tenant-Suspendierung: Alle tenant-scoped API-Requests geben 403 zurück — dieselbe Antwort wie für einen unbekannten Kurznamen, nicht die eigene Meldung aus §5a.5.3 (REQ-024 AK-48/AK-65) | Integration |
+| AK-50 | **Umgesetzt mit 403 statt 400 (#1021):** Tenant-Suspendierung: Platform-Tenant kann NICHT suspendiert werden | Unit |
+| AK-51 | **Umgesetzt (#2105):** Tenant-Reaktivierung: Zugriff wird sofort wiederhergestellt | Integration |
+| AK-52 | **Umgesetzt (#2116):** User-Suspendierung (`PATCH /admin/platform/users/{key}`, `is_active=false`): Alle Refresh Tokens invalidiert; API-Keys werden nicht widerrufen, aber abgewiesen, solange das Konto gesperrt ist | Integration |
+| AK-53 | **Nicht implementiert (#2144, MT-045):** User-Suspendierung: Platform-Admin kann sich NICHT selbst suspendieren (400) | Unit |
+| AK-54 | **Gestrichen (v1.43, #2134; Status v1.46):** User-Suspendierung: Wenn User letzter Admin eines Tenants → Tenant als verwaist markiert | Integration |
+| AK-55 | **Gestrichen (v1.43, #2134; Status v1.46):** Celery-Task erkennt verwaiste Tenants wöchentlich und setzt `orphaned_since` | Integration |
 | AK-56 | **Registrierungsmodus (#2132, umgesetzt; Betreiberentscheidung 2026-10-04, §3.2d):** `REGISTRATION_MODE=invite_only` + `POST /auth/register` ohne gültiges E-Mail-Einladungs-Token für die Adresse → `403 REGISTRATION_NOT_ALLOWED` (gleiche Antwort für vergebene und freie Adresse, nichts geschrieben); mit Token einer offenen, gültigen E-Mail-Einladung für genau diese Adresse → `201`. Erste OIDC-Anmeldung ohne Einladung für die vom Anbieter bestätigte Adresse → Weiterleitung `?error=registration_not_allowed`, kein Konto. `closed` lehnt auch mit Einladung ab; bestehende Konten melden sich an. `REGISTRATION_ALLOWED_DOMAINS` beschränkt `open` auf die gelisteten Domains (OIDC nur mit bestätigter Adresse). `GET /mode` meldet `registration.mode`. Default `open` ändert nichts. Tests: `test_registration_mode.py` (Unit), `test_registration_mode_api.py` (API), `RegisterPage.test.tsx`, `LoginPage.test.tsx` | Unit + API + Frontend |
 <!-- /Quelle: Tenant-Notfallverwaltung v1.7 -->
 
