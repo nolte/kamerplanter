@@ -1,4 +1,5 @@
 import client, { tenantClient, getActiveTenantSlug } from '../client';
+import { fetchAllPages } from '../paginate';
 import { isLightMode } from '@/config/mode';
 import type {
   AiConversationSummary,
@@ -86,9 +87,17 @@ export async function explain(body: AiExplainRequest): Promise<AiResponse> {
   return data;
 }
 
+/**
+ * Every conversation of the caller, most recent first. The route returns one bounded page since MT-035 (#2131); every page is read so
+ * the list this feeds stays complete.
+ */
 export async function listConversations(): Promise<AiConversationSummary[]> {
-  const { data } = await tenantClient.get<AiConversationSummary[]>('/ai/conversations');
-  return data;
+  return fetchAllPages(async (offset, limit) => {
+    const { data } = await tenantClient.get<AiConversationSummary[]>('/ai/conversations', {
+      params: { offset, limit },
+    });
+    return data;
+  });
 }
 
 export async function createConversation(

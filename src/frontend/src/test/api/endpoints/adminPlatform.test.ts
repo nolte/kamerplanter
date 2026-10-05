@@ -35,13 +35,13 @@ describe('adminPlatform endpoints — stats, tenants, users', () => {
   it('fetchAdminTenants gets tenants', async () => {
     client.get.mockResolvedValue({ data: [] });
     await admin.fetchAdminTenants();
-    expect(client.get).toHaveBeenCalledWith('/admin/platform/tenants');
+    expect(client.get).toHaveBeenCalledWith('/admin/platform/tenants', { params: { offset: 0, limit: 200 } });
   });
 
   it('fetchAdminUsers gets users', async () => {
     client.get.mockResolvedValue({ data: [] });
     await admin.fetchAdminUsers();
-    expect(client.get).toHaveBeenCalledWith('/admin/platform/users');
+    expect(client.get).toHaveBeenCalledWith('/admin/platform/users', { params: { offset: 0, limit: 200 } });
   });
 
   it('updateAdminTenant patches encoded tenant key', async () => {
