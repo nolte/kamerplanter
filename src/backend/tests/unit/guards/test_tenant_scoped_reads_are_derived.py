@@ -785,6 +785,12 @@ _CATALOGUE_WRITTEN_BY_ADMINS = (
 #: entry that no longer matches a finding fails (:class:`TestTheExclusionsAreLive`).
 EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     # ── catalogue ──────────────────────────────────────────────────────────
+    ("ArangoAiProviderRepository", "get_system_default"): Exclusion(
+        "catalogue",
+        "reads only the platform's own provider rows (FILTER tenant_key == null), never a tenant's — the "
+        "filter is the scope, measured in tests/integration/test_ai_provider_system_default_reach.py; no "
+        "route writes ai_provider_configs at all, so no tenant can place a row there (#2110)",
+    ),
     ("ArangoActivityRepository", "get_all"): Exclusion("catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"),
     ("ArangoActivityRepository", "get_system_activities"): Exclusion(
         "catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"

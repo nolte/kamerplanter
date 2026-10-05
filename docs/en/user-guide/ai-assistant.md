@@ -128,6 +128,21 @@ Details for all AI endpoints (including chat, tips, explanations) are in the [AP
 
 ---
 
+## Daily quota for AI requests {#daily-quota}
+
+Every request that calls a language model — generating tips or the tip of the day, "Why?", a chat message, generating a glossary explanation, an AI diagnosis — counts towards a daily quota. There are three limits, all per calendar day (UTC):
+
+- **Your quota in a garden** — 50 requests by default. If you are a member of several gardens, you have one in each.
+- **The garden's quota** — 500 requests of all members together by default. A member refused at their own quota does not use up the garden's.
+- **The garden's text volume** — a ceiling on the tokens the language model processes.
+
+When a limit is reached, the interface tells you which one — you can ask again after midnight (UTC). On top, each account is limited to 20 requests per minute. Reading tips and explanations that already exist does not count.
+
+!!! info "For operators"
+    The limits are set with `AI_BUDGET_USER_CALLS_PER_DAY`, `AI_BUDGET_TENANT_CALLS_PER_DAY` and `AI_BUDGET_TENANT_TOKENS_PER_DAY` (`0` switches a limit off), the per-minute limit with `RATE_LIMIT_INFERENCE` — see [Environment variables](../reference/environment-variables.md). The counters live in Valkey; when Valkey cannot be reached, no AI request runs. <!-- #2110 -->
+
+---
+
 ## Behavior Without a Reachable Knowledge Base
 
 If the underlying knowledge base (Knowledge Service) is unreachable, the AI Assistant returns a rule-based answer without a language model instead of an error — the application stays usable, but answer quality is then lower.

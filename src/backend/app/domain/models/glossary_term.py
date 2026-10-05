@@ -97,6 +97,11 @@ class GlossaryTermCacheEntry(BaseModel):
     provider_type: str = ""
     kb_version: str | None = None
     is_fallback: bool = False
+    #: Whether the platform's provider that produced this answer is a cloud LLM
+    #: (#2110). A property of the entry, not of whoever reads it: the entry is
+    #: served to every tenant, so its label must not change with the reader's
+    #: provider records. ``False`` for curated fallbacks and pre-#2110 rows.
+    uses_cloud_provider: bool = False
     generated_at: datetime | None = None
     valid_until: datetime | None = None
 

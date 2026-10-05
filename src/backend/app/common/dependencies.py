@@ -188,6 +188,7 @@ if TYPE_CHECKING:
     from app.domain.services.actuator_service import ActuatorService
     from app.domain.services.ai_assistant_service import AiAssistantService
     from app.domain.services.ai_audit_logger import AiAuditLogger
+    from app.domain.services.ai_call_budget import AiCallBudget
     from app.domain.services.ai_context_builder import AiContextBuilder
     from app.domain.services.api_key_controls import ApiKeyRateLimiter
     from app.domain.services.aquaponik_service import AquaponikService
@@ -1861,6 +1862,12 @@ class _DecodedRedis(Protocol):
 
     def decr(self, name: str, amount: int = ...) -> int: ...
 
+    def incr(self, name: str, amount: int = ...) -> int: ...
+
+    def incrby(self, name: str, amount: int = ...) -> int: ...
+
+    def expire(self, name: str, time: int) -> bool: ...
+
 
 def _get_redis_client() -> _DecodedRedis:
     """Get a Redis client for the request-path stores, notification dedup and caching.
@@ -2235,11 +2242,31 @@ def get_ai_context_builder() -> AiContextBuilder:
     return AiContextBuilder(parent_resolver=_resolve_parent, family_resolver=get_family_name_resolver())
 
 
+def get_ai_call_budget() -> AiCallBudget:
+    """REQ-031 §3 (#2110, MT-013) — the daily budgets of LLM calls, counted in Valkey.
+
+    The limits are read per call so a changed setting needs no restart of the
+    request path. One budget for every LLM-calling service: a call spent on a
+    chat message and one spent on a diagnosis come out of the same day.
+    """
+    from app.domain.services.ai_call_budget import AiBudgetLimits, AiCallBudget
+
+    return AiCallBudget(
+        _get_redis_client(),
+        AiBudgetLimits(
+            user_calls_per_day=settings.ai_budget_user_calls_per_day,
+            tenant_calls_per_day=settings.ai_budget_tenant_calls_per_day,
+            tenant_tokens_per_day=settings.ai_budget_tenant_tokens_per_day,
+        ),
+    )
+
+
 def get_ai_assistant_service() -> AiAssistantService:
     """REQ-031 §4.3 — the KI orchestration service."""
     from app.domain.services.ai_assistant_service import AiAssistantService
 
     return AiAssistantService(
+        call_budget=get_ai_call_budget(),
         knowledge_adapter=get_knowledge_service_adapter(),
         consent_guard=get_ai_consent_guard(),
         audit_logger=get_ai_audit_logger(),
@@ -2284,6 +2311,7 @@ def get_glossary_service() -> GlossaryService:
         redis_client = None
 
     return GlossaryService(
+        call_budget=get_ai_call_budget(),
         term_repo=get_glossary_term_repo(),
         cache_repo=get_glossary_cache_repo(),
         knowledge_adapter=get_knowledge_service_adapter(),
@@ -2303,6 +2331,7 @@ def get_diagnose_service() -> DiagnoseService:
     from app.domain.services.diagnose_service import DiagnoseService
 
     return DiagnoseService(
+        call_budget=get_ai_call_budget(),
         analysis_engine=DiagnosisAnalysisEngine(get_knowledge_service_adapter()),
         consent_guard=get_ai_consent_guard(),
         audit_logger=get_ai_audit_logger(),

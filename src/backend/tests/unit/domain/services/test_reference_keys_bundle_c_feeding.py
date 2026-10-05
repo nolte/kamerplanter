@@ -208,6 +208,7 @@ def _ai():  # noqa: ANN202
     plants.get_by_key.side_effect = lambda k: SimpleNamespace(key=k, tenant_key=OWN if k == "p_own" else "t_b")
     conversations = MagicMock()
     service = AiAssistantService(
+        call_budget=MagicMock(),
         knowledge_adapter=MagicMock(),
         consent_guard=consent,
         audit_logger=MagicMock(),
@@ -310,6 +311,7 @@ def test_an_explain_subject_task_is_the_tenants() -> None:
 
     tasks = {"t_foreign": SimpleNamespace(key="t_foreign", tenant_key="t_b")}
     service = AiAssistantService(
+        call_budget=MagicMock(),
         knowledge_adapter=MagicMock(),
         consent_guard=MagicMock(),
         audit_logger=MagicMock(),

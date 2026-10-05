@@ -119,7 +119,8 @@ def test_tenant_generate_term_forwards_the_tenant_context(service) -> None:
     resp = client.post("/api/v1/t/home/glossary/term/vpd/generate", params={"expertise": "beginner"})
     assert resp.status_code == 200
     assert service.generate_term.await_args.kwargs["tenant_key"] == "home"
-    assert service.generate_term.await_args.kwargs["allow_cloud"] is True
+    # The principal the consent gate and the AI budget (#2110) are charged to.
+    assert service.generate_term.await_args.kwargs["user_key"]
 
 
 def test_the_public_router_offers_no_generate_route(service) -> None:

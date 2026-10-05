@@ -58,6 +58,7 @@ def _service(knowledge_adapter):
     provider_repo = MagicMock()
     provider_repo.get_default.return_value = None  # local Ollama default
     return AiAssistantService(
+        call_budget=MagicMock(),
         knowledge_adapter=knowledge_adapter,
         consent_guard=consent_guard,
         audit_logger=MagicMock(),
@@ -374,3 +375,38 @@ def test_an_empty_action_url_is_simply_absent() -> None:
     from app.domain.models.ai_assistant import AiTipCard
 
     assert AiTipCard(tenant_key="home", title="t", body="b", action_url="").action_url is None
+
+
+# ── #2110 — the chat refuses before its stream exists ─────────────────────────
+
+
+def test_stream_chat_refuses_eagerly_so_the_route_can_answer_with_a_status() -> None:
+    """A refusal raised inside the generator would surface after the 200 is sent.
+
+    ``stream_chat`` is called by the route *before* it builds the
+    ``StreamingResponse``; every gate (consent, provider, AI budget) must fire on
+    that call, not on the first ``__anext__``.
+    """
+    from app.common.exceptions import AiBudgetExceededError
+
+    adapter = MagicMock()
+    adapter.ask = AsyncMock()
+    service = _service(adapter)
+    service._conversations.get_by_key.return_value = SimpleNamespace(
+        key="conv-1", tenant_key="home", user_key="anna", context_type="general", context_key=None, provider_key=""
+    )
+    service._budget.charge.side_effect = AiBudgetExceededError("user_calls", 60)
+
+    with pytest.raises(AiBudgetExceededError):
+        service.stream_chat(_ctx(), conversation_key="conv-1", message="hi")
+    adapter.ask.assert_not_awaited()
+
+
+def test_stream_chat_consent_refusal_is_eager_too() -> None:
+    adapter = MagicMock()
+    adapter.ask = AsyncMock()
+    service = _service(adapter)
+    service._consent.require_consent.side_effect = ConsentRequiredError("ai_tenant_data_access")
+
+    with pytest.raises(ConsentRequiredError):
+        service.stream_chat(_ctx(), conversation_key="conv-1", message="hi")
