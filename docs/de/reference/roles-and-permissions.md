@@ -49,8 +49,8 @@ Diese erhältst du **zusätzlich** zur fachlichen Rolle — keine, eine oder bei
 
 | Zusatzberechtigung | Umfasst | Gedacht für |
 |--------------------|---------|-------------|
-| **Verwaltung** | Mitglieder einladen und entfernen, Rollen ändern, Garteneinstellungen, Parzellen zuordnen, Dienstkonten, Garten löschen (nur zusammen mit der Rolle Leitung — Verwaltung allein reicht dafür nicht) | Vorstand, Lehrkraft, Inhaberin |
-| **Technik** | Home Assistant und andere Integrationen anbinden, Sensoren und Aktoren einrichten, Import ausführen, Anreicherungsquellen | Technikwart, betreuender Dienstleister |
+| **Verwaltung** | Mitglieder einladen und entfernen, Rollen ändern, Garteneinstellungen, Parzellen zuordnen, Garten löschen (nur zusammen mit der Rolle Leitung — Verwaltung allein reicht dafür nicht) | Vorstand, Lehrkraft, Inhaberin |
+| **Technik** | Home Assistant und andere Integrationen anbinden, Sensoren und Aktoren einrichten, Import ausführen, Anreicherungsquellen, Dienstkonten (nur zusammen mit der Rolle Leitung) | Technikwart, betreuender Dienstleister |
 
 Der praktische Gewinn: Rechte werden **einzeln** vergeben statt im Paket. Der Vorstand verwaltet Mitglieder, ohne die Sensorik anzufassen. Das technikaffine Mitglied bindet Home Assistant an, ohne die Mitgliederliste zu sehen. Und ein Schüler dokumentiert Messwerte, ohne versehentlich ein Beet löschen zu können.
 
@@ -295,7 +295,7 @@ Neben Konten für Menschen gibt es **Dienstkonten** für die Anbindung anderer S
 
 Ein Dienstkonto ist technisch ein normales Konto mit zwei Besonderheiten: Es hat kein Passwort und kann sich nicht über die Oberfläche anmelden — es authentifiziert sich ausschließlich über einen Schlüssel. Und es erhält **dieselben Rollen wie ein Mensch**: Ein Dienstkonto mit der Gärtner-Rolle in deinem Garten darf genau das, was ein menschlicher Gärtner dort darf, und nicht mehr.
 
-Daraus folgt die praktische Regel für die Einrichtung: Gib einem Dienstkonto die niedrigste Rolle, die für seine Aufgabe reicht. Ein Anzeige-Dashboard braucht **Beobachter**. Ein Automatisierungsdienst, der Gießvorgänge protokolliert, braucht **Gärtner**. **Leitung** braucht ein Dienstkonto nur, wenn es Standorte anlegen soll; für die Mitgliederverwaltung bräuchte es zusätzlich die Zusatzberechtigung Verwaltung — beides ist selten der Fall.
+Daraus folgt die praktische Regel für die Einrichtung: Gib einem Dienstkonto die niedrigste Rolle, die für seine Aufgabe reicht. Ein Anzeige-Dashboard braucht **Beobachter**. Ein Automatisierungsdienst, der Gießvorgänge protokolliert, braucht **Gärtner**. **Leitung** bekommt ein Dienstkonto in deinem Garten nicht: Mehr als Gärtner vergibt der Garten an eine Maschine nicht, auch nicht nachträglich über die Mitgliederverwaltung. Ein Dienstkonto anlegen, seinen Schlüssel erneuern oder es entfernen darf, wer im Garten Leitung ist **und** die Zusatzberechtigung Technik hat. <!-- Issue #2137 -->
 
 Bei KI-Assistenten, die über die Werkzeug-Schnittstelle angebunden sind, wirkt dieselbe Rangfolge: Ein Beobachter-Konto darf ausschließlich abfragen, ein Gärtner-Konto darf zusätzlich dokumentieren, und einrichtende Eingriffe wie das Anlegen von Standorten bleiben Konten mit der Rolle Leitung vorbehalten.
 
@@ -371,7 +371,7 @@ Zuweisungen werden unter dem Pfad `/api/v1/t/{garten-kurzname}/assignments` verw
     Über eine Admin-Mitgliedschaft im technischen Plattform-Mandanten — die vergibt ein bestehender Plattform-Administrator. Bei einer eigenen Installation erhält das erste registrierte Konto diese Rolle automatisch.
 
 ??? question "Braucht Home Assistant ein Konto mit Zusatzberechtigungen?"
-    Nein. Ein Dienstkonto mit der Gärtner-Rolle genügt zum Lesen und Dokumentieren. Nur zum Anlegen von Standorten wäre die Rolle Leitung nötig, und zum *Einrichten* der Home-Assistant-Anbindung selbst die Zusatzberechtigung Technik.
+    Nein. Ein Dienstkonto mit der Gärtner-Rolle genügt zum Lesen und Dokumentieren. Standorte legt eine Person mit der Rolle Leitung an; das Dienstkonto selbst richtet ein, wer Leitung ist und die Zusatzberechtigung Technik hat.
 
 ---
 

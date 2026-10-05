@@ -49,8 +49,8 @@ These are granted **in addition** to the domain role — none, one, or both. The
 
 | Scope | Covers | Intended for |
 |-------|--------|--------------|
-| **Management** | Invite and remove members, change roles, garden settings, assign plots, service accounts, delete the garden (only together with the Lead role — Management alone is not enough) | Board, teacher, owner |
-| **Technical** | Connect Home Assistant and other integrations, set up sensors and actuators, run imports, enrichment sources | Technical warden, contracted service provider |
+| **Management** | Invite and remove members, change roles, garden settings, assign plots, delete the garden (only together with the Lead role — Management alone is not enough) | Board, teacher, owner |
+| **Technical** | Connect Home Assistant and other integrations, set up sensors and actuators, run imports, enrichment sources, service accounts (only together with the Lead role) | Technical warden, contracted service provider |
 
 The practical gain: rights are granted **individually** rather than as a package. The board manages members without touching the sensors. The technically-minded member connects Home Assistant without seeing the member list. And a student records measurements without being able to delete a bed by accident.
 
@@ -295,7 +295,7 @@ Besides accounts for humans there are **service accounts** for connecting other 
 
 Technically a service account is an ordinary account with two peculiarities: it has no password and cannot sign in through the interface — it authenticates exclusively via a key. And it receives **the same roles as a human**: a service account with the grower role in your garden may do exactly what a human grower may do there, and no more.
 
-From this follows the practical rule for setup: give a service account the lowest role that is sufficient for its job. A display dashboard needs **Viewer**. An automation service that logs watering needs **Grower**. A service account only needs **Lead** if it is supposed to create locations; managing members would additionally require the Management scope — both are rarely the case.
+From this follows the practical rule for setup: give a service account the lowest role that is sufficient for its job. A display dashboard needs **Viewer**. An automation service that logs watering needs **Grower**. A service account never gets **Lead** in your garden: a garden gives a machine at most Grower, and the member administration does not raise it later either. Creating a service account, renewing its key or removing it takes the Lead role **and** the Technical scope in the garden. <!-- Issue #2137 -->
 
 For AI assistants connected via the tool interface the same ranking applies: a viewer account may only query, a grower account may additionally document, and setup-style interventions such as creating locations remain reserved for accounts holding the Lead role.
 
@@ -371,7 +371,7 @@ Assignments are managed under the path `/api/v1/t/{garden-slug}/assignments`; al
     Through an admin membership in the technical platform tenant — granted by an existing platform administrator. On your own installation, the first registered account receives this role automatically.
 
 ??? question "Does Home Assistant need an account with administrative scopes?"
-    No. A service account with the Grower role is enough to read and document. Only creating locations would need the Lead role, and *setting up* the Home Assistant connection itself needs the Technical scope.
+    No. A service account with the Grower role is enough to read and document. Locations are created by a person with the Lead role; the service account itself is set up by someone holding the Lead role and the Technical scope.
 
 ---
 
