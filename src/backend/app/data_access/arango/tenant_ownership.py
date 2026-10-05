@@ -43,7 +43,10 @@ OWNERSHIP_VERIFIABLE_COLLECTIONS: frozenset[str] = frozenset(
     {
         col.PLANT_INSTANCES,
         col.PLANTING_RUNS,
-        col.HARVEST_OBSERVATIONS,
+        # ``HARVEST_OBSERVATIONS`` is deliberately absent (#2107): a
+        # ``HarvestObservation`` carries no ``tenant_key``, so the empty-tenant arm
+        # below admitted every tenant's observation as a "global" row. It is
+        # verified through its plant (``PlantDiagnosisRepository.create``).
         col.FERTILIZERS,
         col.TANKS,
         col.EQUIPMENT,
