@@ -95,7 +95,7 @@ class ArangoPlantDiagnosisRepository(BaseArangoRepository[PlantDiagnosisRequest]
         observation without a plant has no owner to verify against and is refused.
         """
         observation = self._db.collection(col.HARVEST_OBSERVATIONS).get(observation_key)
-        plant_key = (observation or {}).get("plant_key") or ""
+        plant_key = observation.get("plant_key") if isinstance(observation, dict) else None
         if not plant_key:
             raise NotFoundError("HarvestObservation", observation_key)
         try:
