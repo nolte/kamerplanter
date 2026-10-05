@@ -1850,7 +1850,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 ---
 
-### TC-024-XT-001: Deep-Link auf eine Pflanze eines fremden Tenants zeigt „nicht gefunden"
+### TC-024-094: Deep-Link auf eine Pflanze eines fremden Tenants zeigt „nicht gefunden"
 
 **Requirement**: REQ-024 §1 Kernkonzepte, AK-14; Audit MT-024 (#2120)
 **Priority**: Critical
@@ -1876,13 +1876,13 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 ---
 
-### TC-024-XT-002: Bearbeiten über einen Deep-Link mit fremdem Schlüssel ändert nichts
+### TC-024-095: Bearbeiten über einen Deep-Link mit fremdem Schlüssel ändert nichts
 
 **Requirement**: REQ-024 §1a.1, AK-14; Audit MT-010/MT-024 (#2107, #2120)
 **Priority**: Critical
 **Category**: Berechtigungsprüfung (Cross-Tenant-Negativprobe, Schreibpfad)
 **Preconditions**:
-- Wie TC-024-XT-001; Bernd hat zusätzlich den Standort „Bernds Gewächshaus" und den Tank „Bernds Tank" angelegt
+- Wie TC-024-094; Bernd hat zusätzlich den Standort „Bernds Gewächshaus" und den Tank „Bernds Tank" angelegt
 
 **Testschritte**:
 1. Anna öffnet in ihrem Tenant die Detailansicht des Standorts mit dem Schlüssel von „Bernds Gewächshaus" über die Adresszeile (`/t/garten-anna/standorte/locations/<Schlüssel>`)
@@ -1900,7 +1900,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 ---
 
-### TC-024-XT-003: Globaler Seed-Dünger ist für einen Gärtner nicht änderbar
+### TC-024-096: Globaler Seed-Dünger ist für einen Gärtner nicht änderbar
 
 **Requirement**: REQ-024 §2 Stammdaten-Scoping; REQ-049 §2.3; Audit MT-002/MT-024 (#2100, #2120)
 **Priority**: High
@@ -1924,7 +1924,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 ---
 
-### TC-024-XT-004: Nährstoffplan eines fremden Tenants ist nicht druckbar
+### TC-024-097: Nährstoffplan eines fremden Tenants ist nicht druckbar
 
 **Requirement**: REQ-024 §1 Kernkonzepte, AK-14; Audit MT-024 §5 (#2120)
 **Priority**: High
@@ -1945,7 +1945,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 **Tags**: [req-024, cross-tenant-isolation, mt-024, druck, export, kritisch]
 
-> **Automatisierungsstand (2026-10-05):** TC-024-XT-001 bis -004 sind spezifiziert, aber noch **nicht** als Browser-Test automatisiert und nicht gelaufen. Die API-Schicht derselben Probe deckt `tests/integration/test_cross_tenant_equipment_actuators_print.py` sowie die Boundary-Tests aus #2148 (`test_fertilizer_catalogue_write_gate.py`, `test_shared_workflow_template_write_gate.py`) ab.
+> **Automatisierungsstand (2026-10-05):** TC-024-094 bis TC-024-097 sind spezifiziert, aber noch **nicht** als Browser-Test automatisiert und nicht gelaufen. Die API-Schicht derselben Probe deckt `tests/integration/test_cross_tenant_equipment_actuators_print.py` sowie die Boundary-Tests aus #2148 (`test_fertilizer_catalogue_write_gate.py`, `test_shared_workflow_template_write_gate.py`) ab.
 
 ---
 
@@ -2565,7 +2565,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 | Gießdienst-Rotation — Erweiterte Szenarien | TC-024-083 – TC-024-086 |
 | Pinnwand — Erweiterte Szenarien | TC-024-087 – TC-024-090 |
 | Gemeinsame Einkaufsliste — Erweiterte Szenarien | TC-024-091 – TC-024-093 |
-| Cross-Tenant-Isolation | TC-024-070, TC-024-071, TC-024-XT-001 – TC-024-XT-004 |
+| Cross-Tenant-Isolation | TC-024-070, TC-024-071, TC-024-094 – TC-024-097 |
 | Leere Zustände (Empty States) | TC-024-073, TC-024-074 |
 | Mobile-Ansicht | TC-024-072 |
 | Grenzwerte & Edge Cases | TC-024-075 – TC-024-081 |
