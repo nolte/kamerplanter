@@ -19,6 +19,7 @@ import { loginLocal, clearError, EMAIL_NOT_VERIFIED } from '@/store/slices/authS
 import { getOAuthProviders } from '@/api/endpoints/auth';
 import ResendVerificationAction from '@/pages/auth/ResendVerificationAction';
 import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import { useRegistrationMode } from '@/hooks/useRegistrationMode';
 import Form from '@/components/form/Form';
 
 export default function LoginPage() {
@@ -40,6 +41,9 @@ export default function LoginPage() {
   // rather than looking identical to "no providers configured".
   const loadOAuthProviders = useCallback(() => getOAuthProviders(), []);
   const { options: oauthProviders, error: oauthError } = useAsyncOptions(loadOAuthProviders);
+  // #2132 — a closed instance offers no registration entry; an invite-only one
+  // says that registering needs an invitation.
+  const registration = useRegistrationMode();
 
   useEffect(() => {
     dispatch(clearError());
@@ -162,10 +166,16 @@ export default function LoginPage() {
             </Button>
           </Form>
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-            <Link component={RouterLink} to="/register" variant="body2">
-              {t('pages.auth.registerLink')}
-            </Link>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+            {/* Shown while the mode loads (open is the default); hidden only once
+                the instance said it is closed. */}
+            {registration.mode !== 'closed' && (
+              <Link component={RouterLink} to="/register" variant="body2" data-testid="login-register-link">
+                {registration.mode === 'invite_only'
+                  ? t('pages.auth.registerWithInvitationLink')
+                  : t('pages.auth.registerLink')}
+              </Link>
+            )}
             <Link component={RouterLink} to="/password-reset" variant="body2">
               {t('pages.auth.forgotPassword')}
             </Link>
@@ -188,6 +198,12 @@ export default function LoginPage() {
                 </Button>
               ))}
             </>
+          )}
+
+          {registration.mode === 'closed' && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }} data-testid="login-registration-closed">
+              {t('pages.auth.registrationClosedHint')}
+            </Typography>
           )}
 
           {oauthError && (

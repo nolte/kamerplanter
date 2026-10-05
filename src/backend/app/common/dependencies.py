@@ -67,6 +67,7 @@ from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.quality_scoring_engine import QualityScoringEngine
 from app.domain.engines.readiness_engine import ReadinessEngine
 from app.domain.engines.recurrence_engine import RecurrenceEngine
+from app.domain.engines.registration_engine import RegistrationPolicy
 from app.domain.engines.resistance_engine import ResistanceManager
 from app.domain.engines.safety_interval_engine import SafetyIntervalValidator
 from app.domain.engines.tank_engine import TankEngine
@@ -1174,6 +1175,10 @@ def get_auth_service() -> AuthService:
         verification_resend_proven_store=get_verification_resend_proven_store(),
         # #2043 — the reset request's per-address budget, shared across replicas.
         password_reset_store=get_password_reset_store(),
+        # #2132 (REQ-023 §3.2d) — who may create an account: REGISTRATION_MODE + the domain allowlist.
+        registration_policy=RegistrationPolicy.from_settings(
+            settings.registration_mode, settings.registration_allowed_domains
+        ),
     )
 
 

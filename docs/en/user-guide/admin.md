@@ -70,6 +70,9 @@ In the **Admin > Users** section you can:
 !!! note "Adding a user to a tenant asks for your own confirmation"
     When you add a user to a tenant — from the tenant view as well as the user view — you confirm with **your own** current password (without a local password: a fresh sign-in at your provider, or, for GitHub/Apple only, a code by email). Reason: whoever receives the lead role in the `platform` tenant is a platform admin, and in any other tenant the membership gives access to its data. You cannot add yourself to the `platform` tenant. Every add is written to the security audit (`GET /api/v1/admin/platform/security-audit`; kept two years) — as is every role, scope and removal change. <!-- Issue #2106, #2111 -->
 
+!!! note "Who may register"
+    Whether anybody can register, only with an invitation or nobody, you decide as the operator with `REGISTRATION_MODE` (`open` is the default; see [Environment variables](../reference/environment-variables.md)); `REGISTRATION_ALLOWED_DOMAINS` additionally limits registration to certain email domains. A pending email invitation for exactly the address opens registration for `invite_only` and despite the domain list — not for `closed`. Existing accounts sign in in every mode. <!-- Issue #2132 -->
+
 !!! note "Member limit and platform ceiling"
     Every tenant has a member limit (`max_members`). It can be at most the platform ceiling `TENANT_MAX_MEMBERS_CEILING` (default 50, see [Environment variables](../reference/environment-variables.md)) — for you as a platform admin too. Once a tenant is full, adding a member is refused before you are asked for your confirmation. If you lower the ceiling, tenants holding more members keep all of them; only new joins are refused. The platform tenant is not exempt. <!-- Issue #2133 -->
 

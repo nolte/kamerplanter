@@ -2306,6 +2306,39 @@ class TenantService:
             expires_at=expires_at,
         )
 
+    def email_invitation_admits(self, *, email: str, token: str) -> bool:
+        """Whether *token* names an e-mail invitation that admits creating an account for *email* (#2132).
+
+        REQ-023 §3.2d: the exception to ``invite_only`` and to the domain allowlist on a **local**
+        registration. The token proves that its holder received the invitation; the invitation must be
+        of type ``email``, pending, unexpired and issued for *email* (case-insensitive). A link
+        invitation admits nobody: it is meant to be shared, and one leaked link would reopen the
+        installation to everybody holding it.
+        """
+        invitation = self._invitation_repo.get_by_token_hash(self._invitation_engine.hash_token(token))
+        return invitation is not None and self._invitation_admits_address(invitation, email)
+
+    def email_invitation_pending_for(self, *, email: str) -> bool:
+        """Whether a pending, unexpired e-mail invitation was issued for *email* (#2132).
+
+        The exception on the **first OIDC sign-in**, which carries no token: the caller asks only for an
+        address its identity provider asserted as verified, which is the proof the token is locally.
+        """
+        return any(
+            self._invitation_admits_address(invitation, email)
+            for invitation in self._invitation_repo.list_pending_email_invitations(email)
+        )
+
+    def _invitation_admits_address(self, invitation: Invitation, email: str) -> bool:
+        address = email.strip().lower()
+        return (
+            bool(address)
+            and invitation.invitation_type == InvitationType.EMAIL
+            and invitation.status == InvitationStatus.PENDING
+            and (invitation.email or "").strip().lower() == address
+            and not self._invitation_engine.is_expired(invitation.expires_at)
+        )
+
     def list_invitations(self, tenant_key: str) -> list[Invitation]:
         return self._invitation_repo.list_by_tenant(tenant_key)
 

@@ -52,6 +52,8 @@ Content-Type: application/json
 }
 ```
 
+**Registrierungsmodus (`REGISTRATION_MODE`).** Je nach Einstellung des Betreibers antwortet die Registrierung mit `403` (`REGISTRATION_NOT_ALLOWED`): bei `closed` immer, bei `invite_only` ohne gültiges Einladungs-Token, mit `REGISTRATION_ALLOWED_DOMAINS` für eine Adresse außerhalb der Liste. Das optionale Feld `invitation_token` trägt das Token einer offenen **E-Mail**-Einladung für genau diese Adresse; es ist die Ausnahme von `invite_only` und von der Domain-Liste (nicht von `closed`). Die Antwort ist für vergebene und freie Adressen gleich. Welcher Modus gilt, liest ein Client aus `GET /api/v1/mode` (`registration.mode`, `registration.domain_restricted`). Eine erste Anmeldung über OIDC, die der Modus nicht zulässt, leitet auf `/auth/callback?error=registration_not_allowed` zurück. <!-- Issue #2132 -->
+
 Nach der Registrierung wird ein persönlicher Mandant automatisch angelegt. Ist die E-Mail-Verifikation aktiv (`REQUIRE_EMAIL_VERIFICATION=true`, der Default), muss die E-Mail-Adresse vor dem ersten Login bestätigt werden. Eine Installation ohne ausgehenden Mailversand setzt die Variable ausdrücklich auf `false`.
 
 ### E-Mail-Verifizierung

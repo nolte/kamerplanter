@@ -846,6 +846,11 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ("ArangoInvitationRepository", "get_by_token_hash"): Exclusion(
         "credential", "the hashed invitation token is what the invitee presents; it names one invitation"
     ),
+    ("ArangoInvitationRepository", "list_pending_email_invitations"): Exclusion(
+        "probe",
+        "read only by TenantService.email_invitation_pending_for, which answers one boolean to the registration "
+        "gate of a first OIDC sign-in (#2132) for an address the identity provider proved; no row leaves the service",
+    ),
     # ── account ────────────────────────────────────────────────────────────
     ("ArangoMembershipRepository", "list_by_user"): Exclusion(
         "account", "a user's memberships span their tenants by definition; the key is the caller's own"

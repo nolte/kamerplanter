@@ -44,6 +44,7 @@ from app.common.exceptions import (
     InvalidTokenError,
     NotFoundError,
     OAuthAutoLinkRefusedError,
+    RegistrationNotAllowedError,
     StepUpReauthFailedError,
     UnauthorizedError,
     ValidationError,
@@ -156,7 +157,15 @@ _OAUTH_ERROR_CODES = frozenset(
     # `link_requires_password` is its own code rather than a flavour of
     # `provider_error` (#1403): the provider reported nothing wrong and retrying
     # cannot help, which is exactly what the generic message tells the user to do.
-    {"access_denied", "invalid_state", "provider_error", "account_disabled", "link_requires_password"},
+    # `registration_not_allowed` (#2132): a first sign-in the registration mode does not admit.
+    {
+        "access_denied",
+        "invalid_state",
+        "provider_error",
+        "account_disabled",
+        "link_requires_password",
+        "registration_not_allowed",
+    },
 )
 
 
@@ -301,6 +310,8 @@ def register(
         # The verification mail only the free address sends: after the response,
         # and a failure never reaches it (#1890).
         defer_mail=background_tasks.add_task,
+        # #2132 — the exception to ``invite_only`` and to the domain allowlist.
+        invitation_token=body.invitation_token,
     )
     return UserProfileResponse(**profile.model_dump())
 
@@ -665,6 +676,10 @@ def oauth_callback(
         return _oauth_error_redirect(frontend_url, "invalid_state")
     except UnauthorizedError:
         return _oauth_error_redirect(frontend_url, "account_disabled")
+    except RegistrationNotAllowedError:
+        # #2132 — the first sign-in of an address the registration mode does not admit. Nothing
+        # was created; logged by the service under the address digest only.
+        return _oauth_error_redirect(frontend_url, "registration_not_allowed")
     except OAuthAutoLinkRefusedError as exc:
         # Before its own code, this fell into the branch below and answered
         # `provider_error`. Since #1403 refuses the link whenever the provider

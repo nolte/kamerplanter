@@ -1078,6 +1078,19 @@ class AdminScope(StrEnum):
     TECHNICAL = "technical"
 
 
+class RegistrationMode(StrEnum):
+    """Who may create an account on an installation (REQ-023 §3.2d, #2132; ``REGISTRATION_MODE``).
+
+    ``open`` - anybody (the default; with ``REGISTRATION_ALLOWED_DOMAINS``, the listed domains);
+    ``invite_only`` - only an address a pending e-mail invitation was issued for;
+    ``closed`` - nobody, an invitation included. Existing accounts sign in in every mode.
+    """
+
+    OPEN = "open"
+    INVITE_ONLY = "invite_only"
+    CLOSED = "closed"
+
+
 class InvitationStatus(StrEnum):
     PENDING = "pending"
     ACCEPTED = "accepted"
