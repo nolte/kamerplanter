@@ -21,7 +21,10 @@ information, and the v0004 stamps are the site's key, recoverable from
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import structlog
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
@@ -64,8 +67,8 @@ class DropLocationSlotTenantKeyMigration(Migration):
             if not db.has_collection(name):
                 per_collection[name] = 0
                 continue
-            bind_vars = {"@collection": name, "field": _FIELD}
-            affected = list(db.aql.execute(_SCAN_QUERY, bind_vars=bind_vars))
+            bind_vars: dict[str, Any] = {"@collection": name, "field": _FIELD}
+            affected = list(cast(Cursor, db.aql.execute(_SCAN_QUERY, bind_vars=bind_vars)))
             per_collection[name] = len(affected)
             if affected and not dry_run:
                 db.aql.execute(_STRIP_QUERY, bind_vars=bind_vars)
