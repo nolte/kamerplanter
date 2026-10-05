@@ -65,6 +65,7 @@ class TestThePredicate:
 def _auth_service():
     from app.domain.engines.login_throttle_engine import LoginThrottleEngine
     from app.domain.engines.password_engine import PasswordEngine
+    from app.domain.engines.token_engine import TokenEngine
     from app.domain.services.auth_service import AuthService
 
     user_repo = MagicMock()
@@ -75,7 +76,8 @@ def _auth_service():
             MagicMock(),
             MagicMock(),
             PasswordEngine(),
-            MagicMock(),
+            # Real, not a mock: registration stores `hash_token`'s result in a `str` field (#2158).
+            TokenEngine(secret_key="unit-test-secret-not-a-credential"),
             LoginThrottleEngine(),
             MagicMock(),
             "http://localhost:5173",
