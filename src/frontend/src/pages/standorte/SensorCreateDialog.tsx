@@ -10,6 +10,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,6 +20,7 @@ import FormSelectField from '@/components/form/FormSelectField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import * as tankApi from '@/api/endpoints/tanks';
 import * as sitesApi from '@/api/endpoints/sites';
 import type { HAEntitySuggestion } from '@/api/endpoints/tanks';
@@ -60,7 +62,14 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
   const [saving, setSaving] = useState(false);
   const [haEntities, setHaEntities] = useState<HAEntitySuggestion[]>([]);
   const [loadingEntities, setLoadingEntities] = useState(false);
+  // MT-015 (#2112): the Home Assistant entity list is the operator's inventory,
+  // filtered to the garden's releases, and readable only with the `technical`
+  // scope. Without it the list is not requested at all — the dialog explains
+  // instead of collecting a 403 — and the entity ID stays a free-text field.
+  const { canConfigureIntegrations } = useTenantPermissions();
   const isEdit = !!sensor;
+  // A list loaded under another tenant context is never shown without the scope.
+  const entityOptions = canConfigureIntegrations ? haEntities : [];
 
   const { control, handleSubmit, reset, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -92,14 +101,15 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
           mqtt_topic: null,
         });
       }
-      // Load HA entities
+      // Load the HA entities released for this garden (technical scope only).
+      if (!canConfigureIntegrations) return;
       setLoadingEntities(true);
       tankApi.listHaEntities()
         .then(setHaEntities)
         .catch(() => setHaEntities([]))
         .finally(() => setLoadingEntities(false));
     }
-  }, [open, sensor, reset, context.parentType]);
+  }, [open, sensor, reset, context.parentType, canConfigureIntegrations]);
 
   const handleEntitySelect = (_event: unknown, entity: HAEntitySuggestion | null) => {
     if (!entity) return;
@@ -174,9 +184,9 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
       <DialogTitle id="sensor-create-dialog-title">{isEdit ? t('pages.sensors.edit') : t('pages.sensors.add')}</DialogTitle>
       <DialogContent>
         <Form onSubmit={handleSubmit(onSubmit)}>
-          {haEntities.length > 0 && (
+          {entityOptions.length > 0 && (
             <Autocomplete
-              options={haEntities}
+              options={entityOptions}
               loading={loadingEntities}
               getOptionLabel={(o) => `${o.friendly_name} (${o.entity_id})`}
               renderOption={(props, option) => (
@@ -223,13 +233,26 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
               label: t(`enums.sensorMetricType.${v}`, { defaultValue: v }),
             }))}
           />
-          {haEntities.length === 0 && (
-            <FormTextField
-              name="ha_entity_id"
-              control={control}
-              label={t('pages.sensors.haEntityId')}
-              helperText={t('pages.sensors.haEntityIdHelper')}
-            />
+          {entityOptions.length === 0 && (
+            <>
+              {!loadingEntities && (
+                <Alert
+                  severity="info"
+                  sx={{ mt: 2 }}
+                  data-testid={canConfigureIntegrations ? 'sensor-ha-entities-none-released' : 'sensor-ha-entities-technical-only'}
+                >
+                  {canConfigureIntegrations
+                    ? t('pages.sensors.haEntitiesNoneReleased')
+                    : t('pages.sensors.haEntitiesTechnicalOnly')}
+                </Alert>
+              )}
+              <FormTextField
+                name="ha_entity_id"
+                control={control}
+                label={t('pages.sensors.haEntityId')}
+                helperText={t('pages.sensors.haEntityIdHelper')}
+              />
+            </>
           )}
           <FormTextField
             name="mqtt_topic"

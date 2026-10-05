@@ -658,6 +658,26 @@
           "skippedKeys": "Skipped: {{count}}",
           "failedToRun": "The test could not be run."
         }
+      },
+      "haGrants": {
+        "title": "Home Assistant entities",
+        "intro": "Kamerplanter is connected to a single Home Assistant instance – yours. “{{tenant}}” can only use the entities you release here: as a sensor, actuator, weather source or notification target. If you withdraw a release, Kamerplanter stops reading and switching that entity for the garden.",
+        "grantedCount": "{{count}} released",
+        "search": "Search entities",
+        "onlyGranted": "Released only",
+        "emptyInventory": "Home Assistant reports no entities and nothing has been released yet.",
+        "noMatch": "No entity matches the search.",
+        "notPresent": "no longer in Home Assistant",
+        "truncated": "Showing {{shown}} of {{total}} matches – narrow the search.",
+        "toggleAria": "Release {{entity}} for this garden",
+        "granted": "{{entity}} released",
+        "revoked": "Release of {{entity}} withdrawn",
+        "loadError": "The Home Assistant releases could not be loaded.",
+        "notConfigured": "Home Assistant is not connected. You still see existing releases; you can release new entities by ID below.",
+        "manualLabel": "Release entity by ID",
+        "manualHelper": "E.g. notify.mobile_app_phone for a notification target – services do not appear in the list above.",
+        "manualInvalid": "An entity ID has the form domain.name, lowercase letters, digits and underscores only.",
+        "manualSubmit": "Release"
       }
     },
     "privacy": {
@@ -3139,16 +3159,18 @@
       "name": "Sensor name",
       "metricType": "Metric type",
       "haEntityId": "HA Entity ID",
-      "haEntityIdHelper": "e.g. sensor.tank_ec",
+      "haEntityIdHelper": "E.g. sensor.tank_ec – the entity must be released for this garden.",
       "haEntitySelect": "Select HA sensor",
-      "haEntitySelectHelper": "Available Home Assistant sensors",
+      "haEntitySelectHelper": "Home Assistant sensors released for this garden",
       "mqttTopic": "MQTT topic",
       "active": "Active",
       "noSensors": "No sensors assigned",
       "created": "Sensor created",
       "deleted": "Sensor deleted",
       "liveState": "Live state",
-      "metricTypeHelper": "ph = acidity · ec_ms = conductivity · vpd_kpa = vapour pressure deficit · ppfd = light intensity · orp_mv = redox potential · tds_ppm = total dissolved solids · dissolved_oxygen_mgl = dissolved oxygen"
+      "metricTypeHelper": "ph = acidity · ec_ms = conductivity · vpd_kpa = vapour pressure deficit · ppfd = light intensity · orp_mv = redox potential · tds_ppm = total dissolved solids · dissolved_oxygen_mgl = dissolved oxygen",
+      "haEntitiesTechnicalOnly": "Only members with the “Technical” scope see the list of Home Assistant entities. You can still enter the entity ID – the platform admin must have released it for this garden.",
+      "haEntitiesNoneReleased": "No Home Assistant sensors available – either Home Assistant is not connected or nothing has been released for this garden yet. The platform admin grants releases; you can also enter the ID of a released entity below."
     },
     "nutrientCalc": {
       "title": "Nutrient Calculations",
@@ -4610,9 +4632,9 @@
       "toggleKeyVisibility": "Show/hide key",
       "weatherEntity": "Weather entity",
       "weatherEntityHelper": "An HA weather.* entity (e.g. Met.no) already provides a ready-made daily forecast – usually the simpler choice.",
-      "noWeatherEntities": "No weather entities found. Check whether your Home Assistant integration provides weather.* entities, or use the individual sensor mapping instead.",
+      "noWeatherEntities": "No weather entities are released for this garden. Ask the platform admin to release a weather.* entity, or use the individual sensor mapping instead.",
       "sensorMappingHelper": "Map individual HA sensors to the weather fields. Unmapped fields stay empty. At least one field must be mapped.",
-      "noSensorEntities": "No sensors found. Check your Home Assistant connection and whether matching sensor entities exist.",
+      "noSensorEntities": "No Home Assistant sensors are released for this garden. Ask the platform admin to release the sensors you need.",
       "sensorGroupTemperature": "Temperature",
       "sensorGroupPrecipitationWind": "Precipitation & wind",
       "sensorGroupOther": "Other readings",
@@ -4637,7 +4659,8 @@
       "testUnreachable": "Source not reachable.",
       "previewValues": "min {{min}} °C / max {{max}} °C / rain {{rain}} mm",
       "attribution": "Data sources: Deutscher Wetterdienst (DWD, GeoNutzV) · Weather data by Open-Meteo.com (CC BY 4.0) · OpenWeatherMap under their terms of use.",
-      "gpsRequiredHint": "Weather sources can be configured for this location once GPS coordinates are stored."
+      "gpsRequiredHint": "Weather sources can be configured for this location once GPS coordinates are stored.",
+      "haEntitiesTechnicalOnly": "Only members with the “Technical” scope can pick Home Assistant entities. Ask someone with that scope to set up the source – an existing source stays unchanged."
     },
     "weatherProviders": {
       "title": "Weather Services",
