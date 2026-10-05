@@ -109,6 +109,11 @@ _SITES: dict[str, tuple[str, str, str]] = {
     f"{_TS}:TenantService.erase_personal_tenant_of": (_DECIDED, "", "erasure must reach a deactivated tenant"),
     # #2123 — the lifecycle of a deletion acts on tenants that resolve for nobody by design.
     f"{_TS}:TenantService._mark_tenant_erasing": (_DECIDED, "", "erasure claim; marks the tenant deleted"),
+    f"{_TS}:TenantService._organisations_of": (
+        _DECIDED,
+        "",
+        "account-erasure settlement (#2134): reads the lifecycle state itself and settles active/suspended orgs only",
+    ),
     f"{_TS}:TenantService.cancel_tenant_erasure": (
         _DECIDED,
         "",

@@ -57,6 +57,12 @@ DECIDED: dict[tuple[str, str], str] = {
     ("tenant_erasure.TenantDeletionConfirmation", "step_up_token"): (
         "request body of a tenant deletion; never persisted"
     ),
+    ("tenant_erasure.TenantErasureCancelConfirmation", "password"): (
+        "request body of cancelling a scheduled tenant deletion (#2123); never persisted"
+    ),
+    ("tenant_erasure.TenantErasureCancelConfirmation", "step_up_token"): (
+        "request body of cancelling a scheduled tenant deletion (#2123); never persisted"
+    ),
     ("calendar.CalendarFeed", "token"): (
         "persisted in clear: the iCal endpoint looks the feed up BY the token value, so Fernet (random IV) cannot "
         "serve the lookup; hashing it is the fix and is a separate change (#2113 class sweep, reported)"

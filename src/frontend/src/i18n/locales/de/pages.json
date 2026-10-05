@@ -721,7 +721,7 @@
       "erasurePreviewError": "Wir konnten nicht prüfen, welche persönlichen Gärten betroffen sind. Deine persönlichen Gärten werden in jedem Fall mit allem Inhalt gelöscht, auch wenn weitere Mitglieder darin sind.",
       "erasurePreviewOrgHeading": "Deine Organisationen nach der Löschung deines Kontos:",
       "erasurePreviewOrgManagementPasses": "In „{{name}}“ bist du die letzte Person mit Verwaltungsrecht. Die dienstälteste Leitung übernimmt die Verwaltung; die Mitglieder werden benachrichtigt.",
-      "erasurePreviewOrgOrphaned": "In „{{name}}“ bleibt niemand, der die Organisation verwalten kann. Sie wird nach einer Frist (standardmäßig 90 Tage) mit allen Daten gelöscht; die Mitglieder und die Betreiber werden benachrichtigt."
+      "erasurePreviewOrgOrphaned": "In „{{name}}“ bleibt niemand, der die Organisation verwalten kann. Die Organisation wird nach einer Frist (standardmäßig 90 Tage) mit allen Daten gelöscht; die Mitglieder und die Betreiber werden benachrichtigt."
     },
     "activities": {
       "title": "Tätigkeiten",
@@ -902,7 +902,7 @@
       "adminTenantDeletionAccepted": "Löschung angenommen: Die Organisation ist eingefroren, ihre Daten werden im Hintergrund gelöscht",
       "adminTenantDeletionScheduled": "Löschung geplant für den {{date}}: Die Organisation ist bis dahin für alle gesperrt, die Mitglieder sind benachrichtigt. Bis zu diesem Tag kannst du die Löschung abbrechen.",
       "adminTenantPendingDeletionInfo": "Diese Organisation wird am {{date}} gelöscht. Bis dahin ist sie für alle Mitglieder gesperrt; die Mitglieder können ihre eigenen Daten über den Datenexport sichern.",
-      "adminTenantOrphanedInfo": "Diese Organisation ist verwaist: Nach einer Kontolöschung kann sie niemand mehr verwalten. Sie wird am {{date}} mit allen Daten gelöscht; die Mitglieder können bis dahin ihre eigenen Daten über den Datenexport sichern.",
+      "adminTenantOrphanedInfo": "Diese Organisation ist verwaist: Nach einer Kontolöschung kann sie niemand mehr verwalten. Die Organisation wird am {{date}} mit allen Daten gelöscht; die Mitglieder können bis dahin ihre eigenen Daten über den Datenexport sichern.",
       "adminTenantErasingInfo": "Die Frist ist abgelaufen, die Organisation wird gerade gelöscht. Das lässt sich nicht mehr abbrechen.",
       "adminTenantCancelDeletion": "Löschung abbrechen",
       "adminTenantCancelDeletionTitle": "Geplante Löschung abbrechen",
@@ -918,7 +918,7 @@
       "adminErasurePreviewError": "Wir konnten nicht prüfen, welche persönlichen Gärten betroffen sind. Die persönlichen Gärten des Kontos werden in jedem Fall sofort mit allem Inhalt gelöscht, auch wenn weitere Mitglieder darin sind, und diese bekommen keine Frist.",
       "adminErasurePreviewOrgHeading": "Organisationen des Kontos nach der Löschung:",
       "adminErasurePreviewOrgManagementPasses": "In „{{name}}“ ist das Konto die letzte Person mit Verwaltungsrecht. Die dienstälteste Leitung übernimmt die Verwaltung; die Mitglieder werden benachrichtigt.",
-      "adminErasurePreviewOrgOrphaned": "In „{{name}}“ bleibt niemand, der die Organisation verwalten kann. Sie wird verwaist und nach der Frist mit allen Daten gelöscht; du siehst sie im Admin-Bereich.",
+      "adminErasurePreviewOrgOrphaned": "In „{{name}}“ bleibt niemand, der die Organisation verwalten kann. Die Organisation verwaist und wird nach der Frist mit allen Daten gelöscht; du siehst sie im Admin-Bereich.",
       "adminDeleteUserConfirm": "Möchtest du den Benutzer \"{{name}}\" ({{email}}) und alle zugehörigen Daten wirklich unwiderruflich löschen?",
       "adminUserDeletionAccepted": "Löschung angenommen: Das Konto ist gesperrt, seine Daten werden im Hintergrund gelöscht",
       "adminConfirmDelete": "Endgültig löschen",

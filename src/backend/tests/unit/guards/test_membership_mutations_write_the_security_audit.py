@@ -139,7 +139,7 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: The class size measured when this guard was written (#2111). A change in either direction is a
 #: signal to read, not to update blindly: a new member needs the gate or a classification, a
 #: vanished one may mean the predicate went blind.
-EXPECTED_MEMBERS = 11
+EXPECTED_MEMBERS = 12  # +1 with #2134: _hand_management_to (the account erasure's INV-1 handover)
 
 
 def test_every_membership_mutation_writes_the_audit_or_is_classified() -> None:
