@@ -66,6 +66,7 @@ bjw-s common rendert seit 5.2 **jeden String** der Values einmal als Template ge
 - **Werte, die selbst Template sind, mit `tpl` lesen:** Die Auswertung ist einstufig; `'{{ .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME }}'` liefert den rohen Template-Text, `'{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME $ }}'` dessen Ergebnis.
 - **Render-Pruefungen** stehen unter `renderChecks` als String mit `{{ fail "…" }}` — nur dort, wo eine Kombination nachweislich nicht funktionieren kann, mit einer Meldung, die den Ausweg nennt.
 - **Booleans in Kubernetes-Feldern** (`optional`, `readOnly`) bleiben YAML-Literale; ein Template liefert dort einen String, den die API ablehnt.
+- **Strukturen lassen sich nicht wegrendern:** Ein String-Template kann eine Map (etwa `affinity`) nicht entfernen. Muss eine Bedingung nur in einer Konfiguration wirken, rendert ein String in ihr auf einen wirkungslosen Wert — Muster #2153: `topologyKey` wird `kubernetes.io/hostname` bei `ReadWriteOnce`-Anhängen, sonst `kubernetes.io/os` (jeder Node trägt denselben Wert, die Bedingung ist immer erfüllt).
 - Was nur ein Render zeigt, prueft `scripts/ci/assert_chart_contracts.sh` (`task verify:chart`, CI `skaffold-verify`).
 
 ### 2.2 Dependencies
@@ -374,6 +375,7 @@ probes:
 - **Separate** Liveness- und Readiness-Endpunkte
 - Readiness hat kuerzere Intervalle als Liveness
 - ArangoDB: Basic Auth Header in Probe
+- Container ohne HTTP-Endpunkt (Celery-Worker): Readiness ist eine Datei, die der Prozess selbst schreibt, sobald er arbeitet (`WORKER_READY_FILE`, `exec: test -f`), mit `startupProbe`, dessen Budget das Start-Gate des Prozesses uebersteigt (#2154). Eine Probe per `celery inspect` fragt den **eigenen** Knoten (`-d celery@${HOSTNAME}`): ohne Ziel antwortet irgendein Worker und die Probe ist fuer diesen Pod bedeutungslos
 
 ---
 

@@ -1,3 +1,6 @@
+import time
+from pathlib import Path
+
 import structlog
 from celery import Celery
 from celery.schedules import crontab
@@ -10,16 +13,24 @@ from celery.signals import (
     task_postrun,
     task_prerun,
     worker_process_init,
+    worker_ready,
+    worker_shutting_down,
 )
 
 from app.common.log_privacy import loggable_path, redact_text_in_flight
 from app.common.request_context import TELEMETRY_KEYS, current_request
-from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH, MIN_TOMBSTONE_SALT_LENGTH
+from app.config.constants import (
+    MIN_LOG_PSEUDONYM_SALT_LENGTH,
+    MIN_TOMBSTONE_SALT_LENGTH,
+    WORKER_DATABASE_START_BUDGET_SECONDS,
+    WORKER_DATABASE_START_RETRY_SECONDS,
+)
 from app.config.logging import install_sink_redaction, setup_logging
 from app.config.settings import settings
 from app.data_access.external.registration import register_external_adapters
 from app.domain.engines.encryption_engine import is_usable_fernet_key
 from app.observability.error_tracking import init_error_tracking, resolve_release
+from app.tasks.routing import celery_queue_config
 
 # The Celery worker/beat boot via ``celery -A app.tasks`` and never import
 # ``app.main``, so without this call the adapter registries would be empty in the
@@ -168,6 +179,74 @@ def _refuse_worker_start_without_a_usable_fernet_key(**_kwargs: object) -> None:
     )
 
 
+def _refuse_worker_start_without_database_access(**_kwargs: object) -> None:
+    """Stop the worker when it cannot open ArangoDB, before it consumes anything (#2154).
+
+    The worker opened its database lazily, in the first task. A worker whose
+    login failed after an upgrade (wrong ``ARANGODB_PASSWORD``, an application
+    account not provisioned) started, consumed messages and failed every one of
+    them; and with no readiness probe the Deployment counted it ready at once
+    and removed the old, working worker. Now a worker that reports readiness
+    (``WORKER_READY_FILE`` set — the chart does) proves the login first: it
+    retries for :data:`WORKER_DATABASE_START_BUDGET_SECONDS` (a fresh install
+    starts the database and the application account alongside the worker), then
+    raises ``SystemExit``. The container restarts, never becomes ready, and the
+    rollout keeps the old pod.
+
+    Off without ``WORKER_READY_FILE``: compose and dev setups start the worker
+    next to a database that may come up later, and they have no rollout to
+    protect. ``SystemExit`` for the reason ``_refuse_worker_start_without_tombstone_salt``
+    gives; the log names the error type, never the account or the password.
+    """
+    if not settings.worker_ready_file:
+        return
+    from app.common.dependencies import check_database_access
+
+    log = structlog.get_logger()
+    deadline = time.monotonic() + WORKER_DATABASE_START_BUDGET_SECONDS
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            check_database_access()
+        except Exception as exc:  # noqa: BLE001 — every failure to open the database is the same answer here
+            if time.monotonic() + WORKER_DATABASE_START_RETRY_SECONDS >= deadline:
+                log.critical("worker_database_unavailable", attempts=attempt, error_type=type(exc).__name__)
+                raise SystemExit(
+                    "FATAL: the worker cannot open the ArangoDB database with ARANGODB_USERNAME/ARANGODB_PASSWORD "
+                    f"({type(exc).__name__}, {attempt} attempt(s) in {WORKER_DATABASE_START_BUDGET_SECONDS}s). "
+                    "It consumes no task until it can (#2154)."
+                ) from None
+            log.warning("worker_database_retry", attempt=attempt, error_type=type(exc).__name__)
+            time.sleep(WORKER_DATABASE_START_RETRY_SECONDS)
+        else:
+            if attempt > 1:
+                log.info("worker_database_available", attempts=attempt)
+            return
+
+
+def _mark_worker_ready(**_kwargs: object) -> None:
+    """``worker_ready``: the consumer is running — write the readiness file the probes test (#2154).
+
+    Celery sends ``worker_ready`` after the broker connection is up and the
+    consumer has started, so the file means "this worker takes tasks", which is
+    what a rollout has to wait for. The database login was proved before
+    (``_refuse_worker_start_without_database_access``).
+    """
+    if not settings.worker_ready_file:
+        return
+    path = Path(settings.worker_ready_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"{int(time.time())}\n", encoding="utf-8")
+
+
+def _clear_worker_ready(**_kwargs: object) -> None:
+    """``worker_shutting_down``: a stopping worker stops reporting ready (#2154)."""
+    if not settings.worker_ready_file:
+        return
+    Path(settings.worker_ready_file).unlink(missing_ok=True)
+
+
 #: Message headers that carry the dispatching request's context into the worker
 #: (#2130). Prefixed so they cannot collide with Celery's own protocol headers.
 #: Values are the request id and the *pseudonyms* ``log_subject``/``log_tenant`` —
@@ -245,6 +324,11 @@ celeryd_init.connect(_refuse_worker_start_without_tombstone_salt, weak=False)
 celeryd_init.connect(_refuse_worker_start_without_log_pseudonym_salt, weak=False)
 # The key gate likewise: beat stores no secret (#1859).
 celeryd_init.connect(_refuse_worker_start_without_a_usable_fernet_key, weak=False)
+# #2154 — the database gate after the configuration gates (they are instant and
+# their message is the more useful one); readiness follows the consumer.
+celeryd_init.connect(_refuse_worker_start_without_database_access, weak=False)
+worker_ready.connect(_mark_worker_ready, weak=False)
+worker_shutting_down.connect(_clear_worker_ready, weak=False)
 # Worker and beat both set up logging through ``app.log.setup``; see the docstring.
 after_setup_logger.connect(_configure_worker_logging, weak=False)
 after_setup_task_logger.connect(_redact_task_logger, weak=False)
@@ -301,6 +385,9 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    # MT-032 (#2128): named queues, routes, time limits, one reserved message per
+    # process and a visibility timeout above the longest limit — app/tasks/routing.py.
+    **celery_queue_config(),
     beat_schedule={
         "enrichment-incremental-daily": {
             "task": "app.tasks.enrichment_tasks.sync_all_sources_task",

@@ -113,7 +113,7 @@ def test_the_glossary_cleanup_logs_the_held_count():
     repo.delete_expired.return_value = 4
     repo.count_undated.return_value = 2
     with (
-        patch.object(glossary_tasks, "ArangoConnection"),
+        patch.object(glossary_tasks, "get_db"),
         patch.object(glossary_tasks, "ArangoGlossaryTermCacheRepository", return_value=repo),
         patch.object(glossary_tasks, "logger") as logger,
     ):
@@ -131,7 +131,7 @@ def test_a_failing_glossary_count_does_not_fail_the_cleanup():
     repo.delete_expired.return_value = 4
     repo.count_undated.side_effect = ConnectionError("db down")
     with (
-        patch.object(glossary_tasks, "ArangoConnection"),
+        patch.object(glossary_tasks, "get_db"),
         patch.object(glossary_tasks, "ArangoGlossaryTermCacheRepository", return_value=repo),
         patch.object(glossary_tasks, "logger") as logger,
     ):

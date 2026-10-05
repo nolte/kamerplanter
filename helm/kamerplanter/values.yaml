@@ -303,6 +303,32 @@ controllers:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      # #2153 — every pod that mounts the attachments claim lands on ONE node.
+      # A ReadWriteOnce volume attaches to one node only. The backend AND the
+      # celery-worker mount it, and a rolling update starts the new pod before
+      # the old one stops (surge 1). Nothing told the scheduler that: a new
+      # backend pod placed on another node waited in ContainerCreating with
+      # `Multi-Attach error` and the rollout hung; a worker placed apart from
+      # the backend never started at all. Both controllers carry this label
+      # and require a pod with it on the same node (`topologyKey` hostname),
+      # so a new pod joins the node the volume is attached to and the rolling
+      # update keeps its zero downtime (no `Recreate`). The first pod of a
+      # release matches its own term, which the scheduler accepts.
+      #
+      # Only while the volume is ReadWriteOnce local-fs: with
+      # `storage.backend: s3` or a ReadWriteMany claim the topology key renders
+      # to `kubernetes.io/os`, a label every node carries with the same value —
+      # the term is then always met and pods spread freely. (A Helm string
+      # cannot remove the term, but it can make it meaningless.)
+      labels: &attachments-volume-label
+        kamerplanter.io/attachments-volume: '{{ .Release.Name }}'
+      affinity: &attachments-volume-affinity
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  kamerplanter.io/attachments-volume: '{{ .Release.Name }}'
+              topologyKey: '{{ if and (eq .Values.storage.backend "local-fs") (ne .Values.storage.localFs.pvc.accessMode "ReadWriteMany") }}kubernetes.io/hostname{{ else }}kubernetes.io/os{{ end }}'
     containers:
       main:
         image:
@@ -966,6 +992,10 @@ controllers:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      # #2153 — on the backend's node while the attachments claim is
+      # ReadWriteOnce; see controllers.backend.pod.affinity.
+      labels: *attachments-volume-label
+      affinity: *attachments-volume-affinity
     containers:
       main:
         image:
@@ -973,7 +1003,13 @@ controllers:
           tag: latest
           pullPolicy: IfNotPresent
         command: ["celery"]
-        args: ["-A", "app.tasks", "worker", "--loglevel=info", "--concurrency=2"]
+        # MT-032 (#2128): consume every queue the application declares
+        # (app/tasks/routing.py). A queue no worker consumes keeps its tasks in
+        # Valkey forever, silently — tests/unit/guards/test_every_task_has_a_queue.py
+        # and scripts/ci/assert_chart_contracts.sh hold this list to the code.
+        # To run `bulk` in a worker of its own, give that worker `-Q bulk` and
+        # this one `-Q critical,celery` — never drop a queue from both.
+        args: ["-A", "app.tasks", "worker", "--loglevel=info", "--concurrency=2", "-Q", "critical,celery,bulk"]
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -1012,6 +1048,11 @@ controllers:
           # rule for it. Events would be dropped silently — the SDK does not
           # surface a blocked connection. Enabling the DSN is therefore two
           # changes, not one.
+          # #2154 — the readiness file the probes below test. With it set the
+          # worker proves its ArangoDB login before consuming (and exits when
+          # it cannot), writes the file once its consumer runs and removes it
+          # on shutdown. Lives on the writable /tmp emptyDir.
+          WORKER_READY_FILE: &worker-ready-file /tmp/worker-ready
           # NFR-013 — the worker generates thumbnails (§8.2) and runs the DSGVO
           # storage erasure (§6.2), so it MUST see the same backend + volume as
           # the backend pod: these lines are the backend's, verbatim (#2124).
@@ -1041,18 +1082,48 @@ controllers:
                 key: '{{ .Values.storage.s3.credentialsRef.secretAccessKeyKey }}'
                 optional: true
         probes:
+          # #2154 — a worker is ready when its consumer runs, which the worker
+          # itself records (WORKER_READY_FILE above): `test -f` costs nothing
+          # (measured: <1 ms, ~2 MB) where a `celery inspect` probe starts a
+          # Python interpreter that imports the whole application (~6 s,
+          # ~95 MB, inside this container's memory limit). Until the file
+          # exists the rollout keeps the old worker (surge 1, unavailable 0).
+          # Startup budget 5 s x 36 = 180 s: import (~6 s) + the database gate
+          # (WORKER_DATABASE_START_BUDGET_SECONDS 60 s, one attempt up to
+          # ~18 s more) + broker connect — tests/unit/guards/test_chart_worker_probes.py.
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["test", "-f", *worker-ready-file]
+              periodSeconds: 5
+              timeoutSeconds: 2
+              failureThreshold: 36
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["test", "-f", *worker-ready-file]
+              periodSeconds: 10
+              timeoutSeconds: 2
+              failureThreshold: 3
+          # Liveness asks THIS worker (`-d celery@$HOSTNAME`; the pod name is
+          # the node name). Plain `inspect ping` broadcasts and passes when ANY
+          # worker answers — measured: exit 0 with this pod's own worker dead
+          # and another one alive — so during a rollout the old pod kept the
+          # new one "alive". It still costs an interpreter start, hence the
+          # long period; it runs only after the startup probe succeeded.
           liveness:
             enabled: true
             custom: true
             spec:
               exec:
-                command: ["celery", "-A", "app.tasks", "inspect", "ping", "--timeout", "5"]
-              initialDelaySeconds: 30
-              periodSeconds: 30
-              timeoutSeconds: 10
+                command: ["sh", "-c", "exec celery -A app.tasks inspect ping -d \"celery@${HOSTNAME}\" --timeout 10"]
+              periodSeconds: 60
+              timeoutSeconds: 20
               failureThreshold: 3
-          readiness:
-            enabled: false
         # The worker does the same in-memory Pillow image decoding as the
         # backend (thumbnail generation §8.2), so 512Mi OOMKills it under load.
         # Match the backend's 2Gi headroom.

@@ -257,19 +257,20 @@ controllers:
           # fetch, daily-forecast, climate-normal, hardiness and season tasks,
           # all gated by this switch.
           WEATHER_ENABLED: "true"
+        # Startup and readiness come from values.yaml (#2154: the worker's own
+        # readiness file). Liveness keeps the dev cluster's slower timing but
+        # asks THIS worker — a broadcast `inspect ping` passes when any worker
+        # answers.
         probes:
           liveness:
             enabled: true
             custom: true
             spec:
               exec:
-                command: ["celery", "-A", "app.tasks", "inspect", "ping", "--timeout", "10"]
-              initialDelaySeconds: 60
-              periodSeconds: 30
-              timeoutSeconds: 15
+                command: ["sh", "-c", "exec celery -A app.tasks inspect ping -d \"celery@${HOSTNAME}\" --timeout 10"]
+              periodSeconds: 60
+              timeoutSeconds: 20
               failureThreshold: 5
-          readiness:
-            enabled: false
         resources:
           requests:
             cpu: 50m

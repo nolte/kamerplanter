@@ -655,6 +655,14 @@ class Settings(BaseSettings):
     metrics_port: int = Field(default=0, ge=0, le=65535)
     metrics_bind_address: str = "0.0.0.0"  # noqa: S104 — the pod's own interface; the NetworkPolicy gates it
 
+    # #2154 — the Celery worker's readiness file. Empty (the default, and every
+    # compose/dev setup) changes nothing. Set — the Helm chart does — the worker
+    # proves its ArangoDB login before it consumes a message and refuses to start
+    # when it cannot (a rollout then keeps the old worker), writes this file once
+    # it consumes and removes it on shutdown; the chart's startup and readiness
+    # probes test for it.
+    worker_ready_file: str = ""
+
     # mDNS / Zeroconf Discovery
     mdns_enabled: bool = False  # Enable only for local/on-premise deployments (opt-in)
     # Auto-generated UUID prefix if empty; alphanumeric + hyphens only, max 64 chars

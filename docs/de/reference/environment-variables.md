@@ -33,6 +33,7 @@ Alle Konfigurationsparameter des Kamerplanter-Backends werden über Umgebungsvar
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
 | `REDIS_URL` | `redis://localhost:6379/0` | Ja | Verbindungs-URL für Redis oder Valkey (Celery Broker und Backend-Cache) |
+| `WORKER_READY_FILE` | — | Nein | Nur Celery-Worker. Leer (Standard, Docker Compose) ändert nichts. Gesetzt — das Helm-Chart setzt `/tmp/worker-ready` — prüft der Worker beim Start seine ArangoDB-Anmeldung, versucht es bis zu 60 Sekunden lang und beendet sich, wenn sie nicht gelingt; er nimmt dann keine Aufgabe an. Läuft sein Consumer, schreibt er die Datei, beim Herunterfahren entfernt er sie. Startup- und Readiness-Probe des Charts prüfen sie. |
 
 **Format:** `redis://[user]:[password]@[host]:[port]/[db]`
 

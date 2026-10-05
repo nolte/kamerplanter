@@ -299,6 +299,73 @@ for profile in "${CHART}"/values-*.yaml; do
   render "monitoring-$(basename "${profile}" .yaml)" -f "${profile}" --set monitoring.enabled=true
 done
 
+# ---------------------------------------------------------------------------
+# #2128 (MT-032) — the worker consumes every queue the application routes to.
+#
+# app/tasks/routing.py routes tasks to `critical`, `celery` (the default) and
+# `bulk`. A queue no worker consumes keeps its tasks in Valkey forever and
+# nobody is told. The list must be exactly the code's QUEUES, in every profile
+# that runs a worker; tests/unit/guards/test_every_task_has_a_queue.py holds
+# the code side (it reads the same values files and the live Celery config).
+# ---------------------------------------------------------------------------
+worker_queues() { printf '%s | .args | join(" ") | capture("(^| )(-Q|--queues)[ =](?P<q>[^ ]+)") | .q | split(",") | .[]' "$(main_of celery-worker)"; }
+expect storage-default "the worker consumes critical, celery and bulk" "$(worker_queues)" '["critical","celery","bulk"]'
+expect profile-values-dev "the dev worker consumes critical, celery and bulk" "$(worker_queues)" '["critical","celery","bulk"]'
+expect storage-default "the worker excludes no queue" \
+  "$(main_of celery-worker) | .args[] | select(test(\"^(-X|--exclude-queues)\"))" '[]'
+
+# ---------------------------------------------------------------------------
+# #2154 — the worker is ready when its consumer runs, and only then.
+#
+# No readiness probe meant a worker counted ready at container start: an
+# upgrade whose worker could not log in to ArangoDB replaced the old worker
+# anyway. The worker now writes WORKER_READY_FILE once it consumes (after
+# proving its database login); startup and readiness probes test that same
+# path. The startup budget's relation to the worker's database gate is held by
+# tests/unit/guards/test_chart_worker_probes.py.
+# ---------------------------------------------------------------------------
+ready_file="$(yq e '[.[] | select(.kind == "Deployment" and .metadata.name == "kamerplanter-celery-worker") | .spec.template.spec.containers[] | select(.name == "main") | .env[] | select(.name == "WORKER_READY_FILE") | .value] | .[0] // ""' "${work}/storage-default.yaml")"
+if [[ -z "${ready_file}" ]]; then
+  fail "storage-default: the worker sets no WORKER_READY_FILE"
+fi
+for probe in startupProbe readinessProbe; do
+  expect storage-default "the worker ${probe} tests the file the worker writes" \
+    "$(main_of celery-worker) | .${probe}.exec.command | join(\" \")" "[\"test -f ${ready_file}\"]"
+done
+expect storage-default "the worker liveness asks this pod's own worker, not any worker" \
+  "$(main_of celery-worker) | .livenessProbe.exec.command | join(\" \") | (contains(\"inspect ping -d\") and contains(\"celery@\") and contains(\"HOSTNAME\"))" '[true]'
+expect profile-values-dev "the dev worker carries the readiness probe too" \
+  "$(main_of celery-worker) | .readinessProbe.exec.command | join(\" \")" "[\"test -f ${ready_file}\"]"
+
+# ---------------------------------------------------------------------------
+# #2153 — every pod on a ReadWriteOnce attachment claim shares one node.
+#
+# Backend and celery-worker mount the claim; a rolling update (surge 1) or a
+# worker scheduled apart from the backend put a second pod on another node,
+# where the volume cannot attach (Multi-Attach). Both carry one label and
+# require a pod with it on the same hostname; with S3 or ReadWriteMany the
+# topology key is `kubernetes.io/os` (one value on every node), i.e. no
+# constraint. The rolling strategy stays: no downtime to buy this.
+# ---------------------------------------------------------------------------
+attach_term() { printf '%s | .spec.template.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[] | .topologyKey' "$(deploy "$1")"; }
+attach_label() { printf '%s | .spec.template.metadata.labels["kamerplanter.io/attachments-volume"]' "$(deploy "$1")"; }
+attach_selector() { printf '%s | .spec.template.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[] | .labelSelector.matchLabels["kamerplanter.io/attachments-volume"]' "$(deploy "$1")"; }
+for controller in backend celery-worker; do
+  expect storage-default "${controller} carries the attachment-volume label" "$(attach_label "${controller}")" '["kamerplanter"]'
+  expect storage-default "${controller} requires a pod with that label" "$(attach_selector "${controller}")" '["kamerplanter"]'
+  expect storage-default "${controller} shares the node of the ReadWriteOnce claim" "$(attach_term "${controller}")" '["kubernetes.io/hostname"]'
+  expect storage-default "${controller} keeps the zero-downtime rolling update" \
+    "$(deploy "${controller}") | .spec.strategy | [.type, .rollingUpdate.maxUnavailable] | join(\" \")" '["RollingUpdate 0"]'
+  expect storage-single-node-two-backends "${controller} shares the node on an acknowledged single-node cluster too" \
+    "$(attach_term "${controller}")" '["kubernetes.io/hostname"]'
+  expect storage-s3 "${controller} is not pinned to a node with storage.backend=s3" "$(attach_term "${controller}")" '["kubernetes.io/os"]'
+  expect storage-rwx-two-backends "${controller} is not pinned to a node on a ReadWriteMany claim" \
+    "$(attach_term "${controller}")" '["kubernetes.io/os"]'
+done
+expect storage-default "no other pod requires the attachment-volume label" \
+  "select(.kind == \"Deployment\" or .kind == \"StatefulSet\") | select(.spec.template.spec.affinity.podAffinity) | .metadata.name" \
+  '["kamerplanter-backend","kamerplanter-celery-worker"]'
+
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2
   exit 1

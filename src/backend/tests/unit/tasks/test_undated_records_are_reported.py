@@ -24,7 +24,7 @@ def test_the_ai_audit_task_logs_the_held_count():
     repo.delete_older_than.return_value = 4
     repo.count_undated.return_value = 2
     with (
-        patch.object(ai_tasks, "ArangoConnection"),
+        patch.object(ai_tasks, "get_db"),
         patch.object(ai_tasks, "ArangoAiAuditRepository", return_value=repo),
         patch.object(ai_tasks, "logger") as logger,
     ):
@@ -41,7 +41,7 @@ def test_the_mcp_audit_task_logs_the_held_count():
     repo.delete_expired.return_value = 5
     repo.count_undated.return_value = 1
     with (
-        patch.object(mcp_tasks, "ArangoConnection"),
+        patch.object(mcp_tasks, "get_db"),
         patch.object(mcp_tasks, "ArangoMcpAuditRepository", return_value=repo),
         patch.object(mcp_tasks, "logger") as logger,
     ):

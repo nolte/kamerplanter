@@ -123,6 +123,24 @@ controllers:
 !!! danger "`ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT`, `LOG_PSEUDONYM_SALT` never come from `env:`"
     The real chart deliberately does **not** declare these five values under `env:` — they come exclusively via `envFrom: - secret: kamerplanter-secrets` from a secret you create beforehand. Without that secret (or with an unchanged default value inside it), the backend refuses to start when `DEBUG=false`; the Celery worker controller draws from the same secret and checks `LOG_PSEUDONYM_SALT` just as strictly. Details: [Kubernetes Deployment — Create the mandatory secrets](kubernetes.md), [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
+#### Celery worker {#celery-worker}
+
+The worker processes three queues (issue #2128):
+
+| Queue | Contents |
+|---|---|
+| `critical` | Retention periods and erasures (NFR-011), security and privacy sweeps, notifications, frost warnings, the actuator control loop |
+| `celery` | everything else — Celery's default queue under its existing name |
+| `bulk` | long, external runs: dataset and reference-image acquisition, master-data enrichment, glossary warm-up, storage migrations |
+
+The chart starts the worker with `-Q critical,celery,bulk`. **A queue no worker reads keeps its tasks in Valkey forever** — without any error. If you override the worker `args` in your values, carry the queue list over completely or drop `-Q` altogether (the worker then reads every queue the application declares).
+
+To run `bulk` in a worker of its own, give that worker `-Q bulk` and the existing one `-Q critical,celery` — never leave a queue out of both. An additional worker needs the same environment, Secrets and NetworkPolicy as `celery-worker`.
+
+**Readiness (issue #2154).** The worker counts as ready only once it takes tasks: with `WORKER_READY_FILE` it checks its ArangoDB login at start (for up to 60 seconds), writes the file as soon as its consumer runs, and the startup and readiness probes test it (`test -f`, which costs next to nothing). If a new worker cannot log in after an upgrade — wrong password, application account not provisioned — it exits, never becomes ready, and the rollout keeps the old worker. The liveness probe asks its own worker with `inspect ping -d "celery@${HOSTNAME}"`; an `inspect ping` without a destination succeeds as long as any worker answers.
+
+Every task has a time limit as a backstop: 30 minutes (soft, the task can clean up), after 35 minutes the process is ended. Runs that are resumable or started on purpose (erasure runs, data export, storage migration, dataset acquisition) get three hours. Each worker process now reserves one message ahead instead of four.
+
 #### Frontend
 
 ```yaml
@@ -380,7 +398,7 @@ Kamerplanter stores all binary data (photos, imports, exports) through an interc
 !!! danger "Shared operation: S3 is mandatory"
     The `backend-attachments` PVC is mounted by the backend **and** the Celery worker. A `ReadWriteOnce` volume attaches to exactly one node: a second pod scheduled onto another node stays in `ContainerCreating` with `Multi-Attach error`. For more than one backend or worker replica — and for any multi-tenant operation on a cluster with several nodes — use `storage.backend: s3`. The chart refuses to render when `controllers.backend.replicas` or `controllers.celery-worker.replicas` is greater than 1 and the attachments live on a `ReadWriteOnce` volume. Ways out without S3: `ReadWriteMany` with an RWX-capable StorageClass, or — only on a cluster with exactly one node — `storage.localFs.singleNode: true`.
 
-    Even with a single replica on a multi-node cluster, the backend and the worker must run on the same node, and a rolling update (`maxSurge: 1`) only starts the new backend pod if it lands on that node.
+    Even with a single replica on a multi-node cluster, the backend and the worker must run on the same node, and a rolling update (`maxSurge: 1`) only starts the new pod if it lands on that node. The chart takes care of that (issue #2153): backend and worker pods carry the label `kamerplanter.io/attachments-volume` and require, via `podAffinity`, a pod with that label on the same node (`topologyKey: kubernetes.io/hostname`). A new pod therefore lands on the node the volume is attached to, and the rolling update keeps its zero downtime — no `Recreate` needed. If the new pod no longer fits on that node (CPU, memory), it stays `Pending` with `FailedScheduling` instead of `Multi-Attach error`; the old pod keeps running. With `storage.backend: s3` or `ReadWriteMany` the term renders to `kubernetes.io/os` — a label with the same value on every node, i.e. no constraint.
     <!-- #2124 -->
 
 ### Local Filesystem (Default)

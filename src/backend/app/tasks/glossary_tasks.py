@@ -23,11 +23,10 @@ from typing import get_args
 import structlog
 from celery.exceptions import SoftTimeLimitExceeded
 
-from app.common.dependencies import get_glossary_service
+from app.common.dependencies import get_db, get_glossary_service
 from app.common.held_count import held_undated_count
 from app.common.log_privacy import loggable_error
 from app.config.settings import settings
-from app.data_access.arango.connection import ArangoConnection
 from app.data_access.arango.glossary_repository import ArangoGlossaryTermCacheRepository
 from app.domain.models.glossary_term import ExpertiseLevel, Language
 from app.tasks import celery_app
@@ -100,7 +99,7 @@ def _release_run_lock(client: object | None) -> None:
 @celery_app.task(name="glossary.cleanup_expired_cache")
 def cleanup_expired_cache() -> int:
     """Remove ``glossary_term_cache`` rows whose ``valid_until`` has passed (§4.3)."""
-    db = ArangoConnection().db
+    db = get_db()
     repo = ArangoGlossaryTermCacheRepository(db)
     removed = repo.delete_expired()
     # #1946: a row without a readable ``valid_until`` is never selected (and never expires on its own).
@@ -125,7 +124,7 @@ def invalidate_after_reingest() -> int:
     term and variant) and its failure must not roll back an invalidation that has
     already happened.
     """
-    db = ArangoConnection().db
+    db = get_db()
     removed = ArangoGlossaryTermCacheRepository(db).invalidate_all()
     logger.info("glossary_invalidate_after_reingest", removed=removed)
     warm_glossary_cache.delay()
