@@ -62,7 +62,7 @@ def _users() -> dict[str, User]:
             display_name="Pending",
             password_hash=_PASSWORD_HASH,
             email_verified=False,
-            email_verification_token=OLD_TOKEN,
+            email_verification_token_hash=TokenEngine.hash_token(OLD_TOKEN),
             email_verification_expires=later,
         ),
         VERIFIED: User(
@@ -97,8 +97,8 @@ class _Repo:
         user = self.users.get(email.lower())
         return user.model_copy(deep=True) if user else None
 
-    def get_by_email_verification_token(self, token: str) -> User | None:
-        found = [u for u in self.users.values() if u.email_verification_token == token]
+    def get_by_email_verification_token_hash(self, token_hash: str) -> User | None:
+        found = [u for u in self.users.values() if u.email_verification_token_hash == token_hash]
         return found[0].model_copy(deep=True) if found else None
 
     def get_by_key(self, key: str) -> User | None:
@@ -249,7 +249,7 @@ class TestTheMail:
         assert recipient == UNVERIFIED
         assert new_token != OLD_TOKEN
         stored = world.repo.users[UNVERIFIED]
-        assert stored.email_verification_token == new_token
+        assert stored.email_verification_token_hash == TokenEngine.hash_token(new_token)
         assert stored.email_verification_expires is not None
         assert stored.email_verification_expires > datetime.now(UTC) + timedelta(hours=23)
 

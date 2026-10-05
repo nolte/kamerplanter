@@ -71,7 +71,7 @@ def test_the_previous_address_takes_the_account_back() -> None:
     owner = world.users.rows[world.key]
     assert owner.email == world.email
     assert owner.email_verified is True
-    assert owner.password_reset_token is None
+    assert owner.password_reset_token_hash is None
     world.refresh_tokens.revoke_all_for_user.assert_called_with(world.key)
     (change,) = world.changes.rows.values()
     assert change.status == "reverted"

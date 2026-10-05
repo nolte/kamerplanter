@@ -32,7 +32,7 @@ def _user(*, with_password: bool = True) -> User:
         password_hash=PasswordEngine().hash_password(CURRENT_PASSWORD) if with_password else "",
         email_verified=True,
         is_active=True,
-        password_reset_token="outstanding-reset-token",
+        password_reset_token_hash=TokenEngine.hash_token("outstanding-reset-token"),
         password_reset_expires=datetime.now(UTC) + timedelta(hours=1),
     )
 
@@ -76,7 +76,7 @@ def test_change_password_clears_the_outstanding_reset_token(service: AuthService
     assert key == "u1"
     # The token is cleared in the *same* update as the new hash — no window in
     # which the account carries a fresh password and a usable reset token.
-    assert fields["password_reset_token"] is None
+    assert fields["password_reset_token_hash"] is None
     assert fields["password_reset_expires"] is None
     assert fields["password_hash"] != _user().password_hash
 
@@ -103,7 +103,7 @@ def test_sso_user_setting_an_initial_password_also_clears_it(
     )
 
     _, fields = user_repo.update_fields.call_args[0]
-    assert fields["password_reset_token"] is None
+    assert fields["password_reset_token_hash"] is None
     assert fields["password_reset_expires"] is None
 
 

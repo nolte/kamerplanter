@@ -24,8 +24,12 @@ class IUserRepository(ABC):
     def get_by_email(self, email: str) -> User | None: ...
 
     @abstractmethod
-    def get_by_email_verification_token(self, token: str) -> User | None:
-        """The user carrying this email-verification token, or ``None`` (#1556).
+    def get_by_email_verification_token_hash(self, token_hash: str) -> User | None:
+        """The user carrying this email-verification token digest, or ``None`` (#1556, #2158).
+
+        Takes the digest, never the raw token: the account stores only
+        ``TokenEngine.hash_token`` of what it mailed (#2158), so the hashing is
+        the caller's (Business Logic) and this layer matches stored values.
 
         A lookup, not a check: expiry is a domain decision and stays in
         ``AuthService.verify_email``. Existed only as hand-written AQL inside the
@@ -38,10 +42,10 @@ class IUserRepository(ABC):
         """
 
     @abstractmethod
-    def get_by_password_reset_token(self, token: str) -> User | None:
-        """The user carrying this password-reset token, or ``None`` (#1556).
+    def get_by_password_reset_token_hash(self, token_hash: str) -> User | None:
+        """The user carrying this password-reset token digest, or ``None`` (#1556, #2158).
 
-        The reset-path twin of :meth:`get_by_email_verification_token`; expiry and
+        The reset-path twin of :meth:`get_by_email_verification_token_hash`; expiry and
         the service-account refusal stay in ``AuthService.reset_password``.
         """
 

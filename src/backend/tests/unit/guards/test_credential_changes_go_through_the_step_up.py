@@ -51,8 +51,9 @@ SERVICES = APP / "domain" / "services"
 _CREDENTIAL_KEYS = {
     "email",
     "password_hash",
-    "password_reset_token",
-    "email_verification_token",
+    # Stored as digests since #2158; the names are the persisted attributes.
+    "password_reset_token_hash",
+    "email_verification_token_hash",
     "email_verified",
     "new_email",
 }

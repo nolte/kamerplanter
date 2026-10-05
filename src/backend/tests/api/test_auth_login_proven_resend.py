@@ -108,7 +108,7 @@ def _pending() -> User:
         display_name="Pending",
         password_hash=_PASSWORD_HASH,
         email_verified=False,
-        email_verification_token=OLD_TOKEN,
+        email_verification_token_hash=TokenEngine.hash_token(OLD_TOKEN),
         email_verification_expires=datetime.now(UTC) + timedelta(hours=1),
     )
 
@@ -128,8 +128,8 @@ class _Repo:
         user = self.users.get(email.lower())
         return user.model_copy(deep=True) if user else None
 
-    def get_by_email_verification_token(self, token: str) -> User | None:
-        found = [u for u in self.users.values() if u.email_verification_token == token]
+    def get_by_email_verification_token_hash(self, token_hash: str) -> User | None:
+        found = [u for u in self.users.values() if u.email_verification_token_hash == token_hash]
         return found[0].model_copy(deep=True) if found else None
 
     def get_by_key(self, key: str) -> User | None:
@@ -356,7 +356,7 @@ class TestTheProvenRefusalMailsAFreshLink:
         assert recipient == PENDING
         assert token != OLD_TOKEN
         stored = world.repo.users[PENDING]
-        assert stored.email_verification_token == token
+        assert stored.email_verification_token_hash == TokenEngine.hash_token(token)
         assert stored.email_verification_expires is not None
         assert stored.email_verification_expires > datetime.now(UTC) + timedelta(hours=23)
 
@@ -410,7 +410,7 @@ class TestAWrongPasswordIsUnchanged:
         assert _stable_body(wrong) == _stable_body(unknown) == _WRONG_PASSWORD
         assert _stable_headers(wrong) == _stable_headers(unknown)
         assert world.mail.sent == []
-        assert world.repo.users[PENDING].email_verification_token == OLD_TOKEN
+        assert world.repo.users[PENDING].email_verification_token_hash == TokenEngine.hash_token(OLD_TOKEN)
 
 
 class TestTheAnonymousBudgetCannotLockTheOwnerOut:
@@ -572,7 +572,7 @@ class TestTheDeferredSendReReadsTheAccount:
                 update={
                     "email_verified": True,
                     "email_confirmed_at": datetime.now(UTC),
-                    "email_verification_token": None,
+                    "email_verification_token_hash": None,
                 }
             )
 
@@ -582,7 +582,7 @@ class TestTheDeferredSendReReadsTheAccount:
         assert (answer.status_code, _stable_body(answer)) == (403, _REFUSAL)
         assert world.order == ["response-sent"]
         assert world.mail.sent == []
-        assert world.repo.users[PENDING].email_verification_token is None
+        assert world.repo.users[PENDING].email_verification_token_hash is None
 
     def test_an_account_deleted_after_the_response_gets_no_write_and_no_mail(
         self, world: _World, client: TestClient

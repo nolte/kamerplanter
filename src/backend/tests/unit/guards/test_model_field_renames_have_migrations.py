@@ -178,6 +178,10 @@ _CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
     # value and removes the legacy attribute (the model also reads it, lazily).
     ("system_settings.py", "HomeAssistantSettings", "ha_access_token"): _MigratedBy("0083"),
     ("system_settings.py", "PlantIdentificationSettings", "plantnet_api_key"): _MigratedBy("0083"),
+    # #2158: the clear account tokens became ``*_token_hash``; v0085 hashes every stored
+    # value and removes the legacy attribute.
+    ("user.py", "User", "password_reset_token"): _MigratedBy("0085"),
+    ("user.py", "User", "email_verification_token"): _MigratedBy("0085"),
 }
 
 

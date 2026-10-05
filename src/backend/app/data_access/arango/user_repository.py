@@ -75,7 +75,7 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
     #:   override below re-materialises a full ``User`` and goes through
     #:   :meth:`BaseArangoRepository.update`, so every ``None`` in ``fields`` was
     #:   dropped too. That silently defeated ``AuthService.reset_password`` and
-    #:   ``change_password``, which clear ``password_reset_token`` /
+    #:   ``change_password``, which clear ``password_reset_token_hash`` /
     #:   ``password_reset_expires`` and say in a comment that they rely on the
     #:   explicit ``None`` being persisted: a used reset token stayed valid for its
     #:   full hour, and ``verify_email`` likewise could not burn its token.
@@ -97,7 +97,7 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
     #: method. #1525 SCR-003 narrowed them, because full-replace makes that shape
     #: strictly worse than it was: a stale snapshot no longer merely *loses* a field a
     #: parallel request set in between, it **removes** the attribute — and the field
-    #: in question is typically ``password_reset_token`` or ``locked_until``.
+    #: in question is typically ``password_reset_token_hash`` or ``locked_until``.
     #:
     #: The alternative — routing those clears through a second
     #: ``update_fields(..., keep_none=True)`` write at each call site — is the #948
@@ -206,8 +206,8 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
             return None
         return User(**self._from_doc(docs[0]))
 
-    def get_by_email_verification_token(self, token: str) -> User | None:
-        """The user carrying this email-verification token, or ``None`` (#1556).
+    def get_by_email_verification_token_hash(self, token_hash: str) -> User | None:
+        """The user carrying this email-verification token digest, or ``None`` (#1556, #2158).
 
         Was hand-written AQL inside ``AuthService.verify_email``, executed against
         ``self._user_repo._db`` — NFR-001's Business Logic → Data Access →
@@ -220,14 +220,14 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         out by hand, so this move changes no behaviour — it is a layering repair,
         not a validation repair.
         """
-        return self._get_by_token("email_verification_token", token)
+        return self._get_by_token("email_verification_token_hash", token_hash)
 
-    def get_by_password_reset_token(self, token: str) -> User | None:
-        """The user carrying this password-reset token, or ``None`` (#1556).
+    def get_by_password_reset_token_hash(self, token_hash: str) -> User | None:
+        """The user carrying this password-reset token digest, or ``None`` (#1556, #2158).
 
-        The reset-path twin of :meth:`get_by_email_verification_token`.
+        The reset-path twin of :meth:`get_by_email_verification_token_hash`.
         """
-        return self._get_by_token("password_reset_token", token)
+        return self._get_by_token("password_reset_token_hash", token_hash)
 
     def _get_by_token(self, attribute: str, token: str) -> User | None:
         """One user by an exact match on a token attribute, or ``None``.

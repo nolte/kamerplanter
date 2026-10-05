@@ -377,7 +377,7 @@ class TestBusinessLogicHandles:
                         self._user_repo = user_repo
 
                     def verify(self, token):
-                        return self._user_repo.get_by_email_verification_token(token)
+                        return self._user_repo.get_by_email_verification_token_hash(token)
                 """
             }
         )

@@ -103,8 +103,8 @@ class _Users:
     def get_by_email(self, email: str) -> User | None:
         return next((u for u in self.rows.values() if u.email == email), None)
 
-    def get_by_password_reset_token(self, token: str) -> User | None:
-        return next((u for u in self.rows.values() if u.password_reset_token == token), None)
+    def get_by_password_reset_token_hash(self, token_hash: str) -> User | None:
+        return next((u for u in self.rows.values() if u.password_reset_token_hash == token_hash), None)
 
     def create(self, user: User) -> User:
         if self.get_by_email(user.email) is not None:

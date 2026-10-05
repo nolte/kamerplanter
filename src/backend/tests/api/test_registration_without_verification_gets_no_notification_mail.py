@@ -55,8 +55,8 @@ class _StatefulUserRepo:
     def get_by_email(self, email: str) -> User | None:
         return next((u for u in self.rows.values() if u.email.lower() == email.lower()), None)
 
-    def get_by_email_verification_token(self, token: str) -> User | None:
-        return next((u for u in self.rows.values() if u.email_verification_token == token), None)
+    def get_by_email_verification_token_hash(self, token_hash: str) -> User | None:
+        return next((u for u in self.rows.values() if u.email_verification_token_hash == token_hash), None)
 
     def create(self, user: User) -> User:
         created = user.model_copy(deep=True)
@@ -234,7 +234,7 @@ async def test_the_two_origins_are_indistinguishable_by_the_flag_and_the_token_f
         assert client.post("/api/v1/auth/verify-email", json={"token": token}).status_code == 200
 
     def shape(user: User) -> tuple[bool, str | None, datetime | None]:
-        return (user.email_verified, user.email_verification_token, user.email_verification_expires)
+        return (user.email_verified, user.email_verification_token_hash, user.email_verification_expires)
 
     (off,), (on,) = off_repo.rows.values(), on_repo.rows.values()
     assert shape(off) == shape(on) == (True, None, None)

@@ -597,7 +597,10 @@ class AuthService:
             display_name=display_name,
             password_hash=self._password_engine.hash_password(password),
             email_verified=skip_verification,
-            email_verification_token=verification_token,
+            # Only the digest is stored (#2158); the raw token goes into the mail below.
+            email_verification_token_hash=(
+                self._token_engine.hash_token(verification_token) if verification_token else None
+            ),
             email_verification_expires=(None if skip_verification else datetime.now(UTC) + _VERIFICATION_TOKEN_TTL),
         )
         created = self._user_repo.create(user)
@@ -873,7 +876,12 @@ class AuthService:
     # ── Email verification ──────────────────────────────────────────────
 
     def verify_email(self, token: str) -> UserProfile:
-        user = self._user_repo.get_by_email_verification_token(token)
+        # Looked up by digest (#2158): the account holds only the hash of the mailed token.
+        user = (
+            self._user_repo.get_by_email_verification_token_hash(self._token_engine.hash_token(token))
+            if token
+            else None
+        )
         if user is None:
             raise InvalidTokenError("verification token")
 
@@ -884,7 +892,7 @@ class AuthService:
         confirmed_at = datetime.now(UTC)
         user.email_verified = True
         user.email_confirmed_at = confirmed_at
-        user.email_verification_token = None
+        user.email_verification_token_hash = None
         user.email_verification_expires = None
         if user.key:
             updated = self._user_repo.update_fields(
@@ -892,7 +900,7 @@ class AuthService:
                 {
                     "email_verified": True,
                     "email_confirmed_at": confirmed_at,
-                    "email_verification_token": None,
+                    "email_verification_token_hash": None,
                     "email_verification_expires": None,
                 },
             )
@@ -984,7 +992,7 @@ class AuthService:
             self._user_repo.update_fields(
                 user.key,
                 {
-                    "email_verification_token": token,
+                    "email_verification_token_hash": self._token_engine.hash_token(token),
                     "email_verification_expires": _iso(now_utc() + _VERIFICATION_TOKEN_TTL),
                 },
             )
@@ -1086,7 +1094,11 @@ class AuthService:
                 if user.key:
                     self._user_repo.update_fields(
                         user.key,
-                        {"password_reset_token": token, "password_reset_expires": _iso(expires)},
+                        # Only the digest is stored (#2158); the raw token goes into the mail.
+                        {
+                            "password_reset_token_hash": self._token_engine.hash_token(token),
+                            "password_reset_expires": _iso(expires),
+                        },
                     )
                 # The stored spelling, never the typed one (#2060): the lookup matches
                 # case-insensitively, and a mail server may not — a link for
@@ -1134,7 +1146,8 @@ class AuthService:
         if errors:
             raise ValidationError("; ".join(errors))
 
-        user = self._user_repo.get_by_password_reset_token(token)
+        # Looked up by digest (#2158): the account holds only the hash of the mailed token.
+        user = self._user_repo.get_by_password_reset_token_hash(self._token_engine.hash_token(token)) if token else None
         if user is None:
             raise InvalidTokenError("reset token")
 
@@ -1149,7 +1162,7 @@ class AuthService:
         self._refuse_interactive_credential(user)
 
         user.password_hash = self._password_engine.hash_password(new_password)
-        user.password_reset_token = None
+        user.password_reset_token_hash = None
         user.password_reset_expires = None
         user.failed_login_attempts = 0
         user.locked_until = None
@@ -1158,7 +1171,7 @@ class AuthService:
                 user.key,
                 {
                     "password_hash": user.password_hash,
-                    "password_reset_token": None,
+                    "password_reset_token_hash": None,
                     "password_reset_expires": None,
                     "failed_login_attempts": 0,
                     "locked_until": None,
@@ -1395,13 +1408,13 @@ class AuthService:
         # the password — can take the account back over afterwards. Mirrors what
         # ``reset_password`` already clears, and relies on ``update_fields``
         # persisting an explicit ``None`` (``keep_none=True``).
-        user.password_reset_token = None
+        user.password_reset_token_hash = None
         user.password_reset_expires = None
         self._user_repo.update_fields(
             user_key,
             {
                 "password_hash": user.password_hash,
-                "password_reset_token": None,
+                "password_reset_token_hash": None,
                 "password_reset_expires": None,
             },
         )
