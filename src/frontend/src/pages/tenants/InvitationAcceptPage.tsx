@@ -10,7 +10,10 @@ import Button from '@mui/material/Button';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import * as tenantApi from '@/api/endpoints/tenants';
-import { parseApiError } from '@/api/errors';
+import { isApiError, parseApiError } from '@/api/errors';
+
+/** The backend's `error_code` for a tenant whose member limit is reached (#2133). */
+const MEMBER_LIMIT_REACHED = 'MEMBER_LIMIT_REACHED';
 
 export default function InvitationAcceptPage() {
   const { t } = useTranslation();
@@ -29,7 +32,14 @@ export default function InvitationAcceptPage() {
       .then(() => setStatus('success'))
       .catch((err) => {
         setStatus('error');
-        setError(parseApiError(err));
+        // A full tenant is not a broken link: the invitation stays open, so the
+        // invitee is told why and that it can work later (#2133). Every other
+        // refusal keeps the backend's own message.
+        setError(
+          isApiError(err) && err.errorCode === MEMBER_LIMIT_REACHED
+            ? t('pages.tenants.memberLimitReached')
+            : parseApiError(err),
+        );
       });
   }, [token, t]);
 

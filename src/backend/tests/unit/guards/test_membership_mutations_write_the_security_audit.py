@@ -56,6 +56,11 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "membership _create_membership_unless_erasing just inserted and raises, so the caller records "
         "nothing - the membership never stood"
     ),
+    ("tenant_service.py", "TenantService._settle_join_against_member_limit"): (
+        "the take-back of a join a concurrent join pushed over the member limit (#2133): it removes the "
+        "membership _create_membership_unless_erasing just inserted and raises, so the caller records "
+        "nothing - the membership never stood"
+    ),
 }
 
 
@@ -139,7 +144,7 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: The class size measured when this guard was written (#2111). A change in either direction is a
 #: signal to read, not to update blindly: a new member needs the gate or a classification, a
 #: vanished one may mean the predicate went blind.
-EXPECTED_MEMBERS = 11
+EXPECTED_MEMBERS = 12
 
 
 def test_every_membership_mutation_writes_the_audit_or_is_classified() -> None:
@@ -229,6 +234,10 @@ _ENDING_CLASSIFIED: dict[tuple[str, str], str] = {
         "the take-back of a join the erasure froze meanwhile: the membership never stood, so the account was "
         "never assigned a task of this tenant through it"
     ),
+    ("tenant_service.py", "TenantService._settle_join_against_member_limit"): (
+        "the take-back of a join a concurrent join pushed over the member limit (#2133): the membership never "
+        "stood, so the account was never assigned a task of this tenant through it"
+    ),
 }
 
 
@@ -286,6 +295,7 @@ def test_the_ending_predicate_sees_the_class() -> None:
         ("tenant_service.py", "TenantService.remove_member"),
         ("tenant_service.py", "TenantService.leave_tenant"),
         ("tenant_service.py", "TenantService._settle_join_against_freeze"),
+        ("tenant_service.py", "TenantService._settle_join_against_member_limit"),
     }
     assert [name for (_, name), clears in found.items() if clears] != []
 
@@ -377,3 +387,141 @@ def test_the_gate_detection_sees_only_a_call_on_self() -> None:
     assert gated(f"def f(self):\n    self.{_GATE}(a=1)")
     assert not gated(f"def f(self):\n    other.{_GATE}(a=1)")
     assert not gated(f"def f(self):\n    return self.{_GATE}")
+
+
+# ── #2133: every join passes the member limit ─────────────────────────────────
+#
+# The member limit (REQ-024 AK-64) is decided in one place, the insert helper every join into an
+# existing tenant goes through. The class is the membership *creations* among the members above: a
+# raw ``create`` on a membership receiver, a call of the helper, a founding. The rule: a raw insert
+# happens only inside the helper, and the helper asks the limit before the insert and settles the
+# join against it afterwards. A founding is classified - the founder takes the first seat of a
+# tenant that did not exist a moment ago, and every limit is at least 1.
+
+_LIMIT_GATE = "_refuse_beyond_member_limit"
+_LIMIT_SETTLE = "_settle_join_against_member_limit"
+
+_CREATION_CLASSIFIED: dict[tuple[str, str], str] = {
+    ("tenant_service.py", "TenantService._found_tenant"): (
+        "founds a tenant with its founder in one transaction (#2118): the founder takes the first seat of a "
+        "tenant nobody else can be in yet, and every member limit is at least 1 (Tenant.max_members ge=1, "
+        "TENANT_MAX_MEMBERS_CEILING ge=1)"
+    ),
+}
+
+
+def _creates_raw(function: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "create"
+        and "membership" in _dotted(node.func.value).lower()
+        for node in _own_nodes(function)
+    )
+
+
+def membership_creations(root: Path = SERVICES) -> dict[tuple[str, str], str]:
+    """Every service function that creates a membership: (file, qualname) -> ``raw``, ``helper`` or ``founding``."""
+    found: dict[tuple[str, str], str] = {}
+    for path in sorted(root.rglob("*.py")):
+        rel = path.relative_to(root).as_posix()
+        for qualname, function in _functions(ast.parse(path.read_text(encoding="utf-8"))):
+            if _creates_raw(function):
+                found[(rel, qualname)] = "raw"
+            elif _calls_self(function, _HELPER):
+                found[(rel, qualname)] = "helper"
+            elif any(
+                isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == _FOUNDING
+                for node in _own_nodes(function)
+            ):
+                found[(rel, qualname)] = "founding"
+    return found
+
+
+def test_a_raw_membership_insert_happens_only_inside_the_limited_helper() -> None:
+    stray = sorted(
+        f"{rel}::{name} ({kind})"
+        for (rel, name), kind in membership_creations().items()
+        if kind != "helper" and name != f"TenantService.{_HELPER}" and (rel, name) not in _CREATION_CLASSIFIED
+    )
+
+    assert stray == [], (
+        f"A membership is created outside TenantService.{_HELPER}, which decides the member limit (#2133):\n  "
+        + "\n  ".join(stray)
+    )
+
+
+def test_the_helper_asks_the_member_limit_before_and_after_the_insert() -> None:
+    tree = ast.parse((SERVICES / "tenant_service.py").read_text(encoding="utf-8"))
+    (helper,) = [fn for name, fn in _functions(tree) if name == f"TenantService.{_HELPER}"]
+
+    assert _calls_self(helper, _LIMIT_GATE)
+    assert _calls_self(helper, _LIMIT_SETTLE)
+
+
+def test_the_limit_gate_counts_the_active_members_and_refuses_with_its_own_error() -> None:
+    """A gate that stopped counting would leave every join 'limited' over nothing."""
+    tree = ast.parse((SERVICES / "tenant_service.py").read_text(encoding="utf-8"))
+    for name in (_LIMIT_GATE, _LIMIT_SETTLE):
+        (gate,) = [fn for qualname, fn in _functions(tree) if qualname == f"TenantService.{name}"]
+        attrs = {
+            node.func.attr
+            for node in _own_nodes(gate)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        }
+        names = {
+            node.func.id for node in _own_nodes(gate) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+
+        assert "count_active_members" in attrs, name
+        assert "MemberLimitReachedError" in names, name
+
+
+def test_the_creation_predicate_sees_the_class() -> None:
+    found = membership_creations()
+    print(f"membership creations: {sorted(found.items())}")  # noqa: T201 - the measured set, read by the reviewer
+
+    assert found == {
+        ("tenant_service.py", "TenantService._found_tenant"): "founding",
+        ("tenant_service.py", f"TenantService.{_HELPER}"): "raw",
+        ("tenant_service.py", "TenantService.admin_add_membership"): "helper",
+        ("tenant_service.py", "TenantService.accept_invitation"): "helper",
+    }
+
+
+def test_no_creation_classification_is_stale() -> None:
+    found = membership_creations()
+
+    assert sorted(k for k in _CREATION_CLASSIFIED if k not in found) == []
+
+
+def test_the_running_application_wires_the_member_limit_ceiling() -> None:
+    """The service takes the ceiling with a default; the wiring is where the setting must reach it."""
+    tree = ast.parse((APP / "common" / "dependencies.py").read_text(encoding="utf-8"))
+    (factory,) = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "get_tenant_service"]
+    (call,) = [
+        n
+        for n in ast.walk(factory)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "TenantService"
+    ]
+    (ceiling,) = [kw for kw in call.keywords if kw.arg == "max_members_ceiling"]
+
+    assert _dotted(ceiling.value) == "settings.tenant_max_members_ceiling"
+
+
+def test_the_creation_predicate_recognises_each_spelling() -> None:
+    def kind(source: str) -> dict[tuple[str, str], str]:
+        tree = ast.parse(source)
+        out: dict[tuple[str, str], str] = {}
+        for qualname, function in _functions(tree):
+            if _creates_raw(function):
+                out[("x.py", qualname)] = "raw"
+            elif _calls_self(function, _HELPER):
+                out[("x.py", qualname)] = "helper"
+        return out
+
+    assert kind("def f(self):\n    self._membership_repo.create(m)") == {("x.py", "f"): "raw"}
+    assert kind("def f(memberships):\n    memberships.create(m)") == {("x.py", "f"): "raw"}
+    assert kind(f"def f(self):\n    self.{_HELPER}(m)") == {("x.py", "f"): "helper"}
+    assert kind("def f(self):\n    self._invitation_repo.create(i)") == {}
+    assert kind("def f(self):\n    self._membership_repo.get_by_key(k)") == {}

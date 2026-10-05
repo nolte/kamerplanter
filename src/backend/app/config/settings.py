@@ -353,6 +353,12 @@ class Settings(BaseSettings):
     require_email_verification: bool = True
     cookie_secure: bool = True  # Set False for HTTP-only E2E environments
 
+    #: REQ-024 AK-64 (#2133) — the platform ceiling of every tenant's member limit. A tenant's
+    #: effective limit is ``min(tenant.max_members, this)``; ``max_members`` is set to at most this
+    #: value, and an organisation founded without one takes it. A tenant stored above a lowered
+    #: ceiling keeps its members; only the next join is refused.
+    tenant_max_members_ceiling: int = Field(default=50, ge=1)
+
     #: E2E only (#1155) — email of a second, platform-admin account to seed.
     #:
     #: The full-mode E2E suite needs an account that may mutate the global

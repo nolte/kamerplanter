@@ -24,6 +24,7 @@ from app.common.exceptions import (
     DuplicateError,
     FeatureNotConfiguredError,
     ForbiddenError,
+    MemberLimitReachedError,
     NotFoundError,
     TenantErasureClaimLostError,
     TenantErasureIncompleteError,
@@ -111,7 +112,14 @@ class TenantService:
         erasure_repo: IErasureRepository | None = None,
         security_audit: SecurityAuditService | None = None,
         task_repo: ITaskRepository | None = None,
+        max_members_ceiling: int = 50,
     ) -> None:
+        # REQ-024 AK-64 (#2133) — the platform ceiling of every tenant's member limit
+        # (``TENANT_MAX_MEMBERS_CEILING``); ``get_tenant_service`` passes the setting, and the class guard
+        # ``test_membership_mutations_write_the_security_audit`` holds that it does.
+        if max_members_ceiling < 1:
+            raise ValueError("max_members_ceiling must be at least 1")
+        self._max_members_ceiling = max_members_ceiling
         # The tasks a membership that ends takes its assignee off (#2114). ``None`` only where no membership
         # is ever ended (doubles); ``get_tenant_service`` always wires it, and the class guard holds that every
         # method that deletes a membership calls :meth:`_end_task_assignments`.
@@ -188,12 +196,18 @@ class TenantService:
         return tenant
 
     def create_organization(
-        self, user_key: str, name: str, description: str | None = None, max_members: int = 50
+        self, user_key: str, name: str, description: str | None = None, max_members: int | None = None
     ) -> Tenant:
-        """Create an organization tenant."""
+        """Create an organization tenant.
+
+        ``max_members`` is at most the platform ceiling (REQ-024 AK-64, 422 above it); omitted, the
+        organisation takes the ceiling.
+        """
         errors = self._tenant_engine.validate_tenant_name(name)
         if errors:
             raise ValidationError(errors[0])
+        member_limit = self._max_members_ceiling if max_members is None else max_members
+        self._refuse_limit_above_ceiling(member_limit)
 
         org_count = self._tenant_repo.count_organizations_by_owner(user_key)
         if not self._tenant_engine.can_create_organization(org_count):
@@ -208,7 +222,7 @@ class TenantService:
             tenant_type=TenantType.ORGANIZATION,
             description=description,
             owner_user_key=user_key,
-            max_members=max_members,
+            max_members=member_limit,
         )
         tenant = self._found_tenant(tenant, user_key, via=SecurityAuditVia.TENANT_CREATION)
 
@@ -400,6 +414,11 @@ class TenantService:
                 raise NotFoundError("Tenant", tenant_key)
             if tenant.is_platform:
                 raise ForbiddenError("The platform tenant cannot be deactivated.")
+
+        if "max_members" in data:
+            # REQ-024 AK-64 (#2133): set to at most the ceiling, by a tenant manager and a platform admin
+            # alike. Lowering it below the current member count removes nobody; it stops the next join.
+            self._refuse_limit_above_ceiling(data["max_members"])
 
         if "name" in data:
             errors = self._tenant_engine.validate_tenant_name(data["name"])
@@ -1184,10 +1203,68 @@ class TenantService:
         a tenant that is being erased — the counterpart of the second membership
         read in :meth:`erase_personal_tenant_of`. Every path that joins an
         account to an existing tenant goes through here.
+
+        **The member limit (REQ-024 AK-64, #2133)** is decided here too, for the same
+        reason: it is the one door every join passes (the class guards in
+        ``tests/unit/guards/`` hold that). Counted before the insert and again after
+        it - two concurrent joins can both pass the first count, and the one that
+        finds the tenant over its limit afterwards takes itself back
+        (:meth:`_settle_join_against_member_limit`).
         """
+        limit = self._refuse_beyond_member_limit(membership.tenant_key)
         created = self._membership_repo.create(membership)
         self._settle_join_against_freeze(created)
+        self._settle_join_against_member_limit(created, limit)
         return created
+
+    def _member_limit(self, tenant: Tenant) -> int:
+        """The effective member limit: the tenant's own, never above the platform ceiling (REQ-024 AK-64)."""
+        return min(tenant.max_members, self._max_members_ceiling)
+
+    def _refuse_limit_above_ceiling(self, max_members: int) -> None:
+        """422 for a ``max_members`` above the platform ceiling (REQ-024 AK-64, #2133)."""
+        if max_members > self._max_members_ceiling:
+            raise ValidationError(
+                f"max_members may not exceed the platform ceiling of {self._max_members_ceiling}.",
+                details=[
+                    {
+                        "field": "max_members",
+                        "reason": f"At most {self._max_members_ceiling}.",
+                        "code": "max_members_above_ceiling",
+                    }
+                ],
+            )
+
+    def _refuse_beyond_member_limit(self, tenant_key: str) -> int:
+        """422 ``MEMBER_LIMIT_REACHED`` when the tenant's active memberships reached its limit; else the limit.
+
+        REQ-024 AK-64 (#2133). Counts *active* memberships against the effective limit
+        (:meth:`_member_limit`). Applies to a new membership only: a tenant that already
+        holds more members than its limit - written before the limit was enforced, or
+        after it was lowered - keeps all of them and refuses the next join.
+        """
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        if tenant is None:
+            raise NotFoundError("Tenant", tenant_key)
+        limit = self._member_limit(tenant)
+        if self._membership_repo.count_active_members(tenant_key=tenant_key) >= limit:
+            logger.info("member_limit_reached", tenant=log_tenant(tenant_key), limit=limit)
+            raise MemberLimitReachedError(limit)
+        return limit
+
+    def _settle_join_against_member_limit(self, created: Membership, limit: int) -> None:
+        """Take a join back that a concurrent join pushed over the limit after the first count (#2133).
+
+        The count before the insert and the insert are two statements: two joins can both
+        see one free seat. Re-counted once the membership exists, an overshoot is undone
+        and refused - both racing joins may be refused then, never both kept.
+        """
+        if self._membership_repo.count_active_members(tenant_key=created.tenant_key) <= limit:
+            return
+        if created.key:
+            self._membership_repo.delete(created.key)
+        logger.info("member_limit_join_taken_back", tenant=log_tenant(created.tenant_key), limit=limit)
+        raise MemberLimitReachedError(limit)
 
     def _settle_join_against_freeze(self, created: Membership) -> None:
         """The re-check of a join after its insert: raises ``ForbiddenError`` when the membership was taken back.
@@ -1631,8 +1708,9 @@ class TenantService:
         forget them. What cannot succeed is refused first and is not asked for a password: an unknown
         tenant (404), a platform admin adding themselves to the platform tenant (422), a ``lead`` in
         the platform tenant by someone who does not hold it (403, :meth:`_refuse_role_grant`), a tenant
-        being erased (403), an account that is already a member (409). Without a valid step-up nothing
-        is written; the written membership is recorded in the security audit (#2111).
+        being erased (403), an account that is already a member (409), a tenant at its member limit (422
+        ``MEMBER_LIMIT_REACHED``, #2133). Without a valid step-up nothing is written; the written membership
+        is recorded in the security audit (#2111).
 
         Raises :class:`NotFoundError` when the tenant is unknown and
         :class:`DuplicateError` when the user is already a member. The *user's*
@@ -1658,6 +1736,8 @@ class TenantService:
         existing = self._membership_repo.get_by_user_and_tenant(user_key, tenant_key)
         if existing:
             raise DuplicateError("memberships", "user_key+tenant_key", "already a member")
+        # #2133 - a full tenant cannot succeed, so it is refused before the step-up asks for a password.
+        self._refuse_beyond_member_limit(tenant_key)
 
         self._step_up_verifier.verify(
             requester,
@@ -2270,6 +2350,8 @@ class TenantService:
         )
         if not can_accept:
             raise ValidationError(reason)
+        # #2133 - a full tenant is refused before the invitation is touched; it stays pending.
+        self._refuse_beyond_member_limit(invitation.tenant_key)
 
         # Accepted first, and only while still pending (#1825 SEC-001 and PR
         # review): a revocation that landed after the status read above — the

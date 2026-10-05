@@ -50,6 +50,7 @@ Changes not yet published in a release.
 
 ### Frontend
 
+- Invitations: when a garden is full, the invitation acceptance page explains it in your language — and that the invitation stays valid until a seat is free (issue #2133)
 - Notifications: Saved Apprise URLs appear masked (`tgram://****#1`); a hint below the field explains how to keep, remove or add them, and Enter now starts a new line (issue #2113).
 - Admin: After deleting an organization the interface reports "Deletion accepted" instead of "Organization deleted" — the deletion runs in the background (issue #1792)
 - Plant instances are displayed everywhere with a speaking name (e.g. `BASIL-001 (Basil – Genovese)`) instead of only the technical instance ID; the instance ID is preserved as secondary information
@@ -58,6 +59,7 @@ Changes not yet published in a release.
 
 ### Backend
 
+- **BREAKING (API):** A tenant's member limit now takes effect (issue #2133, MT-037, REQ-024 AK-64). Once a tenant is full, accepting an invitation (`POST /api/v1/tenants/invitations/accept`) and the platform admin's add answer `422` (`MEMBER_LIMIT_REACHED`); the invitation stays pending. The effective limit is `min(max_members, TENANT_MAX_MEMBERS_CEILING)` — the new platform ceiling, default `50`. A `max_members` above the ceiling is refused with `422` on creation and update; an organization created without one takes the ceiling. A **personal tenant** has the limit `1`: whoever wants to invite someone into their personal garden raises the limit first (`PATCH /api/v1/tenants/{slug}` with `max_members`). Existing members always stay, even where a tenant holds more members today than its limit — only the next join is refused. No migration
 - **BREAKING (API, privacy):** The consent purposes `hibp_check` and `external_enrichment` are no longer offered (issue #2136, MT-040, REQ-025 v1.31 §3.6) — no code read them: there is no HaveIBeenPwned check, and the GBIF/Perenual enrichment sends species names only. `GET /api/v1/privacy/consents` and the privacy policy no longer list them; `POST /api/v1/privacy/consents` and `DELETE /api/v1/privacy/consents/{purpose}` answer `422` for them. Stored consents stay as they are (export, erasure, R-04 unchanged; no migration). The `error_tracking` purpose is now called "Attribute error reports to my account (Sentry)" and takes effect: an error report carries the account and tenant pseudonyms only with this consent. The consent banner no longer names HaveIBeenPwned or master-data enrichment.
 
 - **Error tracking:** An event of an authenticated request carries the pseudonyms `id=sub_…` and `tenant=ten_…` in its user block (issue #2129, NFR-011 v1.37). Whatever the Sentry SDK or an integration sets as the user itself is dropped — in the inference and knowledge services too (shared module `kp_errortracking`).

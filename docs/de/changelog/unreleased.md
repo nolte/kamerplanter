@@ -51,6 +51,7 @@
 
 ### Frontend
 
+- Einladungen: Ist ein Garten voll, erklärt die Seite zum Annehmen einer Einladung das in deiner Sprache — und dass die Einladung gültig bleibt, bis ein Platz frei wird (Issue #2133)
 - Benachrichtigungen: Gespeicherte Apprise-URLs erscheinen maskiert (`tgram://****#1`), ein Hinweis unter dem Feld erklärt, wie du sie behältst, entfernst oder ergänzt; eine neue Zeile lässt sich jetzt auch per Enter beginnen (Issue #2113).
 - Admin: Nach dem Löschen einer Organisation meldet die Oberfläche „Löschung angenommen“ statt „Organisation gelöscht“ — die Löschung läuft im Hintergrund (Issue #1792)
 - Pflanzinstanzen werden überall mit einem sprechenden Namen angezeigt (z. B. `BASIL-001 (Basilikum – Genovese)`) statt nur der technischen Instanz-ID; die Instanz-ID bleibt als sekundäre Information erhalten
@@ -59,6 +60,7 @@
 
 ### Backend
 
+- **BREAKING (API):** Das Mitgliederlimit eines Mandanten wirkt jetzt (Issue #2133, MT-037, REQ-024 AK-64). Ist ein Mandant voll, antworten die Einladungsannahme (`POST /api/v1/tenants/invitations/accept`) und das Hinzufügen durch einen Plattform-Admin mit `422` (`MEMBER_LIMIT_REACHED`); die Einladung bleibt offen. Wirksam ist `min(max_members, TENANT_MAX_MEMBERS_CEILING)` — die neue Plattform-Obergrenze, Default `50`. `max_members` über der Obergrenze wird beim Anlegen und Ändern mit `422` abgelehnt; eine Organisation ohne Angabe erhält die Obergrenze. Ein **persönlicher Mandant** hat das Limit `1`: Wer jemanden in seinen persönlichen Garten einladen will, hebt das Limit vorher an (`PATCH /api/v1/tenants/{slug}` mit `max_members`). Bestehende Mitglieder bleiben in jedem Fall erhalten, auch wenn ein Mandant heute mehr hat als sein Limit — nur der nächste Beitritt wird verweigert. Keine Migration
 - **BREAKING (API, Datenschutz):** Die Einwilligungszwecke `hibp_check` und `external_enrichment` werden nicht mehr angeboten (Issue #2136, MT-040, REQ-025 v1.31 §3.6) — kein Code las sie: Eine HaveIBeenPwned-Prüfung gibt es nicht, und die GBIF/Perenual-Anreicherung sendet nur Artnamen. `GET /api/v1/privacy/consents` und die Datenschutzerklärung listen sie nicht mehr; `POST /api/v1/privacy/consents` und `DELETE /api/v1/privacy/consents/{purpose}` antworten für sie mit `422`. Gespeicherte Einwilligungen bleiben unverändert (Export, Löschung, R-04 wie bisher; keine Migration). Der Zweck `error_tracking` heißt jetzt „Fehlerberichte meinem Konto zuordnen (Sentry)" und wirkt: Ein Fehlerbericht trägt die Konto- und Mandanten-Pseudonyme nur mit dieser Einwilligung. Der Hinweis im Einwilligungs-Banner nennt HaveIBeenPwned und Stammdatenanreicherung nicht mehr.
 
 - **Fehler-Tracking:** Ein Ereignis einer authentifizierten Anfrage trägt im Nutzer-Block die Pseudonyme `id=sub_…` und `tenant=ten_…` (Issue #2129, NFR-011 v1.37). Was das Sentry-SDK oder eine Integration selbst als Nutzer setzt, wird verworfen — auch in inference- und knowledge-service (gemeinsames Modul `kp_errortracking`).

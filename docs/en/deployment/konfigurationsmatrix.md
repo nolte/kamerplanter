@@ -243,6 +243,7 @@ Details: [Configure Storage](../user-guide/object-storage.md), [Helm Charts — 
 | GDPR erasure/anonymization <!-- REQ-025 --> | Backend + Celery Beat | Always active, cannot be disabled | `ERASURE_TOMBSTONE_SALT` | one daily Celery task | Yes (`erasure_tombstone_salt`, always checked) |
 | Log pseudonymization (subject references, email digests) <!-- NFR-011 §3.4 --> | Backend + Celery Worker | Always active, cannot be disabled | `LOG_PSEUDONYM_SALT` — rotatable, independent of `ERASURE_TOMBSTONE_SALT` | — | Yes (`log_pseudonym_salt`, always checked; Celery Beat does not check it) |
 | Email verification at registration | Backend | Active by default (`REQUIRE_EMAIL_VERIFICATION=true`); `false` switches it off | Outbound mail (`EMAIL_ADAPTER=smtp` or `resend`); without it set `false` | — | No |
+| Member limit per tenant <!-- REQ-024 AK-64 --> | Backend | Always active; platform ceiling `TENANT_MAX_MEMBERS_CEILING` (default `50`) | — | one count query per join | No (a value below `1` refuses startup) |
 | "Have I Been Pwned" check | Backend | `HIBP_ENABLED=true` (default `false`) | — | outbound HTTPS requests on password change | No |
 
 ---

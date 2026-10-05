@@ -652,6 +652,28 @@ class PhotoQuotaExceededError(KamerplanterError):
         )
 
 
+class MemberLimitReachedError(KamerplanterError):
+    """REQ-024 AK-64 (#2133) — the tenant's active memberships reached its effective member limit.
+
+    422, not 409: no concurrent write is in the way; the request asks for a membership the tenant's
+    limit does not admit. The limit is named, the members are not.
+    """
+
+    def __init__(self, limit: int) -> None:
+        super().__init__(
+            message=f"This tenant has reached its limit of {limit} members.",
+            error_code="MEMBER_LIMIT_REACHED",
+            status_code=422,
+            details=[
+                {
+                    "field": "tenant",
+                    "reason": f"The tenant admits at most {limit} active members.",
+                    "code": "MEMBER_LIMIT_REACHED",
+                }
+            ],
+        )
+
+
 class InvalidFileTypeError(KamerplanterError):
     """NFR-013 §5.1 steps 2 & 3 — type not allowed, or content/MIME mismatch."""
 

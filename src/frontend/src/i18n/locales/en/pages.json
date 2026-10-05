@@ -1109,6 +1109,7 @@
       "invitationStatus": "Status",
       "invitationAccepted": "Invitation accepted! You are now a member.",
       "invitationFailed": "Invitation failed",
+      "memberLimitReached": "This garden has reached its member limit. Your invitation stays valid — once a seat is free or the garden's managers raise the limit, you can accept it again.",
       "noMembers": "No members yet.",
       "noInvitations": "No pending invitations.",
       "inviteNewMember": "Invite new member",

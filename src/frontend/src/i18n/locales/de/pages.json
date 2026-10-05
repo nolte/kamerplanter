@@ -1109,6 +1109,7 @@
       "invitationStatus": "Status",
       "invitationAccepted": "Einladung angenommen! Du bist jetzt Mitglied.",
       "invitationFailed": "Einladung fehlgeschlagen",
+      "memberLimitReached": "Dieser Garten hat seine Mitgliedergrenze erreicht. Deine Einladung bleibt gültig — sobald ein Platz frei wird oder die Verwaltung die Grenze anhebt, kannst du sie erneut annehmen.",
       "noMembers": "Noch keine Mitglieder vorhanden.",
       "noInvitations": "Keine ausstehenden Einladungen.",
       "inviteNewMember": "Neues Mitglied einladen",
