@@ -67,9 +67,15 @@ class User(BaseModel):
     #: account is not an abandoned registration, whatever ``email_verified`` says now: the
     #: unverified-account cleanup (NFR-011 R-02) never selects or erases it.
     email_verified_lowered_at: datetime | None = None
-    email_verification_token: str | None = None
+    #: SHA-256 hex digest of the single-use verification token (#2158). The raw token
+    #: only ever travels in the mail; the lookup hashes what the link presents
+    #: (``TokenEngine.hash_token``), so a read of the database or of a backup yields
+    #: no working link. ``v0086_hash_account_tokens`` hashed the values stored in clear.
+    email_verification_token_hash: str | None = None
     email_verification_expires: datetime | None = None
-    password_reset_token: str | None = None
+    #: SHA-256 hex digest of the single-use password-reset token (#2158); see
+    #: :attr:`email_verification_token_hash`.
+    password_reset_token_hash: str | None = None
     password_reset_expires: datetime | None = None
     is_active: bool = True
     # REQ-023 v1.10 service accounts (M2M). ``human`` is the spec's default (#1620).
@@ -82,6 +88,22 @@ class User(BaseModel):
     timezone: str = "Europe/Berlin"
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    #: Moves on every event that ends **all** sessions of the account (#2116): logout
+    #: everywhere, password reset or change, deactivation, an Art. 17 request. A
+    #: refresh token minted under an older generation is refused.
+    #:
+    #: Written only by ``IRefreshTokenRepository`` in the same statement that revokes
+    #: the sessions; :class:`~app.data_access.arango.user_repository.ArangoUserRepository`
+    #: never writes either counter, so a writer that read the account before the
+    #: revocation cannot set it back (``update_fields`` rewrites the whole account).
+    session_generation: int = 0
+    #: Moves on every revocation, of one session or of all (#2116). An access token
+    #: carries the value it was minted under (claim ``gen``) and stops resolving the
+    #: moment this moves: ``FullAuthProvider`` compares it with the account it reads
+    #: anyway, so the check costs no extra read. Revoking one session therefore ends
+    #: the access tokens of the account's other sessions too; their next request
+    #: refreshes silently (their refresh tokens are untouched).
+    access_token_generation: int = 0
     #: The ``tenant_scope`` of the API key this request authenticated with (#1817).
     #:
     #: Request state, not account state: a *private* attribute, so no stored

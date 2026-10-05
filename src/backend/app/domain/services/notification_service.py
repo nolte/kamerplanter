@@ -489,7 +489,8 @@ class NotificationService:
 
         Creates the ``pwa`` channel preference if missing, enables it and
         deduplicates subscriptions by ``endpoint``. Persists via the existing
-        preferences update path.
+        preferences update path. The endpoint is then removed from every other
+        account (#2117): one endpoint, one holder.
 
         The endpoint is validated against SSRF before being stored (SEC-001):
         it must be https and must not resolve to an internal/non-routable
@@ -542,8 +543,14 @@ class NotificationService:
         channel_pref.enabled = True
 
         self._store_preferences(user_key, prefs)
+        # #2117 — the endpoint is this browser on this device; whoever subscribed it
+        # before (the previous user of a shared device) stops receiving through it.
+        taken = self._preference_repo.remove_endpoint_from_other_users("pwa", endpoint, user_key)
         logger.info(
-            "pwa_subscription_added", subject=log_subject(user_key), endpoint_host=loggable_endpoint_host(endpoint)
+            "pwa_subscription_added",
+            subject=log_subject(user_key),
+            endpoint_host=loggable_endpoint_host(endpoint),
+            taken_from_another_account=bool(taken),
         )
         return endpoint
 

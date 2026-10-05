@@ -18,6 +18,10 @@ The **access token** is a signed JSON Web Token (JWT) using the HMAC-SHA256 (HS2
 
 The **refresh token** is set as an HttpOnly cookie. It is not readable by JavaScript, protecting against Cross-Site Scripting (XSS) attacks. On every call to `/auth/refresh`, the token is rotated — the old token is invalidated and a new one issued.
 
+All refresh tokens that a single sign-in produces through rotation form a **token family**. Presenting an already rotated token again counts as reuse of a stolen token: the server ends the whole family (that one sign-in; other devices stay signed in) and answers `401 Unauthorized`. The exception is the 60-second **grace window** on the cookie path: when two tabs of the same browser renew at the same moment, the second one receives a new access token but no new cookie — the first tab has already set it. The grace window applies to the same client only (same `User-Agent`). <!-- #2116 -->
+
+An access token does not wait out its 15 minutes: **every revocation** — signing out, signing out all sessions, ending one session, a password change or reset, deactivating the account, a detected token reuse — makes every access token issued to the account until then invalid at once (`401 Unauthorized`). Devices whose session continues obtain a new one silently with their refresh token. <!-- #2116 -->
+
 ---
 
 ## Registration
@@ -195,7 +199,7 @@ X-CSRF-Token: <csrf-token>
 }
 ```
 
-The old refresh token becomes invalid. The new refresh cookie is set automatically.
+The old refresh token becomes invalid. The new refresh cookie is set automatically. If the same old token arrives again from the same browser within 60 seconds (a second tab), the server answers with an access token and sets **no** cookie; later, or from another client, it counts as reuse and ends the session (see [Token Model](#token-model)).
 
 ---
 
@@ -208,7 +212,9 @@ POST /api/v1/auth/logout
 X-CSRF-Token: <csrf-token>
 ```
 
-Invalidates the current refresh token and deletes the cookie.
+Invalidates the session (the current refresh token and every one rotated from it) and deletes the cookie. The account's access tokens stop working at once; other signed-in devices renew theirs silently.
+
+On sign-out the web interface also removes everything it holds about your account in the browser: loaded data, the active garden and this device's browser push registration. On a shared device the next person sees none of it and receives no push messages for your account. <!-- #2117 -->
 
 ### Sign out all sessions
 
@@ -218,7 +224,7 @@ Authorization: Bearer <access-token>
 X-CSRF-Token: <csrf-token>
 ```
 
-Invalidates all refresh tokens for the user across all devices.
+Invalidates all refresh tokens for the user across all devices — and all access tokens: even an access token that has not expired yet is refused with `401 Unauthorized` from the next request on. <!-- #2116 -->
 
 ---
 
@@ -711,6 +717,9 @@ If the `refresh_token` field is absent, `null`, or the whole body is empty, the 
     A non-empty body that is not valid JSON is rejected with `422 Unprocessable Entity`. Native clients must set the `Content-Type: application/json` header.
 
 Rotation is cross-transport: a refresh token rotated via either the body or the cookie invalidates the previous token on **both** transports — there is one rotation, not separate bookkeeping per transport.
+
+!!! warning "No grace window on the body path"
+    An already rotated token presented again ends the device's session (token family, see [Token Model](#token-model)) — even when only the response to the first renewal was lost. A native client therefore stores the new token before using it and does not blindly retry a renewal with the old token. Once the session has ended, it pairs again. <!-- #2116 -->
 
 ### Ending a paired device's session
 

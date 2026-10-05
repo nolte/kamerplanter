@@ -45,6 +45,7 @@ Run with: pytest tests/integration/test_merge_mode_null_clearing.py -v
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -120,14 +121,17 @@ def db():
 #: What the stored user holds before each write under test. Every nullable the
 #: measured paths touch is populated, so "the writer meant ``None``" and "the
 #: stored value survived" are distinguishable for each of them.
+_VERIFICATION_TOKEN = "verification-token"  # noqa: S105 - a fixture value, not a credential
+
 _STORED_USER = {
     "email": "erika@example.org",
     "display_name": "Erika Mustermann",
     # A real bcrypt hash shape — this is the datum #1525 is about.
     "password_hash": "$2b$12$abcdefghijklmnopqrstuv0123456789ABCDEFGHIJKLMNOPQRSTU",
     "avatar_url": "https://cdn.example.org/avatars/erika.png",
-    "password_reset_token": "reset-token-still-valid-for-an-hour",
-    "email_verification_token": "verification-token",
+    # Digests since #2158: SHA-256 hex of the tokens below, which the link presents.
+    "password_reset_token_hash": hashlib.sha256(b"reset-token-still-valid-for-an-hour").hexdigest(),
+    "email_verification_token_hash": hashlib.sha256(_VERIFICATION_TOKEN.encode()).hexdigest(),
     "is_active": True,
     "locale": "de",
     "created_at": "2026-01-01T00:00:00+00:00",
@@ -234,7 +238,7 @@ class TestTheSoftDeleteRemovesTheCredential:
         """``update_fields`` is a full-model write here, so it needs the flag too.
 
         ``AuthService.reset_password`` and ``change_password`` both clear
-        ``password_reset_token``/``password_reset_expires`` through this method and
+        ``password_reset_token_hash``/``password_reset_expires`` through this method and
         say in a comment that they rely on the explicit ``None`` being persisted.
         They did not: the override re-materialises a full ``User`` and goes through
         the merge-mode ``update``, so a used reset token stayed valid for its full
@@ -244,11 +248,11 @@ class TestTheSoftDeleteRemovesTheCredential:
 
         _user_repo(db).update_fields(
             user_key,
-            {"password_hash": "$2b$12$new", "password_reset_token": None, "password_reset_expires": None},
+            {"password_hash": "$2b$12$new", "password_reset_token_hash": None, "password_reset_expires": None},
         )
 
         stored = _raw(db, col.USERS, user_key)
-        _assert_cleared(stored, "password_reset_token", "a used password-reset token survived the reset")
+        _assert_cleared(stored, "password_reset_token_hash", "a used password-reset token survived the reset")
         assert stored["password_hash"] == "$2b$12$new"
 
     def test_an_attribute_the_user_model_does_not_declare_survives(self, db, user_key):
@@ -357,10 +361,10 @@ class TestASingleUseTokenIsSingleUse:
 
         service, _ = _auth_service(db)
 
-        service.verify_email(_STORED_USER["email_verification_token"])
+        service.verify_email(_VERIFICATION_TOKEN)
 
         with pytest.raises(InvalidTokenError):
-            service.verify_email(_STORED_USER["email_verification_token"])
+            service.verify_email(_VERIFICATION_TOKEN)
 
 
 # ── consent_records (#1516) ──────────────────────────────────────────────────

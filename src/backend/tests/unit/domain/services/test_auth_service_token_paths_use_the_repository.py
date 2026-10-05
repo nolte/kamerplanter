@@ -53,15 +53,15 @@ class _FakeUserRepository(IUserRepository):
         self.updates: list[dict] = []
 
     # -- the two lookups #1556 added ------------------------------------- #
-    def get_by_email_verification_token(self, token: str) -> User | None:
-        self.calls.append(("get_by_email_verification_token", token))
-        if self._user is not None and self._user.email_verification_token == token:
+    def get_by_email_verification_token_hash(self, token_hash: str) -> User | None:
+        self.calls.append(("get_by_email_verification_token_hash", token_hash))
+        if self._user is not None and self._user.email_verification_token_hash == token_hash:
             return self._user
         return None
 
-    def get_by_password_reset_token(self, token: str) -> User | None:
-        self.calls.append(("get_by_password_reset_token", token))
-        if self._user is not None and self._user.password_reset_token == token:
+    def get_by_password_reset_token_hash(self, token_hash: str) -> User | None:
+        self.calls.append(("get_by_password_reset_token_hash", token_hash))
+        if self._user is not None and self._user.password_reset_token_hash == token_hash:
             return self._user
         return None
 
@@ -159,19 +159,19 @@ class TestVerifyEmail:
     def test_the_verification_token_is_looked_up_through_the_repository(self) -> None:
         user = _user(
             email_verified=False,
-            email_verification_token=VERIFY_TOKEN,
+            email_verification_token_hash=TokenEngine.hash_token(VERIFY_TOKEN),
             email_verification_expires=datetime.now(UTC) + timedelta(hours=1),
         )
         repo = _FakeUserRepository(user)
 
         profile = _service(repo).verify_email(VERIFY_TOKEN)
 
-        assert repo.calls == [("get_by_email_verification_token", VERIFY_TOKEN)]
+        assert repo.calls == [("get_by_email_verification_token_hash", TokenEngine.hash_token(VERIFY_TOKEN))]
         assert profile.email_verified is True
 
     def test_the_token_is_burned_by_the_same_update_fields_write_as_before(self) -> None:
         """#1556 moved the READ. The write path is untouched (#1018/#1525)."""
-        user = _user(email_verified=False, email_verification_token=VERIFY_TOKEN)
+        user = _user(email_verified=False, email_verification_token_hash=TokenEngine.hash_token(VERIFY_TOKEN))
         repo = _FakeUserRepository(user)
 
         _service(repo).verify_email(VERIFY_TOKEN)
@@ -181,12 +181,12 @@ class TestVerifyEmail:
         assert isinstance(update.pop("email_confirmed_at"), datetime)
         assert update == {
             "email_verified": True,
-            "email_verification_token": None,
+            "email_verification_token_hash": None,
             "email_verification_expires": None,
         }
 
     def test_an_unknown_token_is_refused(self) -> None:
-        repo = _FakeUserRepository(_user(email_verification_token="other"))
+        repo = _FakeUserRepository(_user(email_verification_token_hash=TokenEngine.hash_token("other")))
         with pytest.raises(InvalidTokenError):
             _service(repo).verify_email(VERIFY_TOKEN)
         assert repo.updates == []
@@ -194,7 +194,7 @@ class TestVerifyEmail:
     def test_an_expired_token_is_refused(self) -> None:
         user = _user(
             email_verified=False,
-            email_verification_token=VERIFY_TOKEN,
+            email_verification_token_hash=TokenEngine.hash_token(VERIFY_TOKEN),
             email_verification_expires=datetime.now(UTC) - timedelta(hours=1),
         )
         repo = _FakeUserRepository(user)
@@ -206,30 +206,30 @@ class TestVerifyEmail:
 class TestResetPassword:
     def test_the_reset_token_is_looked_up_through_the_repository(self) -> None:
         user = _user(
-            password_reset_token=RESET_TOKEN,
+            password_reset_token_hash=TokenEngine.hash_token(RESET_TOKEN),
             password_reset_expires=datetime.now(UTC) + timedelta(hours=1),
         )
         repo = _FakeUserRepository(user)
 
         _service(repo).reset_password(RESET_TOKEN, NEW_PASSWORD)
 
-        assert ("get_by_password_reset_token", RESET_TOKEN) in repo.calls
+        assert ("get_by_password_reset_token_hash", TokenEngine.hash_token(RESET_TOKEN)) in repo.calls
         written = repo.updates[-1]
-        assert written["password_reset_token"] is None
+        assert written["password_reset_token_hash"] is None
         assert written["password_reset_expires"] is None
         assert written["failed_login_attempts"] == 0
         assert written["locked_until"] is None
         assert written["password_hash"] != "$2b$12$notarealhash"
 
     def test_an_unknown_token_is_refused(self) -> None:
-        repo = _FakeUserRepository(_user(password_reset_token="other"))
+        repo = _FakeUserRepository(_user(password_reset_token_hash=TokenEngine.hash_token("other")))
         with pytest.raises(InvalidTokenError):
             _service(repo).reset_password(RESET_TOKEN, NEW_PASSWORD)
         assert repo.updates == []
 
     def test_an_expired_token_is_refused(self) -> None:
         user = _user(
-            password_reset_token=RESET_TOKEN,
+            password_reset_token_hash=TokenEngine.hash_token(RESET_TOKEN),
             password_reset_expires=datetime.now(UTC) - timedelta(hours=1),
         )
         repo = _FakeUserRepository(user)

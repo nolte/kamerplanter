@@ -116,17 +116,17 @@ def test_an_address_is_held_only_within_its_revert_window(db: StandardDatabase) 
 def test_move_email_writes_only_from_the_expected_address(db: StandardDatabase) -> None:
     repo = ArangoUserRepository(db)
     db.collection(col.USERS).insert(
-        {"_key": "u1", "email": "b@example.org", "display_name": "U", "password_reset_token": "t"}
+        {"_key": "u1", "email": "b@example.org", "display_name": "U", "password_reset_token_hash": "t"}
     )
 
     stale = repo.move_email("u1", "c@example.org", {"email": "a@example.org"})
-    moved = repo.move_email("u1", "B@example.org", {"email": "a@example.org", "password_reset_token": None})
+    moved = repo.move_email("u1", "B@example.org", {"email": "a@example.org", "password_reset_token_hash": None})
 
     stored = db.collection(col.USERS).get("u1")
     assert stale is None
     assert moved is not None and moved.email == "a@example.org"
     assert stored["email"] == "a@example.org"
-    assert stored.get("password_reset_token") is None
+    assert stored.get("password_reset_token_hash") is None
 
 
 def test_move_email_onto_a_taken_address_is_a_duplicate(db: StandardDatabase) -> None:

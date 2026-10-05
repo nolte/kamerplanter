@@ -143,10 +143,12 @@ def test_an_anonymous_resend_and_a_proven_link_leave_the_stored_token_in_the_new
         lambda: service._send_proven_verification_link("4000001"),
     )
 
-    stored = repo.user.email_verification_token
+    stored = repo.user.email_verification_token_hash
     print(f"\nverification mails in arrival order: {len(mailbox.tokens)}, took {time.monotonic() - started:.2f}s")
     assert len(mailbox.tokens) == 2
-    assert mailbox.tokens[-1] == stored, "the newest mail carries a token the other issue already overwrote"
+    assert TokenEngine.hash_token(mailbox.tokens[-1]) == stored, (
+        "the newest mail carries a token the other issue already overwrote"
+    )
 
 
 def test_two_reset_requests_leave_the_stored_token_in_the_newest_mail() -> None:
@@ -159,9 +161,11 @@ def test_two_reset_requests_leave_the_stored_token_in_the_newest_mail() -> None:
 
     _run_interleaved(repo, deferred[0], deferred[1])
 
-    stored = repo.user.password_reset_token
+    stored = repo.user.password_reset_token_hash
     assert len(mailbox.tokens) == 2
-    assert mailbox.tokens[-1] == stored, "the newest reset mail carries a token the other request already overwrote"
+    assert TokenEngine.hash_token(mailbox.tokens[-1]) == stored, (
+        "the newest reset mail carries a token the other request already overwrote"
+    )
 
 
 def test_issues_for_different_accounts_do_not_wait_for_each_other() -> None:
