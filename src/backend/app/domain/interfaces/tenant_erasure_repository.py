@@ -62,5 +62,22 @@ class ITenantErasureRepository(ABC):
     def update_fields(self, key: str, fields: dict[str, Any]) -> TenantErasureRecord: ...
 
     @abstractmethod
-    def list_due(self, *, stale_before_iso: str) -> list[TenantErasureRecord]:
-        """Open records a retry run should look at: ``partially_completed``, or ``in_progress`` gone stale."""
+    def delete_scheduled(self, key: str) -> bool:
+        """Remove the record *key* only while it is still ``scheduled``; ``True`` when it was removed (#2123).
+
+        The cancellation of a tenant deletion inside its grace. Conditional in one
+        statement, against :meth:`claim_for_run`: a record a run has claimed is
+        ``in_progress`` and is never removed — of a cancel and the beat's claim
+        exactly one wins.
+        """
+
+    @abstractmethod
+    def list_due(
+        self, *, stale_before_iso: str, scheduled_due_before_iso: str | None = None
+    ) -> list[TenantErasureRecord]:
+        """Open records a retry run should look at: ``partially_completed``, or ``in_progress`` gone stale.
+
+        With *scheduled_due_before_iso* also every ``scheduled`` record whose grace
+        (``scheduled_for``) ended at or before it (#2123); without it none — a caller
+        that does not name the instant cannot erase a tenant whose grace still runs.
+        """

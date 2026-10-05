@@ -6,7 +6,19 @@ administer. Everything here is a pure function of those two values, so the rules
 can be asserted directly without a request or a database.
 """
 
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Literal
+
 from app.common.enums import AdminScope, TenantRole
+
+if TYPE_CHECKING:
+    from app.domain.models.membership import Membership
+
+#: What an account erasure does to one organisation the account is a member of (#2134, MT-038).
+type DepartureOutcome = Literal["unaffected", "management_passes_to_lead", "orphaned"]
+
+#: Sorts a membership without a recorded start after every recorded one.
+_UNKNOWN_START = datetime.max.replace(tzinfo=UTC)
 
 # Role hierarchy: lead > grower > viewer (REQ-049 §2.3).
 ROLE_HIERARCHY: dict[TenantRole, int] = {
@@ -138,3 +150,43 @@ class MembershipEngine:
         if not target_has_management:
             return True
         return manager_count > 1
+
+    @staticmethod
+    def departure_settlement(
+        leaving: Membership, others: list[Membership]
+    ) -> tuple[DepartureOutcome, Membership | None]:
+        """What the erasure of *leaving*'s account does to its organisation (#2134, MT-038, INV-1).
+
+        *others* are the remaining **active** memberships of active accounts in the
+        same tenant. The account erasure removes *leaving* without the INV-1 guard
+        that ``remove_member`` / ``leave_tenant`` apply — a person who exercises
+        Art. 17 cannot be told to hand over first — so the tenant is settled here
+        instead (operator decision 2026-10-04):
+
+        * nobody else → ``orphaned``;
+        * *leaving* held ``management`` and nobody else does → the longest-serving
+          remaining ``lead`` (earliest ``joined_at``; an unrecorded start sorts last,
+          the membership key breaks a tie) receives it: ``management_passes_to_lead``;
+          without a remaining ``lead`` → ``orphaned``;
+        * otherwise → ``unaffected``.
+
+        Returns the outcome and, for a handover, the membership that receives
+        ``management``.
+        """
+        if not others:
+            return "orphaned", None
+        if not leaving.has_management or any(member.has_management for member in others):
+            return "unaffected", None
+        leads = [member for member in others if member.role == TenantRole.LEAD]
+        if not leads:
+            return "orphaned", None
+        heir = min(leads, key=lambda m: (_started(m), m.key or "", m.user_key))
+        return "management_passes_to_lead", heir
+
+
+def _started(membership: Membership) -> datetime:
+    """The membership's start as an aware instant; an unrecorded one sorts after every recorded one."""
+    joined = membership.joined_at
+    if joined is None:
+        return _UNKNOWN_START
+    return joined if joined.tzinfo is not None else joined.replace(tzinfo=UTC)

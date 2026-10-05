@@ -64,6 +64,15 @@ _DISPLAY_TEXT_FIELD: dict[str, str] = {
 #: The subject's tenants, and one they are not a member of.
 TENANTS = ("t-a", "t-b")
 FOREIGN_TENANT = "t-foreign"
+#: #2135 — the personal tenant each owner owns: a personal-garden source is bounded by it,
+#: never by the memberships above.
+PERSONAL_TENANT = {SUBJECT: "t-personal-subject", OTHER: "t-personal-other"}
+
+
+def _bound(source, owner: str = SUBJECT) -> tuple[str, ...]:
+    """The tenant keys the export walk hands the repository for *source* (``PrivacyService._build_export_bundle``)."""
+    return (PERSONAL_TENANT[owner],) if source.personal_tenant_scope is not None else TENANTS
+
 
 _APP = Path(__file__).resolve().parents[2] / "app"
 
@@ -96,6 +105,17 @@ def _document(source, owner: str, *, tenant: str = TENANTS[0]) -> dict:
       display name every real row carries beside the key.
     """
     doc = {field: _marker(source.collection, owner) for field in source.fields}
+    if source.personal_tenant_scope is not None:
+        # #2135 — a row of the owner's personal garden, as production stores it: ``tenant_key`` on
+        # the row itself, or — ``locations`` / ``slots``, whose own ``tenant_key`` no write path
+        # fills (#1397) — an empty one and the parent key the anchor follows (the parent's seeded
+        # ``_key`` is its marker).
+        scope = source.personal_tenant_scope
+        doc["tenant_key"] = "" if scope.via else PERSONAL_TENANT[owner]
+        if scope.via:
+            first = scope.via[0]
+            doc[first.field] = _marker(first.collection, owner)
+        return doc
     if source.filter_field in EDGE_ENDPOINT_FIELDS:
         # #1719 — an edge row that *is* the subject's data (``user_favorites``).
         # Production writes the user vertex id, not the bare key
@@ -323,7 +343,7 @@ def test_every_declared_source_returns_the_subjects_document(db, source):
     """One case per manifest entry, so a broken source names itself."""
     repo = ArangoPersonalDataRepository(db)
 
-    rows = repo.collect_for_user(source, SUBJECT, TENANTS)
+    rows = repo.collect_for_user(source, SUBJECT, _bound(source))
 
     assert rows, f"source '{source.collection}' returned nothing for a subject that has a document there"
     values = {value for row in rows for value in row.values()}
@@ -335,7 +355,7 @@ def test_no_declared_source_leaks_another_users_document(db, source):
     """The mirror case: a query matching everything is as wrong as one matching nothing."""
     repo = ArangoPersonalDataRepository(db)
 
-    rows = repo.collect_for_user(source, SUBJECT, TENANTS)
+    rows = repo.collect_for_user(source, SUBJECT, _bound(source))
 
     values = {value for row in rows for value in row.values()}
     assert _marker(source.collection, OTHER) not in values
@@ -495,6 +515,8 @@ def _service_under_test(database, storage_root):
         storage_adapter=storage,
         membership_repo=membership_repo,
         personal_data_repo=ArangoPersonalDataRepository(database),
+        # #2135 — the personal tenants the subject owns bound the personal-garden sources.
+        tenant_service=MagicMock(**{"personal_tenant_keys_of.return_value": [PERSONAL_TENANT[SUBJECT]]}),
     )
     return service, export_repo
 

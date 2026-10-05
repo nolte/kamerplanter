@@ -138,6 +138,31 @@ class PersonalTenantErasurePreview(BaseModel):
     other_member_count: int = Field(ge=0)
 
 
+#: What an account erasure does to an organisation the account is a member of (#2134).
+type OrganisationErasureOutcome = Literal["unaffected", "management_passes_to_lead", "orphaned"]
+
+
+class OrganisationErasurePreview(BaseModel):
+    """An organisation the erasure of an account changes, shown before it is confirmed (#2134, MT-038).
+
+    ``name`` is the organisation's — the subject is a member of it. Only the two
+    outcomes that change something are previewed: the subject is the last
+    ``management`` holder and the longest-serving ``lead`` takes over, or nobody
+    who can administer it is left and the organisation is ``orphaned`` (deleted
+    after the tenant-deletion grace, #2123). Names nobody else.
+    """
+
+    name: str
+    outcome: Literal["management_passes_to_lead", "orphaned"]
+
+
+class OrganisationSettlement(BaseModel):
+    """What the account erasure did to one organisation of the subject (#2134). Carries no account key."""
+
+    tenant_key: str
+    outcome: OrganisationErasureOutcome
+
+
 class ErasureRequest(BaseModel):
     """Art. 17: Account-deletion request, executed asynchronously after 90d."""
 
@@ -271,6 +296,34 @@ class ConsentWithPurpose(BaseModel):
     revoked_at: datetime | None = None
 
 
+class PersonalTenantHop(BaseModel):
+    """One parent step from a row to the row that carries the personal tenant's key (#2135).
+
+    ``field`` on the row holds the ``_key`` of a row in ``collection`` — the anchor the
+    tenant-erasure inventory uses for the same collection (``locations`` hang off their
+    site: their own ``tenant_key`` is filled by no write path, #1397).
+    """
+
+    model_config = {"frozen": True}
+
+    field: str
+    collection: str
+
+
+class PersonalTenantScope(BaseModel):
+    """A manifest source disclosed *whole* for the subject's own personal tenants (#2135, MT-039).
+
+    Not attributed by an account field: the rows belong to the personal tenant the subject
+    owns, so every row of it is disclosed (REQ-025 §3.1.2 rule 1, operator decision
+    2026-10-04). ``via`` is empty when the row carries ``tenant_key`` itself; otherwise the
+    parent chain that leads to a row that does (at most two hops).
+    """
+
+    model_config = {"frozen": True}
+
+    via: tuple[PersonalTenantHop, ...] = ()
+
+
 class DataSourceDefinition(BaseModel):
     """Manifest entry: declares one user-related data source for export.
 
@@ -302,6 +355,21 @@ class DataSourceDefinition(BaseModel):
     tenant_scoped: bool = False
     disclosure_gap: str | None = None
     attribution_gap: str | None = None
+    #: #2135 — the source is the subject's personal tenant, disclosed whole (no account
+    #: field; bounded by the personal tenants the subject owns). Excludes every other way of
+    #: attributing a row: a source is either the subject's by an account field or by the garden.
+    personal_tenant_scope: PersonalTenantScope | None = None
+
+    @model_validator(mode="after")
+    def _one_way_of_attribution(self) -> Self:
+        if self.personal_tenant_scope is not None:
+            if self.filter_field or self.edge_collection or self.tenant_scoped or self.disclosure_gap:
+                msg = f"personal-tenant source '{self.collection}' carries an account attribution as well"
+                raise ValueError(msg)
+            if len(self.personal_tenant_scope.via) > 2:
+                msg = f"personal-tenant source '{self.collection}' reaches its tenant over more than two parents"
+                raise ValueError(msg)
+        return self
 
 
 class DisclosureExclusion(BaseModel):
@@ -622,6 +690,10 @@ class AccountErasureReport(BaseModel):
     #: subject. ``None`` when the phase did not run — an erasure that skipped it
     #: must not be recorded ``completed``.
     personal_tenants: list[PersonalTenantErasure] | None = None
+    #: The organisation phase (#2134, MT-038): what the erasure did to each
+    #: organisation of the subject (management handed over, orphaned, unaffected).
+    #: ``None`` when it did not run.
+    organisations: list[OrganisationSettlement] | None = None
     arango: ErasureExecutionReport = Field(default_factory=ErasureExecutionReport)
 
     def affected(self, collection: str) -> int:

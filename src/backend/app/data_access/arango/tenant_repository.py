@@ -149,12 +149,12 @@ class ArangoTenantRepository(BaseArangoRepository[Tenant], ITenantRepository):
         return self._wrap_many(docs)
 
     def count(self, *, active_only: bool = False) -> int:
-        """Number of tenant documents; ``active_only`` counts ``is_active`` ones (#1019)."""
+        """Number of tenant documents; ``active_only`` counts those in state ``active`` (#1019, #2123)."""
         if not active_only:
             return self.collection.count()
         query = """
         FOR doc IN @@collection
-          FILTER doc.is_active == true
+          FILTER doc.status == 'active'
           COLLECT WITH COUNT INTO cnt
           RETURN cnt
         """

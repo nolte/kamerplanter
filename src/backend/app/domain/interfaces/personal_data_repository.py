@@ -28,7 +28,10 @@ class IPersonalDataRepository(ABC):
     ) -> list[dict[str, Any]]:
         """Return the declared ``source.fields`` of every document of *user_key*.
 
-        ``tenant_keys`` are the subject's own tenants. A ``tenant_scoped``
+        ``tenant_keys`` are the tenants the source is bounded by: for an account
+        source the subject's memberships; for a ``personal_tenant_scope`` source
+        (#2135) the personal tenants the subject *owns*, every row of which is
+        disclosed. A ``tenant_scoped``
         source is restricted to them, so a document in a tenant the subject is
         not a member of can never reach their disclosure — whoever wrote the
         user-reference field (#1662 SCR-001). A source with a

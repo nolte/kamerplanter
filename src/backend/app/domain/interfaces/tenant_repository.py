@@ -67,7 +67,7 @@ class ITenantRepository(ABC):
 
     @abstractmethod
     def count(self, *, active_only: bool = False) -> int:
-        """Number of tenant documents; ``active_only`` counts ``is_active`` ones (#1019)."""
+        """Number of tenant documents; ``active_only`` counts those in state ``active`` (#1019, #2123)."""
 
     @abstractmethod
     def count_organizations_by_owner(self, owner_user_key: str) -> int: ...

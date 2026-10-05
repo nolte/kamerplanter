@@ -130,7 +130,8 @@ class TestTheAccountErasureTakesThePersonalTenant:
         await _service(repo, executor, tenants).erase_account_now(USER, origin="platform_admin", now=NOW)
 
         assert tenants.erased == [PERSONAL]
-        assert tenants.events == [f"tenant:{PERSONAL}", "account-plan"]
+        # #2134 — the organisations are settled before the plan removes the subject's memberships.
+        assert tenants.events == [f"tenant:{PERSONAL}", "organisations", "account-plan"]
 
     async def test_the_completed_request_names_the_tenant_and_its_deletion_record(self):
         repo = FakeErasureRepo()

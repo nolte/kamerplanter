@@ -89,7 +89,10 @@ class TestTheAdminSeesWhatTheDeletionTakesAlong:
         response = admin_client.get(URL.format(key=OWNER))
 
         assert response.status_code == 200
-        assert response.json() == {"personal_tenants": [{"name": "Garden", "other_member_count": 2}]}
+        assert response.json() == {
+            "personal_tenants": [{"name": "Garden", "other_member_count": 2}],
+            "organizations": [],  # #2134
+        }
 
     def test_it_has_the_shape_of_the_self_service_preview(self, admin_client: TestClient):
         from app.api.v1.privacy.schemas import ErasurePreviewResponse
@@ -111,10 +114,10 @@ class TestTheAdminSeesWhatTheDeletionTakesAlong:
     def test_the_foreign_target_gets_its_own_answer_not_the_first_ones(self, admin_client: TestClient):
         body = admin_client.get(URL.format(key="u-foreign")).json()
 
-        assert body == {"personal_tenants": [{"name": "Garden", "other_member_count": 1}]}
+        assert body == {"personal_tenants": [{"name": "Garden", "other_member_count": 1}], "organizations": []}
 
     def test_an_account_without_a_personal_tenant_answers_an_empty_list(self, admin_client: TestClient):
-        assert admin_client.get(URL.format(key=ADMIN)).json() == {"personal_tenants": []}
+        assert admin_client.get(URL.format(key=ADMIN)).json() == {"personal_tenants": [], "organizations": []}
 
     def test_an_unknown_account_is_404(self, admin_client: TestClient):
         assert admin_client.get(URL.format(key="ghost")).status_code == 404

@@ -173,6 +173,12 @@ _MEMBERSHIP_CLASSIFIED: dict[tuple[str, str], str] = {
         "(#2032 decision recorded in REQ-024 AK-57) — this entry then leaves the list"
     ),
 }
+_MEMBERSHIP_CLASSIFIED[("tenant_service.py", "TenantService._hand_management_to")] = (
+    "the account erasure's INV-1 settlement (#2134): nobody is present to re-authenticate — the erasure itself "
+    "was confirmed by the subject's step-up (or a platform admin's); it only ever adds the management scope to "
+    "the longest-serving remaining lead (MembershipEngine.departure_settlement), never removes one, and is "
+    "written to the security audit (via account_erasure)"
+)
 _MEMBERSHIP_CLASSIFIED[("tenant_service.py", "TenantService.accept_invitation")] = (
     "the invitation token is the proof: it was created by a member administrator who passed the escalation "
     "gate for the role it carries, and the accepting account chooses nothing; an e-mail invitation is bound to "
@@ -345,7 +351,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
 EXPECTED_MEMBERS = (
-    36  # +1 with #2133: _settle_join_against_member_limit (classified, the take-back of an overshooting join);
+    37  # +1 with #2134: _hand_management_to (classified);
+    # +1 with #2133: _settle_join_against_member_limit (classified, the take-back of an overshooting join);
     # +2 with #2106: admin_add_membership (gated) and accept_invitation (classified), both via the insert helper;
     # +7 with #2032: the membership writes (_MEMBERSHIP_CLASSIFIED and the four gated role/removal methods);
     # +3 with #1883: OidcProviderAdminService.create/update/delete_provider; +1 with #1987: _login_link;

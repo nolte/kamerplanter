@@ -81,6 +81,18 @@ export async function deleteAdminTenant(
 }
 
 /**
+ * Cancel a scheduled tenant deletion inside its grace (#2123): the tenant is `active` again with
+ * every membership as it was. Carries the **admin's own** step-up (`tenant_erasure_cancel`).
+ */
+export async function cancelAdminTenantErasure(key: string, stepUp: CredentialStepUp): Promise<AdminTenant> {
+  const { data } = await apiClient.post<AdminTenant>(
+    `/admin/platform/tenants/${encodeURIComponent(key)}/erasure/cancel`,
+    stepUp,
+  );
+  return data;
+}
+
+/**
  * Accept the erasure of another account (#1814, 202 since #1949): the account is closed and the
  * other members told at once, the data is erased afterwards by a worker — not yet gone. The body
  * echoes the **target's** e-mail and carries the **admin's own** current password when the admin's

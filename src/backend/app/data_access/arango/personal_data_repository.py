@@ -46,6 +46,9 @@ class ArangoPersonalDataRepository(IPersonalDataRepository):
             msg = f"Manifest source '{source.collection}' declares no fields to export."
             raise ValueError(msg)
 
+        if source.personal_tenant_scope is not None:
+            return self._collect_personal_tenant(source, tenant_keys)
+
         if source.edge_collection:
             return self._collect_via_edge(source, user_key)
 
@@ -112,6 +115,53 @@ class ArangoPersonalDataRepository(IPersonalDataRepository):
             """
             bind_vars["field"] = field
             bind_vars["tombstone"] = tombstone
+        return [dict(doc) for doc in self._db.aql.execute(query, bind_vars=bind_vars)]
+
+    def _collect_personal_tenant(
+        self, source: DataSourceDefinition, tenant_keys: Sequence[str]
+    ) -> list[dict[str, Any]]:
+        """Every row of the subject's own personal tenants in *source* (#2135, MT-039).
+
+        *tenant_keys* are the personal tenants the subject owns (the service passes
+        ``personal_tenant_keys_of``, never the memberships). A row belongs when its
+        ``tenant_key`` is one of them, or — for ``locations`` / ``slots``, whose own
+        ``tenant_key`` no write path fills (#1397) — when its declared parent chain
+        reaches a row that carries one: the anchor the tenant-erasure inventory uses.
+        No personal tenant means no rows, never all of them.
+        """
+        if not tenant_keys:
+            return []
+        scope = source.personal_tenant_scope
+        assert scope is not None  # the caller dispatched on it
+        bind_vars: dict[str, Any] = {
+            "@collection": source.collection,
+            "tenant_keys": list(tenant_keys),
+            "fields": list(source.fields),
+        }
+        if not scope.via:
+            anchor = "doc.tenant_key IN @tenant_keys"
+        elif len(scope.via) == 1:
+            hop = scope.via[0]
+            bind_vars |= {"f1": hop.field, "c1": hop.collection}
+            anchor = (
+                "doc.tenant_key IN @tenant_keys OR "
+                "(doc[@f1] != null AND DOCUMENT(@c1, doc[@f1]).tenant_key IN @tenant_keys)"
+            )
+        else:
+            first, second = scope.via
+            bind_vars |= {"f1": first.field, "c1": first.collection, "f2": second.field, "c2": second.collection}
+            anchor = (
+                "doc.tenant_key IN @tenant_keys OR ("
+                "doc[@f1] != null AND LENGTH("
+                "FOR p IN [DOCUMENT(@c1, doc[@f1])] "
+                "FILTER p != null AND (p.tenant_key IN @tenant_keys OR "
+                "(p[@f2] != null AND DOCUMENT(@c2, p[@f2]).tenant_key IN @tenant_keys)) RETURN 1) > 0)"
+            )
+        query = f"""
+        FOR doc IN @@collection
+          FILTER {anchor}
+          RETURN KEEP(doc, @fields)
+        """
         return [dict(doc) for doc in self._db.aql.execute(query, bind_vars=bind_vars)]
 
     def _collect_via_edge(self, source: DataSourceDefinition, user_key: UserKey) -> list[dict[str, Any]]:

@@ -55,7 +55,7 @@ def run_seed_light_mode() -> None:
                 "slug": st["slug"],
                 "tenant_type": "personal",
                 "owner_user_key": su["key"],
-                "is_active": True,
+                "status": "active",
                 "created_at": now,
                 "updated_at": now,
             }

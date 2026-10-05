@@ -5,7 +5,13 @@ from typing import Any
 
 from app.domain.engines.apprise_url_secrets import APPRISE_CHANNEL, export_config
 from app.domain.engines.storage.export_bundle_key import export_bundle_key
-from app.domain.models.privacy import DataExportRequest, DataSourceDefinition, DisclosureExclusion
+from app.domain.models.privacy import (
+    DataExportRequest,
+    DataSourceDefinition,
+    DisclosureExclusion,
+    PersonalTenantHop,
+    PersonalTenantScope,
+)
 
 #: Why the three legally-retained categories are only *partly* disclosable.
 #: Since #1669 every create path stores the caller's account in
@@ -30,6 +36,18 @@ _LEGACY_ATTRIBUTION_GAP = (
 #: The same statement for ``quality_assessments``, whose account key arrived
 #: one migration later (#1663, v0057).
 _LEGACY_QUALITY_ATTRIBUTION_GAP = _LEGACY_ATTRIBUTION_GAP.replace("migration v0056", "migration v0057")
+
+#: #2135 (MT-039) — a source of the subject's own personal tenant, disclosed whole.
+_PERSONAL_TENANT = PersonalTenantScope()
+#: ``locations`` / ``slots`` reach their tenant through the site, like the tenant-erasure
+#: inventory does: their own ``tenant_key`` is filled by no write path (#1397).
+_VIA_SITE = PersonalTenantScope(via=(PersonalTenantHop(field="site_key", collection="sites"),))
+_VIA_LOCATION_AND_SITE = PersonalTenantScope(
+    via=(
+        PersonalTenantHop(field="location_key", collection="locations"),
+        PersonalTenantHop(field="site_key", collection="sites"),
+    )
+)
 
 
 class DataExportEngine:
@@ -404,6 +422,126 @@ class DataExportEngine:
             filter_field="owner_user_key",
             label="Tenants you own",
             fields=["name", "slug", "tenant_type", "created_at"],
+        ),
+        # ── #2135 (MT-039): your personal garden, whole ──────────────────
+        #
+        # A personal tenant is named after its owner and its site coordinates are
+        # typically the home address; until #2135 none of it was in the bundle. These
+        # sources are bounded by the personal tenants the subject *owns*
+        # (``TenantService.personal_tenant_keys_of``), never by a membership: an
+        # organisation's garden belongs to the group (only the membership above is
+        # disclosed), somebody else's personal garden to its owner. Every row of the
+        # garden is disclosed, also rows another member wrote there; no source below
+        # carries another account's key (Art. 15(4), REQ-025 §3.1.2 rule 8). ``_key`` is
+        # included so the references between them (``site_key`` …) stay readable (Art. 20).
+        DataSourceDefinition(
+            collection="sites",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: sites",
+            # ``gps_coordinates`` explicitly: for a personal garden it is usually the home address.
+            fields=[
+                "_key",
+                "name",
+                "type",
+                "gps_coordinates",
+                "climate_zone",
+                "hardiness_zone",
+                "timezone",
+                "total_area_m2",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="locations",
+            personal_tenant_scope=_VIA_SITE,
+            label="Your personal garden: locations",
+            fields=["_key", "name", "site_key", "parent_location_key", "area_m2", "light_type", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="slots",
+            personal_tenant_scope=_VIA_LOCATION_AND_SITE,
+            label="Your personal garden: slots",
+            fields=["_key", "slot_id", "location_key", "position", "capacity_plants", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="plant_instances",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: plants",
+            fields=[
+                "_key",
+                "instance_id",
+                "plant_name",
+                "species_key",
+                "cultivar_key",
+                "site_key",
+                "location_key",
+                "slot_key",
+                "planted_on",
+                "removed_on",
+                "current_phase_key",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="planting_runs",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: planting runs",
+            fields=[
+                "_key",
+                "name",
+                "run_type",
+                "status",
+                "planned_quantity",
+                "actual_quantity",
+                "location_key",
+                "planned_start_date",
+                "started_at",
+                "completed_at",
+                "notes",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="tasks",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: tasks",
+            # Not ``assigned_to_user_key``: who a task in the garden is assigned to is another member's data.
+            fields=[
+                "_key",
+                "name",
+                "category",
+                "status",
+                "due_date",
+                "completed_at",
+                "completion_notes",
+                "planting_run_key",
+                "entity_key",
+                "entity_type",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="plant_diary_entries",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: diary",
+            # Not ``created_by``: the author of an entry another member wrote is that member's data.
+            fields=["_key", "plant_key", "entry_type", "title", "text", "tags", "measurements", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="attachments",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: photos and files (metadata)",
+            # Metadata only (the bytes are in the app); no ``created_by``, no ``storage_key``.
+            fields=[
+                "_key",
+                "category",
+                "original_filename",
+                "mime_type",
+                "byte_size",
+                "caption",
+                "taken_on",
+                "created_at",
+            ],
         ),
         DataSourceDefinition(
             collection="mcp_audit_log",

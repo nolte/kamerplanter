@@ -31,6 +31,8 @@ from app.domain.models.pest_detection import PestDetection
 from app.domain.models.pest_image import PestImageContribution
 from app.domain.models.plant_diagnosis_request import PlantDiagnosisRequest
 from app.domain.models.plant_diary_entry import PlantDiaryEntry
+from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.planting_run import PlantingRun
 from app.domain.models.privacy import (
     ConsentRecord,
     DataExportRequest,
@@ -41,6 +43,7 @@ from app.domain.models.privacy import (
     ProcessingRestriction,
 )
 from app.domain.models.security_audit import SecurityAuditEntry
+from app.domain.models.site import Location, Site, Slot
 from app.domain.models.task import Task, TaskComment
 from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
@@ -93,6 +96,12 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "user_preferences": UserPreference,
     "onboarding_states": OnboardingState,
     "pest_detections": PestDetection,
+    # #2135 (MT-039) — the subject's personal garden, disclosed whole (``personal_tenant_scope``).
+    "sites": Site,
+    "locations": Location,
+    "slots": Slot,
+    "plant_instances": PlantInstance,
+    "planting_runs": PlantingRun,
 }
 
 

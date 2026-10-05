@@ -146,6 +146,9 @@ from source_text import is_called  # noqa: E402
 BACKEND = pathlib.Path("src/backend")
 APP_ROOT = BACKEND / "app"
 ERASURE_ENGINE_REL = "domain/engines/erasure_engine.py"
+#: #2135 — the declared tenant-erasure inventory: a personal tenant is erased with its owner's
+#: account through it (#1788), so a source disclosed as "your personal garden" is erasable there.
+TENANT_ERASURE_ENGINE_REL = "domain/engines/tenant_erasure_engine.py"
 EXPORT_ENGINE_REL = "domain/engines/data_export_engine.py"
 PRIVACY_MODELS_REL = "domain/models/privacy.py"
 MODELS_REL = "domain/models"
@@ -239,6 +242,24 @@ def _class_list_calls(tree: ast.AST, class_name: str, attr: str) -> list[ast.Cal
                 continue
             return [e for e in stmt.value.elts if isinstance(e, ast.Call)]
     return []
+
+
+def _tenant_inventory_deletes(tree: ast.AST) -> set[str]:
+    """Collections ``TenantErasureEngine.INVENTORY`` deletes: ``_delete("<c>", …)`` or an entry with ``action="delete"``.
+
+    Only literal names count (the reader cannot resolve a constant), and only ``delete``:
+    a personal garden disclosed whole is erased whole with its owner's account (#1788).
+    """
+    names: set[str] = set()
+    for call in _class_list_calls(tree, "TenantErasureEngine", "INVENTORY"):
+        func = call.func.id if isinstance(call.func, ast.Name) else None
+        if func == "_delete" and call.args and isinstance(call.args[0], ast.Constant):
+            if isinstance(call.args[0].value, str):
+                names.add(call.args[0].value)
+        elif func == "TenantErasureEntry" and _kwarg(call, "action") == "delete":
+            if (name := _kwarg(call, "collection")) is not None:
+                names.add(name)
+    return names
 
 
 def _closed_executor_set(tree: ast.AST) -> frozenset[str]:
@@ -412,8 +433,27 @@ def check(app_root: pathlib.Path = APP_ROOT) -> list[str]:
 
     # ── R2: the export inventory reconciles with the erasure inventory ──
     erasure_names = {name for call in (*steps, *anon, *pseudo) if (name := _kwarg(call, "collection")) is not None}
+    tenant_erasure_path = app_root / TENANT_ERASURE_ENGINE_REL
+    tenant_deletes = (
+        _tenant_inventory_deletes(ast.parse(tenant_erasure_path.read_text(encoding="utf-8")))
+        if tenant_erasure_path.is_file()
+        else set()
+    )
     manifest_names: set[str] = set()
     for call in manifest:
+        if any(kw.arg == "personal_tenant_scope" for kw in call.keywords):
+            # #2135 — "your personal garden": erased whole by the tenant-erasure inventory when the
+            # account goes (#1788), not by the account plan. Same rule, the other declared inventory.
+            name = _kwarg(call, "collection")
+            if name is not None:
+                manifest_names.add(name)
+                if name not in tenant_deletes:
+                    violations.append(
+                        f"R2 {EXPORT_ENGINE}:{call.lineno} — '{name}' is disclosed as part of the personal "
+                        f"tenant but TenantErasureEngine.INVENTORY does not delete it. What must be disclosed "
+                        f"must also be erasable."
+                    )
+            continue
         for key in ("collection", "edge_collection"):
             if (name := _kwarg(call, key)) is not None:
                 manifest_names.add(name)
