@@ -227,6 +227,59 @@ class TestR2Reconciliation:
         assert any(v.startswith("R2") and "has_thing" in v for v in violations)
 
 
+def _personal(collection: str, scope: str = "_PERSONAL") -> str:
+    """A manifest line declaring *collection* as part of the personal tenant (#2135)."""
+    return f'\n        DataSourceDefinition(collection="{collection}", label="X", personal_tenant_scope={scope}),'
+
+
+class TestR2PersonalTenantSources:
+    """#2135 — a source disclosed as "your personal garden" must be erasable by the tenant-erasure inventory.
+
+    The personal tenant is erased with its owner's account through
+    ``TenantErasureEngine.INVENTORY`` (#1788), not the account plan, so the forward rule
+    reconciles such a source with that inventory instead.
+    """
+
+    TENANT_ENGINE = """
+class TenantErasureEngine:
+    INVENTORY: list[TenantErasureEntry] = [
+        _delete("sites"),
+        _delete("locations", _parent("site_key", "sites")),
+        TenantErasureEntry(collection="harvest_batches", action="pseudonymize", reason="R-16"),
+    ]
+"""
+
+    def _with_tenant_engine(self, tmp_path: Path, sources: str) -> Path:
+        app = _tree(tmp_path, sources=sources)
+        (app / "domain" / "engines" / "tenant_erasure_engine.py").write_text(
+            textwrap.dedent(self.TENANT_ENGINE), encoding="utf-8"
+        )
+        return app
+
+    def test_a_personal_tenant_source_the_inventory_deletes_passes(self, tmp_path: Path) -> None:
+        sources = (
+            GOOD_SOURCES
+            + '\n        DataSourceDefinition(collection="sites", label="S", personal_tenant_scope=_PERSONAL),'
+            + '\n        DataSourceDefinition(collection="locations", label="L", personal_tenant_scope=_VIA_SITE),'
+        )
+        assert checker.check(self._with_tenant_engine(tmp_path, sources)) == []
+
+    def test_a_personal_tenant_source_the_inventory_does_not_delete_is_named(self, tmp_path: Path) -> None:
+        sources = GOOD_SOURCES + _personal("plant_instances")
+        violations = checker.check(self._with_tenant_engine(tmp_path, sources))
+        assert any(v.startswith("R2") and "plant_instances" in v and "personal" in v for v in violations)
+
+    def test_a_pseudonymised_collection_is_not_erasable_whole(self, tmp_path: Path) -> None:
+        sources = GOOD_SOURCES + _personal("harvest_batches")
+        violations = checker.check(self._with_tenant_engine(tmp_path, sources))
+        assert any(v.startswith("R2") and "harvest_batches" in v for v in violations)
+
+    def test_without_a_tenant_inventory_nothing_personal_passes(self, tmp_path: Path) -> None:
+        sources = GOOD_SOURCES + _personal("sites")
+        violations = checker.check(_tree(tmp_path, sources=sources))
+        assert any(v.startswith("R2") and "sites" in v for v in violations)
+
+
 class TestR2ReverseEveryErasureTargetIsDisclosed:
     """#1719 — the direction R2 did not check.
 

@@ -2303,6 +2303,12 @@ class PrivacyService:
         # whoever edits them, so without this a writer in any tenant could name
         # a foreign key and plant rows into that subject's disclosure.
         tenant_keys = self._user_tenant_keys(export.user_key)
+        # #2135 (MT-039) — the personal garden is disclosed whole, bounded by the personal
+        # tenants the subject OWNS: never an organisation (only its membership is the
+        # subject's), never somebody else's personal garden the subject was invited into.
+        personal_tenant_keys = (
+            self._tenant_service.personal_tenant_keys_of(export.user_key) if self._tenant_service is not None else []
+        )
         # REQ-025 §3.1.2 rule 6 (#1793): a tenant deletion rewrote the subject's
         # key on the rows it kept (R-16..R-18) to their tombstone hash. The
         # subject is still an account, so those rows are still theirs to see.
@@ -2316,9 +2322,8 @@ class PrivacyService:
                 sections.append((source, []))
                 continue
             by_tombstone = tombstone if (source.collection, source.filter_field) in pseudonymized else None
-            rows = self._personal_data_repo.collect_for_user(
-                source, export.user_key, tenant_keys, tombstone=by_tombstone
-            )
+            bound = personal_tenant_keys if source.personal_tenant_scope is not None else tenant_keys
+            rows = self._personal_data_repo.collect_for_user(source, export.user_key, bound, tombstone=by_tombstone)
             sections.append((source, rows))
 
         # Anti-vacuity, in production rather than only in a test: an export that
