@@ -337,6 +337,35 @@ expect storage-default "the worker liveness asks this pod's own worker, not any 
 expect profile-values-dev "the dev worker carries the readiness probe too" \
   "$(main_of celery-worker) | .readinessProbe.exec.command | join(\" \")" "[\"test -f ${ready_file}\"]"
 
+# ---------------------------------------------------------------------------
+# #2153 — every pod on a ReadWriteOnce attachment claim shares one node.
+#
+# Backend and celery-worker mount the claim; a rolling update (surge 1) or a
+# worker scheduled apart from the backend put a second pod on another node,
+# where the volume cannot attach (Multi-Attach). Both carry one label and
+# require a pod with it on the same hostname; with S3 or ReadWriteMany the
+# topology key is `kubernetes.io/os` (one value on every node), i.e. no
+# constraint. The rolling strategy stays: no downtime to buy this.
+# ---------------------------------------------------------------------------
+attach_term() { printf '%s | .spec.template.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[] | .topologyKey' "$(deploy "$1")"; }
+attach_label() { printf '%s | .spec.template.metadata.labels["kamerplanter.io/attachments-volume"]' "$(deploy "$1")"; }
+attach_selector() { printf '%s | .spec.template.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[] | .labelSelector.matchLabels["kamerplanter.io/attachments-volume"]' "$(deploy "$1")"; }
+for controller in backend celery-worker; do
+  expect storage-default "${controller} carries the attachment-volume label" "$(attach_label "${controller}")" '["kamerplanter"]'
+  expect storage-default "${controller} requires a pod with that label" "$(attach_selector "${controller}")" '["kamerplanter"]'
+  expect storage-default "${controller} shares the node of the ReadWriteOnce claim" "$(attach_term "${controller}")" '["kubernetes.io/hostname"]'
+  expect storage-default "${controller} keeps the zero-downtime rolling update" \
+    "$(deploy "${controller}") | .spec.strategy | [.type, .rollingUpdate.maxUnavailable] | join(\" \")" '["RollingUpdate 0"]'
+  expect storage-single-node-two-backends "${controller} shares the node on an acknowledged single-node cluster too" \
+    "$(attach_term "${controller}")" '["kubernetes.io/hostname"]'
+  expect storage-s3 "${controller} is not pinned to a node with storage.backend=s3" "$(attach_term "${controller}")" '["kubernetes.io/os"]'
+  expect storage-rwx-two-backends "${controller} is not pinned to a node on a ReadWriteMany claim" \
+    "$(attach_term "${controller}")" '["kubernetes.io/os"]'
+done
+expect storage-default "no other pod requires the attachment-volume label" \
+  "select(.kind == \"Deployment\" or .kind == \"StatefulSet\") | select(.spec.template.spec.affinity.podAffinity) | .metadata.name" \
+  '["kamerplanter-backend","kamerplanter-celery-worker"]'
+
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2
   exit 1

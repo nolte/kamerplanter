@@ -303,6 +303,32 @@ controllers:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      # #2153 — every pod that mounts the attachments claim lands on ONE node.
+      # A ReadWriteOnce volume attaches to one node only. The backend AND the
+      # celery-worker mount it, and a rolling update starts the new pod before
+      # the old one stops (surge 1). Nothing told the scheduler that: a new
+      # backend pod placed on another node waited in ContainerCreating with
+      # `Multi-Attach error` and the rollout hung; a worker placed apart from
+      # the backend never started at all. Both controllers carry this label
+      # and require a pod with it on the same node (`topologyKey` hostname),
+      # so a new pod joins the node the volume is attached to and the rolling
+      # update keeps its zero downtime (no `Recreate`). The first pod of a
+      # release matches its own term, which the scheduler accepts.
+      #
+      # Only while the volume is ReadWriteOnce local-fs: with
+      # `storage.backend: s3` or a ReadWriteMany claim the topology key renders
+      # to `kubernetes.io/os`, a label every node carries with the same value —
+      # the term is then always met and pods spread freely. (A Helm string
+      # cannot remove the term, but it can make it meaningless.)
+      labels: &attachments-volume-label
+        kamerplanter.io/attachments-volume: '{{ .Release.Name }}'
+      affinity: &attachments-volume-affinity
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  kamerplanter.io/attachments-volume: '{{ .Release.Name }}'
+              topologyKey: '{{ if and (eq .Values.storage.backend "local-fs") (ne .Values.storage.localFs.pvc.accessMode "ReadWriteMany") }}kubernetes.io/hostname{{ else }}kubernetes.io/os{{ end }}'
     containers:
       main:
         image:
@@ -966,6 +992,10 @@ controllers:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      # #2153 — on the backend's node while the attachments claim is
+      # ReadWriteOnce; see controllers.backend.pod.affinity.
+      labels: *attachments-volume-label
+      affinity: *attachments-volume-affinity
     containers:
       main:
         image:
