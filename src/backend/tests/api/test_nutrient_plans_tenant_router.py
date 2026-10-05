@@ -62,7 +62,7 @@ def _build() -> tuple[TestClient, MagicMock]:
     service = MagicMock()
     service.create_plan.side_effect = lambda plan: plan.model_copy(update={"key": "plan_1"})
     service.get_plan.return_value = stored
-    service.update_plan.side_effect = lambda key, data: stored.model_copy(update=data)
+    service.update_plan.side_effect = lambda key, data, *, tenant_key: stored.model_copy(update=data)
 
     app = FastAPI()
     app.include_router(nutrient_plans_router, prefix="/api/v1/t/{tenant_slug}")

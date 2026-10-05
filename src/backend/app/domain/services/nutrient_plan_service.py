@@ -54,27 +54,29 @@ class NutrientPlanService:
     ) -> tuple[list[NutrientPlan], int]:
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
-    def get_plan(self, key: NutrientPlanKey, tenant_key: str = "", *, for_write: bool = False) -> NutrientPlan:
+    def get_plan(self, key: NutrientPlanKey, *, tenant_key: str, for_write: bool = False) -> NutrientPlan:
+        """A plan ``tenant_key`` may read — or, with ``for_write``, may change (#2107).
+
+        Nutrient plans are a hybrid catalog: read access spans the caller's own plans
+        PLUS globally seeded plans (empty tenant_key), so the detail/entries/clone
+        routes work for global plans the list restores. Writes stay owner-only — a
+        tenant may read or clone a global plan but never mutate it (there is no
+        is_system flag; empty tenant_key IS the global marker). ``tenant_key`` is
+        keyword-only without a default: an empty one used to skip both checks.
+        """
         plan = self._repo.get_or_raise(key)
-        if tenant_key:
-            # Nutrient plans are a hybrid catalog: read access spans the caller's
-            # own plans PLUS globally seeded plans (empty tenant_key), so the
-            # detail/entries/clone routes work for global plans the list restores.
-            # Writes must stay owner-only — a tenant may read or clone a global
-            # plan but never mutate it (there is no is_system flag; empty
-            # tenant_key IS the global marker), so write callers pass for_write.
-            if for_write:
-                verify_tenant_ownership(plan, tenant_key, "NutrientPlan")
-            else:
-                verify_tenant_read_access(plan, tenant_key, "NutrientPlan")
+        if for_write:
+            verify_tenant_ownership(plan, tenant_key, "NutrientPlan")
+        else:
+            verify_tenant_read_access(plan, tenant_key, "NutrientPlan")
         return plan
 
     def create_plan(self, plan: NutrientPlan) -> NutrientPlan:
         self._assert_species_visible(plan.species_keys, tenant_key=plan.tenant_key)
         return self._repo.create(plan)
 
-    def update_plan(self, key: NutrientPlanKey, data: dict) -> NutrientPlan:
-        existing = self.get_plan(key)
+    def update_plan(self, key: NutrientPlanKey, data: dict, *, tenant_key: str) -> NutrientPlan:
+        existing = self.get_plan(key, tenant_key=tenant_key, for_write=True)
         allowed_fields = {
             "name",
             "description",
@@ -124,14 +126,16 @@ class NutrientPlanService:
                 details=[{"field": "species_keys", "message": f"Unknown species: {key}"} for key in unknown],
             )
 
-    def delete_plan(self, key: NutrientPlanKey) -> bool:
-        self.get_plan(key)
+    def delete_plan(self, key: NutrientPlanKey, *, tenant_key: str) -> bool:
+        self.get_plan(key, tenant_key=tenant_key, for_write=True)
         return self._repo.delete(key)
 
     # ── Phase entries ────────────────────────────────────────────────
 
-    def create_phase_entry(self, plan_key: NutrientPlanKey, entry: NutrientPlanPhaseEntry) -> NutrientPlanPhaseEntry:
-        plan = self.get_plan(plan_key)
+    def create_phase_entry(
+        self, plan_key: NutrientPlanKey, entry: NutrientPlanPhaseEntry, *, tenant_key: str
+    ) -> NutrientPlanPhaseEntry:
+        plan = self.get_plan(plan_key, tenant_key=tenant_key, for_write=True)
         entry.plan_key = plan_key
         self._assert_dosages_visible(entry.delivery_channels, tenant_key=plan.tenant_key)
         return self._repo.create_phase_entry(entry)
@@ -167,7 +171,7 @@ class NutrientPlanService:
         its own, so without that a foreign plan's EC targets, phase names and dosages
         are one key away. A foreign or unknown plan is ``NotFoundError``.
         """
-        self.get_plan(plan_key, tenant_key)
+        self.get_plan(plan_key, tenant_key=tenant_key)
         return self._repo.get_phase_entries(plan_key)
 
     def update_phase_entry(
@@ -333,7 +337,7 @@ class NutrientPlanService:
     # ── Clone ────────────────────────────────────────────────────────
 
     def clone_plan(
-        self, source_key: NutrientPlanKey, new_name: str, author: str = "", tenant_key: str = ""
+        self, source_key: NutrientPlanKey, new_name: str, author: str = "", *, tenant_key: str
     ) -> NutrientPlan:
         # The clone is owned by tenant_key (the cloning tenant), never by the
         # source. A tenant may clone a global plan, but the copy must be private
@@ -344,8 +348,8 @@ class NutrientPlanService:
 
     # ── Validation ───────────────────────────────────────────────────
 
-    def validate_plan(self, plan_key: NutrientPlanKey) -> dict:
-        self.get_plan(plan_key)
+    def validate_plan(self, plan_key: NutrientPlanKey, *, tenant_key: str) -> dict:
+        self.get_plan(plan_key, tenant_key=tenant_key)
         entries = self._repo.get_phase_entries(plan_key)
 
         completeness = self._validator.validate_completeness(entries)

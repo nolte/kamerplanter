@@ -219,10 +219,6 @@ _REMAINING: frozenset[str] = frozenset(
         "IpmService.update_disease",
         "IpmService.update_pest",
         "IpmService.update_treatment",
-        "NutrientPlanService.clone_plan",
-        "NutrientPlanService.create_phase_entry",
-        "NutrientPlanService.delete_plan",
-        "NutrientPlanService.update_plan",
         "OverwinteringProfileService.auto_generate_profile",
         "OverwinteringProfileService.create_profile",
         "OverwinteringProfileService.delete_profile",
@@ -336,7 +332,6 @@ def test_the_inventory_is_not_vacuous() -> None:
     assert len(names) >= 250, len(names)
     assert {
         "SiteService.update_site",
-        "NutrientPlanService.update_plan",
         "FertilizerService.update_fertilizer",
         "TaskService.update_workflow_template",
         "TankService.update_tank",
