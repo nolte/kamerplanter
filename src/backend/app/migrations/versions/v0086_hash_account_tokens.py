@@ -1,4 +1,4 @@
-"""v0085 - #2158: hash the password-reset and e-mail-verification tokens stored in clear.
+"""v0086 - #2158: hash the password-reset and e-mail-verification tokens stored in clear.
 
 Until #2158 ``users.password_reset_token`` and ``users.email_verification_token``
 held the raw token the mail carried, and the lookups matched it by value: a read of
@@ -66,7 +66,7 @@ FOR u IN @@users
 
 
 class HashAccountTokensMigration(Migration):
-    version = "0085"
+    version = "0086"
     name = "hash_account_tokens"
     description = (
         "Replace the clear password-reset and e-mail-verification tokens on users with their SHA-256 "

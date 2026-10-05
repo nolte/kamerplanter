@@ -70,7 +70,7 @@ class User(BaseModel):
     #: SHA-256 hex digest of the single-use verification token (#2158). The raw token
     #: only ever travels in the mail; the lookup hashes what the link presents
     #: (``TokenEngine.hash_token``), so a read of the database or of a backup yields
-    #: no working link. ``v0085_hash_account_tokens`` hashed the values stored in clear.
+    #: no working link. ``v0086_hash_account_tokens`` hashed the values stored in clear.
     email_verification_token_hash: str | None = None
     email_verification_expires: datetime | None = None
     #: SHA-256 hex digest of the single-use password-reset token (#2158); see

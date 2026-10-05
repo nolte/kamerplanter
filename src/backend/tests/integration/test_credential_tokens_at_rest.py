@@ -143,7 +143,7 @@ def test_the_reset_token_is_stored_as_its_hash_and_still_resets_once(db) -> None
 
 def test_the_migration_hashes_a_link_mailed_before_the_upgrade(db) -> None:
     """A document written the pre-#2158 way: both tokens in clear, the reset one still inside its hour."""
-    from app.migrations.versions.v0085_hash_account_tokens import HashAccountTokensMigration
+    from app.migrations.versions.v0086_hash_account_tokens import HashAccountTokensMigration
 
     reset_raw = "legacy-reset-" + "r" * 30
     verify_raw = "legacy-verify-" + "v" * 29
