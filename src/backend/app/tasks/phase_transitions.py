@@ -157,6 +157,11 @@ def check_auto_transitions() -> dict:
     rule-based path: time-based (elapsed days), photoperiod-based (E1) and
     vernalization-based (E2) triggers. gdd-based wiring needs a per-plant GDD
     accumulation source and is a follow-up.
+
+    **Not scheduled (MT-051, #2144).** Nothing starts this task — no beat entry, no
+    dispatch; the decision and its prerequisite are recorded in
+    ``tests/unit/guards/test_every_task_is_scheduled_or_dispatched.py``
+    (``_NOT_STARTED_BY_THE_APP``), which fails the day something does start it.
     """
     plant_repo = get_plant_repo()
     phase_service = get_phase_service()

@@ -114,8 +114,13 @@ def cleanup_expired_cache() -> int:
 def invalidate_after_reingest() -> int:
     """Drop the entire glossary cache after a KB reingest (§4.3).
 
-    Chained after ``ai.knowledge_service_ingest`` so answers regenerate with the
-    new ``kb_version``, and it now *queues that regeneration itself*: since #1460
+    Meant to run after ``ai.knowledge_service_ingest`` so answers regenerate with
+    the new ``kb_version`` — **but nothing chains it** (found by the MT-051 guard,
+    #2144; it used to say "chained"). Wiring it to the weekly reingest drops the
+    whole cache and queues one LLM call per term and variant, a cost decision left
+    to the operator (``_NOT_STARTED_BY_THE_APP`` in
+    ``tests/unit/guards/test_every_task_is_scheduled_or_dispatched.py``); until then
+    the cache expires by its TTL. When run, it *queues the regeneration itself*: since #1460
     the read path no longer refills the cache, so an invalidation without a
     warm-up would leave every term on its editorial fallback until somebody with
     a grower role happened to press "generate".
