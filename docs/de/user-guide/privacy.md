@@ -170,6 +170,7 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 | **Cloud-basierte Schädlingserkennung** (Kindwise plant.health) | Optional | Ja |
 | **KI-Krankheitsdiagnose** (Bilderkennung für Krankheiten/Mängel) | Optional | Ja |
 | **Foto-Beitrag zur Pflanzenerkennung** (eigene Referenzfotos, `reference_contribution`) | Optional | Ja |
+| **Foto-Beitrag zur Schädlingserkennung** (freigegebene Schädlingsfotos, `pest_reference_contribution`) | Optional | Ja |
 | **KI-Wissensfrage an die Wissensbasis** (`ai_knowledge_question`) | Optional | Ja |
 | **KI-Zugriff auf deine Pflanzendaten** (`ai_tenant_data_access`) | Optional | Ja |
 | **KI-Verarbeitung über Cloud-Provider** (`ai_cloud_processing`) | Optional | Ja |
@@ -228,6 +229,15 @@ Die [Schädlingserkennung per Foto](pest-detection.md) sendet dein Bild — je n
 ### Foto-Beitrag zur Pflanzenerkennung (reference_contribution)
 
 Der Schalter **Als Referenzbild für die Erkennung nutzen** beim [Anlegen einer Pflanze](plant-identification.md#foto-der-neuen-pflanze-zuordnen) ist diese Einwilligung: Schaltest du ihn ein und speicherst, erteilt Kamerplanter sie, bevor das Foto beigetragen wird. Ein Zahlenabdruck (Embedding) des Fotos kommt nach Prüfung durch die Administration in den gemeinsamen Erkennungsindex der Installation; das Foto selbst wird nicht gespeichert und verlässt die Installation nicht. Widerrufen kannst du sie hier im Tab **Einwilligungen**. Lässt sie sich nicht speichern, legt Kamerplanter die Pflanze nicht an und zeigt einen Fehler. Im Light-Modus erscheint der Schalter nicht. <!-- #2174 -->
+
+### Foto-Beitrag zur Schädlingserkennung (pest_reference_contribution)
+
+Ein Schädlingsfoto, das du auf der [Schädlings-Detailseite](pest-detail.md) beiträgst, bleibt zunächst privat in deinem Garten. Gibt eine Administratorin oder ein Administrator es für alle sichtbar frei, kann es zusätzlich als Referenz in den gemeinsamen Schädlings-Erkennungsindex der Installation einfließen — **aber nur mit dieser Einwilligung**. Gespeichert werden dann ein Zahlenabdruck (Embedding) des Fotos und seine Herkunft (welcher Beitrag, welcher Garten); das Foto selbst verlässt die Installation nicht. Ohne Einwilligung bleibt die Freigabe in der Galerie bestehen, das Foto fließt aber nicht in die Erkennung ein. Im Light-Modus wird nie indexiert.
+
+Diese Einwilligung ist ein eigener Zweck und keine Erweiterung von „Foto-Beitrag zur Pflanzenerkennung“ (`reference_contribution`): Wer früher Referenzfotos seiner Pflanzen freigegeben hat, hat damit nicht dem Schädlingsindex zugestimmt und muss hierfür neu einwilligen. Eine eigene Stelle zum Erteilen gibt es in der Oberfläche noch nicht; erteilen kannst du sie über `POST /api/v1/privacy/consents` mit `purpose: pest_reference_contribution`, widerrufen im Tab **Einwilligungen**.
+
+!!! note "Widerruf"
+    Der Widerruf wirkt ab der nächsten Freigabe: Danach fließt kein weiteres deiner Schädlingsfotos in den Index. Einen schon erzeugten Zahlenabdruck entfernt der Widerruf nicht — das tut das Löschen deines Beitrags oder deines Kontos.
 
 ### KI-Wissensfrage an die Wissensbasis (ai_knowledge_question)
 

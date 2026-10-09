@@ -88,8 +88,8 @@ export default function KIAssistentPage() {
         return true;
       } catch (err) {
         if (isConsentRequired(err)) {
-          // The refusal names its purpose in the message only; an unnamed one is
-          // this route's own purpose. Another purpose (e.g. the cloud provider's)
+          // The refusal names its purpose in `details[0].purpose` (older servers:
+          // in the message only); an unnamed one is this route's own purpose. Another purpose (e.g. the cloud provider's)
           // is not granted from here — the page cannot explain it.
           const purpose = consentPurposeOf(err) ?? KNOWLEDGE_CONSENT_PURPOSE;
           if (!isLightMode && !afterGrant && purpose === KNOWLEDGE_CONSENT_PURPOSE) {

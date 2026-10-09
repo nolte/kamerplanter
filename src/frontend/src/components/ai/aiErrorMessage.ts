@@ -57,14 +57,17 @@ const CONSENT_PURPOSE_IN_MESSAGE = /'([a-z][a-z0-9_]*)'/;
 /**
  * The consent purpose a `CONSENT_REQUIRED` refusal names, or `null`.
  *
- * The backend's envelope (`ConsentRequiredError`) carries the purpose only in
- * its message (`Consent for '<purpose>' is required for this action.`); the
- * `details` entry has the fixed field `consent`. `null` therefore means "the
- * refusal does not say" — the caller decides what that defaults to.
+ * The backend names it machine-readably in `details[0].purpose`
+ * (`ConsentRequiredError`); that is read first. Older servers carried it only in
+ * the English message (`Consent for '<purpose>' is required for this action.`),
+ * so the message is parsed as a fallback. `null` means "the refusal does not
+ * say" — the caller decides what that defaults to.
  */
 export function consentPurposeOf(error: unknown): string | null {
-  if (!isConsentRequired(error)) return null;
-  const match = CONSENT_PURPOSE_IN_MESSAGE.exec((error as Error).message);
+  if (!isApiError(error) || error.errorCode !== 'CONSENT_REQUIRED') return null;
+  const named = error.details[0]?.purpose;
+  if (typeof named === 'string' && named.trim() !== '') return named;
+  const match = CONSENT_PURPOSE_IN_MESSAGE.exec(error.message);
   return match ? match[1] : null;
 }
 

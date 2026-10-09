@@ -22,8 +22,9 @@ Hard guards (a routine miss is a clean no-op, never an exception into Celery):
   Guard 2  NOT light mode (REQ-027)                   → else no-op (no consent
            subsystem exists there, so no contributor can have opted in)
   Guard 3  contribution exists                        → else no-op
-  Guard 4  the contributor (``contributed_by``) holds the ``reference_contribution``
-           consent (REQ-025, REQ-044 §3.4 "mit Consent")  → else no-op
+  Guard 4  the contributor (``contributed_by``) holds the
+           ``pest_reference_contribution`` consent (REQ-025, REQ-044 §3.4
+           "mit Consent")                             → else no-op
   Guard 5  the pest carries a ``detection_slug``      → else no-op (no class ⇒
            no embedding target; the gallery image stays untouched)
 
@@ -61,7 +62,7 @@ from app.common.dependencies import (
 from app.common.enums import PestImageStatus
 from app.common.exceptions import KamerplanterError
 from app.config.settings import settings
-from app.domain.engines.consent_engine import REFERENCE_CONTRIBUTION
+from app.domain.engines.consent_engine import PEST_REFERENCE_CONTRIBUTION
 from app.domain.models.pest_taxonomy import get_taxon
 from app.tasks import celery_app
 
@@ -111,15 +112,17 @@ def _resolve_label_and_category(pest_key: str) -> tuple[str, str] | None:
 
 
 def _contributor_consented(contributor_key: str) -> bool:
-    """Whether the contributing person opted in to ``reference_contribution`` (REQ-025).
+    """Whether the contributing person opted in to ``pest_reference_contribution`` (REQ-025).
 
+    Deliberately not ``reference_contribution``: that purpose's text names only
+    gallery photos of plants, so a grant of it does not cover the pest index.
     A missing record (never asked, or an unknown / erased person) and a revoked
     record (``granted=False`` + ``revoked_at``) both refuse.
     """
     if not contributor_key.strip():
         return False
-    record = get_consent_repo().get_by_user_and_purpose(contributor_key, REFERENCE_CONTRIBUTION)
-    return get_consent_engine().is_processing_allowed(REFERENCE_CONTRIBUTION, record)
+    record = get_consent_repo().get_by_user_and_purpose(contributor_key, PEST_REFERENCE_CONTRIBUTION)
+    return get_consent_engine().is_processing_allowed(PEST_REFERENCE_CONTRIBUTION, record)
 
 
 def _index_promoted(contribution_key: str) -> dict:
@@ -137,7 +140,7 @@ def _index_promoted(contribution_key: str) -> dict:
         return {"status": "noop", "reason": "contribution_not_found"}
 
     # REQ-044 §3.4 — the data set is built from user images "mit Consent": the
-    # contributor's own ``reference_contribution`` opt-in, checked before any
+    # contributor's own ``pest_reference_contribution`` opt-in, checked before any
     # byte is read, the marker is written or the inference service is called.
     if not _contributor_consented(contribution.contributed_by):
         return {"status": "noop", "reason": "no_consent"}

@@ -13,9 +13,10 @@ Coverage:
   and the EXIF-stripped bytes from the attachment stream;
 * retract deactivates via the provenance-matched prototype;
 * the task wrapper swallows unexpected failures into a warning (admin flow safe);
-* REQ-044 §3.4 — indexing needs the contributor's ``reference_contribution``
+* REQ-044 §3.4 — indexing needs the contributor's ``pest_reference_contribution``
   consent (granted → indexed; never asked / revoked / unknown person / Light
-  mode → clean no-op, no marker, no inference call).
+  mode → clean no-op, no marker, no inference call). A grant of the plant
+  gallery's ``reference_contribution`` alone does NOT open the pest index.
 """
 
 from __future__ import annotations
@@ -28,7 +29,11 @@ import pytest
 import app.tasks.pest_image_tasks as task_mod
 from app.common.enums import AttachmentCategory, PestImageStatus
 from app.common.exceptions import NotFoundError
-from app.domain.engines.consent_engine import REFERENCE_CONTRIBUTION, ConsentEngine
+from app.domain.engines.consent_engine import (
+    PEST_REFERENCE_CONTRIBUTION,
+    REFERENCE_CONTRIBUTION,
+    ConsentEngine,
+)
 from app.domain.models.attachment import Attachment
 from app.domain.models.ipm import Pest
 from app.domain.models.pest_image import PestImageContribution
@@ -93,11 +98,11 @@ def _wire(
     settings.kamerplanter_mode = mode
     monkeypatch.setattr(task_mod, "settings", settings)
 
-    # REQ-044 §3.4 — the contributor's reference_contribution opt-in: True =
+    # REQ-044 §3.4 — the contributor's pest_reference_contribution opt-in: True =
     # granted, False = revoked (revoked_at stamped), None = never asked.
     consents = FakeConsentRepo()
     if consent is not None:
-        consents.set(CONTRIBUTOR, REFERENCE_CONTRIBUTION, granted=consent)
+        consents.set(CONTRIBUTOR, PEST_REFERENCE_CONTRIBUTION, granted=consent)
     monkeypatch.setattr(task_mod, "get_consent_repo", lambda: consents)
     monkeypatch.setattr(task_mod, "get_consent_engine", ConsentEngine)
 
@@ -301,7 +306,28 @@ class TestIndexPromotedRequiresContributorConsent:
         assert outcome["status"] == "indexed"
         client.upsert_prototype.assert_called_once()
         # The contributor of the stored document is the one asked.
-        assert client.consents.reads == [(CONTRIBUTOR, REFERENCE_CONTRIBUTION)]
+        assert client.consents.reads == [(CONTRIBUTOR, PEST_REFERENCE_CONTRIBUTION)]
+
+    def test_the_plant_gallery_purpose_alone_does_not_open_the_pest_index(self, monkeypatch):
+        # Operator decision 2026-10-09: ``reference_contribution`` names only plant
+        # gallery photos, so an earlier grant of it must not carry over.
+        _repo, _ipm, attachments, client = _wire(monkeypatch, consent=None)
+        client.consents.set(CONTRIBUTOR, REFERENCE_CONTRIBUTION, granted=True)
+
+        outcome = task_mod._index_promoted(CONTRIB)
+
+        assert outcome == {"status": "noop", "reason": "no_consent"}
+        assert client.consents.reads == [(CONTRIBUTOR, PEST_REFERENCE_CONTRIBUTION)]
+        client.upsert_prototype.assert_not_called()
+        client.marker.record_pest_prototype_contributions.assert_not_called()
+        attachments.get_attachment.assert_not_called()
+
+    def test_the_pest_purpose_is_a_registered_optional_purpose(self):
+        purpose = ConsentEngine().find_purpose(PEST_REFERENCE_CONTRIBUTION)
+
+        assert purpose is not None
+        assert purpose.required is False
+        assert purpose.legal_basis.startswith("Art. 6(1)(a)")
 
     @pytest.mark.parametrize("consent", [None, False], ids=["never_asked", "revoked"])
     def test_without_consent_nothing_reaches_the_index(self, monkeypatch, consent):
@@ -323,7 +349,7 @@ class TestIndexPromotedRequiresContributorConsent:
         outcome = task_mod._index_promoted(CONTRIB)
 
         assert outcome == {"status": "noop", "reason": "no_consent"}
-        assert client.consents.reads == [("user_gone", REFERENCE_CONTRIBUTION)]
+        assert client.consents.reads == [("user_gone", PEST_REFERENCE_CONTRIBUTION)]
         client.upsert_prototype.assert_not_called()
 
     def test_light_mode_is_noop_without_a_consent_read(self, monkeypatch):

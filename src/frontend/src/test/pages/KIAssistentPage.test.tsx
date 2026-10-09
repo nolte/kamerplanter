@@ -83,6 +83,7 @@ const consentRequired = () =>
         field: 'consent',
         reason: "Grant consent for 'ai_knowledge_question' to use this feature.",
         code: 'CONSENT_REQUIRED',
+        purpose: 'ai_knowledge_question',
       },
     ],
   );
@@ -137,6 +138,43 @@ describe('KIAssistentPage', () => {
       // The chunks are rendered as the answer's sources.
       expect(screen.getByTestId('ai-sources')).toHaveTextContent('1');
       expect(screen.queryByTestId('ai-tenant-data-indicator')).toBeNull();
+      // An older server's answer without the cloud flag claims no cloud label.
+      expect(screen.queryByTestId('ai-cloud-indicator')).toBeNull();
+    });
+
+    it('labels an answer the server classifies as cloud-generated', async () => {
+      server.use(
+        http.post('/api/v1/t/:tenant/ai/knowledge/ask', () =>
+          HttpResponse.json({
+            ...TENANT_ANSWER,
+            provider_type: 'anthropic',
+            uses_cloud_provider: true,
+          }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<KIAssistentPage />);
+
+      await ask(user);
+
+      expect(await screen.findByTestId('ai-cloud-indicator')).toHaveTextContent(
+        i18n.t('ai.cloud.label'),
+      );
+    });
+
+    it('shows no cloud label when the server says the provider is local', async () => {
+      server.use(
+        http.post('/api/v1/t/:tenant/ai/knowledge/ask', () =>
+          HttpResponse.json({ ...TENANT_ANSWER, provider_type: 'ollama', uses_cloud_provider: false }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<KIAssistentPage />);
+
+      await ask(user);
+
+      expect(await screen.findByText('VPD ist das Dampfdruckdefizit.')).toBeInTheDocument();
+      expect(screen.queryByTestId('ai-cloud-indicator')).toBeNull();
     });
 
     it('asks /public/ai/ask in the Light mode and never the tenant route', async () => {
@@ -284,6 +322,30 @@ describe('KIAssistentPage', () => {
             'CONSENT_REQUIRED',
             "Consent for 'ai_cloud_processing' is required for this action.",
           ),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<KIAssistentPage />);
+
+      await ask(user);
+
+      expect(await screen.findByTestId('ki-ask-error')).toHaveTextContent(/Cloud-KI-Anbieter/);
+      expect(screen.queryByTestId('ki-consent-gate')).toBeNull();
+    });
+
+    it('reads the refused purpose from details[0].purpose, not only the message', async () => {
+      // The message names no purpose; only the machine-readable detail says it is
+      // the cloud consent, which the page does not grant from here.
+      server.use(
+        http.post('/api/v1/t/:tenant/ai/knowledge/ask', () =>
+          apiError(403, 'CONSENT_REQUIRED', 'Consent required.', [
+            {
+              field: 'consent',
+              reason: 'Grant consent.',
+              code: 'CONSENT_REQUIRED',
+              purpose: 'ai_cloud_processing',
+            },
+          ]),
         ),
       );
       const user = userEvent.setup();

@@ -253,8 +253,9 @@ export async function askTenantKnowledge(body: KnowledgeAskRequest): Promise<Kno
  * What the KI page renders for an answer of either route.
  *
  * Narrower than {@link AiResponse} on purpose: the tenant route answers no
- * confidence, provider type or cloud flag, and inventing them would put a claim
- * on the `<AIResponse>` badges that nothing measured. Absent fields fall back to
+ * confidence, and inventing it would put a claim on the `<AIResponse>` badges
+ * that nothing measured. Its provider type and cloud flag are passed through
+ * when the server sends them (older servers do not). Absent fields fall back to
  * the component's defaults.
  */
 export interface KnowledgeAnswer {
@@ -297,7 +298,9 @@ export async function askKnowledgeQuestion(
       language: chunk.language,
     })),
     model_name: data.model,
+    provider_type: data.provider_type ?? undefined,
     uses_tenant_data: false,
+    uses_cloud_provider: data.uses_cloud_provider ?? undefined,
   };
 }
 
