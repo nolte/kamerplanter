@@ -34,5 +34,4 @@ def require_ai_tenant_enabled(
     """
     require_ai_feature_flag()
     tenant = tenant_repo.get_by_key(ctx.tenant_key)
-    tenant_settings = tenant.settings if tenant else {}
-    return FeatureGuard.require_ai_enabled(tenant_settings)
+    return FeatureGuard.require_ai_enabled(tenant.settings if tenant else None)

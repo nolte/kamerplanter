@@ -7,6 +7,7 @@ from app.common.exceptions import NotFoundError
 from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.tenant_scope import tenant_union_predicate
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
@@ -71,7 +72,7 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
         if filters:
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value
-                filter_clauses.append(f"doc.{field} == @val{i}")
+                filter_clauses.append(f"doc.{aql_field(field)} == @val{i}")
         if filter_clauses:
             query += " FILTER " + " AND ".join(filter_clauses)
         count_query = query + " COLLECT WITH COUNT INTO total RETURN total"

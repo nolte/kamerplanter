@@ -9,6 +9,7 @@ from app.common.types import UserKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.erasure_executor import ArangoErasureExecutor
+from app.data_access.arango.query_builder import aql_field
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.user import User
@@ -263,7 +264,7 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
             return None
         query = f"""
         FOR doc IN @@collection
-          FILTER doc.{attribute} == @token
+          FILTER doc.{aql_field(attribute)} == @token
           LIMIT 1
           RETURN doc
         """

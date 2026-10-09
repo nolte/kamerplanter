@@ -83,6 +83,7 @@ from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
 from app.domain.services.auth_service import AuthService
 from app.domain.services.care_reminder_service import CareReminderService
+from app.domain.services.companion_edge_service import CompanionEdgeService
 from app.domain.services.enrichment_service import EnrichmentService
 from app.domain.services.feeding_service import FeedingService
 from app.domain.services.fertilizer_service import FertilizerService
@@ -399,6 +400,10 @@ def get_species_service() -> SpeciesService:
     return SpeciesService(
         get_species_repo(), get_graph_repo(), get_phase_sequence_binder(), nutrient_plan_repo=get_nutrient_plan_repo()
     )
+
+
+def get_companion_edge_service() -> CompanionEdgeService:
+    return CompanionEdgeService(get_species_repo(), get_graph_repo())
 
 
 def get_site_service() -> SiteService:
@@ -1215,6 +1220,7 @@ def get_user_service() -> UserService:
         get_user_repo(),
         step_up_verifier=get_step_up_verifier(),
         refresh_token_repo=get_refresh_token_repo(),
+        membership_repo=get_membership_repo(),
     )
 
 

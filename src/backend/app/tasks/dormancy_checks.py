@@ -12,7 +12,13 @@ logger = structlog.get_logger()
 
 @celery_app.task(name="check_dormancy_triggers")
 def check_dormancy_triggers(current_temp_c: float, day_length_hours: float) -> dict:
-    """Check all active perennial plants for dormancy triggers."""
+    """Check all active perennial plants for dormancy triggers.
+
+    **Not scheduled (MT-051, #2144).** Nothing starts this task — no beat entry, no
+    dispatch; the decision and its prerequisite are recorded in
+    ``tests/unit/guards/test_every_task_is_scheduled_or_dispatched.py``
+    (``_NOT_STARTED_BY_THE_APP``), which fails the day something does start it.
+    """
     plant_repo = get_plant_repo()
     species_repo = get_species_repo()
     phase_repo = get_lifecycle_repo()

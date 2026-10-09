@@ -26,6 +26,8 @@ class NotificationAction(BaseModel):
 class Notification(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     tenant_key: str = ""
+    #: The recipient. Required on every write (the repository refuses ``""``): every
+    #: reader is per user, so an empty one was a row nobody's inbox shows (MT-045.8).
     user_key: str = ""
     notification_type: str
     title: str

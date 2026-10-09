@@ -60,7 +60,6 @@ _ADMITTED: dict[tuple[str, str], str] = {
         for path in (
             "/api/v1/hardiness-zones",
             "/api/v1/hardiness-zones/{zone}",
-            "/api/v1/companion-planting/counts",
             "/api/v1/crop-rotation/counts",
             "/api/v1/crop-rotation/families/{family_key}/successors",
             "/api/v1/growth-phases",

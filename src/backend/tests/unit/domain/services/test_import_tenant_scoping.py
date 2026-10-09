@@ -124,7 +124,7 @@ def test_imported_rows_are_editable_by_the_tenant_that_imported_them():
 def test_update_strategy_fallback_create_is_stamped_too():
     """The update path mints rows as well — via its vanished-duplicate fallback."""
     svc, species_repo, _ = _service()
-    species_repo.get_by_scientific_name.return_value = None
+    species_repo.find_visible_by_normalized_scientific_name.return_value = None
 
     svc._get_update_fn(EntityType.SPECIES, tenant_key=_TENANT, caller_role=TenantRole.GROWER)(_SPECIES_ROW)
 
@@ -203,7 +203,7 @@ def test_update_strategy_refuses_overwriting_a_global_row():
     depends on.
     """
     svc, species_repo, _ = _service()
-    species_repo.get_by_scientific_name.return_value = Species(
+    species_repo.find_visible_by_normalized_scientific_name.return_value = Species(
         key="sp_seeded", scientific_name="Rosa canina", tenant_key=""
     )
 
@@ -214,25 +214,9 @@ def test_update_strategy_refuses_overwriting_a_global_row():
     species_repo.update.assert_not_called()
 
 
-def test_update_strategy_hides_a_foreign_tenants_row_behind_404():
-    """Ownership hiding, identical to `PUT /species/{key}`: never confirm it exists."""
-    from app.common.exceptions import NotFoundError
-
-    svc, species_repo, _ = _service()
-    species_repo.get_by_scientific_name.return_value = Species(
-        key="sp_other", scientific_name="Rosa canina", tenant_key="tenant_other"
-    )
-
-    update_fn = svc._get_update_fn(EntityType.SPECIES, tenant_key=_TENANT, caller_role=TenantRole.LEAD)
-
-    with pytest.raises(NotFoundError):
-        update_fn(_SPECIES_ROW)
-    species_repo.update.assert_not_called()
-
-
 def test_update_strategy_allows_the_caller_to_rewrite_its_own_row():
     svc, species_repo, _ = _service()
-    species_repo.get_by_scientific_name.return_value = Species(
+    species_repo.find_visible_by_normalized_scientific_name.return_value = Species(
         key="sp_own", scientific_name="Rosa canina", tenant_key=_TENANT
     )
 
@@ -338,3 +322,47 @@ class TestConfirmRefusesAForeignJob:
         _confirming(svc, _staged_job(EntityType.SPECIES, tenant_key=_TENANT))
 
         svc.confirm("job1", tenant_key=_TENANT, caller_role=TenantRole.LEAD)
+
+
+# ── MT-045.7 (#2144): the import sees what the caller sees, nothing more ──────
+
+
+def test_update_strategy_does_not_reveal_a_foreign_tenants_row():
+    """A foreign tenant's private species is invisible to the import, as to every read.
+
+    The update strategy resolved the row by name **unscoped**, found the other
+    tenant's species and answered 404 for it — while a name nobody holds created a
+    row. The difference between the two outcomes was an existence oracle for
+    another tenant's private catalogue. The lookup is now the visibility union
+    (own ∪ global): a foreign row is not there, so the row is created as the
+    caller's own, exactly as for an unknown name.
+    """
+    svc, species_repo, _ = _service()
+    species_repo.get_by_scientific_name.return_value = Species(
+        key="sp_other", scientific_name="Rosa canina", tenant_key="tenant_other"
+    )
+    species_repo.find_visible_by_normalized_scientific_name.return_value = None
+
+    svc._get_update_fn(EntityType.SPECIES, tenant_key=_TENANT, caller_role=TenantRole.LEAD)(_SPECIES_ROW)
+
+    species_repo.find_visible_by_normalized_scientific_name.assert_called_once_with("Rosa canina", _TENANT)
+    species_repo.update.assert_not_called()
+    created: Species = species_repo.upsert_by_normalized_scientific_name.call_args[0][0]
+    assert created.tenant_key == _TENANT
+
+
+def test_the_duplicate_preview_counts_only_rows_the_caller_can_see():
+    """The staging preview flagged a name as "duplicate" when *any* tenant held it."""
+    svc, species_repo, _ = _service()
+    species_repo.get_all.return_value = ([], 0)
+    svc._repo.save.side_effect = lambda job: job
+
+    svc.upload(
+        b"scientific_name\nRosa canina\n",
+        EntityType.SPECIES,
+        "rows.csv",
+        tenant_key=_TENANT,
+        caller_role=TenantRole.GROWER,
+    )
+
+    assert species_repo.get_all.call_args.kwargs.get("tenant_key") == _TENANT

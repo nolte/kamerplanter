@@ -202,7 +202,12 @@ def test_the_scope_change_writes_the_scopes_before_and_after() -> None:
     service, audit, _ = _service(_membership(TenantRole.GROWER, [AdminScope.MANAGEMENT]))
 
     service.change_member_scopes(
-        "t1", "m1", [AdminScope.MANAGEMENT, AdminScope.TECHNICAL], [AdminScope.MANAGEMENT], actor_user_key="secretary-1"
+        "t1",
+        "m1",
+        [AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
+        [AdminScope.MANAGEMENT],
+        actor_user_key="secretary-1",
+        **_STEP_UP,
     )
 
     row = _only(audit)

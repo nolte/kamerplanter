@@ -403,6 +403,10 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_with_retry_after)
 
 
+#: Every versioned API answer is ``no-store`` unless its route chose otherwise (MT-044).
+_NO_STORE_PREFIX = "/api/v1/"
+
+
 # Security headers middleware
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next) -> Response:  # type: ignore[type-arg]
@@ -419,6 +423,12 @@ async def security_headers_middleware(request: Request, call_next) -> Response: 
     # in production (NFR-014 §3.2 / kamerplanter-debug-endpoints.yaml).
     response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    # MT-044 (#2144): tenant-private JSON must not be kept by a shared proxy or the
+    # browser cache after logout or a tenant switch. A default, not an override: a
+    # route that decided its own caching keeps it (attachment downloads answer
+    # ``private, max-age``, pest reference images ``public``, the SSE stream ``no-cache``).
+    if request.url.path.startswith(_NO_STORE_PREFIX) and "cache-control" not in response.headers:
+        response.headers["Cache-Control"] = "no-store"
     return response
 
 

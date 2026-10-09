@@ -7,7 +7,7 @@ Kategorie: Integration & KI
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Model Context Protocol SDK (Anthropic), ArangoDB, Redis, Pydantic v2
 Status: Teilweise umgesetzt (Framework, API-Key-Auth mit Mehrmandanten-Bindung, Audit, Streamable-HTTP-Transport, Bild-Content und 56 Werkzeuge; Rest des Werkzeugkatalogs und die stdio-Bruecke offen, siehe §4.1 und §9)
-Version: 1.9 (§3/§4.6: Audit-Eintrag mit Korrelationsreferenzen — Key-Referenz, gekürzte Client-IP, Request-ID, Entity-Keys, #2130); 1.8 (§4.4: mandantenlose Schreib-Werkzeuge = Plattform-Admin, #2103); 1.7 (Rollenvokabular §4.4 auf REQ-049 umgestellt)
+Version: 1.10 (§2.6/AC-19a: ein mit anderen Argumenten wiederverwendeter `idempotency_key` ist `conflict.idempotency_key_reused`, ein abgelaufener Eintrag wird nicht wiederholt, #2144); 1.9 (§3/§4.6: Audit-Eintrag mit Korrelationsreferenzen — Key-Referenz, gekürzte Client-IP, Request-ID, Entity-Keys, #2130); 1.8 (§4.4: mandantenlose Schreib-Werkzeuge = Plattform-Admin, #2103); 1.7 (Rollenvokabular §4.4 auf REQ-049 umgestellt)
 Abhaengigkeit: REQ-001 v4.7 (Stammdaten), REQ-002 v4.3 (Standortverwaltung), REQ-006 v3.0 (Aufgabenplanung), REQ-013 v2.7 (Pflanzdurchlauf), REQ-014 v1.6 (Tankmanagement), REQ-019 v4.1 (Substratverwaltung), REQ-020 v1.6 (Onboarding), REQ-022 v2.8 (Pflegeerinnerungen), REQ-010 v1.4 (IPM), REQ-007 v2.6 (Erntemanagement), REQ-023 v1.13 (Service Accounts), REQ-024 v1.7 (RBAC Permission-Matrix), REQ-025 v1.6 (DSGVO), REQ-031 v2.0 (KI-Assistent / RAG), REQ-049 v1.4 (Rollenvokabular), REQ-050 v1.5 (KI-Analyse von Tagebuch-Eintraegen), NFR-013 v1.4 (Thumbnail-Renditions)
 ```
 
@@ -124,7 +124,7 @@ Der uebrige globale Referenzkatalog (Substrate, Winterhaertezonen, Phasendefinit
 **Schreibzugriffs-Philosophie:** Schreibtools folgen vier festen Mustern, damit ein LLM sie sicher und idempotent verwenden kann:
 
 1. **Dry-Run-Vorschau:** Jedes Schreibtool akzeptiert `dry_run: bool = false`. Bei `true` wird nur der geplante Effekt zurueckgeliefert, nichts persistiert. Pflicht fuer LLM-Bestaetigungs-Workflows.
-2. **Idempotency-Key:** Jedes Schreibtool akzeptiert optionalen `idempotency_key: str`. Identische Keys innerhalb 24 h liefern das urspruengliche Ergebnis statt Duplikat anzulegen — kritisch bei LLM-Retries.
+2. **Idempotency-Key:** Jedes Schreibtool akzeptiert optionalen `idempotency_key: str`. Identische Keys innerhalb 24 h liefern das urspruengliche Ergebnis statt Duplikat anzulegen — kritisch bei LLM-Retries. Wiederholt wird nur ein Aufruf mit **denselben** Argumenten (verglichen ueber den gespeicherten `input_hash`); derselbe Key mit anderen Argumenten antwortet `conflict.idempotency_key_reused` (409 am REST-Alias) und schreibt nichts. Ein Eintrag nach seinem `expires_at` wird nicht wiederholt, auch wenn der stuendliche Aufraeum-Task ihn noch nicht entfernt hat (#2144).
 3. **Bulk-Faehig wo sinnvoll:** "Lege 6 Tomaten an" muss in einem Tool-Aufruf gehen, nicht 6× hintereinander. Bulk-Tools haben Suffix `_bulk` und liefern Pro-Eintrag-Status.
 4. **Macro-Tools fuer Onboarding:** Hochstufige Setup-Tools (`setup_apartment`, `setup_growbox`) fassen Site + Locations + Slots in einem Aufruf zusammen — der LLM-User-Dialog wird kurz und natuerlich.
 
@@ -835,6 +835,7 @@ Betreiber-Doku: `docs/*/reference/environment-variables.md#mcp-server` und `docs
 
 - **AC-18:** Mit `dry_run=true` wird kein einziger DB-Write durchgefuehrt (verifiziert via Audit-Log: `status="dry_run"` und kein Folge-Log-Eintrag mit `status="ok"`).
 - **AC-19:** Zwei Aufrufe desselben Schreibtools mit identischem `idempotency_key` innerhalb 24 h ergeben identische Ergebnis-IDs und legen nur eine Ressource an (Test fuer `create_plant`, `create_plants_bulk`, `setup_apartment`).
+- **AC-19a:** Derselbe `idempotency_key` mit anderen Argumenten liefert `conflict.idempotency_key_reused` und legt nichts an; ein abgelaufener Eintrag (`expires_at` in der Vergangenheit) wird nicht wiederholt, der Aufruf schreibt neu (#2144; Test `tests/unit/mcp_server/test_dispatcher.py`).
 - **AC-20:** Bei Fehler waehrend einer Macro-Transaktion (`setup_growbox`) bleibt keine Teil-Hierarchie zurueck — verifiziert per Test mit absichtlich invalider Slot-Anzahl.
 - **AC-21:** Schreibtools sind im MCP-Tool-Schema mit `annotations.destructive: true` markiert, wo sie loeschen oder Zustand zerstoeren — Claude Desktop kann den Nutzer warnen.
 - **AC-22:** Idempotency-Records werden nach 24 h via ArangoDB-TTL automatisch entfernt.

@@ -9,7 +9,13 @@ logger = structlog.get_logger()
 
 @celery_app.task(name="update_vernalization_progress")
 def update_vernalization_progress(avg_temp_c: float) -> dict:
-    """Update vernalization tracking for biennial plants."""
+    """Update vernalization tracking for biennial plants.
+
+    **Not scheduled (MT-051, #2144).** Nothing starts this task — no beat entry, no
+    dispatch; the decision and its prerequisite are recorded in
+    ``tests/unit/guards/test_every_task_is_scheduled_or_dispatched.py``
+    (``_NOT_STARTED_BY_THE_APP``), which fails the day something does start it.
+    """
     from app.common.dependencies import get_lifecycle_repo, get_plant_repo
     from app.domain.engines.vernalization_tracker import VernalizationTracker
 

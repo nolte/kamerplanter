@@ -343,7 +343,9 @@ class NotificationService:
         Returns ``None`` when the notification is absent, belongs to another tenant
         or (when ``user_key`` is given) to another user — never disclosing the
         difference, so a foreign key is indistinguishable from a missing one
-        (SEC-B4). Backs the §4.2 actionable callback, which must inspect the
+        (SEC-B4). A row without a recipient is nobody's (MT-045.8, #2144): it used
+        to pass the owner check for every member, although no inbox lists it.
+        Backs the §4.2 actionable callback, which must inspect the
         notification's source before confirming it.
         """
         notif = self._notification_repo.get(notification_key)
@@ -351,7 +353,7 @@ class NotificationService:
             return None
         if notif.tenant_key != tenant_key:
             return None
-        if user_key and notif.user_key and notif.user_key != user_key:
+        if user_key is not None and notif.user_key != user_key:
             return None
         return notif
 
@@ -363,7 +365,7 @@ class NotificationService:
         if notif.tenant_key != tenant_key:
             return None
         # Verify the requesting user owns this notification
-        if user_key and notif.user_key and notif.user_key != user_key:
+        if user_key is not None and notif.user_key != user_key:
             return None
         # notification-write-ok: user-action: the reader marked their own row read
         # (REQ-030 §5.2). Nothing at the source changed — the reader did — so this write
@@ -384,7 +386,7 @@ class NotificationService:
         if notif.tenant_key != tenant_key:
             return None
         # Verify the requesting user owns this notification
-        if user_key and notif.user_key and notif.user_key != user_key:
+        if user_key is not None and notif.user_key != user_key:
             return None
         # notification-write-ok: user-action: the reader acted on their own row
         # (REQ-030 §5.2), same class as mark_read above.

@@ -7,7 +7,7 @@ Kategorie: KI & Beratung
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Celery, ArangoDB, Redis, PostgreSQL 17 + pgvector 0.8, ONNX Embedding Service, bge-reranker-v2-m3, React 19, TypeScript 5.9, MUI 7, Ollama / Anthropic / OpenAI-kompatible APIs
 Status: Entwurf
-Version: 2.3 (KI-Budget pro Konto und Tenant, #2110)
+Version: 2.4 (§3.1 `Tenant.settings` typisiert, #2144); 2.3 (KI-Budget pro Konto und Tenant, #2110)
 Abhängigkeit: REQ-001 v5.0 (Stammdaten), REQ-003 v1.0 (Phasensteuerung), REQ-004 v3.1 (Düngung), REQ-005 v2.3 (Sensorik), REQ-006 v2.7 (Aufgabenplanung), REQ-009 v1.0 (Dashboard), REQ-011 v1.0 (Adapter-Pattern), REQ-013 v2.0 (Pflanzdurchlauf), REQ-021 v1.0 (Erfahrungsstufen), REQ-022 v2.4 (Pflegeerinnerungen), REQ-023 v1.7 (Auth), REQ-024 v1.4 (Mandantenverwaltung), REQ-025 v1.0 (DSGVO), REQ-027 v1.2 (Light-Modus), NFR-007 (LLM-Sicherheit), NFR-011 (Retention)
 Wird benoetigt von: REQ-033 v1.1 (MCP-Server), REQ-035 (Fachbegriff-Glossar), REQ-036 (Diagnose-Assistent)
 ```
@@ -20,6 +20,7 @@ Wird benoetigt von: REQ-033 v1.1 (MCP-Server), REQ-035 (Fachbegriff-Glossar), RE
 | **2.0** | **2026-04-25** | **Major Refactor: Knowledge Service als externes Microservice, multilingual-e5-large + Hybrid Search + bge-reranker, Backend wird zum duennen KnowledgeServiceAdapter, neue Features "Warum?"-Buttons (`POST /ai/explain`) und expliziter Tipp-des-Tages, dreistufiger Feature-Toggle (Deployment / Tenant / User-Consent), Light-Modus-Verhalten, Multilingual-Vorbereitung, neuer Consent-Typ `ai_tenant_data_access`, Abgrenzung zu REQ-033/REQ-035/REQ-036** |
 | 2.2 | 2026-04-27 | **W-011 (KI-Fallback offline):** §1 Klarstellung — regelbasierte Fallback-Tipps gelten **backend-seitig** bei Knowledge-Service-Ausfällen, nicht für Frontend-Offline-Phasen. Frontend-Offline behandelt KI-Features als Online-only (UI-NFR-012 R-042a). Verhindert Drift durch dupliziertes Mini-Regelwerk im Frontend. |
 | 2.3 | 2026-10-05 | **KI-Budget (#2110, MT-013):** §3.4 neu — jeder Aufruf, der ein LLM anspricht (Tipps, Tagestipp, „Warum?“, Chat-Nachricht, Glossar-Generierung auf dem Tenant-Pfad, KI-Diagnose REQ-036), belastet vor dem Aufruf ein Tagesbudget pro (Tenant, Konto), pro Tenant und ein Token-Budget pro Tenant (Valkey, UTC-Tag); darüber `429 AI_BUDGET_EXCEEDED` mit `Retry-After` bis Tagesende, bei nicht erreichbarem Zähler `503 AI_BUDGET_UNAVAILABLE` (fail-closed). Dazu das Minutenbudget `RATE_LIMIT_INFERENCE` je Konto auf allen generierenden Routen. `ai_audit_log` (§3.1) trägt `prompt_tokens`/`completion_tokens` — die Kosten eines Tenants sind zählbar. Chat (§5.4) prüft Consent, Provider und Budget vor dem Stream. DoD (§11) um das Budget ergänzt. |
+| 2.4 | 2026-10-09 | **#2144 (MT-056):** §3.1 — das `settings`-Sub-Objekt ist im Backend ein typisiertes Modell (`TenantSettings`) mit den vier Flags und ihren Defaults statt eines freien Dicts. Ein gespeichertes `"false"` gilt als aus (vorher machte `bool("false")` daraus *an*); ein Wert, der kein Flag ist, wird abgelehnt; Schlüssel, die das Modell nicht kennt, bleiben erhalten (keine Datenmigration). |
 | 2.1 | 2026-04-27 | **ADR-002 (W-006 Tenant-Species im KI-Kontext):** Genus/Family-Fallback in `AiContextBuilder.resolve_species_for_ks()` ergaenzt — tenant-eigene Species werden via `parent_species_key` → Genus → Family auf KS-aufloesbare Werte gemappt. `QuestionContext` erweitert um `cultivar_hint` und `confidence`-Felder. Antwortstruktur (§5.5) liefert `confidence`, `fallback_species`, `cultivar_hint` an Frontend. `<AIResponse>`-Komponente bekommt sichtbares Confidence-Badge bei `low`. |
 
 ## 1. Business Case
@@ -382,6 +383,8 @@ Tenant-Settings sind kein eigenes Document, sondern leben als Sub-Objekt am `ten
   }
 }
 ```
+
+Im Backend ist das Sub-Objekt das Modell `TenantSettings` (`app/domain/models/tenant.py`, #2144): die vier Flags sind typisierte Felder mit den obigen Defaults; weitere Schlüssel eines gespeicherten Dokuments bleiben erhalten. Eine neue Einstellung kommt dort als Feld hinzu, nicht als freier Schlüssel.
 
 ### 3.2 Edge Collections (ArangoDB)
 

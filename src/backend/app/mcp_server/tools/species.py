@@ -130,7 +130,7 @@ class GetSpeciesInfo(ToolBase):
         tenant_key = ctx.catalogue_tenant_key(args.tenant)
         species = ctx.species_service.get_species(args.species_key, tenant_key=tenant_key)
         try:
-            companions = ctx.species_service.get_compatible_species(args.species_key)
+            companions = ctx.species_service.get_compatible_species(args.species_key, tenant_key=tenant_key)
         except Exception:  # noqa: BLE001 — companion graph is optional context
             companions = []
 

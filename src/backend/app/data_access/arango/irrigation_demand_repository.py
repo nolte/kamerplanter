@@ -4,6 +4,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import aql_field
 from app.domain.interfaces.irrigation_demand_repository import IIrrigationDemandRepository
 from app.domain.models.irrigation_demand import IrrigationDemand
 
@@ -75,7 +76,7 @@ class ArangoIrrigationDemandRepository(BaseArangoRepository[IrrigationDemand], I
     def _latest(self, field: str, value: str, tenant_key: str) -> IrrigationDemand | None:
         query = f"""
         FOR d IN @@collection
-          FILTER d.{field} == @value AND d.tenant_key == @tenant_key
+          FILTER d.{aql_field(field)} == @value AND d.tenant_key == @tenant_key
           SORT d.demand_date DESC
           LIMIT 1
           RETURN d

@@ -327,7 +327,7 @@ class ToolDispatcher:
 
         idem_key = getattr(args, "idempotency_key", None)
         if idem_key:
-            replay = self._idempotency.lookup(principal, membership, tool_name, idem_key)
+            replay = self._idempotency.lookup(principal, membership, tool_name, idem_key, input_hash)
             if replay is not None:
                 return replay, McpToolStatus.OK
             response = await tool.execute(ctx, args)

@@ -1,9 +1,32 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.common.enums import AdminScope, TenantRole, TenantStatus, TenantType
+
+
+class TenantSettings(BaseModel):
+    """The tenant's settings sub-object, typed (MT-056, #2144).
+
+    REQ-031 §3.1 stores the KI toggle block here; the defaults are the ones the
+    ``FeatureGuard`` always applied (everything off, the daily tip on once KI is).
+    Until #2144 the field was ``dict[str, Any]`` and the guard read it with
+    ``bool(raw.get(...))`` — a stored ``"false"`` came out *enabled*.
+
+    Keys this model does not name are **kept** (``extra="allow"``): no application
+    path writes the sub-object, so anything a stored document carries was put there
+    by hand or by an older build — dropping it would lose it on the next full write,
+    refusing it would fail every read of that tenant. A new setting is added here as
+    a typed field, never written into the extras.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    ai_features_enabled: bool = False
+    ai_default_provider_key: str | None = None
+    ai_allow_cloud_providers: bool = False
+    ai_daily_tip_enabled: bool = True
 
 
 class Tenant(BaseModel):
@@ -23,10 +46,9 @@ class Tenant(BaseModel):
     deletion_scheduled_at: datetime | None = None
     is_platform: bool = False
     max_members: int = Field(default=1, ge=1)
-    #: Free-form settings sub-object (REQ-024). REQ-031 §3.1 stores the KI toggle
-    #: block here (``ai_features_enabled``, ``ai_default_provider_key``,
-    #: ``ai_allow_cloud_providers``, ``ai_daily_tip_enabled``).
-    settings: dict[str, Any] = Field(default_factory=dict)
+    #: Settings sub-object (REQ-024), typed since MT-056 (#2144): the REQ-031 §3.1
+    #: KI toggle block plus any key an older document carries (see TenantSettings).
+    settings: TenantSettings = Field(default_factory=TenantSettings)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

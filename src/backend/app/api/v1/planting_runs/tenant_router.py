@@ -553,7 +553,7 @@ def create_plant_diary_entry(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: DiaryEntryCreateRequest,
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.CREATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.CREATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -611,7 +611,7 @@ def update_plant_diary_entry(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
     body: DiaryEntryUpdateRequest,
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.UPDATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -637,7 +637,7 @@ def delete_plant_diary_entry(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.DELETE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.DELETE)),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -658,7 +658,7 @@ def request_run_diary_entry_analysis(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.CREATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.CREATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -690,7 +690,7 @@ def cancel_run_diary_entry_analysis(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.UPDATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):

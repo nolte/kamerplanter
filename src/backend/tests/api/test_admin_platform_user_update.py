@@ -245,3 +245,20 @@ class TestRejectsWhitespaceOnlyDisplayName:
 
         assert response.status_code == 200
         assert store[USER_KEY]["display_name"] == "Bob Smith"
+
+
+def test_an_admin_cannot_deactivate_their_own_account(
+    store: dict[str, dict[str, Any]], writes: list[str], client: TestClient
+) -> None:
+    """MT-045.4 (#2144): refused before the step-up asks for a password — nothing is written."""
+    from app.domain.models.user import User
+
+    me = User(_key=USER_KEY, email=ORIGINAL_EMAIL, display_name=ORIGINAL_NAME)
+    client.app.dependency_overrides[require_platform_admin] = lambda: me  # type: ignore[attr-defined]
+
+    response = client.patch(f"/api/v1/admin/platform/users/{USER_KEY}", json={"is_active": False})
+
+    assert response.status_code == 422, response.text
+    assert "own account" in response.json()["message"]
+    assert store[USER_KEY]["is_active"] is True
+    assert writes == []

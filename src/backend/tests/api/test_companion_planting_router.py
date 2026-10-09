@@ -15,7 +15,7 @@ Covers (NFR-015 negative test):
 """
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -24,7 +24,7 @@ from fastapi.testclient import TestClient
 from app.api.v1.companion_planting.router import router as companion_router
 from app.common import auth as auth_mod
 from app.common.auth import get_current_user
-from app.common.dependencies import get_species_service, get_tenant_service
+from app.common.dependencies import get_companion_edge_service, get_species_service, get_tenant_service
 from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError
@@ -34,12 +34,15 @@ def _user() -> SimpleNamespace:
     return SimpleNamespace(key="user_1", account_type="human")
 
 
-def _build_app(tenant_service: MagicMock) -> FastAPI:
+def _build_app(tenant_service: MagicMock, species_service: MagicMock | None = None) -> FastAPI:
+    """The edge writes go through ``CompanionEdgeService`` since MT-054 (#2144); ``species_service`` records them."""
     app = FastAPI()
     app.include_router(companion_router, prefix="/api/v1")
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     app.dependency_overrides[get_current_user] = _user
-    app.dependency_overrides[get_species_service] = lambda: MagicMock()
+    service = species_service or MagicMock()
+    app.dependency_overrides[get_species_service] = lambda: service
+    app.dependency_overrides[get_companion_edge_service] = lambda: service
     app.dependency_overrides[get_tenant_service] = lambda: tenant_service
     return app
 
@@ -61,9 +64,8 @@ def test_non_admin_is_rejected_full_mode(monkeypatch, path, body, graph_method):
     tenant_service = MagicMock()
     tenant_service.get_membership.return_value = SimpleNamespace(role=TenantRole.GROWER, is_active=True)
     graph = MagicMock()
-    with patch("app.common.dependencies.get_graph_repo", return_value=graph):
-        client = TestClient(_build_app(tenant_service))
-        resp = client.post(path, json=body)
+    client = TestClient(_build_app(tenant_service, graph))
+    resp = client.post(path, json=body)
     assert resp.status_code == 403
     getattr(graph, graph_method).assert_not_called()
 
@@ -81,9 +83,8 @@ def test_platform_admin_succeeds_full_mode(monkeypatch, path, body, graph_method
     tenant_service = MagicMock()
     tenant_service.get_membership.return_value = SimpleNamespace(role=TenantRole.LEAD, is_active=True)
     graph = MagicMock()
-    with patch("app.common.dependencies.get_graph_repo", return_value=graph):
-        client = TestClient(_build_app(tenant_service))
-        resp = client.post(path, json=body)
+    client = TestClient(_build_app(tenant_service, graph))
+    resp = client.post(path, json=body)
     assert resp.status_code == 201
     getattr(graph, graph_method).assert_called_once()
 
@@ -100,9 +101,8 @@ def test_light_mode_allows_system_user(monkeypatch, path, body):
     monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "light")
     tenant_service = MagicMock()
     graph = MagicMock()
-    with patch("app.common.dependencies.get_graph_repo", return_value=graph):
-        client = TestClient(_build_app(tenant_service))
-        resp = client.post(path, json=body)
+    client = TestClient(_build_app(tenant_service, graph))
+    resp = client.post(path, json=body)
     assert resp.status_code == 201
     tenant_service.get_membership.assert_not_called()
 
@@ -123,7 +123,7 @@ def test_get_endpoints_remain_open_to_non_admin(monkeypatch):
     client = TestClient(app)
     resp = client.get("/api/v1/companion-planting/species/s1/compatible")
     assert resp.status_code == 200
-    species_service.get_compatible_species.assert_called_once_with("s1")
+    species_service.get_compatible_species.assert_called_once_with("s1", tenant_key=ANY)
 
 
 def test_compatible_endpoint_passes_through_common_names(monkeypatch):
@@ -188,4 +188,4 @@ def test_counts_endpoint_returns_per_species_counts(monkeypatch):
     assert body["basil"] == {"compatible": 1, "incompatible": 0}
     # species with only an incompatible edge → compatible defaults to 0
     assert body["nettle"] == {"compatible": 0, "incompatible": 1}
-    species_service.get_companion_counts.assert_called_once_with()
+    species_service.get_companion_counts.assert_called_once_with(tenant_key=ANY)

@@ -61,7 +61,7 @@ async def test_get_species_info_includes_companions():
     )
     svc = SimpleNamespace(
         get_species=lambda key, tenant_key=None: species,
-        get_compatible_species=lambda key: [{"species_key": "sp-2"}],
+        get_compatible_species=lambda key, *, tenant_key=None: [{"species_key": "sp-2"}],
     )
     resp = await GetSpeciesInfo().run(_ctx(species_service=svc), GetSpeciesInfo.Input(species_key="sp-1"))
     assert resp.data["compatible_companions"] == [{"species_key": "sp-2"}]

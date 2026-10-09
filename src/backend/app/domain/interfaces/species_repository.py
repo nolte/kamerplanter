@@ -36,6 +36,10 @@ class ISpeciesRepository(ABC):
     def get_by_normalized_scientific_name_for_tenant(self, name: str, tenant_key: str) -> Species | None: ...
 
     @abstractmethod
+    def find_visible_by_normalized_scientific_name(self, name: str, tenant_key: str) -> Species | None:
+        """The species with this dedup key the tenant can see — own or global (#1162, MT-045.7)."""
+
+    @abstractmethod
     def upsert_by_normalized_scientific_name(self, species: Species) -> Species: ...
 
     # ── explicit masterdata grants (#1092) ──────────────────────────────────

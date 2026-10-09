@@ -52,6 +52,18 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
 
     # ── CRUD ──────────────────────────────────────────────────────────
 
+    def create(self, model: Notification, *, default_now_fields: tuple[str, ...] = ()) -> Notification:
+        """Insert a notification — never one without a recipient (MT-045.8, #2144).
+
+        Every reader is per user (``doc.user_key == @user_key``): a row with an empty
+        ``user_key`` lands in no inbox, and was readable and actionable by key for every
+        member of the tenant until the readers failed closed. There is no tenant
+        broadcast; the one choke point all five writers pass refuses the shape.
+        """
+        if not model.user_key:
+            raise ValueError("A notification needs a recipient (user_key); there is no tenant broadcast.")
+        return super().create(model, default_now_fields=default_now_fields)
+
     def get(self, key: str) -> Notification | None:
         return super().get_by_key(key)
 

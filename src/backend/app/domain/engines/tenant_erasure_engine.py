@@ -62,6 +62,8 @@ _LEGACY_STAMP = (
     " A tenant_key stored on a row is the v0004 default-tenant backfill stamp on a seed "
     "(migrations/backfill_tenant_key.py), not ownership — deleting it would remove the seed for every tenant."
 )
+#: The three IPM catalogues lose the stamp in migration v0088 (MT-052, #2144).
+_IPM_STAMP_REMOVED = " Migration v0088 removes the attribute from this collection (MT-052)."
 _ACCOUNT = "account-scoped: belongs to a user, not a tenant, and is removed by the account erasure (ErasureEngine)"
 _PLATFORM = "platform configuration or bookkeeping, not tenant data"
 
@@ -279,9 +281,9 @@ class TenantErasureEngine:
         "onboarding_states": _ACCOUNT + "." + _LEGACY_STAMP.replace("on a seed", "on the account's wizard state"),
         "user_preferences": _ACCOUNT + "." + _LEGACY_STAMP.replace("on a seed", "on the account's preferences"),
         # Global catalogues.
-        "pests": _CATALOGUE + "." + _LEGACY_STAMP,
-        "diseases": _CATALOGUE + "." + _LEGACY_STAMP,
-        "treatments": _CATALOGUE + "." + _LEGACY_STAMP,
+        "pests": _CATALOGUE + "." + _LEGACY_STAMP + _IPM_STAMP_REMOVED,
+        "diseases": _CATALOGUE + "." + _LEGACY_STAMP + _IPM_STAMP_REMOVED,
+        "treatments": _CATALOGUE + "." + _LEGACY_STAMP + _IPM_STAMP_REMOVED,
         "harvest_indicators": _CATALOGUE + "." + _LEGACY_STAMP,
         "beneficials": _CATALOGUE,
         "botanical_families": _CATALOGUE,

@@ -899,9 +899,14 @@ class SpeciesService:
         )
         return self._repo.delete_cultivar(key)
 
-    def get_compatible_species(self, species_key: SpeciesKey) -> list[dict]:
-        self.get_species(species_key)
-        raw = self._graph.get_compatible_species(species_key)
+    def get_compatible_species(self, species_key: SpeciesKey, *, tenant_key: str | None) -> list[dict]:
+        """The anchor's compatible companions the caller can see (MT-054, #2144).
+
+        ``tenant_key`` scopes the anchor (a foreign one is 404) **and** the far end of
+        each edge; ``None`` is the system context.
+        """
+        self.get_species(species_key, tenant_key=tenant_key)
+        raw = self._graph.get_compatible_species(species_key, tenant_key=tenant_key)
         # Pass the full common_names list straight through from the graph vertex —
         # it is already loaded on the species document (no extra query). The
         # presentation layer derives the layperson-facing display name from it
@@ -916,9 +921,9 @@ class SpeciesService:
             for item in raw
         ]
 
-    def get_incompatible_species(self, species_key: SpeciesKey) -> list[dict]:
-        self.get_species(species_key)
-        raw = self._graph.get_incompatible_species(species_key)
+    def get_incompatible_species(self, species_key: SpeciesKey, *, tenant_key: str | None) -> list[dict]:
+        self.get_species(species_key, tenant_key=tenant_key)
+        raw = self._graph.get_incompatible_species(species_key, tenant_key=tenant_key)
         return [
             {
                 "species_key": item["species"].get("_key", ""),
@@ -929,13 +934,13 @@ class SpeciesService:
             for item in raw
         ]
 
-    def get_companion_counts(self) -> dict[str, dict[str, int]]:
+    def get_companion_counts(self, *, tenant_key: str | None) -> dict[str, dict[str, int]]:
         # Whole-catalogue aggregate: per-species compatible/incompatible companion
-        # counts computed in a single batch AQL (no N+1). Companion edges are
-        # global reference data, so no tenant scoping applies.
-        return self._graph.get_companion_counts()
+        # counts computed in a single batch AQL (no N+1). Counted over the edges whose
+        # both ends ``tenant_key`` can see (MT-054); ``None`` counts every edge.
+        return self._graph.get_companion_counts(tenant_key=tenant_key)
 
-    def get_companion_recommendations(self, species_key: SpeciesKey) -> dict:
-        self.get_species(species_key)
+    def get_companion_recommendations(self, species_key: SpeciesKey, *, tenant_key: str | None) -> dict:
+        self.get_species(species_key, tenant_key=tenant_key)
         engine = CompanionPlantingEngine(self._graph, None, self._repo)  # type: ignore[arg-type]
-        return engine.get_companion_recommendations(species_key)
+        return engine.get_companion_recommendations(species_key, tenant_key=tenant_key)

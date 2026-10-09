@@ -6,6 +6,7 @@ from arango.database import StandardDatabase
 from app.common.types import LocationKey, PlantID, PlantingRunEntryKey, PlantingRunKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import aql_field
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 
@@ -73,7 +74,7 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
                 filter_clauses.append("doc.tenant_key == @tenant_key")
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value
-                filter_clauses.append(f"doc.{field} == @val{i}")
+                filter_clauses.append(f"doc.{aql_field(field)} == @val{i}")
             query += " FILTER " + " AND ".join(filter_clauses)
             count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
             count_vars = dict(bind_vars)

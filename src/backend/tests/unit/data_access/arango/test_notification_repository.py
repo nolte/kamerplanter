@@ -50,6 +50,8 @@ def _notif_doc(**kwargs) -> dict:
 
 def _notif_model(**kwargs) -> Notification:
     defaults = {
+        # Every writer names its recipient; the repository refuses one without (MT-045.8, #2144).
+        "user_key": "u1",
         "notification_type": "care.watering.due",
         "title": "Watering due",
         "body": "Your tomato needs water",

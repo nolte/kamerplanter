@@ -59,7 +59,7 @@ class _UnionSpeciesService:
 
         raise NotFoundError("Species", key)
 
-    def get_compatible_species(self, key):  # noqa: ARG002
+    def get_compatible_species(self, key, *, tenant_key=None):  # noqa: ARG002
         return []
 
     # Keyword-only ``tenant_key``, mirroring the real service (#1090 C-3). The

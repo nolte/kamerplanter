@@ -820,29 +820,11 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ("ArangoActivityRepository", "get_by_category"): Exclusion(
         "catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"
     ),
-    ("ArangoGraphRepository", "get_compatible_species"): Exclusion(
-        "catalogue",
-        "companion edges are written only by platform admins (PUT /companion-planting/...), and the "
-        "routes resolve the anchor species tenant-aware first (SEC-005, #808)",
-    ),
-    ("ArangoGraphRepository", "get_incompatible_species"): Exclusion(
-        "catalogue",
-        "companion edges are written only by platform admins (PUT /companion-planting/...), and the "
-        "routes resolve the anchor species tenant-aware first (SEC-005, #808)",
-    ),
-    # The six below became subjects in #2102, when a traversal's vertex collection began to
+    # The ones below became subjects in #2102, when a traversal's vertex collection began to
     # count as touched (``edge_vertices`` in :func:`build_inventory`); each was read for
     # whether a tenant-owned species can sit behind the edge it walks.
-    ("ArangoGraphRepository", "get_companion_counts"): Exclusion(
-        "catalogue",
-        "counts of the companion edges, which only platform admins write (require_platform_admin on the "
-        "companion routes) or seeds do; no app path stamps a tenant-owned species into them",
-    ),
-    ("ArangoGraphRepository", "get_species_by_family"): Exclusion(
-        "catalogue",
-        "belongs_to_family edges are written by seeds and migration v0010 only — no application path "
-        "stamps a tenant-owned species into the family graph, so every vertex reached is a global species",
-    ),
+    # get_compatible_species / get_incompatible_species / get_companion_counts / get_species_by_family
+    # left this list with MT-054 (#2144): each now carries the hybrid-union predicate on the vertex.
     ("ArangoAquaponikRepository", "get_compatible_plants"): Exclusion(
         "catalogue",
         "fish-to-plant compatibility edges are written by seeds only (link_compatible_plant has no "
@@ -971,6 +953,11 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ),
     ("ArangoSecurityAuditRepository", "count_undated"): Exclusion(
         "system", "held-count of the installation-wide security_audit_log retention task (NFR-011 R-38, #2111)"
+    ),
+    ("ArangoLegacyStampAudit", "measure"): Exclusion(
+        "system",
+        "the operator-invoked, read-only v0004 stamp audit (MT-052, #2144): classifies every tenant-stamped "
+        "row's author against the memberships of that row's own tenant; prints document keys only",
     ),
     ("ArangoHaEntityGrantRepository", "all_granted"): Exclusion(
         "system",

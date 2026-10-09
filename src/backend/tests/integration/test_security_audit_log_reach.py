@@ -39,6 +39,7 @@ from app.domain.models.user import User
 from app.domain.services.security_audit_service import SECURITY_AUDIT_RETENTION_DAYS, SecurityAuditService
 from app.domain.services.tenant_service import TenantService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.step_up import STEP_UP_PASSED, PassedStepUpVerifier
 
 
 def _founder(key: str) -> User:
@@ -119,6 +120,8 @@ def _service(db) -> tuple[TenantService, ArangoMembershipRepository]:
         membership_engine=MembershipEngine(),
         invitation_engine=InvitationEngine(),
         security_audit=SecurityAuditService(ArangoSecurityAuditRepository(db)),
+        # The scope change passes a step-up since #2144 (MT-045.2); this file is about the audit rows.
+        step_up_verifier=PassedStepUpVerifier(),  # type: ignore[arg-type]
     )
     return service, memberships
 
@@ -181,7 +184,14 @@ def test_leaving_scopes_and_creation_leave_rows_through_the_real_repositories(db
     assert lead is not None
     other = memberships.create(Membership(user_key="u-new", tenant_key=tenant.key or "", role=TenantRole.GROWER))
     service.change_member_scopes(
-        tenant.key or "", other.key or "", [AdminScope.MANAGEMENT], [AdminScope.MANAGEMENT], actor_user_key="u-lead"
+        tenant.key or "",
+        other.key or "",
+        [AdminScope.MANAGEMENT],
+        [AdminScope.MANAGEMENT],
+        actor_user_key="u-lead",
+        requester=MagicMock(),
+        client_ip=None,
+        **STEP_UP_PASSED,
     )
     service.leave_tenant(tenant.key or "", "u-new")
 

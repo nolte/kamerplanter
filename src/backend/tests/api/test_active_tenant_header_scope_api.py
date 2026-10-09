@@ -313,10 +313,10 @@ class _FakeGraphRepo:
 
     _EDGE_SPECIES = {"_key": "sp_global", "scientific_name": _GLOBAL_ROSE, "common_names": ["Hundsrose"]}
 
-    def get_compatible_species(self, species_key: str) -> list[dict[str, Any]]:
+    def get_compatible_species(self, species_key: str, *, tenant_key: str | None = None) -> list[dict[str, Any]]:
         return [{"species": self._EDGE_SPECIES, "score": 0.8}]
 
-    def get_incompatible_species(self, species_key: str) -> list[dict[str, Any]]:
+    def get_incompatible_species(self, species_key: str, *, tenant_key: str | None = None) -> list[dict[str, Any]]:
         return [{"species": self._EDGE_SPECIES, "reason": "allelopathy"}]
 
 

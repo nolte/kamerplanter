@@ -65,6 +65,10 @@ _NOT_TENANT_DATA: dict[str, str] = {
     ),
     "ActivityService": "global activity catalogue, written only behind require_platform_admin (#2119 owns tenant rows)",
     "LocationTypeService": "global location-type catalogue, written only behind require_platform_admin",
+    "CompanionEdgeService": (
+        "global companion edges (REQ-028), written only behind require_platform_admin and only between global "
+        "species (MT-054, #2144) — the keyed load is the global-species check itself"
+    ),
 }
 
 

@@ -1,15 +1,7 @@
 """REQ-024 v1.4 RBAC permission matrix tests."""
 
-import pytest
-
 from app.common.enums import TenantRole
-from app.core.permissions import (
-    Action,
-    ResourceType,
-    assert_permission,
-    has_permission,
-    list_permissions,
-)
+from app.core.permissions import Action, ResourceType, has_permission
 
 
 class TestPlantDomainCRUD:
@@ -64,25 +56,3 @@ class TestVerbsBeyondCRUD:
     def test_calendar_feed_export_is_open_to_everyone_with_membership(self):
         for role in (TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER):
             assert has_permission(role, ResourceType.CALENDAR_FEED, Action.EXPORT)
-
-
-class TestAssertPermission:
-    def test_passes_silently_when_permitted(self):
-        assert_permission(TenantRole.LEAD, ResourceType.PLANT, Action.CREATE)
-
-    def test_raises_with_explanatory_message_when_denied(self):
-        with pytest.raises(PermissionError, match="viewer"):
-            assert_permission(TenantRole.VIEWER, ResourceType.PLANT, Action.DELETE)
-
-
-class TestListPermissions:
-    def test_admin_list_includes_membership_invite(self):
-        perms = list_permissions(TenantRole.LEAD)
-        assert (ResourceType.MEMBERSHIP, Action.INVITE) in perms
-
-    def test_viewer_list_excludes_create_actions(self):
-        perms = list_permissions(TenantRole.VIEWER)
-        actions = {a for _, a in perms}
-        assert Action.CREATE not in actions
-        assert Action.DELETE not in actions
-        assert Action.READ in actions

@@ -18,7 +18,7 @@ from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_watering_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import CursorPaginationParams, PaginationParams, get_cursor_pagination, get_pagination
-from app.core.permissions import Action
+from app.core.permissions import Action, ResourceType
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.watering_event import WateringEvent
 from app.domain.services.watering_service import WateringService
@@ -33,7 +33,7 @@ def _event_response(e: WateringEvent) -> WateringEventResponse:
 @router.post("/watering-events", response_model=WateringEventWithWarnings, status_code=201)
 def create_event(
     body: WateringEventCreate,
-    ctx: TenantContext = Depends(require_permission("watering-event", Action.CREATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.WATERING_EVENT, Action.CREATE)),
     service: WateringService = Depends(get_watering_service),
 ):
     """Record a watering event and return it with any warnings."""
@@ -115,7 +115,7 @@ def get_location_stats(
 @router.post("/watering-events/confirm", response_model=WateringConfirmResponse, status_code=201)
 def confirm_watering(
     body: WateringConfirmRequest,
-    ctx: TenantContext = Depends(require_permission("watering-event", Action.CREATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.WATERING_EVENT, Action.CREATE)),
     service: WateringService = Depends(get_watering_service),
 ):
     """Confirm a scheduled watering task, creating the resulting event."""
@@ -134,7 +134,7 @@ def confirm_watering(
 @router.post("/watering-events/quick-confirm", response_model=WateringConfirmResponse, status_code=201)
 def quick_confirm_watering(
     body: WateringQuickConfirmRequest,
-    ctx: TenantContext = Depends(require_permission("watering-event", Action.CREATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.WATERING_EVENT, Action.CREATE)),
     service: WateringService = Depends(get_watering_service),
 ):
     """Quick-confirm a scheduled watering task with default values."""

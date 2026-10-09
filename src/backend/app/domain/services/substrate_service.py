@@ -247,8 +247,21 @@ class SubstrateService:
         self.get_batch(batch_key, tenant_key=tenant_key)
         return self._lifecycle_mgr.check_reusability(batch_key)
 
-    def prepare_reuse(self, batch_key: BatchKey, *, tenant_key: str | None = None) -> dict:
+    def prepare_reuse(
+        self,
+        batch_key: BatchKey,
+        *,
+        tenant_key: str | None = None,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> dict:
+        """Run the reuse preparation of a batch — a batch write, gated like one (MT-045.1, #2144).
+
+        Load-then-gate like :meth:`update_batch`: a foreign batch answers 404 before
+        the role is asked. Until #2144 the route dropped the role and a viewer ran it.
+        """
         batch = self.get_batch(batch_key, tenant_key=tenant_key)
+        self._authorize_batch_write(caller_role, is_platform_admin, MembershipEngine.can_edit_resource)
         self.get_substrate(batch.substrate_key)
         can_reuse, issues, prep_steps, prep_time, ready_date = self._lifecycle_mgr.check_reusability(batch_key)
         if not can_reuse:

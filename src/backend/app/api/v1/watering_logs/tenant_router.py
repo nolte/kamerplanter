@@ -20,7 +20,7 @@ from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_watering_log_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import CursorPaginationParams, PaginationParams, get_cursor_pagination, get_pagination
-from app.core.permissions import Action
+from app.core.permissions import Action, ResourceType
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.watering_log import WateringLog
 from app.domain.services.watering_log_service import WateringLogService
@@ -54,7 +54,7 @@ def _log_response(
 @router.post("/watering-logs", response_model=WateringLogWithWarnings, status_code=201)
 def create_log(
     body: WateringLogCreate,
-    ctx: TenantContext = Depends(require_permission("watering-log", Action.CREATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.WATERING_LOG, Action.CREATE)),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
     """Create a watering log and return it with resolved names and warnings."""
@@ -106,7 +106,7 @@ def get_log(
 def update_log(
     key: Annotated[str, Path(description="Document key of the watering log.")],
     body: WateringLogUpdate,
-    ctx: TenantContext = Depends(require_permission("watering-log", Action.UPDATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.WATERING_LOG, Action.UPDATE)),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
     """Update a watering log."""
@@ -121,7 +121,7 @@ def update_log(
 @router.delete("/watering-logs/{key}", status_code=204)
 def delete_log(
     key: Annotated[str, Path(description="Document key of the watering log.")],
-    ctx: TenantContext = Depends(require_permission("watering-log", Action.DELETE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.WATERING_LOG, Action.DELETE)),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
     """Delete a watering log."""
@@ -215,7 +215,7 @@ def get_location_watering_stats(
 @router.post("/watering-logs/confirm", response_model=WateringConfirmResponse, status_code=201)
 def confirm_watering(
     body: WateringConfirmRequest,
-    ctx: TenantContext = Depends(require_permission("watering-log", Action.UPDATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.WATERING_LOG, Action.UPDATE)),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
     """Confirm a scheduled watering task, creating the resulting log."""
@@ -234,7 +234,7 @@ def confirm_watering(
 @router.post("/watering-logs/quick-confirm", response_model=WateringConfirmResponse, status_code=201)
 def quick_confirm_watering(
     body: WateringQuickConfirmRequest,
-    ctx: TenantContext = Depends(require_permission("watering-log", Action.UPDATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.WATERING_LOG, Action.UPDATE)),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
     """Quick-confirm a scheduled watering task with default values."""

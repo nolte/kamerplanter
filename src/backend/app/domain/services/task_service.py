@@ -1636,19 +1636,27 @@ class TaskService:
 
     def update_comment(self, task_key: str, comment_key: str, text: str, *, tenant_key: str) -> TaskComment:
         self.get_task(task_key, tenant_key=tenant_key)  # ensure task exists and belongs to the tenant
-        comment = self._repo.get_comment_or_raise(comment_key)
-        if comment.task_key != task_key:
-            raise ValidationError("Comment does not belong to this task.")
+        comment = self._task_comment(task_key, comment_key)
         comment.comment_text = text
         comment.updated_at = datetime.now(UTC)
         return self._repo.update_comment(comment_key, comment)
 
     def delete_comment(self, task_key: str, comment_key: str, *, tenant_key: str) -> bool:
         self.get_task(task_key, tenant_key=tenant_key)  # ensure task exists and belongs to the tenant
+        self._task_comment(task_key, comment_key)
+        return self._repo.delete_comment(comment_key)
+
+    def _task_comment(self, task_key: str, comment_key: str) -> TaskComment:
+        """The comment ``comment_key`` of ``task_key`` — 404 for an absent one *and* another task's (MT-045.7).
+
+        The task is already scoped to the caller's tenant; the comment is loaded by key
+        alone. Answering another task's comment with a 422 ("does not belong") told it
+        apart from a missing key — an existence oracle over every tenant's comments.
+        """
         comment = self._repo.get_comment_or_raise(comment_key)
         if comment.task_key != task_key:
-            raise ValidationError("Comment does not belong to this task.")
-        return self._repo.delete_comment(comment_key)
+            raise NotFoundError("TaskComment", comment_key)
+        return comment
 
     # ── Audit / History ──
 

@@ -39,7 +39,11 @@ _ENTRIES = {"verify", "issue_code", "admit_reauth", "issue_reauth_token"}
 #: 11 at #1884; 13 since #2009 (``TenantService.admin_update_tenant`` / ``admin_remove_membership``);
 #: 16 since #2032 (``admin_change_membership_role``, ``change_member_role``, ``remove_member``);
 #: 17 since #2106 (``admin_add_membership``).
-EXPECTED_CALL_SITES = 21  # +1 tenant_erasure_cancel (#2123); +3 service_account_change (#2137: create, rotate, remove)
+EXPECTED_CALL_SITES = (
+    22  # +1 tenant_erasure_cancel (#2123); +3 service_account_change (#2137: create, rotate, remove);
+    # +1 change_member_scopes (MT-045.2, #2144: the scope change passes tenant_member_role_change, bound to the
+    # membership — the credential-change guard counts it as before, now gated instead of classified)
+)
 
 
 def _receiver_spelling(node: ast.expr) -> str:
