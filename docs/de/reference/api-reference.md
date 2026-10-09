@@ -900,8 +900,10 @@ Erfordert ein gültiges JWT-Token und mindestens die Mandanten-Rolle **grower**.
 | HTTP-Status | Bedeutung |
 |-------------|----------|
 | `403` | Aktive Mandanten-Rolle unterhalb **grower** (z. B. **viewer**) |
+| `403` | Einwilligung `reference_contribution` fehlt oder wurde widerrufen (`CONSENT_REQUIRED`) |
 | `404` | `species_key` verweist auf keine bekannte Art |
 | `409` | Selbst-gehostete Erkennung ist nicht aktiviert (`INFERENCE_SERVICE_ENABLED=false`) |
+| `409` | Im Light-Modus ist der Beitrag abgeschaltet (REQ-034 §4.1) |
 | `413` | Bild überschreitet `IDENTIFICATION_MAX_IMAGE_SIZE_MB` |
 | `415` | `Content-Type` ist weder `image/jpeg` noch `image/png` |
 | `422` | Bild lässt sich nicht dekodieren (beschädigt oder kein gültiges Bildformat) |
