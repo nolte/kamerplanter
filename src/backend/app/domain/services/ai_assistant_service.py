@@ -540,17 +540,25 @@ class AiAssistantService:
         consent ``ai_knowledge_question``; when ``context`` carries any plant
         value, those values leave too and ``ai_tenant_data_access`` is required
         in addition — tenant data never leaves under the question-only consent.
-        Then the provider gate (``ai_cloud_processing`` when a cloud provider is
-        used) and one charge against the daily AI budget — all before the
-        Knowledge Service is called. The router adds the rank and the stage 1/2
-        toggle.
+        Then the provider gate and one charge against the daily AI budget — all
+        before the Knowledge Service is called. The router adds the rank and the
+        stage 1/2 toggle.
+
+        **The provider gate reads the provider that actually answers.** The
+        ``/ask`` request names no provider; the Knowledge Service answers with
+        its own model, whose classification is the platform's system default
+        provider (:meth:`_platform_provider`, the glossary rule of REQ-035 §6).
+        The garden's own provider records play no part in this call, so they
+        neither demand nor waive anything. When the platform model is a cloud
+        LLM, the garden must allow cloud providers (``ai_allow_cloud_providers``,
+        else ``AiDisabledError`` — the refusal ``_resolve_provider`` gives when
+        it has no local provider to fall back to; here there never is one) and
+        the caller must hold ``ai_cloud_processing``. Audit and answer carry the
+        same classification.
 
         Unlike the tip and "why?" paths there is no rule-based answer to fall
         back on, so an unreachable Knowledge Service is a ``502`` here, audited
         as ``knowledge_service_error``.
-
-        The answer carries the platform's cloud label (:meth:`_platform_provider`),
-        as the glossary does: the Knowledge Service answers with its own model.
         """
         self._consent.require_consent(ctx.user_key, AI_KNOWLEDGE_QUESTION)
         # Decided on what would actually be sent: ``to_ks_payload`` drops unset
@@ -561,7 +569,12 @@ class AiAssistantService:
             self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
         else:
             context = None
-        _provider_key, provider_type, uses_cloud = self._resolve_provider(ctx, None, allow_cloud=allow_cloud)
+        provider_type, uses_cloud = self._platform_provider()
+        if uses_cloud:
+            if not allow_cloud:
+                # No local model to fall back to: the KS model is the platform's.
+                raise AiDisabledError()
+            self._consent.require_consent(ctx.user_key, AI_CLOUD_PROCESSING)
         self._charge(ctx)
         started = time.monotonic()
         try:
@@ -610,12 +623,7 @@ class AiAssistantService:
             status="ok",
             usage=result.usage,
         )
-        platform_provider_type, platform_uses_cloud = self._platform_provider()
-        return KnowledgeAnswer(
-            result=result,
-            provider_type=platform_provider_type,
-            uses_cloud_provider=platform_uses_cloud,
-        )
+        return KnowledgeAnswer(result=result, provider_type=provider_type, uses_cloud_provider=uses_cloud)
 
     # ── Public / Light-mode ask ─────────────────────────────────────────
 

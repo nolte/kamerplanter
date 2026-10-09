@@ -275,19 +275,71 @@ def test_a_single_plant_value_is_plant_context(wired, field: str, value):
     _assert_nothing_spent(wired)
 
 
-def test_a_cloud_provider_additionally_needs_the_cloud_consent(wired):
+def _platform(wired, provider_type: str, *, requires_consent: bool = False) -> None:
+    """The platform's system default provider — the model the Knowledge Service answers with."""
+    wired.providers.get_system_default.return_value = AiProviderConfig(
+        _key="p-system",
+        tenant_key=None,
+        provider_type=provider_type,
+        display_name="Platform",
+        model_name="m",
+        requires_consent=requires_consent,
+    )
+
+
+def _garden_provider(wired, provider_type: str) -> None:
+    wired.providers.get_default.return_value = AiProviderConfig(
+        _key="p-garden", tenant_key=TENANT, provider_type=provider_type, display_name="Garden", model_name="g"
+    )
+
+
+@pytest.mark.parametrize("body", [BODY, QUESTION_ONLY], ids=["with_context", "question_only"])
+def test_a_cloud_platform_model_needs_the_cloud_consent_whatever_the_garden_provider(wired, body: dict):
+    """The question goes to the Knowledge Service's model, not to the garden's
+    provider: a cloud platform model needs ``ai_cloud_processing`` although the
+    garden's own provider is local."""
     _admit(wired)
     wired.state.tenant = _tenant(allow_cloud=True)
-    wired.providers.get_default.return_value = AiProviderConfig(
-        _key="p-cloud", tenant_key=TENANT, provider_type="anthropic", display_name="Cloud", model_name="c"
-    )
+    _platform(wired, "anthropic")
+    _garden_provider(wired, "ollama")
+
+    resp = wired.client.post(ASK, json=body)
+
+    assert resp.status_code == 403
+    assert resp.json()["error_code"] == "CONSENT_REQUIRED"
+    assert resp.json()["details"][0]["purpose"] == AI_CLOUD_PROCESSING
+    _assert_nothing_spent(wired)
+
+
+def test_a_garden_that_forbids_cloud_refuses_a_cloud_platform_model(wired):
+    """No bypass of ``ai_allow_cloud_providers``: there is no local model to fall
+    back to, so the refusal ``_resolve_provider`` gives without one — even with
+    the cloud consent granted."""
+    _admit(wired)
+    _grant(wired, AI_CLOUD_PROCESSING)
+    wired.state.tenant = _tenant(allow_cloud=False)
+    _platform(wired, "anthropic")
 
     resp = wired.client.post(ASK, json=BODY)
 
     assert resp.status_code == 403
-    assert resp.json()["error_code"] == "CONSENT_REQUIRED"
-    assert (USER, AI_CLOUD_PROCESSING) in wired.consent_repo.reads
+    assert resp.json()["error_code"] == "AI_DISABLED_FOR_TENANT"
     _assert_nothing_spent(wired)
+
+
+def test_a_local_platform_model_needs_no_cloud_consent_whatever_the_garden_provider(wired):
+    """The garden's cloud provider is not asked by this call, so it demands nothing."""
+    _admit(wired)
+    wired.state.tenant = _tenant(allow_cloud=True)
+    _platform(wired, "ollama")
+    _garden_provider(wired, "anthropic")
+
+    resp = wired.client.post(ASK, json=BODY)
+
+    assert resp.status_code == 200, resp.text
+    assert (USER, AI_CLOUD_PROCESSING) not in wired.consent_repo.reads
+    assert resp.json()["uses_cloud_provider"] is False
+    assert wired.audit_repo.create.call_args.args[0].uses_cloud_provider is False
 
 
 def test_the_call_past_the_daily_budget_is_refused_before_the_llm(wired, monkeypatch):
@@ -435,25 +487,22 @@ def test_an_admitted_question_is_answered_and_charged_once(wired):
     ("provider_type", "requires_consent", "uses_cloud"),
     [("anthropic", False, True), ("ollama", True, True), ("ollama", False, False)],
 )
-def test_the_answer_carries_the_platform_cloud_label(wired, provider_type, requires_consent, uses_cloud):
+def test_the_answer_and_the_audit_carry_the_platform_cloud_label(wired, provider_type, requires_consent, uses_cloud):
     """The Knowledge Service answers with its own model, so the label is the
-    platform's system default provider — the glossary rule (REQ-035 §6) — not
-    the asking tenant's records, which stay local here."""
+    platform's system default provider — the glossary rule (REQ-035 §6) — and
+    the audit entry records the same value as the answer."""
     _admit(wired)
-    wired.providers.get_system_default.return_value = AiProviderConfig(
-        _key="p-system",
-        tenant_key=None,
-        provider_type=provider_type,
-        display_name="Platform",
-        model_name="m",
-        requires_consent=requires_consent,
-    )
+    _grant(wired, AI_CLOUD_PROCESSING)
+    wired.state.tenant = _tenant(allow_cloud=True)
+    _platform(wired, provider_type, requires_consent=requires_consent)
 
     resp = wired.client.post(ASK, json=BODY)
 
     assert resp.status_code == 200, resp.text
     assert resp.json()["provider_type"] == provider_type
     assert resp.json()["uses_cloud_provider"] is uses_cloud
+    entry = wired.audit_repo.create.call_args.args[0]
+    assert (entry.provider_type, entry.uses_cloud_provider) == (provider_type, uses_cloud)
 
 
 def test_an_unreachable_knowledge_service_is_a_502_and_audited(wired):

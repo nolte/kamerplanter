@@ -245,6 +245,8 @@ Sobald eine Antwort deinen konkreten Pflanzenkontext nutzen soll — beim Chat, 
 
 Zusätzlich zur vorherigen Einwilligung erforderlich, wenn deine Instanz einen externen Cloud-Provider (z. B. Anthropic, OpenAI) statt eines lokal betriebenen Modells (Ollama) für den KI-Assistenten einsetzt — das legt der Plattformbetreiber fest. Cloud-Provider können eine Drittland-Datenübermittlung bedeuten. Lokale Provider benötigen diese Einwilligung nicht.
 
+Für die Wissensfrage zählt das Modell, mit dem die Wissensbasis antwortet — also das, was der Plattformbetreiber eingestellt hat, nicht der Provider deines Gartens. Ist das ein Cloud-Modell, brauchst du diese Einwilligung zusätzlich zu `ai_knowledge_question`, und dein Garten muss Cloud-Provider erlauben; sonst wird die Frage abgelehnt, bevor sie die Instanz verlässt.
+
 ### Tagebuch-Einträge zur KI-Analyse freigeben (diary_ai_analysis)
 
 Erlaubt dir, einzelne [Tagebuch-Einträge](plant-diary.md) samt Freitext und Fotos zur Analyse freizugeben. Die Analyse führt ein KI-Agent aus, den **du selbst** betreibst und der die Daten über deinen eigenen API-Schlüssel abruft — Kamerplanter selbst ruft dabei **kein** Sprachmodell auf. Es wird nie automatisch etwas analysiert: Jeden einzelnen Eintrag musst du selbst markieren. Übertragen werden ausschließlich verkleinerte Bildfassungen ohne Aufnahmeort und Gerätekennung.

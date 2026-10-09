@@ -245,6 +245,8 @@ Only master values are transmitted: scientific plant name, current phase, substr
 
 Required in addition to the previous consent when your instance uses an external cloud provider (e.g. Anthropic, OpenAI) instead of a locally run model (Ollama) for the AI Assistant — this is decided by the platform operator. Cloud providers may involve a third-country data transfer. Local providers do not need this consent.
 
+For the knowledge question, what counts is the model the knowledge base answers with — the one the platform operator configured, not your garden's provider. If that is a cloud model, you need this consent in addition to `ai_knowledge_question`, and your garden must allow cloud providers; otherwise the question is refused before it leaves the instance.
+
 ### Releasing Diary Entries for AI Analysis (diary_ai_analysis)
 
 Lets you release individual [diary entries](plant-diary.md), including free text and photos, for analysis. The analysis is performed by an AI agent that **you** operate yourself, which fetches the data using your own API key — Kamerplanter itself never calls a language model. Nothing is ever analysed automatically: you have to mark every single entry yourself. Only downscaled image renditions without capture location or device identifier are transmitted.
