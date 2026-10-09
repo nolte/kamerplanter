@@ -278,7 +278,7 @@ Prüfe gegen den Soll-Zustand aus REQ-024:
 - Werden API-Keys in Logs oder Error-Responses maskiert?
 
 #### Zugriffskontrolle auf Knowledge API
-- Sind die Knowledge-Endpunkte (`/api/v1/knowledge/search`, `/api/v1/knowledge/ask`) als **öffentlich** markiert und begründet?
+- Ist die Wissenssuche (`/api/v1/knowledge/search`, ohne LLM) als angemeldet-pflichtig markiert, und liegt die LLM-Wissensfrage (`/api/v1/t/{slug}/ai/knowledge/ask`) hinter Rolle, KI-Schaltern, Einwilligung und Tagesbudget (REQ-031 §5.1)? Öffentlich ist nur `/api/v1/public/ai/ask`.
 - Falls öffentlich: Rate Limiting ausreichend um Missbrauch (LLM-Cost-Inflation) zu verhindern?
 - Werden LLM-Kosten pro Tenant/User begrenzt oder überwacht?
 
