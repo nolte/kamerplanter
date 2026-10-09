@@ -20,7 +20,7 @@ from app.api.v1.glossar.admin_router import router as admin_router
 from app.api.v1.glossar.public_router import router as public_router
 from app.api.v1.glossar.router import router as tenant_router
 from app.common.auth import get_current_tenant, require_platform_admin
-from app.common.dependencies import get_glossary_service, get_glossary_term_repo
+from app.common.dependencies import get_glossary_service, get_glossary_term_repo, get_tenant_repo
 from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError, ValidationError
@@ -30,6 +30,7 @@ from app.domain.models.glossary_term import (
     GlossaryTermAnswer,
     GlossaryTermSummary,
 )
+from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_context import TenantContext
 
 
@@ -57,7 +58,25 @@ def _answer(slug: str = "vpd", *, is_fallback: bool = False) -> GlossaryTermAnsw
     )
 
 
-def _build_app(service: MagicMock) -> FastAPI:
+class _TenantRepo:
+    """The one tenant lookup the REQ-031 stage-2 gate makes — the garden's KI switch."""
+
+    def __init__(self, *, ai_enabled: bool) -> None:
+        self._tenant = Tenant(
+            _key="home",
+            name="Home",
+            slug="home",
+            owner_user_key="anna",
+            settings={"ai_features_enabled": ai_enabled},
+        )
+        self.reads: list[str] = []
+
+    def get_by_key(self, key: str) -> Tenant | None:
+        self.reads.append(key)
+        return self._tenant if key == self._tenant.key else None
+
+
+def _build_app(service: MagicMock, *, tenant_ai_enabled: bool = True) -> FastAPI:
     app = FastAPI()
     app.state.limiter = limiter
     app.include_router(tenant_router, prefix="/api/v1/t/{tenant_slug}")
@@ -70,6 +89,9 @@ def _build_app(service: MagicMock) -> FastAPI:
     app.dependency_overrides[get_current_tenant] = _ctx
     app.dependency_overrides[require_platform_admin] = lambda: SimpleAdmin()
     app.dependency_overrides[get_glossary_service] = lambda: service
+    tenant_repo = _TenantRepo(ai_enabled=tenant_ai_enabled)
+    app.dependency_overrides[get_tenant_repo] = lambda: tenant_repo
+    app.state.tenant_repo = tenant_repo
     return app
 
 
@@ -121,6 +143,53 @@ def test_tenant_generate_term_forwards_the_tenant_context(service) -> None:
     assert service.generate_term.await_args.kwargs["tenant_key"] == "home"
     # The principal the consent gate and the AI budget (#2110) are charged to.
     assert service.generate_term.await_args.kwargs["user_key"]
+
+
+# ── Garden KI switch (REQ-031 §1.3 stage 2, operator decision 2026-10-09) ──
+
+
+def test_generate_with_the_garden_switch_off_answers_403_before_generating(service) -> None:
+    """A garden that turned KI off spends no LLM call, no budget, no cache lookup."""
+    app = _build_app(service, tenant_ai_enabled=False)
+
+    resp = TestClient(app).post("/api/v1/t/home/glossary/term/vpd/generate")
+
+    assert resp.status_code == 403
+    assert resp.json()["error_code"] == "AI_DISABLED_FOR_TENANT"
+    # The refusal is the garden switch answering, not something else refusing.
+    assert app.state.tenant_repo.reads == ["home"]
+    service.generate_term.assert_not_awaited()
+
+
+def test_generate_with_the_operator_flag_off_answers_404(service, monkeypatch) -> None:
+    """Stage 1 comes first: with KI off installation-wide the route looks non-existent."""
+    monkeypatch.setattr(settings, "ai_features_enabled", False)
+
+    resp = TestClient(_build_app(service)).post("/api/v1/t/home/glossary/term/vpd/generate")
+
+    assert resp.status_code == 404
+    service.generate_term.assert_not_awaited()
+
+
+def test_generate_with_the_garden_switch_on_generates(service) -> None:
+    """The control: the two refusals above would also hold for a route that refuses everything."""
+    resp = TestClient(_build_app(service, tenant_ai_enabled=True)).post("/api/v1/t/home/glossary/term/vpd/generate")
+
+    assert resp.status_code == 200
+    service.generate_term.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/api/v1/t/home/glossary/terms", "/api/v1/t/home/glossary/term/vpd", "/api/v1/public/glossary/term/vpd"],
+    ids=["tenant-terms", "tenant-term", "public-term"],
+)
+def test_reads_stay_open_with_the_garden_switch_off(service, path) -> None:
+    """Only generate is behind stage 2; reading terms and cached explanations is not."""
+    app = _build_app(service, tenant_ai_enabled=False)
+
+    assert TestClient(app).get(path).status_code == 200
+    assert app.state.tenant_repo.reads == []
 
 
 def test_the_public_router_offers_no_generate_route(service) -> None:

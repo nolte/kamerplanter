@@ -19,9 +19,21 @@ inference service (REQ-044 §8, Default-Privacy). Provenance is recorded as
 Hard guards (a routine miss is a clean no-op, never an exception into Celery):
 
   Guard 1  ``settings.pest_detection_enabled``        → else no-op (Default-Privacy)
-  Guard 2  contribution exists                        → else no-op
-  Guard 3  the pest carries a ``detection_slug``      → else no-op (no class ⇒
+  Guard 2  NOT light mode (REQ-027)                   → else no-op (no consent
+           subsystem exists there, so no contributor can have opted in)
+  Guard 3  contribution exists                        → else no-op
+  Guard 4  the contributor (``contributed_by``) holds the ``reference_contribution``
+           consent (REQ-025, REQ-044 §3.4 "mit Consent")  → else no-op
+  Guard 5  the pest carries a ``detection_slug``      → else no-op (no class ⇒
            no embedding target; the gallery image stays untouched)
+
+Guard 4 is evaluated at index time, not at promotion time: the promotion is an
+admin's curation decision and stays in force without the consent (the image
+remains globally visible in the gallery); only the training/recognition use of
+the contributor's image needs the contributor's own opt-in. The contributor is
+read from the stored contribution rather than threaded through ``.delay(...)``
+— the task reloads the document anyway, and an in-flight message must not be
+able to name a different person than the document does.
 
 The recognition label is the pest's ``detection_slug``, which maps 1:1 to a
 :class:`PestTaxon.slug` (the recognition class). Without it the image cannot be
@@ -38,6 +50,8 @@ import structlog
 from app.common.async_bridge import run_async
 from app.common.dependencies import (
     get_attachment_service,
+    get_consent_engine,
+    get_consent_repo,
     get_ipm_service,
     get_pest_image_repo,
     get_pest_inference_client,
@@ -47,6 +61,7 @@ from app.common.dependencies import (
 from app.common.enums import PestImageStatus
 from app.common.exceptions import KamerplanterError
 from app.config.settings import settings
+from app.domain.engines.consent_engine import REFERENCE_CONTRIBUTION
 from app.domain.models.pest_taxonomy import get_taxon
 from app.tasks import celery_app
 
@@ -95,14 +110,37 @@ def _resolve_label_and_category(pest_key: str) -> tuple[str, str] | None:
     return taxon.slug, taxon.category.value
 
 
+def _contributor_consented(contributor_key: str) -> bool:
+    """Whether the contributing person opted in to ``reference_contribution`` (REQ-025).
+
+    A missing record (never asked, or an unknown / erased person) and a revoked
+    record (``granted=False`` + ``revoked_at``) both refuse.
+    """
+    if not contributor_key.strip():
+        return False
+    record = get_consent_repo().get_by_user_and_purpose(contributor_key, REFERENCE_CONTRIBUTION)
+    return get_consent_engine().is_processing_allowed(REFERENCE_CONTRIBUTION, record)
+
+
 def _index_promoted(contribution_key: str) -> dict:
     """Upsert a promoted contribution's image as a user-contributed prototype."""
     if not settings.pest_detection_enabled:
         return {"status": "noop", "reason": "pest_detection_disabled"}
 
+    # REQ-027 — Light mode has no consent subsystem, so no contributor can have
+    # opted in; the image may be promoted but is never indexed there.
+    if settings.kamerplanter_mode == "light":
+        return {"status": "noop", "reason": "light_mode"}
+
     contribution = get_pest_image_repo().get_by_key(contribution_key)
     if contribution is None:
         return {"status": "noop", "reason": "contribution_not_found"}
+
+    # REQ-044 §3.4 — the data set is built from user images "mit Consent": the
+    # contributor's own ``reference_contribution`` opt-in, checked before any
+    # byte is read, the marker is written or the inference service is called.
+    if not _contributor_consented(contribution.contributed_by):
+        return {"status": "noop", "reason": "no_consent"}
 
     resolved = _resolve_label_and_category(contribution.pest_key)
     if resolved is None:

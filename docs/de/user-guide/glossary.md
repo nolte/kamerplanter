@@ -10,6 +10,7 @@ Das Fachbegriff-Glossar erklärt dir Begriffe wie VPD, EC oder Karenzzeit direkt
 - Eine Anmeldung ist **nicht** nötig: Das Glossar ist reine Wissensvermittlung ohne Bezug zu deinen konkreten Pflanzen und deshalb auch im anonymen [Light-Modus](light-mode.md) nutzbar.
 - Nutzt die Instanz als Standard einen Cloud-Provider statt eines lokalen Modells, brauchst du zum **Erzeugen** einer neuen Erklärung zusätzlich deine Einwilligung „KI-Verarbeitung über Cloud-Provider" — siehe [Einwilligung erteilen](ai-assistant.md#einwilligung-erteilen). Maßgeblich ist der Standard-Provider der Instanz, nicht der deines Gartens: Eine Erklärung wird einmal erzeugt und allen Gärten gezeigt. Das Lesen einer vorhandenen Erklärung braucht keine Einwilligung. Im Light-Modus entfällt das, da dort ausschließlich lokal verarbeitet wird.
 - Das Erzeugen einer neuen Erklärung zählt zu deinem täglichen Kontingent an KI-Anfragen, wie beim [KI-Assistenten](ai-assistant.md). <!-- #2110 -->
+- Zum **Erzeugen** einer neuen Erklärung muss außerdem dein Garten KI-Funktionen freigeschaltet haben — dieselbe Garten-Freischaltung wie für den [KI-Chat](ai-assistant.md#fuer-technische-nutzer-self-hoster). Ist sie aus, lehnt Kamerplanter das Erzeugen ab („Die KI-Funktionen sind für diesen Garten aktuell deaktiviert."). Begriffe und schon vorbereitete Erklärungen lesen kannst du trotzdem.
 
 ## Das Glossar durchsuchen
 
@@ -43,7 +44,7 @@ Das Aufrufen eines Begriffs kostet nichts und stößt keine KI-Anfrage an: Das G
 Vorbereitet werden die Erklärungen an zwei Stellen:
 
 - **automatisch**, nachdem der Betreiber die Wissensbasis neu eingelesen hat. Dabei wird der Zwischenspeicher geleert und im Hintergrund für den gesamten Begriffskatalog neu befüllt.
-- **auf Anforderung**, wenn jemand mit der Rolle Gärtner:in oder Leitung in seinem Garten eine Erklärung erzeugen lässt. Betrachter:innen und anonyme Besucher:innen können das nicht auslösen.
+- **auf Anforderung**, wenn jemand mit der Rolle Gärtner:in oder Leitung in einem Garten mit freigeschalteten KI-Funktionen eine Erklärung erzeugen lässt. Betrachter:innen, anonyme Besucher:innen und Gärten ohne KI-Freischaltung können das nicht auslösen.
 
 Das ist Absicht: Jede KI-Erklärung kostet den Betreiber der Installation Rechenzeit oder Geld. Vorher entschied der erste Mensch, der einen Begriff anklickte, wann diese Kosten anfielen — im anonymen Light-Modus also jemand ganz ohne Konto. <!-- #1460 -->
 
@@ -62,7 +63,7 @@ Das Glossar ist eine der wenigen Funktionen, die vollständig ohne Benutzerkonto
 
 ## Für technische Nutzer / Self-Hoster {#fuer-technische-nutzer-self-hoster}
 
-Das Glossar nutzt dieselbe instanzweite KI-Freischaltung wie der [KI-Assistent](ai-assistant.md#fuer-technische-nutzer-self-hoster) (`AI_FEATURES_ENABLED=true`), aber **nicht** die zusätzliche Garten-Freischaltung (Stufe 2) — es braucht also keine mandantenseitige Aktivierung von KI-Funktionen, weil es keine Pflanzendaten verwendet. Details zur Umgebungsvariable stehen unter [Umgebungsvariablen — KI-Assistent](../reference/environment-variables.md#ki-assistent).
+Das Glossar nutzt dieselbe instanzweite KI-Freischaltung wie der [KI-Assistent](ai-assistant.md#fuer-technische-nutzer-self-hoster) (`AI_FEATURES_ENABLED=true`), Die zusätzliche Garten-Freischaltung (Stufe 2, `tenant.settings.ai_features_enabled`) prüft nur das **Erzeugen** (`POST /api/v1/t/{slug}/glossary/term/{slug}/generate`): Ist sie aus, antwortet die Route mit `403` (`AI_DISABLED_FOR_TENANT`), bevor Zwischenspeicher, Tageskontingent oder Sprachmodell berührt werden; ist schon die instanzweite Freischaltung aus, antwortet sie mit `404`. Lesen (Begriffsliste, einzelne Begriffe, öffentliche Routen) braucht keine Garten-Freischaltung, weil dabei keine KI-Anfrage entsteht. Details zur Umgebungsvariable stehen unter [Umgebungsvariablen — KI-Assistent](../reference/environment-variables.md#ki-assistent).
 
 Ist der **System-Standard-Provider der Instanz** (Provider-Eintrag ohne Mandant) ein Cloud-Provider, greift beim Erzeugen die reguläre Einwilligungsprüfung „KI-Verarbeitung über Cloud-Provider" (`ai_cloud_processing`). Der Standard-Provider eines einzelnen Gartens spielt dafür keine Rolle, weil eine Erklärung einmal erzeugt und allen Gärten ausgeliefert wird; ihr Cloud-Hinweis steht am gespeicherten Eintrag. Welches Sprachmodell tatsächlich antwortet, legt der Knowledge Service über seine eigene Umgebung fest (`LLM_PROVIDER`) <!-- #2110 --> — siehe [Datenschutz & DSGVO](privacy.md#fuer-technische-nutzer-self-hoster). Fehlt die Einwilligung oder lässt sich der zugehörige Nutzer nicht zweifelsfrei bestimmen, wird die Anfrage sicherheitshalber abgelehnt statt lokal umgeleitet.
 
