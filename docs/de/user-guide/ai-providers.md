@@ -263,7 +263,7 @@ LLM_MODEL=<Modellname>
 
 Der Knowledge-Service verwendet zum jetzigen Zeitpunkt **genau einen** konfigurierten Provider (`LLM_PROVIDER`) — es gibt keine Mehrfach-Konfiguration mit automatischem Failover zwischen mehreren Cloud-/Lokal-Providern.
 
-Falls kein Provider erreichbar ist oder `POST /api/v1/knowledge/ask` fehlschlägt, greift der **regelbasierte Fallback** für Tipp-Karten (sobald diese Funktion verfügbar ist): Das System generiert Tipp-Karten auf Basis der Stammdaten und der aktuellen Phase — ohne Sprachmodell.
+Falls kein Provider erreichbar ist oder der Knowledge-Service nicht antwortet, greift der **regelbasierte Fallback** für Tipp-Karten (sobald diese Funktion verfügbar ist): Das System generiert Tipp-Karten auf Basis der Stammdaten und der aktuellen Phase — ohne Sprachmodell.
 
 ---
 

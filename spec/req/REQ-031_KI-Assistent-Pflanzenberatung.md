@@ -7,7 +7,7 @@ Kategorie: KI & Beratung
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Celery, ArangoDB, Redis, PostgreSQL 17 + pgvector 0.8, ONNX Embedding Service, bge-reranker-v2-m3, React 19, TypeScript 5.9, MUI 7, Ollama / Anthropic / OpenAI-kompatible APIs
 Status: Entwurf
-Version: 2.4 (§3.1 `Tenant.settings` typisiert, #2144); 2.3 (KI-Budget pro Konto und Tenant, #2110)
+Version: 2.5 (Wissensfrage `POST /t/{slug}/ai/knowledge/ask` hinter der KI-Zulassung, #2175); 2.4 (§3.1 `Tenant.settings` typisiert, #2144); 2.3 (KI-Budget pro Konto und Tenant, #2110)
 Abhängigkeit: REQ-001 v5.0 (Stammdaten), REQ-003 v1.0 (Phasensteuerung), REQ-004 v3.1 (Düngung), REQ-005 v2.3 (Sensorik), REQ-006 v2.7 (Aufgabenplanung), REQ-009 v1.0 (Dashboard), REQ-011 v1.0 (Adapter-Pattern), REQ-013 v2.0 (Pflanzdurchlauf), REQ-021 v1.0 (Erfahrungsstufen), REQ-022 v2.4 (Pflegeerinnerungen), REQ-023 v1.7 (Auth), REQ-024 v1.4 (Mandantenverwaltung), REQ-025 v1.0 (DSGVO), REQ-027 v1.2 (Light-Modus), NFR-007 (LLM-Sicherheit), NFR-011 (Retention)
 Wird benoetigt von: REQ-033 v1.1 (MCP-Server), REQ-035 (Fachbegriff-Glossar), REQ-036 (Diagnose-Assistent)
 ```
@@ -21,6 +21,7 @@ Wird benoetigt von: REQ-033 v1.1 (MCP-Server), REQ-035 (Fachbegriff-Glossar), RE
 | 2.2 | 2026-04-27 | **W-011 (KI-Fallback offline):** §1 Klarstellung — regelbasierte Fallback-Tipps gelten **backend-seitig** bei Knowledge-Service-Ausfällen, nicht für Frontend-Offline-Phasen. Frontend-Offline behandelt KI-Features als Online-only (UI-NFR-012 R-042a). Verhindert Drift durch dupliziertes Mini-Regelwerk im Frontend. |
 | 2.3 | 2026-10-05 | **KI-Budget (#2110, MT-013):** §3.4 neu — jeder Aufruf, der ein LLM anspricht (Tipps, Tagestipp, „Warum?“, Chat-Nachricht, Glossar-Generierung auf dem Tenant-Pfad, KI-Diagnose REQ-036), belastet vor dem Aufruf ein Tagesbudget pro (Tenant, Konto), pro Tenant und ein Token-Budget pro Tenant (Valkey, UTC-Tag); darüber `429 AI_BUDGET_EXCEEDED` mit `Retry-After` bis Tagesende, bei nicht erreichbarem Zähler `503 AI_BUDGET_UNAVAILABLE` (fail-closed). Dazu das Minutenbudget `RATE_LIMIT_INFERENCE` je Konto auf allen generierenden Routen. `ai_audit_log` (§3.1) trägt `prompt_tokens`/`completion_tokens` — die Kosten eines Tenants sind zählbar. Chat (§5.4) prüft Consent, Provider und Budget vor dem Stream. DoD (§11) um das Budget ergänzt. |
 | 2.4 | 2026-10-09 | **#2144 (MT-056):** §3.1 — das `settings`-Sub-Objekt ist im Backend ein typisiertes Modell (`TenantSettings`) mit den vier Flags und ihren Defaults statt eines freien Dicts. Ein gespeichertes `"false"` gilt als aus (vorher machte `bool("false")` daraus *an*); ein Wert, der kein Flag ist, wird abgelehnt; Schlüssel, die das Modell nicht kennt, bleiben erhalten (keine Datenmigration). |
+| 2.5 | 2026-10-09 | **#2175 (Wissensfrage hinter der KI-Zulassung):** `POST /api/v1/knowledge/ask` beantwortete jedem angemeldeten Konto (auch Betrachtern und Service Accounts) eine Frage mit einem LLM-Aufruf — ohne Toggle, ohne Consent, ohne Tagesbudget, weil die Route keinen Tenant kannte. Entfernt (kein Alias). Nachfolger ist `POST /api/v1/t/{slug}/ai/knowledge/ask` (§5.1, gleicher Body) mit derselben Zulassung wie Chat: ab Gärtner, Stufe 1/2 des Toggles, Consent `ai_tenant_data_access` (+ ggf. `ai_cloud_processing`), Tagesbudget §3.4 — alles vor dem Knowledge-Service-Aufruf. §7.1: die consent-freie Wissensfrage ist nur noch die ohne Tenant und ohne Konto (`/public/ai/ask`, Glossar). DoD-Punkt und Szenario 15 ergänzt. `GET /api/v1/knowledge/search` (kein LLM) bleibt. |
 | 2.1 | 2026-04-27 | **ADR-002 (W-006 Tenant-Species im KI-Kontext):** Genus/Family-Fallback in `AiContextBuilder.resolve_species_for_ks()` ergaenzt — tenant-eigene Species werden via `parent_species_key` → Genus → Family auf KS-aufloesbare Werte gemappt. `QuestionContext` erweitert um `cultivar_hint` und `confidence`-Felder. Antwortstruktur (§5.5) liefert `confidence`, `fallback_species`, `cultivar_hint` an Frontend. `<AIResponse>`-Komponente bekommt sichtbares Confidence-Badge bei `low`. |
 
 ## 1. Business Case
@@ -415,6 +416,7 @@ Jeder Aufruf, der ein LLM anspricht, belastet **vor** dem Aufruf drei Tageszähl
 - **Fail-closed:** Ist Valkey nicht erreichbar, läuft kein LLM-Aufruf (`503 AI_BUDGET_UNAVAILABLE`) — unabhängig vom Provider. Begründung (gemessen, #2110): Das Backend kann nicht feststellen, welches Modell antwortet. Der Knowledge Service wählt sein LLM aus seiner eigenen Umgebung; die `/ask`-Anfrage nennt keinen Provider und die Antwort meldet keinen. Ein Ausfall des Zählers darf weder zu unbegrenzten Kosten (Cloud) noch zu einer unbegrenzten GPU-Warteschlange (Ollama) werden.
 - **Minutenbudget:** Zusätzlich trägt jede generierende Route das Konto-Limit `RATE_LIMIT_INFERENCE` (Default `20/minute`, slowapi, `user_rate_limit_key`).
 - **Nicht belastet:** Lesende Routen (gespeicherte Tipps, Glossar-Lesepfad), der Glossar-Warm-up-Task (Plattform-Generierung, durch den kuratierten Katalog begrenzt) und `POST /public/ai/ask` (anonym, Light-Modus; trägt das Adress-Limit `AI_PUBLIC_RATE_LIMIT_PER_MIN`).
+- **Wissensfrage (#2175):** `POST /t/{slug}/ai/knowledge/ask` belastet das Budget wie eine Chat-Nachricht. Die frühere tenantlose Route `POST /api/v1/knowledge/ask` konnte kein Budget tragen (kein Tenant) und ist entfernt.
 - **Kosten zählbar:** Die Tageszähler je Tenant sind über `AiCallBudget.usage()` lesbar; jeder auditierte Aufruf trägt seine Tokens im `ai_audit_log` (Retention 30 Tage). Pläne/Quoten pro Tenant (MT-049) setzen hierauf auf.
 
 ## 4. Technische Umsetzung (Backend)
@@ -672,6 +674,14 @@ Folgen für die Antworten:
 | `POST` | `/conversations/{key}/messages` | Nachricht senden (SSE Streaming) | Ab Gärtner | `ai_tenant_data_access` (+ ggf. `ai_cloud_processing`) |
 | `DELETE` | `/conversations/{key}` | DSGVO Art. 17, sofortige Loeschung | Ab Gärtner | — |
 
+**Wissensfrage (#2175):**
+
+| Methode | Pfad | Beschreibung | Berechtigung | Consent |
+|---------|------|-------------|--------------|---------|
+| `POST` | `/knowledge/ask` | Freie Frage an die Wissensbasis (RAG + LLM). Body: `{ question, top_k?, doc_language?, prompt_language?, context?: { species, phase, substrate, ec, ph } }`; Antwort: `{ answer, question_type, model, usage, sources[] }`. Kein Fallback: Knowledge Service nicht erreichbar -> `502` | Ab Gärtner | `ai_tenant_data_access` (+ ggf. `ai_cloud_processing`) |
+
+Ersetzt `POST /api/v1/knowledge/ask` (entfernt, kein Alias). Die Zulassung laeuft vollstaendig **vor** dem Knowledge-Service-Aufruf, in dieser Reihenfolge: Rang (Betrachter `403`), Stufe 1 (`404`), Stufe 2 (`403 ai.disabled_for_tenant`), Consent (`403 consent_required`), Provider-Gate, Tagesbudget §3.4 (`429`/`503`); dazu das Minutenbudget `RATE_LIMIT_INFERENCE` je Konto. Der Consent gilt auch ohne `context`: Freitext und Konto verlassen die Installation unter einem Tenant. Die consent-freie Wissensfrage ist `POST /public/ai/ask` (§5.3). Im Light-Modus gibt es keinen Consent-Mechanismus — die Route lehnt dort wie Chat und "Warum?" mit `403` ab.
+
 **Provider-Konfiguration (Tenant-eigene Keys):**
 
 | Methode | Pfad | Beschreibung | Berechtigung |
@@ -863,8 +873,9 @@ Dialog beschreibt jeden Punkt einzeln, mit Checkboxen pro Punkt. Ablehnung eines
 
 | Endpoint-Klasse | Consent | Begruendung |
 |-----------------|---------|-------------|
-| Wissensfrage ohne Tenant-Kontext (Light-Modus, Glossar via REQ-035) | Keiner | Frage und Antwort enthalten keine personenbezogenen Daten |
+| Wissensfrage ohne Tenant und ohne Konto (Light-Modus `/public/ai/ask`, Glossar via REQ-035) | Keiner | Frage und Antwort enthalten keine personenbezogenen Daten |
 | Tipp-Karten, Daily Tip, "Warum?"-Buttons, Chat | `ai_tenant_data_access` | Antwort wird auf Basis der Pflanzdaten des Tenants generiert |
+| Wissensfrage im Tenant (`POST /t/{slug}/ai/knowledge/ask`, #2175) | `ai_tenant_data_access` | Freitext und optionaler Pflanzenkontext (Art, Phase, Substrat, EC, pH) verlassen die Installation, dem Konto und Tenant zugeordnet (Audit) |
 | Nutzung eines Cloud-Providers | `ai_cloud_processing` (zusaetzlich) | Drittland-Datenuebermittlung, nichtlokales Inference-Backend |
 
 Local-Provider (Ollama, llamacpp) erfordern KEIN `ai_cloud_processing`.
@@ -1062,6 +1073,7 @@ Lebt in der Knowledge-Service-Postgres-Instanz, NICHT mehr im TimescaleDB des Ba
 - [ ] **Multilingual-Felder** (`language`, `language_mismatch_warning`) in allen Antworten gesetzt; UI rendert Sprach-Badge.
 - [ ] **Audit-Log** (`ai_audit_log`) fuer jeden KI-Aufruf mit gehashter Frage; KEIN Klartext.
 - [ ] **KI-Budget (§3.4, #2110):** Der 51. LLM-Aufruf eines Kontos in einem Tenant am selben UTC-Tag wird mit `429 AI_BUDGET_EXCEEDED` und `Retry-After` abgelehnt, ohne den Knowledge Service anzusprechen; das Tenant-Budget greift über alle Mitglieder; ein Mitglied über seinem Kontobudget verbraucht das Tenant-Budget nicht; bei nicht erreichbarem Valkey `503 AI_BUDGET_UNAVAILABLE` ohne LLM-Aufruf; Chat-Ablehnungen kommen als HTTP-Status, nicht als abgebrochener Stream; Tokens je Aufruf stehen im `ai_audit_log`.
+- [ ] **Wissensfrage im Tenant (#2175):** `POST /api/v1/knowledge/ask` existiert nicht mehr (`404`); `POST /api/v1/t/{slug}/ai/knowledge/ask` lehnt Betrachter (`403`), Stufe 1 aus (`404`), Stufe 2 aus (`403 ai.disabled_for_tenant`), fehlenden Consent `ai_tenant_data_access` (`403 consent_required`, auch ohne `context`) und ein erschöpftes Tagesbudget (`429 AI_BUDGET_EXCEEDED`) ab, jeweils ohne den Knowledge Service anzusprechen; eine zugelassene Frage belastet das Budget genau einmal. `GET /api/v1/knowledge/search` bleibt unverändert.
 - [ ] **PII-Stripping** im Context-Builder (Test: Tenant-Name, Nutzername, Diary-Freitext erscheinen NIE im Knowledge-Service-Aufruf).
 - [ ] **Graceful Degradation**: Knowledge Service nicht erreichbar -> Backend liefert regelbasierte Fallback-Tipps und HTTP 200 (statt 5xx); im Audit-Log status=`knowledge_service_error`.
 - [ ] **Retention-Tasks**: `cleanup_expired_conversations`, `cleanup_expired_audit_log` laufen taeglich und entfernen abgelaufene Eintraege.
@@ -1271,6 +1283,25 @@ THEN:
   - Antwort enthaelt files=N, chunks=M
   - structlog: "ai_kb_reingest_done", files=N, chunks=M
   - Bei Fehler: Retry maximal 1x mit 30 Min Delay; danach Pager-Alert
+```
+
+**Szenario 15: Wissensfrage im Tenant (#2175)**
+```
+GIVEN: Stufe 1+2 aktiv, User "anna" ist Gärtnerin im Tenant "demo"
+  AND: anna hat Consent ai_tenant_data_access NICHT erteilt
+WHEN: POST /api/v1/t/demo/ai/knowledge/ask { question: "Was ist VPD?" }
+THEN:
+  - HTTP 403 { error_code: "CONSENT_REQUIRED" }
+  - kein Aufruf am Knowledge Service, kein Budget-Zähler erhöht
+WHEN: anna erteilt den Consent und fragt erneut
+THEN:
+  - HTTP 200 { answer, question_type, model, usage, sources }
+  - ai_budget:{tag}:calls:t:demo:u:anna = 1, ai_budget:{tag}:calls:t:demo = 1
+  - ai_audit_log: endpoint="knowledge.ask", nur Frage-Hash
+WHEN: ein Betrachter stellt dieselbe Frage
+THEN: HTTP 403, kein Knowledge-Service-Aufruf
+WHEN: POST /api/v1/knowledge/ask
+THEN: HTTP 404 (Route entfernt)
 ```
 
 ## 12. Migration von v1.0

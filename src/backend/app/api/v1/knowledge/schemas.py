@@ -39,7 +39,7 @@ class KnowledgeSearchResponse(BaseModel):
 
 
 class KnowledgeAskRequest(BaseModel):
-    """Request body for the RAG ask endpoint."""
+    """Request body of ``POST /t/{tenant_slug}/ai/knowledge/ask`` (#2175)."""
 
     question: str = Field(min_length=3, max_length=2000, description="The question to answer")
     top_k: int = Field(default=5, ge=1, le=20, description="Number of context chunks to retrieve")

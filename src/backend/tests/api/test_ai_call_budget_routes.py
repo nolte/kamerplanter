@@ -195,7 +195,19 @@ def _glossary(client: TestClient):
     return client.post(f"/api/v1/t/{TENANT}/glossary/term/vpd/generate")
 
 
-_GENERATING = {"explain": _explain, "tips": _tips, "daily": _daily, "chat": _chat, "glossary": _glossary}
+def _knowledge(client: TestClient):
+    """#2175 — the free-form knowledge question, formerly the ungated ``/api/v1/knowledge/ask``."""
+    return client.post(f"/api/v1/t/{TENANT}/ai/knowledge/ask", json={"question": "What is VPD?"})
+
+
+_GENERATING = {
+    "explain": _explain,
+    "tips": _tips,
+    "daily": _daily,
+    "chat": _chat,
+    "glossary": _glossary,
+    "knowledge": _knowledge,
+}
 
 
 @pytest.mark.parametrize("route", sorted(_GENERATING))

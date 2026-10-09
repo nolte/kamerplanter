@@ -1,9 +1,14 @@
 """REQ-031 §4.3 — ``ConsentGuard`` for stage 3 of the KI feature toggle.
 
-Bridges the REQ-025 consent store to the KI endpoints. A knowledge question
-without tenant context needs no consent; tip cards / daily tip / "why" / chat
-need ``ai_tenant_data_access``; a cloud provider additionally needs
-``ai_cloud_processing`` (§7.1).
+Bridges the REQ-025 consent store to the KI endpoints. Only the knowledge
+questions that carry no tenant and no user — the light-mode
+``POST /public/ai/ask`` and the glossary (REQ-035) — need no consent. Every
+tenant-scoped route that reaches the LLM needs ``ai_tenant_data_access``: tip
+cards, daily tip, "why", chat, and since #2175 also the free-form knowledge
+question (``POST /t/{slug}/ai/knowledge/ask``), whose free text and optional
+plant context leave the installation under a tenant and an account. The
+tenant-less ``POST /api/v1/knowledge/ask`` that needed none is gone. A cloud
+provider additionally needs ``ai_cloud_processing`` (§7.1).
 """
 
 from __future__ import annotations

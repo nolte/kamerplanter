@@ -774,7 +774,7 @@ chunks:
 Der `KnowledgeService` orchestriert die gesamte RAG-Pipeline:
 
 1. **Semantic Search** (`/api/v1/knowledge/search`): Query → Embedding → pgvector Cosine Similarity → Top-K Chunks
-2. **RAG Ask** (`/api/v1/knowledge/ask`): Search + LLM-Generierung mit Kontext-Prompt
+2. **RAG Ask** (`/api/v1/t/{tenant_slug}/ai/knowledge/ask`): Search + LLM-Generierung mit Kontext-Prompt
 
 **System-Prompt-Regeln**:
 - Antwort in der Sprache der Frage (DE/EN)
@@ -787,9 +787,9 @@ Der `KnowledgeService` orchestriert die gesamte RAG-Pipeline:
 | Methode | Pfad | Beschreibung |
 |---------|------|--------------|
 | GET | `/api/v1/knowledge/search?q=...&top_k=5` | Semantische Suche (Chunks) |
-| POST | `/api/v1/knowledge/ask` | RAG-Frage-Antwort mit LLM |
+| POST | `/api/v1/t/{tenant_slug}/ai/knowledge/ask` | RAG-Frage-Antwort mit LLM |
 
-Beide Endpunkte sind **öffentlich** (keine JWT-Authentifizierung erforderlich).
+Die Suche verlangt ein angemeldetes Konto (kein LLM-Aufruf). Die Frage-Antwort-Route liegt seit #2175 im Tenant und hinter der KI-Zulassung von REQ-031 (ab Gärtner, Drei-Stufen-Toggle, Consent `ai_tenant_data_access`, Tagesbudget §3.4); die frühere tenantlose `POST /api/v1/knowledge/ask` ist entfernt. Die anonyme Wissensfrage im Light-Modus ist `POST /api/v1/public/ai/ask`.
 
 #### 3.4.6 RAG Evaluation
 
