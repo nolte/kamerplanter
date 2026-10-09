@@ -189,7 +189,42 @@ python -m app.migrations downgrade --to 0003 --dry-run
 python -m app.migrations current                 # höchste angewandte Version
 python -m app.migrations history                 # angewandte Migrationen + Zeitstempel
 python -m app.migrations create <slug>           # nächste Migration scaffolden
+python -m app.migrations.audit_legacy_stamps     # v0004-Stempel-Audit, nur lesend (MT-052)
 ```
+
+## Historisches Risiko: v0004-Stempel (MT-052, #2144)
+
+`v0004` (`backfill_tenant_key.py`) hat jede Zeile ohne `tenant_key` in 29
+Collections mit dem Schlüssel **eines** Default-Mandanten gestempelt — auch
+globale Kataloge und auch Daten von Personen, die diesem Mandanten nie
+angehörten. Am Schlüssel allein ist ein Stempel nicht von Eigentum zu
+unterscheiden. Stand der Reparaturen:
+
+| Collection(s) | Stempel | Reparatur |
+|---|---|---|
+| `species`, `cultivars` | auf globalen Seeds | `v0036`, `v0038` |
+| `fertilizers`, `nutrient_plans` (+ Phaseneinträge), `workflow_templates`, `task_templates` | auf globalen Seeds | `v0066` (nur seed-belegte Zeilen) |
+| `harvest_indicators` | auf globalen Seeds | `v0070` |
+| `pests`, `diseases`, `treatments` | auf jeder Zeile (Modell hat kein `tenant_key`) | `v0088` entfernt das Attribut |
+| `locations`, `slots` | Schlüssel der Site | `v0087` entfernt das Attribut |
+| mandanteneigene Daten (Tasks, Sites, Pflanzen, …) | auf Daten fremder Autoren möglich | **nicht automatisch reparierbar** |
+
+Die letzte Zeile ist das verbleibende Risiko: Hat eine Installation vor `v0004`
+Daten mehrerer Personen gehalten, gehören deren Zeilen seither dem
+Default-Mandanten. Messen (nur lesend):
+
+```bash
+python -m app.migrations.audit_legacy_stamps --dry-run   # Exit 0: kein Verdacht, 3: Zeilen mit Status "never"
+```
+
+Der Befehl ordnet jede Zeile mit `tenant_key` und Autorenfeld (`created_by`,
+`*_by_key`) ein: `member` (aktive Mitgliedschaft), `former` (inaktive) oder
+`never` (keine Mitgliedschaft im Mandanten der Zeile — der v0004-Verdacht, oder
+ein Mitglied, dessen Mitgliedschaft beim Entfernen gelöscht wurde). Ausgegeben
+werden nur Dokumentschlüssel. Was mit `never`-Zeilen geschieht (umhängen,
+belassen, löschen), ist eine **rechtliche/fachliche Entscheidung** des
+Betreibers — der Befehl ändert nichts, und keine Migration entscheidet das
+automatisch.
 
 ## Concurrency & Ops
 
