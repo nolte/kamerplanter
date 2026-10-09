@@ -48,6 +48,8 @@ Explanations are prepared in two places:
 
 That is deliberate: every AI explanation costs the installation's operator compute time or money. Previously, the first person to click a term decided when that cost was incurred — in anonymous Light Mode, somebody without an account at all. <!-- #1460 -->
 
+You only see the **Generate detailed explanation** button while AI features are available. If Kamerplanter refuses to generate because AI features are switched off for your garden or for the whole installation, the button disappears, for the other terms too, and the reason is shown in its place. Another attempt would be refused the same way. Other errors, such as a used-up daily quota, keep the button so you can try again later.
+
 ## The inline question-mark icon
 
 !!! note "Partially available: question-mark icons on other pages"

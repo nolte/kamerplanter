@@ -3,7 +3,7 @@
 !!! note "Teilweise verfügbar"
     Der KI-Assistent ist als eigene Seite **KI-Assistent** (`/ki-assistent`) nutzbar: Wissensfragen und ein kontextloser Chat funktionieren bereits. Die auf dieser Seite ebenfalls beschriebenen **Tipp-Karten**, der **Tipp des Tages** und die **„Warum?"-Buttons** sind als Bausteine im Frontend bereits gebaut, aber noch auf keiner Pflanzen-, Pflanzdurchlauf- oder Aufgabenseite eingebunden — sie erscheinen dort noch nirgends. Die folgenden zwei Abschnitte beschreiben den heutigen Stand im Präsens, die Abschnitte danach das **geplante Verhalten** im Futur. <!-- REQ-031 -->
 
-Der KI-Assistent beantwortet Wissensfragen zur Pflanzenpflege auf Basis einer kuratierten Wissensbasis — klar als KI-generiert gekennzeichnet, mit Quellenangaben und ohne dass deine persönlichen Daten an ein Sprachmodell übertragen werden.
+Der KI-Assistent beantwortet Wissensfragen zur Pflanzenpflege auf Basis einer kuratierten Wissensbasis — klar als KI-generiert gekennzeichnet und mit Quellenangaben. An das Sprachmodell geht dabei nur der Text deiner Frage, keine Daten deiner Pflanzen.
 
 ---
 
@@ -20,6 +20,8 @@ Diese Wissensfragen sind **rein sachbezogen** — sie beziehen sich nicht auf de
     - „Was ist VPD?"
     - „Wie senke ich den pH-Wert der Nährlösung?"
     - „Was bedeutet Karenzzeit?"
+
+**Einwilligung direkt auf der Seite:** Fehlt dir im Voll-Modus die Einwilligung für Wissensfragen, erscheint nach dem Absenden direkt unter dem Textfeld ein Hinweis, was übertragen wird. Mit **Einwilligen und Frage senden** erteilst du sie, und deine Frage wird gleich gesendet. Mit **Nicht jetzt** bleibt alles, wie es war, und die Frage wird nicht beantwortet. Jede Frage im Voll-Modus zählt zu deinem [Tageskontingent](#tageskontingent). Widerrufen kannst du die Einwilligung jederzeit unter **Datenschutz** im Tab **Einwilligungen** mit **Widerrufen**; der Widerruf gilt ab der nächsten Frage.
 
 ## Kontextbewusster Chat
 
@@ -46,14 +48,15 @@ Reine Wissensfragen ohne Pflanzenbezug (siehe oben) benötigen im Light-Modus nu
 
 ## Einwilligung erteilen {#einwilligung-erteilen}
 
-Zwei Einwilligungen sind für den KI-Assistenten relevant:
+Drei Einwilligungen sind für den KI-Assistenten relevant:
 
 | Einwilligung | Wofür nötig |
 |--------------|-------------|
+| KI-Wissensfrage an die Wissensbasis | Für Wissensfragen auf der Seite **KI-Assistent** im Voll-Modus. Du kannst sie direkt auf der Seite erteilen, wenn du die erste Frage stellst |
 | KI-Zugriff auf deine Pflanzendaten | Für Chat, Tipp-Karten, Tipp des Tages und „Warum?"-Erklärungen — überall dort, wo die Antwort deinen konkreten Pflanzenkontext (Art, Phase, Substrat, EC-/pH-Werte) nutzt |
 | KI-Verarbeitung über Cloud-Provider | Zusätzlich nur nötig, wenn deine Instanz einen Cloud-Provider (statt eines lokalen Modells) einsetzt |
 
-Beide erscheinen im Bereich **Datenschutz** im Tab **Einwilligungen** und lassen sich dort aktuell nur einsehen, nicht per Klick erteilen oder widerrufen — das funktioniert bislang ausschließlich über die API. Details, Wortlaut der Einwilligungstexte und die genaue Klickstrecke stehen in [Datenschutz & DSGVO](privacy.md#einwilligungen-verwalten-art-7-dsgvo).
+Alle drei erscheinen im Bereich **Datenschutz** im Tab **Einwilligungen**. Eine erteilte Einwilligung widerrufst du dort mit **Widerrufen**. Erteilen lässt sich dort keine: Die Wissensfrage-Einwilligung erteilst du auf der Seite **KI-Assistent**, die beiden anderen bislang nur über die API. Details und den Wortlaut der Einwilligungstexte findest du in [Datenschutz & DSGVO](privacy.md#einwilligungen-verwalten-art-7-dsgvo).
 
 ---
 
@@ -134,7 +137,7 @@ Details zu allen KI-Endpunkten (inkl. Chat, Tipps, Erklärungen) stehen in der [
 
 ## Tageskontingent für KI-Anfragen {#tageskontingent}
 
-Jede Anfrage, die ein Sprachmodell anspricht — Tipps oder den Tipp des Tages erzeugen, „Warum?“, eine Chat-Nachricht, eine Glossar-Erklärung erzeugen, eine KI-Diagnose —, zählt zu einem Tageskontingent. Es gibt drei Grenzen, alle pro Kalendertag (UTC):
+Jede Anfrage, die ein Sprachmodell anspricht — eine Wissensfrage im Voll-Modus, Tipps oder den Tipp des Tages erzeugen, „Warum?“, eine Chat-Nachricht, eine Glossar-Erklärung erzeugen, eine KI-Diagnose —, zählt zu einem Tageskontingent. Es gibt drei Grenzen, alle pro Kalendertag (UTC):
 
 - **Dein Kontingent in einem Garten** — standardmäßig 50 Anfragen. Bist du Mitglied in mehreren Gärten, hast du in jedem ein eigenes.
 - **Das Kontingent des Gartens** — standardmäßig 500 Anfragen aller Mitglieder zusammen. Wer an seinem eigenen Kontingent abgewiesen wird, verbraucht das des Gartens nicht.
@@ -151,6 +154,8 @@ Ist eine Grenze erreicht, erklärt dir die Oberfläche, welche — ab Mitternach
 
 Ist die zugrunde liegende Wissensbasis (Knowledge Service) nicht erreichbar, liefert der KI-Assistent statt eines Fehlers eine regelbasierte Antwort ohne Sprachmodell — die Anwendung bleibt nutzbar, die Qualität der Antwort ist dann aber geringer.
 
+Die Wissensfrage auf der Seite **KI-Assistent** hat keine solche Ersatzantwort: Ist die Wissensbasis nicht erreichbar, zeigt die Seite den Hinweis, dass die Antwort nicht geladen werden konnte.
+
 ---
 
 ## Häufige Fragen
@@ -163,6 +168,9 @@ Ist die zugrunde liegende Wissensbasis (Knowledge Service) nicht erreichbar, lie
 
 ??? question "Warum sehe ich beim Chat den Hinweis auf eine fehlende Einwilligung?"
     Der Chat nutzt deinen Pflanzenkontext und benötigt deshalb deine Einwilligung „KI-Zugriff auf deine Pflanzendaten". Wie du sie erteilst, steht unter [Einwilligung erteilen](#einwilligung-erteilen).
+
+??? question "Warum fragt mich die KI-Seite nach einer Einwilligung, obwohl ich nichts über meine Pflanzen frage?"
+    Auch eine reine Wissensfrage geht als Text an ein Sprachmodell. Im Voll-Modus willigst du deshalb einmal in „KI-Wissensfrage an die Wissensbasis“ ein. Daten deiner Pflanzen gehen dabei nur mit, wenn du sie selbst zur Frage angibst.
 
 ??? question "Kann ich den KI-Assistenten vollständig lokal betreiben?"
     Das entscheidet der Plattformbetreiber bei der Konfiguration der Wissensbasis. Mit einem lokalen Modell (Ollama) verlassen keine Daten das eigene Netzwerk und es ist keine Einwilligung zur Cloud-Verarbeitung nötig. Details für Selbsthoster: [KI-Provider einrichten](ai-providers.md).

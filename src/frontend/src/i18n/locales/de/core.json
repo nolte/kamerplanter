@@ -589,6 +589,7 @@
     },
     "errors": {
       "disabled": "Die KI-Funktionen sind für diesen Garten aktuell deaktiviert. Eine Administratorin oder ein Administrator kann sie in den Tenant-Einstellungen aktivieren.",
+      "notEnabled": "Die KI-Funktionen sind auf dieser Installation nicht eingeschaltet. Die Betreiberin oder der Betreiber kann sie aktivieren.",
       "consentRequired": "Für diese KI-Funktion fehlt deine Einwilligung zur Nutzung deiner Pflanzendaten. Du kannst sie in den Datenschutz-Einstellungen erteilen.",
       "consentRequiredLink": "Zu den Datenschutz-Einstellungen",
       "budgetUserExceeded": "Du hast dein Tageskontingent an KI-Anfragen in diesem Garten aufgebraucht. Ab Mitternacht (UTC) kannst du wieder fragen.",

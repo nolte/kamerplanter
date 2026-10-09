@@ -589,6 +589,7 @@
     },
     "errors": {
       "disabled": "The AI features are currently disabled for this garden. An administrator can enable them in the tenant settings.",
+      "notEnabled": "AI features are not switched on for this installation. The operator can enable them.",
       "consentRequired": "This AI feature requires your consent to use your plant data. You can grant it in the privacy settings.",
       "consentRequiredLink": "Go to privacy settings",
       "budgetUserExceeded": "You have used up your daily AI request quota in this garden. You can ask again after midnight (UTC).",
