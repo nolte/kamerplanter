@@ -13,7 +13,7 @@ from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_feeding_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import CursorPaginationParams, PaginationParams, get_cursor_pagination, get_pagination
-from app.core.permissions import Action
+from app.core.permissions import Action, ResourceType
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.feeding_service import FeedingService
@@ -41,7 +41,7 @@ def list_events(
 @router.post("", response_model=FeedingEventResponse, status_code=201)
 def create_event(
     body: FeedingEventCreate,
-    ctx: TenantContext = Depends(require_permission("feeding-event", Action.CREATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FEEDING_EVENT, Action.CREATE)),
     service: FeedingService = Depends(get_feeding_service),
 ):
     """Record a new feeding event for the tenant."""
@@ -65,7 +65,7 @@ def get_event(
 def update_event(
     key: Annotated[str, Path(description="Document key of the feeding event.")],
     body: FeedingEventUpdate,
-    ctx: TenantContext = Depends(require_permission("feeding-event", Action.UPDATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FEEDING_EVENT, Action.UPDATE)),
     service: FeedingService = Depends(get_feeding_service),
 ):
     """Update an existing feeding event."""
@@ -78,7 +78,7 @@ def update_event(
 @router.delete("/{key}", status_code=204)
 def delete_event(
     key: Annotated[str, Path(description="Document key of the feeding event.")],
-    ctx: TenantContext = Depends(require_permission("feeding-event", Action.DELETE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FEEDING_EVENT, Action.DELETE)),
     service: FeedingService = Depends(get_feeding_service),
 ):
     """Delete a feeding event."""

@@ -764,21 +764,30 @@ def require_permission(resource: ResourceType | str, action: Action) -> Callable
     """
 
     def _check(ctx: TenantContext = Depends(get_current_tenant)) -> TenantContext:
-        if action in (Action.CREATE, Action.UPDATE):
-            allowed = MembershipEngine.can_edit_resource(ctx.role)
-        elif action == Action.DELETE:
-            allowed = MembershipEngine.can_delete_resource(ctx.role)
-        elif action == Action.READ:
-            allowed = MembershipEngine.can_view_resource(ctx.role)
-        else:
-            # Unknown / not-yet-mapped verb (e.g. INVITE belongs on axis 2):
-            # fail closed rather than silently allow.
-            allowed = False
-        if not allowed:
+        if not role_permits(ctx.role, action):
             raise ForbiddenError(f"Your role '{ctx.role.value}' may not '{action.value}' a {resource} in this tenant.")
         return ctx
 
     return _check
+
+
+def role_permits(role: TenantRole, action: Action) -> bool:
+    """The one decision behind every tenant-scoped CRUD gate (MT-045.6, #2144).
+
+    :func:`require_permission` and the attachment guard
+    (``app.api.v1.attachments.permissions``) both decide here, on the pure
+    :class:`MembershipEngine` predicates — ``CREATE``/``UPDATE`` →
+    ``can_edit_resource``, ``DELETE`` → ``can_delete_resource`` (lead only),
+    ``READ`` → ``can_view_resource``. Any other verb (``INVITE`` belongs on axis
+    2) fails closed.
+    """
+    if action in (Action.CREATE, Action.UPDATE):
+        return MembershipEngine.can_edit_resource(role)
+    if action == Action.DELETE:
+        return MembershipEngine.can_delete_resource(role)
+    if action == Action.READ:
+        return MembershipEngine.can_view_resource(role)
+    return False
 
 
 def require_admin_scope(scope: AdminScope) -> Callable:

@@ -2,17 +2,19 @@
 
 Granular CRUD permissions per resource type and per ``TenantRole``,
 declared as an explicit table (resource × action × role → allow) plus
-the ``has_permission`` / ``assert_permission`` predicates that read it.
-Adding a new resource forces the implementer to make a conscious call
-on every role's access; the default for unknown combinations is *deny*.
+the ``has_permission`` predicate that reads it. Adding a new resource
+forces the implementer to make a conscious call on every role's access;
+the default for unknown combinations is *deny*.
 
-The tenant-scoped write gate that the routers actually depend on lives
-in :func:`app.common.auth.require_permission` (the FastAPI layer, next
-to ``get_current_tenant``). It gates on the domain role via the pure
-:class:`app.domain.engines.membership_engine.MembershipEngine`
-predicates rather than on this table, because the engine is the single
-source of truth for the grower/lead delete boundary (REQ-049 §2.3).
-This module keeps the descriptive matrix and the MCP permission binding
+**One permission source (MT-045.6, #2144).** Every tenant-scoped CRUD gate —
+:func:`app.common.auth.require_permission` and, since #2144, the attachment
+guard too — decides through :func:`app.common.auth.role_permits` on the pure
+:class:`app.domain.engines.membership_engine.MembershipEngine` predicates,
+the single source of truth for the grower/lead delete boundary (REQ-049 §2.3).
+This table describes; it does not decide. The guard
+``tests/unit/guards/test_one_permission_source.py`` holds it equal to the gate
+for every ``(resource, action)`` a router wires (REQ-024 AK-44c), so neither
+is maintained alone. This module also keeps the MCP permission binding
 (REQ-033 §4.4) below.
 
 Spec: ``spec/req/REQ-024_Mandantenverwaltung-Gemeinschaftsgaerten.md``
@@ -53,6 +55,14 @@ class ResourceType(StrEnum):
     PRIVACY_REQUEST = "privacy_request"
     NOTE = "note"
     ATTACHMENT = "attachment"
+    #: Named by their routers as free strings until MT-045.6 (#2144): the matrix
+    #: could not describe them and said "denied" where the gate admits.
+    DIARY_ENTRY = "diary-entry"
+    FEEDING_EVENT = "feeding-event"
+    WATERING_EVENT = "watering-event"
+    WATERING_LOG = "watering-log"
+    #: REQ-005 publishing a location's state to Home Assistant — an update only.
+    HA_PUBLISH = "ha-publish"
     #: REQ-035 — the KI terminology glossary. Installation-wide content, not a
     #: tenant-owned record, so it is deliberately NOT in ``_PLANT_DOMAIN``: every
     #: member may READ it, a grower or lead may spend an LLM call to CREATE a
@@ -127,16 +137,20 @@ _PLANT_DOMAIN: list[ResourceType] = [
     ResourceType.NOTIFICATION_CHANNEL,
     ResourceType.NOTE,
     ResourceType.ATTACHMENT,
+    ResourceType.DIARY_ENTRY,
+    ResourceType.FEEDING_EVENT,
+    ResourceType.WATERING_EVENT,
+    ResourceType.WATERING_LOG,
 ]
 for _resource in _PLANT_DOMAIN:
     _grant(_resource, [Action.READ], [TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER])
     _grant(_resource, [Action.CREATE, Action.UPDATE], [TenantRole.LEAD, TenantRole.GROWER])
     # DELETE is the irreversibility boundary: lead only (REQ-024 §1a.1 "❌D"
-    # throughout, REQ-049 §2.3). This matches MembershipEngine.can_delete_resource
-    # so the two enforcement paths — the descriptive matrix used by the attachment
-    # guard, and the require_permission dependency used by every other router —
-    # can never drift on who may destroy a domain record.
+    # throughout, REQ-049 §2.3), as MembershipEngine.can_delete_resource decides.
+    # The guard test_one_permission_source compares every wired pair (AK-44c).
     _grant(_resource, [Action.DELETE], [TenantRole.LEAD])
+
+_grant(ResourceType.HA_PUBLISH, [Action.UPDATE], [TenantRole.LEAD, TenantRole.GROWER])
 
 # Domain-specific verbs.
 _grant(ResourceType.HARVEST, [Action.CONFIRM], [TenantRole.LEAD, TenantRole.GROWER])
@@ -182,25 +196,15 @@ _grant(
 
 
 def has_permission(role: TenantRole, resource: ResourceType, action: Action) -> bool:
-    """Return ``True`` when ``role`` may perform ``action`` on ``resource``."""
+    """Return ``True`` when the matrix says ``role`` may perform ``action`` on ``resource``.
+
+    Descriptive, not a gate (MT-045.6, #2144): no router decides on it. Its one
+    reader is the guard ``test_one_permission_source``, which holds it equal to
+    :func:`app.common.auth.role_permits` — the decision every router gate takes —
+    for every pair a router wires (REQ-024 AK-44c).
+    """
 
     return role in _RBAC.get((resource, action), frozenset())
-
-
-def assert_permission(role: TenantRole, resource: ResourceType, action: Action) -> None:
-    """Raise ``PermissionError`` when ``role`` cannot perform ``action``."""
-
-    if not has_permission(role, resource, action):
-        raise PermissionError(f"Tenant role '{role.value}' may not '{action.value}' on '{resource.value}'.")
-
-
-def list_permissions(role: TenantRole) -> list[tuple[ResourceType, Action]]:
-    """Return every (resource, action) tuple the given role may perform."""
-
-    return sorted(
-        ((resource, action) for (resource, action), roles in _RBAC.items() if role in roles),
-        key=lambda pair: (pair[0].value, pair[1].value),
-    )
 
 
 # ---------------------------------------------------------------------
