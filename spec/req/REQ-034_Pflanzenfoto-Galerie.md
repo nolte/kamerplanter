@@ -309,7 +309,7 @@ Antworten referenzieren ausschliesslich `attachment_id` + Stable URIs (`/api/v1/
 | **AC-14** | i18n DE/EN fuer alle Galerie-UI-Texte; DE ist Default/Fallback. |
 | **AC-15** | Ueberschreiten der Galerie-Quota (`STORAGE_MAX_PHOTOS_PER_INSTANCE`, Default 50) ODER der Tenant-Storage-Quota lehnt den Upload vor dem Schreiben ab (HTTP 409) mit verstaendlicher Meldung; keine verwaisten Bytes. |
 | **AC-16** | Im Light-Modus (REQ-027) ist der DINOv2-Referenz-Hook generell deaktiviert (kein Consent-Pfad noetig); die Galerie funktioniert dort vollstaendig. |
-| **AC-17** | Der interaktive Referenz-Beitrag (`POST /api/v1/t/{slug}/identification/reference`) lehnt ohne `reference_contribution`-Consent (nie erteilt oder widerrufen) mit HTTP 403 `CONSENT_REQUIRED` und im Light-Modus mit HTTP 409 `ADAPTER_NOT_AVAILABLE` ab — jeweils bevor Art-Aufloesung, Tages-Kontingent, Beitrags-Marker oder Embedding-Berechnung laufen. Mit erteiltem Consent wird der Beitrag wie bisher in Quarantaene (`is_active = false`) angelegt (HTTP 202). |
+| **AC-17** | Der interaktive Referenz-Beitrag (`POST /api/v1/t/{slug}/identification/reference`) lehnt ohne `reference_contribution`-Consent (nie erteilt oder widerrufen) mit HTTP 403 `CONSENT_REQUIRED` und im Light-Modus mit HTTP 409 `ADAPTER_NOT_AVAILABLE` ab — jeweils bevor Art-Aufloesung, Tages-Kontingent, Beitrags-Marker oder Embedding-Berechnung laufen. Die Art wird nur im Sichtbarkeitsbereich des Mandanten aufgeloest: die private Art eines anderen Mandanten antwortet wie ein unbekannter Schluessel mit HTTP 404. Mit erteiltem Consent wird der Beitrag wie bisher in Quarantaene (`is_active = false`) angelegt (HTTP 202). |
 
 ---
 
