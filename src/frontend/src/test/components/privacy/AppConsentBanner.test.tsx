@@ -76,6 +76,7 @@ describe('AppConsentBanner / BrowserConsentSettings', () => {
 
     const toggle = screen.getByRole('switch');
     expect(toggle).toBeChecked();
+    expect(toggle).toHaveAccessibleDescription(/diesen Browser|this browser/);
     fireEvent.click(toggle);
 
     expect(toggle).not.toBeChecked();

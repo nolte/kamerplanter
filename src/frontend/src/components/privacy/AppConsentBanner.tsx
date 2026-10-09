@@ -8,8 +8,9 @@ import { isErrorTrackingConfigured } from '@/observability/errorTracking';
  * Suppressed in two cases:
  *
  * - **Light mode** (REQ-027): the GDPR household exemption waives the consent
- *   requirement. No banner means no `error_tracking` grant, so the browser
- *   tracker stays off there too.
+ *   requirement. The browser tracker is off there independently of this
+ *   banner (`trackingPermitted` in `observability/errorTracking.ts`), so a
+ *   grant stored before a full -> light switch does not start it either.
  * - **No error-tracking DSN**: browser error tracking is the only processing
  *   this banner's decision switches. `external_services` is read by nothing
  *   since REQ-025 v1.31 (#2136), and the banner does not sync to the REQ-025

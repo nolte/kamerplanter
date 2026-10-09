@@ -97,7 +97,7 @@ The frontend's error boundaries report explicitly: a boundary that renders a fal
 In the browser the DSN alone is not enough: the frontend loads and starts its SDK only once the person has consented to **error analysis** (`error_tracking`). As long as they have not decided, or have declined, the browser does not download the SDK bundle and no error report leaves it.
 
 - **Where it is asked:** with a DSN set, a consent banner appears at the bottom on the first visit, offering "Accept all", "Necessary only" and "Settings" — already on the login page. Without a DSN there is no banner, because then there is nothing in the browser to consent to.
-- **Light mode:** no banner appears here (the GDPR household exemption). So there is no consent either, and in Light mode the frontend reports no errors — the backend still does.
+- **Light mode:** no banner appears here (the GDPR household exemption), and in Light mode the frontend reports no errors — not even when the browser still holds a consent from before the switch to Light mode. The backend keeps reporting.
 - **Revoking:** under **Privacy → Consents** there is the switch "Allow error analysis". Turning it off stops reporting at once, without a reload, also in other open tabs of the same browser. Turning it on starts it the same way.
 - **Per browser:** the decision lives in the browser's `localStorage` (`kamerplanter:consent:v1`) and applies there only. It is not yet reconciled with the server-side consent the backend reads for the user block; that is an open follow-up.
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -38,6 +38,9 @@ const CATEGORIES: { key: OptionalConsentCategory; testId: string }[] = [
   { key: 'error_tracking', testId: 'consent-banner-error-tracking' },
 ];
 
+/** WCAG 2.5.5 / UI-NFR touch target. */
+const TOUCH_TARGET = { minHeight: 44 } as const;
+
 /**
  * UI-NFR-013 §3.1 Consent Banner.
  *
@@ -57,6 +60,7 @@ export default function ConsentBanner({
   const { consent: stored, setConsent } = useConsent();
   const [override, setOverride] = useState<ConsentState | undefined>(initialState);
   const [customizing, setCustomizing] = useState(false);
+  const categoriesId = useId();
   const state = override ?? stored;
   const [draft, setDraft] = useState<Record<OptionalConsentCategory, boolean>>(() => ({
     error_tracking: state.error_tracking === true,
@@ -92,11 +96,15 @@ export default function ConsentBanner({
         position: 'fixed',
         left: 16,
         right: 16,
-        bottom: 16,
-        zIndex: (theme) => theme.zIndex.snackbar + 1,
+        // Clear of the iOS home indicator / Android gesture bar.
+        bottom: 'calc(16px + env(safe-area-inset-bottom))',
+        // Above page content and the app bar, below modals, drawers and
+        // snackbars — a dialog or an error toast must never hide under it.
+        zIndex: (theme) => theme.zIndex.modal - 1,
         p: 2,
         borderRadius: 2,
-        maxHeight: 'calc(100vh - 32px)',
+        // `dvh` tracks the visible viewport when mobile browser chrome shows.
+        maxHeight: 'calc(100dvh - 32px)',
         overflowY: 'auto',
       }}
     >
@@ -107,33 +115,50 @@ export default function ConsentBanner({
         <Typography variant="body2" color="text.secondary">
           {t('consent.banner.body')}
         </Typography>
-        {customizing && (
-          <Stack spacing={1} data-testid="consent-banner-categories">
-            {CATEGORIES.map(({ key, testId }) => (
-              <Box key={key}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={draft[key]}
-                      onChange={(_, checked) => setDraft((d) => ({ ...d, [key]: checked }))}
-                      slotProps={{ input: { 'aria-describedby': `${testId}-desc` } }}
-                    />
-                  }
-                  label={t(`consent.banner.category.${key}.label`)}
-                  data-testid={testId}
-                />
-                <Typography
-                  id={`${testId}-desc`}
-                  variant="caption"
-                  color="text.secondary"
-                  component="p"
-                >
-                  {t(`consent.banner.category.${key}.description`)}
-                </Typography>
-              </Box>
-            ))}
-          </Stack>
-        )}
+        {/* Always rendered (hidden while collapsed) so the toggle's
+            aria-controls points at a real element. */}
+        <Stack
+          spacing={1}
+          id={categoriesId}
+          hidden={!customizing}
+          // Stack's own `display: flex` would beat the UA rule for [hidden].
+          sx={{ display: customizing ? 'flex' : 'none' }}
+          data-testid="consent-banner-categories"
+        >
+          {CATEGORIES.map(({ key, testId }) => (
+            <Box key={key}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={draft[key]}
+                    onChange={(_, checked) => setDraft((d) => ({ ...d, [key]: checked }))}
+                    slotProps={{ input: { 'aria-describedby': `${testId}-desc` } }}
+                  />
+                }
+                label={t(`consent.banner.category.${key}.label`)}
+                data-testid={testId}
+              />
+              <Typography
+                id={`${testId}-desc`}
+                variant="caption"
+                color="text.secondary"
+                component="p"
+              >
+                {t(`consent.banner.category.${key}.description`)}
+              </Typography>
+            </Box>
+          ))}
+          <Box>
+            <Button
+              variant="outlined"
+              data-testid="consent-banner-save"
+              onClick={() => decide('custom')}
+              sx={TOUCH_TARGET}
+            >
+              {t('consent.banner.save')}
+            </Button>
+          </Box>
+        </Stack>
         <Box
           sx={{
             display: 'flex',
@@ -142,29 +167,25 @@ export default function ConsentBanner({
             justifyContent: 'flex-end',
           }}
         >
-          {customizing ? (
-            <Button
-              variant="outlined"
-              data-testid="consent-banner-save"
-              onClick={() => decide('custom')}
-            >
-              {t('consent.banner.save')}
-            </Button>
-          ) : (
-            <Button
-              variant="outlined"
-              data-testid="consent-banner-settings"
-              onClick={() => setCustomizing(true)}
-            >
-              {t('consent.banner.settings')}
-            </Button>
-          )}
+          {/* Stays mounted when expanded: unmounting the focused button would
+              drop keyboard focus to <body>. */}
+          <Button
+            variant="outlined"
+            data-testid="consent-banner-settings"
+            aria-expanded={customizing}
+            aria-controls={categoriesId}
+            onClick={() => setCustomizing((open) => !open)}
+            sx={TOUCH_TARGET}
+          >
+            {t('consent.banner.settings')}
+          </Button>
           {/* CB-003: "Nur Notwendige" and "Alle akzeptieren" carry the same
               visual weight — a lighter "no" would steer the decision. */}
           <Button
             variant="contained"
             data-testid="consent-banner-necessary"
             onClick={() => decide('necessary')}
+            sx={TOUCH_TARGET}
           >
             {t('consent.banner.necessary')}
           </Button>
@@ -172,6 +193,7 @@ export default function ConsentBanner({
             variant="contained"
             data-testid="consent-banner-accept-all"
             onClick={() => decide('all')}
+            sx={TOUCH_TARGET}
           >
             {t('consent.banner.accept_all')}
           </Button>

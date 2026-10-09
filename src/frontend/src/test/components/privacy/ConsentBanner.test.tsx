@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import ConsentBanner, { type ConsentState } from '@/components/privacy/ConsentBanner';
 import { readConsent, resetConsentStoreForTests } from '@/observability/consent';
 import { renderWithProviders } from '../../helpers';
@@ -94,10 +95,10 @@ describe('UI-NFR-013 ConsentBanner', () => {
   it('lets the user choose per category under "Einstellungen" (CB-004)', () => {
     const onChoice = vi.fn();
     renderWithProviders(<ConsentBanner initialState={PENDING_STATE} onChoice={onChoice} />);
-    expect(screen.queryByTestId('consent-banner-categories')).not.toBeInTheDocument();
+    expect(screen.getByTestId('consent-banner-categories')).not.toBeVisible();
 
     fireEvent.click(screen.getByTestId('consent-banner-settings'));
-    expect(screen.getByTestId('consent-banner-categories')).toBeInTheDocument();
+    expect(screen.getByTestId('consent-banner-categories')).toBeVisible();
     fireEvent.click(screen.getByRole('switch', { name: /Fehleranalyse|Error analysis/ }));
     fireEvent.click(screen.getByTestId('consent-banner-save'));
 
@@ -114,5 +115,21 @@ describe('UI-NFR-013 ConsentBanner', () => {
     const acceptAll = screen.getByTestId('consent-banner-accept-all');
     expect(necessary.className).toContain('MuiButton-contained');
     expect(acceptAll.className).toContain('MuiButton-contained');
+  });
+
+  it('keeps focus on "Einstellungen" and announces the expanded state (review UI-W3)', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ConsentBanner initialState={PENDING_STATE} />);
+    const settings = screen.getByTestId('consent-banner-settings');
+    expect(settings).toHaveAttribute('aria-expanded', 'false');
+    const controls = settings.getAttribute('aria-controls');
+    expect(controls).toBe(screen.getByTestId('consent-banner-categories').id);
+
+    await user.click(settings);
+
+    expect(settings).toBeInTheDocument();
+    expect(settings).toHaveFocus();
+    expect(settings).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('consent-banner-categories')).toBeVisible();
   });
 });

@@ -51,6 +51,20 @@ const listeners = new Set<Listener>();
 let cachedRaw: string | null = null;
 let cachedState: ConsentState = INITIAL_CONSENT_STATE;
 
+/**
+ * The decision this page made but could not persist (quota exceeded, storage
+ * blocked). It wins over whatever storage still holds until the next
+ * successful write here or a newer decision from another tab.
+ *
+ * Chosen over "remove the entry before writing": that would turn a failed
+ * revoke into "undecided" only if `removeItem` itself succeeds, and turn a
+ * failed grant into a silent "no" the user never chose. Holding the decision
+ * in memory honours exactly what the user clicked, for this page view: a
+ * revoke stays a revoke, and an actively given grant lasts until reload (then
+ * nothing is stored and the banner asks again).
+ */
+let unpersisted: ConsentState | null = null;
+
 function readRaw(): string | null {
   try {
     return window.localStorage.getItem(CONSENT_STORAGE_KEY);
@@ -85,6 +99,7 @@ function parse(raw: string | null): ConsentState {
 
 /** The current consent state; the same object while the stored entry is unchanged. */
 export function readConsent(): ConsentState {
+  if (unpersisted) return unpersisted;
   const raw = readRaw();
   if (raw !== cachedRaw) {
     cachedRaw = raw;
@@ -112,21 +127,23 @@ function notify(): void {
 
 /** Persist a decision and notify every listener in this tab. */
 export function writeConsent(state: ConsentState): void {
+  const next: ConsentState = { ...state, necessary: true };
   try {
-    window.localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify({ ...state, necessary: true }));
+    window.localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(next));
+    unpersisted = null;
   } catch {
-    /* localStorage unavailable — the decision still applies to this page view */
+    // Storage refused the write but may still return the *previous* decision
+    // (quota exceeded): never let that older value stand in for this one.
+    unpersisted = next;
   }
-  // Seed the cache from the written state so a tab without working storage
-  // still honours the decision it just made.
-  cachedRaw = readRaw();
-  cachedState = cachedRaw === null ? { ...state, necessary: true } : parse(cachedRaw);
   notify();
 }
 
 function onStorage(event: StorageEvent): void {
   // `key === null` is `localStorage.clear()` in another tab: the decision is gone.
   if (event.key !== null && event.key !== CONSENT_STORAGE_KEY) return;
+  // Another tab persisted a newer decision; it supersedes our unsaved one.
+  unpersisted = null;
   notify();
 }
 
@@ -150,4 +167,5 @@ export function resetConsentStoreForTests(): void {
   window.removeEventListener('storage', onStorage);
   cachedRaw = null;
   cachedState = INITIAL_CONSENT_STATE;
+  unpersisted = null;
 }

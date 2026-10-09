@@ -137,6 +137,65 @@ describe('consent store', () => {
     expect(hasConsent('error_tracking')).toBe(true);
   });
 
+  describe('when localStorage refuses the write (review W3)', () => {
+    function refuseWrites(): void {
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('quota', 'QuotaExceededError');
+      });
+    }
+
+    it('a revoke wins over the old grant still readable in storage', () => {
+      window.localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(GRANTED));
+      expect(hasConsent('error_tracking')).toBe(true);
+      refuseWrites();
+
+      writeConsent({ ...GRANTED, error_tracking: false });
+
+      expect(hasConsent('error_tracking')).toBe(false);
+      expect(readConsent().error_tracking).toBe(false);
+    });
+
+    it('an actively given first grant holds for this page view only', () => {
+      refuseWrites();
+
+      writeConsent(GRANTED);
+
+      expect(hasConsent('error_tracking')).toBe(true);
+      // Nothing was persisted: a reload starts undecided and asks again.
+      expect(window.localStorage.getItem(CONSENT_STORAGE_KEY)).toBeNull();
+    });
+
+    it('yields to a newer decision written by another tab', () => {
+      // The `storage` listener is attached while anyone subscribes (in the app:
+      // the error tracker and every mounted `useConsent`).
+      const listener = vi.fn();
+      subscribeConsent(listener);
+      window.localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(GRANTED));
+      refuseWrites();
+      writeConsent({ ...GRANTED, error_tracking: false });
+      vi.restoreAllMocks();
+
+      window.localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(GRANTED));
+      window.dispatchEvent(new StorageEvent('storage', { key: CONSENT_STORAGE_KEY }));
+
+      expect(hasConsent('error_tracking')).toBe(true);
+      expect(listener).toHaveBeenLastCalledWith(GRANTED);
+    });
+
+    it('a later successful write replaces the in-memory decision', () => {
+      refuseWrites();
+      writeConsent(GRANTED);
+      vi.restoreAllMocks();
+
+      writeConsent({ ...GRANTED, error_tracking: false });
+
+      expect(hasConsent('error_tracking')).toBe(false);
+      expect(JSON.parse(window.localStorage.getItem(CONSENT_STORAGE_KEY)!).error_tracking).toBe(
+        false,
+      );
+    });
+  });
+
   describe('useConsent', () => {
     it('re-renders on a write and returns a stable object otherwise', () => {
       const { result, rerender } = renderHook(() => useConsent());

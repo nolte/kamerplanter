@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import {
   ENVIRONMENTS,
   captureHandledError,
@@ -24,12 +24,37 @@ import {
  * `initErrorTracking` can be driven to its `Sentry.init` call without loading
  * the real chunk. Only the two members this module touches are stubbed.
  */
-const sentryStub = vi.hoisted(() => ({
-  init: vi.fn(),
-  captureException: vi.fn(),
-  close: vi.fn(() => Promise.resolve(true)),
-}));
+const sentryStub = vi.hoisted(() => {
+  const clientOptions: { enabled?: boolean } = {};
+  const isolationScope = { clearBreadcrumbs: vi.fn() };
+  const currentScope = { clearBreadcrumbs: vi.fn() };
+  return {
+    clientOptions,
+    isolationScope,
+    currentScope,
+    init: vi.fn(),
+    captureException: vi.fn(),
+    close: vi.fn(() => Promise.resolve(true)),
+    getClient: vi.fn(() => ({ getOptions: () => clientOptions })),
+    getIsolationScope: vi.fn(() => isolationScope),
+    getCurrentScope: vi.fn(() => currentScope),
+  };
+});
 vi.mock('@sentry/react', () => sentryStub);
+
+/** `isLightMode` is a module constant; a getter lets a case flip it. */
+const modeMock = vi.hoisted(() => ({ isLightMode: false }));
+vi.mock('@/config/mode', () => ({
+  get isLightMode() {
+    return modeMock.isLightMode;
+  },
+  get isFullMode() {
+    return !modeMock.isLightMode;
+  },
+  get KAMERPLANTER_MODE() {
+    return modeMock.isLightMode ? 'light' : 'full';
+  },
+}));
 
 /**
  * #777 — the browser half of the error-tracking contract.
@@ -71,6 +96,13 @@ async function settle(): Promise<void> {
 }
 
 describe('errorTracking', () => {
+  beforeAll(async () => {
+    // Resolve the mocked SDK once up front. Two `import('@sentry/react')` calls
+    // racing on a cold mock registry (the grant -> revoke -> grant case) were
+    // measured to hand one of them the real module instead of the stub.
+    await import('@sentry/react');
+  });
+
   beforeEach(() => {
     resetErrorTrackingForTests();
     resetConsentStoreForTests();
@@ -86,6 +118,10 @@ describe('errorTracking', () => {
     sentryStub.init.mockReset();
     sentryStub.captureException.mockReset();
     sentryStub.close.mockClear();
+    sentryStub.isolationScope.clearBreadcrumbs.mockClear();
+    sentryStub.currentScope.clearBreadcrumbs.mockClear();
+    delete sentryStub.clientOptions.enabled;
+    modeMock.isLightMode = false;
     vi.restoreAllMocks();
   });
 
@@ -166,7 +202,7 @@ describe('errorTracking', () => {
 
       decideNow(false);
 
-      expect(sentryStub.close).toHaveBeenCalledWith(0);
+      expect(sentryStub.close).toHaveBeenCalledTimes(1);
       expect(isErrorTrackingActive()).toBe(false);
       captureHandledError(new Error('after revoke'));
       expect(sentryStub.captureException).not.toHaveBeenCalled();
@@ -217,6 +253,91 @@ describe('errorTracking', () => {
 
       expect(sentryStub.init).not.toHaveBeenCalled();
       expect(isErrorTrackingActive()).toBe(false);
+    });
+
+    it('keeps a revoke when localStorage refuses the write (review W3)', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+      await initErrorTracking();
+      expect(isErrorTrackingActive()).toBe(true);
+      // Quota exceeded: the old grant stays readable in storage.
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('quota', 'QuotaExceededError');
+      });
+
+      decideNow(false);
+
+      expect(isErrorTrackingActive()).toBe(false);
+      expect(sentryStub.close).toHaveBeenCalledTimes(1);
+    });
+
+    it('stays off in Light mode even with a stored grant (review W4)', async () => {
+      // e.g. a grant left over from before the instance switched full -> light.
+      modeMock.isLightMode = true;
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+
+      await expect(initErrorTracking()).resolves.toBe(false);
+      decideNow(true);
+      await settle();
+
+      expect(sentryStub.init).not.toHaveBeenCalled();
+      expect(isErrorTrackingActive()).toBe(false);
+    });
+
+    it('disables the client before closing it, so nothing is sent during the flush (review W1)', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+      await initErrorTracking();
+      let enabledWhenCloseRan: boolean | undefined;
+      sentryStub.close.mockImplementationOnce(() => {
+        enabledWhenCloseRan = sentryStub.clientOptions.enabled;
+        return Promise.resolve(true);
+      });
+
+      decideNow(false);
+
+      expect(enabledWhenCloseRan).toBe(false);
+    });
+
+    it('drops events and breadcrumbs the still-installed SDK hands over after a revoke (review W1/W2)', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+      await initErrorTracking();
+      const options = sentryStub.init.mock.calls[0]![0] as {
+        beforeSend: (event: Record<string, unknown>) => Record<string, unknown> | null;
+        beforeBreadcrumb: (crumb: Record<string, unknown>) => Record<string, unknown> | null;
+      };
+      expect(options.beforeSend({ message: 'before' })).not.toBeNull();
+
+      decideNow(false);
+
+      expect(options.beforeSend({ message: 'after revoke' })).toBeNull();
+      expect(options.beforeBreadcrumb({ category: 'navigation', data: { to: '/x' } })).toBeNull();
+    });
+
+    it('clears the breadcrumbs of the revoked session so a re-grant cannot ship them (review W2)', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+      await initErrorTracking();
+
+      decideNow(false);
+
+      expect(sentryStub.isolationScope.clearBreadcrumbs).toHaveBeenCalledTimes(1);
+      expect(sentryStub.currentScope.clearBreadcrumbs).toHaveBeenCalledTimes(1);
+    });
+
+    it('initialises exactly once on grant -> revoke -> grant while the chunk loads', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      await initErrorTracking();
+
+      decideNow(true);
+      decideNow(false);
+      decideNow(true);
+      await vi.waitFor(() => expect(isErrorTrackingActive()).toBe(true));
+      await settle();
+
+      expect(sentryStub.init).toHaveBeenCalledTimes(1);
     });
 
     it('treats a stop while off as a no-op', () => {

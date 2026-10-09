@@ -97,7 +97,7 @@ Die Fehlergrenzen des Frontends melden ausdrücklich mit: Eine Grenze, die eine 
 Im Browser reicht die DSN allein nicht: Das Frontend lädt und startet sein SDK erst, wenn die Person der **Fehleranalyse** (`error_tracking`) zugestimmt hat. Solange sie nicht entschieden oder abgelehnt hat, lädt der Browser das SDK-Bündel nicht herunter, und kein Fehlerbericht verlässt ihn.
 
 - **Wo gefragt wird:** Ist eine DSN gesetzt, erscheint beim ersten Besuch unten ein Einwilligungs-Banner mit „Alle akzeptieren", „Nur Notwendige" und „Einstellungen" — auch schon auf der Anmeldeseite. Ohne DSN erscheint kein Banner, denn dann gibt es im Browser nichts, dem man zustimmen könnte.
-- **Light-Modus:** Hier erscheint kein Banner (Haushaltsausnahme der DSGVO). Damit gibt es auch keine Zustimmung, und das Frontend meldet im Light-Modus keine Fehler — das Backend schon.
+- **Light-Modus:** Hier erscheint kein Banner (Haushaltsausnahme der DSGVO), und das Frontend meldet im Light-Modus keine Fehler — auch dann nicht, wenn im Browser noch eine Zustimmung aus der Zeit vor einem Wechsel auf den Light-Modus liegt. Das Backend meldet weiter.
 - **Widerruf:** Unter **Datenschutz → Einwilligungen** steht der Schalter „Fehleranalyse erlauben". Ausschalten beendet das Melden sofort und ohne Neuladen, auch in anderen offenen Tabs desselben Browsers. Einschalten startet es ebenso.
 - **Pro Browser:** Die Entscheidung liegt im `localStorage` des Browsers (`kamerplanter:consent:v1`) und gilt nur dort. Sie wird noch nicht mit der serverseitigen Einwilligung abgeglichen, die das Backend für den Nutzer-Block liest; das ist ein offener Folgeschritt.
 

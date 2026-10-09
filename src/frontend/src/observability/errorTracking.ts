@@ -22,7 +22,8 @@
  *    independent gate. The SDK chunk is neither fetched nor initialised until
  *    that consent is `true` — undecided (`null`) counts as no. A decision made
  *    after boot takes effect without a reload: a later grant initialises, a
- *    revoke closes the client immediately (`Sentry.close(0)`).
+ *    revoke disables the client synchronously and then closes it. Light mode
+ *    (REQ-027) never tracks in the browser, whatever is stored.
  *
  * The PII rules mirror `src/libs/kp_errortracking/` on the Python side. They are
  * restated rather than shared because the two run on different platforms with
@@ -31,6 +32,7 @@
  */
 
 import { runtimeConfig } from '@/config/runtimeConfig';
+import { isLightMode } from '@/config/mode';
 import { hasConsent, subscribeConsent } from '@/observability/consent';
 
 type SentryModule = typeof import('@sentry/react');
@@ -93,6 +95,19 @@ const REDACTED = '[redacted]';
 
 /** Module-scoped handle, set only after a successful init. */
 let sentry: SentryModule | null = null;
+
+/**
+ * Upper bound for the post-revoke `close()`. The client is already disabled
+ * when it runs, so this only bounds how long the SDK may wait for requests that
+ * were in flight before the revoke; it gates nothing.
+ */
+const CLOSE_TIMEOUT_MS = 2000;
+
+/**
+ * The chunk load, shared by every start. One `import()` per page: a grant ->
+ * revoke -> grant burst reuses it instead of racing two loads of the same chunk.
+ */
+let sdkLoad: Promise<SentryModule> | null = null;
 
 /** The init in flight, so a burst of consent events loads the SDK once. */
 let starting: Promise<boolean> | null = null;
@@ -251,16 +266,34 @@ export async function initErrorTracking(): Promise<boolean> {
   return applyConsent();
 }
 
+/**
+ * Whether the browser may track right now: the user's explicit grant, and never
+ * in Light mode — there is no banner there (household exemption), so a grant
+ * left over from before a full -> light switch must not start the SDK.
+ */
+function trackingPermitted(): boolean {
+  return !isLightMode && hasConsent('error_tracking');
+}
+
 /** Start or stop the SDK to match the current consent. */
 function applyConsent(): Promise<boolean> {
-  if (hasConsent('error_tracking')) return startErrorTracking();
+  if (trackingPermitted()) return startErrorTracking();
   stopErrorTracking();
   return Promise.resolve(false);
 }
 
 /**
- * Close the SDK client and drop the handle (CW-003: immediately, no flush).
- * Safe to call when tracking is off.
+ * Stop reporting at once (CW-003) and tear the SDK down. Safe when tracking is off.
+ *
+ * `Sentry.close(timeout)` alone is not immediate: in @sentry/core 11 it awaits
+ * `flush(timeout)` and only then sets `enabled = false`, and a timeout of `0`
+ * means *unbounded* (`while (!timeout || ticked < timeout)`), so the still-
+ * installed global handlers could send for as long as the flush ran. The
+ * client is therefore disabled synchronously first; the consent check inside
+ * `beforeSend`/`beforeBreadcrumb` covers anything already past that point.
+ * `addBreadcrumb` only checks that a client *exists* and writes to the
+ * isolation scope, so the revoked session's trail is cleared too — a later
+ * re-grant must not ship it.
  */
 export function stopErrorTracking(): void {
   generation += 1;
@@ -268,9 +301,30 @@ export function stopErrorTracking(): void {
   const active = sentry;
   sentry = null;
   if (!active) return;
-  active.close(0).catch((error: unknown) => {
+  try {
+    const client = active.getClient();
+    if (client) client.getOptions().enabled = false;
+    active.getIsolationScope().clearBreadcrumbs();
+    // `Scope#clear()` no longer exists in SDK 11; breadcrumbs are the only
+    // trail this module lets the SDK keep (the user block is scrubbed).
+    active.getCurrentScope().clearBreadcrumbs();
+  } catch (error) {
+    console.warn('[error-tracking] disabling the client failed', error);
+  }
+  active.close(CLOSE_TIMEOUT_MS).catch((error: unknown) => {
     console.warn('[error-tracking] closing the client failed', error);
   });
+}
+
+function loadSdk(): Promise<SentryModule> {
+  if (!sdkLoad) {
+    sdkLoad = import('@sentry/react').catch((error: unknown) => {
+      // A failed chunk load may be transient; let the next grant retry it.
+      sdkLoad = null;
+      throw error;
+    });
+  }
+  return sdkLoad;
 }
 
 function startErrorTracking(): Promise<boolean> {
@@ -302,9 +356,9 @@ async function loadAndInit(startedIn: number): Promise<boolean> {
   }
 
   try {
-    const Sentry = await import('@sentry/react');
+    const Sentry = await loadSdk();
     // The user revoked (or the module was reset) while the chunk was loading.
-    if (startedIn !== generation || !hasConsent('error_tracking')) return false;
+    if (startedIn !== generation || !trackingPermitted()) return false;
     Sentry.init({
       dsn,
       environment,
@@ -338,9 +392,17 @@ async function loadAndInit(startedIn: number): Promise<boolean> {
       // Performance tracing stays advisory per the observability spec and is
       // off until someone decides to adopt it.
       tracesSampleRate: 0,
-      beforeSend: (event) => scrubEvent(event as unknown as Record<string, unknown>) as never,
+      // Both hooks re-check consent first: the SDK's global handlers stay
+      // installed after a revoke, and these run for whatever they still hand
+      // over. `null` drops the event / breadcrumb.
+      beforeSend: (event) =>
+        (trackingPermitted()
+          ? scrubEvent(event as unknown as Record<string, unknown>)
+          : null) as never,
       beforeBreadcrumb: (crumb) =>
-        scrubBreadcrumb(crumb as unknown as Record<string, unknown>) as never,
+        (trackingPermitted()
+          ? scrubBreadcrumb(crumb as unknown as Record<string, unknown>)
+          : null) as never,
     });
     sentry = Sentry;
     return true;

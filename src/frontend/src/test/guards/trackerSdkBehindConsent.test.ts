@@ -4,6 +4,10 @@ import { describe, expect, it } from 'vitest';
  * #2159 — no third-party tracker SDK may load in the browser outside the
  * consent gate (UI-NFR-013 CI-001/CI-002).
  *
+ * These are regression fences, not the proof of the gate: the proof is the
+ * behaviour in `observability/errorTracking.test.ts`. The fences keep a second
+ * tracker or a bypassing import from appearing without anyone noticing.
+ *
  * The defect this guards against was not a wrong gate but a *missing* one:
  * `initErrorTracking` loaded Sentry on a DSN alone and nothing read the consent
  * banner. The behavioural tests in `observability/errorTracking.test.ts` pin the
@@ -27,7 +31,7 @@ const TRACKER_PACKAGE =
 
 /** Hosts a tracker is loaded from or reports to when wired in as a script tag. */
 const TRACKER_HOSTS =
-  /\b(?:sentry-cdn\.com|ingest\.sentry\.io|googletagmanager\.com|google-analytics\.com|plausible\.io|static\.hotjar\.com|cdn\.mxpnl\.com|cdn\.segment\.com|cdn\.logrocket|js\.datadoghq|eu\.posthog\.com|us\.posthog\.com|matomo\.cloud)\b/;
+  /\b(?:sentry-cdn\.com|ingest\.sentry\.io|googletagmanager\.com|google-analytics\.com|plausible\.io|static\.hotjar\.com|cdn\.mxpnl\.com|cdn\.segment\.com|cdn\.logrocket|js\.datadoghq|eu\.posthog\.com|us\.posthog\.com|matomo\.cloud|app\.glitchtip\.com)\b/;
 
 /** The one module permitted to load a tracker; its gate is tested behaviourally. */
 const GATED_LOADER = '/src/observability/errorTracking.ts';
@@ -36,7 +40,7 @@ const GATED_LOADER = '/src/observability/errorTracking.ts';
 const KNOWN_TRACKER_DEPENDENCIES = ['@sentry/react'];
 
 const APP_SOURCES = import.meta.glob(
-  ['/src/**/*.ts', '/src/**/*.tsx', '!/src/test/**', '!/src/**/*.test.ts', '!/src/**/*.test.tsx'],
+  ['/src/**/*.{ts,tsx,js,jsx,mjs}', '!/src/test/**', '!/src/**/*.test.{ts,tsx,js,jsx}'],
   { query: '?raw', import: 'default', eager: true },
 ) as Record<string, string>;
 
@@ -56,6 +60,46 @@ const MANIFEST = Object.values(
 /** Every quoted module specifier in a source, whatever syntax carries it. */
 function quotedSpecifiers(source: string): string[] {
   return [...source.matchAll(/['"`]([@\w][\w@./-]*)['"`]/g)].map((m) => m[1]!);
+}
+
+/**
+ * Static *value* imports/re-exports of a tracker package, matched on the whole
+ * source so a multi-line import clause is seen too. `import type` is erased at
+ * build time and excluded; `typeof import('…')` is not an import statement.
+ */
+function staticTrackerImports(source: string): string[] {
+  const statements =
+    /^\s*(?:import|export)\b(?!\s+type\b)[^;]*?\bfrom\s*['"]([^'"]+)['"]|^\s*import\s*['"]([^'"]+)['"]/gm;
+  return [...source.matchAll(statements)]
+    .map((m) => (m[1] ?? m[2])!)
+    .filter((spec) => TRACKER_PACKAGE.test(spec));
+}
+
+/** Runtime `import('…')` of a tracker package (not the type-level `typeof import`). */
+function dynamicTrackerImports(source: string): string[] {
+  return [...source.matchAll(/(?<!typeof\s+)\bimport\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g)]
+    .map((m) => m[1]!)
+    .filter((spec) => TRACKER_PACKAGE.test(spec));
+}
+
+/**
+ * The condition text guarding each call of `name(`: everything between the
+ * previous statement boundary (`;`, `{`, `}`) and the call. Whitespace- and
+ * line-break-tolerant, so a reformat does not break the fence.
+ */
+function guardsOfCalls(source: string, name: string): string[] {
+  const calls = [...source.matchAll(new RegExp(`\\b${name}\\s*\\(`, 'g'))].filter(
+    (m) => !/function\s+$/.test(source.slice(Math.max(0, m.index - 20), m.index)),
+  );
+  return calls.map((m) => {
+    const before = source.slice(0, m.index);
+    const boundary = Math.max(
+      before.lastIndexOf(';'),
+      before.lastIndexOf('{'),
+      before.lastIndexOf('}'),
+    );
+    return before.slice(boundary + 1);
+  });
 }
 
 function trackerReferences(source: string): string[] {
@@ -95,36 +139,45 @@ describe('tracker SDKs stay behind the consent gate (#2159)', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('the gated loader has no static value import of the SDK', () => {
-    const source = APP_SOURCES[GATED_LOADER]!;
-    // `typeof import('…')` and `import type` are erased at build time; a value
-    // import would put the SDK in the initial bundle and run it before consent.
-    const staticImports = source
-      .split('\n')
-      .filter((line) => /^\s*(?:import|export)\b(?!\s+type\b)/.test(line))
-      .filter((line) => trackerReferences(line).length > 0);
-    expect(staticImports).toEqual([]);
-    expect(source).toContain("await import('@sentry/react')");
+  it('the static-import predicate sees multi-line clauses and skips type-only ones', () => {
+    expect(staticTrackerImports('import {\n  init,\n} from "@sentry/react";')).toEqual([
+      '@sentry/react',
+    ]);
+    expect(staticTrackerImports("import '@sentry/browser';")).toEqual(['@sentry/browser']);
+    expect(staticTrackerImports("export * from '@sentry/react';")).toEqual(['@sentry/react']);
+    expect(staticTrackerImports("import type { Event } from '@sentry/react';")).toEqual([]);
+    expect(staticTrackerImports("type M = typeof import('@sentry/react');")).toEqual([]);
+    expect(dynamicTrackerImports("type M = typeof import('@sentry/react');")).toEqual([]);
+    expect(dynamicTrackerImports("await import(\n  '@sentry/react'\n)")).toEqual(['@sentry/react']);
   });
 
-  it('the gated loader reaches the SDK only through the consent check', () => {
+  it('no app source imports a tracker statically', () => {
+    const offenders = Object.entries(APP_SOURCES)
+      .map(([path, source]) => [path, staticTrackerImports(source)] as const)
+      .filter(([, specs]) => specs.length > 0);
+    expect(offenders).toEqual([]);
+  });
+
+  it('the gated loader has exactly one runtime import of the SDK', () => {
+    expect(dynamicTrackerImports(APP_SOURCES[GATED_LOADER]!)).toEqual(['@sentry/react']);
+  });
+
+  it('the gated loader starts the SDK only behind the consent check', () => {
     const source = APP_SOURCES[GATED_LOADER]!;
-    const callSites = source
-      .split('\n')
-      .filter(
-        (line) =>
-          /\bstartErrorTracking\(/.test(line) && !/function\s+startErrorTracking/.test(line),
-      );
-    expect(callSites).toEqual(["  if (hasConsent('error_tracking')) return startErrorTracking();"]);
+    const guards = guardsOfCalls(source, 'startErrorTracking');
+    expect(guards).toHaveLength(1);
+    expect(guards[0]).toMatch(/\bif\s*\(\s*trackingPermitted\s*\(\s*\)\s*\)\s*return\s*$/);
+    // …and the predicate is the consent read, minus Light mode.
+    const predicate = /function\s+trackingPermitted\s*\(\s*\)[^{]*\{([^}]*)\}/.exec(source)?.[1];
+    expect(predicate).toMatch(/!\s*isLightMode\s*&&\s*hasConsent\(\s*['"]error_tracking['"]\s*\)/);
   });
 
   it('the manifest carries no tracker dependency without a gate', () => {
-    const manifest = JSON.parse(MANIFEST) as {
-      dependencies?: Record<string, string>;
-      optionalDependencies?: Record<string, string>;
-    };
+    const manifest = JSON.parse(MANIFEST) as Record<string, Record<string, string> | undefined>;
     const declared = Object.keys({
       ...manifest.dependencies,
+      ...manifest.devDependencies,
+      ...manifest.peerDependencies,
       ...manifest.optionalDependencies,
     });
     expect(declared.filter((name) => TRACKER_PACKAGE.test(name))).toEqual(

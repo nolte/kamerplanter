@@ -20,6 +20,8 @@ export default function BrowserConsentSettings() {
   const { t } = useTranslation();
   const { consent, setConsent } = useConsent();
 
+  // Hidden in Light mode: the tracker never runs there (errorTracking.ts
+  // `trackingPermitted`), so a switch would offer a choice without effect.
   if (isLightMode || !isErrorTrackingConfigured()) return null;
 
   return (
@@ -27,7 +29,12 @@ export default function BrowserConsentSettings() {
       <Typography variant="subtitle2" component="h3">
         {t('consent.browser.heading')}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+      <Typography
+        id="browser-consent-settings-desc"
+        variant="body2"
+        color="text.secondary"
+        sx={{ mb: 1 }}
+      >
         {t('consent.browser.description')}
       </Typography>
       <FormControlLabel
@@ -41,8 +48,10 @@ export default function BrowserConsentSettings() {
                 timestamp: new Date().toISOString(),
               })
             }
+            slotProps={{ input: { 'aria-describedby': 'browser-consent-settings-desc' } }}
           />
         }
+        sx={{ minHeight: 44 }}
         label={t('consent.browser.error_tracking')}
         data-testid="browser-consent-error-tracking"
       />
