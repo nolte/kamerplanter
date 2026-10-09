@@ -20,10 +20,18 @@ import structlog
 from PIL import UnidentifiedImageError
 
 from app.common.datetimes import now_utc
-from app.common.exceptions import ImagePixelLimitError, ValidationError
+from app.common.exceptions import (
+    AdapterNotAvailableError,
+    ConsentRequiredError,
+    ImagePixelLimitError,
+    NotFoundError,
+    ValidationError,
+)
 from app.common.image_bounds import image_dimensions
 from app.common.log_privacy import log_subject, log_tenant, loggable_error
 from app.config.settings import settings
+from app.domain.engines.consent_engine import REFERENCE_CONTRIBUTION, ConsentEngine
+from app.domain.interfaces.consent_repository import IConsentRepository
 from app.domain.interfaces.reference_contribution_marker import IReferenceContributionMarker
 from app.domain.models.reference_image import (
     AcquisitionResult,
@@ -32,6 +40,7 @@ from app.domain.models.reference_image import (
 )
 from app.domain.services.image_processing import strip_exif
 from app.domain.services.reference_image_license import is_acceptable
+from app.domain.services.species_visibility import readable_species
 
 logger = structlog.get_logger()
 
@@ -50,6 +59,8 @@ class ReferenceImageService:
         rate_limiter=None,
         identification_engine=None,
         contribution_marker: IReferenceContributionMarker | None = None,
+        consent_repo: IConsentRepository | None = None,
+        consent_engine: ConsentEngine | None = None,
     ) -> None:
         self._gbif = gbif_adapter
         self._media = media_client
@@ -64,6 +75,10 @@ class ReferenceImageService:
         # #1753 — recorded before every contribution so a process that cannot
         # reach the index refuses to erase instead of skipping the vectors.
         self._contribution_marker = contribution_marker
+        # #2174 — the ``reference_contribution`` opt-in the interactive path
+        # must read before it touches anything (REQ-034 §4.1 Guard 3).
+        self._consent_repo = consent_repo
+        self._consent_engine = consent_engine
 
     def acquire_for_species(
         self,
@@ -203,7 +218,11 @@ class ReferenceImageService:
         * SEC-003 — ``species_key`` is resolved against the master data and the
           authoritative ``scientific_name`` is taken from that record; any
           client-supplied name is ignored. An unknown species raises 404 before
-          any embedding is computed.
+          any embedding is computed. The lookup is scoped to ``tenant_key``
+          (global, own or granted — ``readable_species``, as the gallery hook
+          resolves it): another tenant's private species is the same 404, so the
+          route is neither a write into nor an existence probe of a foreign
+          catalogue.
         * SEC-002 — the per-user daily contribution quota is enforced (Redis),
           and a key derived from the SHA-256 of the normalised image and the
           contributor is used as the dedup key (``source_record_id``) so
@@ -216,6 +235,10 @@ class ReferenceImageService:
           router enforces the grower role).
         * SEC-005 — the contributor (``user_key``) and ``tenant_key`` are stored
           as provenance so the contribution can be attributed and GDPR-erased.
+        * #2174 — the contributor's ``reference_contribution`` consent (REQ-025)
+          is checked FIRST, and Light mode refuses outright (REQ-034 §4.1
+          Guard 2, AC-16): a refused request resolves no species, consumes no
+          quota, records no contribution marker and embeds nothing.
 
         The photo is EXIF-stripped and embedded locally via the self-hosted
         inference-service; only the embedding + provenance are upserted into
@@ -223,6 +246,9 @@ class ReferenceImageService:
         third-party egress happens here.
 
         Raises:
+            AdapterNotAvailableError: Light mode — the contribution is disabled (409).
+            ConsentRequiredError: ``reference_contribution`` is missing or
+                revoked (403).
             NotFoundError: the species does not exist (404).
             ValidationError: the image cannot be decoded (422, SEC-006).
             RateLimitError: the per-user daily quota is exhausted (429).
@@ -233,9 +259,14 @@ class ReferenceImageService:
                 "ReferenceImageService.contribute_user_reference requires a contribution_marker; "
                 "an unrecorded contribution could outlive an erasure (#1753)."
             )
+        # #2174 — Light mode and the opt-in are checked before anything else, so
+        # a refused request consumes no quota and records no contribution.
+        self._require_contribution_allowed(user_key)
         # SEC-003 — resolve the species server-side; derive the scientific name
         # from the record and discard any client-supplied value.
-        species = self._species_repo.get_or_raise(species_key)
+        species = readable_species(self._species_repo, species_key, tenant_key)
+        if species is None:
+            raise NotFoundError("Species", species_key)
         scientific_name = species.scientific_name
 
         # SEC-002 — per-user daily quota. Local, self-hosted path → fail open on
@@ -295,6 +326,28 @@ class ReferenceImageService:
             "dim": response.get("dim"),
             "source_record_id": record_id,
         }
+
+    def _require_contribution_allowed(self, user_key: str) -> None:
+        """Refuse a contribution in Light mode or without the user's opt-in (#2174).
+
+        Unlike the identification/diagnosis gates this is NOT skipped in Light
+        mode: REQ-034 §4.1 Guard 2 / AC-16 disable the reference hook there
+        altogether (no consent subsystem exists, so no opt-in could be on
+        record) — the same abort the automatic gallery hook performs.
+        """
+        if settings.kamerplanter_mode == "light":
+            raise AdapterNotAvailableError(
+                "local_embedding",
+                "contributing reference images is disabled in light mode",
+            )
+        if self._consent_repo is None or self._consent_engine is None:
+            raise RuntimeError(
+                "ReferenceImageService.contribute_user_reference requires consent_repo and consent_engine; "
+                "a contribution must not happen without the reference_contribution opt-in (#2174)."
+            )
+        record = self._consent_repo.get_by_user_and_purpose(user_key, REFERENCE_CONTRIBUTION)
+        if not self._consent_engine.is_processing_allowed(REFERENCE_CONTRIBUTION, record):
+            raise ConsentRequiredError(REFERENCE_CONTRIBUTION)
 
     @staticmethod
     def contribution_record_id(image_hash: str, *, tenant_key: str, user_key: str) -> str:

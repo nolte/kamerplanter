@@ -2423,8 +2423,9 @@ def get_reference_image_service() -> ReferenceImageService:
     """REQ-029-A §4 — reference-image acquisition pipeline (DINOv2 index).
 
     Also serves the interactive user-contribution path (issue #447), which needs
-    the per-user rate limiter and the identification engine (image hashing) — the
-    acquisition pipeline itself does not use those.
+    the per-user rate limiter, the identification engine (image hashing) and the
+    ``reference_contribution`` consent check (#2174) — the acquisition pipeline
+    itself does not use those.
     """
     from app.data_access.external.gbif_adapter import GBIFAdapter
     from app.data_access.external.gbif_media_client import GBIFMediaClient
@@ -2449,6 +2450,8 @@ def get_reference_image_service() -> ReferenceImageService:
         rate_limiter=IdentificationRateLimiter(_get_redis_client()),
         identification_engine=identification_engine,
         contribution_marker=get_system_settings_repo(),
+        consent_repo=get_consent_repo(),
+        consent_engine=get_consent_engine(),
     )
 
 

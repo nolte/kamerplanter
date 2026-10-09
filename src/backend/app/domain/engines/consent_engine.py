@@ -9,6 +9,11 @@ DIARY_AI_ANALYSIS = "diary_ai_analysis"
 #: #2136 (MT-040) — whether an error event may name the person and their tenant
 #: (pseudonymously). Read by ``app.observability.event_user`` at capture time.
 ERROR_TRACKING = "error_tracking"
+#: REQ-034 §4 / #2174 — whether a user's photo may become a quarantined DINOv2
+#: recognition reference. Read by both contribution paths: the automatic gallery
+#: hook (``app.tasks.reference_contribution_tasks``) and the interactive
+#: ``POST /identification/reference`` (``ReferenceImageService``).
+REFERENCE_CONTRIBUTION = "reference_contribution"
 
 # Retired in #2136 (MT-040, REQ-025 §3.6), because no code ever read them:
 # ``hibp_check`` — no HaveIBeenPwned check exists; ``external_enrichment`` — the
@@ -184,7 +189,7 @@ class ConsentEngine:
             required=False,
         ),
         ConsentPurpose(
-            key="reference_contribution",
+            key=REFERENCE_CONTRIBUTION,
             label_de="Foto-Beitrag zur Pflanzenerkennung",
             label_en="Photo contribution to plant recognition",
             description_de=(
