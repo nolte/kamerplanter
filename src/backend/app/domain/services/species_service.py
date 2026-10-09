@@ -16,6 +16,7 @@ from app.domain.services.catalogue_authorization import (
 from app.domain.services.catalogue_authorization import (
     require_role_for_catalogue_create as _authorize_tenant_owned_create,
 )
+from app.domain.services.fields_kept_on_edit import keep_stored_fields
 from app.domain.services.phase_sequence_binder import PhaseSequenceBinder
 
 #: Identity / provenance fields the synonym-inheritance (#975) must NEVER copy or
@@ -39,6 +40,44 @@ _INHERIT_PROTECTED_FIELDS: frozenset[str] = frozenset(
 #: against one of these is preferred over a tenant/import record when several
 #: fuller candidates exist (REQ-048, #975).
 _AUTHORITATIVE_ORIGINS: frozenset[DataOrigin] = frozenset({DataOrigin.SYSTEM, DataOrigin.ENRICHMENT})
+
+#: Species fields ``PUT /species/{key}`` does not carry (``SpeciesCreate`` lacks
+#: them), so :meth:`SpeciesService.update_species` takes them from the stored
+#: record. The route rebuilds the model from the body, which held each at its
+#: default: ``traits`` / ``pruning_months`` became ``[]`` and
+#: ``green_manure_suitable`` became ``False`` on every edit, and the repository
+#: wrote them. The fields are written by the seed, the enrichment and the
+#: reference-image pipeline (REQ-029-A §4), and ``origin`` is server-managed
+#: provenance (REQ-001/REQ-011). The ``None``-default ones survived anyway — the
+#: species repository merges and drops a ``None`` — and are listed so the rule
+#: does not hang on that repository mode. ``scientific_name_normalized`` is not
+#: here: the model derives it from ``scientific_name``, which the body does carry.
+SPECIES_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
+    "allergen_info",
+    "cultivation_flexible",
+    "default_crop_coefficient_kc",
+    "effective_root_depth_cm",
+    "green_manure_suitable",
+    "light_compensation_point_ppfd_max",
+    "light_compensation_point_ppfd_min",
+    "nutrient_demand_level",
+    "origin",
+    "pruning_months",
+    "pruning_type",
+    "representative_image_attribution",
+    "representative_image_license",
+    "representative_image_url",
+    "salt_tolerance_class",
+    "salt_tolerance_ece_threshold_ds_m",
+    "salt_tolerance_slope_pct",
+    "seed_profile",
+    "shade_tolerance",
+    "soil_ph_preference",
+    "toxicity",
+    "toxicity_severity",
+    "traits",
+    "waterlogging_tolerance",
+)
 
 
 def _is_unset(value: object) -> bool:
@@ -483,15 +522,11 @@ class SpeciesService:
             is_platform_admin=is_platform_admin,
             can_role_write=MembershipEngine.can_edit_resource,
         )
-        # The representative reference image is owned by the acquisition
-        # pipeline (REQ-029-A §4), not the edit form — preserve it on update.
-        species.representative_image_url = existing.representative_image_url
-        species.representative_image_attribution = existing.representative_image_attribution
-        species.representative_image_license = existing.representative_image_license
-        # The provenance marker is server-managed (REQ-001/REQ-011) and never
-        # submitted by the edit form — preserve it so a full-replace update never
-        # resets an enriched/tenant record back to the 'system' default.
-        species.origin = existing.origin
+        # Every field the edit body does not carry — the reference image, the
+        # provenance marker, cultivation_flexible, the traits, the pruning months,
+        # the green-manure flag, ... — comes from the stored record; see
+        # SPECIES_FIELDS_KEPT_ON_EDIT for the list and why.
+        keep_stored_fields(species, existing, SPECIES_FIELDS_KEPT_ON_EDIT)
         # tenant ownership (REQ-001 v4.0, #808) is server-managed and never
         # submitted by the edit form — preserve it so a full-replace update never
         # resets a tenant-owned species back to the global default (tenant_key ""),
@@ -500,10 +535,6 @@ class SpeciesService:
         species.tenant_key = existing.tenant_key
         if species.default_nutrient_plan_key != existing.default_nutrient_plan_key:
             self._require_usable_nutrient_plan(species.default_nutrient_plan_key, existing.tenant_key)
-        # cultivation_flexible is master data (seed lifecycle_overrides, ADR-006 E6),
-        # not an edit-form field — preserve it so a full-replace update never resets
-        # the facultative-cultivation capability flag to its default.
-        species.cultivation_flexible = existing.cultivation_flexible
         return self._repo.update(key, species)
 
     # ── explicit masterdata grants (#1092) ──────────────────────────────────
