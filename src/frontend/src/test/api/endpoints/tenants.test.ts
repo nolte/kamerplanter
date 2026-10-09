@@ -99,7 +99,7 @@ describe('tenants endpoints — invitations', () => {
   it('listInvitations gets invitations for slug', async () => {
     client.get.mockResolvedValue({ data: [] });
     await tenants.listInvitations('org');
-    expect(client.get).toHaveBeenCalledWith('/tenants/org/invitations');
+    expect(client.get).toHaveBeenCalledWith('/tenants/org/invitations', { params: { offset: 0, limit: 200 } });
   });
 
   it('createEmailInvitation posts to email invitations', async () => {

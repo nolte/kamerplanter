@@ -710,6 +710,30 @@ class BaseArangoRepository[TModel: BaseModel]:
             return None
         return self._from_doc(doc)
 
+    def _list_builder(
+        self,
+        offset: int,
+        limit: int,
+        tenant_key: str | None,
+        *,
+        all_tenants: bool,
+        after: str | None = None,
+    ) -> AQLBuilder:
+        """The tenant-bound, ``_key``-ordered window both list primitives read.
+
+        ``after`` is the keyset cursor (MT-035, #2131): ``FILTER doc._key > @after``
+        on the same ``_key`` order the page is sorted by, so the next page starts
+        behind the last row the caller saw without counting off ``offset`` rows.
+        """
+        self._enforce_tenant_scope(tenant_key, all_tenants)
+        builder = AQLBuilder(self._collection_name)
+        if tenant_key:
+            builder.filter("tenant_key", "==", tenant_key)
+        if after is not None:
+            builder.filter("_key", ">", after)
+        builder.sort("_key").paginate(offset, limit)
+        return builder
+
     def _list_docs(
         self,
         offset: int = 0,
@@ -718,21 +742,29 @@ class BaseArangoRepository[TModel: BaseModel]:
         *,
         all_tenants: bool = False,
     ) -> tuple[list[dict[str, Any]], int]:
-        self._enforce_tenant_scope(tenant_key, all_tenants)
-        builder = AQLBuilder(self._collection_name)
-        if tenant_key:
-            builder.filter("tenant_key", "==", tenant_key)
-        builder.sort("_key").paginate(offset, limit)
+        items = self._window_docs(offset, limit, tenant_key, all_tenants=all_tenants)
 
-        query, bind_vars = builder.build_list()
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        items = [self._from_doc(doc) for doc in cursor]
-
-        count_query, count_vars = builder.build_count()
+        # The second scan MT-035 (#2131) names: every row the filter matches is
+        # counted again on every page. :meth:`list_window` is the same page without it.
+        count_query, count_vars = self._list_builder(offset, limit, tenant_key, all_tenants=all_tenants).build_count()
         count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
         total = next(count_cursor, 0)
 
         return items, total
+
+    def _window_docs(
+        self,
+        offset: int,
+        limit: int,
+        tenant_key: str | None,
+        *,
+        all_tenants: bool = False,
+        after: str | None = None,
+    ) -> list[dict[str, Any]]:
+        builder = self._list_builder(offset, limit, tenant_key, all_tenants=all_tenants, after=after)
+        query, bind_vars = builder.build_list()
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [self._from_doc(doc) for doc in cursor]
 
     def _insert_payload(
         self,
@@ -891,12 +923,13 @@ class BaseArangoRepository[TModel: BaseModel]:
         sort_direction: SortDirection = "ASC",
         offset: int | None = None,
         limit: int | None = None,
+        tiebreak_key: bool = False,
     ) -> list[dict[str, Any]]:
         builder = AQLBuilder(self._collection_name)
         for field, op, value in filters:
             builder.filter(field, op, value)
         if sort:
-            builder.sort(sort, sort_direction)
+            builder.sort(sort, sort_direction, tiebreak_key=tiebreak_key)
         if offset is not None and limit is not None:
             builder.paginate(offset, limit)
         query, bind_vars = builder.build_list()
@@ -950,6 +983,29 @@ class BaseArangoRepository[TModel: BaseModel]:
     ) -> tuple[list[TModel], int]:
         items, total = self._list_docs(offset, limit, tenant_key, all_tenants=all_tenants)
         return self._wrap_many(items), total
+
+    def list_window(
+        self,
+        *,
+        offset: int = 0,
+        limit: int = 50,
+        tenant_key: str | None = None,
+        all_tenants: bool = False,
+        after: str | None = None,
+    ) -> list[TModel]:
+        """One ``_key``-ordered page **without** the count query (MT-035, #2131).
+
+        :meth:`get_all` answers ``(rows, total)`` and pays for ``total`` with a
+        second scan of every row the filter matches — on every page. The list
+        routes answer a bare array and threw that number away. This is the same
+        window without the count: ``include_total=false`` as a method.
+
+        ``after`` is the keyset cursor (the ``key`` of the last row of the
+        previous page); ``offset`` should be ``0`` with it — the route dependency
+        :func:`app.common.pagination.get_cursor_pagination` refuses the
+        combination. Tenant scope is enforced exactly as in :meth:`get_all`.
+        """
+        return self._wrap_many(self._window_docs(offset, limit, tenant_key, all_tenants=all_tenants, after=after))
 
     def get_page(
         self,
@@ -1065,6 +1121,7 @@ class BaseArangoRepository[TModel: BaseModel]:
         offset: int | None = None,
         limit: int | None = None,
         extra_filters: list[FilterTriple] | None = None,
+        tiebreak_key: bool = False,
     ) -> list[TModel]:
         """Find documents where ``field == value`` (plus optional extras).
 
@@ -1082,6 +1139,7 @@ class BaseArangoRepository[TModel: BaseModel]:
             sort_direction=sort_direction,
             offset=offset,
             limit=limit,
+            tiebreak_key=tiebreak_key,
         )
         return self._wrap_many(docs)
 

@@ -58,8 +58,8 @@ class ITenantRepository(ABC):
     def list_by_owner(self, owner_user_key: str) -> list[Tenant]: ...
 
     @abstractmethod
-    def list_all(self) -> list[Tenant]:
-        """Every tenant, newest first (platform-admin listing, #1019).
+    def list_all(self, *, offset: int | None = None, limit: int | None = None) -> list[Tenant]:
+        """Tenants, newest first (platform-admin listing, #1019); a window when ``limit`` is set (MT-035).
 
         Not tenant-scoped by design: this is the platform-admin cross-tenant
         catalogue, the same system-context read the router hand-wrote as raw AQL.

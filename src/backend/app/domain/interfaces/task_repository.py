@@ -153,8 +153,10 @@ class ITaskRepository(ABC):
         tenant_key: str,
         category: str | None = None,
         origins: Sequence[str] | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
     ) -> list[Task]:
-        """Return a plant's tasks inside ``tenant_key`` (#927).
+        """Return a plant's tasks inside ``tenant_key`` (#927); a window when ``limit`` is set (MT-035).
 
         ``tenant_key`` is required and keyword-only; ``plant_key`` alone selects
         across every tenant and arrives from the URL. ``category``/``origins``
@@ -179,6 +181,8 @@ class ITaskRepository(ABC):
         *,
         category: str | None = None,
         origins: Sequence[str] | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
     ) -> list[Task]: ...
 
     @abstractmethod

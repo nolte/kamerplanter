@@ -8,8 +8,9 @@ the quiet half of the same class: a wrong answer instead of an error.
 """
 
 from datetime import date
+from typing import Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.common.enums import PhaseName
 
@@ -60,12 +61,25 @@ class SunTimesResponse(BaseModel):
     day_length_hours: float
 
 
+#: Longest range ``/calculations/sun-times-range`` computes: one leap year. The
+#: answer is one row per day, so the request is the only bound on its length
+#: (MT-035, #2131).
+MAX_SUN_TIMES_RANGE_DAYS = 366
+
+
 class SunTimesRangeRequest(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
     start_date: date
     end_date: date
     timezone: str = "UTC"
+
+    @model_validator(mode="after")
+    def _range_is_bounded(self) -> Self:
+        days = (self.end_date - self.start_date).days + 1
+        if days > MAX_SUN_TIMES_RANGE_DAYS:
+            raise ValueError(f"the range spans {days} days; at most {MAX_SUN_TIMES_RANGE_DAYS} are computed")
+        return self
 
 
 class SlotCapacityRequest(BaseModel):

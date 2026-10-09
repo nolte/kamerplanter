@@ -112,8 +112,19 @@ class ArangoPostHarvestRepository(BaseArangoRepository[PostHarvestBatch], IPostH
         )
         return created
 
-    def list_observations(self, batch_key: str) -> list[StorageObservation]:
-        return self._observations.find_by_field("batch_key", batch_key, sort="observed_at", sort_direction="DESC")
+    def list_observations(
+        self, batch_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[StorageObservation]:
+        """One batch's observations, newest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self._observations.find_by_field(
+            "batch_key",
+            batch_key,
+            sort="observed_at",
+            sort_direction="DESC",
+            offset=offset,
+            limit=limit,
+            tiebreak_key=True,
+        )
 
     # ── Mold alerts ──
 

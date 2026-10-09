@@ -1,4 +1,5 @@
 import client from '../client';
+import { fetchAllPages } from '../paginate';
 import type {
   CredentialStepUp,
   Invitation,
@@ -87,9 +88,17 @@ export async function leaveTenant(slug: string): Promise<void> {
 
 // ── Invitations ─────────────────────────────────────────────────────
 
+/**
+ * Every invitation of a tenant, newest first. The route returns one bounded page since MT-035 (#2131); every page is read so
+ * the list this feeds stays complete.
+ */
 export async function listInvitations(slug: string): Promise<Invitation[]> {
-  const res = await client.get<Invitation[]>(`${BASE}/${slug}/invitations`);
-  return res.data;
+  return fetchAllPages(async (offset, limit) => {
+    const res = await client.get<Invitation[]>(`${BASE}/${slug}/invitations`, {
+      params: { offset, limit },
+    });
+    return res.data;
+  });
 }
 
 export async function createEmailInvitation(

@@ -340,14 +340,14 @@ describe('tasks endpoints — specialized queries', () => {
   it('getTasksForPlant gets plant tasks without status', async () => {
     client.get.mockResolvedValue({ data: [] });
     await tasks.getTasksForPlant('p1');
-    expect(client.get).toHaveBeenCalledWith('/tasks/plants/p1', { params: {} });
+    expect(client.get).toHaveBeenCalledWith('/tasks/plants/p1', { params: { offset: 0, limit: 200 } });
   });
 
   it('getTasksForPlant adds status param when provided', async () => {
     client.get.mockResolvedValue({ data: [] });
     await tasks.getTasksForPlant('p1', 'open');
     expect(client.get).toHaveBeenCalledWith('/tasks/plants/p1', {
-      params: { status: 'open' },
+      params: { offset: 0, limit: 200, status: 'open' },
     });
   });
 });

@@ -1,4 +1,5 @@
 import { tenantClient as client } from '../client';
+import { fetchAllPages } from '../paginate';
 import type {
   DryingProgress,
   DryingProgressCreate,
@@ -98,13 +99,20 @@ export async function recordObservation(
   return data;
 }
 
+/**
+ * Every storage observation of a batch, newest first. The route returns one bounded page since MT-035 (#2131); every page is read so
+ * the list this feeds stays complete.
+ */
 export async function getObservations(
   key: string,
 ): Promise<StorageObservation[]> {
-  const { data } = await client.get<StorageObservation[]>(
-    `${BASE}/${key}/observations`,
-  );
-  return data;
+  return fetchAllPages(async (offset, limit) => {
+    const { data } = await client.get<StorageObservation[]>(
+      `${BASE}/${key}/observations`,
+      { params: { offset, limit } },
+    );
+    return data;
+  });
 }
 
 // -- Mold alerts ---------------------------------------------------------

@@ -61,7 +61,9 @@ class IPostHarvestRepository(ABC):
     def create_observation(self, observation: StorageObservation) -> StorageObservation: ...
 
     @abstractmethod
-    def list_observations(self, batch_key: str) -> list[StorageObservation]: ...
+    def list_observations(
+        self, batch_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[StorageObservation]: ...
 
     # ── Mold alerts ──
 

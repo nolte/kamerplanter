@@ -2018,6 +2018,20 @@ PLANT_INSTANCE_ID_INDEX_FIELDS = ["tenant_key", "instance_id"]
 #: The pre-#2065 collection-wide index; ``v0079`` drops it (``persistent`` or ``hash``).
 LEGACY_PLANT_INSTANCE_ID_INDEX_FIELDS = ["instance_id"]
 
+#: The keyset index of a tenant's ``_key``-ordered list (MT-035, #2131).
+#: ``BaseArangoRepository.list_window`` reads ``FILTER doc.tenant_key == @t [AND
+#: doc._key > @after] SORT doc._key LIMIT @n``. Without it the optimizer either
+#: takes another ``tenant_key``-prefixed index and sorts every row of the tenant
+#: (plant_instances: 50 000 index entries and ~170 ms for page 1, measured on
+#: ArangoDB 3.12) or walks the primary index and filters out every other tenant's
+#: rows on the way — cheap for one big tenant, a full scan for a small one among
+#: many. With it, page 1 and a deep cursor page each read ``limit`` entries (~4 ms).
+#: Non-unique and additive; ``ensure_collections`` builds it on the next start.
+TENANT_KEY_ORDER_INDEX_FIELDS = ["tenant_key", "_key"]
+
+#: The collections whose list route pages by keyset (``get_cursor_pagination``).
+KEYSET_PAGED_COLLECTIONS = (PLANT_INSTANCES, WATERING_LOGS, WATERING_EVENTS, FEEDING_EVENTS)
+
 #: Fields of the slot id index (#2065): a ``slot_id`` is unique **per location**. A
 #: slot carries no tenant of its own (``Slot.tenant_key`` stays empty, #1397); its
 #: location is the parent that belongs to exactly one tenant, and the id itself names
@@ -2141,6 +2155,12 @@ def ensure_collections(db: StandardDatabase) -> None:
     plants_col = db.collection(PLANT_INSTANCES)
     # Per tenant since #2065; v0079 drops the legacy collection-wide index.
     plants_col.add_persistent_index(fields=PLANT_INSTANCE_ID_INDEX_FIELDS, unique=True)
+
+    # MT-035 (#2131): the keyset/offset window of each tenant's list reads `limit` entries.
+    for keyset_collection in KEYSET_PAGED_COLLECTIONS:
+        db.collection(keyset_collection).add_persistent_index(
+            fields=TENANT_KEY_ORDER_INDEX_FIELDS, unique=False, in_background=True
+        )
 
     mappings_col = db.collection(EXTERNAL_MAPPINGS)
     mappings_col.add_persistent_index(fields=["internal_collection", "internal_key", "source_key"], unique=True)

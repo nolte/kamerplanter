@@ -2151,15 +2151,16 @@ class TenantService:
 
     # --- Platform-admin catalogue reads (#1019) ---
 
-    def list_all_tenants(self) -> list[Tenant]:
+    def list_all_tenants(self, *, offset: int | None = None, limit: int | None = None) -> list[Tenant]:
         """Every tenant, newest first — the platform-admin cross-tenant listing.
 
         Distinct from :meth:`list_my_tenants`, which is scoped to one user's
         memberships. This is a system-context read the platform-admin panel used
         to hand-write as raw AQL in the router (#1019); the per-tenant member
-        count is derived by the caller from :meth:`list_members`.
+        count is derived by the caller from :meth:`list_members`. ``offset``/``limit``
+        read one window (MT-035, #2131); both ``None`` reads every tenant.
         """
-        return self._tenant_repo.list_all()
+        return self._tenant_repo.list_all(offset=offset, limit=limit)
 
     def count_tenants(self, *, active_only: bool = False) -> int:
         """Number of tenants; ``active_only`` counts only ``is_active`` ones (#1019)."""
@@ -3271,8 +3272,11 @@ class TenantService:
             and not self._invitation_engine.is_expired(invitation.expires_at)
         )
 
-    def list_invitations(self, tenant_key: str) -> list[Invitation]:
-        return self._invitation_repo.list_by_tenant(tenant_key)
+    def list_invitations(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[Invitation]:
+        """A tenant's invitations, newest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self._invitation_repo.list_by_tenant(tenant_key, offset=offset, limit=limit)
 
     def revoke_invitation(self, tenant_key: str, invitation_key: str) -> Invitation:
         invitation = self._invitation_repo.get_by_key(invitation_key)
