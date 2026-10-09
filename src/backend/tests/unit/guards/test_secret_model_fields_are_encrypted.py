@@ -63,6 +63,14 @@ DECIDED: dict[tuple[str, str], str] = {
     ("tenant_erasure.TenantErasureCancelConfirmation", "step_up_token"): (
         "request body of cancelling a scheduled tenant deletion (#2123); never persisted"
     ),
+    ("service_account.ServiceAccountCreated", "api_key"): (
+        "response DTO of a service-account creation (#2137): the first key's metadata and its raw value, shown "
+        "once; never persisted - the stored ApiKey keeps key_hash only"
+    ),
+    ("service_account.ServiceAccountKeyRotated", "api_key"): (
+        "response DTO of a key rotation (#2137): the new key, shown once; never persisted - the stored ApiKey "
+        "keeps key_hash only"
+    ),
     ("calendar.CalendarFeed", "token"): (
         "persisted in clear: the iCal endpoint looks the feed up BY the token value, so Fernet (random IV) cannot "
         "serve the lookup; hashing it is the fix and is a separate change (#2113 class sweep, reported)"

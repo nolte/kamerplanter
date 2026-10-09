@@ -103,16 +103,9 @@ This endpoint is deliberately restricted to service accounts. An invalid, revoke
 !!! info "Available in light mode too"
     A light-mode instance has no user accounts — sign-in, sessions and security settings are deliberately absent there. **API key management is still present**, because it is the only credential the MCP server accepts. The key belongs to the system user, which is a member of the default garden. This grants no extra authority: anyone who can reach a light instance already has full access — the key merely makes that access usable from outside. Which is exactly why a light instance does not belong on the public internet.
 
-**As a service account — operator step:**
+**As a service account:**
 
-!!! warning "Not yet implemented"
-    Full, self-service service-account management (create, rotate, deactivate via the API — see [Service Accounts & API Keys](service-accounts.md)) is specified but not yet implemented. Today, creating a user account with `account_type: "service"` is an **operator step** outside the public API, not a self-service flow (internal reference: REQ-023).
-
-For an MCP client to obtain a working key today, the following pieces are needed:
-
-1. A user account with `account_type: "service"` (no password, no interactive login) — created by the instance operator.
-2. A tenant membership for that account with exactly the role (`viewer`/`grower`/`admin`) matching the desired [permission level](#permission-model-mcpread-mcpwrite-mcpsetup).
-3. An API key for that account, technically the same mechanism described under [Service Accounts & API Keys — Using the API Key](service-accounts.md#using-the-api-key) — but since a service account is never logged in interactively, it cannot request the key itself via the `/auth/api-keys` endpoint; this step, too, currently runs through the operator.
+A machine MCP client gets its key through a service account that a garden's lead creates — see [Service Accounts & API Keys](service-accounts.md#create-a-service-account). The response holds the first key; it is bound to that one garden, and the service account holds the role `viewer` or `grower` there, matching the desired [permission level](#permission-model-mcpread-mcpwrite-mcpsetup). A service account never gets the lead role. Use the key as described under [Use the key](service-accounts.md#use-the-key). <!-- REQ-023 §5b, Issue #2137 -->
 
 ## Setting up a client (Claude Code)
 

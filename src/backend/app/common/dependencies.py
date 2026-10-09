@@ -1278,6 +1278,9 @@ def get_tenant_service() -> TenantService:
         user_repo=get_user_repo(),
         # #2133 (REQ-024 AK-64) — no tenant's member limit exceeds the platform ceiling.
         max_members_ceiling=settings.tenant_max_members_ceiling,
+        # #2137 (MT-041, REQ-023 §5b) — the tenant's service accounts: their keys and the per-tenant quota.
+        api_key_repo=get_api_key_repo(),
+        max_service_accounts=settings.tenant_max_service_accounts,
     )
 
 

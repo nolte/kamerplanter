@@ -177,6 +177,8 @@ type StepUpAction = Literal[
     "admin_membership_add",
     # #2123 — the tenant's management (or a platform admin) cancelling a scheduled tenant deletion.
     "tenant_erasure_cancel",
+    # #2137 — a tenant's lead with the technical scope creating, re-keying or removing a service account.
+    "service_account_change",
 ]
 
 #: The acts that act on something other than the requester's own account (#1884).
@@ -195,7 +197,9 @@ type StepUpAction = Literal[
 #: ``tenant_member_role_change``) — and, since #2106, the pair ``<tenant_key>|<user_key>`` of
 #: ``admin_membership_add`` (the membership does not exist yet, so its key cannot be the
 #: target; the same pair whichever of the two admin views adds) — and, since #2123, the tenant's
-#: key of ``tenant_erasure_cancel``. Every other act acts on the
+#: key of ``tenant_erasure_cancel`` — and, since #2137, ``service_account_change``: the tenant's key
+#: for a creation (the account does not exist yet) and ``<tenant_key>|<service_account_key>`` for a
+#: rotation or a removal. Every other act acts on the
 #: requester's own account, which the digest already binds; it carries no target.
 TARGETED_ACTIONS: frozenset[str] = frozenset(
     {
@@ -211,6 +215,7 @@ TARGETED_ACTIONS: frozenset[str] = frozenset(
         "tenant_member_role_change",
         "admin_membership_add",
         "tenant_erasure_cancel",
+        "service_account_change",
     }
 )
 
@@ -269,6 +274,7 @@ CODE_PURPOSES: dict[str, str] = {
     "tenant_member_role_change": "change a member's role in your garden (tenant)",
     "admin_membership_add": "add an account to a garden (tenant) as a platform administrator",
     "tenant_erasure_cancel": "cancel the scheduled deletion of a garden (tenant)",
+    "service_account_change": "create, re-key or remove a service account of your garden (tenant)",
 }
 
 #: Attempts per account across all addresses before the account-wide lock starts.

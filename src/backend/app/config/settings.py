@@ -372,6 +372,11 @@ class Settings(BaseSettings):
     #: ceiling keeps its members; only the next join is refused.
     tenant_max_members_ceiling: int = Field(default=50, ge=1)
 
+    #: #2137 (MT-041, REQ-023 §5b AK-30) — how many active service accounts one tenant may hold.
+    #: A service account also takes a seat of the tenant's member limit (it is a member). Lowering the
+    #: value removes nobody; only the next creation is refused (422 ``SERVICE_ACCOUNT_LIMIT_REACHED``).
+    tenant_max_service_accounts: int = Field(default=20, ge=1)
+
     #: E2E only (#1155) — email of a second, platform-admin account to seed.
     #:
     #: The full-mode E2E suite needs an account that may mutate the global

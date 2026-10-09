@@ -28,7 +28,14 @@ APP = Path(__file__).resolve().parents[3] / "app"
 _EXCLUDED = ("migrations",)
 _GATE = "_require_registration_admitted"
 
-_CLASSIFIED: dict[tuple[str, str], str] = {}
+_CLASSIFIED: dict[tuple[str, str], str] = {
+    ("domain/services/tenant_service.py", "TenantService.create_service_account"): (
+        "#2137: a tenant's lead with the technical scope creates a machine identity behind their own step-up; "
+        "nobody signs up - the account has no password, cannot sign in (allows_interactive_auth) and is "
+        "refused founding or joining a tenant. The registration policy governs who may make an account for "
+        "themselves; it does not apply to an integration a member administers"
+    ),
+}
 
 
 def _own_nodes(function: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.AST]:
@@ -119,6 +126,7 @@ def test_the_predicate_sees_the_class() -> None:
     assert found == {
         ("domain/services/auth_service.py", "AuthService.register_local"): True,
         ("domain/services/auth_service.py", "AuthService._register_oauth_user"): True,
+        ("domain/services/tenant_service.py", "TenantService.create_service_account"): False,
     }
 
 

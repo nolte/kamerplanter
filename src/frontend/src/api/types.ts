@@ -4163,7 +4163,17 @@ export interface OAuthProviderListItem {
   icon_url: string | null;
 }
 
-export interface ApiKeyCreate extends CredentialStepUp {
+/** The network controls a key is minted with (#2137); enforced on REST and MCP alike. */
+export interface ApiKeyControls {
+  /** CIDR ranges; no host bits, nothing wider than /8 (IPv4) or /32 (IPv6), at most 32. */
+  ip_allowlist?: string[] | null;
+  /** 1..10000 requests per minute. */
+  rate_limit_per_minute?: number | null;
+  /** ISO timestamp with a timezone, in the future, at most 730 days ahead. */
+  expires_at?: string | null;
+}
+
+export interface ApiKeyCreate extends CredentialStepUp, ApiKeyControls {
   label: string;
   tenant_scope?: string | null;
 }
@@ -4175,6 +4185,9 @@ export interface ApiKeyCreated {
   key_prefix: string;
   tenant_scope: string | null;
   created_at: string | null;
+  ip_allowlist?: string[] | null;
+  rate_limit_per_minute?: number | null;
+  expires_at?: string | null;
 }
 
 export interface ApiKeySummary {
@@ -4185,6 +4198,9 @@ export interface ApiKeySummary {
   revoked: boolean;
   last_used_at: string | null;
   created_at: string | null;
+  ip_allowlist?: string[] | null;
+  rate_limit_per_minute?: number | null;
+  expires_at?: string | null;
 }
 
 /**
@@ -5063,7 +5079,10 @@ export type StepUpAction =
   // #2106 — a platform admin adding an account to a tenant (bound to `<tenant_key>|<user_key>`).
   | 'admin_membership_add'
   // #2123 — cancelling a scheduled tenant deletion (bound to the tenant's key).
-  | 'tenant_erasure_cancel';
+  | 'tenant_erasure_cancel'
+  // #2137 — a tenant's lead (technical scope) creating, re-keying or removing a service account
+  // (bound to the tenant's key, or to `<tenant_key>|<service_account_key>`).
+  | 'service_account_change';
 
 /**
  * The step-up a credential change carries in its body (#1847, #1857, REQ-023
