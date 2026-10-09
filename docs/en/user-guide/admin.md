@@ -530,10 +530,10 @@ Moderation lives in the admin area, in the **"Contributed pest images"** card:
 ## Frequently Asked Questions
 
 ??? question "Who can assign the platform-admin role?"
-    The platform-admin role can only be assigned by an existing platform admin — directly via the API or in the admin area. During initial setup, the first registered user is automatically configured as platform admin.
+    The platform-admin role can only be assigned by an existing platform admin — directly via the API or in the admin area, confirmed with their password each time. During initial setup you create the first platform admin account on the server (`python -m app.migrations.add_platform_admin <email>`); the first registered user does **not** become platform admin automatically.
 
 ??? question "Can a platform admin view tenant data?"
-    Yes. Platform admins have read access to all tenant-scoped data. This permission should be restricted to trusted individuals and accompanied by an audit log. <!-- REQ-024 -->
+    No, not the domain data. A platform admin sees administrative data across all tenants — that a tenant exists, its name, who is a member — but no plants, harvests or diaries of another tenant. For that they would have to be added there as a regular member. <!-- REQ-049 §2.5 -->
 
 ??? question "Is there a viewer role for the admin area?"
     Yes. The platform role `viewer` grants read access to all admin statistics and tenant overviews, but no write permissions.

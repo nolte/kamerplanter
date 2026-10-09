@@ -6,7 +6,7 @@ Kategorie: Architektur Unterkategorie: API-Design, Security, Deployment Fokus: B
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI, Docker
 Status: Genehmigt
 Priorität: Kritisch
-Version: 2.5 (§8.3 SE-006: serverseitiges Fehler-Tracking — Einwilligung `error_tracking` steuert den `user`-Block, #2136) — 2.4 (#2109: Budgets je Konto auf teuren Routen umgesetzt, `rate_limit_general` entfernt)
+Version: 2.6 (§6.1: `tenant_roles` im JWT ist informativ, Autorisierung liest Mitgliedschaften zur Laufzeit; #2121) — 2.5 (§8.3 SE-006: serverseitiges Fehler-Tracking — Einwilligung `error_tracking` steuert den `user`-Block, #2136) — 2.4 (#2109: Budgets je Konto auf teuren Routen umgesetzt, `rate_limit_general` entfernt)
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [architecture, api-first, security, scalability, separation-of-concerns, layered-architecture, rate-limiting, csp, mqtt-security, audit-trail, dsgvo]
@@ -496,7 +496,7 @@ data:
 > - **Authlib** anstelle von `python-jose` (aktiv maintained, OIDC/PKCE built-in)
 > - **15-Minuten-Access-Tokens** (statt 1h) mit Refresh-Token-Rotation (30 Tage)
 > - Lokale Accounts (E-Mail + Passwort) + OAuth2/OIDC (Google, GitHub, Apple, generische OIDC-Provider)
-> - Mandantenspezifische Rollen im JWT-Payload (`tenant_roles`)
+> - Mandantenspezifische Rollen im JWT-Payload (`tenant_roles`) — **informativ** (v2.6, #2121): heute leer ausgestellt; keine Autorisierung liest den Claim, die Wächter lesen die gespeicherte Mitgliedschaft bei jeder Anfrage. Ein Implementierer darf eine Rolle nie aus dem Token entscheiden — sie wäre bis zum Ablauf des Tokens veraltet
 > - Vollständige Spezifikation: Engines, Services, API-Endpoints, Frontend, Abnahmekriterien
 >
 > Das nachfolgende Code-Beispiel dient nur noch als historische Referenz.
@@ -1683,6 +1683,7 @@ class WeatherStationAdapter:
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.6 | 2026-10-05 | **#2121 (MT-025) §6.1:** Der Verweis „Mandantenspezifische Rollen im JWT-Payload (`tenant_roles`)“ las sich, als sei der Claim autoritativ. Gemessen: `AuthService` stellt `tenant_roles` leer aus, und kein Wächter liest ihn (auch `is_platform_admin` nicht) — Autorisierung liest die Mitgliedschaft zur Laufzeit (REQ-023 v1.46). Klargestellt. |
 | 2.5 | 2026-10-05 | **#2136 (MT-040) SE-006:** Serverseitiges Fehler-Tracking — die Einwilligung `error_tracking` entscheidet je Ereignis über den `user`-Block (Pseudonyme); SE-001/SE-005 gelten für das Browser-SDK. |
 | 2.4 | 2026-10-04 | **#2109 (MT-012) Budgets je Konto auf teuren Routen:** §6.3 hält den Umsetzungsstand fest. Upload-, Inferenz- und Druck-Routen zählen je Konto und Route (`RATE_LIMIT_UPLOAD` 30/min, `RATE_LIMIT_INFERENCE` 20/min, `RATE_LIMIT_EXPORT` 20/min, Schlüssel `user_rate_limit_key`); RL-003 (`Retry-After`) ist für jede 429-Antwort umgesetzt. Die nie gelesene Einstellung `rate_limit_general` ist entfernt statt verdrahtet — ein Konto-Default auf allen rund 800 Routen hätte jede Route neu bepreist. RL-001 (jede Route einem Tier zugeordnet) bleibt offen; Guards `test_expensive_routes_carry_a_per_user_limit`, `test_rate_limit_settings_are_read`. |
 | 2.1 | 2026-02-27 | IT-Security-Review-Findings eingearbeitet: §6.3 Rate Limiting formalisiert (SEC-H-002), §6.4 HTTP Security Headers (SEC-M-003), §6.5 Globale Eingabevalidierung (SEC-H-003), §6.6 MQTT-Security (SEC-H-006), §6.7 DSFA-Pflicht (SEC-K-005), §8.3 Sentry DSGVO-Konformität (SEC-M-005), §10.2 Audit-Trail verbindlich (SEC-H-007), §12 Akzeptanzkriterien erweitert |

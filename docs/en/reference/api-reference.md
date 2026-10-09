@@ -973,7 +973,7 @@ GET /api/v1/public/ai/health
 
 ### Tenant-scoped endpoints
 
-The following endpoints live under `/api/v1/t/{tenant_slug}/ai/` and require a valid JWT token plus an active tenant membership. Role-based restrictions (viewer/grower/admin) are **not yet** implemented in this version — every active member may call every endpoint.
+The following endpoints live under `/api/v1/t/{tenant_slug}/ai/` and require a valid JWT token plus an active tenant membership. Reads (`GET`) and creating or deleting one's own conversations are open to every member; refreshing, dismissing or marking tips as acted on, `/explain` and sending a message require at least the grower role (`grower`).
 
 | Method | Path | Description |
 |--------|------|-------------|

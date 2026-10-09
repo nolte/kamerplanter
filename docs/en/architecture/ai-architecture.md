@@ -468,12 +468,12 @@ Tip cards are regenerated immediately when:
 
 ---
 
-## Consent Middleware
+## Consent check (consent guard)
 
-Cloud providers (OpenAI, Anthropic) require explicit GDPR consent (REQ-025). The consent middleware checks for valid consent before every request.
+Cloud providers (OpenAI, Anthropic) require explicit GDPR consent (REQ-025). The check runs in the service layer, not in the request pipeline: `ConsentGuard` (`app/domain/guards/consent_guard.py`) asks before the call whether consent was given and otherwise answers `403 ConsentRequiredError`. The example shows the logic in simplified form.
 
 ```python
-# app/common/dependencies.py
+# simplified — implemented in app/domain/guards/consent_guard.py (ConsentGuard)
 
 async def require_ai_consent(
     provider_config: AiProviderConfig,
