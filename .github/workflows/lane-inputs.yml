@@ -166,7 +166,7 @@ jobs:
           version: 3.52.0
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: src/frontend/.tool-versions
       - name: Install the recorder's own dependency
@@ -242,7 +242,7 @@ jobs:
           LANE: ${{ matrix.lane }}
         run: python3 scripts/ci/lane_inputs.py replay --out-dir "$OUT_DIR" "$LANE"
       - name: Upload the recorded manifest
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lane-inputs-${{ matrix.name }}
           path: ${{ runner.temp }}/lane-inputs-recorded/*.yaml
@@ -273,13 +273,13 @@ jobs:
       - name: Install the recorder's own dependency
         run: python3 -m pip install --user 'PyYAML==6.0.3'
       - name: Download every leg's recording
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: lane-inputs-*
           merge-multiple: true
           path: recorded/lane-inputs
       - name: Publish the recording as one artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lane-inputs
           path: recorded/lane-inputs/*.yaml
@@ -305,7 +305,7 @@ jobs:
           exit "$status"
       - name: Keep the compare report for the bot pull request
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: report-lane-inputs-compare
           path: ${{ runner.temp }}/lane-inputs-report/compare.txt
@@ -347,7 +347,7 @@ jobs:
           uv sync --locked --extra dev
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
       - name: Download every leg's recording
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: lane-inputs-*
           merge-multiple: true
@@ -381,7 +381,7 @@ jobs:
           pytest tests/unit/guards/test_lane_filters_cover_measured_inputs.py tests/unit/test_lane_inputs_recorder.py --lane-inputs-drift -m lane_inputs_drift -q --tb=short --max-skipped 0 2>&1 | tee "$REPORT"
       - name: Keep the guard reports for the bot pull request
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: report-lane-inputs-guard
           path: ${{ runner.temp }}/lane-inputs-report/*.txt
@@ -461,7 +461,7 @@ jobs:
           persist-credentials: false
       - name: Download the recording
         if: ${{ github.ref == 'refs/heads/develop' && env.DRIFT == 'true' }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           # The one artifact compare published from every leg — named apart from
           # the reports so no `lane-inputs-*` pattern above ever picks them up.
@@ -469,7 +469,7 @@ jobs:
           path: ${{ runner.temp }}/downloaded/lane-inputs
       - name: Download the reports
         if: ${{ github.ref == 'refs/heads/develop' && env.DRIFT == 'true' }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: report-lane-inputs-*
           path: ${{ runner.temp }}/downloaded
