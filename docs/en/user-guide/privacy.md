@@ -177,6 +177,8 @@ No optional consent is needed for the core functions of the system. However, som
 !!! info "What attributing error reports does"
     If the operator has switched error tracking on and an error occurs in one of your requests, an error report goes to the tracker — without request contents, without IP address and without the requested path. With your consent it additionally carries a pseudonym of your account and your garden, never name or email. This lets an error that affects you be traced specifically. If you revoke, this applies from your next request.
 
+**Error reports from your browser** are asked for separately: if the operator has switched error tracking on, a notice with **Accept all**, **Necessary only** and **Settings** appears at the bottom on your first visit. Only once you consent to error analysis does your browser report crashes to the tracker — without form contents, cookies or email address. The decision applies to this browser. You can change it in the **Consents** tab with the switch **Allow error analysis**; it takes effect immediately, without a reload. In Light mode the notice does not appear and your browser reports no errors.
+
 A password check against known breaches and a consent for external master-data enrichment are no longer in the list: the password check does not exist, and enriching species master data (GBIF, Perenual) sends species names only, no data about you. If you had granted either, the entry stays visible in your data export and is deleted with your account.
 
 ### Revoking Consent

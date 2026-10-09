@@ -717,7 +717,7 @@ These variables control the thresholds of the automatic season/overwintering det
 
 ## Error Tracking (optional)
 
-Reports runtime failures to a Sentry-protocol-compatible tracker (reference: GlitchTip). **With `SENTRY_DSN` empty nothing happens** — the SDK is never initialised and the frontend does not even download its SDK bundle. Full detail: [Error tracking](../deployment/fehler-tracking.md).
+Reports runtime failures to a Sentry-protocol-compatible tracker (reference: GlitchTip). **With `SENTRY_DSN` empty nothing happens** — the SDK is never initialised and the frontend does not even download its SDK bundle. With a DSN, the frontend loads it only once the person has consented to error analysis. Full detail: [Error tracking](../deployment/fehler-tracking.md).
 
 | Variable | Default | Required | Description |
 |----------|---------|----------|-------------|
