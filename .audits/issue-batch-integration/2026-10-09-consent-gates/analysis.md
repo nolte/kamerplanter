@@ -82,6 +82,12 @@ Columns derived from the repository: `pyproject.toml`/`package.json` (source), `
 | #2174 | orchestrator (independent) | `pytest` 7 files incl. `test_consent_purposes_are_read.py`, `test_recognition_write_gates.py` | `102 passed, 44 warnings` with `app.__file__` in the worktree |
 | #2174 | nolte-engineering:code-security-reviewer | diff review (read-only, no Bash, files read at HEAD) | no Critical/Warning; gate not bypassable; order correct; two small Infos fixed directly (see Findings) |
 
+| #2175 | nolte-engineering:fullstack-developer | red/green per admission step (consent, charge, toggle a/b) | consent removed: 4 failed/10 passed; `_charge` removed: 4 failed/24 passed; toggle (b): 3 failed; restored: 53 passed, later 77 passed (orchestrator re-run) |
+| #2175 | nolte-engineering:code-security-reviewer | diff review | no bypass on the new route; SEC-002 (unbounded context) confirmed and fixed (7 red cases, 422), `top_k` ≤ 10, 4 test/doc items fixed in 12901a8c6; SEC-001 and S-2 left to the operator |
+| #2159 | nolte-engineering:fullstack-developer | red/green of the consent gate | gate removed: `15 failed \| 49 passed`; generation guard removed: 1 failed; restored: 64 passed; orchestrator re-run 247 passed |
+| #2159 | nolte-engineering:code-security-reviewer + webview-ui-expert | diff review | W1 (`close(0)` flushes unboundedly) and W2 (breadcrumbs survive) confirmed in SDK 11.4.0 `client.js`/`breadcrumbs.js`, W3 (revoke lost on full storage) and W4 (Light mode not enforced) confirmed and fixed in 9ddd20e50; UI W1-W3 fixed |
+| group | orchestrator | gate on the integration tip 7c1a86f78 | frontend `vitest run --coverage`: 476 files, 4780 passed, 85.83/78.83/82.37/88.13 %; `tsc` exit 0; `eslint src` exit 0; backend `pytest tests/unit tests/api tests/contracts`: 18291 passed, 5 failed, 13 errors in 1828 s, all 18 = subprocess probes without `prometheus_client` (`ModuleNotFoundError`); re-run with the package on the backend path: 135 passed; `ruff check` + `ruff format --check` backend and knowledge-service clean |
+
 ## Group-level log (2026-10-09)
 - Environment: worktree has no `.venv`; primary `.venv` lacks `prometheus_client`, uv 0.11.33 installed vs pinned 0.12.24. Tests ran with `prometheus-client==0.26.0` in a scratchpad `--target` on `PYTHONPATH`. 5 guard tests that spawn a subprocess (`test_log_redaction_has_no_residual_gaps`, `test_uncaught_exceptions_are_redacted`) fail only for that reason; CI is the proof for them.
 - Open for later members: the frontend reference toggle (`PlantIdentificationPage.tsx:67`, `SpeciesListPage.tsx:183`) is shown by active adapter, not by consent or mode; it joins #2159's consent store. `pest_image_tasks.py` feeds a pest few-shot index with `user_contributed` rows without a consent purpose; spec question (REQ-010/044), not touched here, not filed.
@@ -91,6 +97,10 @@ Columns derived from the repository: `pyproject.toml`/`package.json` (source), `
 |---|---|---|
 | #2174 | local adaptation | planned guard strengthening (`test_consent_purposes_are_read.py`: referenced → read by a check) dropped: the guard already passes because the automatic path reads the purpose, so it stays green with the defect present. Class sweep: no mechanical guard (writers do not share one spelling, "reachable only through a check" is a call-graph property); the route and service tests pin the one enumerable writer and the order. |
 | #2174 | local adaptation | Light mode refuses (409) instead of skipping the check, per REQ-034 §4.1 Guard 2 / AC-16; operator confirmed 2026-10-09. Behaviour change: interactive contribution no longer works in Light mode. |
+
+| #2159 | local adaptation | grew from "small hook" to 24 files (consent store, gate with teardown, mounted banner when a DSN is set and not Light mode, working "Einstellungen" button, revoke switch, tracker-SDK guard test, UI-NFR-013 v1.1); kept in the bundle, Mode B drop remained possible |
+| #2175 | local adaptation | Light mode answers 403 like the sibling AI routes (no consent subsystem there); the anonymous question stays `/public/ai/ask` |
+| group | local adaptation | the #2174 species fix (717b49bd5) left `test_stored_species_key_readers_are_decided` red on the integration tip; fixed in a507ea1da. Lesson: gate the integration tip with the full guards, not a subset |
 
 ## Findings
 
