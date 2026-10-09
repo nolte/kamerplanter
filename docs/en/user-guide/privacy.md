@@ -227,7 +227,7 @@ All EXIF metadata is removed before transmission to Pl@ntNet (GPS coordinates, c
 
 ### Photo Contribution to Plant Recognition (reference_contribution)
 
-The **Use as recognition reference** switch when [creating a plant](plant-identification.md#assigning-the-photo-to-the-new-plant) is this consent: if you switch it on and save, Kamerplanter grants it before the photo is contributed. After review by the administrators, a numerical fingerprint (embedding) of the photo goes into the installation's shared recognition index; the photo itself is not stored and does not leave the installation. The consent also covers later reference contributions, such as approved pest photos, until you revoke it. If it cannot be saved, Kamerplanter does not create the plant and shows an error. In Light mode the switch does not appear. <!-- #2174 -->
+The **Use as recognition reference** switch when [creating a plant](plant-identification.md#assigning-the-photo-to-the-new-plant) is this consent: if you switch it on and save, Kamerplanter grants it before the photo is contributed. After review by the administrators, a numerical fingerprint (embedding) of the photo goes into the installation's shared recognition index; the photo itself is not stored and does not leave the installation. You revoke it here in the **Consents** tab. If it cannot be saved, Kamerplanter does not create the plant and shows an error. In Light mode the switch does not appear. <!-- #2174 -->
 
 ### AI Knowledge Question to the Knowledge Base (ai_knowledge_question)
 

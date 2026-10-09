@@ -106,6 +106,12 @@ export default function GlossaryPage() {
   }
   const generateUnavailable: AiUnavailableReason | null =
     aiAvailable === false ? 'instance' : refusedReason;
+  // The pressed button unmounts when the refusal withdraws it; focus moves onto
+  // the reason that replaced it instead of falling to <body>.
+  const generateReasonRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (failureReason !== null) generateReasonRef.current?.focus();
+  }, [failureReason]);
 
   // Review SCR-010 — a successful generate unmounts the button the user just
   // pressed (the answer stops being a fallback), so keyboard focus would fall
@@ -243,7 +249,12 @@ export default function GlossaryPage() {
                       lands inside the `aria-live` region above, so it is
                       announced, and the control above turns into "try again". */}
                   {detail.generateStatus === 'failed' && (
-                    <Box sx={{ mt: 1 }} data-testid="glossary-detail-generate-error">
+                    <Box
+                      sx={{ mt: 1 }}
+                      ref={generateReasonRef}
+                      tabIndex={-1}
+                      data-testid="glossary-detail-generate-error"
+                    >
                       <ErrorDisplay
                         error={
                           failureReason !== null
@@ -267,6 +278,7 @@ export default function GlossaryPage() {
                         variant="caption"
                         color="text.secondary"
                         sx={{ display: 'block', mt: 1 }}
+                        role="status"
                         data-testid="glossary-detail-generate-unavailable"
                       >
                         {aiUnavailableMessage(generateUnavailable, t)}

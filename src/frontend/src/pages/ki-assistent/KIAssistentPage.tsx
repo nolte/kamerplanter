@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -59,18 +59,33 @@ export default function KIAssistentPage() {
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [consentGranting, setConsentGranting] = useState(false);
   const [consentError, setConsentError] = useState<string | null>(null);
+  // A deliberate "not now" is a decision, not an error — rendered as a quiet status.
+  const [declined, setDeclined] = useState(false);
+  const questionInputRef = useRef<HTMLTextAreaElement>(null);
+  const answerRef = useRef<HTMLDivElement>(null);
+  // Set when an answer arrives after the in-place grant: the gate (and the button
+  // that had focus) is gone, so focus moves onto the answer instead of <body>.
+  const focusAnswerNext = useRef(false);
+  useEffect(() => {
+    if (answer && focusAnswerNext.current) {
+      focusAnswerNext.current = false;
+      answerRef.current?.focus();
+    }
+  }, [answer]);
 
   const language = i18n.language.startsWith('en') ? 'en' : 'de';
 
   // `afterGrant` stops a loop: a refusal right after the grant is reported, not
   // answered with the same gate again.
   const submit = useCallback(
-    async (trimmed: string, afterGrant: boolean) => {
+    async (trimmed: string, afterGrant: boolean): Promise<boolean> => {
       setLoading(true);
       setError(null);
+      setDeclined(false);
       setAnswer(null);
       try {
         setAnswer(await aiApi.askKnowledgeQuestion(trimmed, language));
+        return true;
       } catch (err) {
         if (isConsentRequired(err)) {
           // The refusal names its purpose in the message only; an unnamed one is
@@ -80,16 +95,17 @@ export default function KIAssistentPage() {
           if (!isLightMode && !afterGrant && purpose === KNOWLEDGE_CONSENT_PURPOSE) {
             setConsentError(null);
             setPendingQuestion(trimmed);
-            return;
+            return false;
           }
           setError(
             purpose === KNOWLEDGE_CONSENT_PURPOSE
               ? t('pages.kiAssistent.consent.stillMissing')
               : t('pages.kiAssistent.consent.otherPurpose'),
           );
-          return;
+          return false;
         }
         setError(resolveAiErrorMessage(err, t, t('pages.kiAssistent.error')));
+        return false;
       } finally {
         setLoading(false);
       }
@@ -119,14 +135,22 @@ export default function KIAssistentPage() {
     setConsentGranting(false);
     const retry = pendingQuestion;
     setPendingQuestion(null);
-    await submit(retry, true);
+    focusAnswerNext.current = true;
+    const answered = await submit(retry, true);
+    // No answer (refused again, failure): the message sits next to the question,
+    // so focus returns there rather than staying on the vanished gate.
+    if (!answered) {
+      focusAnswerNext.current = false;
+      questionInputRef.current?.focus();
+    }
   }, [pendingQuestion, submit, t]);
 
   const handleDeclineConsent = useCallback(() => {
     setPendingQuestion(null);
     setConsentError(null);
-    setError(t('pages.kiAssistent.consent.declined'));
-  }, [t]);
+    setDeclined(true);
+    questionInputRef.current?.focus();
+  }, []);
 
   const consentGateOpen = pendingQuestion !== null;
 
@@ -183,6 +207,7 @@ export default function KIAssistentPage() {
             label={t('pages.kiAssistent.questionLabel')}
             placeholder={t('pages.kiAssistent.questionPlaceholder')}
             helperText={t('pages.kiAssistent.questionHelp')}
+            inputRef={questionInputRef}
             data-testid="ki-question-input"
           />
           <Box>
@@ -197,7 +222,7 @@ export default function KIAssistentPage() {
             </Button>
           </Box>
 
-          {!answer && !loading && !error && !consentGateOpen && (
+          {!answer && !loading && !error && !declined && !consentGateOpen && (
             <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1 }}>
               <Box
                 component="img"
@@ -227,6 +252,17 @@ export default function KIAssistentPage() {
             />
           )}
 
+          {declined && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              role="status"
+              data-testid="ki-ask-declined"
+            >
+              {t('pages.kiAssistent.consent.declined')}
+            </Typography>
+          )}
+
           {error && (
             <Typography variant="body2" color="error" role="alert" data-testid="ki-ask-error">
               {error}
@@ -234,17 +270,25 @@ export default function KIAssistentPage() {
           )}
 
           {answer && (
-            <AIResponse
-              sources={answer.sources}
-              modelName={answer.model_name}
-              providerType={answer.provider_type}
-              usesTenantData={answer.uses_tenant_data}
-              usesCloudProvider={answer.uses_cloud_provider}
-              confidence={answer.confidence}
-              languageMismatchWarning={answer.language_mismatch_warning}
+            <Box
+              ref={answerRef}
+              tabIndex={-1}
+              role="status"
+              aria-live="polite"
+              data-testid="ki-answer"
             >
-              <Typography variant="body2">{answer.answer_text}</Typography>
-            </AIResponse>
+              <AIResponse
+                sources={answer.sources}
+                modelName={answer.model_name}
+                providerType={answer.provider_type}
+                usesTenantData={answer.uses_tenant_data}
+                usesCloudProvider={answer.uses_cloud_provider}
+                confidence={answer.confidence}
+                languageMismatchWarning={answer.language_mismatch_warning}
+              >
+                <Typography variant="body2">{answer.answer_text}</Typography>
+              </AIResponse>
+            </Box>
           )}
         </Stack>
       </Paper>

@@ -189,6 +189,9 @@ describe('KIAssistentPage', () => {
       expect(granted).toEqual([{ purpose: 'ai_knowledge_question' }]);
       expect(attempts).toBe(2);
       expect(screen.queryByTestId('ki-consent-gate')).toBeNull();
+      // The gate and its button are gone; focus lands on the announced answer.
+      await waitFor(() => expect(screen.getByTestId('ki-answer')).toHaveFocus());
+      expect(screen.getByTestId('ki-answer')).toHaveAttribute('role', 'status');
     });
 
     it('keeps the gate open with an error when granting fails, without re-sending', async () => {
@@ -198,19 +201,62 @@ describe('KIAssistentPage', () => {
           attempts += 1;
           return consentRequired();
         }),
-        http.post('/api/v1/privacy/consents', () => apiError(500, 'INTERNAL', 'boom')),
+        http.post('/api/v1/privacy/consents', async () => {
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return apiError(500, 'INTERNAL', 'boom');
+        }),
       );
+      let release: () => void = () => {};
       const user = userEvent.setup();
       renderWithProviders(<KIAssistentPage />);
 
       await ask(user);
       await user.click(await screen.findByTestId('ki-consent-accept'));
+      // Focus wanders off while the grant is pending (e.g. the user tabs on); the
+      // failure must bring it back to the action that failed.
+      screen.getByTestId('ki-consent-decline').focus();
+      release();
 
       expect(await screen.findByTestId('ki-consent-error')).toHaveTextContent(
         'Deine Einwilligung konnte nicht gespeichert werden.',
       );
       expect(screen.getByTestId('ki-consent-gate')).toBeInTheDocument();
       expect(attempts).toBe(1);
+      // Focus returns to the action that failed instead of falling to <body>.
+      await waitFor(() => expect(screen.getByTestId('ki-consent-accept')).toHaveFocus());
+    });
+
+    it('keeps the accept button focusable while granting and grants only once', async () => {
+      let grants = 0;
+      let release: () => void = () => {};
+      server.use(
+        http.post('/api/v1/t/:tenant/ai/knowledge/ask', () => consentRequired()),
+        http.post('/api/v1/privacy/consents', async () => {
+          grants += 1;
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return HttpResponse.json(
+            { purpose: 'ai_knowledge_question', granted: true },
+            { status: 201 },
+          );
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<KIAssistentPage />);
+
+      await ask(user);
+      const accept = await screen.findByTestId('ki-consent-accept');
+      await user.click(accept);
+
+      await waitFor(() => expect(accept).toHaveAttribute('aria-disabled', 'true'));
+      expect(accept).not.toBeDisabled();
+      expect(accept).toHaveFocus();
+      await user.click(accept);
+      expect(grants).toBe(1);
+      release();
     });
 
     it('does not reopen the gate when the question is refused again after the grant', async () => {
@@ -258,7 +304,12 @@ describe('KIAssistentPage', () => {
       await user.click(await screen.findByTestId('ki-consent-decline'));
 
       expect(screen.queryByTestId('ki-consent-gate')).toBeNull();
-      expect(screen.getByTestId('ki-ask-error')).toHaveTextContent(/Ohne deine Einwilligung/);
+      // A decision, not a failure: a quiet status, no alert.
+      const declined = screen.getByTestId('ki-ask-declined');
+      expect(declined).toHaveTextContent(/Ohne deine Einwilligung/);
+      expect(declined).toHaveAttribute('role', 'status');
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(screen.getByLabelText('Deine Frage')).toHaveFocus();
     });
   });
 
@@ -277,6 +328,24 @@ describe('KIAssistentPage', () => {
       await ask(user);
 
       expect(await screen.findByTestId('ki-ask-error')).toHaveTextContent(/Tageskontingent/);
+    });
+
+    it('explains a used-up garden AI budget (429 AI_BUDGET_EXCEEDED, tenant)', async () => {
+      server.use(
+        http.post('/api/v1/t/:tenant/ai/knowledge/ask', () =>
+          apiError(429, 'AI_BUDGET_EXCEEDED', 'budget', [
+            { field: null, reason: 'x', code: 'tenant_calls' },
+          ]),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<KIAssistentPage />);
+
+      await ask(user);
+
+      expect(await screen.findByTestId('ki-ask-error')).toHaveTextContent(
+        i18n.t('ai.errors.budgetTenantExceeded'),
+      );
     });
 
     it('explains a garden with AI switched off (403 AI_DISABLED_FOR_TENANT)', async () => {

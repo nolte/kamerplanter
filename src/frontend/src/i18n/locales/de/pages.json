@@ -757,7 +757,9 @@
       "erasurePreviewOrgOrphaned": "In „{{name}}“ bleibt niemand, der die Organisation verwalten kann. Die Organisation wird nach einer Frist (standardmäßig 90 Tage) mit allen Daten gelöscht; die Mitglieder und die Betreiber werden benachrichtigt.",
       "consentRevoke": "Widerrufen",
       "consentRevokeAria": "Einwilligung „{{label}}“ widerrufen",
-      "consentRevokeFailed": "Die Einwilligung konnte nicht widerrufen werden. Bitte versuche es erneut."
+      "consentRevokeFailed": "Die Einwilligung konnte nicht widerrufen werden. Bitte versuche es erneut.",
+      "consentRevokedStatus": "Einwilligung widerrufen.",
+      "consentPurposeUnnamed": "Verarbeitungszweck ohne Bezeichnung"
     },
     "activities": {
       "title": "Tätigkeiten",
@@ -2124,7 +2126,7 @@
         "useAsReferenceHelper": "Nur bei aktiver selbst gehosteter Erkennung verfügbar. Mit dem Einschalten und Speichern willigst du in die Nutzung als Referenzbild ein.",
         "uploadFailed": "Die Pflanze wurde erstellt, das Foto konnte aber nicht in die Galerie übernommen werden.",
         "referenceFailed": "Die Pflanze wurde erstellt, das Foto konnte aber nicht als Referenzbild gespeichert werden.",
-        "referenceConsentNotice": "Mit dem Speichern willigst du ein, dass ein Zahlenabdruck (Embedding) dieses Fotos in den gemeinsamen Erkennungsindex aufgenommen wird, sobald die Administration ihn geprüft und freigegeben hat. Er hilft dann allen Gärten dieser Installation, diese Art zu erkennen. Das Foto selbst wird nicht gespeichert und verlässt die Installation nicht. Die Einwilligung gilt auch für spätere Referenzbeiträge, etwa freigegebene Schädlingsfotos, bis du sie widerrufst.",
+        "referenceConsentNotice": "Mit dem Speichern willigst du ein, dass ein Zahlenabdruck (Embedding) dieses Fotos in den gemeinsamen Erkennungsindex aufgenommen wird, sobald die Administration ihn geprüft und freigegeben hat. Er hilft dann allen Gärten dieser Installation, diese Art zu erkennen. Das Foto selbst wird nicht gespeichert und verlässt die Installation nicht.",
         "referenceConsentRevoke": "Widerrufen kannst du sie jederzeit in den",
         "referenceConsentPrivacyLink": "Datenschutz-Einstellungen",
         "referenceConsentFailed": "Deine Einwilligung zur Nutzung als Referenzbild konnte nicht gespeichert werden. Die Pflanze wurde noch nicht angelegt. Versuche es erneut oder schalte die Referenznutzung aus."

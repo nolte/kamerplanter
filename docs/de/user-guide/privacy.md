@@ -227,7 +227,7 @@ Die [Schädlingserkennung per Foto](pest-detection.md) sendet dein Bild — je n
 
 ### Foto-Beitrag zur Pflanzenerkennung (reference_contribution)
 
-Der Schalter **Als Referenzbild für die Erkennung nutzen** beim [Anlegen einer Pflanze](plant-identification.md#foto-der-neuen-pflanze-zuordnen) ist diese Einwilligung: Schaltest du ihn ein und speicherst, erteilt Kamerplanter sie, bevor das Foto beigetragen wird. Ein Zahlenabdruck (Embedding) des Fotos kommt nach Prüfung durch die Administration in den gemeinsamen Erkennungsindex der Installation; das Foto selbst wird nicht gespeichert und verlässt die Installation nicht. Die Einwilligung gilt auch für spätere Referenzbeiträge, etwa freigegebene Schädlingsfotos, bis du sie widerrufst. Lässt sie sich nicht speichern, legt Kamerplanter die Pflanze nicht an und zeigt einen Fehler. Im Light-Modus erscheint der Schalter nicht. <!-- #2174 -->
+Der Schalter **Als Referenzbild für die Erkennung nutzen** beim [Anlegen einer Pflanze](plant-identification.md#foto-der-neuen-pflanze-zuordnen) ist diese Einwilligung: Schaltest du ihn ein und speicherst, erteilt Kamerplanter sie, bevor das Foto beigetragen wird. Ein Zahlenabdruck (Embedding) des Fotos kommt nach Prüfung durch die Administration in den gemeinsamen Erkennungsindex der Installation; das Foto selbst wird nicht gespeichert und verlässt die Installation nicht. Widerrufen kannst du sie hier im Tab **Einwilligungen**. Lässt sie sich nicht speichern, legt Kamerplanter die Pflanze nicht an und zeigt einen Fehler. Im Light-Modus erscheint der Schalter nicht. <!-- #2174 -->
 
 ### KI-Wissensfrage an die Wissensbasis (ai_knowledge_question)
 

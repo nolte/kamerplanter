@@ -128,6 +128,59 @@ describe('PrivacySettingsPage', () => {
         expect(screen.queryByTestId('consent-revoke-reference_contribution')).toBeNull(),
       );
       expect(revoked).toEqual(['reference_contribution']);
+      // Announced, and focus lands on the list heading instead of <body>.
+      expect(screen.getByTestId('privacy-consents-status')).toHaveTextContent(
+        'Einwilligung widerrufen.',
+      );
+      expect(screen.getByTestId('privacy-consents-status')).toHaveAttribute('role', 'status');
+      expect(screen.getByTestId('privacy-consents-heading')).toHaveFocus();
+    });
+
+    it('keeps the other revoke buttons focusable but inert while one call runs', async () => {
+      const revoked: string[] = [];
+      let release: () => void = () => {};
+      server.use(
+        http.get('/api/v1/privacy/consents', () =>
+          HttpResponse.json([
+            record('reference_contribution', true),
+            record('ai_knowledge_question', true),
+          ]),
+        ),
+        http.delete('/api/v1/privacy/consents/:purpose', async ({ params }) => {
+          revoked.push(String(params.purpose));
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return HttpResponse.json(record(String(params.purpose), false));
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<PrivacySettingsPage />);
+
+      await user.click(await screen.findByTestId('consent-revoke-reference_contribution'));
+      const other = screen.getByTestId('consent-revoke-ai_knowledge_question');
+      await waitFor(() => expect(other).toHaveAttribute('aria-disabled', 'true'));
+      expect(other).not.toBeDisabled();
+      expect(other).not.toHaveAttribute('aria-busy');
+      expect(screen.getByTestId('consent-revoke-reference_contribution')).toHaveAttribute(
+        'aria-busy',
+        'true',
+      );
+      await user.click(other);
+      expect(revoked).toEqual(['reference_contribution']);
+      release();
+    });
+
+    it('names a purpose without a backend label in words, not by its identifier', async () => {
+      server.use(
+        http.get('/api/v1/privacy/consents', () =>
+          HttpResponse.json([{ ...record('reference_contribution', true), label: '' }]),
+        ),
+      );
+      renderWithProviders(<PrivacySettingsPage />);
+
+      expect(await screen.findByText('Verarbeitungszweck ohne Bezeichnung')).toBeTruthy();
+      expect(screen.queryByText('reference_contribution')).toBeNull();
     });
 
     it('keeps the consent and shows an error when revoking fails', async () => {
@@ -161,6 +214,7 @@ describe('PrivacySettingsPage', () => {
         ),
       ).toBeTruthy();
       expect(screen.getByTestId('consent-revoke-reference_contribution')).toBeTruthy();
+      expect(screen.getByTestId('privacy-consents-error')).toHaveAttribute('role', 'alert');
     });
   });
 

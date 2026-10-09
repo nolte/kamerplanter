@@ -757,7 +757,9 @@
       "erasurePreviewOrgOrphaned": "In “{{name}}” nobody is left who can administer the organization. It is deleted with all its data after a grace period (90 days by default); the members and the operators are notified.",
       "consentRevoke": "Revoke",
       "consentRevokeAria": "Revoke consent “{{label}}”",
-      "consentRevokeFailed": "The consent could not be revoked. Please try again."
+      "consentRevokeFailed": "The consent could not be revoked. Please try again.",
+      "consentRevokedStatus": "Consent revoked.",
+      "consentPurposeUnnamed": "Processing purpose without a name"
     },
     "activities": {
       "title": "Activities",
@@ -2124,7 +2126,7 @@
         "useAsReferenceHelper": "Only available with self-hosted recognition active. Switching this on and saving gives your consent to use the photo as a recognition reference.",
         "uploadFailed": "The plant was created, but the photo could not be added to the gallery.",
         "referenceFailed": "The plant was created, but the photo could not be saved as a recognition reference.",
-        "referenceConsentNotice": "By saving, you consent to a numerical fingerprint (embedding) of this photo being added to the shared recognition index once the administrators have reviewed and approved it. It then helps every garden on this installation recognise this species. The photo itself is not stored and does not leave the installation. The consent also covers later reference contributions, such as approved pest photos, until you revoke it.",
+        "referenceConsentNotice": "By saving, you consent to a numerical fingerprint (embedding) of this photo being added to the shared recognition index once the administrators have reviewed and approved it. It then helps every garden on this installation recognise this species. The photo itself is not stored and does not leave the installation.",
         "referenceConsentRevoke": "You can revoke it at any time in the",
         "referenceConsentPrivacyLink": "privacy settings",
         "referenceConsentFailed": "Your consent to use the photo as a recognition reference could not be saved. The plant has not been created yet. Try again or switch the reference use off."

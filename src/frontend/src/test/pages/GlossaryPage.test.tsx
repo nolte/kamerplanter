@@ -347,11 +347,16 @@ describe('GlossaryPage — generate control follows AI availability', () => {
     const error = await screen.findByTestId('glossary-detail-generate-error');
     expect(error.textContent).toContain('disabled for this garden');
     expect(screen.queryByTestId('glossary-detail-generate')).toBeNull();
+    // The pressed button is gone; focus is on the reason, not on <body>.
+    await waitFor(() => expect(error).toHaveFocus());
 
     // Another term: the hook forgot its failure, the page did not.
     await user.click(screen.getByTestId('glossary-detail-back'));
     await user.click(await screen.findByTestId('glossary-term-ec'));
-    expect(await screen.findByTestId('glossary-detail-generate-unavailable')).toBeTruthy();
+    expect(await screen.findByTestId('glossary-detail-generate-unavailable')).toHaveAttribute(
+      'role',
+      'status',
+    );
     expect(screen.queryByTestId('glossary-detail-generate')).toBeNull();
     expect(generateTerm).toHaveBeenCalledTimes(1);
   });

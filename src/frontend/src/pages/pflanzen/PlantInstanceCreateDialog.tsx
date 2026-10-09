@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
@@ -154,6 +154,15 @@ export default function PlantInstanceCreateDialog({
   // and has no server-side consent records.
   const referenceToggleAvailable = allowReferenceContribution && !isLightMode;
   const referenceConsent = useServerConsentGrant(REFERENCE_CONSENT_PURPOSE);
+  const referenceNoticeId = useId();
+  const referenceErrorRef = useRef<HTMLDivElement>(null);
+  // The failed grant is reported next to the switch, which on a phone (320 px)
+  // sits far above the submit button the user just pressed — bring it into view.
+  useEffect(() => {
+    if (referenceConsentError) {
+      referenceErrorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [referenceConsentError]);
 
   // Build (and revoke) a preview URL for the carried-over photo. The File is
   // owned by the caller; we only manage the object URL created here. This is a
@@ -611,6 +620,11 @@ export default function PlantInstanceCreateDialog({
                                   'aria-label': t(
                                     'pages.plantInstances.identificationPhoto.useAsReference',
                                   ),
+                                  // The notice is what the consent is given to; read
+                                  // it together with the switch.
+                                  'aria-describedby': useAsReference
+                                    ? referenceNoticeId
+                                    : undefined,
                                 },
                               }}
                               data-testid="toggle-use-as-reference"
@@ -650,7 +664,9 @@ export default function PlantInstanceCreateDialog({
                       </Typography>
                       {useAsReference && (
                         <Alert
+                          id={referenceNoticeId}
                           severity="info"
+                          role="status"
                           sx={{ mt: 1 }}
                           data-testid="reference-consent-notice"
                         >
@@ -665,6 +681,7 @@ export default function PlantInstanceCreateDialog({
                       )}
                       {referenceConsentError && (
                         <Alert
+                          ref={referenceErrorRef}
                           severity="error"
                           sx={{ mt: 1 }}
                           data-testid="reference-consent-error"

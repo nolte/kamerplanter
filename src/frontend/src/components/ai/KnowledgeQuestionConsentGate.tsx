@@ -1,3 +1,4 @@
+import { useEffect, useId, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -32,17 +33,27 @@ export default function KnowledgeQuestionConsentGate({
   onDecline,
 }: KnowledgeQuestionConsentGateProps) {
   const { t } = useTranslation();
+  const titleId = useId();
+  const acceptRef = useRef<HTMLButtonElement>(null);
+
+  // A failed grant leaves the gate open; focus goes back to the action that
+  // failed, so a keyboard user can retry without hunting for it.
+  useEffect(() => {
+    if (error) acceptRef.current?.focus();
+  }, [error]);
+
+  const handleGrant = () => {
+    // aria-disabled instead of `disabled` while granting: a disabled button drops
+    // focus to <body>; the guard keeps a second click from granting twice.
+    if (granting) return;
+    onGrant();
+  };
 
   return (
-    <Box
-      role="region"
-      aria-label={t('pages.kiAssistent.consent.title')}
-      data-testid="ki-consent-gate"
-      sx={{ py: 1 }}
-    >
+    <Box role="region" aria-labelledby={titleId} data-testid="ki-consent-gate" sx={{ py: 1 }}>
       <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mb: 1.5 }}>
         <PrivacyTipIcon color="primary" aria-hidden fontSize="medium" />
-        <Typography variant="h6" component="h2">
+        <Typography variant="h6" component="h2" id={titleId}>
           {t('pages.kiAssistent.consent.title')}
         </Typography>
       </Box>
@@ -75,8 +86,9 @@ export default function KnowledgeQuestionConsentGate({
           justifyContent: 'flex-end',
         }}
       >
+        {/* UI-NFR-013: declining is as prominent as consenting. */}
         <Button
-          variant="text"
+          variant="outlined"
           onClick={onDecline}
           data-testid="ki-consent-decline"
           sx={{ minHeight: 44 }}
@@ -85,8 +97,9 @@ export default function KnowledgeQuestionConsentGate({
         </Button>
         <Button
           variant="contained"
-          onClick={onGrant}
-          disabled={granting}
+          ref={acceptRef}
+          onClick={handleGrant}
+          aria-disabled={granting || undefined}
           // The gate replaces the answer area after a submit; focus lands on the
           // primary action so keyboard and screen-reader users notice it.
           autoFocus

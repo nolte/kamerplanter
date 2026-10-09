@@ -838,6 +838,11 @@ describe('PlantInstanceCreateDialog', () => {
         await user.click(within(screen.getByTestId('toggle-use-as-reference')).getByRole('switch'));
 
         const notice = screen.getByTestId('reference-consent-notice');
+        // Polite, and announced together with the switch it explains.
+        expect(notice).toHaveAttribute('role', 'status');
+        expect(
+          within(screen.getByTestId('toggle-use-as-reference')).getByRole('switch'),
+        ).toHaveAttribute('aria-describedby', notice.id);
         expect(notice).toHaveTextContent(/gemeinsamen Erkennungsindex/);
         expect(notice).toHaveTextContent(/Administration/);
         expect(within(notice).getByRole('link')).toHaveAttribute('href', '/privacy');
@@ -877,6 +882,14 @@ describe('PlantInstanceCreateDialog', () => {
       });
 
       it('stops the save with a visible error when the grant fails', async () => {
+        const scrolled: Element[] = [];
+        // jsdom has no layout, hence no scrollIntoView to spy on.
+        Element.prototype.scrollIntoView ??= () => {};
+        const scrollSpy = vi
+          .spyOn(Element.prototype, 'scrollIntoView')
+          .mockImplementation(function (this: Element) {
+            scrolled.push(this);
+          });
         let created = false;
         server.use(
           photoUploadOk(),
@@ -912,6 +925,11 @@ describe('PlantInstanceCreateDialog', () => {
         expect(onCreated).not.toHaveBeenCalled();
         expect(created).toBe(false);
         expect(contributeReferenceMock).not.toHaveBeenCalled();
+        // Brought into view: on a narrow screen the switch is far above the button.
+        await waitFor(() =>
+          expect(scrolled).toContain(screen.getByTestId('reference-consent-error')),
+        );
+        scrollSpy.mockRestore();
       });
 
       it('skips the grant when the consent is already granted', async () => {

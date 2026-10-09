@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -94,6 +94,10 @@ export default function PrivacySettingsPage() {
   const [consentsError, setConsentsError] = useState('');
   // The purpose whose revocation is in flight (one at a time).
   const [revokingPurpose, setRevokingPurpose] = useState<string | null>(null);
+  // Polite confirmation after a revocation; the row's button disappears with it,
+  // so focus moves to the consents heading instead of falling to <body>.
+  const [consentsStatus, setConsentsStatus] = useState('');
+  const consentsHeadingRef = useRef<HTMLHeadingElement>(null);
 
   // ── Export tab state ──────────────────────────────────────────────
   const [exportRequest, setExportRequest] = useState<ExportItem | null>(null);
@@ -146,11 +150,17 @@ export default function PrivacySettingsPage() {
   // purpose the backend lists gets the action, so a consent granted in place (the
   // KI page's question, the "use as reference" switch) is revoked here.
   const handleRevokeConsent = async (purpose: string) => {
+    // aria-disabled, not `disabled`, on the other buttons while one call runs: a
+    // disabled button loses focus. The guard keeps them inert.
+    if (revokingPurpose !== null) return;
     setRevokingPurpose(purpose);
     setConsentsError('');
+    setConsentsStatus('');
     try {
       const updated = await revokeConsent(purpose);
       setConsents((prev) => prev.map((c) => (c.purpose === purpose ? { ...c, ...updated } : c)));
+      setConsentsStatus(t('pages.privacy.consentRevokedStatus'));
+      consentsHeadingRef.current?.focus();
     } catch {
       setConsentsError(t('pages.privacy.consentRevokeFailed'));
     } finally {
@@ -266,7 +276,13 @@ export default function PrivacySettingsPage() {
       {TAB_KEYS[tabIndex] === 'consents' && (
         <Card variant="outlined" data-testid="privacy-consents-panel">
           <CardContent>
-            <Typography variant="h6" gutterBottom>
+            <Typography
+              variant="h6"
+              gutterBottom
+              ref={consentsHeadingRef}
+              tabIndex={-1}
+              data-testid="privacy-consents-heading"
+            >
               {t('pages.privacy.consentsHeading')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -276,10 +292,24 @@ export default function PrivacySettingsPage() {
             <BrowserConsentSettings />
 
             {consentsError && (
-              <Alert severity="error" sx={{ mb: 2 }}>
+              <Alert
+                severity="error"
+                role="alert"
+                sx={{ mb: 2 }}
+                data-testid="privacy-consents-error"
+              >
                 {consentsError}
               </Alert>
             )}
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              role="status"
+              sx={{ mb: consentsStatus ? 2 : 0 }}
+              data-testid="privacy-consents-status"
+            >
+              {consentsStatus}
+            </Typography>
 
             {consentsLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
@@ -311,7 +341,7 @@ export default function PrivacySettingsPage() {
                     <ListItemText
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                          {c.label || c.purpose}
+                          {c.label || t('pages.privacy.consentPurposeUnnamed')}
                           {/* Clarifies why no revoke action is offered here: required
                               consents are tied to core functionality (REQ-025) and
                               cannot be revoked without deleting the account. */}
@@ -335,9 +365,10 @@ export default function PrivacySettingsPage() {
                                 variant="outlined"
                                 color="inherit"
                                 onClick={() => void handleRevokeConsent(c.purpose)}
-                                disabled={revokingPurpose !== null}
+                                aria-disabled={revokingPurpose !== null || undefined}
+                                aria-busy={revokingPurpose === c.purpose || undefined}
                                 aria-label={t('pages.privacy.consentRevokeAria', {
-                                  label: c.label || c.purpose,
+                                  label: c.label || t('pages.privacy.consentPurposeUnnamed'),
                                 })}
                                 startIcon={
                                   revokingPurpose === c.purpose ? (
