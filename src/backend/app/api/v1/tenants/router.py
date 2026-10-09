@@ -34,6 +34,7 @@ from app.common.auth import (
 from app.common.dependencies import get_tenant_service
 from app.common.enums import AdminScope
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
+from app.common.pagination import PaginationParams, get_pagination
 from app.common.request_ip import resolve_client_ip
 from app.domain.models.auth import api_key_scope_admits
 from app.domain.models.tenant import Tenant
@@ -329,11 +330,12 @@ def leave_tenant(
     response_model=list[InvitationResponse],
 )
 def list_invitations(
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.MANAGEMENT)),
     service: TenantService = Depends(get_tenant_service),
 ):
-    """List all invitations for a tenant. Admin only."""
-    invitations = service.list_invitations(ctx.tenant_key)
+    """List a tenant's invitations, newest first (paginated, MT-035). Admin only."""
+    invitations = service.list_invitations(ctx.tenant_key, offset=pagination.offset, limit=pagination.limit)
     return [
         InvitationResponse(
             key=inv.key or "",

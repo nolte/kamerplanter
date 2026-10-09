@@ -1841,14 +1841,23 @@ class TaskService:
         tasks = self._repo.get_overdue_tasks(tenant_key=tenant_key)
         return self._deduplicate_care_tasks(tasks)
 
-    def get_tasks_for_plant(self, plant_key: str, status: str | None = None, *, tenant_key: str) -> list[Task]:
+    def get_tasks_for_plant(
+        self,
+        plant_key: str,
+        status: str | None = None,
+        *,
+        tenant_key: str,
+        offset: int | None = None,
+        limit: int | None = None,
+    ) -> list[Task]:
         """A plant's tasks, scoped to ``tenant_key`` (#927).
 
         ``plant_key`` is not resolved against the caller's tenant here — the
         repository's tenant predicate is what turns a foreign key into an empty
-        list instead of the other tenant's task list.
+        list instead of the other tenant's task list. ``offset``/``limit`` read
+        one window (MT-035, #2131).
         """
-        return self._repo.get_tasks_for_plant(plant_key, status, tenant_key=tenant_key)
+        return self._repo.get_tasks_for_plant(plant_key, status, tenant_key=tenant_key, offset=offset, limit=limit)
 
     def get_tasks_for_entity(
         self,

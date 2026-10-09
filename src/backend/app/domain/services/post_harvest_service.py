@@ -242,9 +242,12 @@ class PostHarvestService:
             )
         return created
 
-    def list_observations(self, key: str, tenant_key: str) -> list[StorageObservation]:
+    def list_observations(
+        self, key: str, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[StorageObservation]:
+        """A batch's observations, newest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
         self.get_batch(key, tenant_key)
-        return self._repo.list_observations(key)
+        return self._repo.list_observations(key, offset=offset, limit=limit)
 
     def list_mold_alerts(self, key: str, tenant_key: str) -> list[MoldAlert]:
         self.get_batch(key, tenant_key)

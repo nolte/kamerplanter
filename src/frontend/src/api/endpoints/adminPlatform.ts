@@ -1,4 +1,5 @@
 import apiClient from '@/api/client';
+import { fetchAllPages } from '../paginate';
 import type {
   AccountDeletionAccepted,
   AccountErasureRequest,
@@ -24,14 +25,30 @@ export async function fetchAdminStats(): Promise<AdminPlatformStats> {
   return data;
 }
 
+/**
+ * Every tenant of the platform. The route returns one bounded page since MT-035 (#2131); every page is read so
+ * the list this feeds stays complete.
+ */
 export async function fetchAdminTenants(): Promise<AdminTenant[]> {
-  const { data } = await apiClient.get<AdminTenant[]>('/admin/platform/tenants');
-  return data;
+  return fetchAllPages(async (offset, limit) => {
+    const { data } = await apiClient.get<AdminTenant[]>('/admin/platform/tenants', {
+      params: { offset, limit },
+    });
+    return data;
+  });
 }
 
+/**
+ * Every user of the platform. The route returns one bounded page since MT-035 (#2131); every page is read so
+ * the list this feeds stays complete.
+ */
 export async function fetchAdminUsers(): Promise<AdminUser[]> {
-  const { data } = await apiClient.get<AdminUser[]>('/admin/platform/users');
-  return data;
+  return fetchAllPages(async (offset, limit) => {
+    const { data } = await apiClient.get<AdminUser[]>('/admin/platform/users', {
+      params: { offset, limit },
+    });
+    return data;
+  });
 }
 
 /**

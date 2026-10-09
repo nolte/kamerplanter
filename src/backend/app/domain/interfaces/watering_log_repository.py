@@ -6,6 +6,19 @@ from app.domain.models.watering_log import WateringLog
 
 class IWateringLogRepository(ABC):
     @abstractmethod
+    def list_window(
+        self,
+        *,
+        offset: int = 0,
+        limit: int = 50,
+        tenant_key: str | None = None,
+        all_tenants: bool = False,
+        after: str | None = None,
+    ) -> list[WateringLog]:
+        """One ``_key``-ordered page of the tenant's rows, without a count (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def create(self, log: WateringLog) -> WateringLog: ...
 
     @abstractmethod

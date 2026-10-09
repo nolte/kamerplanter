@@ -23,7 +23,7 @@ from app.api.v1.plant_instances.schemas import (
 from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_nutrient_plan_service, get_plant_instance_service, get_planting_run_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
-from app.common.pagination import PaginationParams, get_pagination
+from app.common.pagination import CursorPaginationParams, get_cursor_pagination
 from app.core.permissions import Action, ResourceType
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.tenant_context import TenantContext
@@ -55,12 +55,14 @@ def _to_response(p: PlantInstance, service: PlantInstanceService, tenant_key: st
 
 @router.get("", response_model=list[PlantResponse])
 def list_plants(
-    pagination: PaginationParams = Depends(get_pagination),
+    pagination: CursorPaginationParams = Depends(get_cursor_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
-    """List the tenant's plant instances (paginated)."""
-    items, _total = service.list_plants(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
+    """List the tenant's plant instances (paginated; ``?after=<key>`` pages by keyset, MT-035)."""
+    items = service.list_plants_window(
+        tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit, after=pagination.after
+    )
     return [_to_response(p, service, ctx.tenant_key) for p in items]
 
 

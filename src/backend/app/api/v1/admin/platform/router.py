@@ -39,6 +39,7 @@ from app.common.dependencies import (
     get_user_service,
 )
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
+from app.common.pagination import PaginationParams, get_pagination
 from app.common.request_ip import resolve_client_ip
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
@@ -91,10 +92,11 @@ def list_security_audit(
 
 @router.get("/tenants", response_model=list[AdminTenantResponse])
 def list_all_tenants(
+    pagination: PaginationParams = Depends(get_pagination),
     _user: User = Depends(require_platform_admin),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """List all tenants with member counts. Platform admin only.
+    """List tenants with member counts, newest first (paginated, MT-035). Platform admin only.
 
     Routes through ``TenantService.list_all_tenants`` (#1019). The per-tenant
     active-member count is derived from ``list_members``, the same way
@@ -102,7 +104,7 @@ def list_all_tenants(
     tenant/member-count AQL.
     """
     results: list[AdminTenantResponse] = []
-    for tenant in tenant_service.list_all_tenants():
+    for tenant in tenant_service.list_all_tenants(offset=pagination.offset, limit=pagination.limit):
         tenant_key = tenant.key or ""
         member_count = sum(1 for member in tenant_service.list_members(tenant_key) if member.is_active)
         results.append(
@@ -128,11 +130,12 @@ def list_all_tenants(
 
 @router.get("/users", response_model=list[AdminUserResponse])
 def list_all_users(
+    pagination: PaginationParams = Depends(get_pagination),
     _user: User = Depends(require_platform_admin),
     user_service: UserService = Depends(get_user_service),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """List all users with their tenant memberships. Platform admin only.
+    """List users with their tenant memberships, newest first (paginated, MT-035). Platform admin only.
 
     Routes through ``UserService.list_all_users`` for the user read and
     ``TenantService.list_user_memberships`` for each user's tenant roles (#1019).
@@ -140,7 +143,7 @@ def list_all_users(
     lives once in the data-access layer.
     """
     results: list[AdminUserResponse] = []
-    for user in user_service.list_all_users():
+    for user in user_service.list_all_users(offset=pagination.offset, limit=pagination.limit):
         user_key = user.key or ""
         active = [m for m in tenant_service.list_user_memberships(user_key) if m.is_active]
         roles = [

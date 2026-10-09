@@ -87,8 +87,19 @@ class ArangoInvitationRepository(BaseArangoRepository[Invitation], IInvitationRe
         self.delete_edges(col.HAS_INVITATION, invitation_id, direction="inbound")
         return super().delete(key)
 
-    def list_by_tenant(self, tenant_key: str) -> list[Invitation]:
-        return self.find_by_field("tenant_key", tenant_key, sort="created_at", sort_direction="DESC")
+    def list_by_tenant(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[Invitation]:
+        """A tenant's invitations, newest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self.find_by_field(
+            "tenant_key",
+            tenant_key,
+            sort="created_at",
+            sort_direction="DESC",
+            offset=offset,
+            limit=limit,
+            tiebreak_key=True,
+        )
 
     def mark_accepted_if_pending(self, key: str, fields: dict[str, Any]) -> Invitation | None:
         """Accept *key* only while it is ``pending``: one AQL ``UPDATE`` on one document (AK-IE-06)."""

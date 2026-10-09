@@ -95,8 +95,9 @@ class FakePostHarvestRepo:
         self.observations.setdefault(observation.batch_key, []).insert(0, observation)
         return observation
 
-    def list_observations(self, batch_key):
-        return self.observations.get(batch_key, [])
+    def list_observations(self, batch_key, *, offset=None, limit=None):
+        rows = self.observations.get(batch_key, [])
+        return rows if limit is None else rows[offset or 0 : (offset or 0) + limit]
 
     def create_mold_alert(self, alert):
         alert.key = self._next_key("alert")

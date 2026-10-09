@@ -559,6 +559,39 @@ geschieht, ist sie kein Muster, das man abschreibt.
     entstehen in der Lane `ci/issue-pattern-gates` (Massnahmen P1.1/P1.2 der
     Issue-Muster-Analyse). Bis sie required sind, traegt der Review die Last.
 
+### 6.4 Listen-Routen lesen ein begrenztes Fenster (MT-035, #2131)
+
+Eine Route mit `response_model=list[...]` haengt von `get_pagination` ab
+(`offset`, `limit` 1–200, Standard 50) oder — wenn ihre Liste nach `_key` sortiert
+ist und schnell waechst — von `get_cursor_pagination` (zusaetzlich `after=<key>`).
+Die Antwort bleibt ein Array ohne Gesamtzahl.
+
+```python
+@router.get("", response_model=list[PlantResponse])
+def list_plants(
+    pagination: CursorPaginationParams = Depends(get_cursor_pagination),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantInstanceService = Depends(get_plant_instance_service),
+):
+    items = service.list_plants_window(
+        tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit, after=pagination.after
+    )
+```
+
+- Das Fenster gehoert **in die Abfrage** (`LIMIT @offset, @limit`), nicht in ein
+  Python-Slice nach dem Lesen.
+- Eine Sortierung nach einem nicht eindeutigen Feld (`created_at`, `due_date`)
+  bekommt `_key` als zweites Sortierkriterium (`tiebreak_key=True`), sonst kann ein
+  Eintrag auf zwei Seiten erscheinen und ein anderer auf keiner.
+- Ein Repository, dessen Aufrufer die Gesamtzahl verwirft, liest mit
+  `list_window` statt `get_all` — `get_all` zaehlt bei jeder Seite alle Treffer.
+- Eine Collection mit Cursor-Route traegt den Index `(tenant_key, _key)`
+  (`KEYSET_PAGED_COLLECTIONS`).
+- Ausnahmen (globale Kataloge, Kinder eines Elterndokuments, berechnete Listen fester
+  Laenge) stehen mit Art und Grund in der Tabelle des Guards
+  `tests/unit/guards/test_list_routes_are_bounded.py`; die Art `remaining` ist die
+  gezaehlte Liste noch nicht begrenzter, wachsender Routen und darf nicht wachsen.
+
 ---
 
 ## 7. Service-Pattern

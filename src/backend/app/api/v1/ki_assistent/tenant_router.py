@@ -30,6 +30,7 @@ from app.common.auth import get_current_tenant, meets_tenant_role, require_tenan
 from app.common.dependencies import get_ai_assistant_service
 from app.common.enums import TenantRole
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
 from app.domain.models.ai_assistant import AiResponse, AiTenantSettings, AiTipCard
 from app.domain.models.tenant_context import TenantContext
@@ -241,10 +242,11 @@ def explain(
 
 @router.get("/conversations", response_model=list[ConversationSummary])
 def list_conversations(
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> list[ConversationSummary]:
-    """List the current user's KI-Assistent conversations."""
+    """List the current user's KI-Assistent conversations, most recent first (paginated, MT-035)."""
     return [
         ConversationSummary(
             key=c.key,
@@ -254,7 +256,7 @@ def list_conversations(
             message_count=c.message_count,
             updated_at=c.updated_at,
         )
-        for c in service.list_conversations(ctx)
+        for c in service.list_conversations(ctx, offset=pagination.offset, limit=pagination.limit)
     ]
 
 

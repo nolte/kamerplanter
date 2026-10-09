@@ -146,3 +146,24 @@ def test_the_count_query_carries_the_same_instant_comparison():
     count_query, _ = builder.build_count()
 
     assert "DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@v0)" in count_query
+
+
+# ── a paged sort is a total order (MT-035, #2131) ─────────────────────────────
+
+
+def test_tiebreak_key_appends_the_key_in_the_sort_direction():
+    query, _ = AQLBuilder("tenants").sort("created_at", "DESC", tiebreak_key=True).paginate(0, 2).build_list()
+    assert "SORT DATE_TIMESTAMP(doc.created_at) DESC, doc._key DESC" in query
+
+
+def test_without_tiebreak_the_sort_is_unchanged():
+    query, _ = AQLBuilder("tenants").sort("name").build_list()
+    assert "SORT doc.name ASC\n" in query
+
+
+def test_the_cursor_filter_compares_keys_as_text():
+    # ``_key`` is not a timestamp field, so ``>`` stays a plain comparison the
+    # primary index can serve, in the same order ``SORT doc._key`` returns.
+    query, bind_vars = AQLBuilder("plant_instances").filter("_key", ">", "123").sort("_key").build_list()
+    assert "FILTER doc._key > @v0" in query
+    assert bind_vars["v0"] == "123"

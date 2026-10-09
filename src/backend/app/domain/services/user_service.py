@@ -157,14 +157,15 @@ class UserService:
             self._refresh_token_repo.revoke_all_for_user(user_key)
         return user
 
-    def list_all_users(self) -> list[User]:
+    def list_all_users(self, *, offset: int | None = None, limit: int | None = None) -> list[User]:
         """Every user, newest first — the platform-admin cross-tenant listing (#1019).
 
         The router enriches each user with its tenant memberships via
         ``TenantService.list_user_memberships``; this method only owns the user
         read, which the platform-admin panel used to hand-write as raw AQL.
+        ``offset``/``limit`` read one window (MT-035, #2131).
         """
-        return self._user_repo.list_all()
+        return self._user_repo.list_all(offset=offset, limit=limit)
 
     def count_users(self, *, active_only: bool = False) -> int:
         """Number of users; ``active_only`` counts only ``is_active`` ones (#1019)."""
