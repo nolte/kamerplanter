@@ -9,9 +9,9 @@ job: inference-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-28'
-measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
-replay_seconds: 12
+measured_on: '2026-10-05'
+measured_at_commit: b84592b0423e8106218d048d4b3fd5b83cf83226
+replay_seconds: 9
 job_spec_sha256: 389cb2b83565365d6d683550d65978eff6b112470a929266e47fad572c3ad28b
 invocations:
 - command: task deps:sync:inference-service
@@ -19,13 +19,13 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 232
+  untracked_reads_dropped: 236
 - command: task test:inference-service
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1263
+  untracked_reads_dropped: 2251
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
@@ -79,6 +79,7 @@ reads:
 - src/inference-service/tests/test_disease_api.py
 - src/inference-service/tests/test_disease_classifier.py
 - src/inference-service/tests/test_embedder.py
+- src/inference-service/tests/test_error_tracking_redacts_texts.py
 - src/inference-service/tests/test_pest_api.py
 - src/inference-service/tests/test_pest_contribution_erasure.py
 - src/inference-service/tests/test_pest_contribution_keys.py
@@ -97,6 +98,7 @@ test_modules:
 - src/inference-service/tests/test_disease_api.py
 - src/inference-service/tests/test_disease_classifier.py
 - src/inference-service/tests/test_embedder.py
+- src/inference-service/tests/test_error_tracking_redacts_texts.py
 - src/inference-service/tests/test_pest_api.py
 - src/inference-service/tests/test_pest_contribution_erasure.py
 - src/inference-service/tests/test_pest_contribution_keys.py
