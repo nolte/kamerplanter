@@ -246,6 +246,7 @@ Details: [Speicher konfigurieren](../user-guide/object-storage.md), [Helm Charts
 | E-Mail-Verifikation bei Registrierung | Backend | Aktiv per Default (`REQUIRE_EMAIL_VERIFICATION=true`); `false` schaltet sie ab | Ausgehender Mailversand (`EMAIL_ADAPTER=smtp` oder `resend`); ohne ihn `false` setzen | — | Nein |
 | Registrierungsmodus <!-- REQ-023 §3.2d --> | Backend + Frontend (liest `GET /mode`) | `REGISTRATION_MODE=open` (Default) \| `invite_only` \| `closed`; optional `REGISTRATION_ALLOWED_DOMAINS` | — | — | Ja (unbekannter Modus verweigert den Start) |
 | Mitgliederlimit je Mandant <!-- REQ-024 AK-64 --> | Backend | Immer aktiv; Plattform-Obergrenze `TENANT_MAX_MEMBERS_CEILING` (Default `50`) | — | eine Zählabfrage je Beitritt | Nein (ein Wert unter `1` verweigert den Start) |
+| Service Accounts je Mandant <!-- REQ-023 §5b.0 --> | Backend | Immer aktiv (Full-Modus); Kontingent `TENANT_MAX_SERVICE_ACCOUNTS` (Default `20`) | — | eine Zählabfrage je Anlage | Nein (ein Wert unter `1` verweigert den Start) |
 | „Have I Been Pwned"-Prüfung | Backend | `HIBP_ENABLED=true` (Default `false`) | — | ausgehende HTTPS-Anfragen bei Passwortänderung | Nein |
 
 ---

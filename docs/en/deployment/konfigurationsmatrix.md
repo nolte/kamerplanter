@@ -246,6 +246,7 @@ Details: [Configure Storage](../user-guide/object-storage.md), [Helm Charts — 
 | Email verification at registration | Backend | Active by default (`REQUIRE_EMAIL_VERIFICATION=true`); `false` switches it off | Outbound mail (`EMAIL_ADAPTER=smtp` or `resend`); without it set `false` | — | No |
 | Registration mode <!-- REQ-023 §3.2d --> | Backend + frontend (reads `GET /mode`) | `REGISTRATION_MODE=open` (default) \| `invite_only` \| `closed`; optional `REGISTRATION_ALLOWED_DOMAINS` | — | — | Yes (an unknown mode refuses startup) |
 | Member limit per tenant <!-- REQ-024 AK-64 --> | Backend | Always active; platform ceiling `TENANT_MAX_MEMBERS_CEILING` (default `50`) | — | one count query per join | No (a value below `1` refuses startup) |
+| Service accounts per tenant <!-- REQ-023 §5b.0 --> | Backend | Always active (full mode); quota `TENANT_MAX_SERVICE_ACCOUNTS` (default `20`) | — | one count query per creation | No (a value below `1` refuses startup) |
 | "Have I Been Pwned" check | Backend | `HIBP_ENABLED=true` (default `false`) | — | outbound HTTPS requests on password change | No |
 
 ---

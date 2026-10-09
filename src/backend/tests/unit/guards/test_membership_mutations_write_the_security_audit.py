@@ -144,7 +144,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: The class size measured when this guard was written (#2111). A change in either direction is a
 #: signal to read, not to update blindly: a new member needs the gate or a classification, a
 #: vanished one may mean the predicate went blind.
-EXPECTED_MEMBERS = 13  # +1 with #2134: _hand_management_to (the account erasure's INV-1 handover); +1 with #2133
+#: +2 with #2137: create_service_account (joins) and remove_service_account (removes).
+EXPECTED_MEMBERS = 15  # +1 with #2134: _hand_management_to (the account erasure's INV-1 handover); +1 with #2133
 
 
 def test_every_membership_mutation_writes_the_audit_or_is_classified() -> None:
@@ -178,6 +179,8 @@ def test_the_predicate_sees_the_class() -> None:
         ("tenant_service.py", "TenantService.remove_member"),
         ("tenant_service.py", "TenantService.leave_tenant"),
         ("tenant_service.py", "TenantService.accept_invitation"),
+        ("tenant_service.py", "TenantService.create_service_account"),
+        ("tenant_service.py", "TenantService.remove_service_account"),
     ):
         assert known in found, f"the predicate lost {known}"
 
@@ -294,6 +297,7 @@ def test_the_ending_predicate_sees_the_class() -> None:
         ("tenant_service.py", "TenantService.admin_remove_membership"),
         ("tenant_service.py", "TenantService.remove_member"),
         ("tenant_service.py", "TenantService.leave_tenant"),
+        ("tenant_service.py", "TenantService.remove_service_account"),
         ("tenant_service.py", "TenantService._settle_join_against_freeze"),
         ("tenant_service.py", "TenantService._settle_join_against_member_limit"),
     }
@@ -486,6 +490,8 @@ def test_the_creation_predicate_sees_the_class() -> None:
         ("tenant_service.py", f"TenantService.{_HELPER}"): "raw",
         ("tenant_service.py", "TenantService.admin_add_membership"): "helper",
         ("tenant_service.py", "TenantService.accept_invitation"): "helper",
+        # #2137 - a service account takes a seat: it joins through the limited door like everybody else.
+        ("tenant_service.py", "TenantService.create_service_account"): "helper",
     }
 
 
@@ -525,3 +531,19 @@ def test_the_creation_predicate_recognises_each_spelling() -> None:
     assert kind(f"def f(self):\n    self.{_HELPER}(m)") == {("x.py", "f"): "helper"}
     assert kind("def f(self):\n    self._invitation_repo.create(i)") == {}
     assert kind("def f(self):\n    self._membership_repo.get_by_key(k)") == {}
+
+
+def test_the_running_application_wires_the_service_account_stores() -> None:
+    """#2137 - the service takes the key store and the quota with defaults; the wiring must hand both over."""
+    tree = ast.parse((APP / "common" / "dependencies.py").read_text(encoding="utf-8"))
+    (factory,) = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "get_tenant_service"]
+    (call,) = [
+        n
+        for n in ast.walk(factory)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "TenantService"
+    ]
+    keywords = {kw.arg: kw.value for kw in call.keywords}
+
+    assert _dotted(keywords["max_service_accounts"]) == "settings.tenant_max_service_accounts"
+    assert isinstance(keywords["api_key_repo"], ast.Call)
+    assert _dotted(keywords["api_key_repo"].func) == "get_api_key_repo"

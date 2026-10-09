@@ -352,7 +352,10 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
 EXPECTED_MEMBERS = (
-    37  # +1 with #2134: _hand_management_to (classified);
+    40  # +3 with #2137: create_service_account (constructs a User, joins it, mints its key),
+    # rotate_service_account_key (mints a key) and remove_service_account (deletes a membership) - all gated
+    # by the acting lead's own step-up (service_account_change);
+    # +1 with #2134: _hand_management_to (classified);
     # +1 with #2133: _settle_join_against_member_limit (classified, the take-back of an overshooting join);
     # +2 with #2106: admin_add_membership (gated) and accept_invitation (classified), both via the insert helper;
     # +7 with #2032: the membership writes (_MEMBERSHIP_CLASSIFIED and the four gated role/removal methods);
@@ -414,6 +417,10 @@ def test_the_gated_entries_are_gated() -> None:
         ("tenant_service.py", "TenantService.remove_member"),
         # #2106 - the platform admin's add.
         ("tenant_service.py", "TenantService.admin_add_membership"),
+        # #2137 - the tenant's service accounts.
+        ("tenant_service.py", "TenantService.create_service_account"),
+        ("tenant_service.py", "TenantService.rotate_service_account_key"),
+        ("tenant_service.py", "TenantService.remove_service_account"),
     ):
         assert entry in found and found[entry][1], f"{entry} is not behind self._step_up_verifier"
 

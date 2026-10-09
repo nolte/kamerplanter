@@ -33,6 +33,12 @@ from app.domain.models.user import User
 from app.domain.services.tenant_service import TenantService
 from tests.support.step_up import STEP_UP_PASSED, PassedStepUpVerifier
 
+
+def _founder(key: str) -> User:
+    """The founding account (#2137: ``create_organization`` takes the account, not its key)."""
+    return User.model_validate({"_key": key, "email": f"{key}@example.org", "display_name": key})
+
+
 TENANT = "t-garden"
 TOKEN = "invitation-token"
 _ADMIN = User.model_validate({"_key": "admin-1", "email": "admin@example.org", "display_name": "Admin"})
@@ -249,13 +255,13 @@ def test_an_organisation_is_founded_with_at_most_the_ceiling() -> None:
     world = _World(max_members=1, members=0, ceiling=10)
 
     with pytest.raises(ValidationError):
-        world.service.create_organization("u-lead", "Club", max_members=11)
+        world.service.create_organization(_founder("u-lead"), "Club", max_members=11)
 
 
 def test_an_organisation_founded_without_a_limit_takes_the_ceiling() -> None:
     world = _World(max_members=1, members=0, ceiling=10)
 
-    tenant = world.service.create_organization("u-lead", "Club")
+    tenant = world.service.create_organization(_founder("u-lead"), "Club")
 
     assert tenant.max_members == 10
 

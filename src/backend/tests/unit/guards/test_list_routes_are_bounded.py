@@ -191,6 +191,10 @@ _CLASSIFIED: dict[tuple[str, str], tuple[str, str]] = {
     ),
     ("GET", f"{_V1}/public/glossary/terms"): ("catalogue", "the public glossary"),
     ("GET", f"{_T}/glossary/terms"): ("catalogue", "the glossary, curated by platform admins"),
+    ("GET", f"{_T}/service-accounts"): (
+        "tenant-config",
+        "service accounts a lead creates one by one, capped by TENANT_MAX_SERVICE_ACCOUNTS (default 20, #2137)",
+    ),
     # ── computations ───────────────────────────────────────────────────────
     ("POST", f"{_V1}/calculations/sun-times-range"): (
         "computed",

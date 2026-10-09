@@ -343,19 +343,20 @@ Content-Type: application/json
 }
 ```
 
-`action` names what the code is to confirm — one of the actions in the table below (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`, `oidc_provider_change`, `admin_tenant_update`, `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change`, `admin_membership_add`). The code confirms **only** that one action — a code requested for a password change is refused for an erasure attempt, without being spent by the mismatch. The mailed message names the action in plain text, never the target.
+`action` names what the code is to confirm — one of the actions in the table below (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`, `oidc_provider_change`, `admin_tenant_update`, `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change`, `admin_membership_add`, `tenant_erasure_cancel`, `service_account_change`). The code confirms **only** that one action — a code requested for a password change is refused for an erasure attempt, without being spent by the mismatch. The mailed message names the action in plain text, never the target.
 
 **The act's target (`target`).** When the act acts on something other than your own account, `target` names it — otherwise the route answers `422`; for an act on your own account a `target` is `422` as well: <!-- #1884 -->
 
 | Action | `target` |
 |---|---|
 | `admin_account_update`, `admin_account_erasure` | the other account's key |
-| `tenant_deletion` | the tenant's key |
+| `tenant_deletion`, `tenant_erasure_cancel` | the tenant's key |
 | `provider_unlink` | the provider link's key from `GET /users/me/providers` |
 | `oidc_provider_change` | the OIDC configuration's key; `new:<slug>` when creating one |
 | `admin_tenant_update` | the tenant's key |
 | `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change` | the membership's key (`membership_key`) |
 | `admin_membership_add` | tenant and account, separated by `\|`: `<tenant_key>\|<user_key>` (the membership does not exist yet) |
+| `service_account_change` | When creating, the tenant's key; when rotating and removing, `<tenant_key>\|<service_account_key>` <!-- Issue #2137 --> |
 
 The code and the `step_up_token` then hold for that target only: a code requested for account A is refused for account B, without being spent. The route checks the target when it issues the factor — it must exist and you must be allowed to act on it (`403` if not; `404` if it doesn't exist; `409` if the slug of a new OIDC configuration is taken).
 
@@ -378,7 +379,7 @@ The code is eight digits, valid for ten minutes, and spent by the first action t
 
 ## Step-up Confirmation for Irreversible Account Actions and Sign-In Credentials
 
-Ten actions require re-confirmation by the signed-in person, in addition to a valid access token — since version 1.19 this also covers issuing or removing sign-in credentials and a platform admin raising another account's trust: <!-- #1847, #1857 -->
+The following actions require re-confirmation by the signed-in person, in addition to a valid access token — since version 1.19 this also covers issuing or removing sign-in credentials and a platform admin raising another account's trust: <!-- #1847, #1857 -->
 
 | Action | Route(s) | Typed-back target (body field) | Password / Fresh sign-in / Code |
 |---|---|---|---|
@@ -392,11 +393,12 @@ Ten actions require re-confirmation by the signed-in person, in addition to a va
 | Remove a sign-in method (provider link) | `DELETE /users/me/providers/{provider_key}` | — | own password, otherwise a `step_up_token` or code |
 | Change another account's trust (platform admin) | `PATCH /admin/platform/users/{key}`, whenever `email_verified` or `is_active` changes (raising or lowering, #1992) | — | the admin's own, otherwise their `step_up_token` or code |
 | Create, change or delete an OIDC provider (platform admin) | `POST /admin/oidc-providers`, `PUT`/`DELETE /admin/oidc-providers/{key}` — not for a `PUT` that only changes `display_name` or `icon_url` (switching it on or off needs it) | — | the admin's own, otherwise their `step_up_token` or code |
+| Create a service account, rotate its key, remove it (lead with the Technical scope) | `POST /t/{slug}/service-accounts`, `POST /t/{slug}/service-accounts/{sa_key}/rotate-key`, `DELETE /t/{slug}/service-accounts/{sa_key}` | — | own password, otherwise a `step_up_token` or code (`service_account_change`) <!-- Issue #2137 --> |
 
 !!! info "No automatic revocation of API keys"
     Changing your password, resetting it, and `POST /auth/logout-all` revoke the account's refresh tokens — **not** its API keys. A key represents a deliberately set-up machine integration (Home Assistant, an MCP client); silently invalidating it on every password change would break those integrations without warning. Since this version, a key can only be minted behind this step-up — no longer from a merely stolen session or from another key. Keys are listed under `GET /auth/api-keys` with their creation and last-used timestamps, and each can be revoked individually via `DELETE /auth/api-keys/{key_id}`. <!-- #1847 -->
 
-A request authenticated with an API key, or one coming from a service account, cannot trigger any of these ten actions — including issuing another API key or a pairing code (see the check order below).
+A request authenticated with an API key, or one coming from a service account, cannot trigger any of these actions — including issuing another API key or a pairing code (see the check order below).
 
 Example body for account erasure (local account):
 

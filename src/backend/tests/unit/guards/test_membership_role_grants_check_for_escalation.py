@@ -130,7 +130,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: The class size measured when this guard was written (#2078). A change in either direction is a
 #: signal to read, not to update blindly: a new member needs the gate or a classification, a
 #: vanished one may mean the predicate went blind.
-EXPECTED_MEMBERS = 7  # 8 until #2118 merged the two founding functions into ``_found_tenant``
+#: +1 with #2137: create_service_account (viewer/grower, checked).
+EXPECTED_MEMBERS = 8  # 8 until #2118 merged the two founding functions into ``_found_tenant``
 
 
 def test_every_role_grant_checks_for_escalation_or_is_classified() -> None:

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -9,7 +10,13 @@ from app.common.validators import DisplayName
 # enforces the same bound for non-HTTP callers and a domain service may not
 # import an API schema (NFR-001). This boundary is where an over-long value
 # becomes a 422 instead of a 500 (BACKEND.md §5.4).
-from app.domain.models.auth import DEVICE_NAME_MAX_LENGTH
+from app.domain.models.auth import (
+    API_KEY_IP_ALLOWLIST_MAX_ENTRIES,
+    API_KEY_MAX_LIFETIME_DAYS,
+    API_KEY_RATE_LIMIT_MAX,
+    API_KEY_RATE_LIMIT_MIN,
+    DEVICE_NAME_MAX_LENGTH,
+)
 
 # ── Request schemas ────────────────────────────────────────────────
 
@@ -154,7 +161,65 @@ class RefreshRequest(BaseModel):
     )
 
 
-class ApiKeyCreateRequest(CredentialStepUp):
+class ApiKeyControls(BaseModel):
+    """The network controls a key is minted with (#2137, MT-041, REQ-023 §5b).
+
+    Enforced on every key surface (REST and MCP) since #1850; the service checks
+    them before the step-up asks for a password (``api_key_control_errors``), so
+    an unusable value is a 422 and nothing is minted.
+    """
+
+    ip_allowlist: list[Annotated[str, Field(min_length=1, max_length=64)]] | None = Field(
+        default=None,
+        max_length=API_KEY_IP_ALLOWLIST_MAX_ENTRIES,
+        description=(
+            "CIDR ranges the key is accepted from (a bare address is its own /32 or /128). No host bits, nothing "
+            "wider than /8 (IPv4) or /32 (IPv6). Omitted or empty: every address."
+        ),
+    )
+    rate_limit_per_minute: int | None = Field(
+        default=None,
+        ge=API_KEY_RATE_LIMIT_MIN,
+        le=API_KEY_RATE_LIMIT_MAX,
+        description="Requests per minute the key may make, REST and MCP together (429 beyond). Omitted: no limit.",
+    )
+    expires_at: datetime | None = Field(
+        default=None,
+        description=(
+            f"When the key stops working; with a timezone, in the future, at most {API_KEY_MAX_LIFETIME_DAYS} days "
+            "ahead. Omitted: the key does not expire."
+        ),
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "ip_allowlist": ["192.168.1.0/24", "2001:db8::/48"],
+                    "rate_limit_per_minute": 600,
+                    "expires_at": "2027-04-01T00:00:00+02:00",
+                }
+            ]
+        }
+    )
+
+
+class ApiKeyCreateRequest(ApiKeyControls, CredentialStepUp):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "label": "Home Assistant",
+                    "tenant_scope": "community-garden",
+                    "ip_allowlist": ["192.168.1.0/24"],
+                    "rate_limit_per_minute": 600,
+                    "expires_at": "2027-04-01T00:00:00+02:00",
+                    "current_password": "<your current password>",
+                }
+            ]
+        }
+    )
+
     label: str = Field(min_length=1, max_length=100)
     tenant_scope: str | None = Field(
         default=None,
@@ -373,15 +438,55 @@ class OAuthProviderListItem(BaseModel):
 
 
 class ApiKeyCreatedResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "a7d2c1",
+                    "label": "Home Assistant",
+                    "raw_key": "kp_<shown once>",
+                    "key_prefix": "kp_Xy1aB",
+                    "tenant_scope": "t-garden",
+                    "created_at": "2026-10-05T10:00:00Z",
+                    "ip_allowlist": ["192.168.1.0/24"],
+                    "rate_limit_per_minute": 600,
+                    "expires_at": "2027-03-31T22:00:00Z",
+                }
+            ]
+        }
+    )
+
     key: str
     label: str
     raw_key: str
     key_prefix: str
     tenant_scope: str | None
     created_at: datetime | None
+    ip_allowlist: list[str] | None = None
+    rate_limit_per_minute: int | None = None
+    expires_at: datetime | None = None
 
 
 class ApiKeySummaryResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "a7d2c1",
+                    "label": "Home Assistant",
+                    "key_prefix": "kp_Xy1aB",
+                    "tenant_scope": "t-garden",
+                    "revoked": False,
+                    "last_used_at": "2026-10-05T10:15:00Z",
+                    "created_at": "2026-10-05T10:00:00Z",
+                    "ip_allowlist": ["192.168.1.0/24"],
+                    "rate_limit_per_minute": 600,
+                    "expires_at": "2027-03-31T22:00:00Z",
+                }
+            ]
+        }
+    )
+
     key: str
     label: str
     key_prefix: str
@@ -389,6 +494,9 @@ class ApiKeySummaryResponse(BaseModel):
     revoked: bool
     last_used_at: datetime | None
     created_at: datetime | None
+    ip_allowlist: list[str] | None = None
+    rate_limit_per_minute: int | None = None
+    expires_at: datetime | None = None
 
 
 class MessageResponse(BaseModel):

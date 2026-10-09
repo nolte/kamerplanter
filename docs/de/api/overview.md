@@ -285,6 +285,6 @@ Jede API-Antwort enthält folgende Sicherheits-Header:
 
 - [Authentifizierung](authentication.md) — Token-Workflow und API-Keys
 - [Fehlerbehandlung](error-handling.md) — Fehlerstruktur und Fehlercodes
-- [Service Accounts](service-accounts.md) — M2M-Zugriff (geplant, noch nicht implementiert)
+- [Service Accounts](service-accounts.md) — M2M-Zugriff per API-Key, je Garten von der Leitung angelegt
 - [MCP-Server](mcp-server.md) — externe LLM-Clients als Kamerplanter-Werkzeug
 - [Lokale Entwicklungsumgebung](../development/local-setup.md) — Backend lokal starten

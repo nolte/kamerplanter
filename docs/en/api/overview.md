@@ -285,6 +285,6 @@ Every API response includes the following security headers:
 
 - [Authentication](authentication.md) — Token workflow and API keys
 - [Error Handling](error-handling.md) — Error structure and error codes
-- [Service Accounts](service-accounts.md) — M2M access (planned, not yet implemented)
+- [Service Accounts](service-accounts.md) — M2M access via API key, created per garden by its lead
 - [MCP Server](mcp-server.md) — external LLM clients as a Kamerplanter tool
 - [Local Development Setup](../development/local-setup.md) — Running the backend locally

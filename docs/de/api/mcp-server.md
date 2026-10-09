@@ -103,16 +103,9 @@ Dieser Endpunkt ist bewusst auf Service Accounts beschränkt. Ein ungültiger, w
 !!! info "Auch im Light-Modus verfügbar"
     Eine Light-Instanz kennt keine Benutzerkonten — Anmeldung, Sitzungen und Sicherheitseinstellungen fehlen dort bewusst. Die **API-Schlüssel-Verwaltung gibt es trotzdem**, denn sie ist die einzige Anmeldeform, die der MCP-Server akzeptiert. Der Schlüssel gehört dort dem System-Benutzer, der Mitglied des Standard-Gartens ist. Zusätzliche Rechte entstehen dadurch nicht: Wer eine Light-Instanz erreicht, hat ohnehin vollen Zugriff — der Schlüssel macht diesen Zugriff nur von außen nutzbar. Genau deshalb gehört eine Light-Instanz nicht ins offene Internet.
 
-**Als Service Account — Betreiber-Schritt:**
+**Als Service Account:**
 
-!!! warning "Noch nicht implementiert"
-    Die vollständige, selbstständige Service-Account-Verwaltung (Erstellen, Rotieren, Deaktivieren über die API — siehe [Service Accounts & API-Keys](service-accounts.md)) ist spezifiziert, aber noch nicht umgesetzt. Aktuell ist das Anlegen eines Nutzerkontos mit `account_type: "service"` ein **Betreiber-Schritt** außerhalb der öffentlichen API, kein Selbstbedienungsfluss (interne Referenz: REQ-023).
-
-Damit ein maschineller MCP-Client heute einen funktionierenden Key bekommt, sind folgende Zutaten nötig:
-
-1. Ein Nutzerkonto mit `account_type: "service"` (kein Passwort, kein interaktiver Login) — vom Betreiber der Instanz angelegt.
-2. Eine Mandanten-Mitgliedschaft dieses Kontos mit genau der Rolle (`viewer`/`grower`/`admin`), die dem gewünschten [Berechtigungsniveau](#berechtigungsmodell-mcpread-mcpwrite-mcpsetup) entspricht.
-3. Ein API-Key für dieses Konto, technisch derselbe Mechanismus wie unter [Service Accounts & API-Keys — API-Key verwenden](service-accounts.md#api-key-verwenden) beschrieben — da ein Service Account jedoch nie interaktiv angemeldet ist, kann er den Key nicht selbst über den `/auth/api-keys`-Endpunkt anfordern; auch dieser Schritt läuft heute über den Betreiber.
+Ein maschineller MCP-Client bekommt seinen Key über einen Service Account, den die Leitung eines Gartens selbst anlegt — siehe [Service Accounts & API-Keys](service-accounts.md#service-account-anlegen). Die Antwort enthält den ersten Key; er ist an diesen einen Garten gebunden, und der Service Account hat dort die Rolle `viewer` oder `grower`, die dem gewünschten [Berechtigungsniveau](#berechtigungsmodell-mcpread-mcpwrite-mcpsetup) entspricht. Eine Leitungsrolle bekommt ein Service Account nicht. Den Key verwendest du wie unter [Den Key verwenden](service-accounts.md#den-key-verwenden) beschrieben. <!-- REQ-023 §5b, Issue #2137 -->
 
 ## Client einrichten (Claude Code)
 

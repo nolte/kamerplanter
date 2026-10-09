@@ -48,9 +48,16 @@ from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.models.calendar import CalendarFeed
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import Membership
+from app.domain.models.user import User
 from app.domain.services.calendar_service import CalendarService
 from app.domain.services.tenant_service import TenantService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+
+
+def _founder(key: str) -> User:
+    """The founding account (#2137: ``create_organization`` takes the account, not its key)."""
+    return User.model_validate({"_key": key, "email": f"{key}@example.org", "display_name": key})
+
 
 TEST_DATABASE = run_database_name("erasure_special_cases")
 
@@ -149,7 +156,7 @@ class TestTenantsOfAnErasedOwner:
         # (``test_personal_tenant_erasure_reach``); only a late joiner keeps it.
         memberships = ArangoMembershipRepository(database)
         memberships.create(Membership(user_key=OTHER, tenant_key=personal.key, role=TenantRole.GROWER, is_active=True))
-        organisation = service.create_organization(SUBJECT, "Gemeinschaftsgarten Nord")
+        organisation = service.create_organization(_founder(SUBJECT), "Gemeinschaftsgarten Nord")
         memberships.create(
             Membership(user_key=OTHER, tenant_key=organisation.key, role=TenantRole.GROWER, is_active=True)
         )

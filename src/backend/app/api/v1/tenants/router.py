@@ -88,9 +88,12 @@ def create_organization(
     user: User = Depends(require_account_principal),
     service: TenantService = Depends(get_tenant_service),
 ):
-    """Create a new organization tenant."""
+    """Create a new organization tenant.
+
+    A service account is refused (403, #2137): it founds no tenant.
+    """
     tenant = service.create_organization(
-        user_key=user.key,
+        founder=user,
         name=body.name,
         description=body.description,
         max_members=body.max_members,
@@ -430,7 +433,8 @@ def accept_invitation(
 
     **An e-mail invitation is bound to its address (#2115, REQ-024 AK-61):** 403 unless the signed-in
     account carries the invited address and has confirmed it; the invitation then stays pending and nothing
-    is written. A link invitation is open to any signed-in account.
+    is written. A link invitation is open to any signed-in account. A service account is refused (403,
+    #2137): it is placed in its tenant by that tenant's lead, never by an invitation.
     """
     service.accept_invitation(body.token, user)
     return MessageResponse(message="Invitation accepted")

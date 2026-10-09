@@ -40,6 +40,12 @@ from app.domain.services.security_audit_service import SECURITY_AUDIT_RETENTION_
 from app.domain.services.tenant_service import TenantService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
+
+def _founder(key: str) -> User:
+    """The founding account (#2137: ``create_organization`` takes the account, not its key)."""
+    return User.model_validate({"_key": key, "email": f"{key}@example.org", "display_name": key})
+
+
 TEST_DATABASE = run_database_name("security_audit_log")
 TENANT = "t-garden"
 # Assembled at runtime: a literal shaped like a credential trips the secret scanner (#1838).
@@ -170,7 +176,7 @@ def test_an_admin_add_a_role_change_and_a_removal_each_leave_a_row_the_admin_can
 def test_leaving_scopes_and_creation_leave_rows_through_the_real_repositories(db) -> None:
     service, memberships = _service(db)
 
-    tenant = service.create_organization("u-lead", "Second Garden")
+    tenant = service.create_organization(_founder("u-lead"), "Second Garden")
     lead = memberships.get_by_user_and_tenant("u-lead", tenant.key or "")
     assert lead is not None
     other = memberships.create(Membership(user_key="u-new", tenant_key=tenant.key or "", role=TenantRole.GROWER))
