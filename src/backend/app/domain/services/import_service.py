@@ -9,6 +9,7 @@ from app.domain.engines.import_engine import ImportEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.row_validator import RowValidator
 from app.domain.interfaces.import_job_repository import IImportJobRepository
+from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.import_job import ImportJob
 from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
 from app.domain.services.phase_sequence_binder import PhaseSequenceBinder
@@ -29,7 +30,7 @@ class ImportService:
     def __init__(
         self,
         import_repo: IImportJobRepository,
-        species_repo=None,
+        species_repo: ISpeciesRepository | None = None,
         family_repo=None,
         phase_sequence_binder: PhaseSequenceBinder | None = None,
     ) -> None:
@@ -390,6 +391,7 @@ class ImportService:
             from app.domain.models.species import Species
 
             def create_species(data: dict):
+                assert self._species_repo is not None  # checked by the branch; repeated for the closure
                 species = Species(
                     scientific_name=data["scientific_name"],
                     tenant_key=owner_key,
@@ -410,6 +412,7 @@ class ImportService:
             from app.domain.models.species import Cultivar
 
             def create_cultivar(data: dict):
+                assert self._species_repo is not None  # checked by the branch; repeated for the closure
                 cultivar = Cultivar(
                     species_key=data["species_key"],
                     name=data["cultivar_name"],
@@ -471,6 +474,7 @@ class ImportService:
         if entity_type == EntityType.SPECIES and self._species_repo:
 
             def update_species(data: dict):
+                assert self._species_repo is not None  # checked by the branch; repeated for the closure
                 # MT-045.7 (#2144): a tenant caller resolves the row it can see (own ∪ global) —
                 # a foreign tenant's private species is not there, so the row is created as
                 # the caller's own instead of answering 404 for it (an existence oracle).
@@ -512,7 +516,7 @@ class ImportService:
                 )
                 for field, value in _species_fields_from_row(data, self._family_repo).items():
                     setattr(existing, field, value)
-                self._species_repo.update(existing.key, existing)
+                self._species_repo.update(existing.key or "", existing)
 
             return update_species
 

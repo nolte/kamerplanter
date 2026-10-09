@@ -85,31 +85,34 @@ class ArangoLegacyStampAudit:
         self._sample = sample
 
     def _collections(self) -> list[str]:
-        names: list[str] = []
-        for info in cast(list[dict[str, Any]], self._db.collections()):
-            name = str(info["name"])
-            if info.get("system") or name.startswith("_") or name in _EXCLUDED:
-                continue
-            if info.get("type") not in ("document", 2):
-                continue
-            names.append(name)
-        return sorted(names)
+        infos: list[dict[str, Any]] = cast(list[dict[str, Any]], self._db.collections())
+        return sorted(str(info["name"]) for info in infos if _is_scanned(info))
 
     def measure(self) -> StampAuditReport:
-        report = StampAuditReport()
         if not self._db.has_collection(col.MEMBERSHIPS):
-            return report
-        for name in self._collections():
-            report.collections_scanned += 1
-            bind_vars: dict[str, Any] = {"@collection": name, "@memberships": col.MEMBERSHIPS, "sample": self._sample}
-            for row in cast(Cursor, self._db.aql.execute(_CLASSIFY, bind_vars=bind_vars)):
-                report.findings.append(
-                    StampFinding(
-                        collection=name,
-                        field=str(row["field"]),
-                        status=str(row["status"]),
-                        count=int(row["count"]),
-                        sample=[str(key) for key in row["sample"]],
-                    )
-                )
-        return report
+            return StampAuditReport()
+        names = self._collections()
+        findings = [
+            StampFinding(
+                collection=name,
+                field=str(row["field"]),
+                status=str(row["status"]),
+                count=int(row["count"]),
+                sample=[str(key) for key in row["sample"]],
+            )
+            for name in names
+            for row in self._classified(name)
+        ]
+        return StampAuditReport(collections_scanned=len(names), findings=findings)
+
+    def _classified(self, name: str) -> list[dict[str, Any]]:
+        bind_vars: dict[str, Any] = {"@collection": name, "@memberships": col.MEMBERSHIPS, "sample": self._sample}
+        return list(cast(Cursor, self._db.aql.execute(_CLASSIFY, bind_vars=bind_vars)))
+
+
+def _is_scanned(info: dict[str, Any]) -> bool:
+    """A user document collection that is tenant data (system, edge and bookkeeping collections are not)."""
+    name: str = str(info["name"])
+    if info.get("system") or name.startswith("_") or name in _EXCLUDED:
+        return False
+    return info.get("type") in ("document", 2)

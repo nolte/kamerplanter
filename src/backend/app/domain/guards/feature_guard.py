@@ -29,7 +29,7 @@ class FeatureGuard:
         typed = (
             tenant_settings
             if isinstance(tenant_settings, TenantSettings)
-            else TenantSettings.model_validate(tenant_settings or {})
+            else TenantSettings(**(tenant_settings or {}))
         )
         return AiTenantSettings(
             ai_features_enabled=typed.ai_features_enabled,
