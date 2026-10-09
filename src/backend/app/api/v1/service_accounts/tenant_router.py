@@ -65,7 +65,7 @@ def create_service_account(
     """
     # The domain model goes out as it is: FastAPI validates it against ``response_model``.
     return service.create_service_account(
-        ctx.tenant_key,
+        tenant_key=ctx.tenant_key,
         name=body.name,
         role=body.role,
         ip_allowlist=body.ip_allowlist,
@@ -87,7 +87,7 @@ def list_service_accounts(
     service: TenantService = Depends(get_tenant_service),
 ) -> list[ServiceAccountInfo]:
     """The tenant's active service accounts with the keys each holds here (metadata only, never a raw key)."""
-    return service.list_service_accounts(ctx.tenant_key, requester=user)
+    return service.list_service_accounts(tenant_key=ctx.tenant_key, requester=user)
 
 
 @router.post(
@@ -111,8 +111,8 @@ def rotate_service_account_key(
     a service account of this tenant.
     """
     return service.rotate_service_account_key(
-        ctx.tenant_key,
         service_account_key,
+        tenant_key=ctx.tenant_key,
         overlap_minutes=body.overlap_minutes,
         expires_at=body.expires_at,
         requester=user,
@@ -140,8 +140,8 @@ def remove_service_account(
     """
     step_up = body or ServiceAccountRemovalRequest()
     service.remove_service_account(
-        ctx.tenant_key,
         service_account_key,
+        tenant_key=ctx.tenant_key,
         requester=user,
         current_password=step_up.current_password,
         step_up_code=step_up.step_up_code,

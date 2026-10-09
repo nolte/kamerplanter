@@ -2291,8 +2291,8 @@ class TenantService:
 
     def create_service_account(
         self,
-        tenant_key: str,
         *,
+        tenant_key: str,
         name: str,
         role: TenantRole,
         ip_allowlist: list[str] | None,
@@ -2432,7 +2432,7 @@ class TenantService:
             api_key=ApiKeyCreated.minted(created_key, raw_key),
         )
 
-    def list_service_accounts(self, tenant_key: str, *, requester: User) -> list[ServiceAccountInfo]:
+    def list_service_accounts(self, *, tenant_key: str, requester: User) -> list[ServiceAccountInfo]:
         """The tenant's active service accounts and the keys each holds in it (#2137), for its lead ∧ technical.
 
         Only keys scoped to this tenant are listed: a key of the account scoped elsewhere (a platform
@@ -2461,9 +2461,9 @@ class TenantService:
 
     def rotate_service_account_key(
         self,
-        tenant_key: str,
         service_account_key: str,
         *,
+        tenant_key: str,
         overlap_minutes: int,
         expires_at: datetime | None,
         requester: User,
@@ -2577,9 +2577,9 @@ class TenantService:
 
     def remove_service_account(
         self,
-        tenant_key: str,
         service_account_key: str,
         *,
+        tenant_key: str,
         requester: User,
         current_password: str | None,
         step_up_code: str | None,

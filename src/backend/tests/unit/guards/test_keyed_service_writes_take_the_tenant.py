@@ -393,3 +393,55 @@ class TestTheRuleSeesTheShapes:
             encoding="utf-8",
         )
         assert [w.shape for w in keyed_writes(root, writers) if w.owner == "PlantedService"] == ["strict"]
+
+
+# ── #2137: TenantService's service-account methods are strict despite the class exemption ──────────
+#
+# ``TenantService`` is in :data:`_NOT_TENANT_DATA` because its keys address tenants, memberships and
+# invitations. Its service-account methods are different: they mint, revoke and list API keys scoped to
+# one tenant and resolve an account inside it, so the exemption must not reach them. Selected by name
+# (``service_account`` in a public method name), held strict: ``tenant_key`` keyword-only, no default.
+
+
+def _service_account_methods() -> dict[str, ast.FunctionDef]:
+    path = Path(__file__).resolve().parents[3] / "app" / "domain" / "services" / "tenant_service.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    (cls,) = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "TenantService"]
+    return {
+        n.name: n
+        for n in cls.body
+        if isinstance(n, ast.FunctionDef) and "service_account" in n.name and not n.name.startswith("_")
+    }
+
+
+def _takes_tenant_strictly(function: ast.FunctionDef) -> bool:
+    args = function.args
+    positional = [a.arg for a in args.posonlyargs + args.args]
+    for arg, default in zip(args.kwonlyargs, args.kw_defaults, strict=True):
+        if arg.arg == "tenant_key":
+            return default is None and "tenant_key" not in positional
+    return False
+
+
+def test_the_service_account_methods_take_the_tenant_keyword_only() -> None:
+    methods = _service_account_methods()
+
+    assert set(methods) == {
+        "create_service_account",
+        "list_service_accounts",
+        "rotate_service_account_key",
+        "remove_service_account",
+    }, sorted(methods)
+    loose = sorted(name for name, fn in methods.items() if not _takes_tenant_strictly(fn))
+    assert loose == [], f"tenant_key must be keyword-only without a default (#2107 rule, #2137): {loose}"
+
+
+def test_the_strictness_check_tells_the_shapes_apart() -> None:
+    def fn(source: str) -> ast.FunctionDef:
+        (node,) = [n for n in ast.walk(ast.parse(source)) if isinstance(n, ast.FunctionDef)]
+        return node
+
+    assert _takes_tenant_strictly(fn("def f(self, key, *, tenant_key): ..."))
+    assert not _takes_tenant_strictly(fn("def f(self, tenant_key, key): ..."))
+    assert not _takes_tenant_strictly(fn("def f(self, key, *, tenant_key=''): ..."))
+    assert not _takes_tenant_strictly(fn("def f(self, key): ..."))

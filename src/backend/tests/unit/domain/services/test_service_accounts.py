@@ -170,13 +170,13 @@ class _World:
             **overrides,
         }
         return self.service.create_service_account(
-            TENANT, requester=LEAD, client_ip=None, **arguments, **STEP_UP_PASSED
+            tenant_key=TENANT, requester=LEAD, client_ip=None, **arguments, **STEP_UP_PASSED
         )
 
     def rotate(self, account_key: str, *, overlap_minutes: int = 0, expires_at: datetime | None = None) -> Any:
         return self.service.rotate_service_account_key(
-            TENANT,
             account_key,
+            tenant_key=TENANT,
             overlap_minutes=overlap_minutes,
             expires_at=expires_at,
             requester=LEAD,
@@ -185,7 +185,9 @@ class _World:
         )
 
     def remove(self, account_key: str) -> None:
-        self.service.remove_service_account(TENANT, account_key, requester=LEAD, client_ip=None, **STEP_UP_PASSED)
+        self.service.remove_service_account(
+            account_key, tenant_key=TENANT, requester=LEAD, client_ip=None, **STEP_UP_PASSED
+        )
 
     def nothing_written(self) -> bool:
         return (

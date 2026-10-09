@@ -146,7 +146,7 @@ def _services(db, *, max_service_accounts: int = 20) -> tuple[TenantService, Aut
 
 def _create(tenant_service: TenantService, name: str = "Home Assistant"):  # noqa: ANN202
     return tenant_service.create_service_account(
-        TENANT,
+        tenant_key=TENANT,
         name=name,
         role=TenantRole.GROWER,
         ip_allowlist=["192.168.1.0/24"],
@@ -160,8 +160,8 @@ def _create(tenant_service: TenantService, name: str = "Home Assistant"):  # noq
 
 def _rotate(tenant_service: TenantService, account_key: str, overlap_minutes: int):  # noqa: ANN202
     return tenant_service.rotate_service_account_key(
-        TENANT,
         account_key,
+        tenant_key=TENANT,
         overlap_minutes=overlap_minutes,
         expires_at=None,
         requester=LEAD,
@@ -288,7 +288,9 @@ def test_removal_revokes_ends_and_deactivates(db) -> None:
     tenant_service, auth_service = _services(db)
     created = _create(tenant_service)
 
-    tenant_service.remove_service_account(TENANT, created.key, requester=LEAD, client_ip=None, **STEP_UP_PASSED)
+    tenant_service.remove_service_account(
+        created.key, tenant_key=TENANT, requester=LEAD, client_ip=None, **STEP_UP_PASSED
+    )
 
     assert all(k["revoked"] for k in db.collection(col.API_KEYS).find({"user_key": created.key}))
     assert db.collection(col.MEMBERSHIPS).get(created.membership_key) is None
