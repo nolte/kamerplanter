@@ -96,7 +96,7 @@ class _SpeciesService:
     def get_species(self, key, *, tenant_key=None):
         return _Species()
 
-    def get_compatible_species(self, key):
+    def get_compatible_species(self, key, *, tenant_key=None):
         return self._companions
 
     # ``tenant_key`` keyword-only with default None, exactly like the real
@@ -177,7 +177,7 @@ class _IndoorSpeciesService:
             mature_height_cm="100-300",
         )
 
-    def get_compatible_species(self, key):
+    def get_compatible_species(self, key, *, tenant_key=None):
         return []
 
     def list_cultivars(self, species_key, *, tenant_key=None):
@@ -198,7 +198,7 @@ async def test_species_info_projects_indoor_suitable_and_mature_height_when_popu
 @pytest.mark.asyncio
 async def test_species_info_survives_a_missing_companion_graph():
     class _Broken(_SpeciesService):
-        def get_compatible_species(self, key):
+        def get_compatible_species(self, key, *, tenant_key=None):
             raise RuntimeError("graph unavailable")
 
     resp = await GetSpeciesInfo().run(_ctx(species_service=_Broken()), GetSpeciesInfo.Input(species_key="sp-tomato"))
@@ -235,7 +235,7 @@ class _UnresearchedSpeciesService:
     def get_species(self, key, *, tenant_key=None):
         return Species(_key="11441306", scientific_name="Dracaena reflexa", genus="Dracaena")
 
-    def get_compatible_species(self, key):
+    def get_compatible_species(self, key, *, tenant_key=None):
         return []
 
     def list_cultivars(self, species_key, *, tenant_key=None):

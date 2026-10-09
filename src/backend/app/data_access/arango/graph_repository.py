@@ -5,6 +5,7 @@ from arango.database import StandardDatabase
 from app.common.types import SpeciesKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.tenant_scope import tenant_union_with_grants_predicate
 from app.domain.interfaces.graph_repository import IGraphRepository
 
 
@@ -17,15 +18,31 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
 
     # ── Companion Planting ────────────────────────────────────────────
 
-    def get_compatible_species(self, species_key: SpeciesKey) -> list[dict[str, Any]]:
-        query = """
+    # MT-054 (#2144): the far end of a companion edge is filtered with the species
+    # list's visibility (own ∪ global ∪ granted) for a tenant caller. The anchor was
+    # always scoped; the vertex across the edge was not, so an admin edge to a tenant
+    # species showed it to every tenant reading the global anchor. ``None`` is the
+    # system context (seeders, the platform admin's maintenance) and reads every edge.
+
+    @staticmethod
+    def _visible(tenant_key: str | None, doc_var: str) -> tuple[str, dict[str, Any]]:
+        if tenant_key is None:
+            return "", {}
+        predicate, binds = tenant_union_with_grants_predicate(tenant_key, doc_var=doc_var)
+        return f"FILTER {predicate}", binds
+
+    def get_compatible_species(self, species_key: SpeciesKey, *, tenant_key: str | None) -> list[dict[str, Any]]:
+        visible, binds = self._visible(tenant_key, "v")
+        query = f"""
         FOR v, e IN 1..1 OUTBOUND @start GRAPH 'kamerplanter_graph'
-          OPTIONS {edgeCollections: [@edge_col]}
-          RETURN {species: v, score: e.score}
+          OPTIONS {{edgeCollections: [@edge_col]}}
+          {visible}
+          RETURN {{species: v, score: e.score}}
         """
         bind_vars = {
             "start": f"{col.SPECIES}/{species_key}",
             "edge_col": col.COMPATIBLE_WITH,
+            **binds,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [
@@ -36,15 +53,18 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
             for r in cursor
         ]
 
-    def get_incompatible_species(self, species_key: SpeciesKey) -> list[dict[str, Any]]:
-        query = """
+    def get_incompatible_species(self, species_key: SpeciesKey, *, tenant_key: str | None) -> list[dict[str, Any]]:
+        visible, binds = self._visible(tenant_key, "v")
+        query = f"""
         FOR v, e IN 1..1 OUTBOUND @start GRAPH 'kamerplanter_graph'
-          OPTIONS {edgeCollections: [@edge_col]}
-          RETURN {species: v, reason: e.reason}
+          OPTIONS {{edgeCollections: [@edge_col]}}
+          {visible}
+          RETURN {{species: v, reason: e.reason}}
         """
         bind_vars = {
             "start": f"{col.SPECIES}/{species_key}",
             "edge_col": col.INCOMPATIBLE_WITH,
+            **binds,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [
@@ -55,30 +75,42 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
             for r in cursor
         ]
 
-    def get_companion_counts(self) -> dict[str, dict[str, int]]:
+    def get_companion_counts(self, *, tenant_key: str | None) -> dict[str, dict[str, int]]:
         # Single batch aggregation over BOTH edge collections in one round trip —
         # never a per-species query (no N+1). Edges are written bidirectionally
         # (set_compatibility/set_incompatibility create A→B and B→A), so grouping
         # outbound edges by their _from species yields, per species, exactly the
         # number of its curated companions — each relationship counted once from
         # that species' perspective. PARSE_IDENTIFIER strips the "species/" prefix
-        # so the caller keys directly by species _key.
-        query = """
+        # so the caller keys directly by species _key. For a tenant caller only an
+        # edge whose both ends it can see is counted (MT-054).
+        if tenant_key is None:
+            edge_filter, binds = "", {}
+        else:
+            from_pred, binds = tenant_union_with_grants_predicate(tenant_key, doc_var="src")
+            to_pred, _ = tenant_union_with_grants_predicate(tenant_key, doc_var="dst")
+            edge_filter = (
+                f"LET src = DOCUMENT(edge._from) LET dst = DOCUMENT(edge._to) FILTER {from_pred} AND {to_pred}"
+            )
+        query = f"""
         LET compatible = (
           FOR edge IN @@compatible_col
+            {edge_filter}
             COLLECT species_key = PARSE_IDENTIFIER(edge._from).key WITH COUNT INTO n
-            RETURN {species_key: species_key, count: n}
+            RETURN {{species_key: species_key, count: n}}
         )
         LET incompatible = (
           FOR edge IN @@incompatible_col
+            {edge_filter}
             COLLECT species_key = PARSE_IDENTIFIER(edge._from).key WITH COUNT INTO n
-            RETURN {species_key: species_key, count: n}
+            RETURN {{species_key: species_key, count: n}}
         )
-        RETURN {compatible: compatible, incompatible: incompatible}
+        RETURN {{compatible: compatible, incompatible: incompatible}}
         """
         bind_vars = {
             "@compatible_col": col.COMPATIBLE_WITH,
             "@incompatible_col": col.INCOMPATIBLE_WITH,
+            **binds,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         aggregate = next(iter(cursor), {"compatible": [], "incompatible": []})
@@ -328,15 +360,23 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
             self.delete_edges(col.FAMILY_INCOMPATIBLE_WITH, b_id, a_id)
             self.create_edge(col.FAMILY_INCOMPATIBLE_WITH, b_id, a_id, data=data)
 
-    def get_species_by_family(self, family_key: str) -> list[dict[str, Any]]:
-        query = """
+    def get_species_by_family(self, family_key: str, *, tenant_key: str | None) -> list[dict[str, Any]]:
+        """The species of a family — for a tenant caller only those it can see (MT-054, #2144).
+
+        The family-level companion fallback lists these to a member; unfiltered, a
+        foreign tenant's private species of a compatible family appeared there.
+        """
+        visible, binds = self._visible(tenant_key, "v")
+        query = f"""
         FOR v, e IN 1..1 INBOUND @start GRAPH 'kamerplanter_graph'
-          OPTIONS {edgeCollections: [@edge_col]}
+          OPTIONS {{edgeCollections: [@edge_col]}}
+          {visible}
           RETURN v
         """
         bind_vars = {
             "start": f"{col.BOTANICAL_FAMILIES}/{family_key}",
             "edge_col": col.BELONGS_TO_FAMILY,
+            **binds,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [self._from_doc(r) for r in cursor]

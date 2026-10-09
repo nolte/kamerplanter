@@ -112,14 +112,8 @@ _READERS: dict[str, tuple[str, str]] = {
     f"{_CARE}.care_inputs_for_plant": (_RESOLVES, ""),
     f"{_CARE}._build_plant_data_for_tenant": (_RESOLVES, ""),
     f"{_CARE}.ensure_seasonal_winter_tasks": (_RESOLVES, ""),
-    "app/domain/services/species_service.py:SpeciesService.get_compatible_species": (
-        _LISTED,
-        "the key is the request's path parameter, not a stored one; a separate catalogue-read question",
-    ),
-    "app/domain/services/species_service.py:SpeciesService.get_incompatible_species": (
-        _LISTED,
-        "the key is the request's path parameter, not a stored one; a separate catalogue-read question",
-    ),
+    "app/domain/services/species_service.py:SpeciesService.get_compatible_species": (_RESOLVES, ""),
+    "app/domain/services/species_service.py:SpeciesService.get_incompatible_species": (_RESOLVES, ""),
     "app/tasks/care_tasks.py:generate_due_care_reminders": (_RESOLVES, ""),
 }
 

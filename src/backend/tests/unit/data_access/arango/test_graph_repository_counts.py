@@ -68,7 +68,7 @@ def _repo(result: list[Any]) -> tuple[ArangoGraphRepository, _CapturingDb]:
 def test_counts_map_both_categories_per_species() -> None:
     repo, _db = _repo([_AGGREGATE])
 
-    counts = repo.get_companion_counts()
+    counts = repo.get_companion_counts(tenant_key=None)
 
     assert counts["tomato"] == {"compatible": 2, "incompatible": 1}
     assert counts["basil"] == {"compatible": 1, "incompatible": 0}
@@ -79,7 +79,7 @@ def test_counts_map_both_categories_per_species() -> None:
 def test_counts_run_single_batch_query_no_n_plus_1() -> None:
     repo, db = _repo([_AGGREGATE])
 
-    repo.get_companion_counts()
+    repo.get_companion_counts(tenant_key=None)
 
     # Exactly one AQL round trip regardless of how many species have edges.
     assert db.aql.execute_calls == 1
@@ -88,7 +88,7 @@ def test_counts_run_single_batch_query_no_n_plus_1() -> None:
 def test_counts_bind_edge_collections_and_never_interpolate() -> None:
     repo, db = _repo([_AGGREGATE])
 
-    repo.get_companion_counts()
+    repo.get_companion_counts(tenant_key=None)
 
     query = db.aql.query or ""
     assert "@@compatible_col" in query
@@ -104,4 +104,4 @@ def test_counts_bind_edge_collections_and_never_interpolate() -> None:
 def test_counts_empty_when_no_edges() -> None:
     repo, _db = _repo([{"compatible": [], "incompatible": []}])
 
-    assert repo.get_companion_counts() == {}
+    assert repo.get_companion_counts(tenant_key=None) == {}
