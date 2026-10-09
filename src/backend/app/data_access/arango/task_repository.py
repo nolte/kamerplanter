@@ -614,6 +614,8 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         tenant_key: str,
         category: str | None = None,
         origins: Sequence[str] | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
     ) -> list[Task]:
         """A plant's tasks **inside one tenant** (#927).
 
@@ -628,7 +630,14 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         """
         self._require_tenant_key(tenant_key, "get_tasks_for_plant")
         return self.get_tasks_for_entity(
-            "plant_instance", plant_key, tenant_key, status, category=category, origins=origins
+            "plant_instance",
+            plant_key,
+            tenant_key,
+            status,
+            category=category,
+            origins=origins,
+            offset=offset,
+            limit=limit,
         )
 
     def get_tasks_for_run(self, run_key: str, status: str | None = None, *, tenant_key: str) -> list[Task]:
@@ -661,6 +670,8 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         *,
         category: str | None = None,
         origins: Sequence[str] | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
     ) -> list[Task]:
         """The single tenant-scoped "tasks of an entity" predicate (#927).
 
@@ -668,6 +679,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         sentinel is rejected up front: an empty ``tenant_key`` would match only
         legacy tenantless tasks in AQL, but the guard keeps the *intent* explicit
         and stops a caller from routing a forgotten tenant through here.
+
+        ``limit`` reads one window of ``offset``/``limit`` rows (MT-035, #2131),
+        ordered by due date with ``_key`` breaking ties so pages never overlap;
+        without it every matching task is returned, as the internal callers need.
         """
         self._require_tenant_key(tenant_key, "get_tasks_for_entity")
         query = (
@@ -692,7 +707,12 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         if origins is not None:
             query += " FILTER doc.origin IN @origins"
             bind_vars["origins"] = list(origins)
-        query += " SORT DATE_TIMESTAMP(doc.due_date) ASC RETURN doc"
+        if limit is None:
+            query += " SORT DATE_TIMESTAMP(doc.due_date) ASC RETURN doc"
+        else:
+            query += " SORT DATE_TIMESTAMP(doc.due_date) ASC, doc._key ASC LIMIT @offset, @limit RETURN doc"
+            bind_vars["offset"] = offset or 0
+            bind_vars["limit"] = limit
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [Task(**self._from_doc(doc)) for doc in cursor]
 

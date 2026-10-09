@@ -1,4 +1,5 @@
 import { tenantClient as client, getActiveTenantSlug } from '../client';
+import { fetchAllPages } from '../paginate';
 import type {
   BatchResponse,
   HSTValidationResult,
@@ -383,17 +384,23 @@ export async function generateCareReminders(): Promise<{ created: number; skippe
   return data;
 }
 
+/**
+ * Every task of a plant, by due date. The route returns one bounded page since MT-035 (#2131); every page is read so
+ * the list this feeds stays complete.
+ */
 export async function getTasksForPlant(
   plantKey: string,
   status?: string,
 ): Promise<TaskItem[]> {
-  const params: Record<string, string> = {};
-  if (status) params.status = status;
-  const { data } = await client.get<TaskItem[]>(
-    `${BASE}/plants/${plantKey}`,
-    { params },
-  );
-  return data;
+  return fetchAllPages(async (offset, limit) => {
+    const params: Record<string, string | number> = { offset, limit };
+    if (status) params.status = status;
+    const { data } = await client.get<TaskItem[]>(
+      `${BASE}/plants/${plantKey}`,
+      { params },
+    );
+    return data;
+  });
 }
 
 // -- HST Validation --

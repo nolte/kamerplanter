@@ -135,6 +135,21 @@ class WateringService:
     ) -> tuple[list[WateringEvent], int]:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
 
+    def list_events_window(
+        self,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        after: str | None = None,
+    ) -> list[WateringEvent]:
+        """One ``_key``-ordered page of the tenant's watering events without the count query (MT-035, #2131).
+
+        The list route answers a bare array, so the ``total`` :meth:`list_events` pays a
+        second scan for is never read; ``after`` pages by keyset instead of offset.
+        """
+        return self._repo.list_window(offset=offset, limit=limit, tenant_key=tenant_key, after=after)
+
     def get_by_plant(
         self,
         plant_key: PlantInstanceKey,

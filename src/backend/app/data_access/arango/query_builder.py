@@ -177,7 +177,7 @@ class AQLBuilder:
         name = field.rsplit(".", 1)[-1]
         return name in cls._INSTANT_SORT_NAMES or name.endswith(cls._INSTANT_SORT_SUFFIXES)
 
-    def sort(self, field: str, direction: str = "ASC") -> AQLBuilder:
+    def sort(self, field: str, direction: str = "ASC", *, tiebreak_key: bool = False) -> AQLBuilder:
         """Add ``SORT doc.<field> <direction>``; a timestamp field sorts by instant.
 
         The ICU collation that misplaces a record in a comparison (module
@@ -186,6 +186,11 @@ class AQLBuilder:
         timestamp field (:meth:`sorts_as_instant`) therefore sorts
         ``DATE_TIMESTAMP(doc.<field>)``. ``null`` and unreadable values sort first
         ascending, as a missing raw value already did.
+
+        ``tiebreak_key`` appends ``doc._key`` in the same direction. A paged read
+        needs a total order: rows with an equal sort value (two tenants created in
+        the same second) may otherwise swap between two pages, so one row is
+        served twice and another never (MT-035, #2131).
         """
         if direction not in self._ALLOWED_DIRECTIONS:
             raise ValueError(f"Invalid sort direction: {direction!r}")
@@ -193,6 +198,8 @@ class AQLBuilder:
             raise ValueError(f"Invalid AQL sort field: {field!r}")
         key = f"DATE_TIMESTAMP(doc.{field})" if self.sorts_as_instant(field) else f"doc.{field}"
         self._sort = f"{key} {direction}"
+        if tiebreak_key:
+            self._sort += f", doc._key {direction}"
         return self
 
     def paginate(self, offset: int, limit: int) -> AQLBuilder:

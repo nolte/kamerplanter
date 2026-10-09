@@ -50,8 +50,10 @@ class InMemoryTenantRepo:
     def get_by_key(self, key: str) -> Tenant | None:
         return self._store.get(key)
 
-    def list_all(self) -> list[Tenant]:
-        return sorted(self._store.values(), key=lambda t: t.created_at or "", reverse=True)
+    def list_all(self, *, offset: int | None = None, limit: int | None = None) -> list[Tenant]:
+        # Newest first with the key breaking ties, and the window, as the repository does (MT-035).
+        rows = sorted(self._store.values(), key=lambda t: (t.created_at or "", t.key or ""), reverse=True)
+        return rows if limit is None else rows[offset or 0 : (offset or 0) + limit]
 
     def count(self, *, active_only: bool = False) -> int:
         values = self._store.values()
@@ -72,8 +74,10 @@ class InMemoryUserRepo:
             raise NotFoundError("User", key)
         return user
 
-    def list_all(self) -> list[User]:
-        return sorted(self._store.values(), key=lambda u: u.created_at or "", reverse=True)
+    def list_all(self, *, offset: int | None = None, limit: int | None = None) -> list[User]:
+        # Newest first with the key breaking ties, and the window, as the repository does (MT-035).
+        rows = sorted(self._store.values(), key=lambda u: (u.created_at or "", u.key or ""), reverse=True)
+        return rows if limit is None else rows[offset or 0 : (offset or 0) + limit]
 
     def count(self, *, active_only: bool = False) -> int:
         values = self._store.values()

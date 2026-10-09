@@ -303,9 +303,15 @@ class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
         )
         return report.affected(self._collection_name) > 0
 
-    def list_all(self) -> list[User]:
-        """Every user, newest first (platform-admin listing, #1019)."""
-        docs = self._find_docs([], sort="created_at", sort_direction="DESC")
+    def list_all(self, *, offset: int | None = None, limit: int | None = None) -> list[User]:
+        """Users, newest first (platform-admin listing, #1019).
+
+        ``offset``/``limit`` read one window (MT-035, #2131); both ``None`` reads
+        every user. ``_key`` breaks ``created_at`` ties so pages never overlap.
+        """
+        docs = self._find_docs(
+            [], sort="created_at", sort_direction="DESC", offset=offset, limit=limit, tiebreak_key=True
+        )
         return self._wrap_many(docs)
 
     def count(self, *, active_only: bool = False) -> int:

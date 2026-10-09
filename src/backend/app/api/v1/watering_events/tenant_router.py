@@ -17,7 +17,7 @@ from app.api.v1.watering_events.schemas import (
 from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_watering_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
-from app.common.pagination import PaginationParams, get_pagination
+from app.common.pagination import CursorPaginationParams, PaginationParams, get_cursor_pagination, get_pagination
 from app.core.permissions import Action
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.watering_event import WateringEvent
@@ -44,12 +44,14 @@ def create_event(
 
 @router.get("/watering-events", response_model=list[WateringEventResponse])
 def list_events(
-    pagination: PaginationParams = Depends(get_pagination),
+    pagination: CursorPaginationParams = Depends(get_cursor_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringService = Depends(get_watering_service),
 ):
-    """List the tenant's watering events (paginated)."""
-    items, _total = service.list_events(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
+    """List the tenant's watering events (paginated; ``?after=<key>`` pages by keyset, MT-035)."""
+    items = service.list_events_window(
+        tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit, after=pagination.after
+    )
     return [_event_response(e) for e in items]
 
 

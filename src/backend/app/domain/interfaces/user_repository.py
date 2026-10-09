@@ -82,8 +82,8 @@ class IUserRepository(ABC):
         """
 
     @abstractmethod
-    def list_all(self) -> list[User]:
-        """Every user, newest first (platform-admin listing, #1019)."""
+    def list_all(self, *, offset: int | None = None, limit: int | None = None) -> list[User]:
+        """Users, newest first (platform-admin listing, #1019); a window when ``limit`` is set (MT-035)."""
 
     @abstractmethod
     def count(self, *, active_only: bool = False) -> int:

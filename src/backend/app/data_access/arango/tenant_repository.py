@@ -143,9 +143,15 @@ class ArangoTenantRepository(BaseArangoRepository[Tenant], ITenantRepository):
     def list_by_owner(self, owner_user_key: str) -> list[Tenant]:
         return self.find_by_field("owner_user_key", owner_user_key, sort="created_at")
 
-    def list_all(self) -> list[Tenant]:
-        """Every tenant, newest first (platform-admin listing, #1019)."""
-        docs = self._find_docs([], sort="created_at", sort_direction="DESC")
+    def list_all(self, *, offset: int | None = None, limit: int | None = None) -> list[Tenant]:
+        """Tenants, newest first (platform-admin listing, #1019).
+
+        ``offset``/``limit`` read one window (MT-035, #2131); both ``None`` reads
+        every tenant. ``_key`` breaks ``created_at`` ties so pages never overlap.
+        """
+        docs = self._find_docs(
+            [], sort="created_at", sort_direction="DESC", offset=offset, limit=limit, tiebreak_key=True
+        )
         return self._wrap_many(docs)
 
     def count(self, *, active_only: bool = False) -> int:

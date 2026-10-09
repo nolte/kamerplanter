@@ -35,7 +35,9 @@ class IInvitationRepository(ABC):
     def delete(self, key: str) -> bool: ...
 
     @abstractmethod
-    def list_by_tenant(self, tenant_key: str) -> list[Invitation]: ...
+    def list_by_tenant(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[Invitation]: ...
 
     @abstractmethod
     def list_pending_email_invitations(self, email: str) -> list[Invitation]:

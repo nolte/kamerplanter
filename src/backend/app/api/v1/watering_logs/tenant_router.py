@@ -19,7 +19,7 @@ from app.api.v1.watering_logs.schemas import (
 from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_watering_log_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
-from app.common.pagination import PaginationParams, get_pagination
+from app.common.pagination import CursorPaginationParams, PaginationParams, get_cursor_pagination, get_pagination
 from app.core.permissions import Action
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.watering_log import WateringLog
@@ -73,12 +73,14 @@ def create_log(
 
 @router.get("/watering-logs", response_model=list[WateringLogResponse])
 def list_logs(
-    pagination: PaginationParams = Depends(get_pagination),
+    pagination: CursorPaginationParams = Depends(get_cursor_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
-    """List the tenant's watering logs (paginated)."""
-    items, _total = service.list_logs(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
+    """List the tenant's watering logs (paginated; ``?after=<key>`` pages by keyset, MT-035)."""
+    items = service.list_logs_window(
+        tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit, after=pagination.after
+    )
     all_plant_keys = list({pk for log in items for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_plant_keys, tenant_key=ctx.tenant_key) if all_plant_keys else {}
     all_fert_keys = list({fu.fertilizer_key for log in items for fu in log.fertilizers_used})

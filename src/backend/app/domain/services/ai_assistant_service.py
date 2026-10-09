@@ -568,8 +568,11 @@ class AiAssistantService:
 
     # ── Conversations / Chat (SSE) ──────────────────────────────────────
 
-    def list_conversations(self, ctx: TenantContext) -> list[AiConversation]:
-        return self._conversations.list_for_user(ctx.tenant_key, ctx.user_key)
+    def list_conversations(
+        self, ctx: TenantContext, *, offset: int | None = None, limit: int | None = None
+    ) -> list[AiConversation]:
+        """The caller's conversations; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self._conversations.list_for_user(ctx.tenant_key, ctx.user_key, offset=offset, limit=limit)
 
     def get_conversation(self, ctx: TenantContext, key: str) -> AiConversation | None:
         conv = self._conversations.get_by_key(key)

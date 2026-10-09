@@ -32,6 +32,21 @@ class FeedingService:
     ) -> tuple[list[FeedingEvent], int]:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
 
+    def list_events_window(
+        self,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        after: str | None = None,
+    ) -> list[FeedingEvent]:
+        """One ``_key``-ordered page of the tenant's feeding events without the count query (MT-035, #2131).
+
+        The list route answers a bare array, so the ``total`` :meth:`list_events` pays a
+        second scan for is never read; ``after`` pages by keyset instead of offset.
+        """
+        return self._repo.list_window(offset=offset, limit=limit, tenant_key=tenant_key, after=after)
+
     def get_event(self, key: FeedingEventKey, tenant_key: str = "") -> FeedingEvent:
         event = self._repo.get_or_raise(key)
         if tenant_key:
