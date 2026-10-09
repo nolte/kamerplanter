@@ -93,7 +93,8 @@ class ImportService:
         if caller_role is not None and not is_platform_admin and not MembershipEngine.can_edit_resource(caller_role):
             raise ForbiddenError("Your role may not stage an import in this tenant.")
 
-        existing_keys = self._get_existing_keys(entity_type)
+        # MT-045.7 (#2144): a tenant caller's duplicates are the rows it can see; the system context sees all.
+        existing_keys = self._get_existing_keys(entity_type, tenant_key=tenant_key if caller_role is not None else None)
         job = self._engine.upload_and_validate(
             file_bytes,
             entity_type,
@@ -341,10 +342,18 @@ class ImportService:
         if self._phase_sequence_binder is not None and species is not None:
             self._phase_sequence_binder.bind_default(species)
 
-    def _get_existing_keys(self, entity_type: EntityType) -> set[str]:
+    def _get_existing_keys(self, entity_type: EntityType, *, tenant_key: str | None = None) -> set[str]:
+        """The natural keys the preview flags as duplicates.
+
+        Species is a hybrid catalogue: for a tenant caller the duplicates are the
+        rows it can **see** (own ∪ global ∪ granted, the species list's union) —
+        MT-045.7 (#2144). Read unscoped, a foreign tenant's private species showed
+        up as "duplicate" in the preview, an existence oracle. ``None`` is the
+        system context (seeders) and reads the whole catalogue.
+        """
         if entity_type == EntityType.SPECIES and self._species_repo:
             # Every species: a row past a fixed window was not seen as a duplicate (#2015).
-            docs = get_all_pages(self._species_repo)
+            docs = get_all_pages(self._species_repo, tenant_key=tenant_key)
             return {
                 d.get("scientific_name", d.get("_key", ""))
                 if isinstance(d, dict)
@@ -462,7 +471,16 @@ class ImportService:
         if entity_type == EntityType.SPECIES and self._species_repo:
 
             def update_species(data: dict):
-                existing = self._species_repo.get_by_scientific_name(data["scientific_name"])
+                # MT-045.7 (#2144): a tenant caller resolves the row it can see (own ∪ global) —
+                # a foreign tenant's private species is not there, so the row is created as
+                # the caller's own instead of answering 404 for it (an existence oracle).
+                existing = (
+                    self._species_repo.get_by_scientific_name(data["scientific_name"])
+                    if tenant_key is None
+                    else self._species_repo.find_visible_by_normalized_scientific_name(
+                        data["scientific_name"], tenant_key
+                    )
+                )
                 if existing is None:
                     # Duplicate flagged at preview time but gone now — create instead.
                     from app.domain.models.species import Species
