@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 
 import structlog
+from arango.database import StandardDatabase
 
 from app.data_access.arango.legacy_stamp_audit import ArangoLegacyStampAudit, StampAuditReport
 
@@ -41,7 +42,7 @@ EXIT_ERROR = 1
 EXIT_FINDINGS = 3
 
 
-def _connect():  # noqa: ANN202 - the python-arango database handle
+def _connect() -> StandardDatabase:
     """The configured database — refused when it was never initialised (an empty one measures nothing)."""
     from arango.client import ArangoClient
 

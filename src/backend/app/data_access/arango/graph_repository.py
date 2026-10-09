@@ -84,8 +84,9 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
         # that species' perspective. PARSE_IDENTIFIER strips the "species/" prefix
         # so the caller keys directly by species _key. For a tenant caller only an
         # edge whose both ends it can see is counted (MT-054).
+        binds: dict[str, Any] = {}
         if tenant_key is None:
-            edge_filter, binds = "", {}
+            edge_filter = ""
         else:
             from_pred, binds = tenant_union_with_grants_predicate(tenant_key, doc_var="src")
             to_pred, _ = tenant_union_with_grants_predicate(tenant_key, doc_var="dst")

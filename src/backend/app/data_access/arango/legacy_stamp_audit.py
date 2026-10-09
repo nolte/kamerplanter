@@ -20,7 +20,8 @@ Attribute names are bound (``d[@field]``), never interpolated.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from typing import Any, cast
 
 from arango.cursor import Cursor
@@ -64,13 +65,13 @@ class StampFinding:
     field: str
     status: str
     count: int
-    sample: list[str] = field(default_factory=list)
+    sample: list[str] = dataclass_field(default_factory=list)
 
 
 @dataclass
 class StampAuditReport:
     collections_scanned: int = 0
-    findings: list[StampFinding] = field(default_factory=list)
+    findings: list[StampFinding] = dataclass_field(default_factory=list)
 
     def count(self, status: str) -> int:
         return sum(f.count for f in self.findings if f.status == status)
@@ -100,7 +101,7 @@ class ArangoLegacyStampAudit:
             return report
         for name in self._collections():
             report.collections_scanned += 1
-            bind_vars = {"@collection": name, "@memberships": col.MEMBERSHIPS, "sample": self._sample}
+            bind_vars: dict[str, Any] = {"@collection": name, "@memberships": col.MEMBERSHIPS, "sample": self._sample}
             for row in cast(Cursor, self._db.aql.execute(_CLASSIFY, bind_vars=bind_vars)):
                 report.findings.append(
                     StampFinding(
