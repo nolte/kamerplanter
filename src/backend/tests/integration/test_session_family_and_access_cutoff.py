@@ -301,9 +301,11 @@ def test_a_reactivation_does_not_revive_the_tokens_of_before_the_deactivation(wo
     from tests.support.step_up import PassedStepUpVerifier
 
     access, raw = world.login()
+    from app.domain.models.user import User
+
     admin = UserService(world.users, step_up_verifier=PassedStepUpVerifier(), refresh_token_repo=world.sessions)
-    requester = world.users.get_by_key(world.key)
-    assert requester is not None
+    # Another account acts: an admin deactivating their own account is refused since #2144 (MT-045.4).
+    requester = User(_key="platform-admin", email="admin@example.org", display_name="Admin")
     step_up = {
         "requester": requester,
         "current_password": None,
