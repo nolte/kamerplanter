@@ -7,7 +7,7 @@ Kategorie: KI & Schädlingsmanagement
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, ONNX Runtime (quantisierte Detektoren + Tiling), optional Kindwise-Cloud-API (crop.health/insect.id), optional lokales VLM (LLaVA/Qwen2.5-VL/Agri-LLaVA) + RAG (REQ-031), React 19, TypeScript 5.9, MUI 7
 Status: Entwurf
-Version: 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1 (Erfassungsverweis auf REQ-052 umgehängt)
+Version: 1.3 (Few-Shot-Index nur mit `reference_contribution`-Einwilligung der beitragenden Person; Betreiberentscheidung 2026-10-09); 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1 (Erfassungsverweis auf REQ-052 umgehängt)
 Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `recognition`), REQ-010 v1.1 (IPM — Pests/Inspections/Treatments, Karenz-Gate, Ziel der Befund-Brücke), REQ-043 v1.0 (Health-Fusion — konsumiert das Schädlings-Bild-Signal), REQ-038 v1.1 (CV-Pflanzendiagnose — geteilte Vision-/Tiling-Infrastruktur), REQ-029 v1.0 (Adapter-Interface, EXIF/Consent), REQ-029-A v1.2 (Self-Hosted-Inferenz-Infrastruktur, ONNX), REQ-031 v2.0 (Knowledge-Service / RAG für Erklärungs-Layer), REQ-025 v1.4 (DSGVO/Consent), REQ-013 v2.0 (PlantInstance/Run), REQ-021 v1.0 (Erfahrungsstufen)
 Wird benoetigt von: —
 ```
@@ -19,6 +19,7 @@ Wird benoetigt von: —
 | 1.0 | 2026-06-20 | Initialer Entwurf — leitet aus dem Methodenvergleich `spec/analysis/pest-detection-research.md` eine dedizierte Schädlingserkennung mit zwei Modi (Direkt-Detektion + Schadbild) ab; definiert Self-Hosted-First-Phasen-Strategie, Tiling-Pflicht, Abstention und Einspeisung als Bild-Signal in IPM/Health ohne Auto-Treatment. <!-- Quelle: spec/analysis/pest-detection-research.md --> |
 | 1.1 | 2026-06-20 | Offene Punkte (§10) durch fokussierte Recherche geklärt (`spec/analysis/pest-detection-implementation-prep.md`): **Modellwahl korrigiert — YOLO entfällt (AGPL-3.0), RF-DETR-S/D-FINE (Apache-2.0)**; **Cloud-Produkt korrigiert — `plant.health` statt `crop.health` für Indoor**; Architektur-Präzisierung **zwei Domänen** (on-leaf Few-Shot-Klassifikation via DINOv2 / Gelbtafel RF-DETR+SAHI); Abstention-Schwelle als Tag-1-Default + Risk-Coverage-Verfahren. <!-- Quelle: spec/analysis/pest-detection-implementation-prep.md --> |
 | 1.2 | 2026-10-05 | **#2121 (MT-025):** Abschnitt „Autorisierung“ nach REQ-049 §3.3 ergänzt, gegen den Code gemessen (Erkennen, Feedback, Inspektion ab Gärtner; Lesen für jedes Mitglied; Einwilligung im Dienst). |
+| 1.3 | 2026-10-09 | **Consent-Gates (PR #2208), Betreiberentscheidung 2026-10-09:** „aus Nutzerbildern (mit Consent)“ (§3.2) konkretisiert — ein von einer Plattform-Admin freigegebenes Schädlingsbild gelangt nur dann in den Few-Shot-Index, wenn die **beitragende Person** die Einwilligung `reference_contribution` (REQ-025) erteilt hat. Ohne sie bleibt das Bild freigegeben (Galerie), wird aber nicht indexiert; im Light-Modus wird nie indexiert. Consent-Zeile in §8 ergänzt. |
 
 ## 0. Verhältnis zu benachbarten REQs (verbindliche Abgrenzung)
 
@@ -114,7 +115,7 @@ Bewertung: ●●● = stark/gut, ●● = mittel, ● = schwach/problematisch.
 ### 3.2 Phase 2 — Self-Hosted Direkt-Detektor (Zielarchitektur)
 
 - **`LocalPestDetectorAdapter`** (Ansatz B, Modus 1): kleiner, **quantisierter ONNX-Detektor** + Tiling; asynchron via Celery (Multi-Sekunden-Latenz pro Bild akzeptabel, da kein Live-Video).
-- **Daten:** eigenes **Indoor-Schädlings-Datenset** (Spinnmilben, Thripse, Trauermücken, Schmierläuse, Weiße Fliege, Blattläuse) aus Nutzerbildern (mit Consent) + Few-Shot/Finetuning gegen AgriPest/Pest24/IP102-Backbones.
+- **Daten:** eigenes **Indoor-Schädlings-Datenset** (Spinnmilben, Thripse, Trauermücken, Schmierläuse, Weiße Fliege, Blattläuse) aus Nutzerbildern (mit Consent: Einwilligung `reference_contribution` der beitragenden Person, REQ-025 — siehe §8) + Few-Shot/Finetuning gegen AgriPest/Pest24/IP102-Backbones.
 
 ### 3.3 Querschnittsprinzipien (für beide Phasen verbindlich)
 
@@ -351,6 +352,7 @@ async def detect_pests(
 | Aspekt | Umsetzung |
 |--------|-----------|
 | **Consent** | Neuer Zweck `pest_detection_cloud` — **nur** erforderlich, wenn der Cloud-Adapter aktiv ist. Self-Hosted ohne externen Consent. |
+| **Consent (Few-Shot-Index)** | Ein freigegebenes Nutzerbild (REQ-010 Kuratierung) wird nur mit der Einwilligung `reference_contribution` der **beitragenden Person** (`contributed_by`) als `user_contributed`-Prototyp indexiert. Geprüft wird beim Indexieren (asynchroner Task), nicht bei der Freigabe: fehlt die Einwilligung, ist sie widerrufen oder ist die Person unbekannt, bleibt das Bild freigegeben und sichtbar, der Task endet als No-op (`no_consent`) ohne Aufruf des Inferenz-Dienstes. Light-Modus: nie indexiert (kein Consent-Subsystem). Ein späterer Widerruf entfernt bereits indexierte Prototypen **nicht** automatisch; das leistet nur die Löschung des Bildes bzw. Art. 17 (#1759). <!-- Quelle: Betreiberentscheidung 2026-10-09, PR #2208 --> |
 | **EXIF-Stripping** | Wiederverwendung REQ-029 §5.4, doppelt (Frontend + Backend), **vor** Tiling/Verarbeitung — kritisch, da API-Uploads EXIF nicht automatisch strippen. |
 | **Bild-Persistenz** | Bilddaten **nicht** dauerhaft gespeichert (`image_deleted_at`); nur Hash + Findings bleiben. |
 | **Drittland/AVV (Cloud)** | Kindwise = Auftragsverarbeiter (Art. 28); AVV + EU-Hosting **vertraglich verifizieren** (Vendor-Selbstauskunft genügt nicht); Indoor-Eignung empirisch testen. |
