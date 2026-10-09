@@ -9,9 +9,9 @@ job: knowledge-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-09-28'
-measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
-replay_seconds: 8
+measured_on: '2026-10-05'
+measured_at_commit: b84592b0423e8106218d048d4b3fd5b83cf83226
+replay_seconds: 12
 job_spec_sha256: 086772ed392e80e46d208deb4b300b94d53619ebe5996ce5085ac995167cc87f
 invocations:
 - command: task deps:sync:knowledge-service
@@ -19,13 +19,13 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 207
+  untracked_reads_dropped: 211
 - command: task test:knowledge-service
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1256
+  untracked_reads_dropped: 2112
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
@@ -79,6 +79,7 @@ reads:
 - src/knowledge-service/tests/test_auth.py
 - src/knowledge-service/tests/test_chunk_response.py
 - src/knowledge-service/tests/test_embedding.py
+- src/knowledge-service/tests/test_error_tracking_redacts_texts.py
 - src/knowledge-service/tests/test_logs_carry_no_user_text.py
 - src/knowledge-service/tests/test_prompt_engine.py
 - src/knowledge-service/tests/test_reranker.py
@@ -94,6 +95,7 @@ test_modules:
 - src/knowledge-service/tests/test_auth.py
 - src/knowledge-service/tests/test_chunk_response.py
 - src/knowledge-service/tests/test_embedding.py
+- src/knowledge-service/tests/test_error_tracking_redacts_texts.py
 - src/knowledge-service/tests/test_logs_carry_no_user_text.py
 - src/knowledge-service/tests/test_prompt_engine.py
 - src/knowledge-service/tests/test_reranker.py

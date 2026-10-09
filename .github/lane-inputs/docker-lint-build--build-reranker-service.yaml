@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: reranker-service
 status: derived
-measured_on: '2026-09-28'
-measured_at_commit: ec2ee705c8f6d8a897ee7cbf88c458e442aa9c44
+measured_on: '2026-10-05'
+measured_at_commit: b84592b0423e8106218d048d4b3fd5b83cf83226
 replay_seconds: 1
 job_spec_sha256: 093e26e3c696b8020969c892795e23dae475fbc52c82ebec98f015ed3cf0a6e7
 invocations:
