@@ -18,7 +18,7 @@ only exist once the dispatcher, the registry and the HTTP surface are in play:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -60,6 +60,8 @@ class _FakeIdemRepo:
         return self.records.get((sa, tenant_key, tool, idem))
 
     def store(self, record, *, ttl_hours=24):
+        # The production repository stamps ``expires_at`` on store, and a lookup honours it (#2144).
+        record.expires_at = record.expires_at or datetime.now(UTC) + timedelta(hours=ttl_hours)
         self.records[(record.service_account_key, record.tenant_key, record.tool_name, record.idempotency_key)] = record
         return record
 
