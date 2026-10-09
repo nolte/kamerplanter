@@ -18,7 +18,7 @@ Kamerplanter supports multiple AI providers that can be chosen based on hardware
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LLM_PROVIDER` | `anthropic`, `ollama`, or `openai_compatible` | `ollama` |
+| `LLM_PROVIDER` | `anthropic`, `ollama`, or `openai_compatible`. Any other value (for example the typo `openai-compatible`) stops the Knowledge Service from starting | `ollama` |
 | `LLM_API_URL` | Base URL of the provider (for Ollama/OpenAI-compatible) | `http://ollama:11434` |
 | `LLM_API_KEY` | API key (for Anthropic/OpenAI-compatible, if required) | empty |
 | `LLM_MODEL` | Model name | `gemma3:12b` |
