@@ -72,3 +72,42 @@ class TestNutrientPlanClone:
 
         assert result.tenant_key == "tenant_a"
         assert repo.clone.call_args.kwargs["tenant_key"] == "tenant_a"
+
+
+class TestTheWritesResolveTheTenantThemselves:
+    """#2107 (MT-010): ``update_plan`` / ``delete_plan`` / ``create_phase_entry`` reloaded the
+    plan **without** a tenant and relied on the router's ``get_plan(…, for_write=True)``.
+    They take ``*, tenant_key`` now and refuse a global or foreign plan themselves."""
+
+    @staticmethod
+    def _writes(service: NutrientPlanService, key: str, tenant: str):
+        from app.domain.models.nutrient_plan import NutrientPlanPhaseEntry
+
+        return [
+            ("update", lambda: service.update_plan(key, {"name": "X"}, tenant_key=tenant)),
+            ("delete", lambda: service.delete_plan(key, tenant_key=tenant)),
+            (
+                "create_phase_entry",
+                lambda: service.create_phase_entry(
+                    key,
+                    NutrientPlanPhaseEntry(
+                        plan_key=key, phase_name="vegetative", sequence_order=1, week_start=1, week_end=2
+                    ),
+                    tenant_key=tenant,
+                ),
+            ),
+        ]
+
+    @pytest.mark.parametrize(("owner", "caller"), [("", "tenant_a"), ("tenant_b", "tenant_a"), ("tenant_a", "")])
+    def test_a_global_foreign_or_tenantless_write_is_not_found_and_writes_nothing(self, owner, caller) -> None:
+        service, repo = _service(_plan("p1", owner))
+        for name, write in self._writes(service, "p1", caller):
+            with pytest.raises(NotFoundError):
+                write()
+            assert not repo.update.called and not repo.delete.called and not repo.create_phase_entry.called, name
+
+    def test_the_owner_writes(self) -> None:
+        service, repo = _service(_plan("p1", "tenant_a"))
+        for _, write in self._writes(service, "p1", "tenant_a"):
+            write()
+        assert repo.update.called and repo.delete.called and repo.create_phase_entry.called

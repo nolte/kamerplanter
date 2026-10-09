@@ -316,7 +316,7 @@ Die Engines sind reine Logik ohne I/O. Das Manifest liest
    Kontofeld zugeordneten eigenen Beiträge, aus dem persönlichen Garten einer anderen
    Person nichts. Was die Auskunft so offenlegt, löscht die Kontolöschung über das
    Mandanten-Löschinventar (#1788); der Prüfer R2 gleicht genau das ab. **Noch nicht
-   offengelegt** (bekannte Lücke, Folge-Issue): die Sensor-Messwerte des Gartens
+   offengelegt** (bekannte Lücke, Folge-Issue #2165): die Sensor-Messwerte des Gartens
    (TimescaleDB, außerhalb des Manifest-Walks) sowie Tank-, Gieß- und Düngeprotokolle.
 2. **Nur Felder, die das Modell trägt.** Ein falscher Feldname liefert eine leere Spalte,
    die sich wie „keine Daten" liest.

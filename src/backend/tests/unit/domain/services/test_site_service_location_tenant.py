@@ -87,9 +87,16 @@ class TestGetLocation:
         with pytest.raises(NotFoundError):
             service.get_location("loc_nowhere", tenant_key=OWN)
 
-    def test_without_a_tenant_key_the_lookup_is_unscoped(self, service):
-        """Unchanged: internal callers (seeds, migrations, light mode) pass none."""
-        assert service.get_location("loc_foreign").key == "loc_foreign"
+    def test_a_tenant_cannot_be_omitted_or_left_empty(self, service):
+        """#2107: the unscoped arm is gone — measured, no app caller used it.
+
+        The docstring it replaces named "seeds, migrations, light mode" as callers
+        without a tenant; none of them calls ``SiteService.get_location``.
+        """
+        with pytest.raises(TypeError):
+            service.get_location("loc_foreign")  # type: ignore[call-arg]
+        with pytest.raises(NotFoundError):
+            service.get_location("loc_foreign", tenant_key="")
 
 
 class TestGetSlot:
@@ -104,5 +111,9 @@ class TestGetSlot:
         with pytest.raises(NotFoundError):
             service.get_slot("slot_nowhere", tenant_key=OWN)
 
-    def test_without_a_tenant_key_the_lookup_is_unscoped(self, service):
-        assert service.get_slot("slot_foreign").key == "slot_foreign"
+    def test_a_tenant_cannot_be_omitted_or_left_empty(self, service):
+        """#2107: as for ``get_location``."""
+        with pytest.raises(TypeError):
+            service.get_slot("slot_foreign")  # type: ignore[call-arg]
+        with pytest.raises(NotFoundError):
+            service.get_slot("slot_foreign", tenant_key="")

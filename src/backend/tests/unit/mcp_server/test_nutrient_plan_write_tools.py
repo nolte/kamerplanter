@@ -63,7 +63,7 @@ class _Service:
         self.cloned: list[tuple] = []
         self.updated: list[tuple] = []
 
-    def get_plan(self, key, tenant_key="", *, for_write=False):
+    def get_plan(self, key, *, tenant_key, for_write=False):
         if key not in self._plans:
             raise KeyError(key)
         return self._plans[key]
@@ -124,9 +124,9 @@ class TestClone:
         calls: list[dict] = []
         original = svc.get_plan
 
-        def _spy(key, tenant_key="", *, for_write=False):
+        def _spy(key, *, tenant_key, for_write=False):
             calls.append({"for_write": for_write})
-            return original(key, tenant_key, for_write=for_write)
+            return original(key, tenant_key=tenant_key, for_write=for_write)
 
         svc.get_plan = _spy  # type: ignore[method-assign]
         ctx = _ctx(nutrient_plan_service=svc)

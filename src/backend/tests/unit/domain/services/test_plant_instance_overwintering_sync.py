@@ -181,7 +181,6 @@ def _location(
         site_key=site_key,
         area_m2=10.0,
         frost_exposed=frost_exposed,
-        tenant_key="",  # Issue #706 guard fix: Location.tenant_key is always empty.
     )
 
 

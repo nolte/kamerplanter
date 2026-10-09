@@ -7,6 +7,7 @@ never f-string interpolation.
 """
 
 from app.common.enums import DiagnosisCategory
+from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.plant_diagnosis_repository import IPlantDiagnosisRepository
@@ -37,12 +38,7 @@ class ArangoPlantDiagnosisRepository(BaseArangoRepository[PlantDiagnosisRequest]
                 col.PLANTING_RUNS, request.planting_run_key, request.tenant_key, entity_name="PlantingRun"
             )
         if request.harvest_observation_key:
-            self.verify_entity_ownership(
-                col.HARVEST_OBSERVATIONS,
-                request.harvest_observation_key,
-                request.tenant_key,
-                entity_name="HarvestObservation",
-            )
+            self._verify_observation_through_its_plant(request.harvest_observation_key, request.tenant_key)
 
         created = super().create(request)
         req_id = f"{col.PLANT_DIAGNOSIS_REQUESTS}/{created.key}"
@@ -89,6 +85,23 @@ class ArangoPlantDiagnosisRepository(BaseArangoRepository[PlantDiagnosisRequest]
                 f"{col.HARVEST_OBSERVATIONS}/{request.harvest_observation_key}",
             )
         return created
+
+    def _verify_observation_through_its_plant(self, observation_key: str, tenant_key: str) -> None:
+        """404 unless the observation exists and its plant is ``tenant_key``'s (#2107).
+
+        A harvest observation carries no tenant of its own; its owner is its plant.
+        It used to go through the generic check on ``HARVEST_OBSERVATIONS``, which
+        read the missing field as the global arm and admitted any tenant's row. An
+        observation without a plant has no owner to verify against and is refused.
+        """
+        observation = self._db.collection(col.HARVEST_OBSERVATIONS).get(observation_key)
+        plant_key = observation.get("plant_key") if isinstance(observation, dict) else None
+        if not plant_key:
+            raise NotFoundError("HarvestObservation", observation_key)
+        try:
+            self.verify_entity_ownership(col.PLANT_INSTANCES, plant_key, tenant_key, entity_name="HarvestObservation")
+        except NotFoundError:
+            raise NotFoundError("HarvestObservation", observation_key) from None
 
     def get(self, key: str, tenant_key: str) -> PlantDiagnosisRequest | None:
         self._require_tenant_key(tenant_key, "get")

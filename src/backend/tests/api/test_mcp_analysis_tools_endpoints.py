@@ -122,7 +122,7 @@ class _NutrientPlanService:
             tags=["outdoor"],
         )
 
-    def get_plan(self, key, tenant_key="", *, for_write=False):
+    def get_plan(self, key, *, tenant_key, for_write=False):
         if key != "np-1":
             raise NotFoundError("NutrientPlan", key)
         return self._plan

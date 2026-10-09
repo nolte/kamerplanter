@@ -6,7 +6,7 @@ Kategorie: Qualitätssicherung Unterkategorie: Teststrategie, E2E-Testing, Testd
 Technologie: pytest, vitest, Selenium WebDriver, testcontainers, httpx, factory_boy
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.1 (Coverage-Schwellen messbar + CI-Gate, W-018)
+Version: 1.2 (Cross-Tenant-Negativproben, MT-024)
 Autor: Business Analyst - Agrotech
 Datum: 2026-04-27
 Tags: [testing, test-strategy, test-pyramid, e2e, selenium, test-protocol, quality-assurance, screenshots]
@@ -18,6 +18,7 @@ Betroffene Module: [ALL]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.2 | 2026-10-05 | **MT-024 (#2120):** Neuer Abschnitt §5.4 *Cross-Tenant-Negativproben* — jede tenant-gebundene Ressource hat eine bleibende Negativprobe (fremder Schlüssel → 404, Datensatz unverändert, eigener Schlüssel → Erfolg) auf Integrations- bzw. API-Ebene, Hybrid-Writes und Reverse-Lookups eingeschlossen; E2E-Fälle `TC-024-094` – `TC-024-097`; Guards erkennen die Fehlerklassen statisch. |
 | 1.1 | 2026-04-27 | **W-018:** Coverage-Schwellen pro Test-Stufe und pro Layer messbar gemacht (≥80% Line / ≥75% Branch gesamt; ≥85% Line für Business Logic; 100% API-Coverage). CI-Gate-Beschreibung mit Tooling, Aufruf und Build-Verhalten ergänzt. SOLL-Anforderungen für Coverage-Report-Aufbewahrung (30 Tage) und PR-Template-Checkbox. |
 | 1.0 | 2026-02-26 | Erstversion — Testpyramide, E2E-Selenium, Testprotokoll-Struktur. |
 
@@ -895,6 +896,20 @@ async def clean_collections(arangodb_client):
         if not collection_name.startswith("_"):  # System-Collections auslassen
             arangodb_client.collection(collection_name).truncate()
 ```
+
+### 5.4 Cross-Tenant-Negativproben
+
+Mandantentrennung (REQ-024) ist eine Eigenschaft, die ein Positivtest nicht prüft: ein Handler ohne Tenant-Prüfung liefert dem Eigentümer dieselbe Antwort wie einer mit. Deshalb gilt zusätzlich zu §5.3:
+
+**MUSS**: Jede tenant-gebundene Ressource hat eine **bleibende Negativprobe** über den echten Router, den echten Service und das echte Repository gegen eine echte ArangoDB (`tests/support/boundary_harness.py`): Tenant B legt den Datensatz an, Tenant A ruft ihn mit B's Schlüssel ab bzw. ändert oder löscht ihn. Erwartet wird **404** (nie 403 — das bestätigte die Existenz), der Datensatz von B bleibt unverändert, und **dieselbe Anfrage mit A's eigenem Schlüssel gelingt** (sonst bestünde auch ein Handler, der alles ablehnt).
+
+**MUSS**: Die Probe deckt neben Lesen/Ändern/Löschen auch die Pfade ab, die das Mandanten-Audit 2026-10-04 als eigene Fehlerklassen benannt hat: **Hybrid-Writes** (globale Katalogzeilen sind nur durch Platform-Admins änderbar), **Reverse-Lookups** von einem globalen Anker (`DOCUMENT(CONCAT(…))`, Traversal-Rückgaben), **Export/Druck**, **MCP-Tools** und **gesperrte Tenants**.
+
+**MUSS**: Jede neue Negativprobe wird **rot-zuerst** nachgewiesen — gegen den unveränderten Code, oder als Gegenprobe gegen eine Kopie, in der die Prüfung entfernt ist (per Kopie, nicht per `git stash`).
+
+**SOLL**: Die Fehlerklassen sind zusätzlich statisch abgesichert (`tests/unit/guards/`): Katalog-Lesepfade tragen ein Tenant-Prädikat pro Schleifenvariable, Lesepfade sind aus den Modellen abgeleitet tenant-gebunden (inkl. Reverse-Lookups und Traversals), Service-Methoden, die per Schlüssel laden und schreiben, nehmen `*, tenant_key: str` ohne Default.
+
+**SOLL**: Auf E2E-Ebene existieren Browser-Negativproben mit fremden Schlüsseln in Deep-Links (`spec/e2e-testcases/TC-REQ-024.md`, `TC-024-094` – `TC-024-097`).
 
 ---
 

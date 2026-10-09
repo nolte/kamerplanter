@@ -200,8 +200,8 @@ class TestPlantsPerLocationCountsEveryPlant:
         plant_service = PlantInstanceService(plant_repo, MagicMock(), MagicMock(), MagicMock())
         site_service = MagicMock()
         site_service.get_location_tree.return_value = [
-            Location(_key="loc-a", tenant_key="", name="A", site_key="site-1", area_m2=1.0),
-            Location(_key="loc-b", tenant_key="", name="B", site_key="site-1", area_m2=1.0),
+            Location(_key="loc-a", name="A", site_key="site-1", area_m2=1.0),
+            Location(_key="loc-b", name="B", site_key="site-1", area_m2=1.0),
         ]
         site_service.list_slots.return_value = []
 

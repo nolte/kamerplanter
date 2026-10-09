@@ -108,7 +108,7 @@ OWNABLE_PARAMS: frozenset[str] = frozenset(
     {
         "plant_key",  # plant_instances
         "run_key",  # planting_runs
-        "observation_key",  # harvest_observations
+        "observation_key",  # harvest_observations — owned through its plant (#2107), not on the allowlist
         "fertilizer_key",  # fertilizers
         "tank_key",  # tanks
         "equipment_key",  # equipment

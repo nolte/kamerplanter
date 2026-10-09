@@ -150,9 +150,9 @@ planned → active → harvesting → completed
 | `tenants` | Tenants (gardens, organizations) | `slug` (unique), `name` |
 | `memberships` | User-tenant relationships | `user_key`, `tenant_key` (unique per pair), `role` |
 | `invitations` | Tenant invitations | `token_hash` (unique), `tenant_key`, `expires_at` |
-| `location_assignments` | Assignment-based write access | `membership_key`, `location_key` (unique per pair) |
+| `location_assignments` | Location assignments (responsibility, no write rights) | `membership_key`, `location_key` (unique per pair) |
 
-**Roles per tenant:** `admin`, `grower`, `viewer`
+**Roles per tenant:** `viewer`, `grower`, `lead`, plus additional permissions `admin_scopes` (`management`, `technical`)
 
 ### Care Reminders (REQ-022)
 

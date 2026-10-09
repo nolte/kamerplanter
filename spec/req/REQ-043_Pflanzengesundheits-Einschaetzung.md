@@ -7,7 +7,7 @@ Kategorie: KI & Schädlingsmanagement
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, ONNX, DINOv2, optional Kindwise-Cloud-API, optional lokales VLM (LLaVA/Qwen2.5-VL/Agri-LLaVA) + RAG (REQ-031), React 19, TypeScript 5.9, MUI 7
 Status: Entwurf
-Version: 1.1 (Erfassungsverweis auf REQ-052 umgehängt)
+Version: 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1 (Erfassungsverweis auf REQ-052 umgehängt)
 Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `recognition`), REQ-038 v1.1 (CV-Pflanzendiagnose — Vision-Erkennungstechnik), REQ-036 v1.0 (KI-Diagnose-Assistent — Symptom-Signal), REQ-010 v1.1 (IPM — Befall-Signal & Treatment-Brücke), REQ-005 (Hybrid-Sensorik — Sensor-Signal), REQ-022 (Pflegeerinnerungen — Pflege-Signal), REQ-029 v1.0 (Adapter-Interface, EXIF/Consent), REQ-029-A v1.2 (Self-Hosted-Inferenz-Infrastruktur), REQ-031 v2.0 (Knowledge-Service / RAG), REQ-025 v1.4 (DSGVO/Consent), REQ-013 v2.0 (PlantInstance/Run), REQ-021 v1.0 (Erfahrungsstufen)
 Wird benoetigt von: —
 ```
@@ -18,6 +18,7 @@ Wird benoetigt von: —
 |---------|-------|----------|
 | 1.0 | 2026-06-20 | Initialer Entwurf — leitet aus dem Methodenvergleich `spec/analysis/plant-health-vision-research.md` ein ganzheitliches, fortlaufendes Gesundheits-Assessment ab; definiert Phasen-Strategie (Cloud-Adapter → Self-Hosted-Hybrid) und Multi-Signal-Fusion. <!-- Quelle: spec/analysis/plant-health-vision-research.md --> |
 | 1.1 | 2026-06-20 | Offene Punkte (§10) durch fokussierte Recherche geklärt (`spec/analysis/pest-detection-implementation-prep.md`): Kindwise **`plant.health` statt `crop.health`** für Indoor; Konfidenz/Abstention via **Temperature Scaling + Energy-OOD + Risk-Coverage** statt fester Schwelle; CPU-VLM-Erklärungs-Layer machbar (opt-in/async); `deficiencies`/`beneficials`-Stammdaten-Lücke in REQ-010 benannt; Fusion-Gewinn nicht überversprechen (Evidenzlücke). <!-- Quelle: spec/analysis/pest-detection-implementation-prep.md --> |
+| 1.2 | 2026-10-05 | **#2121 (MT-025):** Abschnitt „Autorisierung“ nach REQ-049 §3.3 als Zielbild ergänzt und als **nicht implementiert** markiert — gemessen: kein Router, keine Collection, kein Einwilligungszweck `health_assessment_cloud`. |
 
 ## 0. Verhältnis zu benachbarten REQs (verbindliche Abgrenzung)
 
@@ -123,7 +124,7 @@ Bewertung: ●●● = stark/gut, ●● = mittel, ● = schwach/problematisch.
 - **Entscheidung:** Ein **`KindwiseHealthAdapter`** (Ansatz A) als **standardmäßig deaktivierter, einwilligungspflichtiger** Cloud-Adapter im bestehenden Adapter-Registry-Muster (REQ-029 §3.4). Liefert breite, gepflegte Abdeckung ohne ML-Eigenbetrieb.
 - **Verbindliche Leitplanken:**
   - **EXIF/Metadaten serverseitig beim Ingest strippen** (zusätzlich clientseitig), bevor ein Byte die Anwendung verlässt — GPS in EXIF ist personenbezogen, und API-Uploads strippen EXIF **nicht** automatisch.
-  - **Granularer Consent** (neuer Zweck `health_assessment_cloud`, REQ-025) als Gate; analog zum bestehenden Consent-Middleware-Muster (HIBP/Sentry/Enrichment).
+  - **Granularer Consent** (neuer Zweck `health_assessment_cloud`, REQ-025) als Gate; analog zum bestehenden Consent-Guard-Muster der Service-Schicht (`ConsentGuard`, keine Middleware) (HIBP/Sentry/Enrichment).
   - AVV mit Kindwise, Serverstandort verifizieren, 6-Monats-Speicherung transparent im Datenschutzhinweis.
   - Ausgabe als **konfidenz-gewichtete Einschätzung mit Disclaimer**; Kindwise-„follow-up questions" als Multi-Signal-Verfeinerung nutzbar.
 
@@ -425,6 +426,20 @@ async def assess_plant_health(
 | **Default-Privacy** | `health_assessment_enabled=False`; Self-Hosted-Adapter ist Default, Cloud opt-in. |
 | **Audit** | Cloud-Aufrufe erscheinen im `ai_audit_log` (REQ-031) ohne Klartext-PII. |
 | **Disclaimer/Haftung** | Jede API-Antwort und UI-Anzeige trägt den Einschätzungs-Disclaimer; automatisierter Test prüft, dass `disclaimer` nie leer ist. |
+
+## Autorisierung
+
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
+
+> **Vokabular:** Schema aus **REQ-049 §3.3**, Werte nach **REQ-049 §3.1** (Alle Rollen / Ab Gärtner / Nur Leitung /
+> Technik / Verwaltung / Plattform-Admin). Ergänzt mit v1.2 (#2121, MT-025) und **gegen den Code gemessen**
+> (`develop` `b064e63b7`); wo das Zielbild abweicht, steht es in der Spalte Sonderaktionen.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Gesundheits-Einschätzung `health_assessments` (§6) | Alle Rollen | Ab Gärtner | — | Nur Leitung | **Nicht implementiert** (v1.2): es gibt keinen Router `/t/{slug}/health/`, keine Collection `health_assessments` und kein Feld `latest_health`. Die Zeile ist das Zielbild; Einwilligung `health_assessment_cloud` nur bei Cloud-Adapter (diesen Zweck kennt `ConsentEngine` noch nicht) |
+| Feedback zu einer Einschätzung (`POST /assessments/{key}/feedback`) | — | Ab Gärtner | — | — | **Nicht implementiert** (wie oben) |
 
 ## 9. Akzeptanzkriterien
 

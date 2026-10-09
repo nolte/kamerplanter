@@ -216,7 +216,13 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
             return None
         return NutrientPlan(**self._from_doc(docs[0]))
 
-    def remove_plant_plan(self, plant_key: str) -> bool:
+    def remove_plant_plan(self, plant_key: str, *, tenant_key: str) -> bool:
+        """Detach a plant of ``tenant_key`` from its plan; a foreign or unknown plant is 404 (#2107).
+
+        The plant is the anchor: the edge belongs to it. The route verified the plant
+        before calling this unscoped delete — check-then-act — so the check is here now.
+        """
+        self.verify_entity_ownership(col.PLANT_INSTANCES, plant_key, tenant_key, entity_name="PlantInstance")
         plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
         self.delete_edges(col.FOLLOWS_PLAN, plant_id)
         return True
@@ -257,7 +263,14 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
             return []
 
         predicate, bind_vars = tenant_union_predicate(tenant_key, doc_var="plan")
-        bind_vars["species_keys"] = list(species_keys)
+        # The fertilizer names are a second catalogue read: an entry's key is verified
+        # on write only since #1713, so a legacy entry can still name another tenant's
+        # product. Own ∪ global again, the union ``visible_fertilizer_labels`` applies
+        # (#2120) — a key it rejects simply drops out of the list.
+        # Merged by unpacking, not ``.update``: the write-route detector reads an
+        # untyped ``.update`` as a repository write (#1443), and this is a read.
+        fertilizer_predicate, fertilizer_vars = tenant_union_predicate(tenant_key, doc_var="f")
+        query_vars: dict[str, Any] = {**bind_vars, **fertilizer_vars, "species_keys": list(species_keys)}
 
         # The body below is a plain string spliced once through `.replace`, not an
         # f-string: it holds AQL object literals (`{ plan_key: ... }`) whose braces
@@ -297,7 +310,7 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
                 LET fertilizers = (
                     FOR fk IN fertilizer_keys
                         FOR f IN fertilizers
-                            FILTER f._key == fk
+                            FILTER f._key == fk AND __FERTILIZER_PREDICATE__
                             RETURN { key: f._key, product_name: f.product_name, brand: f.brand }
                 )
                 SORT LENGTH(matched_species) DESC, plan.name ASC
@@ -311,8 +324,8 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
                     fertilizer_count: LENGTH(fertilizer_keys),
                     fertilizers: fertilizers
                 }
-            """.replace("__TENANT_PREDICATE__", predicate),
-            bind_vars=bind_vars,
+            """.replace("__TENANT_PREDICATE__", predicate).replace("__FERTILIZER_PREDICATE__", fertilizer_predicate),
+            bind_vars=query_vars,
         )
         return list(cursor)
 

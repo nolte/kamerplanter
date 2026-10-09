@@ -125,11 +125,63 @@ class TestCreateOwnershipGuard:
             repo.create(_request(plant_instance_key="plant_1"))
         coll.insert.assert_not_called()
 
-    def test_foreign_harvest_observation_raises_404(self, repo, mock_db):
+
+class TestHarvestObservationIsVerifiedThroughItsPlant:
+    """#2107 — a ``HarvestObservation`` carries no ``tenant_key``; its owner is its plant.
+
+    The previous test here stubbed an observation *with* a ``tenant_key`` — a shape the
+    model cannot produce — and so certified the generic check, which read the real,
+    field-less document as a global row and admitted any tenant's observation.
+    """
+
+    @staticmethod
+    def _documents(mock_db, documents: dict[str, dict[str, dict]]):
+        collections: dict[str, MagicMock] = {}
+
+        def collection(name: str) -> MagicMock:
+            if name not in collections:
+                handle = MagicMock()
+                handle.get.side_effect = lambda key, _n=name: documents.get(_n, {}).get(key)
+                handle.insert.return_value = {
+                    "new": {"_key": "diag_1", "tenant_key": "tenant_anna", "user_key": "u", "image_hash": "sha256:x"}
+                }
+                collections[name] = handle
+            return collections[name]
+
+        mock_db.collection.side_effect = collection
+        return collections
+
+    def test_an_observation_of_a_foreign_plant_is_not_found(self, repo, mock_db):
         from app.common.exceptions import NotFoundError
 
-        coll = mock_db.collection.return_value
-        coll.get.return_value = {"_key": "obs_1", "tenant_key": "tenant_bob"}
+        handles = self._documents(
+            mock_db,
+            {
+                col.HARVEST_OBSERVATIONS: {"obs_1": {"_key": "obs_1", "plant_key": "plant_b"}},
+                col.PLANT_INSTANCES: {"plant_b": {"_key": "plant_b", "tenant_key": "tenant_bob"}},
+            },
+        )
+        with pytest.raises(NotFoundError) as caught:
+            repo.create(_request(harvest_observation_key="obs_1"))
+        assert "obs_1" in str(caught.value)
+        assert col.PLANT_DIAGNOSIS_REQUESTS not in handles or not handles[col.PLANT_DIAGNOSIS_REQUESTS].insert.called
+
+    @pytest.mark.parametrize("observation", [None, {"_key": "obs_1"}])
+    def test_an_unknown_or_plantless_observation_is_not_found(self, repo, mock_db, observation):
+        from app.common.exceptions import NotFoundError
+
+        self._documents(mock_db, {col.HARVEST_OBSERVATIONS: {"obs_1": observation} if observation else {}})
         with pytest.raises(NotFoundError):
             repo.create(_request(harvest_observation_key="obs_1"))
-        coll.insert.assert_not_called()
+
+    def test_an_observation_of_an_own_plant_is_linked(self, repo, mock_db):
+        handles = self._documents(
+            mock_db,
+            {
+                col.HARVEST_OBSERVATIONS: {"obs_1": {"_key": "obs_1", "plant_key": "plant_a"}},
+                col.PLANT_INSTANCES: {"plant_a": {"_key": "plant_a", "tenant_key": "tenant_anna"}},
+            },
+        )
+        created = repo.create(_request(harvest_observation_key="obs_1"))
+        assert created.key == "diag_1"
+        assert handles[col.PLANT_DIAGNOSIS_REQUESTS].insert.called

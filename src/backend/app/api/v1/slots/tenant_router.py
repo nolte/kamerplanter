@@ -31,8 +31,7 @@ def list_slots(
     service: SiteService = Depends(get_site_service),
 ):
     """List the slots of a location."""
-    service.get_location(location_key, tenant_key=ctx.tenant_key)
-    items = service.list_slots(location_key)
+    items = service.list_slots(location_key, tenant_key=ctx.tenant_key)
     return [to_response(s, SlotResponse) for s in items]
 
 
@@ -54,9 +53,8 @@ def create_slot(
     service: SiteService = Depends(get_site_service),
 ):
     """Create a slot within a location."""
-    service.get_location(body.location_key, tenant_key=ctx.tenant_key)
     slot = Slot(**body.model_dump())
-    created = service.create_slot(slot)
+    created = service.create_slot(slot, tenant_key=ctx.tenant_key)
     return to_response(created, SlotResponse)
 
 
@@ -68,12 +66,11 @@ def update_slot(
     service: SiteService = Depends(get_site_service),
 ):
     """Update a slot."""
-    _verify_slot_tenant(key, ctx, service)
-    # The body's location is resolved under the tenant too (#1871 B1): storing
-    # it as given re-parented the slot into another tenant's location.
-    service.get_location(body.location_key, tenant_key=ctx.tenant_key)
+    # The slot and the body's location are both resolved under the tenant in the
+    # service (#1871 B1, #2107): storing the location as given re-parented the slot
+    # into another tenant's location.
     slot = Slot(**body.model_dump())
-    updated = service.update_slot(key, slot)
+    updated = service.update_slot(key, slot, tenant_key=ctx.tenant_key)
     return to_response(updated, SlotResponse)
 
 
@@ -84,5 +81,4 @@ def delete_slot(
     service: SiteService = Depends(get_site_service),
 ):
     """Delete a slot."""
-    _verify_slot_tenant(key, ctx, service)
-    service.delete_slot(key)
+    service.delete_slot(key, tenant_key=ctx.tenant_key)

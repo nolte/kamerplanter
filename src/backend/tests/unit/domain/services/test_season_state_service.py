@@ -34,7 +34,6 @@ def _site(key: str = "site-1", site_type: SiteType = SiteType.OUTDOOR) -> Site:
 def _location(key: str = "loc-1", site_key: str = "site-1", frost_exposed: bool | None = None) -> Location:
     return Location(
         _key=key,
-        tenant_key="",
         name="Test Location",
         site_key=site_key,
         area_m2=10.0,
@@ -367,7 +366,6 @@ class TestLoadPlantLocation:
         site = _site(key="site-1")
         location = Location(
             _key="loc-1",
-            tenant_key="",
             name="Test",
             site_key="",  # Empty site_key!
             area_m2=10.0,
