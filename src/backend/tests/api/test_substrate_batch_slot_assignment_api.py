@@ -104,3 +104,18 @@ def test_a_viewer_may_not_link(client: TestClient, repo: _SubstrateRepo) -> None
 
     assert response.status_code == 403
     assert repo.edges == []
+
+
+@pytest.mark.parametrize("client", ["viewer"], indirect=True)
+def test_a_viewer_may_not_prepare_a_batch_for_reuse(client: TestClient) -> None:
+    """MT-045.1 (#2144): the route forwards the role — a viewer is refused like on every batch write."""
+    response = client.post("/api/v1/substrates/batches/b_a/prepare-reuse")
+
+    assert response.status_code == 403, response.text
+
+
+@pytest.mark.parametrize("client", ["viewer"], indirect=True)
+def test_a_viewer_naming_a_foreign_batch_for_reuse_gets_404(client: TestClient) -> None:
+    response = client.post("/api/v1/substrates/batches/b_b/prepare-reuse")
+
+    assert response.status_code == 404, response.text

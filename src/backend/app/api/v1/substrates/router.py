@@ -289,11 +289,12 @@ def prepare_reuse(
 ):
     """Run the reuse preparation for a substrate batch and return its steps.
 
-    A write: it advances the batch's reuse cycle. Gated like the other batch
-    writes and scoped to the caller's tenant (#1195).
+    A write: it advances the batch's reuse cycle. Scoped to the caller's tenant
+    (#1195) and gated like the other batch writes — grower or above (MT-045.1, #2144).
     """
-    _ = is_platform_admin
-    result = service.prepare_reuse(key, tenant_key=ctx.tenant_key)
+    result = service.prepare_reuse(
+        key, tenant_key=ctx.tenant_key, caller_role=ctx.role, is_platform_admin=is_platform_admin
+    )
     return PreparationResponse(
         can_reuse=result["can_reuse"],
         issues=result["issues"],
