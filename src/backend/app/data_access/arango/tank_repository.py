@@ -10,6 +10,7 @@ from app.common.types import (
 )
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import aql_field
 from app.domain.interfaces.tank_repository import ITankRepository
 from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
 
@@ -55,7 +56,7 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
                 filter_clauses.append("doc.tenant_key == @tenant_key")
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value
-                filter_clauses.append(f"doc.{field} == @val{i}")
+                filter_clauses.append(f"doc.{aql_field(field)} == @val{i}")
             query += " FILTER " + " AND ".join(filter_clauses)
             count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
             count_vars = dict(bind_vars)

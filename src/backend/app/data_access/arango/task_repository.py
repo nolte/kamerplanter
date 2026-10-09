@@ -11,6 +11,7 @@ from app.common.exceptions import NotFoundError
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.tenant_scope import tenant_union_predicate
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.task import (
@@ -465,7 +466,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         if filters:
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value
-                filter_clauses.append(f"doc.{field} == @val{i}")
+                filter_clauses.append(f"doc.{aql_field(field)} == @val{i}")
 
         if origins is not None:
             bind_vars["origins"] = list(origins)

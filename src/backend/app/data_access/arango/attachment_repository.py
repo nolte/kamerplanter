@@ -9,6 +9,7 @@ from arango.database import StandardDatabase
 from app.common.enums import AttachmentCategory
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import aql_field
 from app.domain.interfaces.attachment_repository import UNSET, IAttachmentRepository, _Unset
 from app.domain.models.attachment import Attachment, QualityAssessment
 
@@ -566,7 +567,8 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         # comes from the module-level tuple above, never from a caller.
         parts += [
             f"          (FOR d IN @@extra_col_{index}{tenant(collection)} "
-            f"RETURN IS_ARRAY(d.{field}) ? d.{field} : (d.{field} == null ? [] : [d.{field}]))"
+            f"RETURN IS_ARRAY(d.{aql_field(field)}) ? d.{aql_field(field)} "
+            f": (d.{aql_field(field)} == null ? [] : [d.{aql_field(field)}]))"
             for index, (collection, field) in enumerate(ATTACHMENT_REF_FIELDS)
         ]
         collected = ",\n".join(parts)

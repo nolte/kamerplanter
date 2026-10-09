@@ -92,6 +92,25 @@ def escape_aql_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+#: An attribute name AQL may see interpolated: an identifier or a dotted path.
+_FIELD_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
+
+
+def aql_field(name: str) -> str:
+    """Return ``name`` if it may be interpolated as an AQL attribute, else raise ``ValueError``.
+
+    AQL binds values (``@x``) and collections (``@@x``) but not attribute names,
+    so ``doc.<name>`` is built by interpolation. Every such name passes here
+    (MT-053, #2144) — the guard ``test_aql_attribute_names_are_checked`` holds that
+    no f-string under ``app/data_access`` interpolates one any other way. A key
+    like ``"x) OR true //"`` from a ``filters`` dict is refused before any query
+    is sent; callers pass code constants today, so this is defence in depth.
+    """
+    if not isinstance(name, str) or not _FIELD_NAME.match(name):
+        raise ValueError(f"Invalid AQL field name: {name!r}")
+    return name
+
+
 class AQLBuilder:
     """Builds parameterized AQL queries to prevent injection."""
 
@@ -108,7 +127,7 @@ class AQLBuilder:
 
     #: Field names are interpolated (``doc.<field>``); restrict to identifiers
     #: and dotted paths so a hostile field name cannot break out of the clause.
-    _FIELD_RE: ClassVar[re.Pattern[str]] = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
+    _FIELD_RE: ClassVar[re.Pattern[str]] = _FIELD_NAME
 
     def __init__(self, collection: str) -> None:
         self._collection = collection

@@ -5,6 +5,7 @@ from arango.database import StandardDatabase
 from app.common.types import ActivityKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import aql_field
 from app.domain.interfaces.activity_repository import IActivityRepository
 from app.domain.models.activity import Activity
 
@@ -42,7 +43,7 @@ class ArangoActivityRepository(BaseArangoRepository[Activity], IActivityReposito
                     idx += 1
                 else:
                     bind_vars[f"val{idx}"] = value
-                    filter_clauses.append(f"doc.{field} == @val{idx}")
+                    filter_clauses.append(f"doc.{aql_field(field)} == @val{idx}")
                     idx += 1
             if filter_clauses:
                 query += " FILTER " + " AND ".join(filter_clauses)
