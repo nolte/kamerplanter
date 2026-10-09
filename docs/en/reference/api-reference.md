@@ -900,8 +900,10 @@ Requires a valid JWT token and at least the tenant role **grower**. Only availab
 | HTTP Status | Meaning |
 |-------------|---------|
 | `403` | Active tenant role below **grower** (e.g. **viewer**) |
+| `403` | The `reference_contribution` consent is missing or was revoked (`CONSENT_REQUIRED`) |
 | `404` | `species_key` does not reference a known species |
 | `409` | Self-hosted recognition is not enabled (`INFERENCE_SERVICE_ENABLED=false`) |
+| `409` | Contributions are disabled in Light mode (REQ-034 §4.1) |
 | `413` | Image exceeds `IDENTIFICATION_MAX_IMAGE_SIZE_MB` |
 | `415` | `Content-Type` is neither `image/jpeg` nor `image/png` |
 | `422` | Image cannot be decoded (corrupt or not a valid image format) |
