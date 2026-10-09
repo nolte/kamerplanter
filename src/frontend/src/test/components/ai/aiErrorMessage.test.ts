@@ -101,13 +101,16 @@ describe('streamChatMessage — a refused message (#2110)', () => {
 });
 
 describe('consentPurposeOf — the purpose a CONSENT_REQUIRED refusal names (#2175)', () => {
-  function consentError(message: string): ApiError {
+  function consentError(message: string, purpose?: string | null): ApiError {
     return new ApiError(
       {
         error_id: 'e',
         error_code: 'CONSENT_REQUIRED',
         message,
-        details: [],
+        details:
+          purpose === undefined
+            ? []
+            : [{ field: 'consent', reason: 'Grant consent.', code: 'consent_required', purpose }],
         timestamp: '',
         path: '',
         method: 'POST',
@@ -116,7 +119,28 @@ describe('consentPurposeOf — the purpose a CONSENT_REQUIRED refusal names (#21
     );
   }
 
-  it("reads the purpose from the backend's message", () => {
+  it('reads the machine-readable purpose from details[0].purpose first', () => {
+    // The message names a different purpose on purpose: only reading `details`
+    // first yields the detail's value.
+    const error = consentError(
+      "Consent for 'ai_tenant_data_access' is required for this action.",
+      'ai_knowledge_question',
+    );
+    expect(consentPurposeOf(error)).toBe('ai_knowledge_question');
+  });
+
+  it('reads details[0].purpose even when the message names none', () => {
+    expect(consentPurposeOf(consentError('Consent required.', 'ai_cloud_processing'))).toBe(
+      'ai_cloud_processing',
+    );
+  });
+
+  it.each([null, ''])('falls back to the message when details[0].purpose is %j', (purpose) => {
+    const error = consentError("Consent for 'ai_knowledge_question' is required.", purpose);
+    expect(consentPurposeOf(error)).toBe('ai_knowledge_question');
+  });
+
+  it("falls back to the message for an older server's envelope without the field", () => {
     const error = consentError("Consent for 'ai_knowledge_question' is required for this action.");
     expect(isConsentRequired(error)).toBe(true);
     expect(consentPurposeOf(error)).toBe('ai_knowledge_question');
