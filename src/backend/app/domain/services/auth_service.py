@@ -76,6 +76,8 @@ from app.domain.models.auth import (
     RefreshToken,
     SessionInfo,
     TokenPair,
+    api_key_control_errors,
+    new_api_key_secret,
 )
 from app.domain.models.oidc_config import OidcProviderConfig
 from app.domain.models.user import User, UserProfile, allows_interactive_auth, is_tombstone_email
@@ -101,8 +103,6 @@ def _iso(value):  # noqa: ANN001, ANN202 — datetime | None -> str | None
     """Serialize an optional datetime for a partial update doc (JSON mode)."""
     return value.isoformat() if value is not None else None
 
-
-_API_KEY_PREFIX = "kp_"
 
 #: What a tenant key or slug looks like; the shape ``create_api_key`` accepts as a scope (#1852).
 _TENANT_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}")
@@ -2244,6 +2244,9 @@ class AuthService:
         step_up_token: str | None,
         authenticated_with_api_key: bool,
         client_ip: str | None,
+        ip_allowlist: list[str] | None = None,
+        rate_limit_per_minute: int | None = None,
+        expires_at: datetime | None = None,
     ) -> ApiKeyCreated:
         """Mint an API key for the account, behind the step-up (#1847).
 
@@ -2260,9 +2263,24 @@ class AuthService:
 
         The step-up runs before the scope is resolved, so the scope check answers
         nothing to a caller who has not passed it.
+
+        **The key's controls (#2137, MT-041):** ``ip_allowlist``,
+        ``rate_limit_per_minute`` and ``expires_at`` — enforced on every key surface
+        since #1850 but settable by no route until now — are checked first
+        (:func:`~app.domain.models.auth.api_key_control_errors`, 422): a request that
+        cannot succeed is not asked for a password.
         """
         if not self._api_key_repo:
             raise ValidationError("API keys are not configured.")
+
+        canonical_allowlist, errors = api_key_control_errors(
+            ip_allowlist=ip_allowlist,
+            rate_limit_per_minute=rate_limit_per_minute,
+            expires_at=expires_at,
+            now=datetime.now(UTC),
+        )
+        if errors:
+            raise ValidationError(errors[0]["reason"], details=errors)
 
         if not self._light_mode:
             self._verify_credential_step_up(
@@ -2280,9 +2298,7 @@ class AuthService:
         # slug or key the caller typed — never verbatim.
         tenant_scope = self._canonical_tenant_scope(user_key, tenant_scope)
 
-        raw_key = f"{_API_KEY_PREFIX}{secrets.token_urlsafe(32)}"
-        key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
-        key_prefix = raw_key[:8]
+        raw_key, key_hash, key_prefix = new_api_key_secret()
 
         api_key = ApiKey(
             user_key=user_key,
@@ -2290,20 +2306,16 @@ class AuthService:
             key_hash=key_hash,
             key_prefix=key_prefix,
             tenant_scope=tenant_scope,
+            ip_allowlist=canonical_allowlist,
+            rate_limit_per_minute=rate_limit_per_minute,
+            expires_at=expires_at,
         )
         created = self._api_key_repo.create(api_key)
 
         # Not the prefix: ``kp_`` plus five characters of the secret (#1828). The
         # record's own key correlates the line with the stored key.
         logger.info("api_key_created", subject=self._log_subject(user_key), label=label, api_key_id=created.key)
-        return ApiKeyCreated(
-            key=created.key or "",
-            label=created.label,
-            raw_key=raw_key,
-            key_prefix=key_prefix,
-            tenant_scope=tenant_scope,
-            created_at=created.created_at,
-        )
+        return ApiKeyCreated.minted(created, raw_key)
 
     def _canonical_tenant_scope(self, user_key: UserKey, requested: str | None) -> str | None:
         """Resolve a requested ``tenant_scope`` to the key of a tenant the caller is active in (#1852).
@@ -2349,19 +2361,7 @@ class AuthService:
         if not self._api_key_repo:
             raise ValidationError("API keys are not configured.")
 
-        keys = self._api_key_repo.list_by_user(user_key)
-        return [
-            ApiKeySummary(
-                key=k.key or "",
-                label=k.label,
-                key_prefix=k.key_prefix,
-                tenant_scope=k.tenant_scope,
-                revoked=k.revoked,
-                last_used_at=k.last_used_at,
-                created_at=k.created_at,
-            )
-            for k in keys
-        ]
+        return [ApiKeySummary.of(k) for k in self._api_key_repo.list_by_user(user_key)]
 
     def revoke_api_key(self, user_key: UserKey, key_id: str) -> None:
         if not self._api_key_repo:

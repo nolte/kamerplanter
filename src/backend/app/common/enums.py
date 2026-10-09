@@ -1796,6 +1796,8 @@ class SecurityAuditAction(StrEnum):
     MEMBERSHIP_SCOPES_CHANGED = "membership_scopes_changed"
     MEMBERSHIP_REMOVED = "membership_removed"
     MEMBERSHIP_LEFT = "membership_left"
+    #: #2137 — a service account's API key was replaced; the previous keys were revoked or given an end.
+    SERVICE_ACCOUNT_KEY_ROTATED = "service_account_key_rotated"
 
 
 class SecurityAuditVia(StrEnum):

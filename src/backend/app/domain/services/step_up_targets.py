@@ -31,6 +31,12 @@ on a kind of target learns nothing about which targets of that kind exist (403 b
 * ``admin_membership_role_change`` (#2032) — a platform admin; the membership exists;
 * ``admin_membership_add`` (#2106) — a platform admin; the target is ``<tenant_key>|<user_key>`` and
   both exist (the membership itself does not yet);
+* ``service_account_change`` (#2137) — the requester holds the ``lead`` role **and** the ``technical``
+  scope in the tenant (:meth:`MembershipEngine.can_manage_service_accounts`, the rule the service-account
+  routes apply). The target is the tenant's key (a creation) or ``<tenant_key>|<service_account_key>``
+  (a rotation or removal); for the pair, the account is a service account with an active membership in
+  that tenant. Authorization on the tenant first, so a requester who may not manage the tenant's service
+  accounts learns nothing about which exist;
 * ``tenant_member_removal`` / ``tenant_member_role_change`` (#2032) — the requester holds
   the ``management`` scope in the tenant the membership belongs to
   (``MembershipEngine.can_manage_members``, the predicate the routes' scope gate
@@ -133,6 +139,8 @@ class StepUpTargetAuthorizer:
                 raise NotFoundError("User", account_key)
         elif action in ("tenant_member_removal", "tenant_member_role_change"):
             self._authorize_tenant_member_act(user_key, target)
+        elif action == "service_account_change":
+            self._authorize_service_account_act(user_key, target)
         else:  # pragma: no cover - a new targeted act must be given its rule here
             raise ForbiddenError("This act cannot be confirmed here.")
 
@@ -143,6 +151,24 @@ class StepUpTargetAuthorizer:
     def _require_platform_admin(self, user_key: str) -> None:
         if not self._is_platform_admin(user_key):
             raise ForbiddenError("Platform admin role required.")
+
+    def _authorize_service_account_act(self, user_key: str, target: str) -> None:
+        tenant_key, separator, account_key = target.partition("|")
+        if not tenant_key or (separator and (not account_key or "|" in account_key)):
+            raise ValidationError(
+                "A service_account_change target is <tenant_key> or <tenant_key>|<service_account_key>."
+            )
+        actor = self._memberships.get_by_user_and_tenant(user_key, tenant_key)
+        if not (
+            actor and actor.is_active and MembershipEngine.can_manage_service_accounts(actor.role, actor.admin_scopes)
+        ):
+            raise ForbiddenError("Managing service accounts requires the lead role and the technical scope.")
+        if not separator:
+            return
+        account = self._users.get_by_key(account_key)
+        membership = self._memberships.get_by_user_and_tenant(account_key, tenant_key)
+        if account is None or account.account_type != "service" or membership is None or not membership.is_active:
+            raise NotFoundError("User", account_key)
 
     def _authorize_tenant_member_act(self, user_key: str, membership_key: str) -> None:
         membership = self._memberships.get_by_key(membership_key)

@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import html
 import re
+import secrets
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -29,6 +30,7 @@ from app.common.exceptions import (
     InvalidStatusTransitionError,
     MemberLimitReachedError,
     NotFoundError,
+    ServiceAccountLimitReachedError,
     TenantErasureClaimLostError,
     TenantErasureIncompleteError,
     ValidationError,
@@ -41,6 +43,7 @@ from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
+from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.invitation_repository import IInvitationRepository
@@ -58,6 +61,15 @@ from app.domain.interfaces.tenant_erasure_executor import ITenantErasureExecutor
 from app.domain.interfaces.tenant_erasure_repository import ITenantErasureRepository
 from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.domain.interfaces.user_repository import IUserRepository
+from app.domain.models.auth import (
+    ApiKey,
+    ApiKeyCreated,
+    ApiKeySummary,
+    api_key_control_errors,
+    api_key_scope_admits,
+    new_api_key_secret,
+    successor_api_key,
+)
 from app.domain.models.invitation import Invitation, InvitationLink
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
@@ -68,6 +80,14 @@ from app.domain.models.privacy import (
     PersonalTenantErasurePreview,
 )
 from app.domain.models.security_audit import SecurityAuditEntry
+from app.domain.models.service_account import (
+    MAX_ROTATION_OVERLAP_MINUTES,
+    SERVICE_ACCOUNT_EMAIL_DOMAIN,
+    SERVICE_ACCOUNT_ROLES,
+    ServiceAccountCreated,
+    ServiceAccountInfo,
+    ServiceAccountKeyRotated,
+)
 from app.domain.models.tenant import Tenant, TenantWithRole
 from app.domain.models.tenant_erasure import (
     TenantDeletionConfirmation,
@@ -136,7 +156,15 @@ class TenantService:
         email_service: IEmailService | None = None,
         user_repo: IUserRepository | None = None,
         max_members_ceiling: int = 50,
+        api_key_repo: IApiKeyRepository | None = None,
+        max_service_accounts: int = 20,
     ) -> None:
+        # #2137 (MT-041, REQ-023 §5b) — the keys of the tenant's service accounts and how many such accounts
+        # a tenant may hold (``TENANT_MAX_SERVICE_ACCOUNTS``); ``get_tenant_service`` wires both.
+        if max_service_accounts < 1:
+            raise ValueError("max_service_accounts must be at least 1")
+        self._api_key_repo = api_key_repo
+        self._max_service_accounts = max_service_accounts
         # REQ-024 AK-64 (#2133) — the platform ceiling of every tenant's member limit
         # (``TENANT_MAX_MEMBERS_CEILING``); ``get_tenant_service`` passes the setting, and the class guard
         # ``test_membership_mutations_write_the_security_audit`` holds that it does.
@@ -234,13 +262,20 @@ class TenantService:
         return tenant
 
     def create_organization(
-        self, user_key: str, name: str, description: str | None = None, max_members: int | None = None
+        self, founder: User, name: str, description: str | None = None, max_members: int | None = None
     ) -> Tenant:
         """Create an organization tenant.
 
         ``max_members`` is at most the platform ceiling (REQ-024 AK-65, 422 above it); omitted, the
         organisation takes the ceiling.
+
+        **Not by a service account (#2137, MT-041 / audit ID-14):** founding a tenant makes the founder its
+        ``lead`` with both administrative scopes — a person's choice. A machine identity (REQ-023 §5b) is
+        placed in a tenant by that tenant's lead and founds none (403, nothing written). The account, not
+        its key, is passed in so the gate cannot be skipped by handing over a bare key.
         """
+        self._refuse_service_account(founder, "A service account cannot found a tenant.")
+        user_key = founder.key or ""
         errors = self._tenant_engine.validate_tenant_name(name)
         if errors:
             raise ValidationError(errors[0])
@@ -266,6 +301,16 @@ class TenantService:
 
         logger.info("organization_created", subject=log_subject(user_key), tenant=log_tenant(tenant.key))
         return tenant
+
+    @staticmethod
+    def _refuse_service_account(account: User, message: str) -> None:
+        """403 for a service account on a door meant for a person (#2137, REQ-023 §5b).
+
+        The rule is :func:`~app.domain.models.user.allows_interactive_auth`, the predicate the credential
+        gates already decide on — not a restated ``account_type`` comparison.
+        """
+        if not allows_interactive_auth(account):
+            raise ForbiddenError(message)
 
     def _found_tenant(self, tenant: Tenant, user_key: str, *, via: SecurityAuditVia) -> Tenant:
         """Write a new tenant, its founder's lead membership, both edges and the audit row atomically (#2118).
@@ -2243,6 +2288,420 @@ class TenantService:
         )
         return created
 
+    # --- Service accounts (REQ-023 §5b, #2137) ---
+
+    def create_service_account(
+        self,
+        *,
+        tenant_key: str,
+        name: str,
+        role: TenantRole,
+        ip_allowlist: list[str] | None,
+        rate_limit_per_minute: int | None,
+        expires_at: datetime | None,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> ServiceAccountCreated:
+        """Create a service account in the tenant, with its membership and its first API key (#2137, MT-041).
+
+        Until #2137 nothing wrote ``account_type == "service"``: REQ-023 §5b was a model scaffold and
+        the M2M integrations ran on a person's key. Now a tenant's **lead holding the technical scope**
+        (:meth:`MembershipEngine.can_manage_service_accounts`, read from the stored membership, never the
+        request) creates one:
+
+        * a ``User`` with ``account_type="service"``, no password, no personal tenant, an undeliverable
+          random address (:data:`SERVICE_ACCOUNT_EMAIL_DOMAIN`) — it can neither sign in nor be mailed;
+        * one membership in this tenant with ``viewer`` or ``grower`` (§5b.3, never ``lead``) and no
+          administrative scope, through the one join door (:meth:`_create_membership_unless_erasing`:
+          the member limit and the erasure freeze apply — a service account takes a seat);
+        * one API key whose ``tenant_scope`` is this tenant, **always** (the key can reach no other tenant
+          and no account-level route, #1851), carrying the requested controls.
+
+        What cannot succeed is refused before the step-up asks for a password: the actor's standing (403),
+        the role (422), the controls (422), a tenant being erased (403), the per-tenant quota (422
+        ``SERVICE_ACCOUNT_LIMIT_REACHED``, ``TENANT_MAX_SERVICE_ACCOUNTS``), a full tenant (422
+        ``MEMBER_LIMIT_REACHED``). The step-up (``service_account_change``, bound to the tenant, #1884)
+        refuses an API-key request and a service account (403). The new membership is written to the
+        security audit (#2111). A failed join takes the account back, so no account stands without its
+        membership.
+        """
+        self._require_service_account_stores()
+        assert self._api_key_repo is not None and self._user_repo is not None  # checked just above
+        self._require_service_account_manager(tenant_key, requester)
+        if role not in SERVICE_ACCOUNT_ROLES:
+            raise ValidationError(
+                "A service account is a viewer or a grower.",
+                details=[{"field": "role", "reason": "viewer or grower", "code": "service_account_role"}],
+            )
+        canonical_allowlist, errors = api_key_control_errors(
+            ip_allowlist=ip_allowlist,
+            rate_limit_per_minute=rate_limit_per_minute,
+            expires_at=expires_at,
+            now=datetime.now(UTC),
+        )
+        if errors:
+            raise ValidationError(errors[0]["reason"], details=errors)
+        self._refuse_role_grant(
+            tenant_key=tenant_key,
+            actor_user_key=requester.key or "",
+            target_role=role,
+            current_role=None,
+            is_own_membership=False,
+        )
+        self._refuse_while_erasing(tenant_key)
+        if len(self._membership_repo.active_service_account_memberships(tenant_key=tenant_key)) >= (
+            self._max_service_accounts
+        ):
+            logger.info("service_account_limit_reached", tenant=log_tenant(tenant_key))
+            raise ServiceAccountLimitReachedError(self._max_service_accounts)
+        self._refuse_beyond_member_limit(tenant_key)
+
+        self._step_up_verifier.verify(
+            requester,
+            action="service_account_change",
+            # #1884 - a factor obtained to create a service account in this tenant confirms this tenant only.
+            target=tenant_key,
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+
+        account = self._user_repo.create(
+            User(
+                email=f"sa-{secrets.token_hex(8)}@{SERVICE_ACCOUNT_EMAIL_DOMAIN}",
+                display_name=name,
+                account_type="service",
+                password_hash=None,
+                email_verified=False,
+            )
+        )
+        account_key = account.key or ""
+        try:
+            membership = self._create_membership_unless_erasing(
+                Membership(
+                    user_key=account_key,
+                    tenant_key=tenant_key,
+                    role=role,
+                    is_active=True,
+                    joined_at=datetime.now(UTC).isoformat(),
+                )
+            )
+        except BaseException:
+            # The join did not stand (a freeze or a full tenant meanwhile): no account without its membership.
+            self._user_repo.delete(account_key)
+            raise
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.TENANT_ADMIN,
+            actor_user_key=requester.key or "",
+            target_user_key=account_key,
+            tenant_key=tenant_key,
+            membership=membership,
+        )
+        raw_key, key_hash, key_prefix = new_api_key_secret()
+        created_key = self._api_key_repo.create(
+            ApiKey(
+                user_key=account_key,
+                label=name,
+                key_hash=key_hash,
+                key_prefix=key_prefix,
+                tenant_scope=tenant_key,
+                ip_allowlist=canonical_allowlist,
+                rate_limit_per_minute=rate_limit_per_minute,
+                expires_at=expires_at,
+            )
+        )
+        logger.info(
+            "service_account_created",
+            tenant=log_tenant(tenant_key),
+            actor=log_subject(requester.key),
+            subject=log_subject(account_key),
+            api_key_id=created_key.key,
+        )
+        return ServiceAccountCreated(
+            key=account_key,
+            display_name=account.display_name,
+            role=role,
+            membership_key=membership.key or "",
+            api_key=ApiKeyCreated.minted(created_key, raw_key),
+        )
+
+    def list_service_accounts(self, *, tenant_key: str, requester: User) -> list[ServiceAccountInfo]:
+        """The tenant's active service accounts and the keys each holds in it (#2137), for its lead ∧ technical.
+
+        Only keys scoped to this tenant are listed: a key of the account scoped elsewhere (a platform
+        admin may add a service account to a second tenant) is not this tenant's to see.
+        """
+        self._require_service_account_stores()
+        assert self._api_key_repo is not None and self._user_repo is not None  # checked just above
+        self._require_service_account_manager(tenant_key, requester)
+        memberships = self._membership_repo.active_service_account_memberships(tenant_key=tenant_key)
+        return [
+            ServiceAccountInfo(
+                key=membership.user_key,
+                display_name=account.display_name,
+                role=membership.role,
+                membership_key=membership.key or "",
+                joined_at=membership.joined_at,
+                api_keys=[
+                    ApiKeySummary.of(k)
+                    for k in self._api_key_repo.list_by_user(membership.user_key)
+                    if api_key_scope_admits(k.tenant_scope, tenant_key=tenant_key)
+                ],
+            )
+            for membership in memberships
+            if (account := self._user_repo.get_by_key(membership.user_key)) is not None
+        ]
+
+    def rotate_service_account_key(
+        self,
+        service_account_key: str,
+        *,
+        tenant_key: str,
+        overlap_minutes: int,
+        expires_at: datetime | None,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> ServiceAccountKeyRotated:
+        """Mint a new key for the service account; the previous keys stop at once or after an overlap (#2137).
+
+        REQ-023 §5b AK-36. The new key carries the newest previous key's allowlist and rate limit
+        (:func:`~app.domain.models.auth.successor_api_key` — a rotation must not widen what the key
+        admits) and the requested expiry. Every live key of the account in this tenant is then
+
+        * **revoked** when ``overlap_minutes`` is ``0`` (the default: the compromised-key case, §5b.9
+          Szenario 10), or
+        * given ``expires_at = now + overlap`` (never later than it already ends), so an integration can
+          switch keys without a gap. The end is enforced where every key is checked — both surfaces
+          refuse an expired key on its next use — so no task has to run when the window closes.
+
+        Refused before the step-up: the actor's standing (403), an unknown account or one that is not a
+        service account of this tenant (404), an overlap outside 0..1440 or an unusable expiry (422). The
+        step-up is bound to ``<tenant_key>|<service_account_key>``. The rotation is written to the
+        security audit (``service_account_key_rotated``).
+        """
+        self._require_service_account_stores()
+        assert self._api_key_repo is not None  # checked just above
+        self._require_service_account_manager(tenant_key, requester)
+        membership = self._service_account_membership(tenant_key, service_account_key)
+        if not 0 <= overlap_minutes <= MAX_ROTATION_OVERLAP_MINUTES:
+            raise ValidationError(
+                f"overlap_minutes is between 0 and {MAX_ROTATION_OVERLAP_MINUTES}.",
+                details=[
+                    {
+                        "field": "overlap_minutes",
+                        "reason": f"0..{MAX_ROTATION_OVERLAP_MINUTES}",
+                        "code": "overlap_out_of_bounds",
+                    }
+                ],
+            )
+        now = datetime.now(UTC)
+        _, errors = api_key_control_errors(
+            ip_allowlist=None, rate_limit_per_minute=None, expires_at=expires_at, now=now
+        )
+        if errors:
+            raise ValidationError(errors[0]["reason"], details=errors)
+
+        self._step_up_verifier.verify(
+            requester,
+            action="service_account_change",
+            # #1884 - a factor obtained to re-key this account confirms this account in this tenant only.
+            target=f"{tenant_key}|{service_account_key}",
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+
+        own = [
+            k
+            for k in self._api_key_repo.list_by_user(service_account_key)
+            if api_key_scope_admits(k.tenant_scope, tenant_key=tenant_key)
+        ]
+        newest = max(own, key=lambda k: ensure_aware_utc(k.created_at) or now, default=None)
+        live = [k for k in own if not k.revoked and not self._api_key_ended(k, now)]
+        raw_key, key_hash, key_prefix = new_api_key_secret()
+        created_key = self._api_key_repo.create(
+            successor_api_key(
+                newest,
+                user_key=service_account_key,
+                tenant_scope=tenant_key,
+                label=newest.label if newest else "rotated",
+                key_hash=key_hash,
+                key_prefix=key_prefix,
+                expires_at=expires_at,
+            )
+        )
+        ends_at = now + timedelta(minutes=overlap_minutes) if overlap_minutes else None
+        for previous in live:
+            if not previous.key:
+                continue
+            if ends_at is None:
+                self._api_key_repo.revoke(previous.key)
+            else:
+                self._api_key_repo.expire_no_later_than(previous.key, ends_at)
+        self._audit_membership(
+            action=SecurityAuditAction.SERVICE_ACCOUNT_KEY_ROTATED,
+            via=SecurityAuditVia.TENANT_ADMIN,
+            actor_user_key=requester.key or "",
+            target_user_key=service_account_key,
+            tenant_key=tenant_key,
+            membership=membership,
+        )
+        logger.info(
+            "service_account_key_rotated",
+            tenant=log_tenant(tenant_key),
+            actor=log_subject(requester.key),
+            subject=log_subject(service_account_key),
+            api_key_id=created_key.key,
+            replaced=len(live),
+            overlap_minutes=overlap_minutes,
+        )
+        return ServiceAccountKeyRotated(
+            api_key=ApiKeyCreated.minted(created_key, raw_key),
+            previous_keys_end_at=ends_at,
+            replaced_key_count=len(live),
+        )
+
+    def remove_service_account(
+        self,
+        service_account_key: str,
+        *,
+        tenant_key: str,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> None:
+        """Remove a service account from the tenant: its keys here are revoked, its membership ends (#2137).
+
+        REQ-023 §5b.5 "Gelöscht": every key the account holds **in this tenant** is revoked at once, the
+        membership is removed (security audit ``membership_removed``, task assignments end, #2114) and the
+        account is deactivated once it holds no other active membership — it stays as the author of what
+        it wrote (attribution), but nothing can authenticate as it. A service account a platform admin
+        also placed in another tenant keeps that membership and its keys there.
+
+        Same refusals and step-up target as :meth:`rotate_service_account_key`.
+        """
+        self._require_service_account_stores()
+        assert self._api_key_repo is not None and self._user_repo is not None  # checked just above
+        self._require_service_account_manager(tenant_key, requester)
+        membership = self._service_account_membership(tenant_key, service_account_key)
+
+        self._step_up_verifier.verify(
+            requester,
+            action="service_account_change",
+            # #1884 - a factor obtained to remove this account confirms this account in this tenant only.
+            target=f"{tenant_key}|{service_account_key}",
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+
+        # The keys first: from here on nothing authenticates in this tenant as the account, even if a
+        # later write fails.
+        for api_key in self._api_key_repo.list_by_user(service_account_key):
+            reaches_tenant = api_key_scope_admits(api_key.tenant_scope, tenant_key=tenant_key)
+            if api_key.key and reaches_tenant and not api_key.revoked:
+                self._api_key_repo.revoke(api_key.key)
+        removed = self._membership_repo.delete(membership.key or "")
+        if removed:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_REMOVED,
+                via=SecurityAuditVia.TENANT_ADMIN,
+                actor_user_key=requester.key or "",
+                target_user_key=service_account_key,
+                tenant_key=tenant_key,
+                membership=membership,
+            )
+            self._end_task_assignments(tenant_key, service_account_key)
+        if not any(m.is_active for m in self._membership_repo.list_by_user(service_account_key)):
+            self._user_repo.update_fields(service_account_key, {"is_active": False})
+        logger.info(
+            "service_account_removed",
+            tenant=log_tenant(tenant_key),
+            actor=log_subject(requester.key),
+            subject=log_subject(service_account_key),
+        )
+
+    @staticmethod
+    def _api_key_ended(api_key: ApiKey, now: datetime) -> bool:
+        """Whether the key's expiry has passed — the check both key surfaces make on every use."""
+        ends_at = ensure_aware_utc(api_key.expires_at)
+        return ends_at is not None and ends_at <= now
+
+    def _refuse_lead_for_service_account(self, user_key: str, role: TenantRole) -> None:
+        """403 for ``lead`` on a service account through the tenant's own member administration (#2137).
+
+        REQ-023 §5b.3: a tenant gives a machine identity at most ``grower``. The creation route holds that
+        (:data:`SERVICE_ACCOUNT_ROLES`); without this the member list's role change would raise the account
+        to the irreversibility boundary one request later. The platform-admin path stays open (§5b.3 AK-29).
+        """
+        if role != TenantRole.LEAD or self._user_repo is None:
+            return
+        account = self._user_repo.get_by_key(user_key)
+        if account is not None and not allows_interactive_auth(account):
+            raise ForbiddenError("A service account of a tenant is at most a grower.")
+
+    def _require_service_account_stores(self) -> None:
+        if self._light_mode:
+            # A light-mode installation has one account, reached without authenticating (REQ-027): a
+            # credential minted there proves nothing about who asked for it (#1844).
+            raise ForbiddenError("Service accounts are not available in light mode.")
+        if self._api_key_repo is None or self._user_repo is None:
+            raise FeatureNotConfiguredError("service_accounts", "No API-key or account store is wired.")
+
+    def _require_service_account_manager(self, tenant_key: str, requester: User) -> None:
+        """403 unless the requester holds the lead role and the technical scope in the tenant (#2137).
+
+        Read from the stored, active membership — the routes' scope gate is the earlier of two checks,
+        never the only one (the shape of :meth:`_authorize_tenant_deletion`).
+        """
+        actor = self._membership_repo.get_by_user_and_tenant(requester.key or "", tenant_key)
+        if not (
+            actor
+            and actor.is_active
+            and self._membership_engine.can_manage_service_accounts(actor.role, actor.admin_scopes)
+        ):
+            raise ForbiddenError("Managing service accounts requires the lead role and the technical scope.")
+
+    def _service_account_membership(self, tenant_key: str, service_account_key: str) -> Membership:
+        """The active membership of a service account in the tenant; 404 for anything else.
+
+        An unknown account, a person's account and a service account of another tenant are one answer, so
+        the route is no account-existence oracle.
+        """
+        assert self._user_repo is not None  # checked by _require_service_account_stores
+        account = self._user_repo.get_by_key(service_account_key)
+        membership = self._membership_repo.get_by_user_and_tenant(service_account_key, tenant_key)
+        if (
+            account is None
+            or allows_interactive_auth(account)
+            or membership is None
+            or not membership.is_active
+            or not membership.key
+        ):
+            raise NotFoundError("User", service_account_key)
+        return membership
+
     def admin_change_membership_role(
         self,
         membership_key: str,
@@ -2443,6 +2902,7 @@ class TenantService:
             current_role=membership.role,
             is_own_membership=membership.user_key == actor_user_key,
         )
+        self._refuse_lead_for_service_account(membership.user_key, new_role)
 
         self._step_up_verifier.verify(
             requester,
@@ -2839,6 +3299,10 @@ class TenantService:
         403, before anything about the invitation (status, tenant, role) is told and with nothing
         written. A link invitation is meant to be shared and stays open to any account.
         """
+        # #2137 (MT-041 / audit ID-14) — joining a tenant is a person's act; a machine identity is placed in
+        # its one tenant by the service-account route and accepts no invitation. Before the token is looked
+        # up, so the refusal says nothing about the invitation.
+        self._refuse_service_account(account, "A service account cannot accept an invitation.")
         user_key = account.key or ""
         token_hash = self._invitation_engine.hash_token(token)
         invitation = self._invitation_repo.get_by_token_hash(token_hash)

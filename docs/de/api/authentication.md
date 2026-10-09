@@ -343,19 +343,20 @@ Content-Type: application/json
 }
 ```
 
-`action` benennt, wofür der Code gelten soll — eine der Aktionen aus der Tabelle unten (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`, `oidc_provider_change`, `admin_tenant_update`, `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change`, `admin_membership_add`). Der Code bestätigt **ausschließlich** diese eine Aktion — ein für die Passwortänderung angeforderter Code wird bei einem Löschversuch abgelehnt, ohne dabei verbraucht zu werden. Die zugeschickte E-Mail nennt in Klartext, wofür der Code gilt, aber nie das Ziel.
+`action` benennt, wofür der Code gelten soll — eine der Aktionen aus der Tabelle unten (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`, `oidc_provider_change`, `admin_tenant_update`, `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change`, `admin_membership_add`, `tenant_erasure_cancel`, `service_account_change`). Der Code bestätigt **ausschließlich** diese eine Aktion — ein für die Passwortänderung angeforderter Code wird bei einem Löschversuch abgelehnt, ohne dabei verbraucht zu werden. Die zugeschickte E-Mail nennt in Klartext, wofür der Code gilt, aber nie das Ziel.
 
 **Ziel der Aktion (`target`).** Wirkt die Aktion auf etwas anderes als dein eigenes Konto, nennt `target` dieses Ziel — sonst antwortet die Route mit `422`; bei einer Aktion auf das eigene Konto führt ein `target` ebenfalls zu `422`: <!-- #1884 -->
 
 | Aktion | `target` |
 |---|---|
 | `admin_account_update`, `admin_account_erasure` | Schlüssel des anderen Kontos |
-| `tenant_deletion` | Schlüssel des Mandanten |
+| `tenant_deletion`, `tenant_erasure_cancel` | Schlüssel des Mandanten |
 | `provider_unlink` | Schlüssel der Anbieter-Verknüpfung aus `GET /users/me/providers` |
 | `oidc_provider_change` | Schlüssel der OIDC-Konfiguration, beim Anlegen `new:<slug>` |
 | `admin_tenant_update` | Schlüssel des Mandanten |
 | `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change` | Schlüssel der Mitgliedschaft (`membership_key`) |
 | `admin_membership_add` | Mandant und Konto, getrennt durch `\|`: `<tenant_key>\|<user_key>` (die Mitgliedschaft gibt es noch nicht) |
+| `service_account_change` | Beim Anlegen der Schlüssel des Mandanten; beim Rotieren und Entfernen `<tenant_key>\|<service_account_key>` <!-- Issue #2137 --> |
 
 Code und `step_up_token` gelten dann nur für dieses Ziel: Ein für Konto A angeforderter Code wird bei Konto B abgelehnt und dabei nicht verbraucht. Die Route prüft das Ziel schon beim Ausstellen — es muss existieren, und du musst darauf handeln dürfen (`403`, wenn nicht; `404`, wenn es nicht existiert; `409`, wenn der Slug beim Anlegen einer OIDC-Konfiguration schon vergeben ist).
 
@@ -378,7 +379,7 @@ Der Code besteht aus acht Ziffern, ist zehn Minuten gültig und wird durch die e
 
 ## Step-up-Bestätigung für unumkehrbare Kontoaktionen und Anmeldemittel
 
-Zehn Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Bestätigung durch die angemeldete Person — seit Version 1.19 auch das Ausstellen bzw. Entfernen von Anmeldemitteln und eine Vertrauensanhebung durch Plattform-Admins: <!-- #1847, #1857 -->
+Die folgenden Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Bestätigung durch die angemeldete Person — seit Version 1.19 auch das Ausstellen bzw. Entfernen von Anmeldemitteln und eine Vertrauensanhebung durch Plattform-Admins: <!-- #1847, #1857 -->
 
 | Aktion | Route(n) | Zurückgetipptes Ziel (Body-Feld) | Passwort / Erneute Anmeldung / Code |
 |---|---|---|---|
@@ -392,11 +393,12 @@ Zehn Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Best
 | Anmeldeweg (Provider-Verknüpfung) entfernen | `DELETE /users/me/providers/{provider_key}` | — | eigenes Passwort, sonst `step_up_token` bzw. Code |
 | Vertrauen eines anderen Kontos ändern (Plattform-Admin) | `PATCH /admin/platform/users/{key}`, sobald sich `email_verified` oder `is_active` ändert (anheben oder senken, #1992) | — | das des Admins, sonst dessen `step_up_token` bzw. Code |
 | OIDC-Provider anlegen, ändern, löschen (Plattform-Admin) | `POST /admin/oidc-providers`, `PUT`/`DELETE /admin/oidc-providers/{key}` — beim `PUT` nicht, wenn sich nur `display_name` oder `icon_url` ändert (Ein- und Abschalten verlangen ihn) | — | das des Admins, sonst dessen `step_up_token` bzw. Code |
+| Service Account anlegen, Key rotieren, Service Account entfernen (Leitung mit Zusatzberechtigung Technik) | `POST /t/{slug}/service-accounts`, `POST /t/{slug}/service-accounts/{sa_key}/rotate-key`, `DELETE /t/{slug}/service-accounts/{sa_key}` | — | eigenes Passwort, sonst `step_up_token` bzw. Code (`service_account_change`) <!-- Issue #2137 --> |
 
 !!! info "Kein automatischer Widerruf von API-Keys"
     Passwortänderung, Passwort-Reset und `POST /auth/logout-all` widerrufen die Refresh-Token des Kontos — **nicht** dessen API-Keys. Ein Key steht für eine bewusst eingerichtete Maschinen-Integration (Home Assistant, MCP-Client); ihn bei jeder Passwortänderung stillschweigend zu entwerten, würde diese Integrationen ohne Vorwarnung brechen. Ein Key kann seit dieser Version nur noch hinter diesem Step-up entstehen — also nicht mehr aus einer bloß gestohlenen Sitzung oder aus einem anderen Key. Keys sind unter `GET /auth/api-keys` mit Erstellungs- und letztem Nutzungszeitpunkt gelistet und einzeln über `DELETE /auth/api-keys/{key_id}` widerrufbar. <!-- #1847 -->
 
-Eine mit einem API-Key authentifizierte Anfrage oder eine Anfrage eines Service Accounts kann keine dieser zehn Aktionen auslösen — auch nicht das Ausstellen eines weiteren API-Keys oder eines Kopplungscodes (siehe Prüfreihenfolge unten).
+Eine mit einem API-Key authentifizierte Anfrage oder eine Anfrage eines Service Accounts kann keine dieser Aktionen auslösen — auch nicht das Ausstellen eines weiteren API-Keys oder eines Kopplungscodes (siehe Prüfreihenfolge unten).
 
 Beispiel-Body für die Kontolöschung (lokales Konto):
 

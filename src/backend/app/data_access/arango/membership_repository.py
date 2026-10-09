@@ -362,6 +362,22 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         )
         return [self.wrap_document(dict(doc)) for doc in cursor]
 
+    def active_service_account_memberships(self, *, tenant_key: str) -> list[Membership]:
+        """Active memberships of active service accounts (#2137) — the quota's population."""
+        cursor = self._db.aql.execute(
+            """
+            FOR m IN @@collection
+              FILTER m.tenant_key == @tenant_key AND m.is_active != false
+              FILTER m.user_key != null AND m.user_key != ""
+              LET account = DOCUMENT(@@users, m.user_key)
+              FILTER account != null AND account.is_active != false AND account.account_type == "service"
+              SORT DATE_TIMESTAMP(m.joined_at)
+              RETURN m
+            """,
+            bind_vars={"@collection": col.MEMBERSHIPS, "@users": col.USERS, "tenant_key": tenant_key},
+        )
+        return [self.wrap_document(dict(doc)) for doc in cast(Cursor, cursor)]
+
     def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
         """Active member account key -> start of the membership (#1824), as ``active_member_user_keys`` counts them."""
         cursor = self._db.aql.execute(

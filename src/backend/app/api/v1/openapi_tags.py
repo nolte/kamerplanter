@@ -94,6 +94,10 @@ OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "propagation", "description": "Propagation and genetic lineage: clones, crosses, grafts (REQ-017)."},
     {"name": "recognition", "description": "Plant recognition service endpoints."},
     {"name": "season", "description": "Season and phenology information."},
+    {
+        "name": "service-accounts",
+        "description": "A tenant's service accounts: machine identities with tenant-scoped API keys (REQ-023 §5b).",
+    },
     {"name": "sites", "description": "Sites: gardens, rooms, greenhouses (REQ-002)."},
     {"name": "slots", "description": "Location slots for plant placement (REQ-002)."},
     {"name": "species", "description": "Species master data (REQ-001)."},
