@@ -177,6 +177,8 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 !!! info "Was die Fehlerbericht-Zuordnung bewirkt"
     Hat der Betreiber Fehler-Tracking eingeschaltet und tritt bei einer deiner Anfragen ein Fehler auf, geht ein Fehlerbericht an den Tracker — ohne Anfrage-Inhalte, ohne IP-Adresse und ohne den aufgerufenen Pfad. Mit deiner Einwilligung trägt er zusätzlich ein Pseudonym deines Kontos und deines Gartens, nie Name oder E-Mail. So lässt sich ein Fehler, der dich betrifft, gezielt nachverfolgen. Widerrufst du, gilt das ab deiner nächsten Anfrage.
 
+**Fehlerberichte aus dem Browser** fragt Kamerplanter getrennt davon ab: Hat der Betreiber Fehler-Tracking eingeschaltet, erscheint beim ersten Besuch unten ein Hinweis mit **Alle akzeptieren**, **Nur Notwendige** und **Einstellungen**. Erst wenn du der Fehleranalyse zustimmst, meldet dein Browser Abstürze an den Tracker — ohne Formularinhalte, Cookies oder E-Mail-Adresse. Die Entscheidung gilt für diesen Browser. Ändern kannst du sie im Tab **Einwilligungen** mit dem Schalter **Fehleranalyse erlauben**; sie wirkt sofort, ohne Neuladen. Im Light-Modus erscheint der Hinweis nicht, und dein Browser meldet keine Fehler.
+
 Eine Passwort-Prüfung gegen bekannte Datenlecks und eine Einwilligung für die externe Stammdatenanreicherung gibt es nicht mehr in der Liste: Die Passwort-Prüfung existiert nicht, und die Anreicherung von Arten-Stammdaten (GBIF, Perenual) überträgt nur Artnamen, keine Daten über dich. Hattest du eine der beiden erteilt, bleibt der Eintrag in deinem Datenexport sichtbar und wird mit deinem Konto gelöscht.
 
 ### Einwilligung widerrufen

@@ -21,6 +21,7 @@ import client from '@/api/client';
 import { parseApiError } from '@/api/errors';
 import type { AccountErasureRequest } from '@/api/types';
 import ErasurePreviewNotice from '@/components/privacy/ErasurePreviewNotice';
+import BrowserConsentSettings from '@/components/privacy/BrowserConsentSettings';
 import { useErasurePreview } from '@/hooks/useErasurePreview';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
@@ -252,6 +253,8 @@ export default function PrivacySettingsPage() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.privacy.consentsDescription')}
             </Typography>
+
+            <BrowserConsentSettings />
 
             {consentsError && (
               <Alert severity="error" sx={{ mb: 2 }}>

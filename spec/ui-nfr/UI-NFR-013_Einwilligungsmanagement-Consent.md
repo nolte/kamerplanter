@@ -3,10 +3,10 @@
 ID: UI-NFR-013
 Titel: Einwilligungsmanagement (Consent)
 Kategorie: UI-Verhalten Unterkategorie: Datenschutz, Einwilligung, TTDSG
-Technologie: React, TypeScript, MUI 7
+Technologie: React, TypeScript, MUI 9
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1 (#2159: Banner eingebunden, Sentry-Gate im Browser, `useConsent`, Widerrufsschalter — Umsetzungsstand §5.3)
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [consent, cookie-banner, ttdsg, dsgvo, privacy, sentry, tracking, einwilligung]
@@ -216,6 +216,17 @@ function SentryGate({ children }: { children: React.ReactNode }) {
 }
 ```
 
+### 5.3 Umsetzungsstand (#2159, 2026-10-09)
+
+- **CI-001/CI-002/CW-003 umgesetzt:** `src/frontend/src/observability/errorTracking.ts` lädt `@sentry/react` (dynamischer Import) und ruft `Sentry.init()` nur bei `error_tracking === true`; `null` (unentschieden) und `false` gelten als nein. Das Modul abonniert den Consent-Speicher einmal: eine spätere Zustimmung startet das SDK, ein Widerruf ruft sofort `Sentry.close(0)` — ohne Neuladen, auch bei Widerruf in einem anderen Tab (`storage`-Ereignis). Ohne DSN abonniert es nichts und lädt nichts.
+- **CI-003 abweichend, CI-004 umgesetzt:** Statt eines React-Context hält ein React-freies Modul (`src/frontend/src/observability/consent.ts`, Schlüssel `kamerplanter:consent:v1`) den Zustand, weil das Sentry-Gate vor dem ersten Render entscheiden muss. `useConsent()` (`src/frontend/src/hooks/useConsent.ts`, `useSyncExternalStore`) liefert `{ consent, setConsent }`; `consent.error_tracking` ersetzt die Form `useConsent('error_tracking')` aus §3.5.
+- **CB-001 mit DSN-Bedingung:** Das Banner ist im App-Shell eingebunden (`AppConsentBanner`, außerhalb des Routers, also auch auf Anmelde- und Registrierungsseite) und erscheint nur, wenn **eine `SENTRY_DSN` konfiguriert ist** und nicht der Light-Modus läuft. Begründung: Browser-Fehler-Tracking ist die einzige Verarbeitung, die diese Entscheidung schaltet — `external_services` liest seit REQ-025 v1.31 (#2136) kein Code mehr, und der Abgleich mit der ConsentEngine (CP-001/CP-003/CW-005) fehlt noch. Ohne DSN würde das Banner eine wirkungslose Einwilligung einholen. Kommt eine weitere Kategorie oder der Server-Abgleich, wird die Bedingung zu „eine Kategorie, die die Entscheidung schaltet, ist aktiv".
+- **Light-Modus:** kein Banner (CB-001) und damit keine Zustimmung — das Frontend meldet im Light-Modus keine Fehler.
+- **CB-003/CB-004:** „Nur Notwendige" und „Alle akzeptieren" haben dieselbe Button-Variante; „Einstellungen" klappt die Kategorie-Auswahl im Banner auf (nur `error_tracking`, siehe oben).
+- **CW-001/CW-002 im Browser:** Datenschutz → Einwilligungen trägt den Schalter „Fehleranalyse erlauben", der denselben Speicher schreibt.
+- **Offen:** CP-001/CP-003/CW-005 (Server-Abgleich über `POST/DELETE /api/v1/privacy/consents`); die Browser-Entscheidung gilt bis dahin nur in diesem Browser und ist unabhängig von der serverseitigen Einwilligung `error_tracking`, die den `user`-Block der Backend-Ereignisse steuert (NFR-001 SE-006). Session Replay (SE-003) ist nicht aktiviert.
+- **Wächter:** `src/frontend/src/test/guards/trackerSdkBehindConsent.test.ts` lässt Tracker-SDKs (Paketnamen und CDN-Hosts) nur in `errorTracking.ts` zu, dort nur dynamisch und nur hinter `hasConsent('error_tracking')`, und jede Tracker-Abhängigkeit im Manifest nur mit Eintrag in seiner Liste.
+
 ---
 
 ## 6. Abhängigkeiten
@@ -224,7 +235,7 @@ function SentryGate({ children }: { children: React.ReactNode }) {
 |-------------|-----|-----------|
 | REQ-025 (DSGVO Betroffenenrechte) | Fachlich | ConsentEngine Backend: `POST/DELETE /api/v1/privacy/consents` |
 | NFR-001 §8.3 (Sentry) | Technisch | Sentry-Initialisierung ist consent-gesteuert |
-| UI-NFR-006 (Design System) | Design | MUI 7 Komponenten für Banner und Dialog |
+| UI-NFR-006 (Design System) | Design | MUI 9 Komponenten für Banner und Dialog |
 | UI-NFR-007 (i18n) | Übersetzung | Consent-Texte in DE/EN |
 | UI-NFR-002 (Barrierefreiheit) | Barrierefreiheit | Fokus-Management, ARIA-Attribute |
 
@@ -270,8 +281,8 @@ function SentryGate({ children }: { children: React.ReactNode }) {
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-02-27
+**Letzte Aktualisierung**: 2026-10-09
 **Review**: Pending
 **Genehmigung**: Pending

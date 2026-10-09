@@ -54,6 +54,7 @@
 
 ### Frontend
 
+- **Datenschutz (Verhaltensänderung):** Das Frontend meldet Fehler nur noch nach Einwilligung (Issue #2159, UI-NFR-013 CI-001/CW-003). Bisher startete der Browser das Fehler-Tracking-SDK, sobald eine `SENTRY_DSN` gesetzt war, und das Einwilligungs-Banner war nirgends eingebunden. Jetzt erscheint bei gesetzter DSN beim ersten Besuch das Banner; das SDK wird erst nach Zustimmung zur Fehleranalyse geladen. Unter **Datenschutz → Einwilligungen** schaltet „Fehleranalyse erlauben" das Melden ohne Neuladen ab oder an, auch in anderen Tabs. Im Light-Modus erscheint kein Banner und das Frontend meldet keine Fehler. Ohne DSN ändert sich nichts. Für Betreiber: Frontend-Fehler kommen nur noch von Personen, die zugestimmt haben.
 - **Einstellungen:** Den Reiter „Plattform-Modus" sehen nur noch Plattform-Admins; für alle anderen fragt die Seite keine Admin-Daten mehr ab (Issue #2144).
 - Admin, Einladungen, KI-Assistent, Aufgaben einer Pflanze und Lagerbeobachtungen laden ihre Listen seitenweise vollständig, seit die Schnittstelle dort nur noch 50 Einträge pro Seite liefert (Issue #2131) — du siehst weiterhin alle Einträge.
 - Datenschutz: Der Dialog zum Löschen des Kontos nennt vor der Bestätigung die Organisationen, in denen die Verwaltung an die dienstälteste Leitung übergeht oder die verwaisen (Issue #2134)

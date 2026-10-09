@@ -718,7 +718,7 @@ Diese Variablen steuern die Schwellwerte der automatischen Saison-/Überwinterun
 
 ## Fehler-Tracking (optional)
 
-Meldet Laufzeitfehler an einen Sentry-protokollkompatiblen Tracker (Referenz: GlitchTip). **Ist `SENTRY_DSN` leer, passiert nichts** — das SDK wird nie initialisiert, das Frontend lädt sein SDK-Bündel nicht einmal herunter. Ausführlich: [Fehler-Tracking](../deployment/fehler-tracking.md).
+Meldet Laufzeitfehler an einen Sentry-protokollkompatiblen Tracker (Referenz: GlitchTip). **Ist `SENTRY_DSN` leer, passiert nichts** — das SDK wird nie initialisiert, das Frontend lädt sein SDK-Bündel nicht einmal herunter. Mit DSN lädt das Frontend es erst, wenn die Person der Fehleranalyse zugestimmt hat. Ausführlich: [Fehler-Tracking](../deployment/fehler-tracking.md).
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|

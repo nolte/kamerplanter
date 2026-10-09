@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   ENVIRONMENTS,
+  captureHandledError,
   initErrorTracking,
   isErrorTrackingActive,
   isSensitiveName,
@@ -9,14 +10,25 @@ import {
   scrubBreadcrumb,
   scrubEvent,
   scrubUrl,
+  stopErrorTracking,
 } from '@/observability/errorTracking';
+import {
+  CONSENT_STORAGE_KEY,
+  INITIAL_CONSENT_STATE,
+  resetConsentStoreForTests,
+  writeConsent,
+} from '@/observability/consent';
 
 /**
  * The SDK is behind a dynamic `import()`; the hoisted factory intercepts it so
  * `initErrorTracking` can be driven to its `Sentry.init` call without loading
  * the real chunk. Only the two members this module touches are stubbed.
  */
-const sentryStub = vi.hoisted(() => ({ init: vi.fn(), captureException: vi.fn() }));
+const sentryStub = vi.hoisted(() => ({
+  init: vi.fn(),
+  captureException: vi.fn(),
+  close: vi.fn(() => Promise.resolve(true)),
+}));
 vi.mock('@sentry/react', () => sentryStub);
 
 /**
@@ -25,16 +37,55 @@ vi.mock('@sentry/react', () => sentryStub);
  * Two properties matter and both fail silently in production if they break:
  * the optionality contract (no DSN => the SDK chunk is never even fetched) and
  * the scrubbing rules (nothing personal leaves the browser).
+ *
+ * #2159 adds the third: the user's `error_tracking` consent gates the SDK.
  */
+const DSN = 'https://key@tracker.example/1';
+
+/** Persist a decision the way a previous visit would have left it. */
+function storeDecision(errorTracking: boolean | null): void {
+  window.localStorage.setItem(
+    CONSENT_STORAGE_KEY,
+    JSON.stringify({
+      ...INITIAL_CONSENT_STATE,
+      error_tracking: errorTracking,
+      external_services: false,
+    }),
+  );
+}
+
+/** A decision made in the running page (banner click, settings switch). */
+function decideNow(errorTracking: boolean): void {
+  writeConsent({
+    ...INITIAL_CONSENT_STATE,
+    error_tracking: errorTracking,
+    external_services: false,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+/** Let the store listener's async start (dynamic import) settle. */
+async function settle(): Promise<void> {
+  await vi.waitFor(() => undefined);
+  for (let i = 0; i < 5; i += 1) await Promise.resolve();
+}
+
 describe('errorTracking', () => {
   beforeEach(() => {
     resetErrorTrackingForTests();
+    resetConsentStoreForTests();
+    window.localStorage.removeItem(CONSENT_STORAGE_KEY);
     delete window.__RUNTIME_CONFIG__;
   });
 
   afterEach(() => {
+    resetErrorTrackingForTests();
+    resetConsentStoreForTests();
+    window.localStorage.removeItem(CONSENT_STORAGE_KEY);
     delete window.__RUNTIME_CONFIG__;
     sentryStub.init.mockReset();
+    sentryStub.captureException.mockReset();
+    sentryStub.close.mockClear();
     vi.restoreAllMocks();
   });
 
@@ -58,9 +109,126 @@ describe('errorTracking', () => {
     });
   });
 
+  describe('consent gate (UI-NFR-013 CI-001/CW-003, #2159)', () => {
+    it.each([
+      ['undecided (null)', null],
+      ['declined (false)', false],
+    ] as const)('initialises nothing while the decision is %s', async (_label, decision) => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(decision);
+
+      await expect(initErrorTracking()).resolves.toBe(false);
+
+      expect(sentryStub.init).not.toHaveBeenCalled();
+      expect(isErrorTrackingActive()).toBe(false);
+      // No event can leave either: the handled-error path is a no-op.
+      captureHandledError(new Error('boom'));
+      expect(sentryStub.captureException).not.toHaveBeenCalled();
+    });
+
+    it('initialises nothing when no decision was ever stored', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+
+      await expect(initErrorTracking()).resolves.toBe(false);
+
+      expect(sentryStub.init).not.toHaveBeenCalled();
+      expect(isErrorTrackingActive()).toBe(false);
+    });
+
+    it('initialises once consent is true and reports handled errors', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+
+      await expect(initErrorTracking()).resolves.toBe(true);
+
+      expect(sentryStub.init).toHaveBeenCalledTimes(1);
+      expect(isErrorTrackingActive()).toBe(true);
+      captureHandledError(new Error('boom'));
+      expect(sentryStub.captureException).toHaveBeenCalledTimes(1);
+    });
+
+    it('starts tracking when consent is granted after boot, without a reload', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      await initErrorTracking();
+      expect(isErrorTrackingActive()).toBe(false);
+
+      decideNow(true);
+      await vi.waitFor(() => expect(isErrorTrackingActive()).toBe(true));
+
+      expect(sentryStub.init).toHaveBeenCalledTimes(1);
+    });
+
+    it('closes the client immediately on revoke and stays silent afterwards', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+      await initErrorTracking();
+      expect(isErrorTrackingActive()).toBe(true);
+
+      decideNow(false);
+
+      expect(sentryStub.close).toHaveBeenCalledWith(0);
+      expect(isErrorTrackingActive()).toBe(false);
+      captureHandledError(new Error('after revoke'));
+      expect(sentryStub.captureException).not.toHaveBeenCalled();
+    });
+
+    it('follows a revoke made in another tab (storage event)', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+      await initErrorTracking();
+
+      storeDecision(false);
+      window.dispatchEvent(new StorageEvent('storage', { key: CONSENT_STORAGE_KEY }));
+
+      expect(sentryStub.close).toHaveBeenCalledTimes(1);
+      expect(isErrorTrackingActive()).toBe(false);
+    });
+
+    it('discards an init whose chunk was still loading when the user revoked', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      await initErrorTracking();
+
+      decideNow(true);
+      // Revoke before the dynamic import resolves.
+      decideNow(false);
+      await settle();
+
+      expect(sentryStub.init).not.toHaveBeenCalled();
+      expect(isErrorTrackingActive()).toBe(false);
+    });
+
+    it('subscribes once even when initialised twice', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      await initErrorTracking();
+      await initErrorTracking();
+
+      decideNow(true);
+      await vi.waitFor(() => expect(isErrorTrackingActive()).toBe(true));
+      await settle();
+
+      expect(sentryStub.init).toHaveBeenCalledTimes(1);
+    });
+
+    it('subscribes to nothing without a DSN, so a later grant loads nothing', async () => {
+      await initErrorTracking();
+
+      decideNow(true);
+      await settle();
+
+      expect(sentryStub.init).not.toHaveBeenCalled();
+      expect(isErrorTrackingActive()).toBe(false);
+    });
+
+    it('treats a stop while off as a no-op', () => {
+      stopErrorTracking();
+      expect(sentryStub.close).not.toHaveBeenCalled();
+    });
+  });
+
   describe('init options', () => {
     it('turns every dataCollection category off explicitly (Sentry 11 defaults are permissive)', async () => {
-      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: 'https://key@tracker.example/1' };
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
 
       await expect(initErrorTracking()).resolves.toBe(true);
 
@@ -85,7 +253,8 @@ describe('errorTracking', () => {
     });
 
     it('wires the scrubbing hooks the PII policy relies on', async () => {
-      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: 'https://key@tracker.example/1' };
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
 
       await expect(initErrorTracking()).resolves.toBe(true);
 

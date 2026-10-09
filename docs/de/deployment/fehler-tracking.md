@@ -88,9 +88,20 @@ Kein Log-Ziel. Dort landen ausschließlich Fehler und bewusst gemeldete Ereignis
 | Backend (FastAPI) | Nicht abgefangene Ausnahmen in jeder Anfrage, plus Fehler beim Start |
 | Celery Worker und Beat | Fehlgeschlagene Hintergrundaufgaben — die unsichtbarste Fehlerart überhaupt, weil niemand auf eine Antwort wartet |
 | Inference- und Knowledge-Service | Dasselbe, jeweils mit eigenem `component`-Tag |
-| Frontend | Nicht abgefangene Fehler, abgewiesene Promises, und jeder Render-Fehler, den eine Fehlergrenze auffängt |
+| Frontend | Nicht abgefangene Fehler, abgewiesene Promises, und jeder Render-Fehler, den eine Fehlergrenze auffängt — erst, wenn die Person im Browser der Fehleranalyse zugestimmt hat (siehe unten) |
 
 Die Fehlergrenzen des Frontends melden ausdrücklich mit: Eine Grenze, die eine Ersatzdarstellung zeigt, hat den Fehler aus Sicht aller globalen Handler zum Verschwinden gebracht — der Nutzer sieht eine aufgeräumte Karte, und niemand erfährt, dass das Widget kaputt ist.
+
+## Einwilligung im Frontend
+
+Im Browser reicht die DSN allein nicht: Das Frontend lädt und startet sein SDK erst, wenn die Person der **Fehleranalyse** (`error_tracking`) zugestimmt hat. Solange sie nicht entschieden oder abgelehnt hat, lädt der Browser das SDK-Bündel nicht herunter, und kein Fehlerbericht verlässt ihn.
+
+- **Wo gefragt wird:** Ist eine DSN gesetzt, erscheint beim ersten Besuch unten ein Einwilligungs-Banner mit „Alle akzeptieren", „Nur Notwendige" und „Einstellungen" — auch schon auf der Anmeldeseite. Ohne DSN erscheint kein Banner, denn dann gibt es im Browser nichts, dem man zustimmen könnte.
+- **Light-Modus:** Hier erscheint kein Banner (Haushaltsausnahme der DSGVO). Damit gibt es auch keine Zustimmung, und das Frontend meldet im Light-Modus keine Fehler — das Backend schon.
+- **Widerruf:** Unter **Datenschutz → Einwilligungen** steht der Schalter „Fehleranalyse erlauben". Ausschalten beendet das Melden sofort und ohne Neuladen, auch in anderen offenen Tabs desselben Browsers. Einschalten startet es ebenso.
+- **Pro Browser:** Die Entscheidung liegt im `localStorage` des Browsers (`kamerplanter:consent:v1`) und gilt nur dort. Sie wird noch nicht mit der serverseitigen Einwilligung abgeglichen, die das Backend für den Nutzer-Block liest; das ist ein offener Folgeschritt.
+
+Für dich als Betreiber heißt das: Nach dem Setzen der DSN kommen Frontend-Fehler nur von Personen an, die zugestimmt haben. Ein ruhiger Frontend-Bereich im Tracker kann also auch „niemand hat zugestimmt" bedeuten.
 
 ## Nachprüfen, dass es funktioniert
 
@@ -98,5 +109,5 @@ Es gibt keinen Testknopf. Der belastbare Weg:
 
 1. Setze `SENTRY_DSN` und starte die Container neu.
 2. Backend: In den Logs steht `error_tracking: enabled for backend (environment=…, release=…)`.
-3. Frontend: Im Netzwerk-Tab des Browsers erscheint ein zusätzliches JavaScript-Bündel — das ist das nachgeladene SDK. Erscheint es nicht, war die DSN nicht in `runtime-config.js`.
+3. Frontend: Öffne die Anwendung in einem privaten Fenster. Es erscheint das Einwilligungs-Banner — fehlt es, war die DSN nicht in `runtime-config.js`. Klicke „Alle akzeptieren": Erst jetzt erscheint im Netzwerk-Tab des Browsers ein zusätzliches JavaScript-Bündel, das nachgeladene SDK.
 4. Provoziere einen Fehler und sieh nach, ob er im Tracker ankommt. Kommt er nicht an, prüfe zuerst die NetworkPolicy (Backend) beziehungsweise die Content-Security-Policy (Frontend, sichtbar als CSP-Verstoß in der Browser-Konsole).

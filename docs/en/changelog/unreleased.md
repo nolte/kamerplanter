@@ -54,6 +54,7 @@ Changes not yet published in a release.
 
 ### Frontend
 
+- **Privacy (behaviour change):** The frontend reports errors only after consent (issue #2159, UI-NFR-013 CI-001/CW-003). Until now the browser started the error-tracking SDK as soon as a `SENTRY_DSN` was set, and the consent banner was mounted nowhere. Now, with a DSN set, the banner appears on the first visit and the SDK is loaded only after consent to error analysis. Under **Privacy → Consents**, "Allow error analysis" turns reporting off or on without a reload, in other tabs too. In Light mode no banner appears and the frontend reports no errors. Without a DSN nothing changes. For operators: frontend errors now arrive only from people who consented.
 - **Settings:** Only platform admins see the "Platform Mode" tab; for everyone else the page no longer requests admin data (issue #2144).
 - Admin, invitations, the AI assistant, a plant's tasks and storage observations load their lists completely, page by page, now that the API returns at most one page there (issue #2131) — you still see every item.
 - Privacy: the account deletion dialog names, before you confirm, the organizations whose management passes to the longest-serving lead or that become orphaned (issue #2134)
