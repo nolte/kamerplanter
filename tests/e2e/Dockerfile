@@ -4,12 +4,12 @@
 # a vendored axe.min.js would not give. The E2E image builds from ./tests/e2e and
 # therefore cannot reach src/frontend/node_modules, which is why the dependency
 # is declared here rather than borrowed from the frontend tree.
-FROM node:26-slim@sha256:ec7758ee051e457b468b32bde57b0879010b325bb9862718e9615225ce4aaae1 AS axe
+FROM node:26-slim@sha256:193fe51b64e77981119c98c2002c9e32a70e2f006fb4d25068ce0558998917f0 AS axe
 WORKDIR /axe
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts
 
-FROM python:3.14-slim@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2
+FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
 
 LABEL org.opencontainers.image.title="kamerplanter-e2e-tests" \
       org.opencontainers.image.description="Kamerplanter Selenium E2E test runner" \
@@ -31,7 +31,7 @@ WORKDIR /app
 # without an activation step. It lives in /opt/venv, OUTSIDE /app, because the
 # stage below chowns /app to UID 1000 and a venv inside it would end up
 # writable by the test user.
-COPY --from=ghcr.io/astral-sh/uv:0.12.24@sha256:3af4716e991d6956a41e573eab705d0ee08500cd829ed30293eb8472f372c65a /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.0@sha256:cdc6093146eb3ff6a40107b38f008b789e050e77ad87865e381d9917da55a168 /uv /bin/uv
 ENV UV_PYTHON=/usr/local/bin/python3 \
     UV_PYTHON_DOWNLOADS=never \
     UV_NO_CACHE=1 \

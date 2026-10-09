@@ -1,7 +1,7 @@
 # Multi-target image — dev and prod share one base stage.
 #   prod (default, built by CI):   docker build .
 #   dev  (built by skaffold):      docker build --target dev .
-FROM python:3.14-slim@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2 AS base
+FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS base
 
 LABEL org.opencontainers.image.title="kamerplanter-knowledge-service" \
       org.opencontainers.image.description="Standalone RAG/LLM service answering plant-domain questions over Kamerplanter's knowledge base" \
@@ -17,7 +17,7 @@ WORKDIR /app
 # environment lives in /opt/venv, OUTSIDE /app, because the stages below
 # `chown -R 1000:1000 /app` and a venv under /app would be copied into that
 # layer and left writable by the UID the server runs as.
-COPY --from=ghcr.io/astral-sh/uv:0.12.24@sha256:3af4716e991d6956a41e573eab705d0ee08500cd829ed30293eb8472f372c65a /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.0@sha256:cdc6093146eb3ff6a40107b38f008b789e050e77ad87865e381d9917da55a168 /uv /bin/uv
 ENV UV_PYTHON=/usr/local/bin/python3 \
     UV_PYTHON_DOWNLOADS=never \
     UV_NO_CACHE=1 \
