@@ -170,6 +170,7 @@ No optional consent is needed for the core functions of the system. However, som
 | **Cloud-based pest detection** (Kindwise plant.health) | Optional | Yes |
 | **AI disease diagnosis** (image recognition for diseases/deficiencies) | Optional | Yes |
 | **Photo contribution to plant recognition** (own reference photos) | Optional | Yes |
+| **AI knowledge question to the knowledge base** (`ai_knowledge_question`) | Optional | Yes |
 | **AI access to your plant data** (`ai_tenant_data_access`) | Optional | Yes |
 | **AI processing via cloud provider** (`ai_cloud_processing`) | Optional | Yes |
 | **Release diary entries for AI analysis** (`diary_ai_analysis`) | Optional | Yes |
@@ -222,9 +223,18 @@ All EXIF metadata is removed before transmission to Pl@ntNet (GPS coordinates, c
 
 [Pest detection by photo](pest-detection.md) sends your image — depending on the operator's configuration — either to a self-hosted recognizer (no consent required) or to the Kindwise plant.health cloud service. This consent is only required when the cloud adapter is active. As with plant identification, the photo is stripped of EXIF metadata before sending and is not stored permanently.
 
+### AI Knowledge Question to the Knowledge Base (ai_knowledge_question)
+
+When you ask a freely formulated knowledge question in the [AI Assistant](ai-assistant.md) inside your garden, your text goes — attributed to your account — to the knowledge base and the language model connected to it. This consent is required for that. The text you type yourself is transmitted. Plant values (species, phase, substrate, EC/pH) are only included if you add them to the question yourself — then the consent "AI access to your plant data" (below) is required as well. Light Mode has no consents; the knowledge question works there without one.
+
+This consent is a purpose of its own, not an extension of `ai_tenant_data_access`: granting "AI access to your plant data" earlier did not agree to the knowledge question.
+
+!!! note "Revocation"
+    After revoking, Kamerplanter refuses your next knowledge question before it leaves the instance. Tip cards, "why?" explanations and chat do not depend on this consent.
+
 ### AI Access to Your Plant Data (ai_tenant_data_access)
 
-The [AI Assistant](ai-assistant.md) answers plain knowledge questions without this consent. As soon as an answer is meant to use your specific plant context — for chat, future tip cards, the tip of the day, and "why?" explanations — this consent is required.
+As soon as an answer is meant to use your specific plant context — for chat, future tip cards, the tip of the day, "why?" explanations, and a knowledge question to which you add plant values yourself — this consent is required. For a knowledge question without plant values, `ai_knowledge_question` (above) is enough.
 
 Only master values are transmitted: scientific plant name, current phase, substrate, EC/pH readings, and aggregated counters (e.g. "3 overdue tasks"). Your name, e-mail address, and free-text notes from your plant diary are **never** transmitted.
 
@@ -234,6 +244,8 @@ Only master values are transmitted: scientific plant name, current phase, substr
 ### AI Processing via Cloud Provider (ai_cloud_processing)
 
 Required in addition to the previous consent when your instance uses an external cloud provider (e.g. Anthropic, OpenAI) instead of a locally run model (Ollama) for the AI Assistant — this is decided by the platform operator. Cloud providers may involve a third-country data transfer. Local providers do not need this consent.
+
+For the knowledge question, what counts is the model the knowledge base answers with — the one the platform operator configured, not your garden's provider. If that is a cloud model, you need this consent in addition to `ai_knowledge_question`, and your garden must allow cloud providers; otherwise the question is refused before it leaves the instance.
 
 ### Releasing Diary Entries for AI Analysis (diary_ai_analysis)
 

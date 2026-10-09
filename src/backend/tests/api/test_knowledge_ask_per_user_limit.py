@@ -50,6 +50,7 @@ def wired(monkeypatch):
     knowledge.ask = AsyncMock(return_value=AskResult(answer="a", model_name="m"))
     providers = MagicMock()
     providers.get_default.return_value = None
+    providers.get_system_default.return_value = None  # platform model local: no cloud gate
     for name, value in {
         "get_knowledge_service_adapter": lambda: knowledge,
         "get_consent_repo": GrantAllConsentRepo,

@@ -928,9 +928,12 @@ Requires a valid JWT token and at least the tenant role **grower**. Only availab
 
 Every endpoint responds with `404 Not Found` when the platform operator has disabled AI features instance-wide (`AI_FEATURES_ENABLED=false`) — the AI API then effectively doesn't exist. Details on the three-stage toggle: [AI Assistant — User Guide](../user-guide/ai-assistant.md#how-the-ai-assistant-is-structured-three-stage-toggle).
 
-### Public knowledge question (Light Mode capable)
+### Knowledge question in Light Mode
 
-No login required, IP rate-limited (`AI_PUBLIC_RATE_LIMIT_PER_MIN`, default 10/minute). **No** tenant or user context is passed to the knowledge base.
+!!! warning "Light Mode only"
+    `/api/v1/public/ai/ask` and `/api/v1/public/ai/health` exist only with `KAMERPLANTER_MODE=light`. In full mode both paths answer `404`; the knowledge question there is `POST /api/v1/t/{tenant_slug}/ai/knowledge/ask` (see [Tenant-scoped endpoints](#tenant-scoped-endpoints)).
+
+The routes require a signed-in principal (`get_current_user`); in Light Mode that is always the system user without a login, so the Light Mode UI needs no sign-in. IP rate-limited (`AI_PUBLIC_RATE_LIMIT_PER_MIN`, default 10/minute). **No** tenant or plant context is passed to the knowledge base.
 
 ```
 POST /api/v1/public/ai/ask
@@ -991,6 +994,7 @@ The following endpoints live under `/api/v1/t/{tenant_slug}/ai/` and require a v
 | `POST` | `/ai/conversations/{conversation_key}/messages` | Send a message — answer streams back as SSE |
 | `DELETE` | `/ai/conversations/{conversation_key}` | Delete a conversation immediately (GDPR Art. 17) |
 | `GET` | `/ai/providers` | List available providers (read-only) |
+| `POST` | `/ai/knowledge/ask` | Free-form knowledge question (grower and up); consent `ai_knowledge_question`, with plant values in `context` also `ai_tenant_data_access`. Response `{ answer, question_type, model, usage, sources[], provider_type, uses_cloud_provider }` — the cloud label comes from the platform's system default provider, because the Knowledge Service answers with its own model. When that model is a cloud model, the route additionally requires `ai_cloud_processing` and the garden's `ai_allow_cloud_providers` (otherwise `403 AI_DISABLED_FOR_TENANT`); the garden's own provider does not count here |
 
 !!! info "API only / operator configuration: enabling for a tenant"
     Every one of these endpoints additionally requires `tenant.settings.ai_features_enabled=true` — there is currently neither a UI nor a dedicated `GET`/`PUT` endpoint for this; the field can only be set directly on the tenant document. Without this, every tenant-scoped endpoint responds with `403` and `{ "detail": "ai.disabled_for_tenant" }` (error code `AI_DISABLED_FOR_TENANT`).
@@ -1012,7 +1016,7 @@ The following endpoints live under `/api/v1/t/{tenant_slug}/ai/` and require a v
 |-------------|-----------|---------|
 | `404` | — | AI features disabled instance-wide (stage 1) |
 | `403` | `AI_DISABLED_FOR_TENANT` | AI features disabled for this tenant (stage 2) |
-| `403` | `CONSENT_REQUIRED` | Required consent missing (stage 3, `consent_purpose` in the body: `ai_tenant_data_access` or `ai_cloud_processing`) |
+| `403` | `CONSENT_REQUIRED` | Required consent missing (stage 3; the missing purpose is named machine-readably in `details[0].purpose`: `ai_knowledge_question`, `ai_tenant_data_access` or `ai_cloud_processing`) |
 
 ### Global endpoints (platform admin)
 

@@ -11,7 +11,10 @@ The AI Assistant answers knowledge questions about plant care based on a curated
 
 Open **AI Assistant** in the menu. Enter your question in the text field — for example "What is VPD and why does it matter?" — and click **Ask** (or submit with Ctrl/Cmd + Enter). The answer appears below, with AI labeling and expandable sources.
 
-These knowledge questions are **purely factual** — they don't relate to your specific plants, only to general plant knowledge from the knowledge base. That's why no consent is required, and the feature is also available in anonymous [Light Mode](light-mode.md) without logging in.
+These knowledge questions are **purely factual** — they don't relate to your specific plants, only to general plant knowledge from the knowledge base.
+
+- **In [Light Mode](light-mode.md)** you need neither a login nor a consent: the instance works without sign-in as the system user, and there is no consent management there.
+- **In full mode** you ask the question inside your garden. Because your freely formulated text then goes — attributed to your account — to the knowledge base and its language model, you need the consent **AI knowledge question to the knowledge base** (`ai_knowledge_question`), plus your garden's AI approval and at least the grower role. If you add plant values to the question yourself (species, phase, substrate, EC, pH), the consent **AI access to your plant data** (`ai_tenant_data_access`) is required as well.
 
 !!! example "Example questions"
     - "What is VPD?"
@@ -39,7 +42,7 @@ An AI feature only answers when every relevant stage agrees:
 | 2. Garden (tenant) | Your garden's administrator | All AI features that use your plant context (chat, and tip cards in the future) |
 | 3. Your consent | You | Whether your plant data may be sent as context, and whether a cloud provider may be used instead of a local model |
 
-Plain knowledge questions without a plant reference (see above) only need stage 1 — that's why they also work in Light Mode without logging in.
+Plain knowledge questions without a plant reference (see above) only need stage 1 in Light Mode and work there without logging in. In full mode they need all three stages; stage 3 there is the dedicated consent `ai_knowledge_question`.
 
 ## Granting consent {#granting-consent}
 
@@ -115,14 +118,15 @@ The AI Assistant is unlocked through three levels — details and environment va
 
 **Stage 2 (tenant):** The field `tenant.settings.ai_features_enabled` controls whether AI features are active for a specific garden (tenant) (default: `false`). There is currently **neither a UI nor a dedicated API endpoint** for this — the field can only be set through direct access to the tenant document in ArangoDB. Without this step, every tenant-scoped AI feature (chat, and tip cards in the future) stays disabled even when stage 1 is on.
 
-**Stage 3 (consent):** `POST /api/v1/privacy/consents` with `purpose: ai_tenant_data_access` or `purpose: ai_cloud_processing` (see [Privacy & GDPR](privacy.md#for-technical-users-self-hosters)).
+**Stage 3 (consent):** `POST /api/v1/privacy/consents` with `purpose: ai_knowledge_question` (knowledge question), `purpose: ai_tenant_data_access` (plant data as context) or `purpose: ai_cloud_processing` (cloud provider) (see [Privacy & GDPR](privacy.md#for-technical-users-self-hosters)).
 
-The plain knowledge question only needs stage 1 and is reachable as a rate-limited, anonymous endpoint:
+The knowledge question has one endpoint per mode:
 
-| Endpoint | Purpose |
-|----------|---------|
-| `POST /api/v1/public/ai/ask` | Free-form knowledge question with no plant context (no login, IP rate-limited) |
-| `GET /api/v1/public/ai/health` | Checks whether the knowledge base is reachable |
+| Endpoint | Mode | Purpose |
+|----------|------|---------|
+| `POST /api/v1/t/{tenant_slug}/ai/knowledge/ask` | full mode | Free-form knowledge question inside a garden: grower and up, stages 1 + 2, consent `ai_knowledge_question` (with plant values in `context` also `ai_tenant_data_access`), daily AI budget |
+| `POST /api/v1/public/ai/ask` | Light Mode only | Free-form knowledge question with no plant context as the system user (no login, IP rate-limited); `404` in full mode |
+| `GET /api/v1/public/ai/health` | Light Mode only | Checks whether the knowledge base is reachable; `404` in full mode |
 
 Details for all AI endpoints (including chat, tips, explanations) are in the [API reference](../reference/api-reference.md#ki-assistent).
 

@@ -112,6 +112,9 @@ def client(monkeypatch, adapter: MagicMock, valkey: FakeValkey) -> TestClient:
     consent.require_consent.return_value = None
     providers = MagicMock()
     providers.get_default.return_value = None  # local default, no cloud gate
+    # The knowledge question is gated on the platform model (system default):
+    # none configured counts as local, like the tenant default above.
+    providers.get_system_default.return_value = None
     providers.list_for_tenant.return_value = []
     conversations = MagicMock()
     conversations.get_by_key.side_effect = lambda key: AiConversation(

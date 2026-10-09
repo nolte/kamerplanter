@@ -11,7 +11,10 @@ Der KI-Assistent beantwortet Wissensfragen zur Pflanzenpflege auf Basis einer ku
 
 Öffne im Menü **KI-Assistent**. Trage deine Frage in das Textfeld ein — zum Beispiel „Was ist VPD und warum ist es wichtig?" — und klicke auf **Frage stellen** (oder sende mit Strg/Cmd + Enter). Die Antwort erscheint darunter, mit KI-Kennzeichnung und aufklappbaren Quellen.
 
-Diese Wissensfragen sind **rein sachbezogen** — sie beziehen sich nicht auf deine konkreten Pflanzen, sondern auf allgemeines Pflanzenwissen aus der Wissensbasis. Deshalb ist dafür keine Einwilligung nötig, und die Funktion steht auch im anonymen [Light-Modus](light-mode.md) ohne Anmeldung zur Verfügung.
+Diese Wissensfragen sind **rein sachbezogen** — sie beziehen sich nicht auf deine konkreten Pflanzen, sondern auf allgemeines Pflanzenwissen aus der Wissensbasis.
+
+- **Im [Light-Modus](light-mode.md)** brauchst du dafür weder Anmeldung noch Einwilligung: Die Instanz arbeitet ohne Login als System-Nutzer, und es gibt dort keine Einwilligungsverwaltung.
+- **Im Voll-Modus** stellst du die Frage in deinem Garten. Weil dein frei formulierter Text dabei — deinem Konto zugeordnet — an die Wissensbasis und ihr Sprachmodell geht, brauchst du die Einwilligung **KI-Wissensfrage an die Wissensbasis** (`ai_knowledge_question`), außerdem die KI-Freischaltung deines Gartens und mindestens die Rolle Gärtner. Gibst du zur Frage selbst Pflanzenwerte an (Art, Phase, Substrat, EC, pH), ist zusätzlich die Einwilligung **KI-Zugriff auf deine Pflanzendaten** (`ai_tenant_data_access`) nötig.
 
 !!! example "Beispielfragen"
     - „Was ist VPD?"
@@ -39,7 +42,7 @@ Eine KI-Funktion antwortet nur, wenn alle relevanten Stufen zustimmen:
 | 2. Garten (Mandant) | Administratorin/Administrator deines Gartens | Alle KI-Funktionen, die deinen Pflanzenkontext nutzen (Chat, künftig auch Tipp-Karten) |
 | 3. Deine Einwilligung | Du selbst | Ob deine Pflanzendaten als Kontext gesendet werden dürfen, und ob ein Cloud-Provider statt eines lokalen Modells verwendet werden darf |
 
-Reine Wissensfragen ohne Pflanzenbezug (siehe oben) benötigen nur Stufe 1 — sie funktionieren deshalb auch im Light-Modus ohne Login.
+Reine Wissensfragen ohne Pflanzenbezug (siehe oben) benötigen im Light-Modus nur Stufe 1 und funktionieren dort ohne Login. Im Voll-Modus brauchen sie alle drei Stufen; Stufe 3 ist dort die eigene Einwilligung `ai_knowledge_question`.
 
 ## Einwilligung erteilen {#einwilligung-erteilen}
 
@@ -115,14 +118,15 @@ Der KI-Assistent wird über drei Ebenen freigeschaltet — Details und Umgebungs
 
 **Stufe 2 (Mandant):** Das Feld `tenant.settings.ai_features_enabled` steuert, ob KI-Funktionen für einen konkreten Garten (Mandanten) aktiv sind (Standard: `false`). Es gibt hierfür aktuell **weder eine Oberfläche noch einen eigenen API-Endpunkt** — das Feld lässt sich nur durch direkten Zugriff auf das Mandanten-Dokument in ArangoDB setzen. Ohne diesen Schritt bleiben alle mandantengebundenen KI-Funktionen (Chat, künftig Tipp-Karten) deaktiviert, selbst wenn Stufe 1 aktiv ist.
 
-**Stufe 3 (Einwilligung):** `POST /api/v1/privacy/consents` mit `purpose: ai_tenant_data_access` bzw. `purpose: ai_cloud_processing` (siehe [Datenschutz & DSGVO](privacy.md#fuer-technische-nutzer-self-hoster)).
+**Stufe 3 (Einwilligung):** `POST /api/v1/privacy/consents` mit `purpose: ai_knowledge_question` (Wissensfrage), `purpose: ai_tenant_data_access` (Pflanzendaten als Kontext) bzw. `purpose: ai_cloud_processing` (Cloud-Provider) (siehe [Datenschutz & DSGVO](privacy.md#fuer-technische-nutzer-self-hoster)).
 
-Die reine Wissensfrage benötigt ausschließlich Stufe 1 und ist als lastbegrenzter, anonymer Endpunkt erreichbar:
+Die Wissensfrage hat je Modus einen eigenen Endpunkt:
 
-| Endpunkt | Zweck |
-|----------|-------|
-| `POST /api/v1/public/ai/ask` | Freie Wissensfrage ohne Pflanzenkontext (kein Login, IP-ratenbegrenzt) |
-| `GET /api/v1/public/ai/health` | Prüft, ob die Wissensbasis erreichbar ist |
+| Endpunkt | Modus | Zweck |
+|----------|-------|-------|
+| `POST /api/v1/t/{tenant_slug}/ai/knowledge/ask` | Voll-Modus | Freie Wissensfrage im Garten: ab Gärtner, Stufe 1 + 2, Einwilligung `ai_knowledge_question` (mit Pflanzenwerten im `context` zusätzlich `ai_tenant_data_access`), KI-Tagesbudget |
+| `POST /api/v1/public/ai/ask` | nur Light-Modus | Freie Wissensfrage ohne Pflanzenkontext als System-Nutzer (kein Login, IP-ratenbegrenzt); im Voll-Modus `404` |
+| `GET /api/v1/public/ai/health` | nur Light-Modus | Prüft, ob die Wissensbasis erreichbar ist; im Voll-Modus `404` |
 
 Details zu allen KI-Endpunkten (inkl. Chat, Tipps, Erklärungen) stehen in der [API-Referenz](../reference/api-reference.md#ki-assistent).
 

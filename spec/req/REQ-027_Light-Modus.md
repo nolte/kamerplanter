@@ -7,7 +7,7 @@ Kategorie: Plattform & Deployment
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.6 (Umsetzungsstand: Moduswechsel §7a nicht implementiert #1855, AI-Provider-Guard W-001 nicht implementiert #2176, Plattform-Rolle im Light-Modus über den Modus statt über eine Mitgliedschaft; #2121); 1.5 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
+Version: 1.7 (`/api/v1/public/ai/*` nur im Light-Modus und an `get_current_user` gebunden); 1.6 (Umsetzungsstand: Moduswechsel §7a nicht implementiert #1855, AI-Provider-Guard W-001 nicht implementiert #2176, Plattform-Rolle im Light-Modus über den Modus statt über eine Mitgliedschaft; #2121); 1.5 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Abhängigkeit: REQ-023 v1.6, REQ-024 v1.3, REQ-025, REQ-031
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-023 v1.6, REQ-024 v1.3, REQ-025, REQ-031
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.7 | 2026-10-09 | **Betreiberentscheidung zu PR #2208 (REQ-031 v2.6 §5.3):** `/api/v1/public/ai/ask` und `/api/v1/public/ai/health` werden **nur im Light-Modus** registriert (§6.2) und hängen an `get_current_user`; im Light-Modus löst das den System-User auf, der Light-Frontend braucht also weiterhin kein Login. Im Full-Modus existieren die Pfade nicht mehr (`404`, BREAKING für Full-Modus-Aufrufer); die Wissensfrage dort ist `POST /api/v1/t/{slug}/ai/knowledge/ask` mit Consent `ai_knowledge_question`. Vorher in beiden Modi anonym — im Full-Modus ein LLM-Aufruf an Consent und Tagesbudget vorbei. §2.1 Matrix angepasst. |
 | 1.6 | 2026-10-05 | **#2121 (MT-025, Umsetzungsstand markiert; reine Spec-Änderung).** Gemessen gegen `develop` (`b064e63b7`): (1) **Moduswechsel (§1.1 Szenarien 5–8, §7a, AK-15–AK-28) ist nicht implementiert** (#1855): kein Code liest oder schreibt `system_meta`, es gibt weder `POST /system/takeover` noch `GET /system/takeover-status`, der System-User bleibt nach einem Wechsel auf `full` aktiv; `OnboardingService` trägt nur ein `takeover_accepted`-Flag. Die Abschnitte bleiben als Zielbild, jeweils mit Status. Neues **AK-35**: ein im Light-Modus ausgestellter API-Key ist nach dem Wechsel auf `full` ungültig — heute bleibt er gültig (der Key prüft nur sich selbst und `is_active` des System-Users), ebenfalls #1855. (2) **AI-Provider-Guard (§6.1.1, AK-29–AK-34) ist nicht implementiert** (#2176): `validate_light_mode_ai_config` und `StartupConfigurationError` existieren nicht. (3) **§3.4/AK-12:** Der System-User erhält **keine** Mitgliedschaft im Platform-Tenant; Plattform-Admin ist er, weil `is_platform_admin` im Light-Modus immer wahr ist. Die Szenario-Rollen auf `lead` (+ Zusatzberechtigungen) nachgezogen (vorher `admin`). |
 | 1.5 | (vorher) | Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt. |
 | 1.4 | 2026-04-27 | **W-012 + W-015 + W-017:** §1 Klarstellungs-Tabelle „Was deaktiviert / was aktiv bleibt" — technische Datenschutz-Maßnahmen (GPS-Rundung, IP-Anonymisierung, EXIF-Strip, HTTPS, Rate Limiting) bleiben aktiv (W-012). Service Accounts in §2.1 als deaktiviert markiert; §1.1 Szenario 5 um Migrations-Hinweis für externe Integrationen erweitert (W-015). §6.1 Lifespan ruft `ensure_system_user_calendar_feed_token()` auf; §6.2 Klarstellung dass CalendarFeed-Endpunkt in beiden Modi aktiv ist (W-017). |
@@ -274,7 +275,7 @@ Phase 4 — Erneuter Upgrade auf Full:
 | **Stammdaten-Import** | Vollständig | Vollständig |
 | **Externe Anreicherung** | Deaktiviert (Standard) — aktivierbar per `ENABLE_ENRICHMENT_LIGHTMODE=true` | Vollständig (mit Consent) |
 | **KI-Glossar (REQ-035)** | Vollständig (kein Login, kein Consent) — wenn `AI_FEATURES_ENABLED=true` | Vollständig |
-| **KI-Wissensfragen public (`/api/v1/public/ai/ask`, REQ-031 v2.0 §5.3)** | Vollständig (Rate-Limit pro IP) — wenn `AI_FEATURES_ENABLED=true` | Vollständig (über tenant-scoped Endpoints) |
+| **KI-Wissensfragen (`/api/v1/public/ai/ask`, REQ-031 v2.6 §5.3)** | Vollständig als System-User, ohne Login (Rate-Limit pro IP) — wenn `AI_FEATURES_ENABLED=true` | Nicht gemountet (`404`); Wissensfrage über `POST /t/{slug}/ai/knowledge/ask` mit Rolle, KI-Schaltern, Consent `ai_knowledge_question` und Tagesbudget |
 | **KI-Tipp-Karten (REQ-031 §6.2)** | Ausgeblendet — braucht Tenant-Kontext | Vollständig |
 | **KI-Daily-Tip (REQ-031 §6.3)** | Ausgeblendet — braucht Tenant-Kontext | Vollständig |
 | **"Warum?"-Buttons (REQ-031 §6.4)** | Ausgeblendet | Vollständig |
@@ -742,7 +743,12 @@ if settings.kamerplanter_mode == "full":
     api_router.include_router(privacy_router, prefix="/privacy", tags=["privacy"])
 ```
 
-Alle anderen Router (sites, plants, tasks, ...) werden in beiden Modi registriert.
+Alle anderen Router (sites, plants, tasks, ...) werden in beiden Modi registriert — mit einer Ausnahme in der Gegenrichtung: der KI-Wissensrouter `/public/ai/*` (REQ-031 §5.3) wird **nur im Light-Modus** registriert. Er verlangt `get_current_user` (Light-Modus: System-User, kein Login); im Full-Modus wäre er ein anonymer LLM-Aufruf an Consent und Tagesbudget vorbei, dort gilt `POST /t/{slug}/ai/knowledge/ask`.
+
+```python
+if settings.kamerplanter_mode == "light":
+    api_router.include_router(ai_public_router)   # /public/ai/ask, /public/ai/health
+```
 
 <!-- Quelle: Widerspruchsanalyse W-017 -->
 **Hinweis CalendarFeed (W-017):** Der iCal-Feed-Endpunkt (REQ-015 CF-007) ist NICHT in der Auth-Router-Deaktivierung enthalten — er nutzt ein eigenes Token-Schema (URL-basierte Capability, kein JWT) und wird in BEIDEN Modi registriert. Im Light-Modus bekommt der System-User automatisch ein Feed-Token (siehe `ensure_system_user_calendar_feed_token()` in §6.1).

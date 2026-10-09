@@ -13,7 +13,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.domain.interfaces.knowledge_service import ConfidenceLevel
+from app.domain.interfaces.knowledge_service import AskResult, ConfidenceLevel
 
 # ── Type aliases ───────────────────────────────────────────────────
 
@@ -59,6 +59,20 @@ class AiResponse(BaseModel):
     provider_type: str = ""
     kb_version: str | None = None
     generated_at: datetime | None = None
+
+
+class KnowledgeAnswer(BaseModel):
+    """``AiAssistantService.ask_knowledge`` result (REQ-031 §5.1).
+
+    The Knowledge Service answers with its own, environment-configured LLM — the
+    ``/ask`` request names no provider. So, as for the glossary cache (REQ-035
+    §6), the cloud label is the platform's: read from the system default
+    provider, not from the asking tenant's records.
+    """
+
+    result: AskResult
+    provider_type: str = "ollama"
+    uses_cloud_provider: bool = False
 
 
 # ── Persisted collections ──────────────────────────────────────────

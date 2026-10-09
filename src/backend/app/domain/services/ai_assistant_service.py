@@ -25,9 +25,13 @@ from app.data_access.arango.ai_repository import (
 from app.data_access.external.knowledge_service_adapter import KnowledgeServiceUnavailableError
 from app.domain.engines.ai_explain_engine import ExplainEngine
 from app.domain.engines.ai_tip_engine import TipEngine
-from app.domain.guards.consent_guard import AI_CLOUD_PROCESSING, AI_TENANT_DATA_ACCESS, ConsentGuard
+from app.domain.guards.consent_guard import (
+    AI_CLOUD_PROCESSING,
+    AI_KNOWLEDGE_QUESTION,
+    AI_TENANT_DATA_ACCESS,
+    ConsentGuard,
+)
 from app.domain.interfaces.knowledge_service import (
-    AskResult,
     ConfidenceLevel,
     IKnowledgeService,
     QuestionContext,
@@ -38,6 +42,7 @@ from app.domain.models.ai_assistant import (
     AiTipCard,
     ContextType,
     ConversationMessage,
+    KnowledgeAnswer,
     SourceReference,
 )
 from app.domain.models.tenant_context import TenantContext
@@ -158,6 +163,19 @@ class AiAssistantService:
             self._consent.require_consent(ctx.user_key, AI_CLOUD_PROCESSING)
 
         return (provider.key or "", provider.provider_type, uses_cloud)
+
+    def _platform_provider(self) -> tuple[str, bool]:
+        """``(provider_type, uses_cloud)`` of the platform's system default provider.
+
+        The label of an answer whose model the Knowledge Service picks itself —
+        the same rule the glossary cache classifies by (REQ-035 §6, #2110):
+        system rows only, ``ollama`` without ``requires_consent`` is local, and
+        no system provider at all counts as local Ollama.
+        """
+        provider = self._providers.get_system_default()
+        if provider is None:
+            return ("ollama", False)
+        return (provider.provider_type, bool(provider.provider_type != "ollama" or provider.requires_consent))
 
     def _charge(self, ctx: TenantContext) -> None:
         """Count one LLM call against the daily budgets, or refuse it (#2110).
@@ -513,24 +531,50 @@ class AiAssistantService:
         prompt_language: str | None = None,
         context: QuestionContext | None = None,
         allow_cloud: bool = False,
-    ) -> AskResult:
+    ) -> KnowledgeAnswer:
         """Answer a free-form question through the Knowledge Service (#2175).
 
         The tenant-scoped successor of the former ``POST /api/v1/knowledge/ask``,
         which reached the LLM with no toggle, no consent and no budget. The
-        caller's free-text question and the plant values in ``context`` leave the
-        installation, so the call is admitted like a chat message: consent
-        ``ai_tenant_data_access``, the provider gate (``ai_cloud_processing`` when
-        a cloud provider is used) and one charge against the daily AI budget —
-        all before the Knowledge Service is called. The router adds the rank and
-        the stage 1/2 toggle.
+        caller's free-text question leaves the installation, so it needs its own
+        consent ``ai_knowledge_question``; when ``context`` carries any plant
+        value, those values leave too and ``ai_tenant_data_access`` is required
+        in addition — tenant data never leaves under the question-only consent.
+        Then the provider gate and one charge against the daily AI budget — all
+        before the Knowledge Service is called. The router adds the rank and the
+        stage 1/2 toggle.
+
+        **The provider gate reads the provider that actually answers.** The
+        ``/ask`` request names no provider; the Knowledge Service answers with
+        its own model, whose classification is the platform's system default
+        provider (:meth:`_platform_provider`, the glossary rule of REQ-035 §6).
+        The garden's own provider records play no part in this call, so they
+        neither demand nor waive anything. When the platform model is a cloud
+        LLM, the garden must allow cloud providers (``ai_allow_cloud_providers``,
+        else ``AiDisabledError`` — the refusal ``_resolve_provider`` gives when
+        it has no local provider to fall back to; here there never is one) and
+        the caller must hold ``ai_cloud_processing``. Audit and answer carry the
+        same classification.
 
         Unlike the tip and "why?" paths there is no rule-based answer to fall
         back on, so an unreachable Knowledge Service is a ``502`` here, audited
         as ``knowledge_service_error``.
         """
-        self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
-        _provider_key, provider_type, uses_cloud = self._resolve_provider(ctx, None, allow_cloud=allow_cloud)
+        self._consent.require_consent(ctx.user_key, AI_KNOWLEDGE_QUESTION)
+        # Decided on what would actually be sent: ``to_ks_payload`` drops unset
+        # fields, so ``QuestionContext()`` carries no plant value and needs no
+        # second consent — any value that would reach the KS does.
+        carries_plant_values = context is not None and bool(context.to_ks_payload())
+        if carries_plant_values:
+            self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
+        else:
+            context = None
+        provider_type, uses_cloud = self._platform_provider()
+        if uses_cloud:
+            if not allow_cloud:
+                # No local model to fall back to: the KS model is the platform's.
+                raise AiDisabledError()
+            self._consent.require_consent(ctx.user_key, AI_CLOUD_PROCESSING)
         self._charge(ctx)
         started = time.monotonic()
         try:
@@ -579,7 +623,7 @@ class AiAssistantService:
             status="ok",
             usage=result.usage,
         )
-        return result
+        return KnowledgeAnswer(result=result, provider_type=provider_type, uses_cloud_provider=uses_cloud)
 
     # ── Public / Light-mode ask ─────────────────────────────────────────
 

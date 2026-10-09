@@ -928,9 +928,12 @@ Erfordert ein gültiges JWT-Token und mindestens die Mandanten-Rolle **grower**.
 
 Alle Endpunkte antworten mit `404 Not Found`, wenn der Plattformbetreiber KI-Funktionen instanzweit deaktiviert hat (`AI_FEATURES_ENABLED=false`) — die KI-API existiert dann faktisch nicht. Details zur dreistufigen Freischaltung: [KI-Assistent — Benutzerhandbuch](../user-guide/ai-assistant.md#so-ist-der-ki-assistent-aufgebaut-drei-stufen-freischaltung).
 
-### Öffentliche Wissensfrage (Light-Modus-fähig)
+### Wissensfrage im Light-Modus
 
-Kein Login nötig, IP-ratenbegrenzt (`AI_PUBLIC_RATE_LIMIT_PER_MIN`, Standard 10/Minute). Es wird **kein** Mandanten- oder Nutzerkontext an die Wissensbasis übergeben.
+!!! warning "Nur im Light-Modus"
+    `/api/v1/public/ai/ask` und `/api/v1/public/ai/health` gibt es nur bei `KAMERPLANTER_MODE=light`. Im Full-Modus antworten beide Pfade mit `404`; die Wissensfrage ist dort `POST /api/v1/t/{tenant_slug}/ai/knowledge/ask` (siehe [Mandantenbezogene Endpunkte](#mandantenbezogene-endpunkte)).
+
+Die Routen verlangen einen angemeldeten Principal (`get_current_user`); im Light-Modus ist das ohne Login immer der System-User, die Light-Oberfläche braucht also keine Anmeldung. IP-ratenbegrenzt (`AI_PUBLIC_RATE_LIMIT_PER_MIN`, Standard 10/Minute). Es wird **kein** Mandanten- oder Pflanzenkontext an die Wissensbasis übergeben.
 
 ```
 POST /api/v1/public/ai/ask
@@ -991,6 +994,7 @@ Alle folgenden Endpunkte liegen unter `/api/v1/t/{tenant_slug}/ai/` und erforder
 | `POST` | `/ai/conversations/{conversation_key}/messages` | Nachricht senden — Antwort als SSE-Stream |
 | `DELETE` | `/ai/conversations/{conversation_key}` | Konversation sofort löschen (DSGVO Art. 17) |
 | `GET` | `/ai/providers` | Verfügbare Provider auflisten (nur lesend) |
+| `POST` | `/ai/knowledge/ask` | Freie Wissensfrage (ab Gärtner); Einwilligung `ai_knowledge_question`, mit Pflanzenwerten im `context` zusätzlich `ai_tenant_data_access`. Antwort `{ answer, question_type, model, usage, sources[], provider_type, uses_cloud_provider }` — die Cloud-Kennzeichnung stammt vom System-Standard-Provider der Plattform, weil der Knowledge Service mit seinem eigenen Modell antwortet. Ist dieses Modell ein Cloud-Modell, verlangt die Route zusätzlich `ai_cloud_processing` und `ai_allow_cloud_providers` des Gartens (sonst `403 AI_DISABLED_FOR_TENANT`); der Provider des Gartens zählt hier nicht |
 
 !!! info "Nur über API / Betreiber-Konfiguration: Tenant-Freischaltung"
     Jeder dieser Endpunkte erfordert zusätzlich `tenant.settings.ai_features_enabled=true` — dafür gibt es aktuell weder eine Oberfläche noch einen eigenen `GET`/`PUT`-Endpunkt; das Feld lässt sich nur direkt am Mandanten-Dokument setzen. Ohne diese Freischaltung antworten alle mandantenbezogenen Endpunkte mit `403` und `{ "detail": "ai.disabled_for_tenant" }` (Fehlercode `AI_DISABLED_FOR_TENANT`).
@@ -1012,7 +1016,7 @@ Alle folgenden Endpunkte liegen unter `/api/v1/t/{tenant_slug}/ai/` und erforder
 |-------------|-----------|----------|
 | `404` | — | KI-Funktionen instanzweit deaktiviert (Stufe 1) |
 | `403` | `AI_DISABLED_FOR_TENANT` | KI-Funktionen für diesen Mandanten deaktiviert (Stufe 2) |
-| `403` | `CONSENT_REQUIRED` | Erforderliche Einwilligung fehlt (Stufe 3, `consent_purpose` im Body: `ai_tenant_data_access` oder `ai_cloud_processing`) |
+| `403` | `CONSENT_REQUIRED` | Erforderliche Einwilligung fehlt (Stufe 3; der fehlende Zweck steht maschinenlesbar in `details[0].purpose`: `ai_knowledge_question`, `ai_tenant_data_access` oder `ai_cloud_processing`) |
 
 ### Globale Endpunkte (Platform-Admin)
 
