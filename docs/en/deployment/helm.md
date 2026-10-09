@@ -259,6 +259,12 @@ ingress:
               - plants.example.com
     ```
 
+#### Upload limit (request body)
+
+The frontend nginx accepts request bodies up to `storage.maxFileSizeMb` + 1 MiB (default: `26m`). The extra MiB covers the multipart envelope of an upload: an attachment of the full allowed size reaches the backend, a slightly larger one gets a clear `413` answer from there, and anything above the limit is refused by nginx itself with `413`. Without this setting the limit was nginx's default of 1 MiB, and every larger upload failed at the proxy.
+
+The chart sets the same limit on the ingress `main` as the annotation `nginx.ingress.kubernetes.io/proxy-body-size`, because ingress-nginx would otherwise cut at 1 MiB too. Both follow `storage.maxFileSizeMb`: when you raise the upload limit, nginx and the ingress grow with it. Traefik and Contour/Envoy do not read the annotation and set no body limit of their own; there the frontend nginx's limit applies, as long as `/` and `/api` go through the frontend. If you use an ingress under another key than `main` or your own `HTTPProxy`, set the limit there yourself to the same value.
+
 ### Valkey (Redis-compatible cache)
 
 ```yaml

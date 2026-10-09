@@ -214,7 +214,7 @@ spec:
       - CreateNamespace=true
 ```
 
-1. For nginx-ingress: use `className: nginx` and replace the Traefik annotations with `nginx.ingress.kubernetes.io/proxy-body-size: "10m"`.
+1. For nginx-ingress: use `className: nginx` and remove the Traefik annotations. The chart sets the body limit `nginx.ingress.kubernetes.io/proxy-body-size` on the ingress `main` itself (`storage.maxFileSizeMb` + 1 MiB, default `26m`) — do not override it with a smaller value, or uploads fail at the ingress.
 2. Requires a `ClusterIssuer` named `letsencrypt-prod` in the cluster. If you already have a wildcard certificate, remove this annotation and reference the existing TLS secret directly.
 3. Your desired hostname. The DNS record must point to the Ingress controller.
 4. cert-manager creates this Secret automatically. For an existing wildcard certificate: use the name of the existing secret (e.g. `wildcard-example-com-tls`).
