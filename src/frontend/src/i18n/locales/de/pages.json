@@ -4684,6 +4684,8 @@
       "testUnreachable": "Quelle nicht erreichbar.",
       "previewValues": "min {{min}} °C / max {{max}} °C / Regen {{rain}} mm",
       "attribution": "Datenquellen: Deutscher Wetterdienst (DWD, GeoNutzV) · Weather data by Open-Meteo.com (CC BY 4.0) · OpenWeatherMap gemäß deren Nutzungsbedingungen.",
+      "readOnlyHint": "Die Wetterquellen dieses Standorts legt die Leitung deines Gartens fest. Du siehst hier, welche Quellen in welcher Reihenfolge genutzt werden.",
+      "readOnlyEmpty": "Für diesen Standort ist noch keine Wetterquelle eingerichtet. Die Leitung deines Gartens kann eine hinzufügen.",
       "gpsRequiredHint": "Für diesen Standort können Wetterquellen konfiguriert werden, sobald GPS-Koordinaten hinterlegt sind.",
       "haEntitiesTechnicalOnly": "Home-Assistant-Entitäten auswählen können nur Mitglieder mit dem Recht „Technik“. Bitte eine Person mit diesem Recht, die Quelle einzurichten – eine bestehende Quelle bleibt unverändert."
     },

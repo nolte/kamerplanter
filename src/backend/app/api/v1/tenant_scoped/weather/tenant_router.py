@@ -2,8 +2,10 @@
 
 Mounted under ``/t/{tenant_slug}`` by the tenant-scoped parent router, so the
 paths declared here are already tenant-scoped (no ``/t`` prefix). Reads use
-``get_current_tenant``; writes require at least the ``grower`` role
-(``require_tenant_role``). The router stays thin — all logic lives in
+``get_current_tenant`` and stay open to every member. Choosing which sources a
+site uses — saving the configuration and connection-testing a candidate — is
+the lead's decision (REQ-049 §2.10 / §4.4, #2181), so both writes require the
+``lead`` role (``require_tenant_role``). The router stays thin — all logic lives in
 :class:`WeatherSourceService`.
 """
 
@@ -143,10 +145,14 @@ def get_weather_source(
 def put_weather_source(
     site_key: Annotated[str, Path(description="Document key of the site.")],
     body: WeatherSourceConfigRequest,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: WeatherSourceService = Depends(get_weather_source_service),
 ):
-    """Store the site's weather-source configuration (encrypts new OWM keys)."""
+    """Store the site's weather-source configuration (encrypts new OWM keys).
+
+    Lead only: the selection per site belongs to the garden's lead, growers see
+    it but do not change it (REQ-049 §2.10, #2181).
+    """
     saved = service.save_config(site_key, ctx.tenant_key, ctx.user_key, body)
     return _config_response(site_key, saved)
 
@@ -227,10 +233,14 @@ def list_available_sources(
 async def test_weather_source(
     site_key: Annotated[str, Path(description="Document key of the site.")],
     body: WeatherSourceEntryRequest,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: WeatherSourceService = Depends(get_weather_source_service),
 ):
-    """Test an unsaved source configuration (reachability + preview, AC-7)."""
+    """Test an unsaved source configuration (reachability + preview, AC-7).
+
+    Same gate as the save: testing a candidate is part of choosing it, and it
+    makes an outbound call on the tenant's behalf (REQ-049 §2.10, #2181).
+    """
     result = await service.test_source(site_key, ctx.tenant_key, body)
     return _test_response(result)
 

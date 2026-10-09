@@ -4683,6 +4683,8 @@
       "testUnreachable": "Source not reachable.",
       "previewValues": "min {{min}} °C / max {{max}} °C / rain {{rain}} mm",
       "attribution": "Data sources: Deutscher Wetterdienst (DWD, GeoNutzV) · Weather data by Open-Meteo.com (CC BY 4.0) · OpenWeatherMap under their terms of use.",
+      "readOnlyHint": "The weather sources of this location are chosen by your garden's lead. Here you can see which sources are used, in which order.",
+      "readOnlyEmpty": "No weather source is set up for this location yet. Your garden's lead can add one.",
       "gpsRequiredHint": "Weather sources can be configured for this location once GPS coordinates are stored.",
       "haEntitiesTechnicalOnly": "Only members with the “Technical” scope can pick Home Assistant entities. Ask someone with that scope to set up the source – an existing source stays unchanged."
     },

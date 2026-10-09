@@ -287,7 +287,9 @@ class TestAWeatherSourceNamesOnlyGrantedEntities:
         ids=["weather_entity", "sensor_mapping"],
     )
     def test_saving_an_ungranted_entity_is_422(self, ha_config: dict) -> None:
-        client, _ = _app(_ctx(), ha=RecordingHaClient())
+        # The lead: choosing a site's sources is the lead's (REQ-049 §2.10, #2181),
+        # so the grant check is reached only by a member allowed to write.
+        client, _ = _app(_ctx(TenantRole.LEAD), ha=RecordingHaClient())
 
         response = client.put(f"{PREFIX}/sites/site-1/weather-source", json=_weather_body(**ha_config))
 
@@ -296,7 +298,7 @@ class TestAWeatherSourceNamesOnlyGrantedEntities:
 
     def test_testing_an_unsaved_ungranted_entity_is_422_and_reads_nothing(self) -> None:
         ha = RecordingHaClient()
-        client, _ = _app(_ctx(), ha=ha)
+        client, _ = _app(_ctx(TenantRole.LEAD), ha=ha)
 
         response = client.post(
             f"{PREFIX}/sites/site-1/weather-sources/test",
