@@ -190,11 +190,7 @@ spec:
             hosts:
               - host: plants.example.com                        # (3)!
                 paths:
-                  - path: /api
-                    pathType: Prefix
-                    service:
-                      identifier: backend
-                  - path: /
+                  - path: /              # /api too: the frontend nginx proxies it to the backend
                     pathType: Prefix
                     service:
                       identifier: frontend

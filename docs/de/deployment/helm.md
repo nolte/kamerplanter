@@ -228,19 +228,17 @@ service:
 ```yaml
 ingress:
   main:
-    enabled: true                   # Standard: deaktiviert
+    enabled: true                   # ohne hosts entsteht kein Ingress
     hosts:
       - host: pflanzen.example.com
         paths:
-          - path: /api
-            pathType: Prefix
-            service:
-              identifier: backend
-          - path: /
+          - path: /              # auch /api: das Frontend-nginx leitet es ans Backend weiter
             pathType: Prefix
             service:
               identifier: frontend
 ```
+
+Leite `/api` nicht direkt auf den Backend-Service: Die NetworkPolicy des Backends lässt nur das Frontend auf Port 8000 zu, und das Frontend-nginx setzt die Upload-Grenze sowie den `X-Forwarded-For`-Eintrag, auf den `TRUSTED_PROXY_HOPS: "1"` abgestimmt ist.
 
 !!! tip "TLS"
     Für HTTPS füge eine `tls`-Sektion hinzu und verwende z.B. cert-manager mit Let's Encrypt:

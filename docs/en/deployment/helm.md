@@ -227,19 +227,17 @@ service:
 ```yaml
 ingress:
   main:
-    enabled: true                   # Default: disabled
+    enabled: true                   # without hosts no Ingress is created
     hosts:
       - host: plants.example.com
         paths:
-          - path: /api
-            pathType: Prefix
-            service:
-              identifier: backend
-          - path: /
+          - path: /              # /api too: the frontend nginx proxies it to the backend
             pathType: Prefix
             service:
               identifier: frontend
 ```
+
+Do not route `/api` straight to the backend Service: the backend NetworkPolicy admits only the frontend on port 8000, and the frontend nginx applies the upload limit and the `X-Forwarded-For` entry that `TRUSTED_PROXY_HOPS: "1"` is set for.
 
 !!! tip "TLS"
     For HTTPS, add a `tls` section and use e.g. cert-manager with Let's Encrypt:

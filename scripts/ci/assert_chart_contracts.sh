@@ -412,6 +412,13 @@ expect body-limit-ingress-off "ingress.main.enabled=false still switches the ing
   'select(.kind == "Ingress") | .metadata.name' '[]'
 
 expect profile-values-dev "the dev ingress carries the nginx limit as proxy-body-size" "${ingress_limit}" '["26m"]'
+# /api reaches the backend through the frontend (#1159): the backend policy
+# admits only the frontend, and only that path carries the body limit and the
+# X-Forwarded-For depth TRUSTED_PROXY_HOPS is set for. Every in-chart ingress
+# routes to the frontend Service and nowhere else.
+ingress_targets='select(.kind == "Ingress") | .spec.rules[].http.paths[] | .backend.service.name'
+expect profile-values-dev "the dev ingress routes every path to the frontend" "${ingress_targets}" '["kamerplanter-frontend"]'
+expect body-limit-ingress "the ingress routes every path to the frontend" "${ingress_targets}" '["kamerplanter-frontend"]'
 
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2
