@@ -170,6 +170,7 @@ No optional consent is needed for the core functions of the system. However, som
 | **Cloud-based pest detection** (Kindwise plant.health) | Optional | Yes |
 | **AI disease diagnosis** (image recognition for diseases/deficiencies) | Optional | Yes |
 | **Photo contribution to plant recognition** (own reference photos, `reference_contribution`) | Optional | Yes |
+| **Photo contribution to pest recognition** (promoted pest photos, `pest_reference_contribution`) | Optional | Yes |
 | **AI knowledge question to the knowledge base** (`ai_knowledge_question`) | Optional | Yes |
 | **AI access to your plant data** (`ai_tenant_data_access`) | Optional | Yes |
 | **AI processing via cloud provider** (`ai_cloud_processing`) | Optional | Yes |
@@ -228,6 +229,15 @@ All EXIF metadata is removed before transmission to Pl@ntNet (GPS coordinates, c
 ### Photo Contribution to Plant Recognition (reference_contribution)
 
 The **Use as recognition reference** switch when [creating a plant](plant-identification.md#assigning-the-photo-to-the-new-plant) is this consent: if you switch it on and save, Kamerplanter grants it before the photo is contributed. After review by the administrators, a numerical fingerprint (embedding) of the photo goes into the installation's shared recognition index; the photo itself is not stored and does not leave the installation. You revoke it here in the **Consents** tab. If it cannot be saved, Kamerplanter does not create the plant and shows an error. In Light mode the switch does not appear. <!-- #2174 -->
+
+### Photo Contribution to Pest Recognition (pest_reference_contribution)
+
+A pest photo you contribute on the [pest detail page](pest-detail.md) first stays private in your garden. If an administrator makes it visible to everyone, it can additionally enter the installation's shared pest recognition index as a reference — **but only with this consent**. What is stored then is a numerical fingerprint (embedding) of the photo and its provenance (which contribution, which garden); the photo itself does not leave the installation. Without consent the promotion stays in the gallery, but the photo does not enter the recognition. In Light Mode nothing is ever indexed.
+
+This consent is a purpose of its own and not an extension of "Photo contribution to plant recognition" (`reference_contribution`): if you shared reference photos of your plants before, you have not agreed to the pest index and need to consent anew. There is no place in the interface to grant it yet; you can grant it via `POST /api/v1/privacy/consents` with `purpose: pest_reference_contribution` and revoke it in the **Consents** tab.
+
+!!! note "Revocation"
+    Revocation applies from the next promotion: after that, none of your further pest photos enters the index. Revocation does not remove a fingerprint that already exists — deleting your contribution or your account does.
 
 ### AI Knowledge Question to the Knowledge Base (ai_knowledge_question)
 

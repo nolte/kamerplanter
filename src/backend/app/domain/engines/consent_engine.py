@@ -14,6 +14,13 @@ ERROR_TRACKING = "error_tracking"
 #: hook (``app.tasks.reference_contribution_tasks``) and the interactive
 #: ``POST /identification/reference`` (``ReferenceImageService``).
 REFERENCE_CONTRIBUTION = "reference_contribution"
+#: REQ-044 §3.4 / REQ-010 / PR #2208 — whether a pest photo the user contributed
+#: may, once a platform admin promotes it to global visibility, become an
+#: embedding in the shared pest-recognition index. Its own purpose, not a reuse of
+#: ``reference_contribution``: that text names only gallery photos of plants, and
+#: ``consent_version`` is read nowhere, so earlier grants would silently have
+#: covered the new processing. Read by ``app.tasks.pest_image_tasks``.
+PEST_REFERENCE_CONTRIBUTION = "pest_reference_contribution"
 #: REQ-031 §5.1 / #2175 — whether the user's freely formulated knowledge question
 #: (``POST /t/{slug}/ai/knowledge/ask``) may be sent to the knowledge base and its
 #: language model. Its own purpose, not a re-worded ``ai_tenant_data_access``:
@@ -234,6 +241,34 @@ class ConsentEngine:
                 "as an additional reference for the self-hosted image recognition (REQ-034 §4). "
                 "Only the embedding vector is stored — no image leaves the instance; revocable at "
                 "any time."
+            ),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
+        ConsentPurpose(
+            key=PEST_REFERENCE_CONTRIBUTION,
+            label_de="Foto-Beitrag zur Schädlingserkennung",
+            label_en="Photo contribution to pest recognition",
+            description_de=(
+                "Optional: Ein Schädlingsfoto, das du selbst beigetragen hast, wird — sobald eine "
+                "Administratorin oder ein Administrator es für alle sichtbar freigibt — in einen "
+                "Embedding-Vektor für den gemeinsamen Schädlings-Erkennungsindex umgewandelt "
+                "(REQ-044, REQ-010). Gespeichert werden nur dieser Vektor und seine Herkunft "
+                "(Beitrag und Garten) — das Bild verlässt die Installation nicht. Ohne diese "
+                "Einwilligung bleibt eine Freigabe in der Galerie bestehen, das Foto fließt aber "
+                "nicht in die Erkennung ein. Jederzeit widerrufbar; der Widerruf wirkt ab der "
+                "nächsten Freigabe. Einen schon erzeugten Vektor entfernt das Löschen deines "
+                "Beitrags oder deines Kontos."
+            ),
+            description_en=(
+                "Optional: a pest photo you contributed yourself is — once an administrator makes it "
+                "visible to everyone — turned into an embedding vector for the shared pest "
+                "recognition index (REQ-044, REQ-010). Only this vector and its provenance "
+                "(contribution and garden) are stored — the image does not leave the installation. "
+                "Without this consent a promotion stays in the gallery, but the photo does not "
+                "enter the recognition. Revocable at any time; revocation applies from the next "
+                "promotion. A vector already created is removed by deleting your contribution or "
+                "your account."
             ),
             legal_basis="Art. 6(1)(a) GDPR — consent",
             required=False,
