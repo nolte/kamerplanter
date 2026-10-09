@@ -434,6 +434,23 @@ class TestReadsRouteThroughServices:
         assert by_key["t-1"]["member_count"] == 1
         assert by_key["t-2"]["member_count"] == 0
 
+    def test_the_tenant_list_counts_members_without_reading_them(self, backend, monkeypatch):
+        # #2131: one count query per tenant row, not the tenant's whole member list
+        # joined to its users; an inactive membership is not a counted seat.
+        backend.membership_repo.create(Membership(user_key="u-1", tenant_key="t-1", role=TenantRole.GROWER))
+        backend.membership_repo.create(
+            Membership(user_key="u-2", tenant_key="t-1", role=TenantRole.VIEWER, is_active=False)
+        )
+
+        def no_list(*args, **kwargs):
+            raise AssertionError("member_count must not read the member list")
+
+        monkeypatch.setattr(backend.membership_repo, "list_by_tenant", no_list)
+        resp = backend.client.get("/api/v1/admin/platform/tenants")
+
+        assert resp.status_code == 200, resp.text
+        assert {t["key"]: t["member_count"] for t in resp.json()} == {"t-1": 1, "t-2": 0}
+
     def test_list_user_memberships_joins_tenant_name_and_slug(self, backend):
         backend.membership_repo.create(Membership(user_key="u-1", tenant_key="t-1", role=TenantRole.GROWER))
         resp = backend.client.get("/api/v1/admin/platform/users/u-1/memberships")

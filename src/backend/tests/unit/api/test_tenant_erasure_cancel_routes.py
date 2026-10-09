@@ -75,6 +75,9 @@ class _World:
             rows[(CALLER, "platform")] = Membership(user_key=CALLER, tenant_key="platform", role=TenantRole.LEAD)
         memberships = MagicMock()
         memberships.get_by_user_and_tenant.side_effect = lambda user_key, tenant_key: rows.get((user_key, tenant_key))
+        # The admin answer carries the active-member count, counted in the database (#2131).
+        memberships.count_active_members.return_value = 3
+        memberships.list_by_tenant.side_effect = AssertionError("member_count must not read the member list")
         self.tenant = Tenant.model_validate(
             {
                 "_key": TENANT_KEY,
@@ -203,6 +206,7 @@ def test_a_platform_admin_cancels_on_the_admin_route() -> None:
 
     assert resp.status_code == 200, resp.text
     assert resp.json()["status"] == "active"
+    assert resp.json()["member_count"] == 3
 
 
 def test_an_active_tenant_has_nothing_to_cancel() -> None:

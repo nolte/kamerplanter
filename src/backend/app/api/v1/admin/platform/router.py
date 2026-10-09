@@ -99,14 +99,13 @@ def list_all_tenants(
     """List tenants with member counts, newest first (paginated, MT-035). Platform admin only.
 
     Routes through ``TenantService.list_all_tenants`` (#1019). The per-tenant
-    active-member count is derived from ``list_members``, the same way
-    ``update_tenant`` already does it — the router no longer hand-writes the
-    tenant/member-count AQL.
+    active-member count is ``count_active_members`` — one ``COLLECT WITH COUNT``
+    per tenant, not the tenant's whole member list (#2131).
     """
     results: list[AdminTenantResponse] = []
     for tenant in tenant_service.list_all_tenants(offset=pagination.offset, limit=pagination.limit):
         tenant_key = tenant.key or ""
-        member_count = sum(1 for member in tenant_service.list_members(tenant_key) if member.is_active)
+        member_count = tenant_service.count_active_members(tenant_key)
         results.append(
             AdminTenantResponse(
                 key=tenant_key,
@@ -230,7 +229,7 @@ def update_tenant(
         else tenant_service.get_tenant(key)
     )
 
-    member_count = sum(1 for member in tenant_service.list_members(key) if member.is_active)
+    member_count = tenant_service.count_active_members(key)
 
     return AdminTenantResponse(
         key=tenant.key or key,
@@ -394,7 +393,7 @@ def cancel_tenant_erasure(
         origin="platform_admin",
         client_ip=client_ip,
     )
-    member_count = sum(1 for member in tenant_service.list_members(key) if member.is_active)
+    member_count = tenant_service.count_active_members(key)
     return AdminTenantResponse(
         key=tenant.key or key,
         name=tenant.name,
