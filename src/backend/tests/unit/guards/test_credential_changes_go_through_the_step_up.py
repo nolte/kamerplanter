@@ -168,11 +168,6 @@ _MEMBERSHIP_CLASSIFIED: dict[tuple[str, str], str] = {
         "takes back the membership it just inserted when a concurrent join pushed the tenant over its member "
         "limit (#2133); the join never stood, so nobody is locked out"
     ),
-    ("tenant_service.py", "TenantService.change_member_scopes"): (
-        "no route or other caller reaches it today (pinned by test_the_unrouted_scope_change_has_no_caller); "
-        "the scopes (axis 2) carry INV-1, and a route that wires it must pass the step-up like change_member_role "
-        "(#2032 decision recorded in REQ-024 AK-57) — this entry then leaves the list"
-    ),
 }
 _MEMBERSHIP_CLASSIFIED[("tenant_service.py", "TenantService._hand_management_to")] = (
     "the account erasure's INV-1 settlement (#2134): nobody is present to re-authenticate — the erasure itself "
@@ -352,7 +347,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
 EXPECTED_MEMBERS = (
-    40  # +3 with #2137: create_service_account (constructs a User, joins it, mints its key),
+    40  # unchanged by MT-045.2 (#2144): change_member_scopes stays a member, it moved from classified to gated;
+    # +3 with #2137: create_service_account (constructs a User, joins it, mints its key),
     # rotate_service_account_key (mints a key) and remove_service_account (deletes a membership) - all gated
     # by the acting lead's own step-up (service_account_change);
     # +1 with #2134: _hand_management_to (classified);
@@ -415,6 +411,9 @@ def test_the_gated_entries_are_gated() -> None:
         ("tenant_service.py", "TenantService.admin_remove_membership"),
         ("tenant_service.py", "TenantService.change_member_role"),
         ("tenant_service.py", "TenantService.remove_member"),
+        # MT-045.2 (#2144) - the scope change (axis 2) left the classification: it passes the same step-up as
+        # the role change (axis 1), bound to the membership, before a scope set that differs is written.
+        ("tenant_service.py", "TenantService.change_member_scopes"),
         # #2106 - the platform admin's add.
         ("tenant_service.py", "TenantService.admin_add_membership"),
         # #2137 - the tenant's service accounts.
@@ -768,23 +767,3 @@ def test_a_helper_that_verifies_gates_its_callers() -> None:
     )
 
     assert _gated(source, "S.mint") is True
-
-
-def test_the_unrouted_scope_change_has_no_caller() -> None:
-    """The classification of ``change_member_scopes`` is a claim about the code — measure it.
-
-    It is classified above because nothing reaches it. The day a route or another service calls it, the
-    reason is false: this fails and the entry must become a step-up (and leave the list).
-    """
-    callers = sorted(
-        path.relative_to(APP).as_posix()
-        for path in APP.rglob("*.py")
-        if any(
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "change_member_scopes"
-            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
-        )
-    )
-
-    assert callers == [], f"change_member_scopes is called now — it needs the step-up, not a classification: {callers}"

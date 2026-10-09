@@ -2971,12 +2971,27 @@ class TenantService:
         actor_scopes: list[AdminScope],
         *,
         actor_user_key: str,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> Membership:
         """Change a member's administrative scopes (REQ-049 axis 2).
 
         Enforces INV-1: the last membership carrying ``MANAGEMENT`` cannot drop
         it. Losing it would strand the tenant — nobody left could invite anyone,
         not even the people still in it.
+
+        **Step-up when the scopes change (MT-045.2, #2144).** Dropping a co-manager's
+        ``management`` scope locks them out of member administration exactly as a
+        demotion does, so an actual change passes the same step-up as
+        :meth:`change_member_role` — the act ``tenant_member_role_change``, bound to the
+        membership (#1884): both axes of a membership are one act of member
+        management on one target. A scope set re-sent unchanged (in any order) needs
+        none and writes nothing. The scope gate, the tenant-ownership 404 and INV-1
+        come first, so a refusal never asks for a password.
         """
         if not self._membership_engine.can_manage_members(actor_scopes):
             raise ForbiddenError("Requires the management administrative scope")
@@ -2985,6 +3000,9 @@ class TenantService:
         if not membership or membership.tenant_key != tenant_key:
             raise NotFoundError("Membership", membership_key)
 
+        if set(membership.admin_scopes) == set(new_scopes):
+            return membership
+
         losing_management = membership.has_management and AdminScope.MANAGEMENT not in new_scopes
         if losing_management:
             self._guard_last_manager(
@@ -2992,6 +3010,17 @@ class TenantService:
                 "Cannot remove the management scope from the last member who has it",
             )
 
+        self._step_up_verifier.verify(
+            requester,
+            action="tenant_member_role_change",
+            target=membership_key,
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
         result = self._membership_repo.update_fields(membership_key, {"admin_scopes": list(new_scopes)})
         if not result:
             raise NotFoundError("Membership", membership_key)

@@ -108,7 +108,9 @@ class TestLastManagerGuard:
         service, repo = _service(_membership(_MANAGER), manager_count=1)
 
         with pytest.raises(ValidationError, match="management"):
-            service.change_member_scopes("t1", "m1", new_scopes=_NONE, actor_scopes=_MANAGER, actor_user_key="u9")
+            service.change_member_scopes(
+                "t1", "m1", new_scopes=_NONE, actor_scopes=_MANAGER, actor_user_key="u9", **_STEP_UP
+            )
         repo.update_fields.assert_not_called()
 
     def test_the_domain_role_may_still_be_demoted_freely(self):
@@ -121,3 +123,49 @@ class TestLastManagerGuard:
         )
 
         repo.update_fields.assert_called_once_with("m1", {"role": TenantRole.VIEWER})
+
+
+class TestScopeChangeStepUp:
+    """MT-045.2 (#2144): the scope change (axis 2) passes the step-up the role change (axis 1) passes.
+
+    Dropping a co-manager's ``management`` scope is the same lockout of another account as demoting them;
+    it was the one membership write left without a re-authentication.
+    """
+
+    def test_a_scope_change_asks_the_step_up_bound_to_the_membership(self):
+        service, repo = _service(_membership(_NONE, role=TenantRole.GROWER), manager_count=1)
+
+        service.change_member_scopes(
+            "t1", "m1", new_scopes=_MANAGER, actor_scopes=_MANAGER, actor_user_key="u9", **_STEP_UP
+        )
+
+        assert service._step_up_verifier.actions == ["tenant_member_role_change"]
+        assert service._step_up_verifier.targets == ["m1"]
+        repo.update_fields.assert_called_once_with("m1", {"admin_scopes": _MANAGER})
+
+    def test_a_refused_step_up_writes_nothing(self):
+        service, repo = _service(_membership(_MANAGER), manager_count=2)
+        refusing = MagicMock()
+        refusing.verify.side_effect = ForbiddenError("step-up failed")
+        service._step_up_verifier = refusing
+
+        with pytest.raises(ForbiddenError, match="step-up"):
+            service.change_member_scopes(
+                "t1", "m1", new_scopes=_NONE, actor_scopes=_MANAGER, actor_user_key="u9", **_STEP_UP
+            )
+        repo.update_fields.assert_not_called()
+
+    def test_scopes_re_sent_unchanged_need_no_step_up_and_write_nothing(self):
+        service, repo = _service(_membership([AdminScope.MANAGEMENT, AdminScope.TECHNICAL]), manager_count=1)
+
+        service.change_member_scopes(
+            "t1",
+            "m1",
+            new_scopes=[AdminScope.TECHNICAL, AdminScope.MANAGEMENT],
+            actor_scopes=_MANAGER,
+            actor_user_key="u9",
+            **_STEP_UP,
+        )
+
+        assert service._step_up_verifier.actions == []
+        repo.update_fields.assert_not_called()
