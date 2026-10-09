@@ -54,6 +54,18 @@ Creating a new species or cultivar requires at least the Grower role in the acti
 
 ---
 
+## What Stays the Same Across Your Gardens
+
+Some settings belong to you, not to a garden. They apply in every tenant you are a member of and do **not** change with the tenant selector:
+
+- your **dashboard layout** — which widgets sit where;
+- your **notification settings** — channels, quiet hours, batching and escalation;
+- which **modules** you show, your onboarding progress and your **favorites**.
+
+What a widget shows, by contrast, always comes from the currently active garden: the same dashboard shows the community garden's plants and tasks there, and your own in your personal garden. A notification through Home Assistant only goes to destinations that are granted for the notification's garden.
+
+---
+
 ## Creating a Community Garden
 
 ### Create a New Tenant

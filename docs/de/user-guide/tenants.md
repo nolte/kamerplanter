@@ -54,6 +54,18 @@ Zum Anlegen einer neuen Pflanzenart oder Sorte brauchst du mindestens die Rolle 
 
 ---
 
+## Was für alle deine Gärten gleich bleibt
+
+Einige Einstellungen gehören dir, nicht einem Garten. Sie gelten in jedem Tenant, in dem du Mitglied bist, und wechseln **nicht** mit dem Tenant-Selektor:
+
+- dein **Dashboard-Layout** — welche Widgets wo stehen;
+- deine **Benachrichtigungs-Einstellungen** — Kanäle, Ruhezeiten, Bündelung und Eskalation;
+- welche **Module** du eingeblendet hast, dein Onboarding-Stand und deine **Favoriten**.
+
+Was ein Widget anzeigt, kommt dagegen immer aus dem gerade aktiven Garten: Dasselbe Dashboard zeigt im Gemeinschaftsgarten dessen Pflanzen und Aufgaben, in deinem persönlichen Garten deine eigenen. Eine Benachrichtigung über Home Assistant geht nur an Ziele, die für den Garten der Benachrichtigung freigegeben sind.
+
+---
+
 ## Gemeinschaftsgarten erstellen
 
 ### Neuen Tenant anlegen
