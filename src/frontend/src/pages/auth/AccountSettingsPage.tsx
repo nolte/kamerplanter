@@ -244,10 +244,13 @@ export default function AccountSettingsPage() {
       ...haPublishTab,
       ...storageTab,
       ...weatherTab,
-      { key: 'platform', label: t('pages.auth.tabPlatform') },
+      // MT-045.9 (#2144): the platform admin's tab, decided by the `/users/me` flag —
+      // it used to be offered to everyone and found the answer by probing three
+      // `/admin/platform` GETs into a 403.
+      ...(isPlatformAdminUser ? [{ key: 'platform', label: t('pages.auth.tabPlatform') }] : []),
       { key: 'account', label: t('pages.auth.tabAccount') },
     ];
-  }, [t, isSmartHomeEnabled, canManageInstanceSettings]);
+  }, [t, isSmartHomeEnabled, canManageInstanceSettings, isPlatformAdminUser]);
 
   const [tabIndex, setTabIndex] = useTabUrl(tabs.map((t) => t.key));
   const activeTab = tabs[tabIndex]?.key ?? 'profile';
@@ -288,7 +291,13 @@ export default function AccountSettingsPage() {
   const [adminStats, setAdminStats] = useState<AdminPlatformStats | null>(null);
   const [adminTenants, setAdminTenants] = useState<AdminTenant[]>([]);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
-  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  // Whether the admin data has been read (once per visit). Who is an admin is
+  // `isPlatformAdminUser` — never inferred from whether these reads succeed (#2144).
+  const [adminLoaded, setAdminLoaded] = useState(false);
+  // The admin tables render only after a successful read: a 403 here means the
+  // flag is stale (the role was taken away in the meantime), and the page then
+  // shows nothing of the admin half rather than empty tables.
+  const [adminDataOk, setAdminDataOk] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
   // HA Settings state
   const [haUrl, setHaUrl] = useState('');
@@ -397,7 +406,7 @@ export default function AccountSettingsPage() {
   }, [isLightMode, loadProviders, loadSessions, loadApiKeys]);
 
   const loadAdminData = useCallback(async () => {
-    if (isLightMode) return;
+    if (isLightMode || !isPlatformAdminUser) return;
     setAdminLoading(true);
     try {
       const [stats, tenants, users] = await Promise.all([
@@ -408,19 +417,20 @@ export default function AccountSettingsPage() {
       setAdminStats(stats);
       setAdminTenants(tenants);
       setAdminUsers(users);
-      setIsPlatformAdmin(true);
+      setAdminDataOk(true);
     } catch {
-      setIsPlatformAdmin(false);
+      setAdminDataOk(false);
     } finally {
+      setAdminLoaded(true);
       setAdminLoading(false);
     }
-  }, []);
+  }, [isPlatformAdminUser]);
 
   useEffect(() => {
-    if (activeTab === 'platform' && !isPlatformAdmin && !adminLoading) {
+    if (activeTab === 'platform' && isPlatformAdminUser && !adminLoaded && !adminLoading) {
       loadAdminData();
     }
-  }, [activeTab, isPlatformAdmin, adminLoading, loadAdminData]);
+  }, [activeTab, isPlatformAdminUser, adminLoaded, adminLoading, loadAdminData]);
 
   // HA Settings loader — lazy load when admin tab is opened
   const loadHaSettings = useCallback(async () => {
@@ -452,14 +462,6 @@ export default function AccountSettingsPage() {
       loadHaSettings();
     }
   }, [activeTab, haLoaded, loadHaSettings, canManageInstanceSettings]);
-
-  // Determine platform-admin status when the integrations tab opens so the
-  // self-hosted recognition status card (REQ-029-A) is gated correctly.
-  useEffect(() => {
-    if (activeTab === 'ha' && !isPlatformAdmin && !adminLoading) {
-      loadAdminData();
-    }
-  }, [activeTab, isPlatformAdmin, adminLoading, loadAdminData]);
 
   const handleHaTest = async () => {
     setHaTesting(true);
@@ -734,6 +736,7 @@ export default function AccountSettingsPage() {
           <Tab
             key={tab.key}
             label={tab.label}
+            data-testid={`settings-tab-${tab.key}`}
             sx={tab.key === 'account' ? {
               color: 'error.main',
               '&.Mui-selected': { color: 'error.main' },
@@ -1708,7 +1711,7 @@ export default function AccountSettingsPage() {
               promote the good ones to global visibility. Defense-in-depth: only
               rendered for platform admins (the ``ha`` tab is not admin-gated like
               the ``platform`` tab; the backend already enforces the same gate). */}
-          {isPlatformAdmin && <PestContributionsAdminCard gridColumn="1 / -1" />}
+          {isPlatformAdminUser && <PestContributionsAdminCard gridColumn="1 / -1" />}
         </Box>
       )}
 
@@ -1802,7 +1805,7 @@ export default function AccountSettingsPage() {
           </Alert>
 
           {/* Admin: Stats + Org/User tables */}
-          {isFullMode && isPlatformAdmin && (
+          {isFullMode && isPlatformAdminUser && adminDataOk && (
             <>
               {/* Stats in 4-col grid */}
               {adminStats && (

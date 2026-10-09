@@ -271,15 +271,12 @@ export interface PlatformAdminRoute {
  *   offered no platform-admin gate to mirror. That was the defect #1385 fixed,
  *   and the reason went with it.) The route still cannot be guarded on this axis
  *   without taking every member's own account settings away, so it keeps its
- *   domain-axis decision in {@link ACTION_GATED_ROUTES}. Measuring it did
- *   contradict the assumption this entry started from: the `platform` tab is
- *   offered to everyone (unlike the `storage`/`weather` tabs, which are built
- *   only when `canManageInstanceSettings`), and `AccountSettingsPage` derives its own
- *   `isPlatformAdmin` by *probing* the three `/admin/platform` endpoints and
- *   catching the 403 — so a non-admin who opens `/settings#platform` still gets
- *   the tab, with empty cards behind it. That is the same defect on the same axis at the tab
- *   level, and it is deliberately **not** fixed here: it belongs to the page, not
- *   to the router. Recorded in the #1336 pull request as a follow-up.
+ *   domain-axis decision in {@link ACTION_GATED_ROUTES}. The `platform` tab is
+ *   gated at the page, like the `storage`/`weather` tabs: since MT-045.9 (#2144)
+ *   `AccountSettingsPage` builds it only when `usePlatformAdmin()` is true. It used
+ *   to be offered to everyone and decided by *probing* the three `/admin/platform`
+ *   endpoints into a 403 (on the platform and the integrations tab) — the defect
+ *   the #1336 pull request recorded as a follow-up.
  * - `stammdaten/species/:key` (reference-image curation) and
  *   `pflanzenschutz/pests/:key` (the pest gallery's curation controls) — read
  *   pages with an admin-only panel inside, already gated on `usePlatformAdmin()`
