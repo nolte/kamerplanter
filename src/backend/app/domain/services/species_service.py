@@ -944,26 +944,3 @@ class SpeciesService:
         self.get_species(species_key, tenant_key=tenant_key)
         engine = CompanionPlantingEngine(self._graph, None, self._repo)  # type: ignore[arg-type]
         return engine.get_companion_recommendations(species_key, tenant_key=tenant_key)
-
-    def set_compatibility(self, from_key: SpeciesKey, to_key: SpeciesKey, score: float) -> None:
-        """Write a compatibility edge — global reference data, so only between global species (MT-054)."""
-        self._require_global_pair(from_key, to_key)
-        self._graph.set_compatibility(from_key, to_key, score)
-
-    def set_incompatibility(self, from_key: SpeciesKey, to_key: SpeciesKey, reason: str) -> None:
-        """Write an incompatibility edge — only between global species (MT-054)."""
-        self._require_global_pair(from_key, to_key)
-        self._graph.set_incompatibility(from_key, to_key, reason)
-
-    def _require_global_pair(self, from_key: SpeciesKey, to_key: SpeciesKey) -> None:
-        """Both ends of a companion edge must be global species (MT-054, #2144).
-
-        A companion edge is read by every tenant. One ending at a tenant-owned species
-        showed that species to all of them; the readers now filter the far end, and
-        this refuses the shape at the write. An unknown key is 404.
-        """
-        for key in (from_key, to_key):
-            if self.get_species(key).tenant_key:
-                raise ValidationError(
-                    "A companion edge joins two global species; a tenant's own species cannot carry one."
-                )

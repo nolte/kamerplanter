@@ -12,8 +12,9 @@ from app.api.v1.companion_planting.schemas import (
     SpeciesCompanionCounts,
 )
 from app.common.auth import get_active_tenant_key, get_current_user, require_platform_admin
-from app.common.dependencies import get_species_service
+from app.common.dependencies import get_companion_edge_service, get_species_service
 from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
+from app.domain.services.companion_edge_service import CompanionEdgeService
 from app.domain.services.species_service import SpeciesService
 
 router = APIRouter(
@@ -65,7 +66,7 @@ def get_incompatible(
     dependencies=[Depends(require_platform_admin)],
     response_model=CompanionEdgeCreatedResponse,
 )
-def set_compatible(body: CompatibilitySet, service: SpeciesService = Depends(get_species_service)):
+def set_compatible(body: CompatibilitySet, service: CompanionEdgeService = Depends(get_companion_edge_service)):
     """Create or update a global compatibility edge between two species (platform admin)."""
     # Global companion edges are shared across all tenants; only platform admins
     # may write them, and only between two global species (MT-054, #2144).
@@ -80,7 +81,7 @@ def set_compatible(body: CompatibilitySet, service: SpeciesService = Depends(get
     dependencies=[Depends(require_platform_admin)],
     response_model=CompanionEdgeCreatedResponse,
 )
-def set_incompatible(body: IncompatibilitySet, service: SpeciesService = Depends(get_species_service)):
+def set_incompatible(body: IncompatibilitySet, service: CompanionEdgeService = Depends(get_companion_edge_service)):
     """Create or update a global incompatibility edge between two species (platform admin)."""
     # Global companion edges are shared across all tenants; only platform admins
     # may write them, and only between two global species (MT-054, #2144).

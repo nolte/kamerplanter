@@ -24,7 +24,7 @@ from fastapi.testclient import TestClient
 from app.api.v1.companion_planting.router import router as companion_router
 from app.common import auth as auth_mod
 from app.common.auth import get_current_user
-from app.common.dependencies import get_species_service, get_tenant_service
+from app.common.dependencies import get_companion_edge_service, get_species_service, get_tenant_service
 from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError
@@ -35,13 +35,14 @@ def _user() -> SimpleNamespace:
 
 
 def _build_app(tenant_service: MagicMock, species_service: MagicMock | None = None) -> FastAPI:
-    """The edge writes go through ``SpeciesService`` since MT-054 (#2144); ``species_service`` records them."""
+    """The edge writes go through ``CompanionEdgeService`` since MT-054 (#2144); ``species_service`` records them."""
     app = FastAPI()
     app.include_router(companion_router, prefix="/api/v1")
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     app.dependency_overrides[get_current_user] = _user
     service = species_service or MagicMock()
     app.dependency_overrides[get_species_service] = lambda: service
+    app.dependency_overrides[get_companion_edge_service] = lambda: service
     app.dependency_overrides[get_tenant_service] = lambda: tenant_service
     return app
 

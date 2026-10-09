@@ -55,6 +55,10 @@ ALLOWED: dict[tuple[str, str], str] = {
     ("migrations/purge_orphan_ha_readings.py", "__init__"): (
         "an operator-invoked purge that must NOT create a missing database, which ArangoConnection.connect() does"
     ),
+    ("migrations/audit_legacy_stamps.py", "_connect"): (
+        "the operator-invoked, read-only v0004 stamp audit (MT-052): must NOT create a missing database, which "
+        "ArangoConnection.connect() does — an empty one would measure nothing and report it as clean"
+    ),
 }
 
 

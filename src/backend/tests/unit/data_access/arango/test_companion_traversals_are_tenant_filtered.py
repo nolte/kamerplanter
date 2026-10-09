@@ -11,7 +11,7 @@ in its companion list. The traversal now filters the vertex with the hybrid unio
 edges whose both ends the caller can see. ``None`` is the system context.
 
 The write side is closed too: a companion edge is global reference data and may
-join only two global species (``SpeciesService.set_compatibility``).
+join only two global species (``CompanionEdgeService``).
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ import pytest
 from app.common.exceptions import ValidationError
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.domain.models.species import Species
-from app.domain.services.species_service import SpeciesService
+from app.domain.services.companion_edge_service import CompanionEdgeService
 
 
 class _Aql:
@@ -73,13 +73,11 @@ def test_the_system_context_traversal_is_unfiltered(method: str) -> None:
     assert "tenant_key" not in binds
 
 
-def _species_service(species: dict[str, Species]) -> tuple[SpeciesService, MagicMock]:
+def _species_service(species: dict[str, Species]) -> tuple[CompanionEdgeService, MagicMock]:
     repo = MagicMock()
     repo.get_or_raise.side_effect = lambda key: species[key]
-    repo.get_by_key.side_effect = species.get
     graph = MagicMock()
-    service = SpeciesService(repo, graph)
-    return service, graph
+    return CompanionEdgeService(repo, graph), graph
 
 
 @pytest.mark.parametrize("method", ["set_compatibility", "set_incompatibility"])

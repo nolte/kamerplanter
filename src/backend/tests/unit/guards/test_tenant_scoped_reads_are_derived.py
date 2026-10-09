@@ -954,6 +954,11 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ("ArangoSecurityAuditRepository", "count_undated"): Exclusion(
         "system", "held-count of the installation-wide security_audit_log retention task (NFR-011 R-38, #2111)"
     ),
+    ("ArangoLegacyStampAudit", "measure"): Exclusion(
+        "system",
+        "the operator-invoked, read-only v0004 stamp audit (MT-052, #2144): classifies every tenant-stamped "
+        "row's author against the memberships of that row's own tenant; prints document keys only",
+    ),
     ("ArangoHaEntityGrantRepository", "all_granted"): Exclusion(
         "system",
         "every tenant's Home Assistant entity grants, read once by the cross-tenant ingest/control/weather "
