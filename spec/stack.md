@@ -789,7 +789,7 @@ Der `KnowledgeService` orchestriert die gesamte RAG-Pipeline:
 | GET | `/api/v1/knowledge/search?q=...&top_k=5` | Semantische Suche (Chunks) |
 | POST | `/api/v1/t/{tenant_slug}/ai/knowledge/ask` | RAG-Frage-Antwort mit LLM |
 
-Die Suche verlangt ein angemeldetes Konto (kein LLM-Aufruf). Die Frage-Antwort-Route liegt seit #2175 im Tenant und hinter der KI-Zulassung von REQ-031 (ab Gärtner, Drei-Stufen-Toggle, Consent `ai_tenant_data_access`, Tagesbudget §3.4); die frühere tenantlose `POST /api/v1/knowledge/ask` ist entfernt. Die anonyme Wissensfrage im Light-Modus ist `POST /api/v1/public/ai/ask`.
+Die Suche verlangt ein angemeldetes Konto (kein LLM-Aufruf). Die Frage-Antwort-Route liegt seit #2175 im Tenant und hinter der KI-Zulassung von REQ-031 (ab Gärtner, Drei-Stufen-Toggle, Consent `ai_knowledge_question` und bei Pflanzenkontext zusätzlich `ai_tenant_data_access`, Tagesbudget §3.4); die frühere tenantlose `POST /api/v1/knowledge/ask` ist entfernt. Die Wissensfrage im Light-Modus ist `POST /api/v1/public/ai/ask` — nur im Light-Modus gemountet, als System-User (REQ-031 v2.6 §5.3).
 
 #### 3.4.6 RAG Evaluation
 

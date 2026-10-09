@@ -72,3 +72,18 @@ class KnowledgeAskResponse(BaseModel):
     model: str = Field(description="LLM model used for generation")
     usage: dict[str, int] = Field(description="Token usage (prompt_tokens, completion_tokens)")
     sources: list[KnowledgeChunkResponse] = Field(description="Context chunks used for generation")
+    provider_type: str | None = Field(
+        default=None,
+        description=(
+            "Provider type of the platform's system default provider (e.g. 'ollama', 'anthropic'); "
+            "the Knowledge Service answers with its own configured model, so the label is the platform's "
+            "(REQ-035 §6 rule). Set by POST /t/{tenant_slug}/ai/knowledge/ask."
+        ),
+    )
+    uses_cloud_provider: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the answer counts as produced by a cloud LLM, classified from the platform's system "
+            "default provider like the glossary cache. Set by POST /t/{tenant_slug}/ai/knowledge/ask."
+        ),
+    )

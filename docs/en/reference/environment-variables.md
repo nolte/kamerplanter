@@ -247,7 +247,7 @@ These variables belong to the **Kamerplanter backend** and control the three-sta
 | `AI_CIRCUIT_BREAKER_THRESHOLD` | `3` | No | Number of consecutive failures after which the adapter marks the Knowledge Service unreachable. |
 | `AI_CIRCUIT_BREAKER_WINDOW_S` | `60` | No | Time window (seconds) over which failures are counted for `AI_CIRCUIT_BREAKER_THRESHOLD`. |
 | `AI_CIRCUIT_BREAKER_COOLDOWN_S` | `60` | No | Wait time (seconds) before the adapter allows requests to the Knowledge Service again after the circuit breaker trips. |
-| `AI_PUBLIC_RATE_LIMIT_PER_MIN` | `10` | No | IP rate limit for the anonymous, Light-Mode-capable endpoint `POST /api/v1/public/ai/ask` (requests per minute). |
+| `AI_PUBLIC_RATE_LIMIT_PER_MIN` | `10` | No | IP rate limit for the knowledge question `POST /api/v1/public/ai/ask` (requests per minute). The endpoint exists in Light Mode only and runs as the system user there. |
 | `AI_BUDGET_USER_CALLS_PER_DAY` | `50` | No | AI calls one account may start in one tenant per UTC day (tips, daily tip, "Why?", chat message, glossary generation, AI diagnosis together). Above that `429 AI_BUDGET_EXCEEDED` with `Retry-After` until the day ends. `0` switches the budget off. |
 | `AI_BUDGET_TENANT_CALLS_PER_DAY` | `500` | No | AI calls of all members of one tenant together per UTC day. A member refused at their own budget does not use up this one. `0` switches it off. |
 | `AI_BUDGET_TENANT_TOKENS_PER_DAY` | `2000000` | No | LLM tokens (prompt + completion, as the Knowledge Service reports them) one tenant may spend per UTC day. Checked before the next call; a single answer can overshoot it. `0` switches it off. The counters live in Valkey; when Valkey cannot be reached, no AI call runs (`503 AI_BUDGET_UNAVAILABLE`). |

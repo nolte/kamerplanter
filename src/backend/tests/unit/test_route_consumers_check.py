@@ -138,7 +138,7 @@ class TestTheRouteOperand:
         assert mine == theirs
 
     def test_the_measured_candidate_count(self) -> None:
-        """817 mounted ``/api/v1`` operations.
+        """815 mounted ``/api/v1`` operations (full mode).
 
         Pinned deliberately. The candidate *count* moves with every triage
         decision and is not pinned anywhere; the denominator moving is a route
@@ -204,9 +204,13 @@ class TestTheRouteOperand:
         admission. Its predecessor ``POST /knowledge/ask`` is gone, but it was never in this count: the
         knowledge router mounts only with ``KNOWLEDGE_SERVICE_ENABLED``, which the test defaults leave off.
         No consumer in the tree, like the route it replaces (a reported candidate).
+
+        −2: ``POST /public/ai/ask`` and ``GET /public/ai/health`` are mounted in
+        light mode only since PR #2208 (REQ-031 §5.3); the full-mode app this
+        inventory imports no longer carries them.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 817
+        assert len(checker.collect_operations(app)) == 815
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

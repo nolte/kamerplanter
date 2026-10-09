@@ -170,6 +170,7 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 | **Cloud-basierte Schädlingserkennung** (Kindwise plant.health) | Optional | Ja |
 | **KI-Krankheitsdiagnose** (Bilderkennung für Krankheiten/Mängel) | Optional | Ja |
 | **Foto-Beitrag zur Pflanzenerkennung** (eigene Referenzfotos) | Optional | Ja |
+| **KI-Wissensfrage an die Wissensbasis** (`ai_knowledge_question`) | Optional | Ja |
 | **KI-Zugriff auf deine Pflanzendaten** (`ai_tenant_data_access`) | Optional | Ja |
 | **KI-Verarbeitung über Cloud-Provider** (`ai_cloud_processing`) | Optional | Ja |
 | **Tagebuch-Einträge zur KI-Analyse freigeben** (`diary_ai_analysis`) | Optional | Ja |
@@ -222,9 +223,18 @@ Vor der Übertragung an Pl@ntNet werden alle EXIF-Metadaten entfernt (GPS-Koordi
 
 Die [Schädlingserkennung per Foto](pest-detection.md) sendet dein Bild — je nach Betreiber-Konfiguration — entweder an eine self-hosted Erkennung (keine Einwilligung nötig) oder an den Cloud-Dienst Kindwise plant.health. Diese Einwilligung ist nur erforderlich, wenn der Cloud-Adapter aktiv ist. Wie bei der Pflanzenidentifikation wird das Foto vor dem Versand von EXIF-Metadaten bereinigt und nicht dauerhaft gespeichert.
 
+### KI-Wissensfrage an die Wissensbasis (ai_knowledge_question)
+
+Stellst du im [KI-Assistenten](ai-assistant.md) in deinem Garten eine frei formulierte Wissensfrage, geht dein Text — deinem Konto zugeordnet — an die Wissensbasis und das dort angebundene Sprachmodell. Dafür ist diese Einwilligung nötig. Übermittelt wird der Text, den du selbst eingibst. Pflanzenwerte (Art, Phase, Substrat, EC/pH) gehen nur mit, wenn du sie selbst zur Frage angibst — dann ist zusätzlich die Einwilligung „KI-Zugriff auf deine Pflanzendaten“ (unten) nötig. Im Light-Modus gibt es keine Einwilligungen; die Wissensfrage funktioniert dort ohne.
+
+Diese Einwilligung ist ein eigener Zweck und keine Erweiterung von `ai_tenant_data_access`: Wer früher „KI-Zugriff auf deine Pflanzendaten“ erteilt hat, hat damit nicht der Wissensfrage zugestimmt.
+
+!!! note "Widerruf"
+    Nach einem Widerruf lehnt Kamerplanter deine nächste Wissensfrage ab, bevor sie die Instanz verlässt. Tipp-Karten, „Warum?"-Erklärungen und der Chat hängen nicht an dieser Einwilligung.
+
 ### KI-Zugriff auf deine Pflanzendaten (ai_tenant_data_access)
 
-Der [KI-Assistent](ai-assistant.md) beantwortet reine Wissensfragen ohne diese Einwilligung. Sobald eine Antwort deinen konkreten Pflanzenkontext nutzen soll — beim Chat, bei künftigen Tipp-Karten, dem Tipp des Tages und den „Warum?"-Erklärungen — ist diese Einwilligung erforderlich.
+Sobald eine Antwort deinen konkreten Pflanzenkontext nutzen soll — beim Chat, bei künftigen Tipp-Karten, dem Tipp des Tages, den „Warum?"-Erklärungen und bei einer Wissensfrage, zu der du selbst Pflanzenwerte angibst — ist diese Einwilligung erforderlich. Für die Wissensfrage ohne Pflanzenwerte reicht `ai_knowledge_question` (oben).
 
 Übermittelt werden ausschließlich Stammwerte: wissenschaftlicher Pflanzenname, aktuelle Phase, Substrat, EC-/pH-Messwerte sowie aggregierte Kennzahlen (z. B. „3 überfällige Aufgaben"). Dein Name, deine E-Mail-Adresse und Freitext aus deinem Pflanztagebuch werden **nie** übermittelt.
 

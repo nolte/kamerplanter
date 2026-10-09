@@ -14,6 +14,14 @@ ERROR_TRACKING = "error_tracking"
 #: hook (``app.tasks.reference_contribution_tasks``) and the interactive
 #: ``POST /identification/reference`` (``ReferenceImageService``).
 REFERENCE_CONTRIBUTION = "reference_contribution"
+#: REQ-031 §5.1 / #2175 — whether the user's freely formulated knowledge question
+#: (``POST /t/{slug}/ai/knowledge/ask``) may be sent to the knowledge base and its
+#: language model. Its own purpose, not a re-worded ``ai_tenant_data_access``:
+#: ``consent_version`` is read nowhere, so changing an existing purpose's text
+#: would have let earlier grants silently cover the new processing. Read by
+#: ``AiAssistantService.ask_knowledge``; a question with plant context needs
+#: ``ai_tenant_data_access`` in addition.
+AI_KNOWLEDGE_QUESTION = "ai_knowledge_question"
 
 # Retired in #2136 (MT-040, REQ-025 §3.6), because no code ever read them:
 # ``hibp_check`` — no HaveIBeenPwned check exists; ``external_enrichment`` — the
@@ -119,6 +127,29 @@ class ConsentEngine:
                 "transmitted (NFR-007). Releasing individual diary entries including photos for "
                 "analysis is a separate path with its own consent (see “diary_ai_analysis”, "
                 "REQ-050). Revocable at any time."
+            ),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
+        ConsentPurpose(
+            key=AI_KNOWLEDGE_QUESTION,
+            label_de="KI-Wissensfrage an die Wissensbasis",
+            label_en="AI knowledge question to the knowledge base",
+            description_de=(
+                "Erlaubt, deine frei formulierte Wissensfrage im KI-Assistenten an die Wissensbasis "
+                "und das dort angebundene Sprachmodell zu senden, um sie zu beantworten. Übermittelt "
+                "wird der Text, den du selbst eingibst. Pflanzenwerte (Art, Phase, Substrat, EC/pH) "
+                "gehen nur mit, wenn du sie selbst zur Frage angibst — dafür ist zusätzlich die "
+                "Einwilligung „KI-Zugriff auf deine Pflanzendaten“ nötig. Jederzeit widerrufbar; "
+                "der Widerruf wirkt ab der nächsten Frage."
+            ),
+            description_en=(
+                "Allows your freely formulated knowledge question in the AI assistant to be sent to "
+                "the knowledge base and the language model connected to it, so it can be answered. "
+                "The text you type yourself is transmitted. Plant values (species, phase, substrate, "
+                "EC/pH) are only included if you add them to the question yourself — that "
+                "additionally requires the consent “AI access to your plant data”. Revocable at any "
+                "time; revocation applies from the next question."
             ),
             legal_basis="Art. 6(1)(a) GDPR — consent",
             required=False,
