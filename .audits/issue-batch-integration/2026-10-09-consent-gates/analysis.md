@@ -75,17 +75,27 @@ Columns derived from the repository: `pyproject.toml`/`package.json` (source), `
 
 ## Member results
 
-Filled during implementation.
-
 | Member | Specialist | Check | Actual output |
 |---|---|---|---|
+| #2174 | nolte-engineering:fullstack-developer | asserted cause (no consent read on the interactive path): `grep -n -i consent app/domain/services/reference_image_service.py` | no match at 917ccd7bc; route only docstring mentions. Verified. Prior-art risk "automatic path also open": refuted, `reference_contribution_tasks.py:69-72` checks it |
+| #2174 | same | red/green (check call removed via `cp`, restored) over 5 test files | red: `10 failed, 77 passed`; green: `87 passed`; order falsification (check moved before `embed`): `8 failed, 24 passed`; wiring removed from `dependencies.py`: `4 failed, 20 passed` |
+| #2174 | orchestrator (independent) | `pytest` 7 files incl. `test_consent_purposes_are_read.py`, `test_recognition_write_gates.py` | `102 passed, 44 warnings` with `app.__file__` in the worktree |
+| #2174 | nolte-engineering:code-security-reviewer | diff review (read-only, no Bash, files read at HEAD) | no Critical/Warning; gate not bypassable; order correct; two small Infos fixed directly (see Findings) |
 
+## Group-level log (2026-10-09)
+- Environment: worktree has no `.venv`; primary `.venv` lacks `prometheus_client`, uv 0.11.33 installed vs pinned 0.12.24. Tests ran with `prometheus-client==0.26.0` in a scratchpad `--target` on `PYTHONPATH`. 5 guard tests that spawn a subprocess (`test_log_redaction_has_no_residual_gaps`, `test_uncaught_exceptions_are_redacted`) fail only for that reason; CI is the proof for them.
+- Open for later members: the frontend reference toggle (`PlantIdentificationPage.tsx:67`, `SpeciesListPage.tsx:183`) is shown by active adapter, not by consent or mode; it joins #2159's consent store. `pest_image_tasks.py` feeds a pest few-shot index with `user_contributed` rows without a consent purpose; spec question (REQ-010/044), not touched here, not filed.
 ## Deviations
 
 | Member | Kind | What changed |
 |---|---|---|
+| #2174 | local adaptation | planned guard strengthening (`test_consent_purposes_are_read.py`: referenced → read by a check) dropped: the guard already passes because the automatic path reads the purpose, so it stays green with the defect present. Class sweep: no mechanical guard (writers do not share one spelling, "reachable only through a check" is a call-graph property); the route and service tests pin the one enumerable writer and the order. |
+| #2174 | local adaptation | Light mode refuses (409) instead of skipping the check, per REQ-034 §4.1 Guard 2 / AC-16; operator confirmed 2026-10-09. Behaviour change: interactive contribution no longer works in Light mode. |
 
 ## Findings
 
 | Finding | Source | Outcome | Reproduction | Issue |
 |---|---|---|---|---|
+| `docs/{de,en}/reference/api-reference.md:~903` lacked the consent 403 and Light 409 | member run | fixed directly (8c5ff557a, aeed2feaf) | rows now present | — |
+| `tests/support/fake_consent_repo.py:27` builds "revoked" without `revoked_at` (production always sets it) | security review | fixed directly (in progress) | – | — |
+| `reference_image_service.py:261` resolves the species unscoped, the automatic path uses `readable_species(…, tenant_key)` (`reference_contribution_tasks.py:79`) | security review (suspected) | reproduce first, then fixed directly (in progress) | red test pending | — |
