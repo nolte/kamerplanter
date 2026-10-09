@@ -29,6 +29,7 @@ from app.domain.engines.consent_engine import REFERENCE_CONTRIBUTION
 from app.domain.models.tenant_context import TenantContext
 from tests.support.fake_consent_repo import FakeConsentRepo
 from tests.support.fake_contribution_marker import FakeContributionMarker
+from tests.support.fake_species_repo import FakeSpeciesRepo
 
 TENANT_SLUG = "anna"
 
@@ -493,10 +494,9 @@ def wired_contribution(monkeypatch):
     consent_repo = FakeConsentRepo()
     marker = FakeContributionMarker()
     redis = _CountingRedis()
-    species_repo = MagicMock()
-    species_repo.get_or_raise.return_value = SimpleNamespace(
-        key="species_monstera", scientific_name="Monstera deliciosa"
-    )
+    species_repo = FakeSpeciesRepo()
+    species_repo.add("species_monstera", "Monstera deliciosa")  # global (tenant_key="")
+    species_repo.add("species_ben_private", "Philodendron privatum", tenant_key="tenant_ben")
     inference = MagicMock()
     inference.embed.return_value = [0.1] * 4
     inference.upsert_reference.return_value = {"status": "ok", "dim": 4}
@@ -524,18 +524,18 @@ def wired_contribution(monkeypatch):
     )
 
 
-def _contribute(client: TestClient):
+def _contribute(client: TestClient, species_key: str = "species_monstera"):
     return client.post(
         f"/api/v1/t/{TENANT_SLUG}/identification/reference",
         files=_real_jpeg_upload(),
-        data={"species_key": "species_monstera"},
+        data={"species_key": species_key},
     )
 
 
 def _assert_nothing_contributed(wired) -> None:
     assert wired.redis.counters == {}
     assert wired.marker.writes == 0
-    wired.species_repo.get_or_raise.assert_not_called()
+    assert wired.species_repo.lookups == []
     wired.inference.embed.assert_not_called()
     wired.inference.upsert_reference.assert_not_called()
 
@@ -580,3 +580,23 @@ def test_contribute_reference_in_light_mode_returns_409_even_with_consent(wired_
     assert resp.status_code == 409
     assert resp.json()["error_code"] == "ADAPTER_NOT_AVAILABLE"
     _assert_nothing_contributed(wired_contribution)
+
+
+def test_contribute_reference_to_another_tenants_private_species_returns_404(wired_contribution):
+    """A grower with consent in tenant_anna cannot reach tenant_ben's private species.
+
+    Same answer as an unknown key — neither a contribution nor an existence
+    oracle (404 vs 202) for another tenant's catalogue.
+    """
+    wired_contribution.consent_repo.set("user_anna", REFERENCE_CONTRIBUTION, granted=True)
+
+    foreign = _contribute(wired_contribution.client, "species_ben_private")
+    unknown = _contribute(wired_contribution.client, "species_ghost")
+
+    assert foreign.status_code == 404
+    assert foreign.json()["error_code"] == unknown.json()["error_code"]
+    assert unknown.status_code == 404
+    assert wired_contribution.redis.counters == {}
+    assert wired_contribution.marker.writes == 0
+    wired_contribution.inference.embed.assert_not_called()
+    wired_contribution.inference.upsert_reference.assert_not_called()

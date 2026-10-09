@@ -1,12 +1,15 @@
 """In-memory stand-in for :class:`IConsentRepository` lookups (#2174).
 
 Holds one consent state per ``(user_key, purpose)``: absent (never asked),
-granted, or revoked (``granted=False`` — what a revocation stores). ``reads``
+granted, or revoked (``granted=False`` plus ``revoked_at`` — what
+``PrivacyService.revoke_consent`` stores). ``reads``
 records every lookup so a test can assert that a refused request read the
 opt-in and a short-circuited one did not.
 """
 
 from __future__ import annotations
+
+from datetime import UTC, datetime
 
 from app.domain.models.privacy import ConsentRecord
 
@@ -24,7 +27,10 @@ class FakeConsentRepo:
         granted = self._records.get((user_key, purpose))
         if granted is None:
             return None
-        return ConsentRecord(user_key=user_key, purpose=purpose, granted=granted)
+        if granted:
+            return ConsentRecord(user_key=user_key, purpose=purpose, granted=True, granted_at=datetime.now(UTC))
+        # A revocation always stamps revoked_at (privacy_service.revoke_consent).
+        return ConsentRecord(user_key=user_key, purpose=purpose, granted=False, revoked_at=datetime.now(UTC))
 
 
 class GrantAllConsentRepo(FakeConsentRepo):

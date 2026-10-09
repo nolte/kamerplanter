@@ -11,7 +11,11 @@ service the route calls:
 * Light mode refuses outright (REQ-034 §4.1 Guard 2 / AC-16), even with an
   opt-in on record, and does not even read it;
 * with the opt-in the contribution proceeds as before;
-* a service built without the consent collaborators refuses to contribute.
+* a service built without the consent collaborators refuses to contribute;
+* the species is resolved under the contributor's tenant (``readable_species``,
+  as the gallery hook does): another tenant's private species answers 404 like
+  an unknown one — no contribution, no existence oracle — while global, own and
+  explicitly granted species proceed.
 
 All collaborators are in-memory doubles — no database is touched.
 """
@@ -25,16 +29,19 @@ from unittest.mock import MagicMock
 import pytest
 from PIL import Image
 
-from app.common.exceptions import AdapterNotAvailableError, ConsentRequiredError
+from app.common.exceptions import AdapterNotAvailableError, ConsentRequiredError, NotFoundError
 from app.config.settings import settings
 from app.domain.engines.consent_engine import REFERENCE_CONTRIBUTION, ConsentEngine
 from app.domain.services.reference_image_service import ReferenceImageService
 from tests.support.fake_consent_repo import FakeConsentRepo
 from tests.support.fake_contribution_marker import FakeContributionMarker
+from tests.support.fake_species_repo import FakeSpeciesRepo
 
 USER = "user_anna"
 TENANT = "tenant_anna"
 SPECIES = "species_monstera"
+FOREIGN_TENANT = "tenant_ben"
+FOREIGN_PRIVATE_SPECIES = "species_ben_private"
 
 
 def _image() -> bytes:
@@ -47,8 +54,9 @@ def _build(consent_repo: FakeConsentRepo | None, *, with_engine: bool = True):
     inference = MagicMock()
     inference.embed.return_value = [0.1] * 4
     inference.upsert_reference.return_value = {"status": "ok", "dim": 4}
-    species_repo = MagicMock()
-    species_repo.get_or_raise.return_value = SimpleNamespace(key=SPECIES, scientific_name="Monstera deliciosa")
+    species_repo = FakeSpeciesRepo()
+    species_repo.add(SPECIES, "Monstera deliciosa")  # global (tenant_key="")
+    species_repo.add(FOREIGN_PRIVATE_SPECIES, "Philodendron privatum", tenant_key=FOREIGN_TENANT)
     rate_limiter = MagicMock()
     identification_engine = MagicMock()
     identification_engine.compute_image_hash.return_value = "hash"
@@ -76,7 +84,7 @@ def _build(consent_repo: FakeConsentRepo | None, *, with_engine: bool = True):
 
 
 def _assert_untouched(doubles: SimpleNamespace) -> None:
-    doubles.species_repo.get_or_raise.assert_not_called()
+    assert doubles.species_repo.lookups == []
     doubles.rate_limiter.check_and_increment.assert_not_called()
     doubles.identification_engine.compute_image_hash.assert_not_called()
     assert doubles.marker.writes == 0
@@ -186,3 +194,52 @@ def test_a_service_without_the_consent_collaborators_refuses_to_contribute(missi
         service.contribute_user_reference(SPECIES, _image(), user_key=USER, tenant_key=TENANT)
 
     _assert_untouched(doubles)
+
+
+# ── species scope — the contributor's tenant must be able to read the species ──
+
+
+def _granted_service():
+    consent_repo = FakeConsentRepo({(USER, REFERENCE_CONTRIBUTION): True})
+    return _build(consent_repo)
+
+
+@pytest.mark.usefixtures("full_mode")
+def test_another_tenants_private_species_is_not_found_and_nothing_is_contributed():
+    service, doubles = _granted_service()
+
+    with pytest.raises(NotFoundError) as caught:
+        service.contribute_user_reference(FOREIGN_PRIVATE_SPECIES, _image(), user_key=USER, tenant_key=TENANT)
+
+    assert caught.value.status_code == 404
+    # The same answer an unknown key gets — the 404 does not tell the two apart.
+    with pytest.raises(NotFoundError) as unknown:
+        service.contribute_user_reference("species_ghost", _image(), user_key=USER, tenant_key=TENANT)
+    assert (caught.value.error_code, caught.value.status_code) == (unknown.value.error_code, unknown.value.status_code)
+    doubles.rate_limiter.check_and_increment.assert_not_called()
+    assert doubles.marker.writes == 0
+    doubles.inference.embed.assert_not_called()
+    doubles.inference.upsert_reference.assert_not_called()
+
+
+@pytest.mark.usefixtures("full_mode")
+def test_the_owning_tenant_contributes_to_its_private_species():
+    service, doubles = _build(FakeConsentRepo({("user_ben", REFERENCE_CONTRIBUTION): True}))
+
+    result = service.contribute_user_reference(
+        FOREIGN_PRIVATE_SPECIES, _image(), user_key="user_ben", tenant_key=FOREIGN_TENANT
+    )
+
+    assert result["accepted"] is True
+    assert doubles.inference.upsert_reference.call_args.kwargs["scientific_name"] == "Philodendron privatum"
+
+
+@pytest.mark.usefixtures("full_mode")
+def test_a_species_granted_to_the_tenant_can_be_contributed_to():
+    service, doubles = _granted_service()
+    doubles.species_repo.grant(FOREIGN_PRIVATE_SPECIES, TENANT)
+
+    result = service.contribute_user_reference(FOREIGN_PRIVATE_SPECIES, _image(), user_key=USER, tenant_key=TENANT)
+
+    assert result["accepted"] is True
+    doubles.inference.upsert_reference.assert_called_once()

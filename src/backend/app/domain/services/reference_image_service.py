@@ -24,6 +24,7 @@ from app.common.exceptions import (
     AdapterNotAvailableError,
     ConsentRequiredError,
     ImagePixelLimitError,
+    NotFoundError,
     ValidationError,
 )
 from app.common.image_bounds import image_dimensions
@@ -39,6 +40,7 @@ from app.domain.models.reference_image import (
 )
 from app.domain.services.image_processing import strip_exif
 from app.domain.services.reference_image_license import is_acceptable
+from app.domain.services.species_visibility import readable_species
 
 logger = structlog.get_logger()
 
@@ -216,7 +218,11 @@ class ReferenceImageService:
         * SEC-003 — ``species_key`` is resolved against the master data and the
           authoritative ``scientific_name`` is taken from that record; any
           client-supplied name is ignored. An unknown species raises 404 before
-          any embedding is computed.
+          any embedding is computed. The lookup is scoped to ``tenant_key``
+          (global, own or granted — ``readable_species``, as the gallery hook
+          resolves it): another tenant's private species is the same 404, so the
+          route is neither a write into nor an existence probe of a foreign
+          catalogue.
         * SEC-002 — the per-user daily contribution quota is enforced (Redis),
           and a key derived from the SHA-256 of the normalised image and the
           contributor is used as the dedup key (``source_record_id``) so
@@ -258,7 +264,9 @@ class ReferenceImageService:
         self._require_contribution_allowed(user_key)
         # SEC-003 — resolve the species server-side; derive the scientific name
         # from the record and discard any client-supplied value.
-        species = self._species_repo.get_or_raise(species_key)
+        species = readable_species(self._species_repo, species_key, tenant_key)
+        if species is None:
+            raise NotFoundError("Species", species_key)
         scientific_name = species.scientific_name
 
         # SEC-002 — per-user daily quota. Local, self-hosted path → fail open on

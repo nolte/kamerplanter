@@ -18,6 +18,7 @@ from app.domain.services.reference_image_license import is_acceptable, normalize
 from app.domain.services.reference_image_service import ReferenceImageService
 from tests.support.fake_consent_repo import GrantAllConsentRepo
 from tests.support.fake_contribution_marker import FakeContributionMarker
+from tests.support.fake_species_repo import FakeSpeciesRepo
 
 # ── License normalisation ──────────────────────────────────────────────
 
@@ -293,10 +294,8 @@ def _make_contribution_service(*, dim: int = 384):
 
     inference.upsert_reference.side_effect = _fake_upsert
 
-    species_repo = MagicMock()
-    species_repo.get_or_raise.return_value = SimpleNamespace(
-        key="species_monstera", scientific_name="Monstera deliciosa"
-    )
+    species_repo = FakeSpeciesRepo()
+    species_repo.add("species_monstera", "Monstera deliciosa")  # global (tenant_key="")
 
     rate_limiter = MagicMock()
     engine = IdentificationEngine(species_repo=MagicMock(), identification_repo=MagicMock())
@@ -330,7 +329,7 @@ def test_contribute_user_reference_quarantines_with_provenance():
     _, kwargs = inference.upsert_reference.call_args
     assert kwargs["species_key"] == "species_monstera"
     # SEC-003 — the scientific name comes from the resolved record, not the caller.
-    species_repo.get_or_raise.assert_called_once_with("species_monstera")
+    assert species_repo.lookups == ["species_monstera"]
     assert kwargs["scientific_name"] == "Monstera deliciosa"
     # SEC-001 — written quarantined under the erasure-compatible source tag.
     assert kwargs["source"] == "user_contributed"
@@ -349,8 +348,8 @@ def test_contribute_user_reference_quarantines_with_provenance():
 
 
 def test_contribute_user_reference_unknown_species_raises_before_embedding():
-    service, inference, species_repo, _, _ = _make_contribution_service()
-    species_repo.get_or_raise.side_effect = NotFoundError("Species", "species_ghost")
+    service, inference, _, _, _ = _make_contribution_service()
+    # "species_ghost" is not in the catalogue double.
 
     with pytest.raises(NotFoundError):
         service.contribute_user_reference("species_ghost", _image(), user_key="user_anna", tenant_key="tenant_anna")
