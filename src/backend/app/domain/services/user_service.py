@@ -2,8 +2,10 @@ from datetime import UTC, datetime
 
 import structlog
 
-from app.common.exceptions import NotFoundError
+from app.common.enums import TenantRole
+from app.common.exceptions import NotFoundError, ValidationError
 from app.common.types import UserKey
+from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.user import User, UserProfile, UserProfileUpdate
@@ -17,6 +19,10 @@ logger = structlog.get_logger()
 #: (``is_active``).
 _TRUST_FIELDS = ("email_verified", "is_active")
 
+#: The technical tenant whose ``lead`` membership is the platform role (REQ-049 §2.5) —
+#: the same lookup ``app.common.auth.is_platform_admin`` makes.
+_PLATFORM_TENANT_KEY = "platform"
+
 
 class UserService:
     def __init__(
@@ -24,8 +30,12 @@ class UserService:
         user_repo: IUserRepository,
         step_up_verifier: StepUpVerifier | None = None,
         refresh_token_repo: IRefreshTokenRepository | None = None,
+        membership_repo: IMembershipRepository | None = None,
     ) -> None:
         self._user_repo = user_repo
+        # MT-045.4 (#2144) — who still holds the platform role when an admin deactivates one.
+        # ``None`` only in doubles; the production provider wires it (pinned by a unit test).
+        self._membership_repo = membership_repo
         # #2116 — a deactivation ends every session, refresh and access tokens alike, so a
         # later reactivation does not bring the old ones back. ``None`` only in doubles.
         self._refresh_token_repo = refresh_token_repo
@@ -121,6 +131,8 @@ class UserService:
         from an abandoned registration and never erases it.
         """
         current = self._user_repo.get_or_raise(user_key)
+        if data.get("is_active") is False and current.is_active:
+            self._refuse_platform_lockout(user_key, requester)
         changes_trust = any(
             data.get(field) is not None and bool(data[field]) != bool(getattr(current, field))
             for field in _TRUST_FIELDS
@@ -156,6 +168,38 @@ class UserService:
             # is what keeps a reactivation from reviving the tokens issued before (#2116).
             self._refresh_token_repo.revoke_all_for_user(user_key)
         return user
+
+    def _refuse_platform_lockout(self, user_key: UserKey, requester: User) -> None:
+        """Refuse a deactivation that leaves nobody able to administer the platform (MT-045.4, #2144).
+
+        Two cases, both before the step-up so a refusal never asks for a password:
+        the requester deactivating their own account, and deactivating an account
+        holding the platform role (an active ``lead`` membership in ``platform``)
+        when no *other* active account holds it. Either one used to need a database
+        edit to undo. A 422 like INV-1's last-manager refusal.
+
+        Not atomic: two admins deactivating each other at the same instant can both
+        pass. Each refusal still needs a step-up per act, which makes that a
+        deliberate act of two people rather than an accident.
+        """
+        if user_key == requester.key:
+            raise ValidationError("A platform administrator cannot deactivate their own account.")
+        if self._membership_repo is None:
+            return
+        leads = [
+            m.user_key
+            for m in self._membership_repo.active_memberships_of(tenant_key=_PLATFORM_TENANT_KEY)
+            if m.role == TenantRole.LEAD
+        ]
+        if user_key not in leads:
+            return
+        others = [key for key in leads if key != user_key and self._is_active_account(key)]
+        if not others:
+            raise ValidationError("The last platform administrator cannot be deactivated.")
+
+    def _is_active_account(self, user_key: UserKey) -> bool:
+        user = self._user_repo.get_by_key(user_key)
+        return bool(user and user.is_active)
 
     def list_all_users(self, *, offset: int | None = None, limit: int | None = None) -> list[User]:
         """Every user, newest first — the platform-admin cross-tenant listing (#1019).
