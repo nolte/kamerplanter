@@ -529,10 +529,11 @@ def get_erasure(
 )
 def list_tenant_members(
     tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
+    pagination: PaginationParams = Depends(get_pagination),
     _user: User = Depends(require_platform_admin),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """List all members of a tenant. Platform admin only.
+    """List a tenant's members, oldest membership first (paginated, MT-035). Platform admin only.
 
     Routes through ``TenantService.get_tenant`` (existence, 404) and
     ``list_members`` (#1019) — the member/user join now lives in the membership
@@ -549,7 +550,7 @@ def list_tenant_members(
             is_active=member.is_active,
             joined_at=member.joined_at,
         )
-        for member in tenant_service.list_members(tenant_key)
+        for member in tenant_service.list_members(tenant_key, offset=pagination.offset, limit=pagination.limit)
     ]
 
 

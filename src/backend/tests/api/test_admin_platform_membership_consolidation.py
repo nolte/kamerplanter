@@ -142,7 +142,9 @@ class InMemoryMembershipRepo:
         del self._store[key]
         return True
 
-    def list_by_tenant(self, tenant_key: str) -> list[MemberInfo]:
+    def list_by_tenant(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[MemberInfo]:
         infos = []
         for m in self._store.values():
             if m.tenant_key != tenant_key:
@@ -160,6 +162,8 @@ class InMemoryMembershipRepo:
                     joined_at=m.joined_at,
                 )
             )
+        if offset is not None and limit is not None:
+            return infos[offset : offset + limit]
         return infos
 
     def list_by_user_with_tenant(self, user_key: str) -> list[UserMembershipInfo]:

@@ -198,12 +198,35 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
                     raise
         raise WriteConflictError(col.TENANT_ERASURE_RECORDS)
 
-    def list_by_tenant(self, tenant_key: str) -> list[MemberInfo]:
-        query = """
+    def list_by_tenant(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[MemberInfo]:
+        """A tenant's members joined to their user, oldest membership first.
+
+        ``offset``/``limit`` read one window inside the query (MT-035, #2131); both
+        ``None`` reads every member. The order is the ``joined_at`` instant with a
+        ``_key`` tie-break — a total order, so a pager never sees a member twice or
+        never. The ``LIMIT`` follows the user lookup only so the ``SORT`` clause stays
+        literal for the timestamp guard; the optimizer moves the lookup below it
+        (``move-calculations-down``), so only the window's users are read.
+        """
+        bind_vars: dict[str, Any] = {
+            "@memberships": col.MEMBERSHIPS,
+            "tenant_key": tenant_key,
+            "users_col": col.USERS,
+        }
+        window = ""
+        if offset is not None and limit is not None:
+            window = "LIMIT @offset, @limit"
+            bind_vars["offset"] = offset
+            bind_vars["limit"] = limit
+        query = f"""
         FOR m IN @@memberships
           FILTER m.tenant_key == @tenant_key
+          SORT DATE_TIMESTAMP(m.joined_at) ASC, m._key ASC
           LET u = DOCUMENT(CONCAT(@users_col, "/", m.user_key))
-          RETURN {
+          {window}
+          RETURN {{
             key: m._key,
             user_key: m.user_key,
             display_name: u.display_name,
@@ -211,16 +234,9 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
             role: m.role,
             is_active: m.is_active,
             joined_at: m.joined_at
-          }
+          }}
         """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@memberships": col.MEMBERSHIPS,
-                "tenant_key": tenant_key,
-                "users_col": col.USERS,
-            },
-        )
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [MemberInfo(**doc) for doc in cursor]
 
     def list_by_user(self, user_key: str) -> list[Membership]:

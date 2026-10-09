@@ -48,7 +48,10 @@ class IMembershipRepository(ABC):
         """
 
     @abstractmethod
-    def list_by_tenant(self, tenant_key: str) -> list[MemberInfo]: ...
+    def list_by_tenant(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[MemberInfo]:
+        """A tenant's members, oldest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
 
     @abstractmethod
     def list_by_user(self, user_key: str) -> list[Membership]: ...

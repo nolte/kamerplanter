@@ -445,7 +445,10 @@ class PropagationService:
 
     # ── Statistics ──────────────────────────────────────────────────────────────
 
-    def stats(self, tenant_key: str, group_by: str = "method") -> list[dict[str, Any]]:
+    def stats(
+        self, tenant_key: str, group_by: str = "method", *, offset: int | None = None, limit: int | None = None
+    ) -> list[dict[str, Any]]:
+        """Success-rate rows per group; ``offset``/``limit`` read one window ordered by the group key (MT-035)."""
         if group_by not in ("method", "species", "protocol", "cultivar"):
             raise ValidationError(f"Unsupported stats grouping: {group_by}")
-        return self._require_prop().stats(tenant_key, group_by)
+        return self._require_prop().stats(tenant_key, group_by, offset=offset, limit=limit)

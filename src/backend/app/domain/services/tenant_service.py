@@ -2182,8 +2182,12 @@ class TenantService:
 
     # --- Member Management ---
 
-    def list_members(self, tenant_key: str) -> list[MemberInfo]:
-        return self._membership_repo.list_by_tenant(tenant_key)
+    def list_members(self, tenant_key: str, *, offset: int | None = None, limit: int | None = None) -> list[MemberInfo]:
+        """A tenant's members, oldest first; ``offset``/``limit`` read one window (MT-035, #2131).
+
+        Both ``None`` reads every member, as the platform-admin member counts need.
+        """
+        return self._membership_repo.list_by_tenant(tenant_key, offset=offset, limit=limit)
 
     # --- Platform-admin membership writes (#1019) ---
     #
@@ -3419,8 +3423,11 @@ class TenantService:
 
     # --- Location Assignments ---
 
-    def list_assignments(self, tenant_key: str) -> list[LocationAssignment]:
-        return self._assignment_repo.list_by_tenant(tenant_key)
+    def list_assignments(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[LocationAssignment]:
+        """A tenant's location assignments, oldest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self._assignment_repo.list_by_tenant(tenant_key, offset=offset, limit=limit)
 
     def create_assignment(
         self,

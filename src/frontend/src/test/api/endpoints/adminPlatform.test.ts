@@ -107,7 +107,9 @@ describe('adminPlatform endpoints — tenant members', () => {
   it('fetchTenantMembers gets members for tenant', async () => {
     client.get.mockResolvedValue({ data: [] });
     await admin.fetchTenantMembers('t1');
-    expect(client.get).toHaveBeenCalledWith('/admin/platform/tenants/t1/members');
+    expect(client.get).toHaveBeenCalledWith('/admin/platform/tenants/t1/members', {
+      params: { offset: 0, limit: 200 },
+    });
   });
 
   it("addTenantMember posts member to tenant with the admin's step-up (#2106)", async () => {
