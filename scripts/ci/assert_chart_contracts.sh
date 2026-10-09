@@ -84,6 +84,17 @@ expect() {
   fi
 }
 
+# Same as expect, for answers that are a SET of names whose order depends on how the
+# renderer sequences the documents (helm lists a kind's manifests in render order, which
+# is not part of the chart's contract). The rendered names are sorted before comparing.
+expect_set() {
+  local name="$1" description="$2" expression="$3" expected="$4" got
+  got="$(yq e "[.[] | ${expression}] | sort | to_json(0)" "${work}/${name}.yaml" 2>&1 || true)"
+  if [[ "${got}" != "${expected}" ]]; then
+    fail "${name}: ${description} — expected ${expected}, rendered ${got}"
+  fi
+}
+
 # Selectors used below.
 deploy() { printf 'select(.kind == "Deployment" and .metadata.name == "%s-%s")' "${RELEASE}" "$1"; }
 main_of() { printf '%s | .spec.template.spec.containers[] | select(.name == "main")' "$(deploy "$1")"; }
@@ -362,7 +373,7 @@ for controller in backend celery-worker; do
   expect storage-rwx-two-backends "${controller} is not pinned to a node on a ReadWriteMany claim" \
     "$(attach_term "${controller}")" '["kubernetes.io/os"]'
 done
-expect storage-default "no other pod requires the attachment-volume label" \
+expect_set storage-default "no other pod requires the attachment-volume label" \
   "select(.kind == \"Deployment\" or .kind == \"StatefulSet\") | select(.spec.template.spec.affinity.podAffinity) | .metadata.name" \
   '["kamerplanter-backend","kamerplanter-celery-worker"]'
 
