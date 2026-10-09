@@ -1,7 +1,7 @@
 # Privacy & GDPR
 
 !!! note "Partially available"
-    The GDPR data subject rights are fully implemented and production-ready as an **API self-service under `/api/v1/privacy/`**. The **graphical interface** is now available as well — reachable from the user menu (click your profile picture or initials) > **Privacy**, in Full mode only (not in anonymous [Light mode](light-mode.md)). It covers the main flows: requesting a data export, deleting your account, changing your email address (in account settings), creating a processing restriction, and viewing consents. A few sub-steps (e.g. revoking consent with a click) are currently only possible via the API — flagged at the relevant spot on this page (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)). <!-- REQ-025 -->
+    The GDPR data subject rights are fully implemented and production-ready as an **API self-service under `/api/v1/privacy/`**. The **graphical interface** is now available as well — reachable from the user menu (click your profile picture or initials) > **Privacy**, in Full mode only (not in anonymous [Light mode](light-mode.md)). It covers the main flows: requesting a data export, deleting your account, changing your email address (in account settings), creating a processing restriction, and viewing and revoking consents. A few sub-steps (e.g. lifting a restriction again) are currently only possible via the API — flagged at the relevant spot on this page (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)). <!-- REQ-025 -->
 
 Kamerplanter is built on the principle of **Privacy by Design**. You have full control over your personal data: you can export, correct or have it deleted at any time. All data subject rights under GDPR Art. 15–21 are available as self-service features.
 
@@ -169,7 +169,8 @@ No optional consent is needed for the core functions of the system. However, som
 | **Photo identification** (Pl@ntNet) | Optional | Yes |
 | **Cloud-based pest detection** (Kindwise plant.health) | Optional | Yes |
 | **AI disease diagnosis** (image recognition for diseases/deficiencies) | Optional | Yes |
-| **Photo contribution to plant recognition** (own reference photos) | Optional | Yes |
+| **Photo contribution to plant recognition** (own reference photos, `reference_contribution`) | Optional | Yes |
+| **AI knowledge question to the knowledge base** (`ai_knowledge_question`) | Optional | Yes |
 | **AI access to your plant data** (`ai_tenant_data_access`) | Optional | Yes |
 | **AI processing via cloud provider** (`ai_cloud_processing`) | Optional | Yes |
 | **Release diary entries for AI analysis** (`diary_ai_analysis`) | Optional | Yes |
@@ -185,8 +186,10 @@ A password check against known breaches and a consent for external master-data e
 
 The **Consents** tab in the privacy area shows an overview of all processing purposes with your current status (**Granted** / **Not granted**) and, for required consents, a **Required** label.
 
-!!! info "API only: Granting and revoking consent with a click"
-    The tab is currently **read-only** — there is no toggle in the interface yet to directly grant or revoke a consent. Until then, this only works via the API: `POST /api/v1/privacy/consents` grants a consent, `DELETE /api/v1/privacy/consents/{purpose}` revokes it, taking effect immediately with a timestamp. `GET /api/v1/privacy/consents` returns the same data the tab displays (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
+Every granted optional consent has a **Revoke** button. One click revokes it immediately; the status changes to **Not granted**. Required consents have no such button.
+
+!!! info "Granting happens where you use the feature"
+    You don't grant a consent in the tab itself. That happens at the spot where the feature needs it: with the first photo of [plant recognition](plant-identification.md), with the first question on the [AI Assistant](ai-assistant.md) page, or with the **Use as recognition reference** switch when [creating a plant](plant-identification.md#assigning-the-photo-to-the-new-plant). For consents without such a spot, the API remains: `POST /api/v1/privacy/consents` grants, `DELETE /api/v1/privacy/consents/{purpose}` revokes with a timestamp. `GET /api/v1/privacy/consents` returns the same data the tab displays (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
 !!! warning "Effects of revoking consent"
     If you revoke consent for external master data enrichment, no new data will be fetched from GBIF or Perenual. Existing enriched data is retained.
@@ -196,7 +199,7 @@ The **Consents** tab in the privacy area shows an overview of all processing pur
 [Plant recognition by photo](plant-identification.md) sends your image to Pl@ntNet (CIRAD/INRIA, France/EU) for analysis. Consent is required because the photo briefly leaves the Kamerplanter instance.
 
 !!! note "Consent behaviour per deployment mode"
-    **Full mode:** Consent is stored as a consent record in the backend (see table below) and persists across browsers and devices. The Consents tab in the privacy interface shows the current status; revoking it currently only works via the API: `DELETE /api/v1/privacy/consents/plant_identification` (see [Revoking Consent](#revoking-consent)).
+    **Full mode:** Consent is stored as a consent record in the backend (see table below) and persists across browsers and devices. The Consents tab in the privacy interface shows the current status; you revoke it there with **Revoke** (see [Revoking Consent](#revoking-consent)).
 
     **Light mode:** The consent subsystem is not available in [Light mode](light-mode.md). Consent is instead obtained and stored **client-side in the browser** (localStorage). The consent dialog appears on the first upload in the respective browser session. The same transparency information (photo is sent to Pl@ntNet/France, EXIF data is removed, no permanent storage) is shown in both modes.
 
@@ -222,9 +225,22 @@ All EXIF metadata is removed before transmission to Pl@ntNet (GPS coordinates, c
 
 [Pest detection by photo](pest-detection.md) sends your image — depending on the operator's configuration — either to a self-hosted recognizer (no consent required) or to the Kindwise plant.health cloud service. This consent is only required when the cloud adapter is active. As with plant identification, the photo is stripped of EXIF metadata before sending and is not stored permanently.
 
+### Photo Contribution to Plant Recognition (reference_contribution)
+
+The **Use as recognition reference** switch when [creating a plant](plant-identification.md#assigning-the-photo-to-the-new-plant) is this consent: if you switch it on and save, Kamerplanter grants it before the photo is contributed. After review by the administrators, a numerical fingerprint (embedding) of the photo goes into the installation's shared recognition index; the photo itself is not stored and does not leave the installation. The consent also covers later reference contributions, such as approved pest photos, until you revoke it. If it cannot be saved, Kamerplanter does not create the plant and shows an error. In Light mode the switch does not appear. <!-- #2174 -->
+
+### AI Knowledge Question to the Knowledge Base (ai_knowledge_question)
+
+When you ask a freely formulated knowledge question in the [AI Assistant](ai-assistant.md) inside your garden, your text goes — attributed to your account — to the knowledge base and the language model connected to it. This consent is required for that. The text you type yourself is transmitted. Plant values (species, phase, substrate, EC/pH) are only included if you add them to the question yourself — then the consent "AI access to your plant data" (below) is required as well. Light Mode has no consents; the knowledge question works there without one.
+
+This consent is a purpose of its own, not an extension of `ai_tenant_data_access`: granting "AI access to your plant data" earlier did not agree to the knowledge question.
+
+!!! note "Revocation"
+    After revoking, Kamerplanter refuses your next knowledge question before it leaves the instance. Tip cards, "why?" explanations and chat do not depend on this consent.
+
 ### AI Access to Your Plant Data (ai_tenant_data_access)
 
-The [AI Assistant](ai-assistant.md) answers plain knowledge questions without this consent. As soon as an answer is meant to use your specific plant context — for chat, future tip cards, the tip of the day, and "why?" explanations — this consent is required.
+As soon as an answer is meant to use your specific plant context — for chat, future tip cards, the tip of the day, "why?" explanations, and a knowledge question to which you add plant values yourself — this consent is required. For a knowledge question without plant values, `ai_knowledge_question` (above) is enough.
 
 Only master values are transmitted: scientific plant name, current phase, substrate, EC/pH readings, and aggregated counters (e.g. "3 overdue tasks"). Your name, e-mail address, and free-text notes from your plant diary are **never** transmitted.
 

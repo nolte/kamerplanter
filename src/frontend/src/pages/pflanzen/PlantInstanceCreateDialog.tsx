@@ -15,6 +15,9 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import Alert from '@mui/material/Alert';
+import Link from '@mui/material/Link';
+import { Link as RouterLink } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -31,6 +34,8 @@ import FavoriteToggle from '@/components/common/FavoriteToggle';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useSowingFavorites } from '@/hooks/useSowingFavorites';
+import { useServerConsentGrant } from '@/hooks/useServerConsentGrant';
+import { isLightMode } from '@/config/mode';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as speciesApi from '@/api/endpoints/species';
 import { uploadPlantPhoto } from '@/api/endpoints/plantPhotos';
@@ -40,6 +45,9 @@ import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import * as sitesApi from '@/api/endpoints/sites';
 import type { Cultivar, SubstrateType, Site, Slot } from '@/api/types';
 import { generateInstanceId } from '@/utils/idGenerator';
+
+/** REQ-025 / #2174 — the consent the "use as reference" switch grants. */
+const REFERENCE_CONSENT_PURPOSE = 'reference_contribution';
 
 const schema = z.object({
   instance_id: z.string().min(1),
@@ -96,6 +104,9 @@ interface Props {
    * Whether the self-hosted DINOv2 recognition path is active. Gates the
    * "use as recognition reference" toggle; the external Pl@ntNet path has no
    * local reference index, so the toggle is hidden when this is false.
+   *
+   * The Light mode hides the toggle regardless (the route answers 409 there);
+   * that is decided here, not by the callers, so no caller can forget it.
    */
   allowReferenceContribution?: boolean;
 }
@@ -135,7 +146,14 @@ export default function PlantInstanceCreateDialog({
   // ── Identification photo carry-over (issue #447) ─────────────────────
   const [saveAsGalleryPhoto, setSaveAsGalleryPhoto] = useState(true);
   const [useAsReference, setUseAsReference] = useState(false);
+  const [referenceConsentError, setReferenceConsentError] = useState<string | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  // The switch IS the consent (operator decision 2026-10-09): switching it on and
+  // saving grants `reference_contribution` on the server, before the photo is
+  // contributed. Hidden in the Light mode, which refuses the contribution (409)
+  // and has no server-side consent records.
+  const referenceToggleAvailable = allowReferenceContribution && !isLightMode;
+  const referenceConsent = useServerConsentGrant(REFERENCE_CONSENT_PURPOSE);
 
   // Build (and revoke) a preview URL for the carried-over photo. The File is
   // owned by the caller; we only manage the object URL created here. This is a
@@ -159,8 +177,10 @@ export default function PlantInstanceCreateDialog({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSaveAsGalleryPhoto(true);
       setUseAsReference(false);
+      setReferenceConsentError(null);
+      referenceConsent.reset();
     }
-  }, [open]);
+  }, [open, referenceConsent]);
 
   const { control, handleSubmit, reset, setValue, getValues } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -372,6 +392,23 @@ export default function PlantInstanceCreateDialog({
   }, [locationKey, setValue]);
 
   const onSubmit = async (data: FormData) => {
+    const contributeReference = !!identificationPhoto && referenceToggleAvailable && useAsReference;
+    if (contributeReference) {
+      // Granted BEFORE anything is created: a failed grant stops the whole save
+      // with a visible error instead of creating the plant and silently skipping
+      // the contribution. The user can retry or switch the reference off.
+      setSaving(true);
+      setReferenceConsentError(null);
+      try {
+        await referenceConsent.ensureGranted();
+      } catch {
+        const message = t('pages.plantInstances.identificationPhoto.referenceConsentFailed');
+        setReferenceConsentError(message);
+        notification.error(message);
+        setSaving(false);
+        return;
+      }
+    }
     try {
       setSaving(true);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -410,7 +447,7 @@ export default function PlantInstanceCreateDialog({
           notification.warning(t('pages.plantInstances.identificationPhoto.uploadFailed'));
         }
       }
-      if (identificationPhoto && allowReferenceContribution && useAsReference) {
+      if (identificationPhoto && contributeReference) {
         try {
           const species = speciesCatalogue.items.find((s) => s.key === data.species_key);
           await contributeReferenceImage(
@@ -556,15 +593,19 @@ export default function PlantInstanceCreateDialog({
                     {t('pages.plantInstances.identificationPhoto.saveToGalleryHelper')}
                   </Typography>
 
-                  {/* DINOv2-only: reuse as a few-shot recognition reference. */}
-                  {allowReferenceContribution && (
+                  {/* DINOv2-only, Full mode only: reuse as a few-shot recognition
+                      reference. Switching it on is the `reference_contribution` consent. */}
+                  {referenceToggleAvailable && (
                     <>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <FormControlLabel
                           control={
                             <Switch
                               checked={useAsReference}
-                              onChange={(e) => setUseAsReference(e.target.checked)}
+                              onChange={(e) => {
+                                setUseAsReference(e.target.checked);
+                                setReferenceConsentError(null);
+                              }}
                               slotProps={{
                                 input: {
                                   'aria-label': t(
@@ -607,6 +648,30 @@ export default function PlantInstanceCreateDialog({
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                         {t('pages.plantInstances.identificationPhoto.useAsReferenceHelper')}
                       </Typography>
+                      {useAsReference && (
+                        <Alert
+                          severity="info"
+                          sx={{ mt: 1 }}
+                          data-testid="reference-consent-notice"
+                        >
+                          {t('pages.plantInstances.identificationPhoto.referenceConsentNotice')}{' '}
+                          {t('pages.plantInstances.identificationPhoto.referenceConsentRevoke')}{' '}
+                          <Link component={RouterLink} to="/privacy">
+                            {t(
+                              'pages.plantInstances.identificationPhoto.referenceConsentPrivacyLink',
+                            )}
+                          </Link>
+                        </Alert>
+                      )}
+                      {referenceConsentError && (
+                        <Alert
+                          severity="error"
+                          sx={{ mt: 1 }}
+                          data-testid="reference-consent-error"
+                        >
+                          {referenceConsentError}
+                        </Alert>
+                      )}
                     </>
                   )}
                 </Box>

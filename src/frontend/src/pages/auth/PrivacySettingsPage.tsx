@@ -19,6 +19,7 @@ import Stack from '@mui/material/Stack';
 import PageTitle from '@/components/layout/PageTitle';
 import client from '@/api/client';
 import { parseApiError } from '@/api/errors';
+import { revokeConsent } from '@/api/endpoints/privacy';
 import type { AccountErasureRequest } from '@/api/types';
 import ErasurePreviewNotice from '@/components/privacy/ErasurePreviewNotice';
 import BrowserConsentSettings from '@/components/privacy/BrowserConsentSettings';
@@ -91,6 +92,8 @@ export default function PrivacySettingsPage() {
   const [consents, setConsents] = useState<ConsentItem[]>([]);
   const [consentsLoading, setConsentsLoading] = useState(false);
   const [consentsError, setConsentsError] = useState('');
+  // The purpose whose revocation is in flight (one at a time).
+  const [revokingPurpose, setRevokingPurpose] = useState<string | null>(null);
 
   // ── Export tab state ──────────────────────────────────────────────
   const [exportRequest, setExportRequest] = useState<ExportItem | null>(null);
@@ -138,6 +141,22 @@ export default function PrivacySettingsPage() {
       loadConsents();
     }
   }, [tabIndex, loadConsents]);
+
+  // REQ-025 Art. 7(3) — withdrawing must be as easy as granting. Every optional
+  // purpose the backend lists gets the action, so a consent granted in place (the
+  // KI page's question, the "use as reference" switch) is revoked here.
+  const handleRevokeConsent = async (purpose: string) => {
+    setRevokingPurpose(purpose);
+    setConsentsError('');
+    try {
+      const updated = await revokeConsent(purpose);
+      setConsents((prev) => prev.map((c) => (c.purpose === purpose ? { ...c, ...updated } : c)));
+    } catch {
+      setConsentsError(t('pages.privacy.consentRevokeFailed'));
+    } finally {
+      setRevokingPurpose(null);
+    }
+  };
 
   const handleRequestExport = async () => {
     setExportPending(true);
@@ -306,7 +325,34 @@ export default function PrivacySettingsPage() {
                           )}
                         </Box>
                       }
-                      secondary={c.description}
+                      secondary={
+                        <>
+                          {c.description}
+                          {c.granted && !c.required && (
+                            <Box component="span" sx={{ display: 'block', mt: 0.5 }}>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="inherit"
+                                onClick={() => void handleRevokeConsent(c.purpose)}
+                                disabled={revokingPurpose !== null}
+                                aria-label={t('pages.privacy.consentRevokeAria', {
+                                  label: c.label || c.purpose,
+                                })}
+                                startIcon={
+                                  revokingPurpose === c.purpose ? (
+                                    <CircularProgress size={14} />
+                                  ) : undefined
+                                }
+                                sx={{ minHeight: 44 }}
+                                data-testid={`consent-revoke-${c.purpose}`}
+                              >
+                                {t('pages.privacy.consentRevoke')}
+                              </Button>
+                            </Box>
+                          )}
+                        </>
+                      }
                     />
                   </ListItem>
                 ))}

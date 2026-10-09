@@ -6153,6 +6153,45 @@ export interface AiResponse {
   generated_at?: string | null;
 }
 
+/**
+ * Request of `POST /t/{slug}/ai/knowledge/ask` (#2175) — the Full-mode
+ * knowledge question. `context` would additionally need the consent
+ * `ai_tenant_data_access`; the KI page sends none.
+ */
+export interface KnowledgeAskRequest {
+  question: string;
+  top_k?: number;
+  doc_language?: 'de' | 'en' | 'all';
+  prompt_language?: 'de' | 'en';
+  context?: {
+    species?: string;
+    phase?: string;
+    substrate?: string;
+    ec?: number;
+    ph?: number;
+  };
+}
+
+/** One retrieved knowledge chunk of a {@link KnowledgeAskResponse}. */
+export interface KnowledgeChunk {
+  source_key: string;
+  source_type: string;
+  title: string;
+  content: string;
+  score: number;
+  metadata: Record<string, unknown>;
+  language: string;
+}
+
+/** Response of `POST /t/{slug}/ai/knowledge/ask`. */
+export interface KnowledgeAskResponse {
+  answer: string;
+  question_type: string;
+  model: string;
+  usage: Record<string, number>;
+  sources: KnowledgeChunk[];
+}
+
 /** A single tip card. */
 export interface AiTipCard {
   key?: string | null;

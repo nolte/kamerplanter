@@ -1,7 +1,7 @@
 # Datenschutz & DSGVO
 
 !!! note "Teilweise verfügbar"
-    Die DSGVO-Betroffenenrechte sind als **API-Self-Service unter `/api/v1/privacy/`** vollständig implementiert und produktiv nutzbar. Die **grafische Oberfläche** ist jetzt ebenfalls verfügbar — erreichbar über das Benutzermenü (Klick auf dein Profilbild oder deine Initialen) > **Datenschutz**, nur im Voll-Modus (nicht im anonymen [Light-Modus](light-mode.md)). Sie deckt die wichtigsten Klickstrecken ab: Datenexport anfordern, Konto löschen, E-Mail-Adresse ändern (in den Kontoeinstellungen), Verarbeitungseinschränkung anlegen, Einwilligungen einsehen. Einzelne Teilschritte (z. B. Einwilligung per Klick widerrufen) sind aktuell nur über die API möglich — an der jeweiligen Stelle dieser Seite markiert (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)). <!-- REQ-025 -->
+    Die DSGVO-Betroffenenrechte sind als **API-Self-Service unter `/api/v1/privacy/`** vollständig implementiert und produktiv nutzbar. Die **grafische Oberfläche** ist jetzt ebenfalls verfügbar — erreichbar über das Benutzermenü (Klick auf dein Profilbild oder deine Initialen) > **Datenschutz**, nur im Voll-Modus (nicht im anonymen [Light-Modus](light-mode.md)). Sie deckt die wichtigsten Klickstrecken ab: Datenexport anfordern, Konto löschen, E-Mail-Adresse ändern (in den Kontoeinstellungen), Verarbeitungseinschränkung anlegen, Einwilligungen einsehen und widerrufen. Einzelne Teilschritte (z. B. eine Einschränkung wieder aufheben) sind aktuell nur über die API möglich — an der jeweiligen Stelle dieser Seite markiert (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)). <!-- REQ-025 -->
 
 Kamerplanter ist nach dem Prinzip **Datenschutz durch Technikgestaltung** (Privacy by Design) entwickelt. Du hast die volle Kontrolle über deine persönlichen Daten: Du kannst sie jederzeit exportieren, berichtigen oder löschen lassen. Alle Betroffenenrechte nach DSGVO Art. 15–21 sind als Self-Service-Funktionen erreichbar.
 
@@ -169,7 +169,8 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 | **Foto-Identifikation** (Pl@ntNet) | Optional | Ja |
 | **Cloud-basierte Schädlingserkennung** (Kindwise plant.health) | Optional | Ja |
 | **KI-Krankheitsdiagnose** (Bilderkennung für Krankheiten/Mängel) | Optional | Ja |
-| **Foto-Beitrag zur Pflanzenerkennung** (eigene Referenzfotos) | Optional | Ja |
+| **Foto-Beitrag zur Pflanzenerkennung** (eigene Referenzfotos, `reference_contribution`) | Optional | Ja |
+| **KI-Wissensfrage an die Wissensbasis** (`ai_knowledge_question`) | Optional | Ja |
 | **KI-Zugriff auf deine Pflanzendaten** (`ai_tenant_data_access`) | Optional | Ja |
 | **KI-Verarbeitung über Cloud-Provider** (`ai_cloud_processing`) | Optional | Ja |
 | **Tagebuch-Einträge zur KI-Analyse freigeben** (`diary_ai_analysis`) | Optional | Ja |
@@ -185,8 +186,10 @@ Eine Passwort-Prüfung gegen bekannte Datenlecks und eine Einwilligung für die 
 
 Der Tab **Einwilligungen** im Datenschutz-Bereich zeigt eine Übersicht aller Verarbeitungszwecke mit deinem aktuellen Status (**Erteilt** / **Nicht erteilt**) und, bei Pflicht-Einwilligungen, der Kennzeichnung **Pflicht**.
 
-!!! info "Nur über API: Erteilen und Widerrufen per Klick"
-    Der Tab ist aktuell **nur lesend** — einen Schalter zum direkten Erteilen oder Widerrufen einer Einwilligung gibt es in der Oberfläche noch nicht. Bis dahin funktioniert das nur über die API: `POST /api/v1/privacy/consents` erteilt eine Einwilligung, `DELETE /api/v1/privacy/consents/{purpose}` widerruft sie mit Zeitstempel, ab sofort wirksam. `GET /api/v1/privacy/consents` liefert dieselben Daten, die auch der Tab anzeigt (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
+Bei jeder erteilten optionalen Einwilligung steht die Schaltfläche **Widerrufen**. Ein Klick widerruft sie sofort; der Status wechselt auf **Nicht erteilt**. Pflicht-Einwilligungen haben keine solche Schaltfläche.
+
+!!! info "Erteilen geschieht dort, wo du die Funktion nutzt"
+    Im Tab selbst erteilst du keine Einwilligung. Das passiert an der Stelle, an der die Funktion sie braucht: beim ersten Foto der [Pflanzenerkennung](plant-identification.md), bei der ersten Frage auf der Seite [KI-Assistent](ai-assistant.md) oder mit dem Schalter **Als Referenzbild für die Erkennung nutzen** beim [Anlegen einer Pflanze](plant-identification.md#foto-der-neuen-pflanze-zuordnen). Für Einwilligungen ohne eine solche Stelle bleibt die API: `POST /api/v1/privacy/consents` erteilt, `DELETE /api/v1/privacy/consents/{purpose}` widerruft mit Zeitstempel. `GET /api/v1/privacy/consents` liefert dieselben Daten, die auch der Tab anzeigt (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
 
 !!! warning "Auswirkungen eines Widerrufs"
     Wenn du die Einwilligung für externe Stammdatenanreicherung widerrufst, werden keine neuen Daten mehr von GBIF oder Perenual abgerufen. Bestehende angereicherte Daten bleiben erhalten.
@@ -196,7 +199,7 @@ Der Tab **Einwilligungen** im Datenschutz-Bereich zeigt eine Übersicht aller Ve
 Die [Pflanzenerkennung per Foto](plant-identification.md) sendet dein Bild zur Analyse an Pl@ntNet (CIRAD/INRIA, Frankreich/EU). Die Einwilligung ist erforderlich, weil das Foto die Kamerplanter-Instanz kurzzeitig verlässt.
 
 !!! note "Einwilligungs-Verhalten je Modus"
-    **Full-Modus:** Die Einwilligung wird als Consent-Record im Backend gespeichert (Tabelle weiter unten) und bleibt über Browser und Geräte hinweg erhalten. Der Einwilligungen-Tab der Datenschutz-Oberfläche zeigt den aktuellen Status an; widerrufen lässt sie sich aktuell nur über die API: `DELETE /api/v1/privacy/consents/plant_identification` (siehe [Einwilligung widerrufen](#einwilligung-widerrufen)).
+    **Full-Modus:** Die Einwilligung wird als Consent-Record im Backend gespeichert (Tabelle weiter unten) und bleibt über Browser und Geräte hinweg erhalten. Der Einwilligungen-Tab der Datenschutz-Oberfläche zeigt den aktuellen Status an; dort widerrufst du sie mit **Widerrufen** (siehe [Einwilligung widerrufen](#einwilligung-widerrufen)).
 
     **Light-Modus:** Das Consent-Subsystem steht im [Light-Modus](light-mode.md) nicht zur Verfügung. Die Einwilligung wird stattdessen **clientseitig im Browser** (localStorage) eingeholt und gespeichert. Der Einwilligungs-Dialog erscheint beim ersten Upload in der jeweiligen Browser-Sitzung. Dieselben Transparenzinformationen (Foto geht an Pl@ntNet/Frankreich, EXIF-Daten werden entfernt, keine dauerhafte Speicherung) werden in beiden Modi angezeigt.
 
@@ -222,9 +225,22 @@ Vor der Übertragung an Pl@ntNet werden alle EXIF-Metadaten entfernt (GPS-Koordi
 
 Die [Schädlingserkennung per Foto](pest-detection.md) sendet dein Bild — je nach Betreiber-Konfiguration — entweder an eine self-hosted Erkennung (keine Einwilligung nötig) oder an den Cloud-Dienst Kindwise plant.health. Diese Einwilligung ist nur erforderlich, wenn der Cloud-Adapter aktiv ist. Wie bei der Pflanzenidentifikation wird das Foto vor dem Versand von EXIF-Metadaten bereinigt und nicht dauerhaft gespeichert.
 
+### Foto-Beitrag zur Pflanzenerkennung (reference_contribution)
+
+Der Schalter **Als Referenzbild für die Erkennung nutzen** beim [Anlegen einer Pflanze](plant-identification.md#foto-der-neuen-pflanze-zuordnen) ist diese Einwilligung: Schaltest du ihn ein und speicherst, erteilt Kamerplanter sie, bevor das Foto beigetragen wird. Ein Zahlenabdruck (Embedding) des Fotos kommt nach Prüfung durch die Administration in den gemeinsamen Erkennungsindex der Installation; das Foto selbst wird nicht gespeichert und verlässt die Installation nicht. Die Einwilligung gilt auch für spätere Referenzbeiträge, etwa freigegebene Schädlingsfotos, bis du sie widerrufst. Lässt sie sich nicht speichern, legt Kamerplanter die Pflanze nicht an und zeigt einen Fehler. Im Light-Modus erscheint der Schalter nicht. <!-- #2174 -->
+
+### KI-Wissensfrage an die Wissensbasis (ai_knowledge_question)
+
+Stellst du im [KI-Assistenten](ai-assistant.md) in deinem Garten eine frei formulierte Wissensfrage, geht dein Text — deinem Konto zugeordnet — an die Wissensbasis und das dort angebundene Sprachmodell. Dafür ist diese Einwilligung nötig. Übermittelt wird der Text, den du selbst eingibst. Pflanzenwerte (Art, Phase, Substrat, EC/pH) gehen nur mit, wenn du sie selbst zur Frage angibst — dann ist zusätzlich die Einwilligung „KI-Zugriff auf deine Pflanzendaten“ (unten) nötig. Im Light-Modus gibt es keine Einwilligungen; die Wissensfrage funktioniert dort ohne.
+
+Diese Einwilligung ist ein eigener Zweck und keine Erweiterung von `ai_tenant_data_access`: Wer früher „KI-Zugriff auf deine Pflanzendaten“ erteilt hat, hat damit nicht der Wissensfrage zugestimmt.
+
+!!! note "Widerruf"
+    Nach einem Widerruf lehnt Kamerplanter deine nächste Wissensfrage ab, bevor sie die Instanz verlässt. Tipp-Karten, „Warum?"-Erklärungen und der Chat hängen nicht an dieser Einwilligung.
+
 ### KI-Zugriff auf deine Pflanzendaten (ai_tenant_data_access)
 
-Der [KI-Assistent](ai-assistant.md) beantwortet reine Wissensfragen ohne diese Einwilligung. Sobald eine Antwort deinen konkreten Pflanzenkontext nutzen soll — beim Chat, bei künftigen Tipp-Karten, dem Tipp des Tages und den „Warum?"-Erklärungen — ist diese Einwilligung erforderlich.
+Sobald eine Antwort deinen konkreten Pflanzenkontext nutzen soll — beim Chat, bei künftigen Tipp-Karten, dem Tipp des Tages, den „Warum?"-Erklärungen und bei einer Wissensfrage, zu der du selbst Pflanzenwerte angibst — ist diese Einwilligung erforderlich. Für die Wissensfrage ohne Pflanzenwerte reicht `ai_knowledge_question` (oben).
 
 Übermittelt werden ausschließlich Stammwerte: wissenschaftlicher Pflanzenname, aktuelle Phase, Substrat, EC-/pH-Messwerte sowie aggregierte Kennzahlen (z. B. „3 überfällige Aufgaben"). Dein Name, deine E-Mail-Adresse und Freitext aus deinem Pflanztagebuch werden **nie** übermittelt.
 

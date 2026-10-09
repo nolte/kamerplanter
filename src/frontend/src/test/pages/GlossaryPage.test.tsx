@@ -15,6 +15,8 @@ vi.mock('@/api', () => ({
 import { glossaryApi } from '@/api';
 import GlossaryPage from '@/pages/glossar/GlossaryPage';
 import { clearGlossaryCache } from '@/hooks/useGlossaryTerm';
+import { ApiError } from '@/api/errors';
+import { fetchAiStatus } from '@/store/slices/aiStatusSlice';
 
 const listTerms = vi.mocked(glossaryApi.listTerms);
 const getTerm = vi.mocked(glossaryApi.getTerm);
@@ -282,5 +284,117 @@ describe('GlossaryPage — generating a detailed explanation (#1460)', () => {
 
     expect(await screen.findByTestId('glossary-detail-response')).toBeTruthy();
     expect(screen.queryByTestId('glossary-detail-generate')).toBeNull();
+  });
+});
+
+// Generating sits behind the garden's AI switch (stage 2) and the operator flag
+// (stage 1) since the consent-gates follow-up of #2175: a refusal for either
+// withdraws the control instead of offering a retry refused the same way.
+describe('GlossaryPage — generate control follows AI availability', () => {
+  beforeEach(() => {
+    clearGlossaryCache();
+    listTerms.mockReset();
+    getTerm.mockReset();
+    generateTerm.mockReset();
+  });
+  afterEach(() => cleanup());
+
+  function refusal(status: number, errorCode: string): ApiError {
+    return new ApiError(
+      {
+        error_id: 'err-1',
+        timestamp: '2026-10-09T00:00:00Z',
+        error_code: errorCode,
+        message: 'refused',
+        details: [],
+        path: '/glossary/term/vpd/generate',
+        method: 'POST',
+      },
+      status,
+    );
+  }
+
+  function growerStore(available: boolean | null) {
+    const store = createStoreWithTenantRole('grower');
+    if (available !== null) store.dispatch(fetchAiStatus.fulfilled({ available }, 'test'));
+    return store;
+  }
+
+  it('offers the control when AI is available', async () => {
+    listTerms.mockResolvedValue(TERMS);
+    getTerm.mockResolvedValue(answer({ is_fallback: true }));
+    const user = userEvent.setup();
+    renderWithProviders(<GlossaryPage />, { route: '/glossar', store: growerStore(true) });
+
+    await user.click(await screen.findByTestId('glossary-term-vpd'));
+
+    expect(await screen.findByTestId('glossary-detail-generate')).toBeTruthy();
+    expect(screen.queryByTestId('glossary-detail-generate-unavailable')).toBeNull();
+  });
+
+  it('withdraws the control after 403 AI_DISABLED_FOR_TENANT, also for the next term', async () => {
+    listTerms.mockResolvedValue(TERMS);
+    getTerm.mockImplementation(async (slug: string) =>
+      answer({ slug, label: slug.toUpperCase(), is_fallback: true }),
+    );
+    generateTerm.mockRejectedValue(refusal(403, 'AI_DISABLED_FOR_TENANT'));
+    const user = userEvent.setup();
+    renderWithProviders(<GlossaryPage />, { route: '/glossar', store: growerStore(true) });
+
+    await user.click(await screen.findByTestId('glossary-term-vpd'));
+    await user.click(await screen.findByTestId('glossary-detail-generate'));
+
+    const error = await screen.findByTestId('glossary-detail-generate-error');
+    expect(error.textContent).toContain('disabled for this garden');
+    expect(screen.queryByTestId('glossary-detail-generate')).toBeNull();
+
+    // Another term: the hook forgot its failure, the page did not.
+    await user.click(screen.getByTestId('glossary-detail-back'));
+    await user.click(await screen.findByTestId('glossary-term-ec'));
+    expect(await screen.findByTestId('glossary-detail-generate-unavailable')).toBeTruthy();
+    expect(screen.queryByTestId('glossary-detail-generate')).toBeNull();
+    expect(generateTerm).toHaveBeenCalledTimes(1);
+  });
+
+  it('withdraws the control after a 404 and says AI is not switched on', async () => {
+    listTerms.mockResolvedValue(TERMS);
+    getTerm.mockResolvedValue(answer({ is_fallback: true }));
+    generateTerm.mockRejectedValue(refusal(404, 'NOT_FOUND'));
+    const user = userEvent.setup();
+    renderWithProviders(<GlossaryPage />, { route: '/glossar', store: growerStore(true) });
+
+    await user.click(await screen.findByTestId('glossary-term-vpd'));
+    await user.click(await screen.findByTestId('glossary-detail-generate'));
+
+    const error = await screen.findByTestId('glossary-detail-generate-error');
+    expect(error.textContent).toContain('not switched on for this installation');
+    expect(screen.queryByTestId('glossary-detail-generate')).toBeNull();
+  });
+
+  it('keeps the retry for a refusal that a retry can fix', async () => {
+    listTerms.mockResolvedValue(TERMS);
+    getTerm.mockResolvedValue(answer({ is_fallback: true }));
+    generateTerm.mockRejectedValue(refusal(503, 'AI_BUDGET_UNAVAILABLE'));
+    const user = userEvent.setup();
+    renderWithProviders(<GlossaryPage />, { route: '/glossar', store: growerStore(true) });
+
+    await user.click(await screen.findByTestId('glossary-term-vpd'));
+    await user.click(await screen.findByTestId('glossary-detail-generate'));
+
+    expect(await screen.findByTestId('glossary-detail-generate-error')).toBeTruthy();
+    expect(screen.getByTestId('glossary-detail-generate')).toBeTruthy();
+  });
+
+  it('offers no control when the availability probe says AI is off', async () => {
+    listTerms.mockResolvedValue(TERMS);
+    getTerm.mockResolvedValue(answer({ is_fallback: true }));
+    const user = userEvent.setup();
+    renderWithProviders(<GlossaryPage />, { route: '/glossar', store: growerStore(false) });
+
+    await user.click(await screen.findByTestId('glossary-term-vpd'));
+
+    expect(await screen.findByTestId('glossary-detail-generate-unavailable')).toBeTruthy();
+    expect(screen.queryByTestId('glossary-detail-generate')).toBeNull();
+    expect(generateTerm).not.toHaveBeenCalled();
   });
 });

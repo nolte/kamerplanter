@@ -3,7 +3,11 @@ import { AxiosError, AxiosHeaders } from 'axios';
 import type { TFunction } from 'i18next';
 import { ApiError } from '@/api/errors';
 import { ChatStreamError, streamChatMessage } from '@/api/endpoints/ai';
-import { resolveAiErrorMessage } from '@/components/ai/aiErrorMessage';
+import {
+  consentPurposeOf,
+  isConsentRequired,
+  resolveAiErrorMessage,
+} from '@/components/ai/aiErrorMessage';
 
 // The key is the observable: each branch must pick its own message.
 const t = ((key: string) => key) as unknown as TFunction;
@@ -93,5 +97,39 @@ describe('streamChatMessage — a refused message (#2110)', () => {
 
     expect(failure).toBeInstanceOf(ChatStreamError);
     expect((failure as ChatStreamError).statusCode).toBe(429);
+  });
+});
+
+describe('consentPurposeOf — the purpose a CONSENT_REQUIRED refusal names (#2175)', () => {
+  function consentError(message: string): ApiError {
+    return new ApiError(
+      {
+        error_id: 'e',
+        error_code: 'CONSENT_REQUIRED',
+        message,
+        details: [],
+        timestamp: '',
+        path: '',
+        method: 'POST',
+      },
+      403,
+    );
+  }
+
+  it("reads the purpose from the backend's message", () => {
+    const error = consentError("Consent for 'ai_knowledge_question' is required for this action.");
+    expect(isConsentRequired(error)).toBe(true);
+    expect(consentPurposeOf(error)).toBe('ai_knowledge_question');
+  });
+
+  it('answers null when the message names no purpose', () => {
+    expect(consentPurposeOf(consentError('Consent required.'))).toBeNull();
+  });
+
+  it('answers null for any other refusal', () => {
+    const error = apiError('AI_DISABLED_FOR_TENANT', 403);
+    expect(isConsentRequired(error)).toBe(false);
+    expect(consentPurposeOf(error)).toBeNull();
+    expect(consentPurposeOf(new Error("Consent for 'x' is required"))).toBeNull();
   });
 });

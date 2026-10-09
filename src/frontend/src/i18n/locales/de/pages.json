@@ -77,6 +77,19 @@
       "notConfigured": {
         "title": "KI-Assistent nicht verfügbar",
         "description": "Die KI-Funktionen sind auf dieser Instanz nicht aktiviert. Wende dich an die Administration, wenn du sie nutzen möchtest."
+      },
+      "consent": {
+        "title": "Einwilligung für KI-Wissensfragen",
+        "body": "Damit der KI-Assistent deine Frage beantworten kann, wird der Text, den du eingibst, an die Wissensbasis und das dort angebundene KI-Sprachmodell gesendet.",
+        "noPlantData": "Daten deiner Pflanzen (Art, Phase, Substrat, EC/pH) gehen dabei nicht mit.",
+        "revoke": "Du kannst die Einwilligung jederzeit widerrufen, und zwar in den",
+        "privacyLink": "Datenschutz-Einstellungen",
+        "accept": "Einwilligen und Frage senden",
+        "decline": "Nicht jetzt",
+        "declined": "Ohne deine Einwilligung kann der KI-Assistent die Frage nicht beantworten. Du kannst sie jederzeit erneut stellen.",
+        "grantFailed": "Deine Einwilligung konnte nicht gespeichert werden. Bitte versuche es erneut.",
+        "stillMissing": "Deine Einwilligung wurde gespeichert, die Frage wurde aber trotzdem abgelehnt. Prüfe die Einwilligung in den Datenschutz-Einstellungen und versuche es erneut.",
+        "otherPurpose": "Für diese Frage fehlt eine weitere Einwilligung, zum Beispiel für die Verarbeitung bei einem Cloud-KI-Anbieter. Du kannst sie in den Datenschutz-Einstellungen erteilen."
       }
     },
     "environmentControl": {
@@ -741,7 +754,10 @@
       "erasurePreviewError": "Wir konnten nicht prüfen, welche persönlichen Gärten betroffen sind. Deine persönlichen Gärten werden in jedem Fall mit allem Inhalt gelöscht, auch wenn weitere Mitglieder darin sind.",
       "erasurePreviewOrgHeading": "Deine Organisationen nach der Löschung deines Kontos:",
       "erasurePreviewOrgManagementPasses": "In „{{name}}“ bist du die letzte Person mit Verwaltungsrecht. Die dienstälteste Leitung übernimmt die Verwaltung; die Mitglieder werden benachrichtigt.",
-      "erasurePreviewOrgOrphaned": "In „{{name}}“ bleibt niemand, der die Organisation verwalten kann. Die Organisation wird nach einer Frist (standardmäßig 90 Tage) mit allen Daten gelöscht; die Mitglieder und die Betreiber werden benachrichtigt."
+      "erasurePreviewOrgOrphaned": "In „{{name}}“ bleibt niemand, der die Organisation verwalten kann. Die Organisation wird nach einer Frist (standardmäßig 90 Tage) mit allen Daten gelöscht; die Mitglieder und die Betreiber werden benachrichtigt.",
+      "consentRevoke": "Widerrufen",
+      "consentRevokeAria": "Einwilligung „{{label}}“ widerrufen",
+      "consentRevokeFailed": "Die Einwilligung konnte nicht widerrufen werden. Bitte versuche es erneut."
     },
     "activities": {
       "title": "Tätigkeiten",
@@ -2104,10 +2120,14 @@
         "saveToGallery": "Foto als Galeriebild übernehmen",
         "saveToGalleryHelper": "Das bei der Bestimmung aufgenommene Foto wird als erstes Bild in die Galerie dieser Pflanze übernommen. So musst du kein zweites Foto aufnehmen.",
         "useAsReference": "Als Referenzbild für die Erkennung nutzen",
-        "useAsReferenceHint": "Das Foto wird lokal verarbeitet und verbessert die automatische Pflanzenerkennung für diese Art. Es verlässt deine Instanz nicht.",
-        "useAsReferenceHelper": "Nur bei aktiver selbst-gehosteter Erkennung verfügbar. Das Foto wird in die Erkennungsbasis dieser Art aufgenommen – ohne das Originalbild dauerhaft zu speichern.",
+        "useAsReferenceHint": "Das Foto wird auf dieser Installation verarbeitet. Gespeichert wird nur ein Zahlenabdruck (Embedding), nicht das Foto selbst. Nach Prüfung durch die Administration verbessert er die Erkennung dieser Art für alle Gärten dieser Installation.",
+        "useAsReferenceHelper": "Nur bei aktiver selbst gehosteter Erkennung verfügbar. Mit dem Einschalten und Speichern willigst du in die Nutzung als Referenzbild ein.",
         "uploadFailed": "Die Pflanze wurde erstellt, das Foto konnte aber nicht in die Galerie übernommen werden.",
-        "referenceFailed": "Die Pflanze wurde erstellt, das Foto konnte aber nicht als Referenzbild gespeichert werden."
+        "referenceFailed": "Die Pflanze wurde erstellt, das Foto konnte aber nicht als Referenzbild gespeichert werden.",
+        "referenceConsentNotice": "Mit dem Speichern willigst du ein, dass ein Zahlenabdruck (Embedding) dieses Fotos in den gemeinsamen Erkennungsindex aufgenommen wird, sobald die Administration ihn geprüft und freigegeben hat. Er hilft dann allen Gärten dieser Installation, diese Art zu erkennen. Das Foto selbst wird nicht gespeichert und verlässt die Installation nicht. Die Einwilligung gilt auch für spätere Referenzbeiträge, etwa freigegebene Schädlingsfotos, bis du sie widerrufst.",
+        "referenceConsentRevoke": "Widerrufen kannst du sie jederzeit in den",
+        "referenceConsentPrivacyLink": "Datenschutz-Einstellungen",
+        "referenceConsentFailed": "Deine Einwilligung zur Nutzung als Referenzbild konnte nicht gespeichert werden. Die Pflanze wurde noch nicht angelegt. Versuche es erneut oder schalte die Referenznutzung aus."
       },
       "editIntro": "Bearbeite die Zuordnungen dieser Pflanze. Instanz-ID und Art können nicht geändert werden.",
       "info": "Info",

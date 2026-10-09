@@ -12,20 +12,33 @@ import PageTitle from '@/components/layout/PageTitle';
 import EmptyState from '@/components/common/EmptyState';
 import AIResponse from '@/components/ai/AIResponse';
 import AiChatDrawer from '@/components/ai/AiChatDrawer';
-import { resolveAiErrorMessage } from '@/components/ai/aiErrorMessage';
+import KnowledgeQuestionConsentGate from '@/components/ai/KnowledgeQuestionConsentGate';
+import {
+  consentPurposeOf,
+  isConsentRequired,
+  resolveAiErrorMessage,
+} from '@/components/ai/aiErrorMessage';
 import { aiApi } from '@/api';
+import { grantConsent } from '@/api/endpoints/privacy';
+import type { KnowledgeAnswer } from '@/api/endpoints/ai';
 import { kamiKiAssistent } from '@/assets/brand/illustrations';
 import { isLightMode } from '@/config/mode';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchAiStatus } from '@/store/slices/aiStatusSlice';
-import type { AiResponse as AiResponseData } from '@/api/types';
+
+/** The consent purpose of the free-form knowledge question (#2175). */
+const KNOWLEDGE_CONSENT_PURPOSE = 'ai_knowledge_question';
 
 /**
  * REQ-031 KI-Assistent — Wissens-Frage-Antwort-Seite.
  *
- * In beiden Modi verfuegbar: eine frei formulierte Wissensfrage geht ueber den
- * light-mode-faehigen `/public/ai/ask`-Pfad (kein Tenant-Kontext, §5.3) an die
- * Wissensbasis. Im Full-Modus zusaetzlich der kontextbewusste Chat-Drawer.
+ * In beiden Modi verfuegbar. Der Pfad haengt am Modus (`aiApi.askKnowledgeQuestion`):
+ * im Light-Modus `/public/ai/ask` (System-User, kein Tenant-Kontext, §5.3), im
+ * Full-Modus `/t/{slug}/ai/knowledge/ask` (#2175) — dort mit Rolle, KI-Schalter
+ * des Gartens, Einwilligung `ai_knowledge_question` und Tagesbudget. Fehlt die
+ * Einwilligung, bietet die Seite sie an Ort und Stelle an und stellt die Frage
+ * nach der Erteilung erneut. Im Full-Modus zusaetzlich der kontextbewusste
+ * Chat-Drawer.
  */
 export default function KIAssistentPage() {
   const { t, i18n } = useTranslation();
@@ -38,28 +51,84 @@ export default function KIAssistentPage() {
     void dispatch(fetchAiStatus());
   }, [dispatch]);
   const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState<AiResponseData | null>(null);
+  const [answer, setAnswer] = useState<KnowledgeAnswer | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  // The question the consent gate holds back; non-null while the gate is shown.
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
+  const [consentGranting, setConsentGranting] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
 
   const language = i18n.language.startsWith('en') ? 'en' : 'de';
 
+  // `afterGrant` stops a loop: a refusal right after the grant is reported, not
+  // answered with the same gate again.
+  const submit = useCallback(
+    async (trimmed: string, afterGrant: boolean) => {
+      setLoading(true);
+      setError(null);
+      setAnswer(null);
+      try {
+        setAnswer(await aiApi.askKnowledgeQuestion(trimmed, language));
+      } catch (err) {
+        if (isConsentRequired(err)) {
+          // The refusal names its purpose in the message only; an unnamed one is
+          // this route's own purpose. Another purpose (e.g. the cloud provider's)
+          // is not granted from here — the page cannot explain it.
+          const purpose = consentPurposeOf(err) ?? KNOWLEDGE_CONSENT_PURPOSE;
+          if (!isLightMode && !afterGrant && purpose === KNOWLEDGE_CONSENT_PURPOSE) {
+            setConsentError(null);
+            setPendingQuestion(trimmed);
+            return;
+          }
+          setError(
+            purpose === KNOWLEDGE_CONSENT_PURPOSE
+              ? t('pages.kiAssistent.consent.stillMissing')
+              : t('pages.kiAssistent.consent.otherPurpose'),
+          );
+          return;
+        }
+        setError(resolveAiErrorMessage(err, t, t('pages.kiAssistent.error')));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [language, t],
+  );
+
   const handleAsk = useCallback(async () => {
     const trimmed = question.trim();
-    if (trimmed.length < 3 || loading) return;
-    setLoading(true);
-    setError(null);
-    setAnswer(null);
+    if (trimmed.length < 3 || loading || consentGranting) return;
+    setPendingQuestion(null);
+    await submit(trimmed, false);
+  }, [question, loading, consentGranting, submit]);
+
+  const handleGrantConsent = useCallback(async () => {
+    if (pendingQuestion === null) return;
+    setConsentGranting(true);
+    setConsentError(null);
     try {
-      const result = await aiApi.publicAsk(trimmed, language);
-      setAnswer(result);
-    } catch (err) {
-      setError(resolveAiErrorMessage(err, t, t('pages.kiAssistent.error')));
-    } finally {
-      setLoading(false);
+      await grantConsent(KNOWLEDGE_CONSENT_PURPOSE);
+    } catch {
+      // The gate stays open with the failure — the question is not re-sent.
+      setConsentError(t('pages.kiAssistent.consent.grantFailed'));
+      setConsentGranting(false);
+      return;
     }
-  }, [question, loading, language, t]);
+    setConsentGranting(false);
+    const retry = pendingQuestion;
+    setPendingQuestion(null);
+    await submit(retry, true);
+  }, [pendingQuestion, submit, t]);
+
+  const handleDeclineConsent = useCallback(() => {
+    setPendingQuestion(null);
+    setConsentError(null);
+    setError(t('pages.kiAssistent.consent.declined'));
+  }, [t]);
+
+  const consentGateOpen = pendingQuestion !== null;
 
   if (aiAvailable === false) {
     return (
@@ -120,7 +189,7 @@ export default function KIAssistentPage() {
             <Button
               variant="contained"
               onClick={() => void handleAsk()}
-              disabled={loading || question.trim().length < 3}
+              disabled={loading || consentGranting || question.trim().length < 3}
               sx={{ minHeight: 48 }}
               data-testid="ki-ask-button"
             >
@@ -128,7 +197,7 @@ export default function KIAssistentPage() {
             </Button>
           </Box>
 
-          {!answer && !loading && !error && (
+          {!answer && !loading && !error && !consentGateOpen && (
             <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1 }}>
               <Box
                 component="img"
@@ -147,6 +216,15 @@ export default function KIAssistentPage() {
                 {t('ai.why.thinking')}
               </Typography>
             </Stack>
+          )}
+
+          {consentGateOpen && (
+            <KnowledgeQuestionConsentGate
+              granting={consentGranting}
+              error={consentError}
+              onGrant={() => void handleGrantConsent()}
+              onDecline={handleDeclineConsent}
+            />
           )}
 
           {error && (

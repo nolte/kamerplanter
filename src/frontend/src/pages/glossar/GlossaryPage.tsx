@@ -14,7 +14,12 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { glossaryApi } from '@/api';
 import type { GlossaryExpertiseLevel, GlossaryTermSummary } from '@/api/types';
 import AIResponse from '@/components/ai/AIResponse';
-import { resolveAiErrorMessage } from '@/components/ai/aiErrorMessage';
+import {
+  aiUnavailableMessage,
+  aiUnavailableReason,
+  resolveAiErrorMessage,
+  type AiUnavailableReason,
+} from '@/components/ai/aiErrorMessage';
 import { apiLanguage } from '@/i18n/apiLanguage';
 import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -24,6 +29,7 @@ import { kamiGlossar } from '@/assets/brand/illustrations';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useGlossaryTerm } from '@/hooks/useGlossaryTerm';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
+import { useAppSelector } from '@/store/hooks';
 
 /**
  * REQ-035 §5.2 — `<GlossaryPage>` term browser.
@@ -82,6 +88,24 @@ export default function GlossaryPage() {
 
   const detail = useGlossaryTerm(selectedSlug, language, expertise);
   const { canEdit } = useTenantPermissions();
+
+  // #2175 follow-up — generating sits behind the garden's AI switch (stage 2,
+  // `403 AI_DISABLED_FOR_TENANT`) and the operator flag (stage 1, `404`). There
+  // is no frontend source for the garden switch, so a refusal for either reason
+  // is remembered for the page's lifetime (the hook forgets its failure when
+  // another term opens) and the control is withdrawn instead of offering a retry
+  // that is refused the same way. The operator flag is also known up front from
+  // the availability probe. Adjusted during render, not in an effect: it is
+  // derived from the hook's state and must not lag a frame behind it.
+  const aiAvailable = useAppSelector((s) => s.aiStatus.available);
+  const [refusedReason, setRefusedReason] = useState<AiUnavailableReason | null>(null);
+  const failureReason =
+    detail.generateStatus === 'failed' ? aiUnavailableReason(detail.generateError) : null;
+  if (failureReason !== null && refusedReason === null) {
+    setRefusedReason(failureReason);
+  }
+  const generateUnavailable: AiUnavailableReason | null =
+    aiAvailable === false ? 'instance' : refusedReason;
 
   // Review SCR-010 — a successful generate unmounts the button the user just
   // pressed (the answer stops being a fallback), so keyboard focus would fall
@@ -190,7 +214,7 @@ export default function GlossaryPage() {
                       somebody asks. Producing one is a write on the server
                       (`require_permission(glossary, create)`), so the control is
                       absent for a viewer rather than present and refused. */}
-                  {detail.answer.is_fallback && canEdit && (
+                  {detail.answer.is_fallback && canEdit && generateUnavailable === null && (
                     <Button
                       size="small"
                       startIcon={
@@ -221,14 +245,33 @@ export default function GlossaryPage() {
                   {detail.generateStatus === 'failed' && (
                     <Box sx={{ mt: 1 }} data-testid="glossary-detail-generate-error">
                       <ErrorDisplay
-                        error={resolveAiErrorMessage(
-                          detail.generateError,
-                          t,
-                          t('ai.errors.generateFailed'),
-                        )}
+                        error={
+                          failureReason !== null
+                            ? aiUnavailableMessage(failureReason, t)
+                            : resolveAiErrorMessage(
+                                detail.generateError,
+                                t,
+                                t('ai.errors.generateFailed'),
+                              )
+                        }
                       />
                     </Box>
                   )}
+                  {/* Why the control is missing, once the page knows it cannot work
+                      here — a grower would otherwise look for a button that is gone. */}
+                  {detail.answer.is_fallback &&
+                    canEdit &&
+                    generateUnavailable !== null &&
+                    detail.generateStatus !== 'failed' && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: 'block', mt: 1 }}
+                        data-testid="glossary-detail-generate-unavailable"
+                      >
+                        {aiUnavailableMessage(generateUnavailable, t)}
+                      </Typography>
+                    )}
                   {detail.answer.related_terms.length > 0 && (
                     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mt: 2 }}>
                       {detail.answer.related_terms.map((related) => (

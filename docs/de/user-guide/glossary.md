@@ -47,6 +47,8 @@ Vorbereitet werden die Erklärungen an zwei Stellen:
 
 Das ist Absicht: Jede KI-Erklärung kostet den Betreiber der Installation Rechenzeit oder Geld. Vorher entschied der erste Mensch, der einen Begriff anklickte, wann diese Kosten anfielen — im anonymen Light-Modus also jemand ganz ohne Konto. <!-- #1460 -->
 
+Die Schaltfläche **Ausführliche Erklärung erzeugen** siehst du nur, solange die KI-Funktionen verfügbar sind. Lehnt Kamerplanter das Erzeugen ab, weil die KI-Funktionen für deinen Garten oder für die ganze Installation ausgeschaltet sind, verschwindet die Schaltfläche, auch bei den anderen Begriffen. An ihrer Stelle steht dann der Grund. Ein erneuter Versuch würde genauso abgelehnt. Andere Fehler, etwa ein aufgebrauchtes Tageskontingent, lassen die Schaltfläche stehen, damit du es später noch einmal versuchen kannst.
+
 ## Fragezeichen-Symbol an Ort und Stelle
 
 !!! note "Teilweise verfügbar: Fragezeichen-Symbole auf anderen Seiten"

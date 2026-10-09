@@ -89,6 +89,81 @@ describe('PrivacySettingsPage', () => {
     });
   });
 
+  describe('revoking a consent (REQ-025 Art. 7(3))', () => {
+    const record = (purpose: string, granted: boolean, required = false) => ({
+      purpose,
+      label: purpose === 'reference_contribution' ? 'Referenzbeitrag' : 'Pflicht-Zweck',
+      description: '',
+      legal_basis: required ? 'contract' : 'consent',
+      required,
+      granted,
+      granted_at: granted ? '2026-10-09T00:00:00Z' : null,
+      revoked_at: null,
+    });
+
+    it('offers revoke only for a granted optional purpose and revokes it', async () => {
+      const revoked: string[] = [];
+      server.use(
+        http.get('/api/v1/privacy/consents', () =>
+          HttpResponse.json([record('reference_contribution', true), record('core', true, true)]),
+        ),
+        http.delete('/api/v1/privacy/consents/:purpose', ({ params }) => {
+          revoked.push(String(params.purpose));
+          return HttpResponse.json({
+            ...record('reference_contribution', false),
+            revoked_at: '2026-10-09T01:00:00Z',
+          });
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<PrivacySettingsPage />);
+
+      const revoke = await screen.findByTestId('consent-revoke-reference_contribution');
+      expect(revoke).toHaveAccessibleName('Einwilligung „Referenzbeitrag“ widerrufen');
+      expect(screen.queryByTestId('consent-revoke-core')).toBeNull();
+
+      await user.click(revoke);
+
+      await waitFor(() =>
+        expect(screen.queryByTestId('consent-revoke-reference_contribution')).toBeNull(),
+      );
+      expect(revoked).toEqual(['reference_contribution']);
+    });
+
+    it('keeps the consent and shows an error when revoking fails', async () => {
+      server.use(
+        http.get('/api/v1/privacy/consents', () =>
+          HttpResponse.json([record('reference_contribution', true)]),
+        ),
+        http.delete('/api/v1/privacy/consents/:purpose', () =>
+          HttpResponse.json(
+            {
+              error_id: 'e',
+              error_code: 'INTERNAL',
+              message: 'boom',
+              details: [],
+              timestamp: '',
+              path: '',
+              method: '',
+            },
+            { status: 500 },
+          ),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<PrivacySettingsPage />);
+
+      await user.click(await screen.findByTestId('consent-revoke-reference_contribution'));
+
+      expect(
+        await screen.findByText(
+          'Die Einwilligung konnte nicht widerrufen werden. Bitte versuche es erneut.',
+        ),
+      ).toBeTruthy();
+      expect(screen.getByTestId('consent-revoke-reference_contribution')).toBeTruthy();
+    });
+  });
+
   it('requests a data export and surfaces the resulting status', async () => {
     const user = userEvent.setup();
     renderWithProviders(<PrivacySettingsPage />);
