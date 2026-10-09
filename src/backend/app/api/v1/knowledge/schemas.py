@@ -6,13 +6,20 @@ from pydantic import BaseModel, Field
 
 
 class QuestionContext(BaseModel):
-    """Optional context about the plant/situation."""
+    """Optional context about the plant/situation.
 
-    species: str | None = Field(default=None, description="Plant species name")
-    phase: str | None = Field(default=None, description="Current growth phase")
-    substrate: str | None = Field(default=None, description="Growing medium")
-    ec: float | None = Field(default=None, description="Current EC value")
-    ph: float | None = Field(default=None, description="Current pH value")
+    Bounded like the question (SEC-002, #2175): the values end up in the same LLM
+    prompt, so an unbounded context would lift the question's 2 000-character
+    limit — and the token budget only counts after the call. 100 characters
+    hold the longest seeded scientific name (under 80); EC and pH carry the
+    physical ranges the feeding model uses.
+    """
+
+    species: str | None = Field(default=None, max_length=100, description="Plant species name")
+    phase: str | None = Field(default=None, max_length=100, description="Current growth phase")
+    substrate: str | None = Field(default=None, max_length=100, description="Growing medium")
+    ec: float | None = Field(default=None, ge=0, le=20, description="Current EC value (mS/cm)")
+    ph: float | None = Field(default=None, ge=0, le=14, description="Current pH value")
 
 
 class KnowledgeChunkResponse(BaseModel):
@@ -42,7 +49,7 @@ class KnowledgeAskRequest(BaseModel):
     """Request body of ``POST /t/{tenant_slug}/ai/knowledge/ask`` (#2175)."""
 
     question: str = Field(min_length=3, max_length=2000, description="The question to answer")
-    top_k: int = Field(default=5, ge=1, le=20, description="Number of context chunks to retrieve")
+    top_k: int = Field(default=5, ge=1, le=10, description="Number of context chunks to retrieve")
     doc_language: Literal["de", "en", "all"] | None = Field(
         default=None,
         description="Filter chunks by language. None uses server default.",

@@ -678,7 +678,7 @@ Folgen für die Antworten:
 
 | Methode | Pfad | Beschreibung | Berechtigung | Consent |
 |---------|------|-------------|--------------|---------|
-| `POST` | `/knowledge/ask` | Freie Frage an die Wissensbasis (RAG + LLM). Body: `{ question, top_k?, doc_language?, prompt_language?, context?: { species, phase, substrate, ec, ph } }`; Antwort: `{ answer, question_type, model, usage, sources[] }`. Kein Fallback: Knowledge Service nicht erreichbar -> `502` | Ab Gärtner | `ai_tenant_data_access` (+ ggf. `ai_cloud_processing`) |
+| `POST` | `/knowledge/ask` | Freie Frage an die Wissensbasis (RAG + LLM). Body: `{ question (3–2000 Zeichen), top_k? (1–10), doc_language?, prompt_language?, context?: { species, phase, substrate (je ≤ 100 Zeichen), ec (0–20), ph (0–14) } }` — der Kontext landet im selben Prompt und ist darum begrenzt wie die Frage (der Knowledge Service prüft dieselben Grenzen erneut); Antwort: `{ answer, question_type, model, usage, sources[] }`. Kein Fallback: Knowledge Service nicht erreichbar -> `502` | Ab Gärtner | `ai_tenant_data_access` (+ ggf. `ai_cloud_processing`) |
 
 Ersetzt `POST /api/v1/knowledge/ask` (entfernt, kein Alias). Die Zulassung laeuft vollstaendig **vor** dem Knowledge-Service-Aufruf, in dieser Reihenfolge: Rang (Betrachter `403`), Stufe 1 (`404`), Stufe 2 (`403 ai.disabled_for_tenant`), Consent (`403 consent_required`), Provider-Gate, Tagesbudget §3.4 (`429`/`503`); dazu das Minutenbudget `RATE_LIMIT_INFERENCE` je Konto. Der Consent gilt auch ohne `context`: Freitext und Konto verlassen die Installation unter einem Tenant. Die consent-freie Wissensfrage ist `POST /public/ai/ask` (§5.3). Im Light-Modus gibt es keinen Consent-Mechanismus — die Route lehnt dort wie Chat und "Warum?" mit `403` ab.
 

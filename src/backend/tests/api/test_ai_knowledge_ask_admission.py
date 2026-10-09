@@ -256,10 +256,21 @@ def test_a_valkey_outage_refuses_the_call_with_503(wired, monkeypatch):
     wired.adapter.ask.assert_not_awaited()
 
 
-def test_in_light_mode_the_tenant_route_refuses_like_its_siblings(wired, monkeypatch):
-    """REQ-027: light mode has no consent mechanism, so nobody holds
-    ``ai_tenant_data_access`` and the tenant KI routes refuse; the light-mode
-    knowledge question is ``POST /api/v1/public/ai/ask``."""
+def test_light_mode_grants_no_exemption_from_the_consent(wired, monkeypatch):
+    """The mode flag does not switch the consent check off.
+
+    What this pins, and only this: with ``KAMERPLANTER_MODE=light`` and no consent
+    record the route still refuses before the LLM — a light-mode shortcut around
+    ``ai_tenant_data_access`` (as REQ-027 grants elsewhere) would fail here while
+    ``test_without_consent…[never_asked]`` stayed green.
+
+    Not measured here: that a light-mode installation *cannot* obtain the consent.
+    That follows from the mounting — the privacy router, through which consents
+    are granted, is included only when ``kamerplanter_mode == "full"``
+    (``app/api/v1/router.py``) — and is fixed at import time, so this test (whose
+    tenant context is an override, not the light-mode principal) does not drive it.
+    The light-mode knowledge question is ``POST /api/v1/public/ai/ask``.
+    """
     monkeypatch.setattr(settings, "kamerplanter_mode", "light")
 
     resp = wired.client.post(ASK, json=BODY)
@@ -267,6 +278,60 @@ def test_in_light_mode_the_tenant_route_refuses_like_its_siblings(wired, monkeyp
     assert resp.status_code == 403
     assert resp.json()["error_code"] == "CONSENT_REQUIRED"
     _assert_nothing_spent(wired)
+
+
+# ── bounded input ───────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("species", "x" * 10_000),
+        ("phase", "x" * 10_000),
+        ("substrate", "x" * 10_000),
+        ("ec", 1e9),
+        ("ec", -1),
+        ("ph", 15),
+        ("ph", -0.1),
+    ],
+    ids=["species-10k", "phase-10k", "substrate-10k", "ec-huge", "ec-negative", "ph-15", "ph-negative"],
+)
+def test_an_unbounded_context_value_is_refused_before_the_llm(wired, field: str, value):
+    """SEC-002: the 2 000-character bound on the question must not be bypassable
+    through the context, which ends up in the same prompt."""
+    wired.consent_repo.set(USER, AI_TENANT_DATA_ACCESS, granted=True)
+
+    resp = wired.client.post(ASK, json={**BODY, "context": {field: value}})
+
+    assert resp.status_code == 422, resp.text
+    _assert_nothing_spent(wired)
+
+
+def test_a_realistic_context_is_accepted(wired):
+    """The control: the longest seeded scientific name is under 80 characters."""
+    wired.consent_repo.set(USER, AI_TENANT_DATA_ACCESS, granted=True)
+    context = {"species": "x" * 100, "phase": "flowering", "substrate": "coco", "ec": 20, "ph": 14}
+
+    assert wired.client.post(ASK, json={**BODY, "context": context}).status_code == 200
+
+
+@pytest.mark.parametrize(("top_k", "status"), [(10, 200), (11, 422)])
+def test_top_k_is_bounded_like_the_sibling_routes(wired, top_k: int, status: int):
+    wired.consent_repo.set(USER, AI_TENANT_DATA_ACCESS, granted=True)
+
+    assert wired.client.post(ASK, json={**BODY, "top_k": top_k}).status_code == status
+
+
+def test_an_empty_context_is_no_tenant_data(wired):
+    """I-3: ``context: {}`` carries no plant value — it is sent as no context and
+    audited as ``uses_tenant_data=False``."""
+    wired.consent_repo.set(USER, AI_TENANT_DATA_ACCESS, granted=True)
+
+    resp = wired.client.post(ASK, json={"question": "What is VPD?", "context": {}})
+
+    assert resp.status_code == 200, resp.text
+    assert wired.adapter.ask.await_args.kwargs["context"] is None
+    assert wired.audit_repo.create.call_args.args[0].uses_tenant_data is False
 
 
 # ── admitted ────────────────────────────────────────────────────────
@@ -339,11 +404,16 @@ def test_the_tenantless_ask_route_is_gone_and_search_stays():
     knowledge.ask.assert_not_called()
 
 
-def test_the_production_app_serves_the_ask_only_under_the_tenant():
+def test_the_production_app_mounts_the_tenant_ask():
     """The OpenAPI document of the mounted app — not the router objects, whose
-    nesting a flat scan of ``app.routes`` does not see."""
+    nesting a flat scan of ``app.routes`` does not see.
+
+    No negative assertion on ``/api/v1/knowledge/ask`` here: under the test
+    defaults ``KNOWLEDGE_SERVICE_ENABLED`` is off, so the knowledge router is not
+    mounted in this app and its absence would prove nothing. The router itself is
+    driven in ``test_the_tenantless_ask_route_is_gone_and_search_stays``.
+    """
     from app.main import app as production_app
 
     paths = production_app.openapi()["paths"]
     assert "post" in paths["/api/v1/t/{tenant_slug}/ai/knowledge/ask"]
-    assert not [p for p in paths if p.endswith("/knowledge/ask") and "/ai/" not in p]

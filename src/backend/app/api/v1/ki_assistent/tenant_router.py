@@ -259,7 +259,10 @@ def ask_knowledge(
     ``rate_limit_inference`` bounds the minute. Replaces the ungated
     ``POST /api/v1/knowledge/ask``.
     """
-    context = QuestionContext(**body.context.model_dump(exclude_none=True)) if body.context else None
+    # Only values actually given count as plant context: ``context: {}`` is no
+    # context, and must not be audited as tenant data (I-3).
+    context_values = body.context.model_dump(exclude_none=True) if body.context else {}
+    context = QuestionContext(**context_values) if context_values else None
     result = service.ask_knowledge(
         ctx,
         question=body.question,
