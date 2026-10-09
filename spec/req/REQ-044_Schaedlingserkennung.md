@@ -7,7 +7,7 @@ Kategorie: KI & Schädlingsmanagement
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, ONNX Runtime (quantisierte Detektoren + Tiling), optional Kindwise-Cloud-API (crop.health/insect.id), optional lokales VLM (LLaVA/Qwen2.5-VL/Agri-LLaVA) + RAG (REQ-031), React 19, TypeScript 5.9, MUI 7
 Status: Entwurf
-Version: 1.1 (Erfassungsverweis auf REQ-052 umgehängt)
+Version: 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1 (Erfassungsverweis auf REQ-052 umgehängt)
 Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `recognition`), REQ-010 v1.1 (IPM — Pests/Inspections/Treatments, Karenz-Gate, Ziel der Befund-Brücke), REQ-043 v1.0 (Health-Fusion — konsumiert das Schädlings-Bild-Signal), REQ-038 v1.1 (CV-Pflanzendiagnose — geteilte Vision-/Tiling-Infrastruktur), REQ-029 v1.0 (Adapter-Interface, EXIF/Consent), REQ-029-A v1.2 (Self-Hosted-Inferenz-Infrastruktur, ONNX), REQ-031 v2.0 (Knowledge-Service / RAG für Erklärungs-Layer), REQ-025 v1.4 (DSGVO/Consent), REQ-013 v2.0 (PlantInstance/Run), REQ-021 v1.0 (Erfahrungsstufen)
 Wird benoetigt von: —
 ```
@@ -18,6 +18,7 @@ Wird benoetigt von: —
 |---------|-------|----------|
 | 1.0 | 2026-06-20 | Initialer Entwurf — leitet aus dem Methodenvergleich `spec/analysis/pest-detection-research.md` eine dedizierte Schädlingserkennung mit zwei Modi (Direkt-Detektion + Schadbild) ab; definiert Self-Hosted-First-Phasen-Strategie, Tiling-Pflicht, Abstention und Einspeisung als Bild-Signal in IPM/Health ohne Auto-Treatment. <!-- Quelle: spec/analysis/pest-detection-research.md --> |
 | 1.1 | 2026-06-20 | Offene Punkte (§10) durch fokussierte Recherche geklärt (`spec/analysis/pest-detection-implementation-prep.md`): **Modellwahl korrigiert — YOLO entfällt (AGPL-3.0), RF-DETR-S/D-FINE (Apache-2.0)**; **Cloud-Produkt korrigiert — `plant.health` statt `crop.health` für Indoor**; Architektur-Präzisierung **zwei Domänen** (on-leaf Few-Shot-Klassifikation via DINOv2 / Gelbtafel RF-DETR+SAHI); Abstention-Schwelle als Tag-1-Default + Risk-Coverage-Verfahren. <!-- Quelle: spec/analysis/pest-detection-implementation-prep.md --> |
+| 1.2 | 2026-10-05 | **#2121 (MT-025):** Abschnitt „Autorisierung“ nach REQ-049 §3.3 ergänzt, gegen den Code gemessen (Erkennen, Feedback, Inspektion ab Gärtner; Lesen für jedes Mitglied; Einwilligung im Dienst). |
 
 ## 0. Verhältnis zu benachbarten REQs (verbindliche Abgrenzung)
 
@@ -358,6 +359,22 @@ async def detect_pests(
 | **Audit** | Cloud-Aufrufe erscheinen im `ai_audit_log` (REQ-031) ohne Klartext-PII. |
 | **Kein Auto-Treatment** | Eine Erkennung erzeugt höchstens einen Inspektions-Vorschlag; das Karenz-Gate (REQ-010) wird nie umgangen. |
 | **Disclaimer/Haftung** | Jede API-Antwort und UI-Anzeige trägt den Disclaimer; automatisierter Test prüft, dass `disclaimer` nie leer ist. |
+
+## Autorisierung
+
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
+
+> **Vokabular:** Schema aus **REQ-049 §3.3**, Werte nach **REQ-049 §3.1** (Alle Rollen / Ab Gärtner / Nur Leitung /
+> Technik / Verwaltung / Plattform-Admin). Ergänzt mit v1.2 (#2121, MT-025) und **gegen den Code gemessen**
+> (`develop` `b064e63b7`); wo das Zielbild abweicht, steht es in der Spalte Sonderaktionen.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Erkennungs-Status (`GET /pests/status`) | Alle Rollen | — | — | — | — |
+| Schädlingserkennung `pest_detections` (`POST /pests/detect`, `POST /pests/plants/{key}/detect`) | Alle Rollen (`GET /pests/plants/{key}/history`) | Ab Gärtner | — | — (Mandantenlöschung) | Cloud-Adapter zusätzlich mit Einwilligung `pest_detection_cloud` des Anfragenden (im Dienst) |
+| Feedback (`POST /pests/detections/{key}/feedback`) | — | Ab Gärtner | — | — | Dokumentieren, kein Einrichten |
+| Inspektion aus Befund (`POST /pests/detections/{key}/create-inspection`) | — | Ab Gärtner | — | — | Gegatet über `require_permission(ResourceType.IPM_TREATMENT, Action.CREATE)` (Rang ab Gärtner, REQ-010 §4); legt **nie** eine Behandlung an |
 
 ## 9. Akzeptanzkriterien
 

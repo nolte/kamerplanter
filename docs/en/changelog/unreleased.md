@@ -48,6 +48,10 @@ Changes not yet published in a release.
 
 ## Changed
 
+### Documentation
+
+- Roles and permissions, platform admin: the pages now say what applies — a location assignment does not restrict editing, the first registered account does not become platform administrator automatically (it is set up on the server), a platform administrator sees no plants or harvests of other gardens, and the guided switch from light mode is marked as not built yet.
+
 ### Frontend
 
 - Admin, invitations, the AI assistant, a plant's tasks and storage observations load their lists completely, page by page, now that the API returns at most one page there (issue #2131) — you still see every item.

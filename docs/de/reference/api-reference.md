@@ -973,7 +973,7 @@ GET /api/v1/public/ai/health
 
 ### Mandantenbezogene Endpunkte
 
-Alle folgenden Endpunkte liegen unter `/api/v1/t/{tenant_slug}/ai/` und erfordern ein gültiges JWT-Token sowie eine aktive Mandanten-Mitgliedschaft. Eine rollenspezifische Einschränkung (Beobachter/Grower/Admin) ist in dieser Version noch **nicht** implementiert — jedes aktive Mitglied darf alle Endpunkte aufrufen.
+Alle folgenden Endpunkte liegen unter `/api/v1/t/{tenant_slug}/ai/` und erfordern ein gültiges JWT-Token sowie eine aktive Mandanten-Mitgliedschaft. Lesen (`GET`) und das Anlegen oder Löschen eigener Unterhaltungen darf jedes Mitglied; Tipps erneuern, verwerfen und als umgesetzt markieren, `/explain` und das Senden einer Nachricht verlangen mindestens die Rolle Gärtner (`grower`).
 
 | Methode | Pfad | Beschreibung |
 |---------|------|-------------|

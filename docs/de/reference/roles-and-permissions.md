@@ -174,7 +174,7 @@ Diese Daten sind an einen Garten gebunden. Wer im Garten Mitglied ist, sieht sie
 - Pflegeprofile und Überwinterungsprofile
 - Dashboard-Kennzahlen und Kalender
 
-Das heißt konkret: In einem Gemeinschaftsgarten sehen **alle Mitglieder alle Parzellen** — auch die, die ihnen nicht zugewiesen sind. Die Zuweisung von Standorten regelt das Bearbeiten, nicht das Lesen. Ein Gemeinschaftsgarten ist bewusst transparent aufgebaut: Wer den Kompost umsetzt oder wann in Parzelle 7 zuletzt gegossen wurde, soll für alle nachvollziehbar sein.
+Das heißt konkret: In einem Gemeinschaftsgarten sehen **alle Mitglieder alle Parzellen** — auch die, die ihnen nicht zugewiesen sind. Die Zuweisung von Standorten hält nur fest, wer sich kümmert — sie regelt weder das Lesen noch das Bearbeiten. Ein Gemeinschaftsgarten ist bewusst transparent aufgebaut: Wer den Kompost umsetzt oder wann in Parzelle 7 zuletzt gegossen wurde, soll für alle nachvollziehbar sein.
 
 ### Was dir persönlich gehört — über alle Gärten hinweg
 
@@ -276,14 +276,14 @@ Neben den Rollen innerhalb der Gärten gibt es eine Ebene darüber: die Verwaltu
 |-------|--------------|
 | **Plattform-Administrator** | Globalen Stammdaten-Katalog pflegen; festlegen, welche globalen Arten ein Garten sieht; Übersicht über alle Gärten und Nutzerkonten; Anmeldeanbieter konfigurieren; Bilderkennung aktivieren; Garten-eigene Arten und Sorten in den globalen Katalog übernehmen; Gärten und Konten sperren oder wieder freischalten |
 
-Ein Plattform-Administrator ist damit die einzige Rolle, die über Gartengrenzen hinweg blicken kann — allerdings nur auf **Verwaltungsdaten**: Er sieht, dass ein Garten existiert, wie er heißt und wer Mitglied ist. Er erhält dadurch nicht automatisch Lesezugriff auf die Pflanzen und Ernten eines fremden Gartens; dafür müsste ihn ein Admin dieses Gartens regulär als Mitglied aufnehmen.
+Ein Plattform-Administrator ist damit die einzige Rolle, die über Gartengrenzen hinweg blicken kann — allerdings nur auf **Verwaltungsdaten**: Er sieht, dass ein Garten existiert, wie er heißt und wer Mitglied ist. Er erhält dadurch nicht automatisch Lesezugriff auf die Pflanzen und Ernten eines fremden Gartens; dafür müsste ihn jemand mit der Zusatzberechtigung Verwaltung in diesem Garten regulär als Mitglied aufnehmen.
 
-Die Rolle ist unabhängig von den Garten-Rollen: Ein Plattform-Administrator ist in deinem privaten Garten trotzdem kein Mitglied. Umgekehrt macht Admin-Sein in einem Gemeinschaftsgarten niemanden zum Plattform-Administrator.
+Die Rolle ist unabhängig von den Garten-Rollen: Ein Plattform-Administrator ist in deinem privaten Garten trotzdem kein Mitglied. Umgekehrt macht Leitung oder Verwaltung in einem Gemeinschaftsgarten niemanden zum Plattform-Administrator.
 
 Was der Plattform-Bereich im Detail bietet, steht unter [Plattform-Admin](../user-guide/admin.md).
 
 !!! warning "Noch nicht implementiert"
-    Eine reine Lese-Rolle für den Plattform-Bereich ist geplant — gedacht für Monitoring und Prüfungen, ohne Schreibrechte auf globale Daten. Sie wird es ermöglichen, den Verwaltungsbereich einzusehen, ohne etwas ändern zu können. Derzeit gibt es nur den vollen Plattform-Administrator. <!-- REQ-024 §1a.4 Platform-Viewer -->
+    Eine reine Lese-Rolle für den Plattform-Bereich ist geplant — gedacht für Monitoring und Prüfungen, ohne Schreibrechte auf globale Daten. Sie wird es ermöglichen, den Verwaltungsbereich einzusehen, ohne etwas ändern zu können. Derzeit gibt es nur den vollen Plattform-Administrator. <!-- REQ-024 §1a.4 Platform-Viewer, #2179 -->
 
 ---
 
@@ -310,10 +310,13 @@ Kamerplanter kann ohne Anmeldung betrieben werden — als lokale Einzelinstallat
 <!-- Quelle: src/backend/app/common/auth.py is_platform_admin -->
 
 - Es gibt genau ein Konto, und es ist automatisch angemeldet.
-- Dieses Konto ist Admin in seinem Garten **und** Plattform-Administrator.
+- Dieses Konto hat in seinem Garten die Rolle Leitung mit beiden Zusatzberechtigungen **und** ist Plattform-Administrator.
 - Es gibt keine Mitgliederverwaltung, keine Einladungen und keine Rollenwahl — es ist niemand da, dem man eine Rolle geben könnte.
 
-Alles auf dieser Seite Beschriebene wird erst relevant, wenn die Installation mit Anmeldung betrieben wird. Der Wechsel ist möglich: Beim Umstieg wird das erste registrierte Konto zum Admin des bestehenden Gartens und zum Plattform-Administrator. Details unter [Light-Modus](../user-guide/light-mode.md).
+Alles auf dieser Seite Beschriebene wird erst relevant, wenn die Installation mit Anmeldung betrieben wird. Details unter [Light-Modus](../user-guide/light-mode.md).
+
+!!! warning "Noch nicht implementiert"
+    Ein geführter Umstieg vom Light-Modus auf den Betrieb mit Anmeldung, bei dem das erste registrierte Konto den bestehenden Garten übernimmt, ist geplant, aber noch nicht gebaut. Nach einem Wechsel bleiben die Daten beim bisherigen Einzelkonto; ein neu registriertes Konto beginnt mit einem eigenen, leeren Garten. <!-- REQ-027 §7a, #1855 -->
 
 ---
 
@@ -356,7 +359,7 @@ Zuweisungen werden unter dem Pfad `/api/v1/t/{garten-kurzname}/assignments` verw
     Nein. Deine Zimmerpflanzen liegen in deinem persönlichen Garten, der von allen anderen Gärten vollständig getrennt ist. Vereinsmitglieder sehen in der Mitgliederliste nur deinen Anzeigenamen und deine Rolle im Verein.
 
 ??? question "Sehen andere Vereinsmitglieder meine Parzelle im Verein?"
-    Ja. Innerhalb eines Gartens dürfen alle Mitglieder alles lesen — auch fremde Parzellen. Die Zuweisung von Standorten ist dafür gedacht, das *Bearbeiten* zu regeln, nicht das Lesen. Wenn du etwas wirklich privat halten willst, gehört es in deinen persönlichen Garten.
+    Ja. Innerhalb eines Gartens dürfen alle Mitglieder alles lesen — auch fremde Parzellen. Die Zuweisung von Standorten zeigt nur an, wer sich um eine Parzelle kümmert — sie schränkt weder Lesen noch Bearbeiten ein. Wenn du etwas wirklich privat halten willst, gehört es in deinen persönlichen Garten.
 
 ??? question "Kann die Vereinsverwaltung meine Rolle ändern, ohne mich zu fragen?"
     Ja, innerhalb seines Gartens. Er kann dich dort zum Beobachter machen oder ganz entfernen. Auf deinen persönlichen Garten und deine anderen Mitgliedschaften hat er keinen Zugriff.
@@ -368,7 +371,7 @@ Zuweisungen werden unter dem Pfad `/api/v1/t/{garten-kurzname}/assignments` verw
     Nein. Du siehst immer genau einen Garten. Benachrichtigungen sind die Ausnahme: Sie erreichen dich unabhängig davon, welcher Garten gerade geöffnet ist.
 
 ??? question "Wie bekomme ich Rechte für den Plattform-Bereich?"
-    Über eine Admin-Mitgliedschaft im technischen Plattform-Mandanten — die vergibt ein bestehender Plattform-Administrator. Bei einer eigenen Installation erhält das erste registrierte Konto diese Rolle automatisch.
+    Über eine Mitgliedschaft mit der Rolle Leitung im technischen Plattform-Mandanten — die vergibt ein bestehender Plattform-Administrator, mit seinem Passwort bestätigt. Niemand kann sich die Rolle selbst geben. Bei einer eigenen Installation richtest du das erste Plattform-Admin-Konto auf dem Server ein (`python -m app.migrations.add_platform_admin <e-mail>`); ein erstes registriertes Konto wird nicht automatisch Plattform-Administrator.
 
 ??? question "Braucht Home Assistant ein Konto mit Zusatzberechtigungen?"
     Nein. Ein Dienstkonto mit der Gärtner-Rolle genügt zum Lesen und Dokumentieren. Nur zum Anlegen von Standorten wäre die Rolle Leitung nötig, und zum *Einrichten* der Home-Assistant-Anbindung selbst die Zusatzberechtigung Technik.
