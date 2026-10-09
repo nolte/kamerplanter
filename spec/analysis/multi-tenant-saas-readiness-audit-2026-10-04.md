@@ -908,6 +908,7 @@ Konventionen: **Aufwand** XS (< ½ Tag) · S (½–1 Tag) · M (2–3 Tage) · L
 **Tests:** Unit: Activities A/B/global → Read als A liefert A+global; Guard rot auf altem Stand.
 **Acceptance Criteria:** wie Tests.
 **Definition of Done:** Tests grün.
+**Nachmessung (2026-10-10, #2119):** Die Aussage „`ActivityCreate.tenant_key` aus dem Body“ trifft nicht zu — `schemas.py:50` ist `ActivityResponse.tenant_key`; `ActivityCreate`/`ActivityUpdate` haben kein `tenant_key`, ein mitgeschicktes Feld wird verworfen. Jeder Activity-Schreibpfad verlangt `require_platform_admin`, keiner stempelt einen Tenant — heute sind alle Zeilen global, ein Leak war nicht erreichbar. Umgesetzt als Härtung: `is_tenant_scoped=True`; `get_all`, `get_by_category`, `get_system_activities` nehmen `tenant_key` keyword-only ohne Default und filtern mit `tenant_union_predicate`; `GET /activities` und `GET /activities/{key}` lösen den Tenant über `get_active_tenant_key` auf (fremder Schlüssel → 404); ein geteilter, generierter Aktivitätsplan entsteht nur aus globalen Activities. Offen: der allgemeine Guard „jedes Repo mit `tenant_key`-Modell setzt `is_tenant_scoped`“ — gemessen 14 weitere Repositories ohne das Flag (Liste im PR zu #2119).
 
 #### MT-024 — Cross-Tenant-Testlücken und Guard-Semantik
 **Kategorie:** Testing · **Priorität:** P1 · **Aufwand:** M · **Breaking Change:** Nein · **Migration:** Nein
