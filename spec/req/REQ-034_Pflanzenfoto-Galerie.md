@@ -8,7 +8,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, React 19/TypeScript 5.9, MUI 7
 Status: Entwurf
 Prioritaet: Hoch
-Version: 1.3 (Foto-Whitelist ohne HEIC nach NFR-013 v1.8, #2139)
+Version: 1.4 (Guards 2 und 3 auch fuer den interaktiven Referenz-Beitrag, #2174)
 Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `gallery`), NFR-013 v1.4 (Object Storage), REQ-013 v2.7 (PlantInstance), REQ-024 v1.7 (Rollen), REQ-025 v1.6 (DSGVO), REQ-029-A v1.3 (DINOv2-Referenz-Index)
 Autor: Business Analyst - Agrotech
 Datum: 2026-06-19
@@ -22,6 +22,7 @@ Betroffene Module: [backend.app.services.attachment, backend.app.domain.models.p
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.4 | 2026-10-09 | Guard 2 (Light-Modus) und Guard 3 (Consent `reference_contribution`) gelten auch fuer den interaktiven Beitrag `POST /api/v1/t/{slug}/identification/reference` (§4.1, AC-17, #2174): Ohne Einwilligung antwortet die API mit 403 `CONSENT_REQUIRED`, im Light-Modus mit 409 `ADAPTER_NOT_AVAILABLE` — jeweils bevor Art, Tages-Kontingent oder Beitrags-Marker angefasst werden. Bisher pruefte nur der automatische Galerie-Hook die Einwilligung. |
 | 1.3 | 2026-10-04 | Erlaubte MIME-Types der Galerie folgen NFR-013 v1.8: kein `image/heic` mehr (#2139) — die serverseitige EXIF-Bereinigung kann es nicht neu kodieren; die Erfassung nach REQ-052 wandelt vorher in JPEG um. |
 | 1.1 | 2026-06-19 | **Security-Requirements-Review eingearbeitet.** SR-001: Consent-Purpose `reference_contribution` in REQ-025 v1.4 registriert (§4.4). SR-002: Permission-Vertrag auf den realen `Permission`-Enum (REQ-024 v1.5 §1a) umgestellt; neue Matrix-Zeile „Plant Instance Photos" (§6). SR-003: Provenienz-Felder + pgvector-Erasure-Phase 0.5 (REQ-029-A v1.2 §5.1, REQ-025 §3.5) (§5). SR-004: Galerie-Quota verbindlich (§3, O-01 aufgelöst). SR-005: Light-Modus-Auflösung des Reference-Hooks + Backlog-Limit gegen Index-Poisoning (§4). SR-006: interner Bildtransfer als ClusterIP/TLS-only gekennzeichnet (§4.2). SR-007: `POST /reference`-Vertrag in REQ-029-A v1.2 §3.3 definiert. O-04 auf „global pro Nutzer" entschieden. |
 | 1.0 | 2026-06-19 | Erstentwurf — Foto-Galerie pro Pflanzeninstanz auf NFR-013-Fundament, DINOv2-Hook, DSGVO-Klassifizierung. |
@@ -193,6 +194,8 @@ Galerie-Upload an PlantInstance (species_key gesetzt)
 
 **Light-Modus-Auflösung von Guard 2 (SR-005b):** Im Light-Modus (REQ-027) ist der DSGVO-Consent-Mechanismus deaktiviert; ein `reference_contribution`-Consent kann dort gar nicht erteilt werden. Da der Inferenz-Service zudem erst Phase 2 der Bilderkennung ist und die Haushaltsausnahme keinen Community-Datenbeitrag rechtfertigt, ist der Reference-Hook im Light-Modus **generell deaktiviert** (Guard 2). Die Galerie selbst funktioniert im Light-Modus unveraendert.
 
+**Interaktiver Beitrag (#2174):** Neben dem automatischen Galerie-Hook gibt es einen zweiten Schreibpfad in denselben Index — den interaktiven Beitrag eines Identifikationsfotos ueber `POST /api/v1/t/{slug}/identification/reference` (REQ-029-A, Issue #447). Fuer ihn gelten **Guard 2 und Guard 3 unveraendert**: Im Light-Modus lehnt die API ab (409 `ADAPTER_NOT_AVAILABLE`), ohne erteilten oder nach Widerruf antwortet sie mit 403 `CONSENT_REQUIRED`. Beide Pruefungen laufen **vor** der Art-Aufloesung, dem Tages-Kontingent, dem Beitrags-Marker und der Embedding-Berechnung — eine abgelehnte Anfrage hinterlaesst keine Spur (AC-17).
+
 **Interner Bildtransfer (SR-006):** Der Transfer des Originalbilds an den Inferenz-Service zur Embedding-Berechnung laeuft ausschliesslich ueber die **interne ClusterIP** des self-hosted Inferenz-Microservice (REQ-029-A §3.1, nicht oeffentlich exponiert) und ueber TLS im Cluster-Netzwerk (NFR-013 §5.3). Der Bildpfad darf niemals ueber eine extern erreichbare Route implementiert werden.
 
 ### 4.2 Was NICHT passiert
@@ -306,6 +309,7 @@ Antworten referenzieren ausschliesslich `attachment_id` + Stable URIs (`/api/v1/
 | **AC-14** | i18n DE/EN fuer alle Galerie-UI-Texte; DE ist Default/Fallback. |
 | **AC-15** | Ueberschreiten der Galerie-Quota (`STORAGE_MAX_PHOTOS_PER_INSTANCE`, Default 50) ODER der Tenant-Storage-Quota lehnt den Upload vor dem Schreiben ab (HTTP 409) mit verstaendlicher Meldung; keine verwaisten Bytes. |
 | **AC-16** | Im Light-Modus (REQ-027) ist der DINOv2-Referenz-Hook generell deaktiviert (kein Consent-Pfad noetig); die Galerie funktioniert dort vollstaendig. |
+| **AC-17** | Der interaktive Referenz-Beitrag (`POST /api/v1/t/{slug}/identification/reference`) lehnt ohne `reference_contribution`-Consent (nie erteilt oder widerrufen) mit HTTP 403 `CONSENT_REQUIRED` und im Light-Modus mit HTTP 409 `ADAPTER_NOT_AVAILABLE` ab — jeweils bevor Art-Aufloesung, Tages-Kontingent, Beitrags-Marker oder Embedding-Berechnung laufen. Mit erteiltem Consent wird der Beitrag wie bisher in Quarantaene (`is_active = false`) angelegt (HTTP 202). |
 
 ---
 

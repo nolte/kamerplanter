@@ -1,8 +1,10 @@
 """API tests for the REQ-029 recognition routers (status + tenant-scoped)."""
 
 import io
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
@@ -11,6 +13,7 @@ from PIL import Image
 from app.api.v1.recognition import tenant_router as tenant_recognition_module
 from app.api.v1.recognition.router import router as recognition_router
 from app.api.v1.recognition.tenant_router import router as tenant_recognition_router
+from app.common import dependencies
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_identification_service, get_reference_image_service
 from app.common.enums import TenantRole
@@ -21,7 +24,11 @@ from app.common.exceptions import (
     RateLimitError,
 )
 from app.config.settings import settings
+from app.data_access.external import inference_service_client
+from app.domain.engines.consent_engine import REFERENCE_CONTRIBUTION
 from app.domain.models.tenant_context import TenantContext
+from tests.support.fake_consent_repo import FakeConsentRepo
+from tests.support.fake_contribution_marker import FakeContributionMarker
 
 TENANT_SLUG = "anna"
 
@@ -449,3 +456,127 @@ def test_contribute_reference_pixel_bomb_returns_413(monkeypatch):
     )
     assert resp.status_code == 413
     reference_service.contribute_user_reference.assert_not_called()
+
+
+# ── #2174 — the interactive contribution reads the reference_contribution opt-in ──
+
+
+class _CountingRedis:
+    """Dict-backed stand-in for the quota counter, so a consumed quota is visible."""
+
+    def __init__(self) -> None:
+        self.counters: dict[str, int] = {}
+
+    def incr(self, key: str) -> int:
+        self.counters[key] = self.counters.get(key, 0) + 1
+        return self.counters[key]
+
+    def expire(self, key: str, seconds: int) -> bool:
+        return True
+
+    def ttl(self, key: str) -> int:
+        return 60
+
+
+@pytest.fixture
+def wired_contribution(monkeypatch):
+    """The REAL ``get_reference_image_service`` provider, its storage swapped for doubles.
+
+    The consent check lives in the service and its collaborators come from the
+    provider — so this exercises the wiring in ``dependencies.py`` too: a
+    provider that forgot the consent repo makes every case here fail.
+    """
+    monkeypatch.setattr(settings, "inference_service_enabled", True)
+    monkeypatch.setattr(settings, "kamerplanter_mode", "full")
+    monkeypatch.setattr(settings, "reference_image_use_wikimedia", False)
+
+    consent_repo = FakeConsentRepo()
+    marker = FakeContributionMarker()
+    redis = _CountingRedis()
+    species_repo = MagicMock()
+    species_repo.get_or_raise.return_value = SimpleNamespace(
+        key="species_monstera", scientific_name="Monstera deliciosa"
+    )
+    inference = MagicMock()
+    inference.embed.return_value = [0.1] * 4
+    inference.upsert_reference.return_value = {"status": "ok", "dim": 4}
+
+    monkeypatch.setattr(dependencies, "get_consent_repo", lambda: consent_repo)
+    monkeypatch.setattr(dependencies, "get_system_settings_repo", lambda: marker)
+    monkeypatch.setattr(dependencies, "_get_redis_client", lambda: redis)
+    monkeypatch.setattr(dependencies, "get_species_repo", lambda: species_repo)
+    monkeypatch.setattr(dependencies, "get_identification_repo", MagicMock)
+    monkeypatch.setattr(dependencies, "get_reference_image_repo", MagicMock)
+    monkeypatch.setattr(inference_service_client, "InferenceServiceClient", lambda *a, **k: inference)
+
+    app = FastAPI()
+    app.include_router(tenant_recognition_router, prefix="/api/v1/t/{tenant_slug}")
+    app.add_exception_handler(KamerplanterError, _app_error_handler)
+    app.dependency_overrides[get_current_tenant] = lambda: _tenant_ctx(TenantRole.GROWER)
+    # No override for get_reference_image_service — the provider itself runs.
+    return SimpleNamespace(
+        client=TestClient(app),
+        consent_repo=consent_repo,
+        marker=marker,
+        redis=redis,
+        species_repo=species_repo,
+        inference=inference,
+    )
+
+
+def _contribute(client: TestClient):
+    return client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/reference",
+        files=_real_jpeg_upload(),
+        data={"species_key": "species_monstera"},
+    )
+
+
+def _assert_nothing_contributed(wired) -> None:
+    assert wired.redis.counters == {}
+    assert wired.marker.writes == 0
+    wired.species_repo.get_or_raise.assert_not_called()
+    wired.inference.embed.assert_not_called()
+    wired.inference.upsert_reference.assert_not_called()
+
+
+def test_contribute_reference_without_consent_returns_403_and_contributes_nothing(wired_contribution):
+    resp = _contribute(wired_contribution.client)
+
+    assert resp.status_code == 403
+    assert resp.json()["error_code"] == "CONSENT_REQUIRED"
+    assert wired_contribution.consent_repo.reads == [("user_anna", REFERENCE_CONTRIBUTION)]
+    _assert_nothing_contributed(wired_contribution)
+
+
+def test_contribute_reference_with_consent_returns_202(wired_contribution):
+    wired_contribution.consent_repo.set("user_anna", REFERENCE_CONTRIBUTION, granted=True)
+
+    resp = _contribute(wired_contribution.client)
+
+    assert resp.status_code == 202
+    assert resp.json()["pending_review"] is True
+    assert wired_contribution.redis.counters == {"ident_ratelimit:contribute:user_anna": 1}
+    assert wired_contribution.marker.writes == 1
+    wired_contribution.inference.upsert_reference.assert_called_once()
+
+
+def test_contribute_reference_with_revoked_consent_returns_403(wired_contribution):
+    wired_contribution.consent_repo.set("user_anna", REFERENCE_CONTRIBUTION, granted=False)
+
+    resp = _contribute(wired_contribution.client)
+
+    assert resp.status_code == 403
+    assert resp.json()["error_code"] == "CONSENT_REQUIRED"
+    _assert_nothing_contributed(wired_contribution)
+
+
+def test_contribute_reference_in_light_mode_returns_409_even_with_consent(wired_contribution, monkeypatch):
+    monkeypatch.setattr(settings, "kamerplanter_mode", "light")
+    wired_contribution.consent_repo.set("user_anna", REFERENCE_CONTRIBUTION, granted=True)
+
+    resp = _contribute(wired_contribution.client)
+
+    assert resp.status_code == 409
+    assert resp.json()["error_code"] == "ADAPTER_NOT_AVAILABLE"
+    _assert_nothing_contributed(wired_contribution)

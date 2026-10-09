@@ -12,9 +12,11 @@ import pytest
 from PIL import Image
 
 from app.common.exceptions import NotFoundError, RateLimitError, ValidationError
+from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.models.reference_image import MediaCandidate, ReferenceLicense
 from app.domain.services.reference_image_license import is_acceptable, normalize_license
 from app.domain.services.reference_image_service import ReferenceImageService
+from tests.support.fake_consent_repo import GrantAllConsentRepo
 from tests.support.fake_contribution_marker import FakeContributionMarker
 
 # ── License normalisation ──────────────────────────────────────────────
@@ -309,6 +311,9 @@ def _make_contribution_service(*, dim: int = 384):
         identification_engine=engine,
         # #1753 — the contribution path records the marker before it writes.
         contribution_marker=FakeContributionMarker(),
+        # #2174 — the contribution path reads the reference_contribution opt-in.
+        consent_repo=GrantAllConsentRepo(),
+        consent_engine=ConsentEngine(),
     )
     return service, inference, species_repo, rate_limiter, stored
 
