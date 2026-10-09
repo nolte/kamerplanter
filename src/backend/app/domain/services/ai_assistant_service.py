@@ -16,7 +16,7 @@ from typing import Any, get_args
 
 import structlog
 
-from app.common.exceptions import AiDisabledError, NotFoundError, ValidationError
+from app.common.exceptions import AiDisabledError, ExternalSourceError, NotFoundError, ValidationError
 from app.data_access.arango.ai_repository import (
     ArangoAiConversationRepository,
     ArangoAiProviderRepository,
@@ -27,6 +27,7 @@ from app.domain.engines.ai_explain_engine import ExplainEngine
 from app.domain.engines.ai_tip_engine import TipEngine
 from app.domain.guards.consent_guard import AI_CLOUD_PROCESSING, AI_TENANT_DATA_ACCESS, ConsentGuard
 from app.domain.interfaces.knowledge_service import (
+    AskResult,
     ConfidenceLevel,
     IKnowledgeService,
     QuestionContext,
@@ -499,6 +500,86 @@ class AiAssistantService:
             confidence=question_context.confidence,
             provider_type=provider_type,
         )
+
+    # ── Knowledge ask (tenant-scoped) ───────────────────────────────────
+
+    def ask_knowledge(
+        self,
+        ctx: TenantContext,
+        *,
+        question: str,
+        top_k: int = 5,
+        doc_language: str | None = None,
+        prompt_language: str | None = None,
+        context: QuestionContext | None = None,
+        allow_cloud: bool = False,
+    ) -> AskResult:
+        """Answer a free-form question through the Knowledge Service (#2175).
+
+        The tenant-scoped successor of the former ``POST /api/v1/knowledge/ask``,
+        which reached the LLM with no toggle, no consent and no budget. The
+        caller's free-text question and the plant values in ``context`` leave the
+        installation, so the call is admitted like a chat message: consent
+        ``ai_tenant_data_access``, the provider gate (``ai_cloud_processing`` when
+        a cloud provider is used) and one charge against the daily AI budget —
+        all before the Knowledge Service is called. The router adds the rank and
+        the stage 1/2 toggle.
+
+        Unlike the tip and "why?" paths there is no rule-based answer to fall
+        back on, so an unreachable Knowledge Service is a ``502`` here, audited
+        as ``knowledge_service_error``.
+        """
+        self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
+        _provider_key, provider_type, uses_cloud = self._resolve_provider(ctx, None, allow_cloud=allow_cloud)
+        self._charge(ctx)
+        started = time.monotonic()
+        try:
+            result = _run_sync(
+                self._ks.ask(
+                    question,
+                    top_k=top_k,
+                    context=context,
+                    doc_language=doc_language,
+                    prompt_language=prompt_language,
+                )
+            )
+        except KnowledgeServiceUnavailableError:
+            self._audit.record(
+                tenant_key=ctx.tenant_key,
+                user_key=ctx.user_key,
+                endpoint="knowledge.ask",
+                question=question,
+                answer_length=0,
+                provider_type=provider_type,
+                language=prompt_language or "de",
+                uses_tenant_data=context is not None,
+                uses_cloud_provider=uses_cloud,
+                latency_ms=int((time.monotonic() - started) * 1000),
+                status="knowledge_service_error",
+                error_class="knowledge_service_unavailable",
+            )
+            # ``from None``: the adapter's cause may be an httpx error that still
+            # holds the request and its service-token header (SEC-004).
+            raise ExternalSourceError("knowledge-service", "unavailable") from None
+
+        self._budget.record_usage(tenant_key=ctx.tenant_key, usage=result.usage)
+        self._audit.record(
+            tenant_key=ctx.tenant_key,
+            user_key=ctx.user_key,
+            endpoint="knowledge.ask",
+            question=question,
+            answer_length=len(result.answer),
+            model_name=result.model_name,
+            provider_type=provider_type,
+            kb_version=result.kb_version,
+            language=prompt_language or "de",
+            uses_tenant_data=context is not None,
+            uses_cloud_provider=uses_cloud,
+            latency_ms=int((time.monotonic() - started) * 1000),
+            status="ok",
+            usage=result.usage,
+        )
+        return result
 
     # ── Public / Light-mode ask ─────────────────────────────────────────
 
