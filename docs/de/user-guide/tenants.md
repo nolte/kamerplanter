@@ -15,7 +15,7 @@ Ein Tenant ist der zentrale Isolations-Container für alle Ressourcen: Pflanzen,
 
 ### Persönlicher Tenant
 
-Bei der Registrierung erstellt das System automatisch deinen **persönlichen Tenant**. Du bist dort automatisch Admin. Alle Ressourcen, die du in Kamerplanter anlegst, landen standardmäßig in deinem persönlichen Tenant.
+Bei der Registrierung erstellt das System automatisch deinen **persönlichen Tenant**. Du hast dort automatisch die Rolle **Leitung** und beide Zusatzberechtigungen (**Verwaltung** und **Technik**). Alle Ressourcen, die du in Kamerplanter anlegst, landen standardmäßig in deinem persönlichen Tenant.
 
 !!! info "Persönliche Daten bleiben privat"
     Dein persönlicher Tenant ist vollständig von allen anderen Tenants isoliert. Kein Mitglied eines anderen Tenants kann deine privaten Zimmerpflanzen oder deinen Balkongarten sehen — auch wenn du demselben Gemeinschaftsgarten angehörst.
@@ -83,13 +83,13 @@ Was ein Widget anzeigt, kommt dagegen immer aus dem gerade aktiven Garten: Dasse
 
 4. Klicke auf **Erstellen**
 
-Du bist automatisch Admin des neuen Tenants.
+Du bist automatisch **Leitung** des neuen Tenants und hast beide Zusatzberechtigungen (**Verwaltung** und **Technik**).
 
 ---
 
 ## Mitglieder einladen
 
-Als Admin kannst du Mitglieder auf drei Wegen einladen:
+Mit der Zusatzberechtigung **Verwaltung** kannst du Mitglieder auf drei Wegen einladen:
 
 !!! note "Ist der Tenant voll, bleibt die Einladung offen"
     Hat dein Tenant sein Mitgliederlimit erreicht, kann niemand mehr beitreten — weder über eine E-Mail-Einladung noch über einen Einladungslink. Die Einladung verfällt dadurch nicht: Sobald ein Platz frei wird (jemand verlässt den Tenant) oder du das Limit anhebst, kann sie angenommen werden. Mitglieder, die schon dabei sind, bleiben es in jedem Fall — auch wenn du das Limit unter die aktuelle Mitgliederzahl senkst. <!-- Issue #2133 -->
@@ -98,7 +98,7 @@ Als Admin kannst du Mitglieder auf drei Wegen einladen:
 
 1. Navigiere zu **Einstellungen** > **Mitglieder** > **Einladen**
 2. Gib die E-Mail-Adresse des Mitglieds ein
-3. Wähle die Rolle (Admin, Gärtner, Beobachter)
+3. Die Einladung vergibt die Rolle **Beobachter** — eine andere Rolle gibst du dem Mitglied nach dem Beitritt unter [Rollen ändern](#rollen-andern)
 4. Klicke auf **Einladung senden**
 
 Kamerplanter schickt der Adresse eine E-Mail mit einem Link zur Annahme-Seite; er ist 7 Tage gültig. Wer ihn öffnet, meldet sich an — oder registriert sich mit genau dieser Adresse —, bestätigt auf der Annahme-Seite mit **Einladung annehmen** und wird deinem Tenant mit der vorgewählten Rolle hinzugefügt. Wer beim Öffnen noch nicht angemeldet ist, landet nach der Anmeldung (auch über einen Anmeldeanbieter) wieder auf der Annahme-Seite. Die E-Mail nennt weder deinen Namen noch den Namen des Tenants — die eingeladene Person sieht erst nach der Anmeldung, worum es geht.
@@ -129,20 +129,25 @@ Für Vereine und Organisationen mit eigenem Identity Provider (Keycloak, etc.) k
 
 ## Rollen und Berechtigungen
 
-Jedes Mitglied hat pro Tenant genau eine Rolle. Die Rolle bestimmt, was es tun darf:
+Jedes Mitglied hat pro Tenant genau eine Rolle: **Leitung**, **Gärtner** oder **Beobachter**. Die Rolle bestimmt, was es an den Gartendaten tun darf. Unabhängig davon kann ein Mitglied Zusatzberechtigungen halten: **Verwaltung** (Mitglieder, Einladungen, Einstellungen) und **Technik** (Home Assistant, Sensoren, Import). Eine Rolle „Admin“ gibt es im Tenant nicht mehr.
 
 ### Rollenvergleich
 
-| Aufgabe | Admin | Gärtner | Beobachter |
-|---------|:-----:|:--------:|:----------:|
+| Aufgabe | Leitung | Gärtner | Beobachter |
+|---------|:-------:|:--------:|:----------:|
 | Alles lesen | Ja | Ja | Ja |
 | Pflanzen anlegen/bearbeiten | Ja | Ja | Nein |
 | Standorte anlegen/bearbeiten | Ja | Ja | Nein |
 | Aufgaben erstellen | Ja | Ja | Nein |
 | Ernten dokumentieren | Ja | Ja | Nein |
-| Mitglieder einladen | Ja | Nein | Nein |
-| Rollen ändern | Ja | Nein | Nein |
-| Tenant-Einstellungen ändern | Ja | Nein | Nein |
+| Daten löschen | Ja | Nein | Nein |
+| Wetterquellen eines Standorts auswählen | Ja | Nein | Nein |
+
+| Aufgabe | Wer darf das? |
+|---------|---------------|
+| Mitglieder einladen | Zusatzberechtigung **Verwaltung**, unabhängig von der Rolle |
+| Rollen ändern | Zusatzberechtigung **Verwaltung**, unabhängig von der Rolle |
+| Tenant-Einstellungen ändern | Zusatzberechtigung **Verwaltung**, unabhängig von der Rolle |
 
 Die vollständige Rechteübersicht — inklusive Plattform-Rollen, Dienstkonten und der Frage, wer welche Daten zu sehen bekommt — steht unter [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md).
 
@@ -172,7 +177,7 @@ Ein Garten ist eine gemeinsame Arbeitsmenge: Alle Gärtner pflegen alle Pflanzen
 - **Gemeinschaftsflächen** wie Kompost oder Gewächshaus brauchen gar keine Zuordnung.
 - **Beobachter** lesen alles und ändern nichts — unabhängig von Zuordnungen.
 
-Der praktische Vorteil: Fällt jemand kurzfristig aus, springt ein anderes Mitglied ein, ohne dass ein Admin erst etwas umstellen muss.
+Der praktische Vorteil: Fällt jemand kurzfristig aus, springt ein anderes Mitglied ein, ohne dass jemand mit der Zusatzberechtigung Verwaltung erst etwas umstellen muss.
 
 !!! tip "Etwas wirklich privat halten"
     Trennung verläuft immer an der Gartengrenze, nie innerhalb eines Gartens. Was nur dich etwas angeht, gehört in deinen persönlichen Garten — oder in einen weiteren Garten, den du jederzeit anlegen kannst.
@@ -189,7 +194,7 @@ Der praktische Vorteil: Fällt jemand kurzfristig aus, springt ein anderes Mitgl
 
 ### Pinnwand
 
-Die Pinnwand wird ein gemeinsamer Nachrichtenbereich für alle Tenant-Mitglieder sein: Mitglieder werden Beiträge veröffentlichen können, Admins werden Beiträge anpinnen und löschen können.
+Die Pinnwand wird ein gemeinsamer Nachrichtenbereich für alle Tenant-Mitglieder sein: Mitglieder werden Beiträge veröffentlichen können, die Leitung wird Beiträge anpinnen und löschen können.
 
 !!! example "Typische Pinnwand-Posts (Konzept)"
     - "Schneckenalarm! Bitte Bierfallen aufstellen."
@@ -198,17 +203,17 @@ Die Pinnwand wird ein gemeinsamer Nachrichtenbereich für alle Tenant-Mitglieder
 
 ### Gießrotation
 
-Für die Verteilung von Gießpflichten unter Mitgliedern ist eine Rotationsfunktion geplant: Ein Intervall (z. B. wöchentlich) und die beteiligten Mitglieder werden hinterlegbar sein, und das System wird das jeweils zuständige Mitglied erinnern. Mitglieder sollen Dienste untereinander tauschen können, ohne den Admin einzubeziehen.
+Für die Verteilung von Gießpflichten unter Mitgliedern ist eine Rotationsfunktion geplant: Ein Intervall (z. B. wöchentlich) und die beteiligten Mitglieder werden hinterlegbar sein, und das System wird das jeweils zuständige Mitglied erinnern. Mitglieder sollen Dienste untereinander tauschen können, ohne die Leitung einzubeziehen.
 
 ### Gemeinsame Einkaufsliste
 
-Eine gemeinsame Einkaufsliste ist geplant: Alle Gärtner sollen Einträge hinzufügen und abhaken können, Admins sollen Listen archivieren können.
+Eine gemeinsame Einkaufsliste ist geplant: Alle Gärtner sollen Einträge hinzufügen und abhaken können, die Leitung soll Listen archivieren können.
 
 ---
 
 ## Tenant-Einstellungen
 
-Als Admin erreichst du alle Einstellungen unter **Einstellungen** (Zahnrad-Icon).
+Mit der Zusatzberechtigung **Verwaltung** erreichst du alle Einstellungen unter **Einstellungen** (Zahnrad-Icon).
 
 ### Wichtige Einstellungen
 
@@ -226,16 +231,16 @@ Als Admin erreichst du alle Einstellungen unter **Einstellungen** (Zahnrad-Icon)
 
 ## Tenant verlassen
 
-Du kannst einen Tenant verlassen, solange du nicht der einzige Admin bist:
+Du kannst einen Tenant verlassen, solange du nicht das einzige Mitglied mit der Zusatzberechtigung **Verwaltung** bist:
 
 1. Navigiere zu **Einstellungen** > **Mitgliedschaft** > **Tenant verlassen**
 2. Bestätigen
 
 !!! note "Aufgaben und Erinnerungen"
-    Verlässt du einen Tenant — oder entfernt dich ein Admin —, bist du dort bei keiner Aufgabe mehr zugewiesen: Die Aufgaben bleiben im Tenant, aber ohne Zuständigen. Die täglichen Pflege-Erinnerungen und die Tageszusammenfassung gehen nur noch an aktive Mitglieder; eine Zusammenfassung enthält immer nur die Aufgaben **eines** Tenants (hast du mehrere, bekommst du je Tenant eine). <!-- Issue #2114, REQ-024 AK-62 -->
+    Verlässt du einen Tenant — oder entfernt dich jemand mit der Zusatzberechtigung Verwaltung —, bist du dort bei keiner Aufgabe mehr zugewiesen: Die Aufgaben bleiben im Tenant, aber ohne Zuständigen. Die täglichen Pflege-Erinnerungen und die Tageszusammenfassung gehen nur noch an aktive Mitglieder; eine Zusammenfassung enthält immer nur die Aufgaben **eines** Tenants (hast du mehrere, bekommst du je Tenant eine). <!-- Issue #2114, REQ-024 AK-62 -->
 
-!!! warning "Als einziger Admin"
-    Wenn du der einzige Admin bist, musst du vorher entweder ein anderes Mitglied zum Admin befördern oder den Tenant löschen — Letzteres setzt zusätzlich voraus, dass du dort sowohl die Rolle Leitung als auch die Zusatzberechtigung Verwaltung hast. Details dazu unter [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md). <!-- Issue #1791 -->
+!!! warning "Als einziges Mitglied mit Verwaltung"
+    Bist du das einzige Mitglied mit der Zusatzberechtigung Verwaltung, musst du sie vorher entweder an ein anderes Mitglied weitergeben oder den Tenant löschen — Letzteres setzt zusätzlich voraus, dass du dort sowohl die Rolle Leitung als auch die Zusatzberechtigung Verwaltung hast. Details dazu unter [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md). <!-- Issue #1791 -->
 
 ---
 
@@ -256,8 +261,8 @@ Du kannst einen Tenant verlassen, solange du nicht der einzige Admin bist:
 
     Konnte beim Löschen nicht sofort alles vollständig entfernt werden, bleibt der Vorgang vorgemerkt und wird automatisch täglich wiederholt, bis er abgeschlossen ist. Dein persönlicher Tenant und deine Mitgliedschaften in anderen Tenants sind von einer solchen Löschung nicht betroffen.
 
-??? question "Sehen Tenant-Admins meine persönlichen Zimmerpflanzen?"
-    Nein. Dein persönlicher Tenant ist vollständig von allen anderen Tenants isoliert. Selbst wenn ein Admin im Gemeinschaftsgarten mehr Rechte hat, kann er niemals Daten in deinem persönlichen Tenant sehen.
+??? question "Sieht die Leitung eines Gemeinschaftsgartens meine persönlichen Zimmerpflanzen?"
+    Nein. Dein persönlicher Tenant ist vollständig von allen anderen Tenants isoliert. Selbst wenn jemand im Gemeinschaftsgarten Leitung ist oder Zusatzberechtigungen hat, kann er niemals Daten in deinem persönlichen Tenant sehen.
 
 ---
 

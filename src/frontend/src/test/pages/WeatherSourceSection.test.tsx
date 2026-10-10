@@ -43,7 +43,7 @@ interface Opts {
   testReachable?: boolean;
 }
 
-function setup(opts: Opts = {}) {
+function setup(opts: Opts = {}, role: 'viewer' | 'grower' | 'lead' = 'lead') {
   let putBody: unknown = null;
   let testBody: unknown = null;
 
@@ -99,7 +99,7 @@ function setup(opts: Opts = {}) {
 
   // MT-015 (#2112): the HA entity pickers need the `technical` scope.
   const result = renderWithProviders(<WeatherSourceSection siteKey={SITE} />, {
-    store: createStoreWithTenantRole('lead', ['technical']),
+    store: createStoreWithTenantRole(role, ['technical']),
   });
   return { ...result, getPutBody: () => putBody, getTestBody: () => testBody };
 }
@@ -213,5 +213,41 @@ describe('WeatherSourceSection', () => {
     await user.click(await screen.findByRole('option', { name: 'OpenWeatherMap' }));
     const keyField = await screen.findByTestId('weather-api-key-field');
     expect(keyField.querySelector('input')?.type).toBe('password');
+  });
+
+  // REQ-049 §2.10 (#2181): the selection per site is the lead's. A grower sees
+  // it — even with the technical scope — but gets no control the backend would
+  // refuse with 403.
+  it.each(['grower', 'viewer'] as const)('shows the selection read-only to a %s', async (role) => {
+    setup({ config: TWO_SOURCE_CONFIG }, role);
+    const first = await screen.findByTestId('weather-entry-0');
+    expect(within(first).getByText('Open-Meteo')).toBeInTheDocument();
+    expect(screen.getByTestId('weather-source-readonly-hint')).toBeInTheDocument();
+    expect(screen.getByTestId('weather-enable-0')).toHaveClass('Mui-disabled');
+    for (const id of [
+      'weather-add-source-button',
+      'weather-save-button',
+      'weather-move-up-1',
+      'weather-test-0',
+      'weather-edit-0',
+      'weather-remove-0',
+    ]) {
+      expect(screen.queryByTestId(id)).not.toBeInTheDocument();
+    }
+  });
+
+  it('offers a grower no add action on an empty selection', async () => {
+    setup({}, 'grower');
+    expect(await screen.findByTestId('weather-source-readonly-hint')).toBeInTheDocument();
+    expect(screen.queryByTestId('weather-add-source-button')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add|hinzufügen/i })).not.toBeInTheDocument();
+  });
+
+  it('gives the lead the controls and no read-only hint', async () => {
+    setup({ config: TWO_SOURCE_CONFIG }, 'lead');
+    await screen.findByTestId('weather-entry-0');
+    expect(screen.getByTestId('weather-save-button')).toBeInTheDocument();
+    expect(screen.getByTestId('weather-test-0')).toBeInTheDocument();
+    expect(screen.queryByTestId('weather-source-readonly-hint')).not.toBeInTheDocument();
   });
 });
