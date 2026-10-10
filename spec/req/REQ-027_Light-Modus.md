@@ -7,7 +7,7 @@ Kategorie: Plattform & Deployment
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.6 (Umsetzungsstand: Moduswechsel §7a nicht implementiert #1855, AI-Provider-Guard W-001 nicht implementiert #2176, Plattform-Rolle im Light-Modus über den Modus statt über eine Mitgliedschaft; #2121); 1.5 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
+Version: 1.7 (AI-Provider-Guard W-001 in der Form von v1.3 verworfen — er hätte einen Schlüssel geprüft, der das LLM nicht auswählt; Cloud-LLM im Light-Modus wird nicht abgewiesen, #2176); 1.6 (Umsetzungsstand: Moduswechsel §7a nicht implementiert #1855, AI-Provider-Guard W-001 nicht implementiert #2176, Plattform-Rolle im Light-Modus über den Modus statt über eine Mitgliedschaft; #2121); 1.5 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
 Abhängigkeit: REQ-023 v1.6, REQ-024 v1.3, REQ-025, REQ-031
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-023 v1.6, REQ-024 v1.3, REQ-025, REQ-031
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.7 | 2026-10-09 | **#2176 (W-001 korrigiert).** Gemessen gegen `develop` (`6f93331f2`): Das LLM wählt allein der Knowledge Service über seine eigene Umgebungsvariable `LLM_PROVIDER` (`src/knowledge-service/app/config.py:61`, Fabrik `create_llm_adapter` in `src/knowledge-service/app/llm/__init__.py`); die `/ask`-Anfrage des Backends nennt keinen Provider (`src/backend/app/data_access/external/knowledge_service_adapter.py:197`), und `ask_public` löst gar keinen Provider auf (`src/backend/app/domain/services/ai_assistant_service.py:505`). Der in v1.3 spezifizierte Guard `validate_light_mode_ai_config()` hätte einen `ai_provider_configs`-Eintrag hinter `AI_PUBLIC_PROVIDER_KEY` geprüft — einen Eintrag, der das tatsächlich angesprochene LLM nicht bestimmt. Er wäre auch umgesetzt wirkungslos gewesen: ein Backend mit lokalem Eintrag startet, während der Knowledge Service mit `LLM_PROVIDER=anthropic` jede Frage in die Cloud schickt. §2.1, §6.1, §6.1.1 und AK-29–AK-34 beschreiben deshalb den tatsächlichen Stand (keine Durchsetzung, Betreiberpflicht); der Entwurf von v1.3 ist **verworfen**, `AI_PUBLIC_PROVIDER_KEY` wird nicht eingeführt. Neues **AK-36** hält das eigentliche Ziel fest (kein Cloud-LLM im Light-Modus, geprüft am Knowledge Service) — nicht implementiert, Ort und Form der Prüfung sind eine offene Betreiberentscheidung. Audit-Marker in §2.1 an den Code angeglichen (`tenant_key="public"`, nicht `null`). Einzige Code-Änderung: Der Knowledge Service fiel bei einem unbekannten `LLM_PROVIDER` still auf den Anthropic-Adapter zurück; er verweigert jetzt den Start. |
 | 1.6 | 2026-10-05 | **#2121 (MT-025, Umsetzungsstand markiert; reine Spec-Änderung).** Gemessen gegen `develop` (`b064e63b7`): (1) **Moduswechsel (§1.1 Szenarien 5–8, §7a, AK-15–AK-28) ist nicht implementiert** (#1855): kein Code liest oder schreibt `system_meta`, es gibt weder `POST /system/takeover` noch `GET /system/takeover-status`, der System-User bleibt nach einem Wechsel auf `full` aktiv; `OnboardingService` trägt nur ein `takeover_accepted`-Flag. Die Abschnitte bleiben als Zielbild, jeweils mit Status. Neues **AK-35**: ein im Light-Modus ausgestellter API-Key ist nach dem Wechsel auf `full` ungültig — heute bleibt er gültig (der Key prüft nur sich selbst und `is_active` des System-Users), ebenfalls #1855. (2) **AI-Provider-Guard (§6.1.1, AK-29–AK-34) ist nicht implementiert** (#2176): `validate_light_mode_ai_config` und `StartupConfigurationError` existieren nicht. (3) **§3.4/AK-12:** Der System-User erhält **keine** Mitgliedschaft im Platform-Tenant; Plattform-Admin ist er, weil `is_platform_admin` im Light-Modus immer wahr ist. Die Szenario-Rollen auf `lead` (+ Zusatzberechtigungen) nachgezogen (vorher `admin`). |
 | 1.5 | (vorher) | Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt. |
 | 1.4 | 2026-04-27 | **W-012 + W-015 + W-017:** §1 Klarstellungs-Tabelle „Was deaktiviert / was aktiv bleibt" — technische Datenschutz-Maßnahmen (GPS-Rundung, IP-Anonymisierung, EXIF-Strip, HTTPS, Rate Limiting) bleiben aktiv (W-012). Service Accounts in §2.1 als deaktiviert markiert; §1.1 Szenario 5 um Migrations-Hinweis für externe Integrationen erweitert (W-015). §6.1 Lifespan ruft `ensure_system_user_calendar_feed_token()` auf; §6.2 Klarstellung dass CalendarFeed-Endpunkt in beiden Modi aktiv ist (W-017). |
@@ -285,10 +286,10 @@ Phase 4 — Erneuter Upgrade auf Full:
 
 <!-- Quelle: REQ-031 v2.0 -->
 
-**KI-Verhalten im Light-Modus:** Im Light-Modus laufen KI-Anfragen ausschließlich über System-Default-Provider (typischerweise lokales Ollama). `AI_PUBLIC_PROVIDER_KEY` muss auf einen lokalen Provider zeigen — Cloud-Provider sind im Light-Modus NICHT verwendbar, weil kein Nutzer einen Consent erteilen kann. Der Knowledge-Service-Aufruf erfolgt strikt mit `context = null` (kein Tenant-Kontext). Audit-Eintrag wird mit `tenant_key=null` und `user_key=null` geschrieben.
+**KI-Verhalten im Light-Modus:** Im Light-Modus DARF keine KI-Anfrage ein Cloud-LLM erreichen, weil kein Nutzer einen Consent erteilen kann. Welches LLM antwortet, entscheidet allein der Knowledge Service über seine Umgebungsvariable `LLM_PROVIDER` (LLM-Adapter siehe REQ-031 §1.2); das Backend übergibt keinen Provider. Für den Light-Modus MUSS der Betreiber den Knowledge Service daher mit einem lokalen LLM betreiben (`LLM_PROVIDER=ollama` oder `openai_compatible` mit lokaler `LLM_API_URL`) — oder `AI_FEATURES_ENABLED=false` setzen. Der Knowledge-Service-Aufruf erfolgt strikt mit `context = null` (kein Tenant-Kontext). Audit-Eintrag wird mit `tenant_key="public"` und `user_key=null` geschrieben.
 
 <!-- Quelle: Widerspruchsanalyse W-001 -->
-**Enforcement (W-001):** Diese Regel wird beim Backend-Start technisch durchgesetzt — Strategie: **Whitelist + Hard-Crash, kein Override**. `validate_light_mode_ai_config()` (siehe §6.1) prüft `AI_PUBLIC_PROVIDER_KEY.provider_type` gegen die Whitelist `LIGHT_MODE_ALLOWED_PROVIDER_TYPES = {'ollama', 'openai_compatible'}` und bricht den Backend-Start mit `StartupConfigurationError` ab, wenn ein nicht-zugelassener Provider-Typ (z.B. `anthropic`) konfiguriert ist. Bei `openai_compatible` wird zusätzlich die `base_url` über eine Loopback-Heuristik geprüft (`localhost`, `127.0.0.1`, `::1`, RFC-1918 private Netze, `*.local`, `*.internal`, `*.svc.cluster.local`); öffentliche URLs führen ebenfalls zum Hard-Crash. Es existiert kein Override-Flag — wer Cloud-AI nutzen will, muss den Full-Modus mit Consent-Mechanismus aktivieren.
+**Enforcement (W-001) — nicht implementiert (v1.7, #2176):** Die Regel wird heute **nicht** technisch durchgesetzt; ein Knowledge Service mit `LLM_PROVIDER=anthropic` beantwortet auch im Light-Modus jede Frage über die Cloud. Der Entwurf aus v1.3 (Startup-Prüfung eines `ai_provider_configs`-Eintrags hinter `AI_PUBLIC_PROVIDER_KEY`) ist verworfen, weil dieser Eintrag das LLM nicht auswählt (§6.1.1). Das Ziel steht als AK-36.
 <!-- /Quelle: Widerspruchsanalyse W-001 -->
 
 ### 2.2 Ausgeblendete UI-Elemente im Light-Modus
@@ -603,7 +604,6 @@ export const isLightMode = KAMERPLANTER_MODE === 'light';
 async def lifespan(app: FastAPI):
     if settings.kamerplanter_mode == "light":
         seed_light_mode(get_db())                              # System-User + System-Tenant
-        validate_light_mode_ai_config(get_db(), settings)      # W-001: AI-Provider-Guard
         ensure_system_user_calendar_feed_token(get_db())       # W-017: iCal-Feed-Token
     yield
     close_connection()
@@ -612,121 +612,27 @@ async def lifespan(app: FastAPI):
 <!-- Quelle: Widerspruchsanalyse W-001 -->
 #### 6.1.1 AI-Provider-Guard (W-001)
 
-> **Nicht implementiert (v1.6, #2176):** Weder `validate_light_mode_ai_config` noch `StartupConfigurationError` noch
-> `AI_PUBLIC_PROVIDER_KEY` existieren im Code; ein Cloud-Provider im Light-Modus wird beim Start nicht abgewiesen.
+> **Nicht implementiert (v1.7, #2176):** Ein Cloud-LLM im Light-Modus wird weder beim Start noch pro Anfrage
+> abgewiesen. Der Entwurf aus v1.3 ist verworfen (Begründung unten); `validate_light_mode_ai_config`,
+> `StartupConfigurationError` und `AI_PUBLIC_PROVIDER_KEY` werden nicht eingeführt.
 
-Im Light-Modus existiert kein Consent-Mechanismus (REQ-025 deaktiviert). Cloud-Provider dürfen daher nicht als System-Default für KI-Anfragen verwendet werden, weil keine Einwilligung für `ai_cloud_processing` erteilt werden kann.
+Im Light-Modus existiert kein Consent-Mechanismus (REQ-025 deaktiviert). Ein Cloud-LLM darf daher keine KI-Anfrage beantworten, weil keine Einwilligung für `ai_cloud_processing` erteilt werden kann.
 
-**Strategie:** Whitelist + Hard-Crash beim Backend-Start, **kein Override-Flag**.
+**Wer das LLM auswählt (gemessen an `develop` `6f93331f2`):**
 
-```python
-import ipaddress
-from urllib.parse import urlparse
+| Stelle | Befund |
+|--------|--------|
+| `src/knowledge-service/app/config.py:61` | `llm_provider` (Umgebungsvariable `LLM_PROVIDER`, Default `ollama`) ist die einzige Auswahl des LLM. |
+| `src/knowledge-service/app/llm/__init__.py` (`create_llm_adapter`) | Die Adapter-Fabrik liest nur `settings.llm_provider`. Bis v1.7 landete jeder Wert außer `ollama` und `openai_compatible` im `else`-Zweig beim Anthropic-Adapter — ein Tippfehler wählte still die Cloud. Seit #2176 verweigert ein unbekannter Wert den Start (`ValueError`). |
+| `src/backend/app/data_access/external/knowledge_service_adapter.py:197` | Die `/ask`-Anfrage des Backends trägt Frage, `top_k`, Sprachen und Kontext — keinen Provider. |
+| `src/backend/app/domain/services/ai_assistant_service.py:505` | `ask_public` (Light-Modus-Pfad) löst keinen Provider auf und liest keine `ai_provider_configs`. |
+| `src/backend/app/domain/services/ai_assistant_service.py:142`–`146` | Auf den Mandanten-Pfaden dient der `ai_provider_configs`-Eintrag nur der **Einstufung** als Cloud-Verarbeitung (Consent-Gate, Audit-Label), nicht der Auswahl des LLM. |
 
-# Whitelist erlaubter provider_type-Werte im Light-Modus.
-# - 'ollama'           : immer lokal (sicher)
-# - 'openai_compatible': KANN lokal sein (LM Studio, llama-cpp-server, vLLM,
-#                        text-generation-webui etc.). Operator ist verantwortlich,
-#                        dass die base_url wirklich auf einen lokalen/privaten
-#                        Endpunkt zeigt — siehe Loopback-Heuristik unten.
-LIGHT_MODE_ALLOWED_PROVIDER_TYPES: frozenset[str] = frozenset({
-    "ollama",
-    "openai_compatible",
-})
+**Warum der Entwurf aus v1.3 verworfen ist:** Er prüfte beim Backend-Start den `provider_type` und die `base_url` des `ai_provider_configs`-Eintrags hinter `AI_PUBLIC_PROVIDER_KEY` gegen eine Whitelist (`ollama`, `openai_compatible` mit lokaler URL). Dieser Eintrag bestimmt nicht, welches LLM antwortet. Der Guard wäre auch umgesetzt wirkungslos: Ein Backend mit lokalem Eintrag startet, während der Knowledge Service mit `LLM_PROVIDER=anthropic` jede Frage an Anthropic schickt; umgekehrt hätte ein falsch beschrifteter Eintrag einen lokalen Betrieb am Start gehindert.
 
+**Heutiger Stand:** Die Regel ist eine **Betreiberpflicht**. Im Light-Modus mit `AI_FEATURES_ENABLED=true` MUSS der Knowledge Service mit `LLM_PROVIDER=ollama` oder `LLM_PROVIDER=openai_compatible` und einer lokalen `LLM_API_URL` (Loopback, privates Netz, Cluster-internes DNS) laufen. Wer ein Cloud-LLM braucht, nutzt den Full-Modus mit Consent-Mechanismus.
 
-def validate_light_mode_ai_config(db, settings) -> None:
-    """Verbietet Cloud-AI-Provider im Light-Modus (Hard-Crash-Strategie).
-
-    Im Light-Modus existiert kein Consent-Mechanismus (REQ-025 deaktiviert).
-    Cloud-Provider duerfen daher nicht als System-Default verwendet werden,
-    weil keine Einwilligung fuer ai_cloud_processing erteilt werden kann.
-
-    Strategie: Whitelist + Hard-Crash. Kein Override-Flag — wer Cloud-AI
-    braucht, MUSS den Full-Modus mit Consent-Mechanismus nutzen.
-
-    Raises:
-        StartupConfigurationError: Wenn AI_FEATURES_ENABLED=true UND
-            der konfigurierte AI_PUBLIC_PROVIDER_KEY auf einen Provider
-            zeigt, dessen provider_type nicht in
-            LIGHT_MODE_ALLOWED_PROVIDER_TYPES enthalten ist, oder dessen
-            base_url offensichtlich oeffentlich erreichbar ist.
-    """
-    if not settings.ai_features_enabled:
-        return  # KI komplett deaktiviert — kein Provider-Check noetig
-
-    provider_key = settings.ai_public_provider_key
-    if not provider_key:
-        return  # Kein Public-Provider konfiguriert — KI-Endpoints liefern 404
-
-    provider = ai_provider_repo.get(db, provider_key)
-    if provider is None:
-        raise StartupConfigurationError(
-            f"AI_PUBLIC_PROVIDER_KEY={provider_key} verweist auf keinen "
-            f"existierenden ai_provider_config-Eintrag."
-        )
-
-    if provider.provider_type not in LIGHT_MODE_ALLOWED_PROVIDER_TYPES:
-        raise StartupConfigurationError(
-            f"Light-Modus erlaubt nur lokale AI-Provider "
-            f"(provider_type in {sorted(LIGHT_MODE_ALLOWED_PROVIDER_TYPES)}). "
-            f"Konfigurierter Provider '{provider.display_name}' hat "
-            f"provider_type='{provider.provider_type}'. "
-            f"Setze AI_FEATURES_ENABLED=false oder waehle einen lokalen Provider. "
-            f"Begruendung: Im Light-Modus existiert kein Consent-Mechanismus "
-            f"fuer ai_cloud_processing (REQ-025)."
-        )
-
-    if provider.provider_type == "openai_compatible":
-        # openai_compatible KANN lokal sein, aber wenn base_url offensichtlich
-        # oeffentlich (api.openai.com, api.groq.com, api.together.xyz, ...) ist,
-        # wird der Start ebenfalls abgebrochen.
-        if not _is_loopback_or_private_url(provider.base_url):
-            raise StartupConfigurationError(
-                f"Light-Modus + openai_compatible erfordert eine lokale "
-                f"base_url (loopback/127.0.0.1/private Netz/K8s-internes DNS). "
-                f"Konfigurierte base_url '{provider.base_url}' ist oeffentlich "
-                f"erreichbar — das wuerde Daten ohne Consent an einen "
-                f"Cloud-Endpunkt senden (REQ-025)."
-            )
-
-
-def _is_loopback_or_private_url(url: str) -> bool:
-    """Prueft, ob eine URL auf localhost/127.0.0.1/private Netze zeigt.
-
-    Akzeptiert:
-    - Hostname: localhost, *.local, *.internal, *.svc.cluster.local (K8s)
-    - IPv4: 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-    - IPv6: ::1, fc00::/7 (Unique Local), fe80::/10 (Link Local)
-    """
-    parsed = urlparse(url)
-    host = parsed.hostname or ""
-    if host in {"localhost", "127.0.0.1", "::1"}:
-        return True
-    if host.endswith((".local", ".internal", ".svc.cluster.local")):
-        return True
-    try:
-        ip = ipaddress.ip_address(host)
-        return ip.is_private or ip.is_loopback or ip.is_link_local
-    except ValueError:
-        return False
-```
-
-**Fehlermeldungen:** Alle drei `StartupConfigurationError`-Varianten enthalten konkrete Remediation-Hinweise (`AI_FEATURES_ENABLED=false`, Wechsel auf Ollama, lokale `base_url`). Der Operator sieht im Container-Log sofort, was zu tun ist.
-
-**Verhalten in der Konfigurationsmatrix:**
-
-| Konfiguration | Backend-Start |
-|---------------|---------------|
-| `AI_FEATURES_ENABLED=false` | OK (Validator wird kurzgeschlossen) |
-| `provider_type='ollama'`, beliebige `base_url` | OK |
-| `provider_type='openai_compatible'`, `base_url=http://localhost:1234` | OK |
-| `provider_type='openai_compatible'`, `base_url=http://10.0.0.5:8080` | OK (RFC-1918 privat) |
-| `provider_type='openai_compatible'`, `base_url=http://ollama.svc.cluster.local` | OK (K8s-internes DNS) |
-| `provider_type='openai_compatible'`, `base_url=https://api.openai.com` | **Hard-Crash** |
-| `provider_type='anthropic'` | **Hard-Crash** |
-| `AI_PUBLIC_PROVIDER_KEY` zeigt auf nicht-existierenden Eintrag | **Hard-Crash** |
-
+**Zielbild (AK-36, offen):** Eine wirksame Prüfung muss dort ansetzen, wo das LLM gewählt wird — am Knowledge Service (`LLM_PROVIDER`/`LLM_API_URL`), nicht an einem Backend-Eintrag. Ob der Knowledge Service den Betriebsmodus erfährt und selbst den Start verweigert, ob das Backend die Provider-Angabe des Knowledge Service abfragt (`/ask` und `/health` liefern heute keine) oder ob der Helm-Chart die Kombination ablehnt, ist eine offene Betreiberentscheidung.
 <!-- /Quelle: Widerspruchsanalyse W-001 -->
 
 ### 6.2 Conditional Route Registration
@@ -1118,13 +1024,14 @@ def get_takeover_status() -> dict:
 | AK-28 | **Nicht implementiert (#1855):** `GET /api/v1/system/takeover-status` gibt korrekte Ressourcen-Zählung zurück | Integration |
 <!-- /Quelle: Bidirektionaler Moduswechsel v1.2 -->
 <!-- Quelle: Widerspruchsanalyse W-001 -->
-| AK-29 | **Nicht implementiert (#2176):** **Light-Modus + Cloud-Provider:** Wenn `KAMERPLANTER_MODE=light`, `AI_FEATURES_ENABLED=true` und der konfigurierte `AI_PUBLIC_PROVIDER_KEY` auf einen Provider mit `provider_type='anthropic'` zeigt, MUSS der Backend-Start mit `StartupConfigurationError` abgebrochen werden (Hard-Crash). | Integration |
-| AK-30 | **Nicht implementiert (#2176):** **Light-Modus + Ollama-Provider:** Wenn `KAMERPLANTER_MODE=light`, `AI_FEATURES_ENABLED=true` und ein Ollama-Provider (`provider_type='ollama'`) konfiguriert ist, MUSS der Backend-Start fehlerfrei durchlaufen — unabhängig davon, ob die `base_url` localhost oder ein internes Netz ist. | Integration |
-| AK-31 | **Nicht implementiert (#2176):** **Light-Modus + lokaler `openai_compatible`-Provider:** Wenn `provider_type='openai_compatible'` und die `base_url` auf `localhost`/`127.0.0.1`/`::1`/private IP/`*.local`/`*.internal`/`*.svc.cluster.local` zeigt, MUSS der Backend-Start fehlerfrei durchlaufen. | Integration |
-| AK-32 | **Nicht implementiert (#2176):** **Light-Modus + öffentlicher `openai_compatible`-Provider:** Wenn `provider_type='openai_compatible'` und die `base_url` auf einen öffentlichen Host zeigt (z.B. `api.openai.com`, `api.groq.com`, `api.together.xyz`), MUSS der Backend-Start mit `StartupConfigurationError` abgebrochen werden. | Integration |
-| AK-33 | **Nicht implementiert (#2176):** **Light-Modus + AI deaktiviert:** Wenn `KAMERPLANTER_MODE=light` und `AI_FEATURES_ENABLED=false`, MUSS der Backend-Start auch ohne `AI_PUBLIC_PROVIDER_KEY` fehlerfrei durchlaufen — der Validator wird kurzgeschlossen. | Integration |
-| AK-34 | **Nicht implementiert (#2176):** **Kein Override:** Es existiert KEIN Environment-Flag (z.B. `LIGHT_MODE_ALLOW_CLOUD_AI`), das `validate_light_mode_ai_config()` umgehen kann. Wer Cloud-AI braucht, muss in den Full-Modus wechseln. | Code-Review |
+| AK-29 | **Verworfen (v1.7, #2176):** prüfte einen `ai_provider_configs`-Eintrag hinter `AI_PUBLIC_PROVIDER_KEY`, der das LLM nicht auswählt (§6.1.1); ersetzt durch AK-36. Ursprünglicher Wortlaut: **Light-Modus + Cloud-Provider:** Wenn `KAMERPLANTER_MODE=light`, `AI_FEATURES_ENABLED=true` und der konfigurierte `AI_PUBLIC_PROVIDER_KEY` auf einen Provider mit `provider_type='anthropic'` zeigt, MUSS der Backend-Start mit `StartupConfigurationError` abgebrochen werden (Hard-Crash). | Integration |
+| AK-30 | **Verworfen (v1.7, #2176):** prüfte einen `ai_provider_configs`-Eintrag hinter `AI_PUBLIC_PROVIDER_KEY`, der das LLM nicht auswählt (§6.1.1); ersetzt durch AK-36. Ursprünglicher Wortlaut: **Light-Modus + Ollama-Provider:** Wenn `KAMERPLANTER_MODE=light`, `AI_FEATURES_ENABLED=true` und ein Ollama-Provider (`provider_type='ollama'`) konfiguriert ist, MUSS der Backend-Start fehlerfrei durchlaufen — unabhängig davon, ob die `base_url` localhost oder ein internes Netz ist. | Integration |
+| AK-31 | **Verworfen (v1.7, #2176):** prüfte einen `ai_provider_configs`-Eintrag hinter `AI_PUBLIC_PROVIDER_KEY`, der das LLM nicht auswählt (§6.1.1); ersetzt durch AK-36. Ursprünglicher Wortlaut: **Light-Modus + lokaler `openai_compatible`-Provider:** Wenn `provider_type='openai_compatible'` und die `base_url` auf `localhost`/`127.0.0.1`/`::1`/private IP/`*.local`/`*.internal`/`*.svc.cluster.local` zeigt, MUSS der Backend-Start fehlerfrei durchlaufen. | Integration |
+| AK-32 | **Verworfen (v1.7, #2176):** prüfte einen `ai_provider_configs`-Eintrag hinter `AI_PUBLIC_PROVIDER_KEY`, der das LLM nicht auswählt (§6.1.1); ersetzt durch AK-36. Ursprünglicher Wortlaut: **Light-Modus + öffentlicher `openai_compatible`-Provider:** Wenn `provider_type='openai_compatible'` und die `base_url` auf einen öffentlichen Host zeigt (z.B. `api.openai.com`, `api.groq.com`, `api.together.xyz`), MUSS der Backend-Start mit `StartupConfigurationError` abgebrochen werden. | Integration |
+| AK-33 | **Verworfen (v1.7, #2176):** prüfte einen `ai_provider_configs`-Eintrag hinter `AI_PUBLIC_PROVIDER_KEY`, der das LLM nicht auswählt (§6.1.1); ersetzt durch AK-36. Ursprünglicher Wortlaut: **Light-Modus + AI deaktiviert:** Wenn `KAMERPLANTER_MODE=light` und `AI_FEATURES_ENABLED=false`, MUSS der Backend-Start auch ohne `AI_PUBLIC_PROVIDER_KEY` fehlerfrei durchlaufen — der Validator wird kurzgeschlossen. | Integration |
+| AK-34 | **Verworfen (v1.7, #2176):** prüfte einen `ai_provider_configs`-Eintrag hinter `AI_PUBLIC_PROVIDER_KEY`, der das LLM nicht auswählt (§6.1.1); ersetzt durch AK-36. Ursprünglicher Wortlaut: **Kein Override:** Es existiert KEIN Environment-Flag (z.B. `LIGHT_MODE_ALLOW_CLOUD_AI`), das `validate_light_mode_ai_config()` umgehen kann. Wer Cloud-AI braucht, muss in den Full-Modus wechseln. | Code-Review |
 | AK-35 | **Light-Keys nach dem Wechsel (v1.6, nicht implementiert, #1855):** Ein API-Key, der im Light-Modus für den System-User ausgestellt wurde, ist nach dem Wechsel auf `full` ungültig (401) — er wurde ohne Authentifizierung ausgestellt und belegt nichts (#1844). Heute bleibt er gültig, solange der System-User aktiv ist | Integration |
+| AK-36 | **Nicht implementiert (v1.7, #2176):** **Kein Cloud-LLM im Light-Modus:** Wenn `KAMERPLANTER_MODE=light` und `AI_FEATURES_ENABLED=true`, erreicht keine KI-Anfrage ein Cloud-LLM. Ist der Knowledge Service mit einem Cloud-LLM konfiguriert (`LLM_PROVIDER=anthropic`, oder `openai_compatible` mit öffentlicher `LLM_API_URL`), wird das erkannt, bevor eine Frage gesendet wird, und die KI-Funktion steht nicht zur Verfügung. Ort der Prüfung (Knowledge Service, Backend oder Helm-Chart) ist offen (§6.1.1) | Integration |
 <!-- /Quelle: Widerspruchsanalyse W-001 -->
 
 ### Frontend-Kriterien:

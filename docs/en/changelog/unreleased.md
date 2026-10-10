@@ -50,6 +50,7 @@ Changes not yet published in a release.
 
 ### Documentation
 
+- Light Mode and AI: the specification promised that the backend refuses to start in Light Mode with a cloud language model. That check does not exist, and in the described form it would have had no effect — the Knowledge Service chooses the language model through `LLM_PROVIDER`. The [Light Mode](../user-guide/light-mode.md) page now says that for Light Mode you have to configure a local model on the Knowledge Service (issue #2176).
 - Roles and permissions, platform admin: the pages now say what applies — a location assignment does not restrict editing, the first registered account does not become platform administrator automatically (it is set up on the server), a platform administrator sees no plants or harvests of other gardens, and the guided switch from light mode is marked as not built yet.
 
 ### Frontend
@@ -70,6 +71,7 @@ Changes not yet published in a release.
 
 ### Backend
 
+- **Knowledge Service, security (issue #2176):** an unknown `LLM_PROVIDER` value used to fall back silently to the Anthropic adapter — a typo such as `openai-compatible` sent every question, together with the `LLM_API_KEY` meant for the local server, to the cloud. The Knowledge Service now refuses to start with an unknown value and names the allowed ones (`anthropic`, `ollama`, `openai_compatible`).
 - **Security (tenant isolation, hygiene bundle, issue #2144):** A set of small gaps from the multi-tenant audit is closed. Every response under `/api/v1/` now carries `Cache-Control: no-store` unless the route sets its own — attachments, pest images and the chat stream keep theirs. "Prepare a substrate batch for reuse" needs at least the Grower role (Viewer: `403`). Changing a member's additional permissions needs the same confirmation as a role change. As a platform admin you can no longer deactivate your own account or the last account holding the platform role (`422`). A comment key that does not belong to the given task answers `404` instead of `422`; the CSV import matches only against species you also see in the species list. A notification without a recipient is no longer stored and readable by nobody. Companion lists, counts and recommendations show only species you may see; companion edges join only global species. Filter field names in database queries are checked before a query is built.
 - **Changed (MCP):** An `idempotency_key` sent again with **different** arguments answers `conflict.idempotency_key_reused` (`409` on the REST alias) instead of replaying the first call's result; an expired entry is no longer replayed (issue #2144).
 - **New (operations):** `python -m app.migrations.audit_legacy_stamps` lists, read-only, rows whose author is not a member of their garden — traces of the early tenant backfill (v0004). Migration `v0088` removes that stamp from pests, diseases and treatments. Details: `src/backend/app/migrations/README.md` (issue #2144).

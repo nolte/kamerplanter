@@ -50,6 +50,7 @@
 
 ### Dokumentation
 
+- Light-Modus und KI: Die Spezifikation versprach, dass das Backend im Light-Modus nicht mit einem Cloud-Sprachmodell startet. Diese Prüfung gibt es nicht, und in der beschriebenen Form hätte sie nichts bewirkt — das Sprachmodell wählt der Knowledge Service über `LLM_PROVIDER`. Die Seite [Light-Modus](../user-guide/light-mode.md) sagt jetzt, dass du für den Light-Modus am Knowledge Service ein lokales Modell einstellen musst (Issue #2176).
 - Rollen und Berechtigungen, Plattform-Admin: Die Seiten sagen jetzt, was gilt — eine Standort-Zuweisung schränkt das Bearbeiten nicht ein, das erste registrierte Konto wird nicht automatisch Plattform-Administrator (eingerichtet wird es auf dem Server), ein Plattform-Administrator sieht keine Pflanzen oder Ernten fremder Gärten, und der geführte Umstieg vom Light-Modus ist als noch nicht gebaut gekennzeichnet.
 
 ### Frontend
@@ -70,6 +71,7 @@
 
 ### Backend
 
+- **Knowledge Service, Sicherheit (Issue #2176):** Ein unbekannter Wert in `LLM_PROVIDER` fiel bisher still auf den Anthropic-Adapter zurück — ein Tippfehler wie `openai-compatible` schickte jede Frage samt des für den lokalen Server gedachten `LLM_API_KEY` an die Cloud. Jetzt startet der Knowledge Service mit einem unbekannten Wert nicht und nennt die erlaubten Werte (`anthropic`, `ollama`, `openai_compatible`).
 - **Sicherheit (Mandantentrennung, Hygiene-Paket, Issue #2144):** Eine Reihe kleiner Lücken aus dem Mandanten-Audit ist geschlossen. Jede Antwort unter `/api/v1/` trägt jetzt `Cache-Control: no-store`, wenn die Route nichts anderes festlegt — Anhänge, Schädlingsbilder und der Chat-Stream behalten ihre eigene Angabe. „Substrat-Charge für Wiederverwendung vorbereiten" verlangt mindestens die Rolle Gärtner (Beobachter: `403`). Das Ändern der Zusatzberechtigungen eines Mitglieds verlangt dieselbe Bestätigung wie ein Rollenwechsel. Als Plattform-Admin kannst du dein eigenes Konto und das letzte Konto mit Plattform-Rolle nicht mehr deaktivieren (`422`). Ein Kommentar-Schlüssel, der nicht zur angegebenen Aufgabe gehört, antwortet `404` statt `422`; der CSV-Import sieht beim Abgleich nur die Arten, die du auch in der Artenliste siehst. Eine Benachrichtigung ohne Empfänger wird nicht mehr gespeichert und ist für niemanden abrufbar. Mischkultur-Listen, -Zähler und -Empfehlungen zeigen nur Arten, die du sehen darfst; Mischkultur-Kanten verbinden nur globale Arten. Filter-Feldnamen in Datenbankabfragen werden geprüft, bevor eine Abfrage entsteht.
 - **Geändert (MCP):** Ein `idempotency_key`, der mit **anderen** Argumenten erneut gesendet wird, antwortet mit `conflict.idempotency_key_reused` (`409` am REST-Alias) statt das Ergebnis des ersten Aufrufs zu wiederholen; ein abgelaufener Eintrag wird nicht mehr wiederholt (Issue #2144).
 - **Neu (Betrieb):** `python -m app.migrations.audit_legacy_stamps` listet nur lesend Zeilen, deren Autor kein Mitglied ihres Gartens ist — Spuren der frühen Mandanten-Nachrüstung (v0004). Migration `v0088` entfernt diesen Stempel aus Schädlingen, Krankheiten und Behandlungen. Details: `src/backend/app/migrations/README.md` (Issue #2144).
