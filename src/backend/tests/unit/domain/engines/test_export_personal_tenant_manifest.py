@@ -31,6 +31,18 @@ EXPECTED: dict[str, tuple[tuple[str, str], ...]] = {
     "tasks": (),
     "plant_diary_entries": (),
     "attachments": (),
+    # #2165 — tanks, watering and feeding logs, sensors and their readings
+    "tanks": (),
+    "tank_states": (("tank_key", "tanks"),),
+    "tank_fill_events": (("tank_key", "tanks"),),
+    "maintenance_logs": (("tank_key", "tanks"),),
+    "watering_events": (),
+    "watering_logs": (),
+    "feeding_events": (),
+    "sensors": (("tank_key", "tanks"),),
+    "sensor_readings": (),
+    "sensor_hourly": (),
+    "sensor_daily": (),
 }
 
 #: A field shaped like another account's key (the R6 pattern of check_privacy_inventory).

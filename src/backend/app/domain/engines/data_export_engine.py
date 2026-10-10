@@ -1,5 +1,6 @@
 """Pure logic for REQ-025 data exports (Art. 15 / 20)."""
 
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
@@ -11,6 +12,7 @@ from app.domain.models.privacy import (
     DisclosureExclusion,
     PersonalTenantHop,
     PersonalTenantScope,
+    TimeSeriesScope,
 )
 
 #: Why the three legally-retained categories are only *partly* disclosable.
@@ -47,6 +49,33 @@ _VIA_LOCATION_AND_SITE = PersonalTenantScope(
         PersonalTenantHop(field="location_key", collection="locations"),
         PersonalTenantHop(field="site_key", collection="sites"),
     )
+)
+#: #2165 — the tank log rows carry no ``tenant_key``; they hang off their tank, which does
+#: (the anchor ``TenantErasureEngine.INVENTORY`` uses for the same collections).
+_VIA_TANK = PersonalTenantScope(via=(PersonalTenantHop(field="tank_key", collection="tanks"),))
+#: #2165 — a sensor hangs off exactly one of a tank, a site or a location
+#: (``Sensor._at_most_one_parent``) and carries no ``tenant_key`` itself.
+_SENSOR_PARENTS = PersonalTenantScope(
+    via=(PersonalTenantHop(field="tank_key", collection="tanks"),),
+    or_via=(
+        (PersonalTenantHop(field="site_key", collection="sites"),),
+        (
+            PersonalTenantHop(field="location_key", collection="locations"),
+            PersonalTenantHop(field="site_key", collection="sites"),
+        ),
+    ),
+)
+
+#: #2165 — the columns of the two continuous aggregates (TimescaleDB migration 002).
+_AGGREGATE_FIELDS = ["bucket", "sensor_key", "sensor_type", "avg_value", "min_value", "max_value", "sample_count"]
+
+#: #2165 — why the pre-#2076 readings of a garden's sensor can only be matched while the
+#: sensor exists. The Home Assistant poll stored them without a tenant key.
+_LEGACY_READINGS_GAP = (
+    "Readings that the Home Assistant connection stored before 4 October 2026 carry no "
+    "garden reference. They are included here when they belong to a sensor that still "
+    "exists in your garden; readings of a sensor that was deleted before that date can no "
+    "longer be matched to your garden and are not included."
 )
 
 
@@ -544,6 +573,219 @@ class DataExportEngine:
                 "created_at",
             ],
         ),
+        # ── #2165: tanks, watering and feeding logs, sensors and their readings ──
+        #
+        # Same rule as above (personal tenants the subject owns, every row, no other
+        # account's key): ``performed_by`` on the logs names whoever performed the
+        # step, and stays out. ``channel_id`` is an internal delivery reference.
+        DataSourceDefinition(
+            collection="tanks",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: tanks",
+            fields=[
+                "_key",
+                "name",
+                "tank_type",
+                "volume_liters",
+                "material",
+                "location_key",
+                "installed_on",
+                "low_threshold_percent",
+                "notes",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="tank_states",
+            personal_tenant_scope=_VIA_TANK,
+            label="Your personal garden: tank readings",
+            fields=[
+                "_key",
+                "tank_key",
+                "recorded_at",
+                "fill_level_liters",
+                "fill_level_percent",
+                "ph",
+                "ec_ms",
+                "water_temp_celsius",
+                "tds_ppm",
+                "dissolved_oxygen_mgl",
+                "orp_mv",
+                "source",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="tank_fill_events",
+            personal_tenant_scope=_VIA_TANK,
+            label="Your personal garden: tank fills",
+            fields=[
+                "_key",
+                "tank_key",
+                "filled_at",
+                "fill_type",
+                "volume_liters",
+                "nutrient_plan_key",
+                "fertilizers_used",
+                "target_ec_ms",
+                "target_ph",
+                "measured_ec_ms",
+                "measured_ph",
+                "water_source",
+                "water_mix_ratio_ro_percent",
+                "base_water_ec_ms",
+                "is_organic_fertilizers",
+                "notes",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="maintenance_logs",
+            personal_tenant_scope=_VIA_TANK,
+            label="Your personal garden: tank maintenance",
+            fields=[
+                "_key",
+                "tank_key",
+                "maintenance_type",
+                "performed_at",
+                "duration_minutes",
+                "products_used",
+                "notes",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="watering_events",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: watering events",
+            fields=[
+                "_key",
+                "watered_at",
+                "application_method",
+                "is_supplemental",
+                "volume_liters",
+                "plant_keys",
+                "slot_keys",
+                "tank_fill_event_key",
+                "nutrient_plan_key",
+                "fertilizers_used",
+                "target_ec_ms",
+                "target_ph",
+                "measured_ec_ms",
+                "measured_ph",
+                "runoff_ec_ms",
+                "runoff_ph",
+                "water_source",
+                "task_key",
+                "notes",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="watering_logs",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: watering log",
+            fields=[
+                "_key",
+                "logged_at",
+                "application_method",
+                "is_supplemental",
+                "volume_liters",
+                "fertilizers_used",
+                "plant_keys",
+                "slot_keys",
+                "tank_fill_event_key",
+                "nutrient_plan_key",
+                "task_key",
+                "water_source",
+                "ec_before",
+                "ec_after",
+                "ph_before",
+                "ph_after",
+                "runoff_ec",
+                "runoff_ph",
+                "runoff_volume_liters",
+                "notes",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="feeding_events",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: feeding log",
+            fields=[
+                "_key",
+                "plant_key",
+                "timestamp",
+                "application_method",
+                "is_supplemental",
+                "volume_applied_liters",
+                "fertilizers_used",
+                "tank_fill_event_key",
+                "watering_event_key",
+                "measured_ec_before",
+                "measured_ec_after",
+                "measured_ph_before",
+                "measured_ph_after",
+                "runoff_ec",
+                "runoff_ph",
+                "runoff_volume_liters",
+                "notes",
+            ],
+        ),
+        DataSourceDefinition(
+            # Before the readings: their ``sensor_key`` refers to these rows, and the
+            # walk takes the garden's sensor keys from this section (``series_source``).
+            collection="sensors",
+            personal_tenant_scope=_SENSOR_PARENTS,
+            label="Your personal garden: sensors",
+            fields=[
+                "_key",
+                "name",
+                "metric_type",
+                "unit_of_measurement",
+                "ha_entity_id",
+                "mqtt_topic",
+                "tank_key",
+                "site_key",
+                "location_key",
+                "is_active",
+                "created_at",
+            ],
+        ),
+        # The readings live in TimescaleDB (REQ-005), in three tiers (NFR-011: 90 days raw,
+        # 2 years hourly, 5 years daily). Each tier is a section of its own; a section larger
+        # than ``TIME_SERIES_SECTION_MAX_ROWS`` carries the newest rows and states how many
+        # it leaves out.
+        DataSourceDefinition(
+            collection="sensor_readings",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            time_series=TimeSeriesScope(time_column="time"),
+            label="Your personal garden: sensor readings (last 90 days)",
+            attribution_gap=_LEGACY_READINGS_GAP,
+            fields=[
+                "time",
+                "sensor_key",
+                "sensor_type",
+                "value",
+                "unit",
+                "source",
+                "quality_score",
+                "raw_value",
+                "metadata",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="sensor_hourly",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            time_series=TimeSeriesScope(time_column="bucket"),
+            label="Your personal garden: hourly sensor averages (last 2 years)",
+            attribution_gap=_LEGACY_READINGS_GAP,
+            fields=list(_AGGREGATE_FIELDS),
+        ),
+        DataSourceDefinition(
+            collection="sensor_daily",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            time_series=TimeSeriesScope(time_column="bucket"),
+            label="Your personal garden: daily sensor averages (last 5 years)",
+            attribution_gap=_LEGACY_READINGS_GAP,
+            fields=list(_AGGREGATE_FIELDS),
+        ),
         DataSourceDefinition(
             collection="mcp_audit_log",
             filter_field="service_account_key",
@@ -803,11 +1045,34 @@ class DataExportEngine:
     #: Bumped when the bundle's shape changes, so a downloaded file stays
     #: interpretable without guessing which version produced it (Art. 20
     #: portability: the recipient is not necessarily this system).
-    BUNDLE_FORMAT_VERSION = "1.1"
+    #: 1.2 (#2165): every section states ``records_omitted`` / ``omission_note``.
+    BUNDLE_FORMAT_VERSION = "1.2"
+
+    #: #2165 — the most rows one time-series section carries. The bundle is built in
+    #: memory and stored as one object (both storage adapters buffer it), so an
+    #: unbounded section would size the worker's memory by the subject's sensor count.
+    #: 100 000 rows is about 3.8 sensors over the 90 raw days at the Home Assistant
+    #: poll interval of 5 minutes, or 5.7 sensors over 2 years of hourly buckets; the
+    #: three sections stay below roughly 100 MB of JSON together. A larger section
+    #: carries the newest rows and says how many older ones it leaves out — the hourly
+    #: and daily sections cover the same sensors over the longer periods.
+    TIME_SERIES_SECTION_MAX_ROWS = 100_000
 
     def build_export_manifest(self, user_key: str) -> list[DataSourceDefinition]:
         """Return the full export manifest for the given user."""
         return list(self.USER_DATA_MANIFEST)
+
+    @staticmethod
+    def omission_note(delivered: int, omitted: int) -> str | None:
+        """The statement a bounded section carries beside its rows (#2165); ``None`` when complete."""
+        if omitted <= 0:
+            return None
+        return (
+            f"This section holds {delivered + omitted} records; to keep the file to a size that can "
+            f"be produced and downloaded, it contains the {delivered} newest and leaves out "
+            f"{omitted} older ones. The hourly and daily sections cover the same sensors over "
+            f"longer periods. Contact the data controller if you need the omitted records."
+        )
 
     def build_bundle(
         self,
@@ -817,6 +1082,7 @@ class DataExportEngine:
         *,
         controller_name: str,
         controller_email: str,
+        omitted: Mapping[str, int] | None = None,
     ) -> dict[str, Any]:
         """Assemble the Art. 15 disclosure document from collected rows.
 
@@ -828,7 +1094,21 @@ class DataExportEngine:
         the reason, so the reader learns *why* rather than seeing an empty list.
         A source with an ``attribution_gap`` is disclosed, and the section says
         which of its rows can never be in it (#1669: pre-attribution rows).
+
+        ``omitted`` maps a time-series source's collection to the number of its rows
+        the walk left out (#2165, :attr:`TIME_SERIES_SECTION_MAX_ROWS`). Every section
+        carries ``records_omitted``; a bounded one also the ``omission_note`` saying so.
+        Only a time-series source can be bounded, and each appears once in the manifest.
         """
+        omitted = dict(omitted or {})
+        bounded = {source.collection for source, _records in sections if source.time_series is not None}
+        unknown = sorted(set(omitted) - bounded)
+        if unknown:
+            msg = f"only a time-series section can leave records out, not {unknown}"
+            raise ValueError(msg)
+        if any(count < 0 for count in omitted.values()):
+            msg = "an omitted-record count cannot be negative"
+            raise ValueError(msg)
         return {
             "format_version": self.BUNDLE_FORMAT_VERSION,
             "generated_at": generated_at.isoformat(),
@@ -844,6 +1124,12 @@ class DataExportEngine:
                     "not_disclosed_reason": source.disclosure_gap,
                     "attribution_gap": source.attribution_gap,
                     "record_count": len(records),
+                    "records_omitted": omitted.get(source.collection, 0) if source.time_series else 0,
+                    "omission_note": (
+                        self.omission_note(len(records), omitted.get(source.collection, 0))
+                        if source.time_series
+                        else None
+                    ),
                     "records": [self.disclosable_record(source.collection, record) for record in records],
                 }
                 for source, records in sections

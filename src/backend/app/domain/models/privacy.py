@@ -1,7 +1,7 @@
 """Domain models for REQ-025 Privacy & GDPR data subject rights."""
 
 from datetime import date, datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, EmailStr, Field, StringConstraints, model_validator
 
@@ -322,6 +322,55 @@ class PersonalTenantScope(BaseModel):
     model_config = {"frozen": True}
 
     via: tuple[PersonalTenantHop, ...] = ()
+    #: #2165 — further parent chains, each an alternative to ``via``: a row belongs when
+    #: *any* chain reaches the personal tenant. A sensor hangs off a tank, a site or a
+    #: location (``Sensor._at_most_one_parent``) and carries no ``tenant_key`` itself —
+    #: the anchors the tenant-erasure inventory uses for ``sensors``.
+    or_via: tuple[tuple[PersonalTenantHop, ...], ...] = ()
+
+    @property
+    def chains(self) -> tuple[tuple[PersonalTenantHop, ...], ...]:
+        """Every parent chain of the scope; ``()`` in it means "the row carries ``tenant_key`` itself"."""
+        return (self.via, *self.or_via)
+
+
+class TimeSeriesScope(BaseModel):
+    """A manifest source read from the time-series store (TimescaleDB), not ArangoDB (#2165).
+
+    The sensor readings of a personal garden live outside the document store: the raw
+    table and its two continuous aggregates. Each row carries ``tenant_key`` and
+    ``sensor_key``. ``time_column`` orders the rows (newest first) when a section is
+    larger than ``DataExportEngine.TIME_SERIES_SECTION_MAX_ROWS``.
+
+    ``series_source`` names the personal-tenant source whose ``_key``s identify a
+    series. The Home Assistant poll stamped an empty ``tenant_key`` until #2076
+    (2026-10-04); such a row is the garden's when its ``sensor_key`` is one of the
+    garden's sensors, and is matched that way — never by the empty tenant key alone.
+    """
+
+    model_config = {"frozen": True}
+
+    time_column: str
+    series_source: str = "sensors"
+
+
+class TimeSeriesSlice(BaseModel):
+    """What the time-series reader returns for one source (#2165).
+
+    ``records`` holds at most the requested number of rows, newest first; ``total`` is
+    the number of rows the source holds for the subject's garden. The bundle states the
+    difference rather than presenting a bounded section as complete.
+    """
+
+    records: list[dict[str, Any]] = Field(default_factory=list)
+    total: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def _total_covers_the_records(self) -> Self:
+        if self.total < len(self.records):
+            msg = f"time-series slice reports {self.total} rows but carries {len(self.records)}"
+            raise ValueError(msg)
+        return self
 
 
 class DataSourceDefinition(BaseModel):
@@ -359,6 +408,9 @@ class DataSourceDefinition(BaseModel):
     #: field; bounded by the personal tenants the subject owns). Excludes every other way of
     #: attributing a row: a source is either the subject's by an account field or by the garden.
     personal_tenant_scope: PersonalTenantScope | None = None
+    #: #2165 — the source is a table of the time-series store, not an ArangoDB collection.
+    #: Only a personal-tenant source whose rows carry ``tenant_key`` themselves can be one.
+    time_series: TimeSeriesScope | None = None
 
     @model_validator(mode="after")
     def _one_way_of_attribution(self) -> Self:
@@ -366,8 +418,19 @@ class DataSourceDefinition(BaseModel):
             if self.filter_field or self.edge_collection or self.tenant_scoped or self.disclosure_gap:
                 msg = f"personal-tenant source '{self.collection}' carries an account attribution as well"
                 raise ValueError(msg)
-            if len(self.personal_tenant_scope.via) > 2:
+            if any(len(chain) > 2 for chain in self.personal_tenant_scope.chains):
                 msg = f"personal-tenant source '{self.collection}' reaches its tenant over more than two parents"
+                raise ValueError(msg)
+        if self.time_series is not None:
+            scope = self.personal_tenant_scope
+            if scope is None or scope.chains != ((),):
+                msg = (
+                    f"time-series source '{self.collection}' must be a personal-tenant source "
+                    "anchored on its own tenant_key"
+                )
+                raise ValueError(msg)
+            if self.time_series.time_column not in self.fields:
+                msg = f"time-series source '{self.collection}' does not export its time column"
                 raise ValueError(msg)
         return self
 
