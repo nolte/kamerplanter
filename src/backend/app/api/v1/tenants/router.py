@@ -225,11 +225,12 @@ def cancel_tenant_erasure(
 
 @router.get("/{tenant_slug}/members", response_model=list[MemberInfoResponse])
 def list_members(
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TenantService = Depends(get_tenant_service),
 ):
-    """List all members of a tenant."""
-    members = service.list_members(ctx.tenant_key)
+    """List a tenant's members, oldest membership first (paginated, MT-035)."""
+    members = service.list_members(ctx.tenant_key, offset=pagination.offset, limit=pagination.limit)
     return [MemberInfoResponse(**m.model_dump()) for m in members]
 
 
@@ -448,11 +449,12 @@ def accept_invitation(
     response_model=list[AssignmentResponse],
 )
 def list_assignments(
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TenantService = Depends(get_tenant_service),
 ):
-    """List all location assignments in a tenant."""
-    assignments = service.list_assignments(ctx.tenant_key)
+    """List a tenant's location assignments, oldest first (paginated, MT-035)."""
+    assignments = service.list_assignments(ctx.tenant_key, offset=pagination.offset, limit=pagination.limit)
     return [
         AssignmentResponse(
             key=a.key or "",

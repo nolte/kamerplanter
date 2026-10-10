@@ -68,7 +68,9 @@ describe('tenants endpoints — members', () => {
   it('listMembers gets members for slug', async () => {
     client.get.mockResolvedValue({ data: [] });
     await tenants.listMembers('org');
-    expect(client.get).toHaveBeenCalledWith('/tenants/org/members');
+    expect(client.get).toHaveBeenCalledWith('/tenants/org/members', {
+      params: { offset: 0, limit: 200 },
+    });
   });
 
   it("changeMemberRole patches role with the acting administrator's step-up (#2032)", async () => {
@@ -133,7 +135,9 @@ describe('tenants endpoints — assignments', () => {
   it('listAssignments gets assignments for slug', async () => {
     client.get.mockResolvedValue({ data: [] });
     await tenants.listAssignments('org');
-    expect(client.get).toHaveBeenCalledWith('/tenants/org/assignments');
+    expect(client.get).toHaveBeenCalledWith('/tenants/org/assignments', {
+      params: { offset: 0, limit: 200 },
+    });
   });
 
   it('createAssignment posts assignment', async () => {

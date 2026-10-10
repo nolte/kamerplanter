@@ -2157,7 +2157,7 @@ class TenantService:
         Distinct from :meth:`list_my_tenants`, which is scoped to one user's
         memberships. This is a system-context read the platform-admin panel used
         to hand-write as raw AQL in the router (#1019); the per-tenant member
-        count is derived by the caller from :meth:`list_members`. ``offset``/``limit``
+        count is derived by the caller from :meth:`count_active_members`. ``offset``/``limit``
         read one window (MT-035, #2131); both ``None`` reads every tenant.
         """
         return self._tenant_repo.list_all(offset=offset, limit=limit)
@@ -2165,6 +2165,15 @@ class TenantService:
     def count_tenants(self, *, active_only: bool = False) -> int:
         """Number of tenants; ``active_only`` counts only ``is_active`` ones (#1019)."""
         return self._tenant_repo.count(active_only=active_only)
+
+    def count_active_members(self, tenant_key: str) -> int:
+        """Active memberships of one tenant, counted in the database (``is_active != false``).
+
+        The platform-admin tenant views show this number. They used to read every
+        member joined to its user and count ``is_active`` in Python — a full list per
+        tenant per row of the admin table (#2131). Same seats the member limit counts.
+        """
+        return self._membership_repo.count_active_members(tenant_key=tenant_key)
 
     def count_memberships(self) -> int:
         """Total number of membership documents (platform-admin statistics, #1019)."""
@@ -2182,8 +2191,12 @@ class TenantService:
 
     # --- Member Management ---
 
-    def list_members(self, tenant_key: str) -> list[MemberInfo]:
-        return self._membership_repo.list_by_tenant(tenant_key)
+    def list_members(self, tenant_key: str, *, offset: int | None = None, limit: int | None = None) -> list[MemberInfo]:
+        """A tenant's members, oldest first; ``offset``/``limit`` read one window (MT-035, #2131).
+
+        Both ``None`` reads every member.
+        """
+        return self._membership_repo.list_by_tenant(tenant_key, offset=offset, limit=limit)
 
     # --- Platform-admin membership writes (#1019) ---
     #
@@ -3419,8 +3432,11 @@ class TenantService:
 
     # --- Location Assignments ---
 
-    def list_assignments(self, tenant_key: str) -> list[LocationAssignment]:
-        return self._assignment_repo.list_by_tenant(tenant_key)
+    def list_assignments(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[LocationAssignment]:
+        """A tenant's location assignments, oldest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self._assignment_repo.list_by_tenant(tenant_key, offset=offset, limit=limit)
 
     def create_assignment(
         self,

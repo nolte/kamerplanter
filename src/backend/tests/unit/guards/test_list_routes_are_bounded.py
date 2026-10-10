@@ -97,10 +97,6 @@ _CLASSIFIED: dict[tuple[str, str], tuple[str, str]] = {
     ),
     ("GET", f"{_V1}/admin/oidc-providers"): ("tenant-config", "OIDC providers configured by a platform admin"),
     ("GET", f"{_V1}/admin/platform/security-audit"): ("capped-query", "newest rows first, ?limit ≤ MAX_READ_LIMIT"),
-    ("GET", f"{_V1}/admin/platform/tenants/{{tenant_key}}/members"): (
-        "per-parent",
-        "the members of one tenant; same bound as the tenant member list (see remaining entry)",
-    ),
     ("GET", f"{_V1}/admin/platform/users/{{user_key}}/memberships"): (
         "per-parent",
         "the memberships of one user — one per tenant the user belongs to",
@@ -206,15 +202,6 @@ _CLASSIFIED: dict[tuple[str, str], tuple[str, str]] = {
     ),
     ("GET", f"{_V1}/substrates/{{substrate_key}}/batches"): ("per-parent", "the batches of one substrate"),
     ("GET", f"{_V1}/care-reminders/plants/{{plant_key}}/history"): ("capped-query", "?limit ≤ 200 confirmations"),
-    # ── tenant membership ──────────────────────────────────────────────────
-    ("GET", f"{_V1}/tenants/{{tenant_slug}}/members"): (
-        "remaining",
-        "grows with the organisation; max_members is not enforced (MT-037)",
-    ),
-    ("GET", f"{_V1}/tenants/{{tenant_slug}}/assignments"): (
-        "remaining",
-        "location assignments of a tenant; grows with members x locations",
-    ),
     # ── sites, locations, slots ────────────────────────────────────────────
     ("GET", f"{_T}/sites/{{key}}/location-tree"): (
         "per-parent",
@@ -277,10 +264,6 @@ _CLASSIFIED: dict[tuple[str, str], tuple[str, str]] = {
     ),
     ("GET", f"{_T}/post-harvest/{{key}}/mold-alerts"): ("per-parent", "the mould alerts of one batch"),
     # ── tasks and workflows ────────────────────────────────────────────────
-    ("GET", f"{_T}/tasks/workflows/{{key}}/executions"): (
-        "remaining",
-        "every execution of one workflow template accrues over seasons",
-    ),
     ("GET", f"{_T}/tasks/workflows/{{wf_key}}/phases"): ("per-parent", "the phases of one workflow"),
     ("GET", f"{_T}/tasks/phases/suggestions"): ("computed", "suggested phase names, a fixed vocabulary"),
     ("PUT", f"{_T}/tasks/phases/reorder"): ("write-echo", "answers with the phases it reordered"),
@@ -304,7 +287,9 @@ _CLASSIFIED: dict[tuple[str, str], tuple[str, str]] = {
     ),
     ("GET", f"{_T}/ipm/pests/{{pest_key}}/images"): (
         "remaining",
-        "tenant contributions, inspection photos and recognition images of one pest accrue",
+        "tenant contributions, other tenants' promoted contributions, inspection photos and the inference "
+        "service's recognition images of one pest, merged, sorted and de-duplicated in Python; an offset "
+        "window needs a merge over the four sources, not a LIMIT on one query",
     ),
     ("GET", f"{_T}/pests/plants/{{plant_key}}/history"): ("capped-query", "?limit ≤ 100 detections"),
     ("GET", f"{_T}/identification/history"): ("capped-query", "?limit ≤ 100 identifications"),
@@ -313,7 +298,8 @@ _CLASSIFIED: dict[tuple[str, str], tuple[str, str]] = {
     ("GET", f"{_T}/calendar/feeds"): ("per-subject", "the caller's calendar feeds, created one by one"),
     ("GET", f"{_T}/care-reminders/dashboard"): (
         "remaining",
-        "one row per plant with a care profile: grows with the tenant's plants",
+        "computed per active plant of the tenant and sorted by urgency in Python; a window would cut the "
+        "answer, not the work, and the task queue de-duplicates against the whole set (see queue)",
     ),
     ("GET", f"{_T}/ai/providers"): ("tenant-config", "the AI providers configured for the tenant"),
     ("GET", f"{_T}/starter-kits"): ("catalogue", "the seeded starter kits for the tenant"),
@@ -346,24 +332,16 @@ _CLASSIFIED: dict[tuple[str, str], tuple[str, str]] = {
     ("GET", f"{_T}/rules"): ("tenant-config", "the tenant's control rules"),
     ("GET", f"{_T}/phase-control-profiles"): ("tenant-config", "the tenant's phase control profiles"),
     ("GET", f"{_T}/inventree/connections"): ("tenant-config", "the tenant's InvenTree connections"),
-    ("GET", f"{_T}/inventree/references"): (
-        "remaining",
-        "one reference per linked entity; grows with the linked inventory",
-    ),
     ("GET", f"{_T}/equipment"): ("tenant-config", "the tenant's equipment, registered one by one"),
     # ── propagation ────────────────────────────────────────────────────────
     ("GET", f"{_T}/propagation/batches/{{batch_key}}/events"): ("per-parent", "the events of one batch"),
     ("GET", f"{_T}/propagation/stats"): ("computed", "one row per propagation method"),
-    ("GET", f"{_T}/propagation/stats/by-cultivar"): (
-        "remaining",
-        "one row per cultivar the tenant propagated",
-    ),
     ("GET", f"{_T}/propagation/stats/by-protocol"): ("computed", "one row per protocol of the tenant"),
 }
 
 #: The ``remaining`` entries, pinned. Lower it with each conversion; a new
 #: unbounded route of a growing collection must be paginated, not added here.
-_REMAINING_COUNT = 9
+_REMAINING_COUNT = 4
 
 
 def _routes(routes: list[Any], prefix: str = "", inherited: tuple[Any, ...] = ()) -> list[tuple[str, APIRoute, list]]:

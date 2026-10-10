@@ -346,7 +346,7 @@ Die ersten beiden Punkte betreffen nur die Abstufung **innerhalb** eines Gartens
 
 ### Standort-Zuweisungen über die API
 
-Zuweisungen werden unter dem Pfad `/api/v1/t/{garten-kurzname}/assignments` verwaltet; sämtliche schreibenden Aufrufe dort setzen die Zusatzberechtigung Verwaltung voraus. Eine Zuweisung verbindet eine Mitgliedschaft mit einem Standort und trägt ein Kennzeichen für den Bearbeitungswunsch sowie ein freies Notizfeld. Die zugehörigen Aufrufe stehen im Frontend bereits als Schnittstellenfunktionen bereit, sind aber noch an keine Seite angebunden.
+Zuweisungen werden unter dem Pfad `/api/v1/tenants/{garten-kurzname}/assignments` verwaltet; sämtliche schreibenden Aufrufe dort setzen die Zusatzberechtigung Verwaltung voraus. Eine Zuweisung verbindet eine Mitgliedschaft mit einem Standort und trägt ein Kennzeichen für den Bearbeitungswunsch sowie ein freies Notizfeld. Die zugehörigen Aufrufe stehen im Frontend bereits als Schnittstellenfunktionen bereit, sind aber noch an keine Seite angebunden.
 
 ---
 
