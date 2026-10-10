@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Nutzpflanze (Indoor/Hydro)
 Technologie: Python, ArangoDB, Regelbasierte Logik
 Status: Entwurf
-Version: 3.7 (NutrientPlan.species_keys — Art↔Plan-Relation, #1618)
+Version: 3.8 (Enum-Werte `application_method`/`phase_name` an das Modell angeglichen — `ApplicationMethod` inkl. `any`, `PhaseName` mit `ripening` statt `harvest`, Fertigation-Verbot des Plan-Gießplans am `NutrientPlan` verortet, #2183); 3.7 (NutrientPlan.species_keys — Art↔Plan-Relation, #1618)
 ```
 
 ## 1. Business Case
@@ -300,7 +300,7 @@ Wenn `currentWeek > max(week_end)` aller Entries und `cycle_restart_from_sequenc
   - Properties:
     - `timestamp: datetime`
     - `watering_event_key: Optional[str]` (Referenz auf WateringEvent aus REQ-014, wenn das FeedingEvent automatisch aus einem Gießvorgang erzeugt wurde)
-    - `application_method: Literal['fertigation', 'drench', 'foliar', 'top_dress']` (Art der Ausbringung — `fertigation` = via Tank/Tropfer, `drench` = manuelles Gießen per Gießkanne, `foliar` = Blattdüngung per Sprüher, `top_dress` = Feststoff-Aufbringung auf Substratoberfläche)
+    - `application_method: Literal['fertigation', 'drench', 'foliar', 'top_dress', 'any']` (Enum `ApplicationMethod`, #2183; Art der Ausbringung — `any` ist die Dünger-Empfehlung „beliebig“ aus `Fertilizer.recommended_application` und wird vom Modell nicht abgewiesen; `fertigation` = via Tank/Tropfer, `drench` = manuelles Gießen per Gießkanne, `foliar` = Blattdüngung per Sprüher, `top_dress` = Feststoff-Aufbringung auf Substratoberfläche)
     - `is_supplemental: bool` (Ergänzende Handdüngung zusätzlich zur Tank-Bewässerung — z.B. organische Dünger per Gießkanne bei Pflanzen, die primär über Drip versorgt werden)
     - `tank_fill_event_key: Optional[str]` (Referenz auf TankFillEvent aus REQ-014, wenn die Düngung aus einer dokumentierten Tankbefüllung stammt)
     - `volume_applied_liters: float`
@@ -333,7 +333,7 @@ Wenn `currentWeek > max(week_end)` aller Entries und `cycle_restart_from_sequenc
     - `weekday_schedule: Optional[list[int]]` (0=Montag..6=Sonntag; Pflicht bei `mode='weekdays'`, ignoriert bei `mode='interval'`; 1–7 Tage wählbar, keine Duplikate)
     - `interval_days: Optional[int]` (1–90 Tage; Pflicht bei `mode='interval'`, ignoriert bei `mode='weekdays'`)
     - `preferred_time: Optional[str]` (HH:MM Format, z.B. "08:00"; für Erinnerungs-Timing und Task-`scheduled_time`)
-    - `application_method: Literal['drench', 'foliar', 'top_dress']` (Default: `'drench'`; `'fertigation'` ist bewusst ausgeschlossen — Tank-Bewässerung wird über REQ-014 TankFillEvent gesteuert, nicht über den manuellen Gießplan)
+    - `application_method: Literal['fertigation', 'drench', 'foliar', 'top_dress', 'any']` (Enum `ApplicationMethod`, #2183; Default: `'drench'`. Der Typ lässt `'fertigation'` zu, weil derselbe `WateringSchedule` auch als `DeliveryChannel.schedule` und als Phasen-Override dient, wo Fertigation zulässig ist. Für den **Plan-Gießplan** (`NutrientPlan.watering_schedule`) ist `'fertigation'` bewusst ausgeschlossen — Tank-Bewässerung wird über REQ-014 TankFillEvent gesteuert, nicht über den manuellen Gießplan; s. Validatoren)
     - `reminder_hours_before: int` (0–24, Default: 2; Stunden vor `preferred_time`, zu der die Erinnerung/Task erscheinen soll; 0 = Erinnerung zum Gießzeitpunkt)
     <!-- Quelle: Nährstoffplan-Review Monstera 2026-03 — Spec/Impl-Abgleich -->
     - `times_per_day: int` (1–6, Default: 1; Anzahl Gieß-/Düngungsvorgänge pro Gießtag. Bei `times_per_day > 1` werden die Vorgänge gleichmäßig über den Tag verteilt. Typisch: 1 für Zimmerpflanzen/Erde, 2-4 für Coco/Hydro mit Fertigation-ähnlicher manueller Bewässerung.)
@@ -341,11 +341,11 @@ Wenn `currentWeek > max(week_end)` aller Entries und `cycle_restart_from_sequenc
     - `mode='weekdays'` → `weekday_schedule` muss nicht-leer sein, alle Werte 0–6, keine Duplikate
     - `mode='interval'` → `interval_days` muss gesetzt sein, 1–90
     - `preferred_time` → Format-Validierung HH:MM (00:00–23:59)
-    - `application_method` → darf NICHT `'fertigation'` sein (Geschäftsregel: Fertigation = Tank-basiert, nicht manuell schedulbar)
+    - `application_method` → darf im Plan-Gießplan NICHT `'fertigation'` sein (Geschäftsregel: Fertigation = Tank-basiert, nicht manuell schedulbar). Geprüft wird das am `NutrientPlan` (`validate_plan_schedule`), nicht am `WateringSchedule` selbst (#2183)
 
 - **`NutrientPlanPhaseEntry`** - Phasen-spezifische Konfiguration innerhalb eines Plans
   - Properties:
-    - `phase_name: Literal['germination', 'seedling', 'vegetative', 'flowering', 'flushing', 'dormancy', 'harvest']`
+    - `phase_name: Literal['germination', 'seedling', 'vegetative', 'flowering', 'ripening', 'flushing', 'dormancy']` (Enum `PhaseName`; `harvest` ist seit #306 keine Nährstoffphase mehr — Fütterung in der Erntephase → `ripening`, 0-0-0-Spülung → `flushing`; `harvest` bleibt nur Aufgaben-Kategorie, #2183)
     <!-- Quelle: Nährstoffplan-Review Monstera 2026-03 -->
     <!-- `flushing`: Aktive Substratspülung — Pre-Harvest-Flush (7-14 Tage, graduelle EC-Reduktion), Mid-Cycle-Flush (bei Salzakkumulation) oder Transplant-Flush. Kein Dünger, nur klares Wasser. -->
     <!-- `dormancy`: Saisonale Ruhephase perennialer Pflanzen (z.B. Zimmerpflanzen Nov-Feb, Stauden Winter). Reduzierter Stoffwechsel, keine oder minimale Düngung, verlängertes Gießintervall. Wiederholt sich jährlich (is_recurring: true). Abgrenzung zu `flushing`: Dormanz ist biologisch bedingt (Photoperiode, Temperatur), Flushing ist eine aktive Kulturmaßnahme. -->
@@ -1611,7 +1611,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional, Tuple
 from datetime import datetime
 
-PhaseNameType = Literal['germination', 'seedling', 'vegetative', 'flowering', 'flushing', 'dormancy', 'harvest']
+PhaseNameType = Literal['germination', 'seedling', 'vegetative', 'flowering', 'ripening', 'flushing', 'dormancy']  # Enum PhaseName (#306, #2183)
 
 class FertilizerDosage(BaseModel):
     """Dünger-Zuweisung innerhalb einer Phase-Entry"""
@@ -2415,7 +2415,7 @@ class DeliveryChannel(BaseModel):
     """
     channel_id: str = Field(max_length=50)
     label: str = Field(max_length=100)
-    application_method: Literal['fertigation', 'drench', 'foliar', 'top_dress']
+    application_method: Literal['fertigation', 'drench', 'foliar', 'top_dress', 'any']  # Enum ApplicationMethod (#2183)
     enabled: bool = Field(default=True)
     notes: Optional[str] = Field(None, max_length=500)
 
@@ -2697,7 +2697,7 @@ class DeliveryChannelCreateRequest(BaseModel):
     """Request-Schema für Channel-Erstellung"""
     channel_id: str = Field(max_length=50)
     label: str = Field(max_length=100)
-    application_method: Literal['fertigation', 'drench', 'foliar', 'top_dress']
+    application_method: Literal['fertigation', 'drench', 'foliar', 'top_dress', 'any']  # Enum ApplicationMethod (#2183)
     enabled: bool = True
     notes: Optional[str] = Field(None, max_length=500)
     fertigation_params: Optional[FertigationParams] = None

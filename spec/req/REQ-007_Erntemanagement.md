@@ -7,13 +7,14 @@ Kategorie: Erntezyklus
 Fokus: Beides
 Technologie: Python, ArangoDB, Computer Vision (optional)
 Status: Entwurf
-Version: 2.7 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 2.8 (Enum-Werte `harvest_type`/`quality_grade` an das Modell angeglichen, #2183)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.8 | 2026-10-10 | **Enum-Werte an das Modell angeglichen (#2183):** `quality_grade` (Batch, Qualitätsbewertung, `QualityGrade`-Alias, `assign_grade`, Empfehlungs-Tabellen, AQL-Verteilung, Szenarien) nennt die gespeicherten Schlüssel von `QualityGrade` (`a_plus`, `a`, `b`, `c`, `d`); `A+`/`A`/`B`/`C`/`D` sind nur die Anzeige-Labels (i18n `enums.qualityGrade.*`). `HarvestBatch.quality_grade` ist optional ohne Default wie im Modell. `HarvestBatch.harvest_type` nennt die Werte von `HarvestType` — `season_harvest` entfällt, Saison-Ernten von Perennialen tragen `harvest_season`/`season_year`. Der Guard `test_spec_literal_discriminators_match_models.py` vergleicht beide Felder jetzt mit dem Code. |
 | 2.6 | 2026-07-23 | **DTM-Bezugspunkt `from_flip` (Issue #737, WP-P2):** Neuer `dtm_reference`-Enum-Wert `from_flip` — bei Photoperioden-Cannabis zählt `days_to_maturity` ab der Umstellung auf die Blüte-Photoperiode (dem „Flip"), nicht ab Aussaat oder Auspflanzung. Ergänzt in `common/enums.py`, `plant_info.schema.yaml`, Frontend-Typen/i18n; die drei `Cannabis sativa`-Cultivare (Northern Lights, White Widow, OG Kush) tragen ihn im Seed. Additiv, non-breaking. |
 | 2.5 | 2026-06-15 | **Phase A — Ernte-Stammdaten (Plan WP-6):** Neue Species-Felder `harvest_pattern` (`single`/`continuous`/`perennial` — Lebens-Muster, getrennt vom per-Event-`HarvestType`), `harvested_part` (orthogonal zum Muster), `climacteric` (`climacteric`/`non_climacteric`/`atypical` — Nachreife/Lagerung, dritter Wert für echte Grenzfälle). Neue Cultivar-Felder `dtm_reference` (`direct_seed`/`transplant` — entschärft DTM-Mehrdeutigkeit) und Ertragsbeginn-Korridor `bearing_start_year_min/max`. Alle optional, non-breaking. Quelle: `spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md` §4. |
 | 2.4 | 2026-04-27 | **ADR-001 (W-009 Karenz-Detach):** `karenz_check_passed`-Feld nutzt jetzt explizit `SafetyIntervalValidator.collect_relevant_treatments()` aus REQ-010 §3, der für detachte PlantInstances geerbte Run-Treatments einbezieht. Direkter Karenz-Bypass über Detach ist ausgeschlossen. |
@@ -136,7 +137,7 @@ Single Source of Truth für substratspezifische Flush-Dauern ist `REQ-004 Flushi
     - `wet_weight_g: float`
     - `estimated_dry_weight_g: Optional[float]`
     - `actual_dry_weight_g: Optional[float]` (nach Trocknung)
-    - `quality_grade: Literal['A+', 'A', 'B', 'C', 'D']`
+    - `quality_grade: Optional[Literal['a_plus', 'a', 'b', 'c', 'd']]` (Enum `QualityGrade`; gespeichert wird der Schlüssel, die Anzeige `A+`/`A`/`B`/`C`/`D` kommt aus `enums.qualityGrade.*`, #2183)
     - `harvester: str` (User-ID)
     - `harvest_environment: Optional[HarvestEnvironment]` (strukturierte Umwelterfassung, siehe U-004)
     - `harvest_tool: Optional[str]` (verwendetes Erntewerkzeug, z.B. "Fiskars micro-tip pruner", "Felco 310")
@@ -158,7 +159,7 @@ Single Source of Truth für substratspezifische Flush-Dauern ist `REQ-004 Flushi
     - `color_score: int` (0-100)
     - `defects: list[str]` (Schimmel, Schädlinge, Hermaphroditismus)
     - `overall_score: int` (0-100, gewichteter Durchschnitt)
-    - `grade: Literal['A+', 'A', 'B', 'C', 'D']`
+    - `grade: Literal['a_plus', 'a', 'b', 'c', 'd']`
     - `potency_estimate: Optional[str]` (z.B. "High THC", "Balanced")
     - `terpene_profile: Optional[dict]` (Dominante Terpene)
 
@@ -606,10 +607,10 @@ RETURN {
   average_cycle_days: ROUND(avg_cycle_days),
   top_performers: LENGTH(top_performers),
   quality_distribution: {
-    A_plus: LENGTH(FOR b IN batches_raw FILTER b.quality == 'A+' RETURN 1),
-    A: LENGTH(FOR b IN batches_raw FILTER b.quality == 'A' RETURN 1),
-    B: LENGTH(FOR b IN batches_raw FILTER b.quality == 'B' RETURN 1),
-    C: LENGTH(FOR b IN batches_raw FILTER b.quality == 'C' RETURN 1)
+    A_plus: LENGTH(FOR b IN batches_raw FILTER b.quality == 'a_plus' RETURN 1),
+    A: LENGTH(FOR b IN batches_raw FILTER b.quality == 'a' RETURN 1),
+    B: LENGTH(FOR b IN batches_raw FILTER b.quality == 'b' RETURN 1),
+    C: LENGTH(FOR b IN batches_raw FILTER b.quality == 'c' RETURN 1)
   },
   best_batch: FIRST(
     FOR b IN batches_raw
@@ -1908,7 +1909,7 @@ class HarvestBatch(BaseModel):
     plant_id: str
     harvest_date: date
     harvest_time: time
-    harvest_type: Literal['partial', 'final', 'continuous', 'season_harvest']
+    harvest_type: Literal['partial', 'final', 'continuous'] = 'final'  # Enum HarvestType (#2183); Saison-Ernten von Perennialen über harvest_season/season_year
     harvest_season: Optional[int] = Field(
         None, ge=1,
         description="Saisonale Ernte-Nummer für Perenniale (REQ-003 Perennial-Modus). "
@@ -1929,7 +1930,7 @@ class HarvestBatch(BaseModel):
         description="Prozent der entfernten Früchte bei Ausdünnung (z.B. 30 = 30% entfernt)."
     )
     wet_weight_g: float = Field(gt=0, le=100000)
-    quality_grade: Literal['A+', 'A', 'B', 'C', 'D'] = 'B'
+    quality_grade: Optional[Literal['a_plus', 'a', 'b', 'c', 'd']] = None  # Enum QualityGrade (#2183)
     harvester: str
     # Strukturierte Umwelterfassung statt Freitext (U-004)
     harvest_environment: Optional['HarvestEnvironment'] = None
@@ -2123,19 +2124,19 @@ class QualityAssessment(BaseModel):
 
         return int(final_score)
 
-    def assign_grade(self, overall_score: int) -> Literal['A+', 'A', 'B', 'C', 'D']:
+    def assign_grade(self, overall_score: int) -> Literal['a_plus', 'a', 'b', 'c', 'd']:
         """Weist Qualitäts-Grade basierend auf Score zu"""
 
         if overall_score >= 95:
-            return 'A+'
+            return 'a_plus'
         elif overall_score >= 85:
-            return 'A'
+            return 'a'
         elif overall_score >= 70:
-            return 'B'
+            return 'b'
         elif overall_score >= 50:
-            return 'C'
+            return 'c'
         else:
-            return 'D'
+            return 'd'
 
     def get_quality_report(self) -> Dict:
         """Generiert detaillierten Qualitäts-Report"""
@@ -2168,44 +2169,44 @@ class QualityAssessment(BaseModel):
             'dimensions': ['appearance', 'aroma', 'trichome_coverage', 'bud_density', 'color'],
             'weights': {'appearance': 0.25, 'aroma': 0.25, 'trichome': 0.20, 'density': 0.15, 'color': 0.15},
             'recommendations': {
-                'A+': 'Premium-Qualität - Top-Shelf, maximaler Preis',
-                'A': 'Sehr gute Qualität - Mid-to-Top-Shelf',
-                'B': 'Gute Qualität - Mid-Shelf, Eigenverbrauch',
-                'C': 'Akzeptable Qualität - Budget, Extraktion',
-                'D': 'Niedrige Qualität - Nur Extraktion/Hash',
+                'a_plus': 'Premium-Qualität - Top-Shelf, maximaler Preis',
+                'a': 'Sehr gute Qualität - Mid-to-Top-Shelf',
+                'b': 'Gute Qualität - Mid-Shelf, Eigenverbrauch',
+                'c': 'Akzeptable Qualität - Budget, Extraktion',
+                'd': 'Niedrige Qualität - Nur Extraktion/Hash',
             }
         },
         'tomato': {
             'dimensions': ['appearance', 'firmness', 'taste', 'color', 'shelf_life'],
             'weights': {'appearance': 0.15, 'firmness': 0.20, 'taste': 0.30, 'color': 0.20, 'shelf_life': 0.15},
             'recommendations': {
-                'A+': 'Premium - Direkt Verzehr, Marktstand-Qualität',
-                'A': 'Sehr gut - Frischverbrauch, Salate',
-                'B': 'Gut - Kochen, Saucen',
-                'C': 'Akzeptabel - Nur verarbeitet (Sauce, Suppe)',
-                'D': 'Kompost / Tierfutter',
+                'a_plus': 'Premium - Direkt Verzehr, Marktstand-Qualität',
+                'a': 'Sehr gut - Frischverbrauch, Salate',
+                'b': 'Gut - Kochen, Saucen',
+                'c': 'Akzeptabel - Nur verarbeitet (Sauce, Suppe)',
+                'd': 'Kompost / Tierfutter',
             }
         },
         'root_vegetable': {
             'dimensions': ['appearance', 'firmness', 'size_uniformity', 'skin_quality', 'storage_quality'],
             'weights': {'appearance': 0.15, 'firmness': 0.20, 'size_uniformity': 0.20, 'skin_quality': 0.25, 'storage_quality': 0.20},
             'recommendations': {
-                'A+': 'Premium-Lagerqualität - 6+ Monate haltbar',
-                'A': 'Sehr gut - 3-6 Monate lagerfähig',
-                'B': 'Gut - 1-3 Monate, baldiger Verbrauch',
-                'C': 'Akzeptabel - Sofortverbrauch',
-                'D': 'Beschädigt - Nur sofortige Verarbeitung',
+                'a_plus': 'Premium-Lagerqualität - 6+ Monate haltbar',
+                'a': 'Sehr gut - 3-6 Monate lagerfähig',
+                'b': 'Gut - 1-3 Monate, baldiger Verbrauch',
+                'c': 'Akzeptabel - Sofortverbrauch',
+                'd': 'Beschädigt - Nur sofortige Verarbeitung',
             }
         },
         'herb': {
             'dimensions': ['aroma', 'color', 'leaf_stem_ratio', 'freshness', 'drying_suitability'],
             'weights': {'aroma': 0.35, 'color': 0.20, 'leaf_stem_ratio': 0.20, 'freshness': 0.15, 'drying_suitability': 0.10},
             'recommendations': {
-                'A+': 'Premium-Aroma - Frischverkauf oder Top-Trockenware',
-                'A': 'Sehr gut - Frisch oder getrocknet',
-                'B': 'Gut - Kochen, Tee',
-                'C': 'Akzeptabel - Nur Trocknung/Extraktion',
-                'D': 'Verblüht/Überreif - Samengewinnung',
+                'a_plus': 'Premium-Aroma - Frischverkauf oder Top-Trockenware',
+                'a': 'Sehr gut - Frisch oder getrocknet',
+                'b': 'Gut - Kochen, Tee',
+                'c': 'Akzeptabel - Nur Trocknung/Extraktion',
+                'd': 'Verblüht/Überreif - Samengewinnung',
             }
         },
     }
@@ -2219,8 +2220,8 @@ class QualityAssessment(BaseModel):
             'dimensions': ['appearance', 'aroma', 'color'],
             'weights': {'appearance': 0.40, 'aroma': 0.30, 'color': 0.30,
                         'trichome': 0.0, 'density': 0.0},
-            'recommendations': {'A+': 'Exzellent', 'A': 'Sehr gut', 'B': 'Gut',
-                                'C': 'Befriedigend', 'D': 'Mangelhaft'},
+            'recommendations': {'a_plus': 'Exzellent', 'a': 'Sehr gut', 'b': 'Gut',
+                                'c': 'Befriedigend', 'd': 'Mangelhaft'},
         }
 
     def _get_recommendation(self, grade: str, species_type: str = 'cannabis') -> str:
@@ -2386,7 +2387,7 @@ from pydantic import BaseModel, Field, field_validator
 from datetime import date, time, datetime
 
 HarvestType = Literal['partial', 'final', 'continuous']
-QualityGrade = Literal['A+', 'A', 'B', 'C', 'D']
+QualityGrade = Literal['a_plus', 'a', 'b', 'c', 'd']  # Anzeige A+/A/B/C/D über i18n (#2183)
 PotencyLevel = Literal['Low', 'Medium', 'High', 'Very High']
 IndicatorType = Literal['trichome', 'foliage', 'brix', 'size', 'color', 'days_since_flowering', 'aroma', 'texture', 'ethylene', 'mushroom', 'gdd', 'continuous_harvest']
 
@@ -2622,7 +2623,7 @@ GIVEN: Batch mit
 WHEN: QualityAssessment.calculate_overall_score()
 THEN:
   - overall_score = 92
-  - grade = 'A+'
+  - grade = 'a_plus'
   - recommendation = 'Premium-Qualität - Top-Shelf, maximaler Preis'
 ```
 
@@ -2634,7 +2635,7 @@ THEN:
   - genetics: {strain: "Gorilla Glue #4", breeder: "GG Strains"}
   - cultivation: {planted_on: "2025-12-01", total_days: 76}
   - harvest: {wet_weight_g: 450, dry_weight_g: 112}
-  - quality: {overall_score: 92, grade: 'A+'}
+  - quality: {overall_score: 92, grade: 'a_plus'}
   - storage: {location: "Jar_12", current_weight_g: 110}
 ```
 

@@ -56,9 +56,8 @@ migration ``v0032`` retired the value — in prose, in pseudocode, in JSON examp
 * **The enum join** — the same ``(model, field)`` join, for fields typed as one of
   :data:`_ROLE_MODEL_ENUMS` (directly, ``| None``, ``Optional[...]`` or
   ``list[...]``). A spec ``Literal`` for such a field must name exactly the enum's
-  values. Limited to the role model on purpose: the same join over *every* enum
-  finds further divergent pairs in REQ-001/002/004/006/007/014/019, tracked in
-  #2183 rather than silently registered here.
+  values. Since #2183 the same rule runs over *every* enum (next section); this
+  role-model test stays as the named anchor of #2121.
 * **Role literals in REQ-023/024/049** — every value written for a role-bearing key
   (``role: lead``, ``"new_role": "lead"``, ``tenant_roles[...] == "lead"``,
   ``Rolle 'lead'``, ``grower → lead``) is a ``TenantRole`` value, every
@@ -67,6 +66,29 @@ migration ``v0032`` retired the value — in prose, in pseudocode, in JSON examp
   table) is a register entry that must keep matching.
 * **Role lists in the steering files** — ``CLAUDE.md`` and its offload name the
   roles as slash lists (``viewer/grower/lead``); every member must be a role.
+
+Every enum-typed field (#2183)
+==============================
+
+The role-model enum join, run over all ``StrEnum`` classes under ``app/``, found
+20 more divergent pairs in REQ-001/002/004/006/007/014/019 (``Site.type`` without
+``windowsill``, ``quality_grade: 'A+'`` where the model stores ``'a_plus'``,
+``frost_sensitivity: 'tender'`` where it stores ``'sensitive'`` …). The operator's
+decision was *code wins*: the spec was aligned and the join now covers every enum
+(:class:`TestEveryEnumTypedField`), with the same register-only-shrinks discipline.
+
+Two details make that join sound:
+
+* **Enum names are resolved globally** (a field annotation names the class, not
+  its module). That is only exact while no two ``StrEnum`` classes share a name
+  with different values; ``test_enum_names_are_unambiguous`` keeps it true.
+* **A spec ``XDefinition`` class is the code model ``X``.** The spec writes its
+  Pydantic sketches as ``class SpeciesDefinition(BaseModel)`` /
+  ``LocationDefinition`` / ``TankDefinition``; without the alias, the second
+  declaration of ``root_type``/``frost_sensitivity``/``irrigation_system`` was
+  never joined and kept the old values after the first one was fixed. The alias
+  applies only when the spec name is not itself a code class (``PhaseDefinition``
+  exists in the code) and the stripped name is one.
 """
 
 from __future__ import annotations
@@ -125,13 +147,38 @@ def spec_literals_in(text: str, *, origin: str = "<text>") -> dict[tuple[str, st
     return found
 
 
+_SPEC_MODEL_SUFFIX = "Definition"
+
+
+def code_model_name(spec_model: str, code_classes: frozenset[str]) -> str:
+    """The code class a spec model name denotes: ``SpeciesDefinition`` → ``Species`` (#2183).
+
+    Only when the spec name is not a code class itself and the stripped name is one,
+    so ``PhaseDefinition`` (a real code class) keeps its name.
+    """
+    if spec_model in code_classes or not spec_model.endswith(_SPEC_MODEL_SUFFIX):
+        return spec_model
+    stripped = spec_model[: -len(_SPEC_MODEL_SUFFIX)]
+    return stripped if stripped in code_classes else spec_model
+
+
+def _code_classes() -> frozenset[str]:
+    return frozenset(
+        node.name
+        for py in sorted(_APP_DIR.rglob("*.py"))
+        for node in ast.parse(py.read_text(encoding="utf-8")).body
+        if isinstance(node, ast.ClassDef)
+    )
+
+
 def _spec_literals() -> dict[tuple[str, str], list[tuple[frozenset[str], str]]]:
+    code_classes = _code_classes()
     found: dict[tuple[str, str], list[tuple[frozenset[str], str]]] = {}
     for spec_dir in _SPEC_DIRS:
         for md in sorted(spec_dir.glob("*.md")):
             hits = spec_literals_in(md.read_text(encoding="utf-8"), origin=str(md.relative_to(_REPO_ROOT)))
-            for key, declarations in hits.items():
-                found.setdefault(key, []).extend(declarations)
+            for (model, field), declarations in hits.items():
+                found.setdefault((code_model_name(model, code_classes), field), []).extend(declarations)
     return found
 
 
@@ -529,3 +576,112 @@ class TestRoleLiteralScanSelfTest:
             "- **`:Membership`**\n    - `admin_scopes: list[Literal['management', 'technical']]`\n"
         )
         assert found[("Membership", "admin_scopes")][0][0] == frozenset({"management", "technical"})
+
+
+# ── every enum-typed field (#2183) ────────────────────────────────────────────
+
+#: (model, field) pairs typed with an enum where spec and code are known to disagree.
+#: Empty since #2183 aligned the spec; an entry that agrees again goes red, so it only shrinks.
+_KNOWN_DIVERGENT_ENUM_FIELDS: dict[tuple[str, str], str] = {}
+
+#: Joined enum-typed (model, field) pairs: 95 on 2026-10-10 (the ``XDefinition`` alias
+#: adds declarations to pairs already joined, not new pairs). The floor sits below that
+#: so a retired model does not trip it, and far above 0 so a parser that stopped
+#: matching cannot pass vacuously.
+_ENUM_JOIN_FLOOR = 90
+
+#: The pairs #2183 found divergent, one per REQ document; each must stay joined.
+_ANCHORS_2183 = (
+    ("Species", "root_type"),  # REQ-001
+    ("Species", "frost_sensitivity"),  # REQ-001
+    ("Site", "type"),  # REQ-002
+    ("Location", "irrigation_system"),  # REQ-002
+    ("NutrientPlanPhaseEntry", "phase_name"),  # REQ-004
+    ("WateringSchedule", "application_method"),  # REQ-004
+    ("WorkflowTemplate", "category"),  # REQ-006
+    ("TaskTemplate", "trigger_type"),  # REQ-006
+    ("HarvestBatch", "quality_grade"),  # REQ-007
+    ("HarvestBatch", "harvest_type"),  # REQ-007
+    ("TankFillEvent", "water_source"),  # REQ-014
+    ("WateringEvent", "water_source"),  # REQ-014
+    ("Substrate", "type"),  # REQ-019
+)
+
+
+def _all_enums() -> tuple[dict[str, frozenset[str]], dict[str, list[str]]]:
+    """Every ``StrEnum`` under ``app/`` by name, plus the names declared twice with different values."""
+    by_name: dict[str, list[tuple[frozenset[str], str]]] = {}
+    for py in sorted(_APP_DIR.rglob("*.py")):
+        for name, values in enum_values_in(py.read_text(encoding="utf-8")).items():
+            by_name.setdefault(name, []).append((values, str(py.relative_to(_REPO_ROOT))))
+    enums = {name: decls[0][0] for name, decls in by_name.items()}
+    ambiguous = {
+        name: [origin for _, origin in decls] for name, decls in by_name.items() if len({v for v, _ in decls}) > 1
+    }
+    return enums, ambiguous
+
+
+@pytest.fixture(scope="module")
+def enum_joined() -> dict[tuple[str, str], tuple[list[tuple[frozenset[str], str]], tuple[frozenset[str], str]]]:
+    enums, ambiguous = _all_enums()
+    usable = {name: values for name, values in enums.items() if name not in ambiguous}
+    code: dict[tuple[str, str], tuple[frozenset[str], str]] = {}
+    for py in sorted(_APP_DIR.rglob("*.py")):
+        code.update(code_enum_fields_in(py.read_text(encoding="utf-8"), usable, origin=str(py.relative_to(_REPO_ROOT))))
+    spec = _spec_literals()
+    return {key: (spec[key], code[key]) for key in sorted(set(spec) & set(code))}
+
+
+class TestEveryEnumTypedField:
+    def test_enum_names_are_unambiguous(self) -> None:
+        """The join resolves an annotation by class name; two different enums of one name would make it guess."""
+        _, ambiguous = _all_enums()
+        assert not ambiguous, f"StrEnum names declared with different values in several modules: {ambiguous}"
+
+    def test_every_enum_typed_field_agrees_with_the_spec(self, enum_joined) -> None:
+        """The rule of #2183: a spec ``Literal`` for an enum-typed field names exactly the enum's values."""
+        divergent = [
+            f"{model}.{field}: {spec_loc} declares {sorted(spec_values)} <-> {code_loc} declares "
+            f"{sorted(code_values)} (spec-only {sorted(spec_values - code_values)}, "
+            f"code-only {sorted(code_values - spec_values)})"
+            for (model, field), (spec_hits, (code_values, code_loc)) in enum_joined.items()
+            if (model, field) not in _KNOWN_DIVERGENT_ENUM_FIELDS
+            for spec_values, spec_loc in spec_hits
+            if spec_values != code_values
+        ]
+        assert not divergent, "spec and code disagree on an enum-typed field:\n  " + "\n  ".join(divergent)
+
+    def test_the_register_holds_only_live_divergences(self, enum_joined) -> None:
+        stale = []
+        for key, reason in _KNOWN_DIVERGENT_ENUM_FIELDS.items():
+            assert key in enum_joined, f"registered pair {key} is not joined any more ({reason})"
+            spec_hits, (code_values, _) = enum_joined[key]
+            if all(values == code_values for values, _ in spec_hits):
+                stale.append(f"{key[0]}.{key[1]} agrees now — remove it from _KNOWN_DIVERGENT_ENUM_FIELDS")
+        assert not stale, "\n".join(stale)
+
+    def test_the_anchors_of_this_issue_are_joined(self, enum_joined) -> None:
+        missing = [f"{model}.{field}" for model, field in _ANCHORS_2183 if (model, field) not in enum_joined]
+        assert not missing, f"#2183 anchors no longer joined (renamed model/field or a blind parser?): {missing}"
+
+    def test_the_definition_alias_joins_the_second_declaration(self, enum_joined) -> None:
+        """``SpeciesDefinition.frost_sensitivity`` in REQ-001 is compared too, not only the node list."""
+        locations = [loc for _, loc in enum_joined[("Species", "frost_sensitivity")][0]]
+        assert len(locations) >= 2, locations
+
+    def test_the_enum_join_is_not_vacuous(self, enum_joined) -> None:
+        assert len(enum_joined) >= _ENUM_JOIN_FLOOR, (
+            f"only {len(enum_joined)} enum-typed pairs joined; the parsers used to find {_ENUM_JOIN_FLOOR}+"
+        )
+
+
+class TestSpecModelAliasSelfTest:
+    def test_a_definition_suffix_maps_to_the_code_model(self) -> None:
+        assert code_model_name("SpeciesDefinition", frozenset({"Species"})) == "Species"
+
+    def test_a_code_class_with_the_suffix_keeps_its_name(self) -> None:
+        assert code_model_name("PhaseDefinition", frozenset({"PhaseDefinition", "Phase"})) == "PhaseDefinition"
+
+    def test_no_code_model_no_alias(self) -> None:
+        assert code_model_name("TankDefinition", frozenset({"Species"})) == "TankDefinition"
+        assert code_model_name("Species", frozenset({"Species"})) == "Species"

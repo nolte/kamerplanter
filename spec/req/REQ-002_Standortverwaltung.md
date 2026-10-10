@@ -7,13 +7,14 @@ Kategorie: Infrastruktur
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.4 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 4.5 (Enum-Werte `Site.type`/`irrigation_system` an das Modell angeglichen, #2183)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.5 | 2026-10-10 | **Enum-Werte an das Modell angeglichen (#2183):** `Site.type` nennt alle Werte von `SiteType` (+`windowsill`, `balcony`, `grow_tent`). `Location.irrigation_system` nennt an allen drei Stellen (§Datenmodell, `LocationDefinition`, `IrrigationSystem`-Alias) die Werte von `IrrigationSystem` (`manual`, `drip`, `hydro`, `mist`, `nft`, `ebb_flow`); `sprinkler`, `sub_irrigation` und `aeroponics` entfallen. Der Guard `test_spec_literal_discriminators_match_models.py` vergleicht beide Felder jetzt mit dem Code. |
 | 4.4 | 2026-07-12 | **GPS-Erfassung per Browser (opt-in):** Standortkoordinaten können zusätzlich zur manuellen Eingabe per Browser-Geolocation-API (`navigator.geolocation`) übernommen werden — permission-gated, nur im sicheren Kontext, mit Graceful Degradation und ohne serverseitige Ortung. Business-Case-Subsektion + DoD-Kriterium ergänzt (Issue #572). |
 | 4.3 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** `data_classification`-Feld auf Location ergänzt (5 Werte: `indoor_private`, `indoor_public`, `greenhouse`, `outdoor_open`, `unknown`). `extended_retention_optin` als Tenant-Admin-Opt-in für verlängerte Retention. `data_classification_set_at` für Audit. Steuert NFR-011 R-14 Sensor-Retention. Forward-only-Wechsel-Semantik. |
 | 4.2 | (vorher) | Wasserquellen-Konfiguration. |
@@ -88,7 +89,7 @@ Das bestehende 3-5-Jahres-Fruchtfolge-Tracking wird um einen expliziten Rotation
 - **`:Site`** - Oberste Ebene (z.B. Garten, Gewächshaus, Indoor-Facility)
   - Properties:
     - `name: str`
-    - `type: Literal['outdoor', 'greenhouse', 'indoor']`
+    - `type: Literal['outdoor', 'greenhouse', 'indoor', 'windowsill', 'balcony', 'grow_tent']` (Enum `SiteType`, #2183; `balcony` zählt wie `outdoor`/`greenhouse` als frost- und wetterrelevant — `OVERWINTERING_SITE_TYPES`/`WEATHER_RELEVANT_SITE_TYPES`, REQ-047/REQ-046 —, `windowsill` und `grow_tent` wie `indoor` als klimatisiert)
     - `gps_coordinates: Optional[tuple[float, float]]` (Latitude, Longitude)
     - `climate_zone: str` (USDA Hardiness Zone)
     - `total_area_m2: float`
@@ -143,7 +144,7 @@ Das bestehende 3-5-Jahres-Fruchtfolge-Tracking wird um einen expliziten Rotation
     - `window_orientation: Optional[Literal['north', 'south', 'east', 'west', 'northeast', 'northwest', 'southeast', 'southwest']]` — Himmelsrichtung des Fensters bei Indoor-Locations. Relevant für Zimmerpflanzen-Lichtberechnung: Südfenster ≈ 4–6h direkte Sonne, Nordfenster ≈ nur diffuses Licht. Wird mit `glazing_transmission_factor` kombiniert für DLI-Schätzung (REQ-003).
     - `glazing_transmission_factor: Optional[float]` — Lichttransmission der Verglasung (0.0–1.0). Typisch: Einfachglas 0.85, Doppelverglasung 0.70, Dreifachverglasung 0.60, verschmutztes Fenster 0.50. Default: 0.70 (Standard-Isolierverglasung).
     - `light_type: Literal['natural', 'led', 'hps', 'cmh', 'mixed']`
-    - `irrigation_system: Literal['manual', 'drip', 'hydro', 'mist']` (Primäres Bewässerungssystem — beschreibt die Infrastruktur. Ergänzendes manuelles Gießen per Gießkanne ist immer möglich, auch bei automatischen Systemen, z.B. für organische Dünger, die nicht über Tropfer/Pumpen appliziert werden sollten. Siehe REQ-004 Applikationsmethoden und REQ-014 WateringEvent.)
+    - `irrigation_system: Literal['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow']` (Enum `IrrigationSystem`; Primäres Bewässerungssystem — beschreibt die Infrastruktur. Ergänzendes manuelles Gießen per Gießkanne ist immer möglich, auch bei automatischen Systemen, z.B. für organische Dünger, die nicht über Tropfer/Pumpen appliziert werden sollten. Siehe REQ-004 Applikationsmethoden und REQ-014 WateringEvent.)
     - `dimensions: tuple[float, float, float]` (length, width, height in meters)
     - `lights_on: Optional[str]` — Uhrzeit Licht-Ein im Format HH:MM (z.B. "06:00")
     - `lights_off: Optional[str]` — Uhrzeit Licht-Aus im Format HH:MM (z.B. "22:00")
@@ -772,7 +773,7 @@ class LocationDefinition(BaseModel):
     light_type: Optional[Literal['natural', 'led', 'hps', 'cmh', 'mixed']] = Field(
         None, description="Wenn nicht gesetzt, wird vom Eltern-Standort geerbt (Runtime)"
     )
-    irrigation_system: Optional[Literal['manual', 'drip', 'sprinkler', 'hydro', 'sub_irrigation']] = Field(
+    irrigation_system: Optional[Literal['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow']] = Field(
         None, description="Wenn nicht gesetzt, wird vom Eltern-Standort geerbt (Runtime)"
     )
     dimensions: Optional[Tuple[float, float, float]] = None  # L, W, H in meters
@@ -815,10 +816,9 @@ class SlotDefinition(BaseModel):
             raise ValueError("Slot-ID muss Format LOCATION_POSITION haben")
         return v.upper()
 
-IrrigationSystem = Literal[
-    'manual', 'drip', 'sprinkler', 'hydro', 'sub_irrigation',
-    'ebb_flow', 'nft', 'aeroponics'
-]
+# Werte des Code-Enums `IrrigationSystem` (#2183) — `sprinkler`, `sub_irrigation`
+# und `aeroponics` kennt das Modell nicht.
+IrrigationSystem = Literal['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow']
 ```
 
 ### API-Endpoints für LocationType-Stammdaten:

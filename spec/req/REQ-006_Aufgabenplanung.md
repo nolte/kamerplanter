@@ -7,7 +7,7 @@ Kategorie: Prozessmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB, Celery (Task Scheduling)
 Status: Entwurf
-Version: 3.3 (§4: geteilte Workflow-Vorlagen nie an Ort und Stelle schreibbar, #2101); 3.2 (FreeStyle: Foto-Auftrag als erster maschineller Produzent)
+Version: 3.4 (Enum-Werte an das Modell angeglichen: `WorkflowTemplate.category`/`TaskTemplate.category` = `TaskCategory` (16 Werte, kein `custom`), `TaskTemplate.trigger_type` mit `gdd_threshold`, #2183); 3.3 (§4: geteilte Workflow-Vorlagen nie an Ort und Stelle schreibbar, #2101); 3.2 (FreeStyle: Foto-Auftrag als erster maschineller Produzent)
 ```
 
 ## 1. Business Case
@@ -437,7 +437,7 @@ Das System bietet ein Jahreskalender-Template, das für jeden Monat die wichtigs
     - `growth_system: Literal['soil', 'hydro', 'coco', 'any']`
     - `difficulty_level: Literal['beginner', 'intermediate', 'advanced']`
     - `estimated_total_hours: float`
-    - `category: Literal['training', 'maintenance', 'harvest', 'seasonal', 'custom']`
+    - `category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological', 'watering', 'pest_control', 'monitoring', 'cleaning']` (Enum `TaskCategory` — dieselbe Liste wie `TaskTemplate.category`; einen Wert `custom` kennt das Modell nicht, #2183)
     - `tags: list[str]`
     - `usage_count: int` (Wie oft verwendet)
     - `average_rating: Optional[float]`
@@ -995,8 +995,8 @@ class TaskTemplate(BaseModel):
     task_template_id: str
     name: str = Field(min_length=3, max_length=200)
     instruction: str = Field(min_length=10, max_length=2000)
-    category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological']
-    trigger_type: Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'seasonal_month', 'phenological']
+    category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological', 'watering', 'pest_control', 'monitoring', 'cleaning']  # Enum TaskCategory (#2183)
+    trigger_type: Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'gdd_threshold', 'seasonal_month', 'phenological']  # Enum TaskTriggerType (#2183)
     trigger_phase: Optional[str] = None
     days_offset: Optional[int] = Field(None, ge=0, le=365)
     conditional_expression: Optional[str] = None
@@ -1157,7 +1157,7 @@ class WorkflowTemplate(BaseModel):
     growth_system: Literal['soil', 'hydro', 'coco', 'any'] = 'any'
     difficulty_level: Literal['beginner', 'intermediate', 'advanced']
     estimated_total_hours: float = Field(ge=0, le=1000)
-    category: Literal['training', 'maintenance', 'harvest', 'seasonal', 'custom']
+    category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological', 'watering', 'pest_control', 'monitoring', 'cleaning']  # Enum TaskCategory (#2183)
     tags: List[str] = Field(default_factory=list)
 
     @field_validator('version')

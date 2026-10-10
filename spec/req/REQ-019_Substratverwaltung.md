@@ -7,7 +7,7 @@ Kategorie: Infrastruktur
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.1
+Version: 4.2 (Enum-Werte `Substrate.type` an das Modell angeglichen — `peat` und `hydro_solution` im Datenmodell ergänzt, #2183); 4.1
 ```
 
 ## 1. Business Case
@@ -37,7 +37,9 @@ Das System verwaltet Substrate als wiederverwendbare Definitionen mit konkreten 
 
 - **`:Substrate`** - Substrat-Definition
   - Properties:
-    - `type: Literal['soil', 'coco', 'rockwool_slab', 'rockwool_plug', 'clay_pebbles', 'perlite', 'vermiculite', 'living_soil', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum']`
+    - `type: Literal['soil', 'coco', 'peat', 'rockwool_slab', 'rockwool_plug', 'clay_pebbles', 'perlite', 'vermiculite', 'living_soil', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum', 'hydro_solution']` (Enum `SubstrateType`, #2183)
+      - `peat`: Torf bzw. torfbasierte Erde
+      - `hydro_solution`: Nährlösung als Pseudo-Substrat für wasserbasierte Systeme (Aquaponik-DWC/NFT/Hybrid, Hydro-Monitoring) — das Modell und die EC-/Wasser-/Gießmengen-Engines führen den Wert weiter, obwohl er hier früher als „entfernt“ galt (s. Hinweis am `SubstrateType`-Alias)
       - `none`: Substratlose Systeme (DWC, Kratky, NFT mit nackten Wurzeln) — alle physikalischen Properties nicht anwendbar
       - `orchid_bark`: Rindenmulch-Mischung für Epiphyten (Orchideen, Bromeliaden) — hohe Luftdurchlässigkeit, `air_porosity_percent` typisch 50–70%, `water_retention: low`, pH 5.5–6.5
       - `pon_mineral`: Anorganisches Mineralsubstrat (Lechuza Pon, Seramis) — strukturstabil, semi-hydroponisch, pH-neutral (6.0–7.0), speichert Nährlösung im Porenraum
@@ -234,10 +236,12 @@ from pydantic import BaseModel, Field, model_validator
 SubstrateType = Literal[
     'soil', 'coco', 'peat', 'rockwool_slab', 'rockwool_plug',
     'clay_pebbles', 'perlite', 'vermiculite', 'living_soil', 'none',
-    'orchid_bark', 'pon_mineral', 'sphagnum'
+    'orchid_bark', 'pon_mineral', 'sphagnum', 'hydro_solution'
 ]
-# Hinweis: 'hydro_solution' wurde entfernt — Nährlösung ist kein Substrat
-# und wird in REQ-014 (Tankmanagement) als Tank verwaltet.
+# Hinweis: 'hydro_solution' sollte entfallen (Nährlösung ist kein Substrat und
+# wird in REQ-014 als Tank verwaltet), ist im Code-Enum SubstrateType aber
+# geblieben: Aquaponik (DWC/NFT/Hybrid), EC-Budget-, Nährstoff-, Wasser-Misch-
+# und Gießmengen-Engine sowie die Substrat-Seeds verwenden ihn (#2183).
 # 'rockwool' wurde in 'rockwool_slab' (wiederverwendbar) und
 # 'rockwool_plug' (Einweg-Anzucht) differenziert.
 # 'none' für substratlose Hydroponik-Systeme (DWC, Kratky, NFT).

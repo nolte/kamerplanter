@@ -83,6 +83,9 @@ def test_reingest_invalidation_task_delegates_to_repo() -> None:
         patch("app.tasks.glossary_tasks.get_db"),
         patch("app.tasks.glossary_tasks.ArangoGlossaryTermCacheRepository") as repo_cls,
         patch.object(warm_glossary_cache, "delay") as warm,
+        # The Redis hot tier is cleared too (#2169); covered in
+        # tests/unit/tasks/test_reingest_chains_glossary_invalidation.py.
+        patch("app.tasks.glossary_tasks._redis_client_or_none", return_value=None),
     ):
         repo_cls.return_value.invalidate_all.return_value = 30
 
