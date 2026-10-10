@@ -79,10 +79,14 @@ def list_security_audit(
     _user: User = Depends(require_platform_admin),
     audit: SecurityAuditService = Depends(get_security_audit_service),
 ) -> list[SecurityAuditEntryResponse]:
-    """The persistent security audit of membership, role and scope changes. Platform admin only.
+    """The persistent security audit of membership, role and scope changes, of an account's trust flags
+    and of a tenant's lifecycle. Platform admin only.
 
     MT-014 (#2111): newest first, optionally of one tenant. Read-only; the rows are written
-    by the services that change a membership and kept for two years (NFR-011 R-38).
+    by the services that make the change and kept for two years (NFR-011 R-38). A row about an
+    account's ``is_active`` / ``email_verified`` names no tenant (``tenant_key`` null, so a
+    ``tenant_key`` filter leaves it out); a row about a tenant's suspension or deletion names no
+    target account (``target_user_key`` null).
     """
     return [
         SecurityAuditEntryResponse.model_validate(entry.model_dump(mode="json"))

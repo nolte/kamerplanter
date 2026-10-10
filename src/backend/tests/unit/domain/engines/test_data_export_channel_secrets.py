@@ -60,3 +60,15 @@ def test_the_rest_of_the_preferences_is_exported_unchanged_and_the_input_is_not_
     assert record["channels"]["apprise"]["priority"] == 3
     assert record["quiet_hours"] == {"enabled": False}
     assert row["channels"]["apprise"]["config"] == {"urls_encrypted": [CIPHER]}
+
+
+def test_the_calendar_feed_section_declares_neither_the_token_nor_its_hash() -> None:
+    """#2171: the export reads only the declared fields (``ArangoPersonalDataRepository`` KEEPs them).
+
+    A row written before v0090 may still carry ``token``; every row carries ``token_hash``. Neither is a
+    declared field, so neither reaches the Art. 15 bundle.
+    """
+    source = next(s for s in DataExportEngine().USER_DATA_MANIFEST if s.collection == "calendar_feeds")
+
+    assert "name" in source.fields  # the control: the section exports the feed itself
+    assert {"token", "token_hash"}.isdisjoint(source.fields)

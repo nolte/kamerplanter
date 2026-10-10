@@ -473,6 +473,14 @@ class TestCalendarFeedManagement:
         # resolves — `unwrap()` re-raises a rejected thunk, so a failed create
         # never reaches `setCreateFeedDialogOpen(false)`.
         calendar.wait_for_create_feed_dialog_closed(timeout=10)
+        # #2171: the subscription URL is shown once, in its own dialog, right
+        # after the create — the list never shows it again.
+        issued_url = calendar.get_issued_feed_url(timeout=10)
+        assert "/feed.ics?token=" in issued_url, (
+            f"TC-REQ-015-016 FAIL: the one-time dialog must show the new feed's "
+            f"subscription URL with its token, but shows {issued_url!r}."
+        )
+        calendar.close_feed_url_dialog()
         calendar.wait_for_row_containing(
             feed_name,
             rows_locator=CalendarPage.FEED_ITEMS,

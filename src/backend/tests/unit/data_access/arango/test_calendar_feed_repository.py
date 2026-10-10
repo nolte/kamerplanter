@@ -26,7 +26,7 @@ def _doc(**kwargs) -> dict:
     doc = {
         "_key": "f1",
         "name": "My Feed",
-        "token": "tok123",
+        "token_hash": "digest123",
         "user_key": "u1",
         "tenant_key": "t1",
         "is_active": True,
@@ -36,7 +36,7 @@ def _doc(**kwargs) -> dict:
 
 
 def _model(**kwargs) -> CalendarFeed:
-    defaults = {"name": "My Feed", "token": "tok123", "user_key": "u1", "tenant_key": "t1"}
+    defaults = {"name": "My Feed", "token_hash": "digest123", "user_key": "u1", "tenant_key": "t1"}
     defaults.update(kwargs)
     return CalendarFeed(**defaults)
 
@@ -62,19 +62,25 @@ class TestGetByKey:
         assert repo.get_by_key("f1") is None
 
 
-class TestGetByToken:
+class TestGetByTokenHash:
     def test_returns_first_match(self, repo, mock_db):
         # find_by_field issues a single AQL list query.
         mock_db.aql.execute.return_value = iter([_doc()])
 
-        result = repo.get_by_token("tok123")
+        result = repo.get_by_token_hash("digest123")
 
         assert isinstance(result, CalendarFeed)
-        assert result.token == "tok123"
+        assert result.token_hash == "digest123"
+        bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
+        assert "digest123" in bind_vars.values()
 
     def test_none_when_empty(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
-        assert repo.get_by_token("tok123") is None
+        assert repo.get_by_token_hash("digest123") is None
+
+    def test_an_empty_digest_is_never_looked_up(self, repo, mock_db):
+        assert repo.get_by_token_hash("") is None
+        mock_db.aql.execute.assert_not_called()
 
 
 class TestUpdate:

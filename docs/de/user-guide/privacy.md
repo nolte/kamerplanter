@@ -331,6 +331,10 @@ Sofort:
   (E-Mail- und Link-Einladungen) werden widerrufen, neue lassen
   sich waehrend der 90 Tage nicht mehr anlegen oder einloesen;
   niemand kann ihm waehrend der 90 Tage mehr beitreten
+- Warst du in einer Organisation die letzte Person mit
+  Verwaltungsrecht, uebernimmt jetzt die dienstaelteste Leitung,
+  oder die Organisation verwaist (Loeschung nach der Frist);
+  die Mitglieder bekommen sofort eine E-Mail
 
 Persoenliche Daten (Art. 17 DSGVO):
 - Werden sofort anonymisiert oder nach 90 Tagen geloescht
@@ -349,6 +353,9 @@ Nach 90 Tagen:
 
 !!! danger "Dein persönlicher Garten geht mit"
     Dein persönlicher Garten wird mit allem, was darin ist, unwiderruflich gelöscht — auch wenn weitere Mitglieder darin sind; ihre Einträge gehen dann mit. Diese Mitglieder bekommen eine E-Mail, sobald du die Löschung beantragst, und können bis zur endgültigen Löschung ihre Daten sichern. Die E-Mail nennt weder deinen Namen noch deine Adresse. Nur wenn nach deinem Antrag noch jemand neu beitritt, bleibt der Garten für diese Person erhalten, ohne deinen Namen. Details dazu: [Datenaufbewahrung — Was mit deinem persönlichen Garten passiert](../guides/data-retention.md#was-mit-deinem-personlichen-garten-passiert).
+
+!!! info "Organisationen, die du verwaltest"
+    Bist du in einer Organisation die letzte Person mit Verwaltungsrecht, wird das schon geregelt, wenn du die Löschung beantragst — nicht erst nach 90 Tagen: Die dienstälteste verbleibende Leitung übernimmt die Verwaltung, oder die Organisation verwaist, wenn keine Leitung mehr da ist, und wird nach der Frist der Mandantenlöschung gelöscht. Die Mitglieder bekommen dazu sofort eine E-Mail; sie nennt deinen Namen nicht. Welche Organisationen das betrifft, zeigt dir der Dialog vor der Bestätigung. Ein Löschantrag lässt sich nicht zurücknehmen, deshalb wird auch diese Übergabe nicht zurückgenommen. <!-- Issue #2166 -->
 
 ---
 

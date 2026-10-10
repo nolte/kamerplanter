@@ -1222,6 +1222,8 @@ def get_user_service() -> UserService:
         step_up_verifier=get_step_up_verifier(),
         refresh_token_repo=get_refresh_token_repo(),
         membership_repo=get_membership_repo(),
+        # MT-014 (#2111) — a platform admin's change of an account's trust flags is audited.
+        security_audit=get_security_audit_service(),
     )
 
 
@@ -1245,7 +1247,8 @@ def get_assignment_repo() -> ArangoLocationAssignmentRepository:
 
 
 def get_security_audit_service() -> SecurityAuditService:
-    """MT-014 (#2111) — the persistent security audit of membership, role and scope changes."""
+    """MT-014 (#2111) — the persistent security audit of membership, role and scope changes, of an
+    account's trust flags and of a tenant's lifecycle."""
     from app.data_access.arango.security_audit_repository import ArangoSecurityAuditRepository
     from app.domain.services.security_audit_service import SecurityAuditService
 

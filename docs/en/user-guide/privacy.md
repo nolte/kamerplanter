@@ -331,6 +331,10 @@ Immediately:
   (email and link invitations) are revoked, and new ones can
   neither be created nor redeemed during the 90 days;
   nobody can join it during the 90 days any more
+- If you were the last person with the management right in an
+  organization, the longest-serving lead takes over now, or the
+  organization is orphaned (deleted after the grace period);
+  its members get an email right away
 
 Personal data (GDPR Art. 17):
 - Anonymised immediately or deleted after 90 days
@@ -349,6 +353,9 @@ After 90 days:
 
 !!! danger "Your personal garden is deleted with it"
     Your personal garden is irreversibly deleted with everything in it — even when other members are in it; their entries go with it. Those members get an email as soon as you request the deletion and can secure their data until the final deletion. The email names neither you nor your address. Only if someone newly joins after your request is the garden kept for that person, without your name. Details: [Data Retention — What happens to your personal garden](../guides/data-retention.md#what-happens-to-your-personal-garden).
+
+!!! info "Organizations you manage"
+    If you are the last person with the management right in an organization, this is settled as soon as you request the deletion — not after 90 days: the longest-serving remaining lead takes over management, or, with no lead left, the organization is orphaned and deleted after the tenant-deletion grace period. The members get an email right away; it does not name you. The dialog shows you which organizations are affected before you confirm. An erasure request cannot be withdrawn, so this hand-over is not taken back either. <!-- Issue #2166 -->
 
 ---
 

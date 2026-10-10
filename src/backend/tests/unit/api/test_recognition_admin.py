@@ -18,8 +18,16 @@ def _patch_common(monkeypatch, *, enabled, ready, model_info, coverage_rows, loc
     repo.coverage_report.return_value = coverage_rows
     monkeypatch.setattr(mod, "get_reference_image_repo", lambda: repo)
 
+    # Models the hybrid catalogue: ``total_species`` global seeds plus tenant-owned
+    # rows that only the unscoped (``tenant_key=None``) read counts. The index is
+    # built from global species only (#2173), so the coverage denominator is too.
+    tenant_owned = 7
+
+    def _get_all(offset=0, limit=50, *, tenant_key=None):
+        return [], total_species if tenant_key == "" else total_species + tenant_owned
+
     species_repo = MagicMock()
-    species_repo.get_all.return_value = ([], total_species)
+    species_repo.get_all.side_effect = _get_all
     monkeypatch.setattr(mod, "get_species_repo", lambda: species_repo)
 
     registry = MagicMock()
@@ -52,7 +60,7 @@ def test_status_feature_enabled_service_ready(monkeypatch):
     assert resp.inference_service.ready is True
     assert resp.inference_service.model == "dinov2_vits14"
     assert resp.inference_service.dim == 384
-    assert resp.coverage.total_species == 210  # all species, not just acquired ones
+    assert resp.coverage.total_species == 210  # all global species, not just acquired ones
     assert resp.coverage.processed_species == 3  # species with an acquisition job
     assert resp.coverage.usable_species == 2
     assert resp.config.primary_adapter  # populated from settings

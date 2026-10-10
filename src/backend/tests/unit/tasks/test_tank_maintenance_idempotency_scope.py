@@ -109,6 +109,7 @@ def _mock_dependencies(monkeypatch):
         "get_feeding_repo",
         "get_plant_repo",
         "get_db",
+        "get_tenant_repo",  # #2166 — every tenant here is active (a MagicMock tenant is truthy)
     ):
         setattr(mock_deps, getter, MagicMock())
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
@@ -231,6 +232,41 @@ class TestRunoffFlushIdempotency:
         filler = [_task(f"maintenance:other:{i}", "tenant_1", due_days=i) for i in range(250)]
         match = _task("flush:runoff_trend:plant_1", "tenant_1", due_days=999)
         task_repo = _TaskRepoDouble([*filler, match])
+        _mock_dependencies.get_task_repo.return_value = task_repo
+
+        from app.tasks.tank_maintenance_tasks import check_runoff_trends
+
+        assert check_runoff_trends() == {"plants_checked": 1, "created": 0, "skipped": 1}
+        assert task_repo.created == []
+
+
+class TestATenantThatIsNotActiveGetsNoTask:
+    """#2166 — a suspended, pending-deletion or orphaned tenant resolves for nobody; the beats write nothing into it."""
+
+    @staticmethod
+    def _closed_tenants(_mock_dependencies, status: str) -> None:
+        _mock_dependencies.get_tenant_repo.return_value.get_by_key.return_value = SimpleNamespace(
+            is_active=status == "active"
+        )
+
+    @pytest.mark.parametrize("status", ["pending_deletion", "suspended", "orphaned"])
+    def test_no_maintenance_task_in_a_tenant_that_is_not_active(self, _mock_dependencies, status):
+        self._closed_tenants(_mock_dependencies, status)
+        _mock_dependencies.get_tank_repo.return_value = _tank_repo("tenant_1")
+        task_repo = _TaskRepoDouble([])
+        _mock_dependencies.get_task_repo.return_value = task_repo
+
+        from app.tasks.tank_maintenance_tasks import generate_tank_maintenance_tasks
+
+        assert generate_tank_maintenance_tasks() == {"created": 0, "skipped": 1, "skipped_unresolved": 0}
+        assert task_repo.created == []
+
+    @pytest.mark.parametrize("status", ["pending_deletion", "suspended", "orphaned"])
+    def test_no_flush_task_in_a_tenant_that_is_not_active(self, _mock_dependencies, status):
+        self._closed_tenants(_mock_dependencies, status)
+        _mock_dependencies.get_db.return_value = TestRunoffFlushIdempotency._db("tenant_1")
+        _mock_dependencies.get_feeding_repo.return_value = TestRunoffFlushIdempotency._feeding_repo()
+        task_repo = _TaskRepoDouble([])
         _mock_dependencies.get_task_repo.return_value = task_repo
 
         from app.tasks.tank_maintenance_tasks import check_runoff_trends

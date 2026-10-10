@@ -22,7 +22,7 @@ Basis: GDPR Art. 5(1)(e). <!-- NFR-011 -->
 | R-07a | Revert window of a confirmed email change | 7 days after confirmation | Clear `previous_email`, the revert token's hash, and its expiry | Purpose lapse — the revert link has expired |
 | R-11 | Expired refresh tokens | Immediately on expiry | Hard-delete (TTL index) | Purpose lapse |
 | R-12 | Expired invitations | 30 days after expiry | Set status to `expired`, hard-delete after 30 days (`app.tasks.tenant_tasks.cleanup_expired_invitations`, daily at 02:00 UTC) | Purpose lapse |
-| R-38 | Security audit (membership, role and scope changes) | 730 days (2 years) after creation, fixed | Hard-delete (`security_audit.purge_expired`, daily at 02:55 UTC); an account erasure turns the row's account keys into tombstone hashes, a tenant deletion leaves it | GDPR Art. 32 (proof of access changes), Art. 5(2) |
+| R-38 | Security audit (membership, role and scope changes; deactivation and email verification of an account by platform admins; suspension, reactivation and deletion request of a tenant) | 730 days (2 years) after creation, fixed | Hard-delete (`security_audit.purge_expired`, daily at 02:55 UTC); an account erasure turns the row's account keys into tombstone hashes, a tenant deletion leaves it | GDPR Art. 32 (proof of access changes), Art. 5(2) |
 
 Every period except R-11 (TTL index), R-06a and R-38 (fixed) is read from exactly one setting (see
 [Environment Variables](../reference/environment-variables.md#datenschutz-dsgvo-req-025-nfr-011)
@@ -352,7 +352,10 @@ over management, and the members are notified. If no lead is left or you are the
 member, the organization becomes **orphaned**: it is closed and deleted with all its data
 after the tenant-deletion grace period (`RETENTION_TENANT_ERASURE_GRACE_DAYS`, default 90
 days); the remaining members and the operators are notified. The preview shows you both
-before you confirm the deletion. <!-- Issue #2134 -->
+before you confirm the deletion. Both happen as soon as you **request** the deletion —
+not only at the final deletion up to 90 days later: your account is closed from the
+request on, and the organization must not stay without management for that long. The
+grace period of an orphaned organization starts with your request. <!-- Issue #2134, #2166 -->
 
 An AI tip you dismissed stays dismissed for the other members of your garden. Only
 the note that you dismissed it is replaced with `_anonymized`.
@@ -1021,14 +1024,17 @@ TimescaleDB is configured but unreachable it exits 1 and changes nothing.
 ## Frequently Asked Questions
 
 ??? question "Can I extend the 90-day soft-delete period?"
-    Yes, via `RETENTION_SOFT_DELETE_RETENTION_DAYS` (minimum 1 day). Reducing it below
-    30 days is not recommended, as users would have no opportunity to recover
-    accidentally deleted accounts.
+    Yes, via `RETENTION_SOFT_DELETE_RETENTION_DAYS` (minimum 1 day). The period is not an
+    undo window: an erasure request cannot be withdrawn, the account is closed from the
+    request on (without a password), and it is deleted after the period in any case. The
+    period gives the other members of a personal garden time to save their data. <!-- Issue #2166 -->
 
-??? question "What happens to tenant data when the last admin of a tenant is deleted?"
-    The Celery task `detect_orphaned_tenants` detects tenants without an active admin
-    and sets an `orphaned_since` timestamp. A platform admin can then appoint an
-    emergency admin.
+??? question "What happens to an organization when its last management holder requests their account's deletion?"
+    At the request, the longest-serving remaining lead takes over management. If no lead
+    is left, the organization becomes **orphaned** and is deleted after
+    `RETENTION_TENANT_ERASURE_GRACE_DAYS`; this cannot be cancelled. Members and platform
+    admins are notified by email. There is no emergency admin and no
+    `detect_orphaned_tenants` task any more. <!-- Issue #2134, #2166 -->
 
 ??? question "How can I verify that the retention tasks are running correctly?"
     There is no Prometheus metric for this. Look in the structured logs (structlog)

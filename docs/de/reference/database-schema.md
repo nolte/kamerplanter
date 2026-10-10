@@ -320,7 +320,7 @@ Kamerplanter legt beim Start automatisch folgende Indizes an:
 | `activities` | `tenant_key, name` | Persistent | Ja |
 | `workflow_templates` | `tenant_key, name` | Persistent | Ja |
 | `refresh_tokens` | `token_hash` | Persistent | Ja |
-| `calendar_feeds` | `token` | Persistent | Ja |
+| `calendar_feeds` | `token_hash` | Persistent (sparse) | Ja |
 | `tasks` | `status`, `plant_key` | Persistent | Nein |
 | `feeding_events` | `plant_key`, `timestamp` | Persistent | Nein |
 

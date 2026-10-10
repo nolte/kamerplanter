@@ -45,9 +45,11 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
         get_planting_run_repo,
         get_season_state_repo,
         get_task_repo,
+        get_tenant_repo,
     )
     from app.common.enums import ReminderType, TaskPriority
     from app.domain.services.care_reminder_service import build_care_reminder_task, create_care_reminder_task
+    from app.tasks.tenant_gate import ActiveTenants
 
     care_service = get_care_reminder_service()
     task_repo = get_task_repo()
@@ -57,6 +59,7 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
     lifecycle_repo = get_lifecycle_repo()
     phase_seq_repo = get_phase_sequence_repo()
     season_repo = get_season_state_repo()
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     # UTC (#812): the stamped `due_date` carries a UTC label, and the dedup
     # rule that reads it back moved to UTC in #772 — a local date here made
@@ -64,6 +67,7 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
     today = today_utc()
     created_count = 0
     skipped_count = 0
+    closed_tenant_count = 0
 
     # Get plant keys with active watering schedules (Gießplan-Guard)
     plants_with_schedule = run_repo.get_plant_keys_with_active_schedule()
@@ -136,6 +140,13 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
         # considered these profiles, and folding them into the tally would put
         # another tenant's volume back into the number this fix removes it from.
         if tenant_key is not None and plant.tenant_key != tenant_key:
+            continue
+
+        # #2166 — a tenant that is suspended, scheduled for deletion, orphaned or gone gets no
+        # new care task: it resolves for nobody, while its memberships stay active on purpose.
+        # Not counted as "skipped" either, for the reason above. A tenantless plant keeps the sweep.
+        if plant.tenant_key and not tenant_is_active(plant.tenant_key):
+            closed_tenant_count += 1
             continue
 
         has_plan = plant_key in plants_with_schedule
@@ -247,5 +258,6 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
         "care_reminders_generated",
         created=created_count,
         skipped=skipped_count,
+        closed_tenant_profiles=closed_tenant_count,
     )
     return {"created": created_count, "skipped": skipped_count}

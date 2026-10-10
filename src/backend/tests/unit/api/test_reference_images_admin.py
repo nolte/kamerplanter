@@ -31,7 +31,9 @@ def test_acquire_all_dispatches_task(monkeypatch):
 
 def test_acquire_species_dispatches_with_scientific_name(monkeypatch):
     species_repo = MagicMock()
-    species_repo.get_by_key.return_value = SimpleNamespace(key="species_monstera", scientific_name="Monstera deliciosa")
+    species_repo.get_by_key.return_value = SimpleNamespace(
+        key="species_monstera", scientific_name="Monstera deliciosa", tenant_key=""
+    )
     monkeypatch.setattr(mod, "get_species_repo", lambda: species_repo)
 
     task = MagicMock()
@@ -52,6 +54,22 @@ def test_acquire_species_404_when_unknown(monkeypatch):
 
     with pytest.raises(NotFoundError):
         mod.acquire_species("nope", _user=None)
+
+
+def test_acquire_species_refuses_a_tenant_owned_species(monkeypatch):
+    # #2173: the shared reference index holds only the global catalogue; a
+    # tenant's own species indexed there would be answered to every tenant.
+    species_repo = MagicMock()
+    species_repo.get_by_key.return_value = SimpleNamespace(
+        key="sp_private", scientific_name="Secretus privatus", tenant_key="tenant_b"
+    )
+    monkeypatch.setattr(mod, "get_species_repo", lambda: species_repo)
+    task = MagicMock()
+    monkeypatch.setattr("app.tasks.reference_image_tasks.acquire_reference_images_task", task)
+
+    with pytest.raises(NotFoundError):
+        mod.acquire_species("sp_private", _user=None)
+    task.delay.assert_not_called()
 
 
 def test_coverage_aggregates(monkeypatch):
