@@ -4506,6 +4506,7 @@
       "regenerateToken": "Regenerate Token",
       "deleteFeed": "Delete Feed",
       "urlCopied": "URL copied",
+      "urlCopyFailed": "Copying failed – please copy the URL manually from the field.",
       "feedUrlTitle": "Subscription URL for “{{name}}”",
       "feedUrlShownOnce": "This URL is shown only now. Copy it and add it to your calendar app – Kamerplanter stores only a hash of the token and cannot show it again later.",
       "feedUrlHelper": "Subscribe to this URL in your calendar app (e.g. Google Calendar, Apple Calendar, Thunderbird).",

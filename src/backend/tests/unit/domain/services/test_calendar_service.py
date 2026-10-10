@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError, ValidationError
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.models.calendar import CalendarFeed
@@ -60,7 +61,7 @@ class TestGetFeed:
 
 
 class TestUpdateFeed:
-    def test_preserves_token_hash(self, service, mock_repo):
+    def test_never_writes_the_token_hash(self, service, mock_repo):
         existing = CalendarFeed(
             name="Old",
             tenant_key="t1",
@@ -69,13 +70,15 @@ class TestUpdateFeed:
         )
         existing.key = "f1"
         mock_repo.get_by_key.return_value = existing
-        mock_repo.update.return_value = existing
+        mock_repo.update_fields.return_value = existing
 
         updated = CalendarFeed(name="New", tenant_key="t1", user_key="u1")
-        service.update_feed("f1", updated, tenant_key="t1")
+        service.update_feed("f1", updated, tenant_key="t1", user_key="u1", role=TenantRole.GROWER)
 
-        call_args = mock_repo.update.call_args
-        assert call_args[0][1].token_hash == "digest123"
+        fields = mock_repo.update_fields.call_args[0][1]
+        assert "token_hash" not in fields
+        assert fields["name"] == "New"
+        mock_repo.update.assert_not_called()
 
 
 class TestRegenerateToken:
@@ -88,14 +91,14 @@ class TestRegenerateToken:
         )
         feed.key = "f1"
         mock_repo.get_by_key.return_value = feed
-        mock_repo.update.return_value = feed
+        mock_repo.update_fields.return_value = feed
 
-        issued = service.regenerate_token("f1", tenant_key="t1")
+        issued = service.regenerate_token("f1", tenant_key="t1", user_key="u1", role=TenantRole.GROWER)
 
-        written = mock_repo.update.call_args[0][1]
+        written = mock_repo.update_fields.call_args[0][1]
         assert issued.token != "old-token"
         assert len(issued.token) > 10
-        assert written.token_hash == TokenEngine.hash_token(issued.token)
+        assert written == {"token_hash": TokenEngine.hash_token(issued.token)}
 
 
 class TestDeleteFeed:
@@ -105,13 +108,13 @@ class TestDeleteFeed:
         mock_repo.get_by_key.return_value = feed
         mock_repo.delete.return_value = True
 
-        assert service.delete_feed("f1", tenant_key="t1") is True
+        assert service.delete_feed("f1", tenant_key="t1", user_key="u1", role=TenantRole.LEAD) is True
 
     def test_delete_not_found(self, service, mock_repo):
         mock_repo.get_by_key.return_value = None
 
         with pytest.raises(NotFoundError):
-            service.delete_feed("missing", tenant_key="t1")
+            service.delete_feed("missing", tenant_key="t1", user_key="u1", role=TenantRole.LEAD)
 
 
 class TestGenerateIcalForFeed:

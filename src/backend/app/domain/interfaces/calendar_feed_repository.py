@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import CalendarFeedKey
 from app.domain.models.calendar import CalendarFeed
@@ -19,6 +20,10 @@ class ICalendarFeedRepository(ABC):
 
     @abstractmethod
     def update(self, key: CalendarFeedKey, feed: CalendarFeed) -> CalendarFeed: ...
+
+    @abstractmethod
+    def update_fields(self, key: CalendarFeedKey, fields: dict[str, Any]) -> CalendarFeed:
+        """Merge only ``fields`` into the stored feed; every other attribute stays as stored."""
 
     @abstractmethod
     def list_by_user(

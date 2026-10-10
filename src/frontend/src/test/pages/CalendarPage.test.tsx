@@ -470,11 +470,33 @@ describe('CalendarPage — view modes', () => {
 });
 
 describe('CalendarPage — iCal feeds', () => {
+  // jsdom has no clipboard; tests install a stub. The original descriptor (or its
+  // absence) is put back after each test so no stub leaks into the next one.
+  const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+
+  function stubClipboard(writeText: ReturnType<typeof vi.fn>) {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+  }
+
+  /** Create a feed through the dialog up to the one-time URL dialog. */
+  async function createFeedUntilUrlDialog(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByTestId('feeds-toggle'));
+    await user.click(await screen.findByTestId('create-feed-btn'));
+    await user.type(within(await screen.findByTestId('create-feed-dialog')).getByRole('textbox'), 'Garden ICS');
+    await user.click(screen.getByTestId('feed-save-btn'));
+    return screen.findByTestId('feed-url-dialog');
+  }
+
   beforeEach(() => {
     i18n.changeLanguage('de');
   });
   afterEach(() => {
     cleanup();
+    if (originalClipboard) {
+      Object.defineProperty(navigator, 'clipboard', originalClipboard);
+    } else {
+      delete (navigator as { clipboard?: Clipboard }).clipboard;
+    }
     i18n.changeLanguage('en');
   });
 
@@ -498,15 +520,10 @@ describe('CalendarPage — iCal feeds', () => {
     useCalendarHandlers({ feeds: [] });
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    stubClipboard(writeText);
     renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
 
-    await user.click(await screen.findByTestId('feeds-toggle'));
-    await user.click(await screen.findByTestId('create-feed-btn'));
-    await user.type(within(await screen.findByTestId('create-feed-dialog')).getByRole('textbox'), 'Garden ICS');
-    await user.click(screen.getByTestId('feed-save-btn'));
-
-    const dialog = await screen.findByTestId('feed-url-dialog');
+    const dialog = await createFeedUntilUrlDialog(user);
     expect(within(dialog).getByTestId('feed-url-shown-once')).toHaveTextContent(
       i18n.t('pages.calendar.feedUrlShownOnce'),
     );
@@ -517,6 +534,7 @@ describe('CalendarPage — iCal feeds', () => {
     expect(writeText).toHaveBeenCalledWith(
       'https://example.com/api/v1/calendar/feeds/feed-new/feed.ics?token=tok-created',
     );
+    expect(await screen.findByText(i18n.t('pages.calendar.urlCopied'))).toBeInTheDocument();
 
     await user.click(within(dialog).getByTestId('feed-url-close-btn'));
     await waitFor(() => expect(screen.queryByTestId('feed-url-dialog')).toBeNull());
@@ -526,6 +544,97 @@ describe('CalendarPage — iCal feeds', () => {
     expect(screen.queryByTestId('feed-copy-feed-new')).toBeNull();
     expect(item).toHaveTextContent(i18n.t('pages.calendar.feedUrlHidden'));
     expect(document.body).not.toHaveTextContent('tok-created');
+  });
+
+  it('says to copy by hand when the clipboard refuses, and keeps the URL on screen', async () => {
+    useCalendarHandlers({ feeds: [] });
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockRejectedValue(new Error('NotAllowedError'));
+    stubClipboard(writeText);
+    renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    const dialog = await createFeedUntilUrlDialog(user);
+    await user.click(within(dialog).getByTestId('feed-url-copy-btn'));
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(i18n.t('pages.calendar.urlCopyFailed'))).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t('pages.calendar.urlCopied'))).toBeNull();
+    // The failure leaves the only copy of the URL where the member can still select it.
+    expect(within(dialog).getByTestId('feed-url-value')).toHaveValue(
+      'https://example.com/api/v1/calendar/feeds/feed-new/feed.ics?token=tok-created',
+    );
+  });
+
+  it('keeps the one-time URL dialog open on a click beside it', async () => {
+    useCalendarHandlers({ feeds: [] });
+    const user = userEvent.setup();
+    renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await createFeedUntilUrlDialog(user);
+    const backdrop = document.querySelector('[data-testid="feed-url-dialog"] .MuiBackdrop-root');
+    expect(backdrop).not.toBeNull();
+    fireEvent.mouseDown(backdrop!);
+    fireEvent.click(backdrop!);
+
+    expect(screen.getByTestId('feed-url-dialog')).toBeInTheDocument();
+    expect(screen.getByTestId('feed-url-value')).toHaveValue(
+      'https://example.com/api/v1/calendar/feeds/feed-new/feed.ics?token=tok-created',
+    );
+    // Escape still closes it: only the stray click is ignored.
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByTestId('feed-url-dialog')).toBeNull());
+  });
+
+  it('keeps the create dialog open with an error when creating the feed fails', async () => {
+    useCalendarHandlers({ feeds: [] });
+    server.use(...createFeedUrls.map((u) => http.post(u, () => new HttpResponse(null, { status: 500 }))));
+    const user = userEvent.setup();
+    renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await user.click(await screen.findByTestId('feeds-toggle'));
+    await user.click(await screen.findByTestId('create-feed-btn'));
+    const dialog = await screen.findByTestId('create-feed-dialog');
+    await user.type(within(dialog).getByRole('textbox'), 'Garden ICS');
+    await user.click(screen.getByTestId('feed-save-btn'));
+
+    expect(await screen.findByText(i18n.t('common.retry'))).toBeInTheDocument();
+    expect(screen.getByTestId('create-feed-dialog')).toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox')).toHaveValue('Garden ICS');
+    expect(screen.getByTestId('feed-save-btn')).not.toBeDisabled();
+    expect(screen.queryByTestId('feed-url-dialog')).toBeNull();
+  });
+
+  it('locks the save button while the feed is being created, so one click issues one feed', async () => {
+    useCalendarHandlers({ feeds: [] });
+    let release!: () => void;
+    let requests = 0;
+    server.use(
+      ...createFeedUrls.map((u) =>
+        http.post(u, async () => {
+          requests += 1;
+          await new Promise<void>((res) => {
+            release = res;
+          });
+          return HttpResponse.json(makeIssuedFeed('tok-created', { key: 'feed-new', name: 'Garden ICS' }));
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await user.click(await screen.findByTestId('feeds-toggle'));
+    await user.click(await screen.findByTestId('create-feed-btn'));
+    await user.type(within(await screen.findByTestId('create-feed-dialog')).getByRole('textbox'), 'Garden ICS');
+    await user.click(screen.getByTestId('feed-save-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('feed-save-btn')).toBeDisabled());
+    expect(screen.getByTestId('feed-cancel-btn')).toBeDisabled();
+    // A second click (user-event refuses a disabled target, so dispatch it directly).
+    fireEvent.click(screen.getByTestId('feed-save-btn'));
+
+    release();
+    expect(await screen.findByTestId('feed-url-dialog')).toBeInTheDocument();
+    expect(requests).toBe(1);
   });
 
   it('rotates a feed token after confirmation and shows the new URL once', async () => {
@@ -552,6 +661,23 @@ describe('CalendarPage — iCal feeds', () => {
     await user.click(screen.getByTestId('feed-url-close-btn'));
     await waitFor(() => expect(screen.queryByTestId('feed-url-dialog')).toBeNull());
     expect(document.body).not.toHaveTextContent('tok-rotated');
+    expect(screen.getByTestId('feed-item-feed-1')).toBeInTheDocument();
+  });
+
+  it('keeps the confirm open with an error and shows no URL when the rotation fails', async () => {
+    useCalendarHandlers({ feeds: [makeFeed()] });
+    server.use(...regenerateUrls.map((u) => http.post(u, () => new HttpResponse(null, { status: 500 }))));
+    const user = userEvent.setup();
+    renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await user.click(await screen.findByTestId('feeds-toggle'));
+    await user.click(await screen.findByTestId('feed-regenerate-feed-1'));
+    await user.click(await screen.findByTestId('confirm-dialog-confirm'));
+
+    expect(await screen.findByText(i18n.t('common.retry'))).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('confirm-dialog-confirm')).not.toBeDisabled());
+    expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+    expect(screen.queryByTestId('feed-url-dialog')).toBeNull();
     expect(screen.getByTestId('feed-item-feed-1')).toBeInTheDocument();
   });
 

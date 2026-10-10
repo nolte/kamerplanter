@@ -24,6 +24,7 @@ import json
 import pytest
 from arango import ArangoClient
 
+from app.common.enums import TenantRole
 from app.common.exceptions import ValidationError
 from app.data_access.arango import collections as col
 from app.data_access.arango.calendar_feed_repository import ArangoCalendarFeedRepository
@@ -35,6 +36,8 @@ from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO
 
 TEST_DATABASE = run_database_name("calendar_feed_token_at_rest")
 TENANT = "tenant-feed"
+#: The caller of the feed-management calls: the feed's owner (``_new_feed``), a grower.
+OWNER = {"user_key": "owner", "role": TenantRole.GROWER}
 
 pytestmark = pytest.mark.usefixtures("arango_db")
 
@@ -111,7 +114,7 @@ def test_a_rotation_stores_only_the_new_hash_and_retires_the_old_url(db) -> None
     old = service.create_feed(_new_feed())
     key = _stored(db)["_key"]
 
-    rotated = service.regenerate_token(key, tenant_key=TENANT)
+    rotated = service.regenerate_token(key, tenant_key=TENANT, **OWNER)
     stored = _stored(db)
 
     assert rotated.token and rotated.token != old.token
@@ -127,13 +130,39 @@ def test_an_update_keeps_the_hash_and_never_reintroduces_a_token(db) -> None:
     issued = service.create_feed(_new_feed())
     key = _stored(db)["_key"]
 
-    service.update_feed(key, CalendarFeed(name="Umbenannt", is_active=True), tenant_key=TENANT)
+    service.update_feed(key, CalendarFeed(name="Umbenannt", is_active=True), tenant_key=TENANT, **OWNER)
     stored = _stored(db)
 
     assert stored["name"] == "Umbenannt"
     assert stored["token_hash"] == _sha256(issued.token)
     assert "token" not in stored
     assert service.generate_ical_for_feed(key, issued.token).startswith("BEGIN:VCALENDAR")
+
+
+def test_an_update_racing_a_rotation_does_not_restore_the_retired_url(db) -> None:
+    """W-2: a ``PUT`` that read the feed before a rotation must not write the old digest back.
+
+    Interleaved by hand: the update's read returns the snapshot taken before the
+    rotation, as it would when the rotation commits between the update's read and
+    its write. Writing that snapshot's ``token_hash`` back revives the URL the
+    member just retired - and kills the one they just copied.
+    """
+    service = _service(db)
+    old = service.create_feed(_new_feed())
+    key = _stored(db)["_key"]
+    repo = service._feed_repo
+    stale = repo.get_or_raise(key)
+
+    rotated = service.regenerate_token(key, tenant_key=TENANT, **OWNER)
+    repo.get_or_raise = lambda _key: stale.model_copy(deep=True)  # type: ignore[method-assign]
+    service.update_feed(key, CalendarFeed(name="Umbenannt", is_active=True), tenant_key=TENANT, **OWNER)
+    stored = _stored(db)
+
+    assert stored["name"] == "Umbenannt"
+    assert stored["token_hash"] == _sha256(rotated.token)
+    with pytest.raises(ValidationError, match="Invalid feed token"):
+        service.generate_ical_for_feed(key, old.token)
+    assert service.generate_ical_for_feed(key, rotated.token).startswith("BEGIN:VCALENDAR")
 
 
 def test_two_feeds_can_be_created_one_after_the_other(db) -> None:

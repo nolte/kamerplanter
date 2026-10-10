@@ -7,7 +7,7 @@ Kategorie: Visualisierung & Integration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React (FullCalendar), iCalendar (RFC 5545)
 Status: Entwurf
-Version: 1.8 (CF-001 umgesetzt: Feed-Token nur als Hash, Klartext einmalig bei Erstellung/Rotation; Bestandsmigration; #2171)
+Version: 1.8 (CF-001 umgesetzt: Feed-Token nur als Hash, Klartext einmalig bei Erstellung/Rotation; Bestandsmigration; Feed-Verwaltung nur für Eigentümer und Leitung (CF-002); #2171)
 ```
 
 ## 1. Business Case
@@ -89,7 +89,7 @@ calendar_feeds:
 | # | Regel | Stufe |
 |---|-------|-------|
 | CF-001 | Feed-Token MUSS als SHA-256-Hash gespeichert werden (analog zu API-Keys in REQ-023). Der Klartext-Token wird nur bei Erstellung einmalig angezeigt. | MUSS |
-| CF-002 | Jeder Feed MUSS an genau einen User und einen Tenant gebunden sein. Der Feed-Endpunkt liefert ausschließlich Events dieses Tenants. | MUSS |
+| CF-002 | Jeder Feed MUSS an genau einen User und einen Tenant gebunden sein. Der Feed-Endpunkt liefert ausschließlich Events dieses Tenants. Ändern, Token-Rotation und Löschen eines Feeds stehen nur seinem User und der Leitung des Tenants zu; für jedes andere Mitglied antwortet ein fremder Feed wie ein unbekannter (`404`). Ein `PUT` schreibt nur Name, Filter und Aktiv-Status — den Token-Hash setzt allein die Rotation. | MUSS |
 | CF-003 | Feed-Token MÜSSEN über die Feed-Verwaltung (UI) revozierbar sein (`is_active = false`). | MUSS |
 | CF-004 | Feed-Endpunkte MÜSSEN dem Rate-Limiting-Tier "Anonym" (30 req/min pro IP, NFR-001 §6.3) unterliegen. | MUSS |
 | CF-005 | Feeds SOLLEN ein optionales Ablaufdatum (`expires_at`) unterstützen. Abgelaufene Feeds liefern HTTP 410 Gone. | SOLL |
@@ -1692,9 +1692,9 @@ mode: single
 | `POST` | `/api/v1/calendar/feeds` | Neuen Feed erstellen | Ab Gärtner |
 | `GET` | `/api/v1/calendar/feeds` | Alle Feeds auflisten | Alle Rollen |
 | `GET` | `/api/v1/calendar/feeds/{feed_id}` | Feed-Details abrufen | Alle Rollen |
-| `PUT` | `/api/v1/calendar/feeds/{feed_id}` | Feed aktualisieren | Ab Gärtner |
+| `PUT` | `/api/v1/calendar/feeds/{feed_id}` | Feed aktualisieren | Ab Gärtner, eigener Feed (Leitung: jeder) |
 | `DELETE` | `/api/v1/calendar/feeds/{feed_id}` | Feed löschen | Nur Leitung |
-| `POST` | `/api/v1/calendar/feeds/{feed_id}/regenerate-token` | Token erneuern | Ab Gärtner |
+| `POST` | `/api/v1/calendar/feeds/{feed_id}/regenerate-token` | Token erneuern | Ab Gärtner, eigener Feed (Leitung: jeder) |
 
 **POST /api/v1/calendar/feeds — Request:**
 ```json
@@ -1906,7 +1906,7 @@ adressierten Mandanten, sofern nicht anders angegeben.
 |-----------|-------|---------|--------|---------|----------------|
 | Kalender-Events | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 | iCal-Feed (`feed.ics`) | **Ohne Anmeldung, per Feed-Token** | — | — | — | Abruf zusätzlich per Feed-Token **ohne Anmeldung** — Token ersetzt die Rolle nicht, er adressiert einen Feed |
-| Feed-Verwaltung | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Feed-Verwaltung | Alle Rollen | Ab Gärtner | Ab Gärtner, eigener Feed (Leitung: jeder) | Nur Leitung | Token erneuern: wie Ändern |
 | Aussaatkalender | Alle Rollen | — | — | — | — |
 | Saisonübersicht | Alle Rollen | — | — | — | — |
 

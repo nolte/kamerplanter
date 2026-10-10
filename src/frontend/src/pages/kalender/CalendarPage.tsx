@@ -197,6 +197,8 @@ export default function CalendarPage() {
   const [feedsSectionOpen, setFeedsSectionOpen] = useState(false);
   const [createFeedDialogOpen, setCreateFeedDialogOpen] = useState(false);
   const [newFeedName, setNewFeedName] = useState('');
+  // Locks the save button while the create request runs, so a double click issues one feed.
+  const [creatingFeed, setCreatingFeed] = useState(false);
   const [deleteFeedKey, setDeleteFeedKey] = useState<string | null>(null);
   const [deleteFeedName, setDeleteFeedName] = useState('');
   const [deletingFeed, setDeletingFeed] = useState(false);
@@ -462,18 +464,26 @@ export default function CalendarPage() {
   // ── Feed management ──────────────────────────────────────────────
 
   const handleCreateFeed = useCallback(async () => {
-    if (!newFeedName.trim()) return;
-    const issued = await dispatch(
-      createCalendarFeed({
-        name: newFeedName.trim(),
-        filters: { categories: [...selectedCategories], site_key: null },
-      }),
-    ).unwrap();
-    notification.success(t('common.saved'));
-    setNewFeedName('');
-    setCreateFeedDialogOpen(false);
-    setIssuedFeedUrl({ name: issued.name, url: issued.ical_url });
-  }, [dispatch, newFeedName, selectedCategories, notification, t]);
+    if (!newFeedName.trim() || creatingFeed) return;
+    setCreatingFeed(true);
+    try {
+      const issued = await dispatch(
+        createCalendarFeed({
+          name: newFeedName.trim(),
+          filters: { categories: [...selectedCategories], site_key: null },
+        }),
+      ).unwrap();
+      notification.success(t('common.saved'));
+      setNewFeedName('');
+      setCreateFeedDialogOpen(false);
+      setIssuedFeedUrl({ name: issued.name, url: issued.ical_url });
+    } catch {
+      // The dialog stays open with the typed name, so the member can simply retry.
+      notification.error(t('common.retry'));
+    } finally {
+      setCreatingFeed(false);
+    }
+  }, [dispatch, newFeedName, creatingFeed, selectedCategories, notification, t]);
 
   const handleDeleteFeed = useCallback(async () => {
     if (!deleteFeedKey) return;
@@ -506,8 +516,14 @@ export default function CalendarPage() {
 
   const handleCopyUrl = useCallback(
     async (url: string) => {
-      await navigator.clipboard.writeText(url);
-      notification.success(t('pages.calendar.urlCopied'));
+      try {
+        await navigator.clipboard.writeText(url);
+        notification.success(t('pages.calendar.urlCopied'));
+      } catch {
+        // No clipboard (insecure context, denied permission): the URL is still in the
+        // dialog's field, and this is the only moment it exists — say so (#2171).
+        notification.error(t('pages.calendar.urlCopyFailed'));
+      }
     },
     [notification, t],
   );
@@ -1459,7 +1475,9 @@ export default function CalendarPage() {
 
       {/* Create feed dialog */}
       <Dialog fullScreen={fullScreen} open={createFeedDialogOpen}
-        onClose={() => setCreateFeedDialogOpen(false)}
+        onClose={() => {
+          if (!creatingFeed) setCreateFeedDialogOpen(false);
+        }}
         maxWidth="sm"
         fullWidth
         data-testid="create-feed-dialog"
@@ -1477,13 +1495,17 @@ export default function CalendarPage() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateFeedDialogOpen(false)} data-testid="feed-cancel-btn">
+          <Button
+            onClick={() => setCreateFeedDialogOpen(false)}
+            disabled={creatingFeed}
+            data-testid="feed-cancel-btn"
+          >
             {t('common.cancel')}
           </Button>
           <Button
             onClick={handleCreateFeed}
             variant="contained"
-            disabled={!newFeedName.trim()}
+            disabled={!newFeedName.trim() || creatingFeed}
             data-testid="feed-save-btn"
           >
             {t('common.create')}

@@ -150,7 +150,7 @@ Du kannst deinen Kamerplanter-Kalender in externe Kalender-Apps abonnieren. So e
 
 ### Schritt 2: Abo-URL sichern
 
-Nach dem Speichern zeigt dir Kamerplanter die Abo-URL des Feeds in einem eigenen Fenster. Klicke auf **URL kopieren** und trage sie gleich in deiner Kalender-App ein (Schritt 3).
+Nach dem Speichern zeigt dir Kamerplanter die Abo-URL des Feeds in einem eigenen Fenster. Klicke auf **URL kopieren** und trage sie gleich in deiner Kalender-App ein (Schritt 3). Lässt dein Browser das Kopieren nicht zu, sagt dir Kamerplanter das — markiere die URL dann im Feld und kopiere sie selbst. Ein Klick neben das Fenster schließt es nicht; erst **Schließen** (oder die Escape-Taste) verwirft die URL.
 
 !!! warning "Die URL siehst du nur ein einziges Mal"
     Die Abo-URL enthält einen geheimen Token. Kamerplanter speichert davon nur einen nicht umkehrbaren Fingerabdruck (Hash) — so kann niemand, der die Datenbank oder eine Sicherung liest, deine Feeds abrufen. Deshalb kann Kamerplanter dir die URL nach dem Schließen des Fensters nicht noch einmal zeigen. Hast du sie verloren, erneuere den Token (siehe unten): Du bekommst dann eine neue URL.
@@ -190,6 +190,8 @@ Nach dem Speichern zeigt dir Kamerplanter die Abo-URL des Feeds in einem eigenen
 Jeder Feed hat eine geheime, in der URL enthaltene Token-Kennung. Über **Token erneuern** (Pfeil-Symbol neben dem Feed) generierst du eine neue Token-Kennung und damit eine neue Abo-URL. Kamerplanter fragt vorher nach und zeigt dir die neue URL danach — wie beim Anlegen — genau einmal.
 
 Das ist auch der Weg, wenn du die URL eines Feeds verloren hast: In der Feed-Liste steht keine URL mehr, weil Kamerplanter sie nicht speichert.
+
+Die Feed-Liste zeigt dir nur deine eigenen Feeds, und nur sie kannst du ändern oder erneuern — den Feed eines anderen Mitglieds kann außer ihm nur die Leitung des Gartens anfassen.
 
 !!! warning "Alter Link wird sofort ungültig"
     Sobald du den Token erneuerst, funktioniert die bisherige Abo-URL nicht mehr — die externe App zeigt einen Fehler statt neuer Ereignisse. Trage die neue URL in jeder App nach, in der du den Feed abonniert hast. Nutze diese Funktion, wenn du einen Feed-Link verloren oder versehentlich geteilt hast oder den Zugriff eines ehemaligen Mitglieds beenden willst.

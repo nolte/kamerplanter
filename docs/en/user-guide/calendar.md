@@ -150,7 +150,7 @@ You can subscribe to your Kamerplanter calendar in external calendar apps. This 
 
 ### Step 2: Save the Subscription URL
 
-After saving, Kamerplanter shows you the feed's subscription URL in a dialog of its own. Click **Copy URL** and add it to your calendar app right away (step 3).
+After saving, Kamerplanter shows you the feed's subscription URL in a dialog of its own. Click **Copy URL** and add it to your calendar app right away (step 3). If your browser does not allow copying, Kamerplanter tells you so — then select the URL in the field and copy it yourself. A click beside the dialog does not close it; only **Close** (or the Escape key) discards the URL.
 
 !!! warning "You see the URL only once"
     The subscription URL contains a secret token. Kamerplanter stores only an irreversible fingerprint (hash) of it — so nobody who reads the database or a backup can fetch your feeds. That is why Kamerplanter cannot show you the URL again once you close the dialog. If you lost it, regenerate the token (see below): you then get a new URL.
@@ -190,6 +190,8 @@ After saving, Kamerplanter shows you the feed's subscription URL in a dialog of 
 Every feed has a secret token embedded in its URL. Use **Regenerate Token** (the arrow icon next to the feed) to generate a new token and, with it, a new subscription URL. Kamerplanter asks first and then shows you the new URL — as on creation — exactly once.
 
 This is also the way to go if you lost a feed's URL: the feed list no longer shows a URL, because Kamerplanter does not store it.
+
+The feed list shows only your own feeds, and only those can you change or regenerate — another member's feed can be touched by nobody but that member and the garden's lead.
 
 !!! warning "The old link stops working immediately"
     As soon as you regenerate the token, the previous subscription URL no longer works — the external app shows an error instead of new events. Update the URL in every app where you subscribed to the feed. Use this if you lost or accidentally shared a feed link or want to revoke a former member's access.

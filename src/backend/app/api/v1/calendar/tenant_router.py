@@ -240,14 +240,14 @@ def update_feed(
     body: CalendarFeedUpdateRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.CALENDAR_FEED, Action.UPDATE)),
 ) -> CalendarFeedResponse:
-    """Update a calendar feed's name, filters or active state."""
+    """Update a calendar feed's name, filters or active state (own feed; a lead: any)."""
     svc: CalendarService = get_calendar_service()
     feed = CalendarFeed(
         name=body.name,
         is_active=body.is_active,
         filters=CalendarFeedFilters(categories=body.filters.categories, site_key=body.filters.site_key),
     )
-    updated = svc.update_feed(key, feed, tenant_key=ctx.tenant_key)
+    updated = svc.update_feed(key, feed, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
     return _feed_response(updated)
 
 
@@ -256,9 +256,9 @@ def delete_feed(
     key: Annotated[str, Path(description="Document key of the calendar feed.")],
     ctx: TenantContext = Depends(require_permission(ResourceType.CALENDAR_FEED, Action.DELETE)),
 ) -> None:
-    """Delete a calendar feed."""
+    """Delete a calendar feed (lead only, by the permission gate)."""
     svc: CalendarService = get_calendar_service()
-    svc.delete_feed(key, tenant_key=ctx.tenant_key)
+    svc.delete_feed(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
 
 
 @router.post("/feeds/{key}/regenerate-token")
@@ -267,6 +267,8 @@ def regenerate_token(
     request: Request,
     ctx: TenantContext = Depends(require_permission(ResourceType.CALENDAR_FEED, Action.UPDATE)),
 ) -> CalendarFeedIssuedResponse:
-    """Rotate a feed's token: the old iCal URL stops working, the new one is shown once."""
+    """Rotate a feed's token (own feed; a lead: any): the old URL stops working, the new one is shown once."""
     svc: CalendarService = get_calendar_service()
-    return _issued_feed_response(svc.regenerate_token(key, tenant_key=ctx.tenant_key), request)
+    return _issued_feed_response(
+        svc.regenerate_token(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role), request
+    )

@@ -55,7 +55,9 @@ class _FakeCalendarService:
             filters=CalendarFeedFilters(categories=[CalendarEventCategory.HARVEST]),
         )
 
-    def update_feed(self, key: str, feed: CalendarFeed, *, tenant_key: str) -> CalendarFeed:
+    def update_feed(
+        self, key: str, feed: CalendarFeed, *, tenant_key: str, user_key: str, role: TenantRole
+    ) -> CalendarFeed:
         feed.key = key
         return feed
 

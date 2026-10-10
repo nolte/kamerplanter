@@ -51,13 +51,15 @@ class _FakeCalendarService:
     def get_feed(self, key: str, *, tenant_key: str) -> CalendarFeed:
         return _stored_feed(key)
 
-    def update_feed(self, key: str, feed: CalendarFeed, *, tenant_key: str) -> CalendarFeed:
+    def update_feed(
+        self, key: str, feed: CalendarFeed, *, tenant_key: str, user_key: str, role: TenantRole
+    ) -> CalendarFeed:
         return _stored_feed(key)
 
     def create_feed(self, feed: CalendarFeed) -> CalendarFeedIssued:
         return CalendarFeedIssued(feed=_stored_feed("feed-new"), token=ISSUED_TOKEN)
 
-    def regenerate_token(self, key: str, *, tenant_key: str) -> CalendarFeedIssued:
+    def regenerate_token(self, key: str, *, tenant_key: str, user_key: str, role: TenantRole) -> CalendarFeedIssued:
         return CalendarFeedIssued(feed=_stored_feed(key), token=ISSUED_TOKEN)
 
 

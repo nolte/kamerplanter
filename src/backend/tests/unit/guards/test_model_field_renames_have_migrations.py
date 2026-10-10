@@ -158,6 +158,8 @@ _CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
     # #2107 (MT-010) — never written; the site is the owner. v0087 unsets the stored "".
     ("site.py", "Location", "tenant_key"): _MigratedBy("0087"),
     ("site.py", "Slot", "tenant_key"): _MigratedBy("0087"),
+    # #2171 — the clear iCal token became its SHA-256 digest ``token_hash``; v0090 hashes and unsets it.
+    ("calendar.py", "CalendarFeed", "token"): _MigratedBy("0090"),
     ("actuator.py", "Actuator", "state"): _NoStoredDocuments(
         "Renamed to current_state in 426be8b4e (#561), the same commit whose v0015 "
         "CREATES the actuators collection — no actuator document can predate it."

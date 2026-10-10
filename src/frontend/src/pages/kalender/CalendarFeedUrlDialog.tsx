@@ -36,7 +36,11 @@ export default function CalendarFeedUrlDialog({ feedName, url, onCopy, onClose }
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={(_event, reason) => {
+        // A stray click beside the dialog must not discard the only copy of the URL;
+        // closing takes the button or Escape (#2171).
+        if (reason !== 'backdropClick') onClose();
+      }}
       fullScreen={fullScreen}
       maxWidth="sm"
       fullWidth

@@ -32,6 +32,14 @@ the model does not declare, so leaving it would leave the clear value in place).
 A ``token`` written by an older image after an earlier run wins over a stale
 digest: only an older image writes ``token``, so it is the newer value.
 
+**Not re-run at boot.** Unlike a retired index (``enforce_retired_indexes``), the
+hashing step runs once. A feed an old pod creates or rotates *after* this version
+ran - an old replica still serving during a rolling update - keeps its clear
+``token`` until it is rotated; the release note tells the operator to scale the old
+image down first, and how to count such feeds afterwards. A boot-time re-hash was
+left out (#2171 review S-1): it would need a data-heal hook in the generic runner,
+which has none today.
+
 Idempotent (M-3): a re-run finds no clear attribute and no legacy index and
 changes nothing. Dry-run (M-5) counts and touches nothing. Logs counts only, never
 a key or a token. Irreversible (M-6): a digest cannot be turned back into the
