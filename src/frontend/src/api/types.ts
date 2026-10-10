@@ -4296,6 +4296,20 @@ export interface InvitationCreate {
   role: TenantRole;
 }
 
+/**
+ * What creating an invitation answers (#2162). `accept_url` is the accept page's link with the
+ * token — the one an e-mail invitation mails and the one the inviter shares. `delivered` says
+ * whether the e-mail invitation's mail left (`null` for a link invitation): when it is `false`
+ * the invitation exists, but nobody received it.
+ */
+export interface InvitationCreated {
+  invitation_key: string;
+  token: string;
+  expires_at: string;
+  accept_url: string;
+  delivered: boolean | null;
+}
+
 export interface InvitationLinkCreate {
   role: TenantRole;
   max_uses?: number;

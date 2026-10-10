@@ -4,6 +4,7 @@ import type {
   CredentialStepUp,
   Invitation,
   InvitationCreate,
+  InvitationCreated,
   InvitationLinkCreate,
   LocationAssignment,
   Membership,
@@ -104,16 +105,16 @@ export async function listInvitations(slug: string): Promise<Invitation[]> {
 export async function createEmailInvitation(
   slug: string,
   data: InvitationCreate,
-): Promise<{ invitation_key: string; token: string; expires_at: string }> {
-  const res = await client.post(`${BASE}/${slug}/invitations/email`, data);
+): Promise<InvitationCreated> {
+  const res = await client.post<InvitationCreated>(`${BASE}/${slug}/invitations/email`, data);
   return res.data;
 }
 
 export async function createLinkInvitation(
   slug: string,
   data: InvitationLinkCreate,
-): Promise<{ invitation_key: string; token: string; expires_at: string }> {
-  const res = await client.post(`${BASE}/${slug}/invitations/link`, data);
+): Promise<InvitationCreated> {
+  const res = await client.post<InvitationCreated>(`${BASE}/${slug}/invitations/link`, data);
   return res.data;
 }
 

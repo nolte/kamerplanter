@@ -184,7 +184,9 @@ install without SMTP or Resend configured, since the Helm chart sets no adapter 
 default — it writes a startup warning to the log
 (`email_adapter_console_in_production`). For a production install, configure either
 `EMAIL_ADAPTER=smtp` or `EMAIL_ADAPTER=resend`; otherwise registration and password
-reset cannot be completed.
+reset cannot be completed. Email invitations into a tenant do not go out either: the
+invitation is created, the response reports `delivered: false`, and the UI shows the
+inviter the link to pass on (issue #2162). The link points at `FRONTEND_URL`.
 
 !!! info "Resend: hosted email delivery over an HTTP API"
     `EMAIL_ADAPTER=resend` sends the same system emails (email verification,

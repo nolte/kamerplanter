@@ -368,7 +368,14 @@ def create_email_invitation(
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.MANAGEMENT)),
     service: TenantService = Depends(get_tenant_service),
 ):
-    """Create an email invitation. Admin only."""
+    """Create an email invitation and mail its accept link to the address. Admin only.
+
+    **Delivery is reported, not assumed (#2162).** The invitation is stored first; ``delivered`` says
+    whether the mail left. ``false`` (no mail adapter that delivers, the console adapter outside
+    debug, a refusing or unreachable mail service) still answers 201: the invitation exists and
+    ``accept_url`` is what the inviter passes on themselves - only the invited, proven address can
+    accept it (#2115).
+    """
     link = service.create_email_invitation(
         tenant_key=ctx.tenant_key,
         invited_by_user_key=ctx.user_key,
@@ -379,6 +386,8 @@ def create_email_invitation(
         invitation_key=link.invitation_key,
         token=link.token,
         expires_at=link.expires_at,
+        accept_url=link.accept_url,
+        delivered=link.delivered,
     )
 
 
@@ -406,6 +415,8 @@ def create_link_invitation(
         invitation_key=link.invitation_key,
         token=link.token,
         expires_at=link.expires_at,
+        accept_url=link.accept_url,
+        delivered=link.delivered,
     )
 
 

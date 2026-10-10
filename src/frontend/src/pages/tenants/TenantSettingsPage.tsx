@@ -13,6 +13,8 @@ import Tab from '@mui/material/Tab';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import Alert from '@mui/material/Alert';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import LinkIcon from '@mui/icons-material/Link';
@@ -27,7 +29,16 @@ import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { useStepUpResume } from '@/hooks/useStepUpReauth';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
-import type { Membership, Invitation } from '@/api/types';
+import type { Membership, Invitation, InvitationCreated } from '@/api/types';
+
+/**
+ * The accept link the inviter has to pass on (#2162): a link invitation always, an e-mail invitation
+ * when its mail did not leave. `kind` picks the explanation shown above it.
+ */
+interface ShareableInvitation {
+  kind: 'link' | 'notDelivered';
+  url: string;
+}
 
 export default function TenantSettingsPage() {
   const { t } = useTranslation();
@@ -44,6 +55,7 @@ export default function TenantSettingsPage() {
   const [members, setMembers] = useState<Membership[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [shareable, setShareable] = useState<ShareableInvitation | null>(null);
   // #2032 — removing a member locks that person out, so it passes the acting administrator's
   // own step-up, bound to the membership (#1884). The chosen member does not survive the round
   // trip to the identity provider, so the resume context is only consumed; the pending token is
@@ -79,28 +91,62 @@ export default function TenantSettingsPage() {
     void loadInvitations();
   }, [loadMembers, loadInvitations]);
 
-  const handleInviteEmail = async () => {
-    if (!inviteEmail || !slug) return;
+  /** Copy *url*; whether it worked (the clipboard is refused outside a secure context or by policy). */
+  const copyToClipboard = async (url: string): Promise<boolean> => {
     try {
-      await tenantApi.createEmailInvitation(slug, { email: inviteEmail, role: 'viewer' });
-      enqueueSnackbar(t('pages.tenants.invitationSent'), { variant: 'success' });
-      setInviteEmail('');
-      loadInvitations();
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      await navigator.clipboard.writeText(url);
+      return true;
+    } catch {
+      return false;
     }
   };
 
-  const handleCreateLink = async () => {
-    if (!slug) return;
+  // #2162 — the answer says whether the mail left. Only then is "sent" true; otherwise the
+  // invitation exists and its link is shown for the inviter to pass on themselves.
+  const handleInviteEmail = async () => {
+    if (!inviteEmail || !slug) return;
+    let result: InvitationCreated;
     try {
-      const result = await tenantApi.createLinkInvitation(slug, { role: 'viewer' });
-      await navigator.clipboard.writeText(result.token);
-      enqueueSnackbar(t('pages.tenants.linkCopied'), { variant: 'success' });
-      loadInvitations();
+      result = await tenantApi.createEmailInvitation(slug, { email: inviteEmail, role: 'viewer' });
     } catch (err) {
       enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      return;
     }
+    setInviteEmail('');
+    void loadInvitations();
+    if (result.delivered) {
+      setShareable(null);
+      enqueueSnackbar(t('pages.tenants.invitationSent'), { variant: 'success' });
+    } else {
+      setShareable({ kind: 'notDelivered', url: result.accept_url });
+      enqueueSnackbar(t('pages.tenants.invitationNotDelivered'), { variant: 'warning' });
+    }
+  };
+
+  // #2162 — the link copied is the accept page's link, not the bare token nobody could use.
+  const handleCreateLink = async () => {
+    if (!slug) return;
+    let result: InvitationCreated;
+    try {
+      result = await tenantApi.createLinkInvitation(slug, { role: 'viewer' });
+    } catch (err) {
+      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      return;
+    }
+    void loadInvitations();
+    setShareable({ kind: 'link', url: result.accept_url });
+    const copied = await copyToClipboard(result.accept_url);
+    enqueueSnackbar(t(copied ? 'pages.tenants.linkCopied' : 'pages.tenants.linkCopyFailed'), {
+      variant: copied ? 'success' : 'info',
+    });
+  };
+
+  const handleCopyShareable = async () => {
+    if (!shareable) return;
+    const copied = await copyToClipboard(shareable.url);
+    enqueueSnackbar(t(copied ? 'pages.tenants.linkCopied' : 'pages.tenants.linkCopyFailed'), {
+      variant: copied ? 'success' : 'info',
+    });
   };
 
   const handleRevokeInvitation = useCallback(
@@ -342,6 +388,45 @@ export default function TenantSettingsPage() {
                 {t('pages.tenants.createLink')}
               </Button>
             </Box>
+
+            {shareable && (
+              <Alert
+                severity={shareable.kind === 'notDelivered' ? 'warning' : 'info'}
+                onClose={() => setShareable(null)}
+                sx={{ mb: 3 }}
+                data-testid={
+                  shareable.kind === 'notDelivered' ? 'invitation-not-delivered' : 'invitation-link-created'
+                }
+              >
+                <Typography variant="body2" gutterBottom>
+                  {t(
+                    shareable.kind === 'notDelivered'
+                      ? 'pages.tenants.invitationNotDeliveredHint'
+                      : 'pages.tenants.invitationLinkHint',
+                  )}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    value={shareable.url}
+                    label={t('pages.tenants.invitationAcceptLink')}
+                    slotProps={{ htmlInput: { readOnly: true, 'data-testid': 'invitation-accept-url' } }}
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<ContentCopyIcon />}
+                    onClick={handleCopyShareable}
+                    data-testid="copy-invitation-link-btn"
+                    sx={{ flexShrink: 0 }}
+                  >
+                    {t('pages.tenants.copyInvitationLink')}
+                  </Button>
+                </Box>
+              </Alert>
+            )}
 
             <DataTable
               columns={invitationColumns}

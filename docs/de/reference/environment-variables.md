@@ -184,7 +184,10 @@ Fall bei einer produktiven Installation ohne SMTP- oder Resend-Konfiguration, da
 Helm-Chart standardmäßig keinen Adapter setzt — schreibt sie beim Start eine Warnung ins
 Log (`email_adapter_console_in_production`). Für eine produktive Installation bleibt dann
 `EMAIL_ADAPTER=smtp` oder `EMAIL_ADAPTER=resend` zu konfigurieren, sonst lassen sich
-Registrierung und Passwort-Reset nicht abschließen.
+Registrierung und Passwort-Reset nicht abschließen. Auch E-Mail-Einladungen in einen
+Tenant gehen dann nicht raus: Die Einladung wird angelegt, die Antwort meldet
+`delivered: false`, und die Oberfläche zeigt dem Einladenden den Link zum Weitergeben
+(Issue #2162). Der Link zeigt auf `FRONTEND_URL`.
 
 !!! info "Resend: gehostete E-Mail-Zustellung über eine HTTP-API"
     `EMAIL_ADAPTER=resend` verschickt dieselben System-E-Mails (E-Mail-Bestätigung,

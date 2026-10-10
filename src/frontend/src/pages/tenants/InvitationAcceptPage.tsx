@@ -11,6 +11,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import * as tenantApi from '@/api/endpoints/tenants';
 import { isApiError, parseApiError } from '@/api/errors';
+import { forgetPendingInvitation } from '@/utils/pendingInvitation';
 
 /** The backend's `error_code` for a tenant whose member limit is reached (#2133). */
 const MEMBER_LIMIT_REACHED = 'MEMBER_LIMIT_REACHED';
@@ -26,6 +27,8 @@ export default function InvitationAcceptPage() {
 
   useEffect(() => {
     if (!token) return;
+    // #2162 — the token remembered across the sign-in has arrived; a later sign-in goes to the dashboard.
+    forgetPendingInvitation();
 
     tenantApi
       .acceptInvitation(token)

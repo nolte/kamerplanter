@@ -22,6 +22,8 @@ Runs in CI against the service container; locally it needs a database of its own
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from arango import ArangoClient
 from fastapi import FastAPI
@@ -30,7 +32,7 @@ from fastapi.testclient import TestClient
 from app.api.v1.tenants.router import router as tenants_router
 from app.common.auth import get_current_user
 from app.common.dependencies import get_tenant_service
-from app.common.enums import AdminScope, TenantRole
+from app.common.enums import AdminScope, InvitationType, TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError
 from app.data_access.arango import collections as col
@@ -41,6 +43,7 @@ from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
+from app.domain.models.invitation import Invitation
 from app.domain.models.membership import Membership
 from app.domain.models.user import User
 from app.domain.services.tenant_service import TenantService
@@ -237,3 +240,93 @@ def test_a_member_may_lower_their_own_role(stage):
 
     assert lowered.status_code == 200, lowered.text
     assert stage.role_of("garden-lead") == "grower"
+
+
+# ── #2180: acceptance re-checks the rule ─────────────────────────────────────
+#
+# An invitation created before #2084 never met the rule at issuance: a ``lead`` invitation into the
+# platform tenant issued by its secretary (``management``, role viewer) is a row in the collection
+# exactly like a legitimate one. Measured before the fix: accepting it made the newcomer ``lead`` of
+# ``platform`` - a platform admin - for a link and an e-mail invitation alike.
+
+NEWCOMER = "newcomer@example.com"
+
+
+def _newcomer(stage: _Stage) -> str:
+    """An account with no membership and a proven address (an e-mail invitation needs it, #2115)."""
+    stage.users["newcomer"] = User.model_validate(
+        {
+            "_key": "u-newcomer",
+            "email": NEWCOMER,
+            "display_name": "newcomer",
+            "email_verified": True,
+            "email_confirmed_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+    return "newcomer"
+
+
+def _stored_invitation(stage: _Stage, *, issuer: str, kind: str, token: str, role: TenantRole) -> str:
+    """Write an invitation row as the pre-#2084 issuing code did: no rule was asked."""
+    created = stage.invitations.create(
+        Invitation(
+            tenant_key=PLATFORM,
+            invited_by_user_key=stage.users[issuer].key or "",
+            invitation_type=InvitationType(kind),
+            email=NEWCOMER if kind == "email" else None,
+            role=role,
+            token_hash=InvitationEngine.hash_token(token),
+            expires_at=datetime.now(UTC) + timedelta(days=7),
+        )
+    )
+    return created.key or ""
+
+
+def _platform_membership_of(stage: _Stage, user_key: str) -> dict | None:
+    rows = list(stage.db.collection(col.MEMBERSHIPS).find({"user_key": user_key, "tenant_key": PLATFORM}))
+    return rows[0] if rows else None
+
+
+@pytest.mark.parametrize("kind", ["link", "email"])
+def test_a_platform_lead_invitation_a_non_lead_issued_is_refused_at_acceptance(stage, kind):
+    who = _newcomer(stage)
+    key = _stored_invitation(stage, issuer="plat-secretary", kind=kind, token=f"t-{kind}", role=TenantRole.LEAD)
+
+    refused = stage.client(who).post("/api/v1/tenants/invitations/accept", json={"token": f"t-{kind}"})
+
+    assert refused.status_code == 403, refused.text
+    assert _platform_membership_of(stage, "u-newcomer") is None
+    assert stage.db.collection(col.INVITATIONS).get(key)["status"] == "pending"
+
+
+def test_a_platform_lead_invitation_whose_issuer_lost_lead_is_refused_at_acceptance(stage):
+    """The rule asks the issuer's role *now*: a lead invitation outlives no demotion of whoever sent it."""
+    who = _newcomer(stage)
+    _stored_invitation(stage, issuer="plat-lead", kind="link", token="t-demoted", role=TenantRole.LEAD)
+    stage.db.collection(col.MEMBERSHIPS).update({"_key": stage.keys["plat-lead"], "role": "viewer"})
+
+    refused = stage.client(who).post("/api/v1/tenants/invitations/accept", json={"token": "t-demoted"})
+
+    assert refused.status_code == 403, refused.text
+    assert _platform_membership_of(stage, "u-newcomer") is None
+
+
+@pytest.mark.parametrize("kind", ["link", "email"])
+def test_a_platform_lead_invitation_a_lead_issued_is_still_accepted(stage, kind):
+    who = _newcomer(stage)
+    _stored_invitation(stage, issuer="plat-lead", kind=kind, token=f"ok-{kind}", role=TenantRole.LEAD)
+
+    accepted = stage.client(who).post("/api/v1/tenants/invitations/accept", json={"token": f"ok-{kind}"})
+
+    assert accepted.status_code == 200, accepted.text
+    assert (_platform_membership_of(stage, "u-newcomer") or {}).get("role") == "lead"
+
+
+def test_a_platform_invitation_below_lead_from_the_secretary_is_still_accepted(stage):
+    who = _newcomer(stage)
+    _stored_invitation(stage, issuer="plat-secretary", kind="link", token="ok-grower", role=TenantRole.GROWER)
+
+    accepted = stage.client(who).post("/api/v1/tenants/invitations/accept", json={"token": "ok-grower"})
+
+    assert accepted.status_code == 200, accepted.text
+    assert (_platform_membership_of(stage, "u-newcomer") or {}).get("role") == "grower"

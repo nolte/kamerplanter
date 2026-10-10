@@ -44,7 +44,7 @@ from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
-from app.domain.interfaces.email_service import IEmailService
+from app.domain.interfaces.email_service import EmailUndeliverableError, IEmailService
 from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.invitation_repository import IInvitationRepository
 from app.domain.interfaces.location_assignment_repository import (
@@ -158,6 +158,7 @@ class TenantService:
         max_members_ceiling: int = 50,
         api_key_repo: IApiKeyRepository | None = None,
         max_service_accounts: int = 20,
+        frontend_url: str = "",
     ) -> None:
         # #2137 (MT-041, REQ-023 §5b) — the keys of the tenant's service accounts and how many such accounts
         # a tenant may hold (``TENANT_MAX_SERVICE_ACCOUNTS``); ``get_tenant_service`` wires both.
@@ -186,6 +187,8 @@ class TenantService:
         # (Art. 20 export window). Best effort: ``None`` (doubles, light mode) skips the mail.
         self._email_service = email_service
         self._user_repo = user_repo
+        # #2162 — the base of an invitation's accept link (``settings.frontend_url``, as the account mails).
+        self._frontend_url = frontend_url
         # The tasks a membership that ends takes its assignee off (#2114). ``None`` only where no membership
         # is ever ended (doubles); ``get_tenant_service`` always wires it, and the class guard holds that every
         # method that deletes a membership calls :meth:`_end_task_assignments`.
@@ -2945,8 +2948,9 @@ class TenantService:
         stored state: the actor's role comes from their stored, *active* membership in the
         tenant, and whether the tenant is the platform tenant from the tenant row - never from
         the request. Every service function that hands out a membership role through the
-        tenant-scoped routes (:meth:`change_member_role`, the two invitations) calls it; the
-        class guard ``test_membership_role_grants_check_for_escalation`` holds that.
+        tenant-scoped routes (:meth:`change_member_role`, the two invitations, and since #2180
+        :meth:`accept_invitation` with the issuer as actor) calls it; the class guard
+        ``test_membership_role_grants_check_for_escalation`` holds that.
         """
         # The rule only bites on a self-raise or on ``lead``; skip the two reads otherwise.
         if not is_own_membership and target_role != TenantRole.LEAD:
@@ -3228,11 +3232,42 @@ class TenantService:
         invitation = self._invitation_repo.create(invitation)
 
         logger.info("email_invitation_created", tenant=log_tenant(tenant_key), email_sha256=email_digest(email))
+        delivered = self._send_invitation_mail(tenant_key=tenant_key, email=email, raw_token=raw_token)
         return InvitationLink(
             invitation_key=invitation.key,
             token=raw_token,
             expires_at=expires_at,
+            accept_url=self._invitation_engine.accept_url(self._frontend_url, raw_token),
+            delivered=delivered,
         )
+
+    def _send_invitation_mail(self, *, tenant_key: str, email: str, raw_token: str) -> bool:
+        """Mail the accept link of a stored e-mail invitation; whether it left (#2162).
+
+        Until #2162 nothing was sent and the UI said "sent": an e-mail invitation reached nobody.
+        The invitation is stored before the send and stays whatever the send does - the inviter
+        is the one who can still hand the link over, so a failure is **reported** (``False``, the
+        route's ``delivered``) rather than raised or swallowed. What counts as "did not leave" is
+        the step-up code's set (#1862): the adapter refused (:class:`EmailUndeliverableError` - the
+        console adapter outside debug, a refusing Resend), it cannot send this kind of mail
+        (``NotImplementedError``), or the transport failed (``OSError``: SMTP errors, connection
+        failures). Logged by type only: ``SMTPRecipientsRefused`` names the address in its text.
+        """
+        if self._email_service is None:
+            logger.warning("email_invitation_not_sent", tenant=log_tenant(tenant_key), reason="no_mailer")
+            return False
+        try:
+            self._email_service.send_invitation_email(to_email=email, token=raw_token, frontend_url=self._frontend_url)
+        except (EmailUndeliverableError, NotImplementedError, OSError) as exc:
+            logger.warning(
+                "email_invitation_not_sent",
+                tenant=log_tenant(tenant_key),
+                email_sha256=email_digest(email),
+                error_type=type(exc).__name__,
+            )
+            return False
+        logger.info("email_invitation_sent", tenant=log_tenant(tenant_key), email_sha256=email_digest(email))
+        return True
 
     def create_link_invitation(
         self,
@@ -3266,6 +3301,7 @@ class TenantService:
             invitation_key=invitation.key,
             token=raw_token,
             expires_at=expires_at,
+            accept_url=self._invitation_engine.accept_url(self._frontend_url, raw_token),
         )
 
     def email_invitation_admits(self, *, email: str, token: str) -> bool:
@@ -3327,6 +3363,12 @@ class TenantService:
         (:attr:`User.address_proven` - the verified flag alone proves nothing, #1948); otherwise
         403, before anything about the invitation (status, tenant, role) is told and with nothing
         written. A link invitation is meant to be shared and stays open to any account.
+
+        **The rank rule is asked again here (#2180, REQ-024 AK-58).** :meth:`_refuse_role_grant`
+        with the issuer as actor: ``lead`` in the platform tenant is the platform role, and an
+        invitation whose issuer is not (or no longer) the platform tenant's active lead does not
+        hand it out - neither one created before the rule existed (#2084) nor one whose issuer was
+        demoted since. 403, nothing written, the invitation stays pending.
         """
         # #2137 (MT-041 / audit ID-14) — joining a tenant is a person's act; a machine identity is placed in
         # its one tenant by the service-account route and accepts no invitation. Before the token is looked
@@ -3352,6 +3394,17 @@ class TenantService:
         )
         if not can_accept:
             raise ValidationError(reason)
+        # #2180 (REQ-024 AK-58) - the rank rule is asked again at acceptance, against the issuer's role
+        # *now*: an invitation created before #2084 never met it at issuance, and a lead invitation into
+        # the platform tenant must not outlive its issuer's own demotion. Refused with nothing written;
+        # the invitation stays pending until it expires or is revoked.
+        self._refuse_role_grant(
+            tenant_key=invitation.tenant_key,
+            actor_user_key=invitation.invited_by_user_key,
+            target_role=invitation.role,
+            current_role=None,
+            is_own_membership=False,
+        )
         # #2133 - a full tenant is refused before the invitation is touched; it stays pending.
         self._refuse_beyond_member_limit(invitation.tenant_key)
 
