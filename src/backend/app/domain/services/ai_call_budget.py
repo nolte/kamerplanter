@@ -2,7 +2,8 @@
 
 Every KI route that puts a prompt in front of an LLM charges this budget
 **before** the call — tip and daily-tip generation, "why?", a chat message, a
-glossary generation on the tenant path and the KI diagnosis. Three daily
+free-form knowledge question (``/ai/knowledge/ask``, #2175), a glossary
+generation on the tenant path and the KI diagnosis. Three daily
 counters, each per UTC day and each switched off by a ``0`` setting:
 
 * ``user_calls`` — calls one account starts in one tenant

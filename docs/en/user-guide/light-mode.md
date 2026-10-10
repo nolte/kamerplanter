@@ -137,6 +137,11 @@ A full back-and-forth switch is possible and safe. All data remains in the datab
 ??? question "I enabled Light Mode but the login screen still appears. Why?"
     Make sure you have set both `KAMERPLANTER_MODE=light` (backend) and `VITE_KAMERPLANTER_MODE=light` (frontend) and restarted both services. The frontend build reads the variable at startup — a restart of the frontend container is required.
 
+??? question "May the AI assistant use a cloud language model in Light Mode?"
+    No. Light Mode has no consents, so no AI question may reach a cloud provider. Which language model answers is set on the Knowledge Service with `LLM_PROVIDER` — not on the backend.
+
+    Kamerplanter does **not** check this combination: if the Knowledge Service runs with `LLM_PROVIDER=anthropic`, every AI question goes to Anthropic, in Light Mode too. In Light Mode, use `LLM_PROVIDER=ollama` or `LLM_PROVIDER=openai_compatible` with an `LLM_API_URL` inside your own network — or turn the AI features off with `AI_FEATURES_ENABLED=false`. Details: [AI Provider Setup](ai-providers.md).
+
 ??? question "Can I change the language and experience level in Light Mode?"
     Yes. **Account Settings** are available in a limited form in Light Mode: you can adjust language, timezone, and experience level. Password, sessions, and privacy settings are hidden because they are not relevant in Light Mode.
 

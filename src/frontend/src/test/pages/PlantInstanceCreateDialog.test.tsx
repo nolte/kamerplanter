@@ -24,10 +24,35 @@ vi.mock('@/api/endpoints/identification', async (importOriginal) => {
 });
 const contributeReferenceMock = vi.mocked(contributeReferenceImage);
 
+// Mode is mocked through a mutable holder so a test can switch to the Light mode
+// without rebuilding the module graph (same pattern as PlantIdentificationDialog).
+const modeMock = vi.hoisted(() => ({ isLightMode: false, isFullMode: true }));
+vi.mock('@/config/mode', () => ({
+  get isLightMode() {
+    return modeMock.isLightMode;
+  },
+  get isFullMode() {
+    return modeMock.isFullMode;
+  },
+  KAMERPLANTER_MODE: 'full',
+}));
+
+const REFERENCE_CONSENT = {
+  purpose: 'reference_contribution',
+  label: 'Referenzbeitrag',
+  description: '',
+  legal_basis: 'consent',
+  required: false,
+  granted_at: null,
+  revoked_at: null,
+};
+
 describe('PlantInstanceCreateDialog', () => {
   beforeEach(() => {
     i18n.changeLanguage('de');
     contributeReferenceMock.mockClear();
+    modeMock.isLightMode = false;
+    modeMock.isFullMode = true;
   });
 
   it('renders the create dialog with the create title when open', async () => {
@@ -719,6 +744,9 @@ describe('PlantInstanceCreateDialog', () => {
         http.post('/api/v1/t/:tenant/plant-instances/:key/photos', () =>
           HttpResponse.json({}, { status: 201 }),
         ),
+        http.post('/api/v1/privacy/consents', () =>
+          HttpResponse.json({ ...REFERENCE_CONSENT, granted: true }, { status: 201 }),
+        ),
       );
       const user = userEvent.setup();
       const onCreated = vi.fn();
@@ -766,6 +794,186 @@ describe('PlantInstanceCreateDialog', () => {
 
       await waitFor(() => expect(onCreated).toHaveBeenCalledWith('plant-new'));
       expect(contributeReferenceMock).not.toHaveBeenCalled();
+    });
+
+    // The switch IS the `reference_contribution` consent (#2174, operator
+    // decision 2026-10-09): hidden in the Light mode, granted before contributing.
+    describe('reference consent', () => {
+      function renderWithReference(onCreated = vi.fn()) {
+        renderWithProviders(
+          <PlantInstanceCreateDialog
+            open
+            onClose={() => {}}
+            onCreated={onCreated}
+            initialSpeciesKey="sp-1"
+            identificationPhoto={makePhoto()}
+            allowReferenceContribution
+          />,
+        );
+        return onCreated;
+      }
+
+      function photoUploadOk() {
+        return http.post('/api/v1/t/:tenant/plant-instances/:key/photos', () =>
+          HttpResponse.json({}, { status: 201 }),
+        );
+      }
+
+      it('hides the reference toggle in the Light mode even with DINOv2 active', async () => {
+        modeMock.isLightMode = true;
+        modeMock.isFullMode = false;
+        renderWithReference();
+
+        expect(await screen.findByTestId('identification-photo-section')).toBeTruthy();
+        expect(screen.getByTestId('toggle-save-gallery-photo')).toBeTruthy();
+        expect(screen.queryByTestId('toggle-use-as-reference')).toBeNull();
+      });
+
+      it('explains what is shared once the toggle is switched on', async () => {
+        const user = userEvent.setup();
+        renderWithReference();
+
+        await screen.findByTestId('identification-photo-section');
+        expect(screen.queryByTestId('reference-consent-notice')).toBeNull();
+        await user.click(within(screen.getByTestId('toggle-use-as-reference')).getByRole('switch'));
+
+        const notice = screen.getByTestId('reference-consent-notice');
+        // Polite, and announced together with the switch it explains.
+        expect(notice).toHaveAttribute('role', 'status');
+        expect(
+          within(screen.getByTestId('toggle-use-as-reference')).getByRole('switch'),
+        ).toHaveAttribute('aria-describedby', notice.id);
+        expect(notice).toHaveTextContent(/gemeinsamen Erkennungsindex/);
+        expect(notice).toHaveTextContent(/Administration/);
+        expect(within(notice).getByRole('link')).toHaveAttribute('href', '/privacy');
+      });
+
+      it('grants reference_contribution before the photo is contributed', async () => {
+        const order: string[] = [];
+        const grantedPurposes: unknown[] = [];
+        server.use(
+          photoUploadOk(),
+          http.post('/api/v1/privacy/consents', async ({ request }) => {
+            const body = (await request.json()) as { purpose: string };
+            grantedPurposes.push(body.purpose);
+            order.push('grant');
+            return HttpResponse.json({ ...REFERENCE_CONSENT, granted: true }, { status: 201 });
+          }),
+          http.post('/api/v1/t/:tenant/plant-instances', async ({ request }) => {
+            order.push('create');
+            const body = (await request.json()) as Record<string, unknown>;
+            return HttpResponse.json({ key: 'plant-new', ...body }, { status: 201 });
+          }),
+        );
+        contributeReferenceMock.mockImplementationOnce(async () => {
+          order.push('contribute');
+          return { indexed: true, species_key: 'sp-1', dim: 768 };
+        });
+        const user = userEvent.setup();
+        const onCreated = renderWithReference();
+
+        await screen.findByTestId('identification-photo-section');
+        await user.click(within(screen.getByTestId('toggle-use-as-reference')).getByRole('switch'));
+        await user.click(screen.getByTestId('form-submit-button'));
+
+        await waitFor(() => expect(onCreated).toHaveBeenCalledWith('plant-new'));
+        expect(grantedPurposes).toEqual(['reference_contribution']);
+        expect(order).toEqual(['grant', 'create', 'contribute']);
+      });
+
+      it('stops the save with a visible error when the grant fails', async () => {
+        const scrolled: Element[] = [];
+        // jsdom has no layout, hence no scrollIntoView to spy on.
+        Element.prototype.scrollIntoView ??= () => {};
+        const scrollSpy = vi
+          .spyOn(Element.prototype, 'scrollIntoView')
+          .mockImplementation(function (this: Element) {
+            scrolled.push(this);
+          });
+        let created = false;
+        server.use(
+          photoUploadOk(),
+          http.post('/api/v1/privacy/consents', () =>
+            HttpResponse.json(
+              {
+                error_id: 'e',
+                error_code: 'INTERNAL',
+                message: 'boom',
+                details: [],
+                timestamp: '',
+                path: '',
+                method: '',
+              },
+              { status: 500 },
+            ),
+          ),
+          http.post('/api/v1/t/:tenant/plant-instances', () => {
+            created = true;
+            return HttpResponse.json({ key: 'plant-new' }, { status: 201 });
+          }),
+        );
+        const user = userEvent.setup();
+        const onCreated = renderWithReference();
+
+        await screen.findByTestId('identification-photo-section');
+        await user.click(within(screen.getByTestId('toggle-use-as-reference')).getByRole('switch'));
+        await user.click(screen.getByTestId('form-submit-button'));
+
+        expect(await screen.findByTestId('reference-consent-error')).toHaveTextContent(
+          /Einwilligung zur Nutzung als Referenzbild konnte nicht gespeichert werden/,
+        );
+        expect(onCreated).not.toHaveBeenCalled();
+        expect(created).toBe(false);
+        expect(contributeReferenceMock).not.toHaveBeenCalled();
+        // Brought into view: on a narrow screen the switch is far above the button.
+        await waitFor(() =>
+          expect(scrolled).toContain(screen.getByTestId('reference-consent-error')),
+        );
+        scrollSpy.mockRestore();
+      });
+
+      it('skips the grant when the consent is already granted', async () => {
+        let grantCalls = 0;
+        server.use(
+          photoUploadOk(),
+          http.get('/api/v1/privacy/consents', () =>
+            HttpResponse.json([{ ...REFERENCE_CONSENT, granted: true }]),
+          ),
+          http.post('/api/v1/privacy/consents', () => {
+            grantCalls += 1;
+            return HttpResponse.json({ ...REFERENCE_CONSENT, granted: true }, { status: 201 });
+          }),
+        );
+        const user = userEvent.setup();
+        const onCreated = renderWithReference();
+
+        await screen.findByTestId('identification-photo-section');
+        await user.click(within(screen.getByTestId('toggle-use-as-reference')).getByRole('switch'));
+        await user.click(screen.getByTestId('form-submit-button'));
+
+        await waitFor(() => expect(onCreated).toHaveBeenCalledWith('plant-new'));
+        expect(grantCalls).toBe(0);
+        expect(contributeReferenceMock).toHaveBeenCalledOnce();
+      });
+
+      it('neither reads nor grants a consent when the toggle stays off', async () => {
+        let consentRequests = 0;
+        server.use(
+          photoUploadOk(),
+          http.all('/api/v1/privacy/consents', () => {
+            consentRequests += 1;
+            return HttpResponse.json([]);
+          }),
+        );
+        const user = userEvent.setup();
+        const onCreated = renderWithReference();
+
+        await screen.findByTestId('identification-photo-section');
+        await user.click(screen.getByTestId('form-submit-button'));
+
+        await waitFor(() => expect(onCreated).toHaveBeenCalledWith('plant-new'));
+        expect(consentRequests).toBe(0);
+      });
     });
   });
 });

@@ -96,7 +96,7 @@ class _FakeIdentRepo:
         self._store[request.key] = request
         return request
 
-    def get(self, key: str, tenant_key: str) -> IdentificationRequest | None:
+    def get(self, key: str, *, tenant_key: str) -> IdentificationRequest | None:
         req = self._store.get(key)
         if req is None or req.tenant_key != tenant_key:
             return None
@@ -109,7 +109,7 @@ class _FakeIdentRepo:
             req.selected_result_rank = selected_rank
         return req
 
-    def list_for_user(self, tenant_key, user_key, limit=20):
+    def list_for_user(self, *, tenant_key, user_key, limit=20):
         return list(self._store.values())
 
 

@@ -93,8 +93,6 @@ _ADMITTED: dict[tuple[str, str], str] = {
             "/api/v1/starter-kits",
             "/api/v1/starter-kits/{kit_id}",
             "/api/v1/import/templates/{entity_type}",
-            "/api/v1/activities",
-            "/api/v1/activities/{key}",
             "/api/v1/observations/status",
             "/api/v1/phase-definitions",
             "/api/v1/phase-definitions/{key}",

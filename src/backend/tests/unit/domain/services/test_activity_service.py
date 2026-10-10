@@ -29,21 +29,27 @@ class TestActivityService:
     def test_list_activities(self, service, mock_repo):
         activities = [_make_activity()]
         mock_repo.get_all.return_value = (activities, 1)
-        items, total = service.list_activities()
+        items, total = service.list_activities(tenant_key="t1")
         assert total == 1
         assert len(items) == 1
-        mock_repo.get_all.assert_called_once_with(0, 50, None)
+        mock_repo.get_all.assert_called_once_with(0, 50, None, tenant_key="t1")
 
     def test_list_with_category_filter(self, service, mock_repo):
         mock_repo.get_all.return_value = ([], 0)
-        service.list_activities(filters={"category": "pruning"})
-        mock_repo.get_all.assert_called_once_with(0, 50, {"category": "pruning"})
+        service.list_activities(filters={"category": "pruning"}, tenant_key="t1")
+        mock_repo.get_all.assert_called_once_with(0, 50, {"category": "pruning"}, tenant_key="t1")
 
     def test_get_activity(self, service, mock_repo):
         activity = _make_activity()
         mock_repo.get_by_key.return_value = activity
         result = service.get_activity("abc123")
         assert result.name == "Topping"
+
+    def test_get_readable_activity_passes_the_tenant(self, service, mock_repo):
+        activity = _make_activity()
+        mock_repo.get_readable_or_raise.return_value = activity
+        assert service.get_readable_activity("abc123", tenant_key="t1") is activity
+        mock_repo.get_readable_or_raise.assert_called_once_with("abc123", tenant_key="t1")
 
     def test_get_activity_not_found(self, service, mock_repo):
         mock_repo.get_by_key.return_value = None
@@ -99,12 +105,12 @@ class TestActivityService:
     def test_get_system_activities(self, service, mock_repo):
         activities = [_make_activity(is_system=True)]
         mock_repo.get_system_activities.return_value = activities
-        result = service.get_system_activities()
+        result = service.get_system_activities(tenant_key="t1")
         assert len(result) == 1
         assert result[0].is_system is True
 
     def test_get_by_category(self, service, mock_repo):
         activities = [_make_activity(category=ActivityCategory.PRUNING)]
         mock_repo.get_by_category.return_value = activities
-        result = service.get_by_category("pruning")
+        result = service.get_by_category("pruning", tenant_key="t1")
         assert len(result) == 1

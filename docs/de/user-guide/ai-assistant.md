@@ -3,7 +3,7 @@
 !!! note "Teilweise verfügbar"
     Der KI-Assistent ist als eigene Seite **KI-Assistent** (`/ki-assistent`) nutzbar: Wissensfragen und ein kontextloser Chat funktionieren bereits. Die auf dieser Seite ebenfalls beschriebenen **Tipp-Karten**, der **Tipp des Tages** und die **„Warum?"-Buttons** sind als Bausteine im Frontend bereits gebaut, aber noch auf keiner Pflanzen-, Pflanzdurchlauf- oder Aufgabenseite eingebunden — sie erscheinen dort noch nirgends. Die folgenden zwei Abschnitte beschreiben den heutigen Stand im Präsens, die Abschnitte danach das **geplante Verhalten** im Futur. <!-- REQ-031 -->
 
-Der KI-Assistent beantwortet Wissensfragen zur Pflanzenpflege auf Basis einer kuratierten Wissensbasis — klar als KI-generiert gekennzeichnet, mit Quellenangaben und ohne dass deine persönlichen Daten an ein Sprachmodell übertragen werden.
+Der KI-Assistent beantwortet Wissensfragen zur Pflanzenpflege auf Basis einer kuratierten Wissensbasis — klar als KI-generiert gekennzeichnet und mit Quellenangaben. An das Sprachmodell geht dabei nur der Text deiner Frage, keine Daten deiner Pflanzen.
 
 ---
 
@@ -11,12 +11,17 @@ Der KI-Assistent beantwortet Wissensfragen zur Pflanzenpflege auf Basis einer ku
 
 Öffne im Menü **KI-Assistent**. Trage deine Frage in das Textfeld ein — zum Beispiel „Was ist VPD und warum ist es wichtig?" — und klicke auf **Frage stellen** (oder sende mit Strg/Cmd + Enter). Die Antwort erscheint darunter, mit KI-Kennzeichnung und aufklappbaren Quellen.
 
-Diese Wissensfragen sind **rein sachbezogen** — sie beziehen sich nicht auf deine konkreten Pflanzen, sondern auf allgemeines Pflanzenwissen aus der Wissensbasis. Deshalb ist dafür keine Einwilligung nötig, und die Funktion steht auch im anonymen [Light-Modus](light-mode.md) ohne Anmeldung zur Verfügung.
+Diese Wissensfragen sind **rein sachbezogen** — sie beziehen sich nicht auf deine konkreten Pflanzen, sondern auf allgemeines Pflanzenwissen aus der Wissensbasis.
+
+- **Im [Light-Modus](light-mode.md)** brauchst du dafür weder Anmeldung noch Einwilligung: Die Instanz arbeitet ohne Login als System-Nutzer, und es gibt dort keine Einwilligungsverwaltung.
+- **Im Voll-Modus** stellst du die Frage in deinem Garten. Weil dein frei formulierter Text dabei — deinem Konto zugeordnet — an die Wissensbasis und ihr Sprachmodell geht, brauchst du die Einwilligung **KI-Wissensfrage an die Wissensbasis** (`ai_knowledge_question`), außerdem die KI-Freischaltung deines Gartens und mindestens die Rolle Gärtner. Gibst du zur Frage selbst Pflanzenwerte an (Art, Phase, Substrat, EC, pH), ist zusätzlich die Einwilligung **KI-Zugriff auf deine Pflanzendaten** (`ai_tenant_data_access`) nötig.
 
 !!! example "Beispielfragen"
     - „Was ist VPD?"
     - „Wie senke ich den pH-Wert der Nährlösung?"
     - „Was bedeutet Karenzzeit?"
+
+**Einwilligung direkt auf der Seite:** Fehlt dir im Voll-Modus die Einwilligung für Wissensfragen, erscheint nach dem Absenden direkt unter dem Textfeld ein Hinweis, was übertragen wird. Mit **Einwilligen und Frage senden** erteilst du sie, und deine Frage wird gleich gesendet. Mit **Nicht jetzt** bleibt alles, wie es war, und die Frage wird nicht beantwortet. Jede Frage im Voll-Modus zählt zu deinem [Tageskontingent](#tageskontingent). Widerrufen kannst du die Einwilligung jederzeit unter **Datenschutz** im Tab **Einwilligungen** mit **Widerrufen**; der Widerruf gilt ab der nächsten Frage.
 
 ## Kontextbewusster Chat
 
@@ -39,18 +44,19 @@ Eine KI-Funktion antwortet nur, wenn alle relevanten Stufen zustimmen:
 | 2. Garten (Mandant) | Administratorin/Administrator deines Gartens | Alle KI-Funktionen, die deinen Pflanzenkontext nutzen (Chat, künftig auch Tipp-Karten) |
 | 3. Deine Einwilligung | Du selbst | Ob deine Pflanzendaten als Kontext gesendet werden dürfen, und ob ein Cloud-Provider statt eines lokalen Modells verwendet werden darf |
 
-Reine Wissensfragen ohne Pflanzenbezug (siehe oben) benötigen nur Stufe 1 — sie funktionieren deshalb auch im Light-Modus ohne Login.
+Reine Wissensfragen ohne Pflanzenbezug (siehe oben) benötigen im Light-Modus nur Stufe 1 und funktionieren dort ohne Login. Im Voll-Modus brauchen sie alle drei Stufen; Stufe 3 ist dort die eigene Einwilligung `ai_knowledge_question`.
 
 ## Einwilligung erteilen {#einwilligung-erteilen}
 
-Zwei Einwilligungen sind für den KI-Assistenten relevant:
+Drei Einwilligungen sind für den KI-Assistenten relevant:
 
 | Einwilligung | Wofür nötig |
 |--------------|-------------|
+| KI-Wissensfrage an die Wissensbasis | Für Wissensfragen auf der Seite **KI-Assistent** im Voll-Modus. Du kannst sie direkt auf der Seite erteilen, wenn du die erste Frage stellst |
 | KI-Zugriff auf deine Pflanzendaten | Für Chat, Tipp-Karten, Tipp des Tages und „Warum?"-Erklärungen — überall dort, wo die Antwort deinen konkreten Pflanzenkontext (Art, Phase, Substrat, EC-/pH-Werte) nutzt |
 | KI-Verarbeitung über Cloud-Provider | Zusätzlich nur nötig, wenn deine Instanz einen Cloud-Provider (statt eines lokalen Modells) einsetzt |
 
-Beide erscheinen im Bereich **Datenschutz** im Tab **Einwilligungen** und lassen sich dort aktuell nur einsehen, nicht per Klick erteilen oder widerrufen — das funktioniert bislang ausschließlich über die API. Details, Wortlaut der Einwilligungstexte und die genaue Klickstrecke stehen in [Datenschutz & DSGVO](privacy.md#einwilligungen-verwalten-art-7-dsgvo).
+Alle drei erscheinen im Bereich **Datenschutz** im Tab **Einwilligungen**. Eine erteilte Einwilligung widerrufst du dort mit **Widerrufen**. Erteilen lässt sich dort keine: Die Wissensfrage-Einwilligung erteilst du auf der Seite **KI-Assistent**, die beiden anderen bislang nur über die API. Details und den Wortlaut der Einwilligungstexte findest du in [Datenschutz & DSGVO](privacy.md#einwilligungen-verwalten-art-7-dsgvo).
 
 ---
 
@@ -115,14 +121,15 @@ Der KI-Assistent wird über drei Ebenen freigeschaltet — Details und Umgebungs
 
 **Stufe 2 (Mandant):** Das Feld `tenant.settings.ai_features_enabled` steuert, ob KI-Funktionen für einen konkreten Garten (Mandanten) aktiv sind (Standard: `false`). Es gibt hierfür aktuell **weder eine Oberfläche noch einen eigenen API-Endpunkt** — das Feld lässt sich nur durch direkten Zugriff auf das Mandanten-Dokument in ArangoDB setzen. Ohne diesen Schritt bleiben alle mandantengebundenen KI-Funktionen (Chat, künftig Tipp-Karten) deaktiviert, selbst wenn Stufe 1 aktiv ist.
 
-**Stufe 3 (Einwilligung):** `POST /api/v1/privacy/consents` mit `purpose: ai_tenant_data_access` bzw. `purpose: ai_cloud_processing` (siehe [Datenschutz & DSGVO](privacy.md#fuer-technische-nutzer-self-hoster)).
+**Stufe 3 (Einwilligung):** `POST /api/v1/privacy/consents` mit `purpose: ai_knowledge_question` (Wissensfrage), `purpose: ai_tenant_data_access` (Pflanzendaten als Kontext) bzw. `purpose: ai_cloud_processing` (Cloud-Provider) (siehe [Datenschutz & DSGVO](privacy.md#fuer-technische-nutzer-self-hoster)).
 
-Die reine Wissensfrage benötigt ausschließlich Stufe 1 und ist als lastbegrenzter, anonymer Endpunkt erreichbar:
+Die Wissensfrage hat je Modus einen eigenen Endpunkt:
 
-| Endpunkt | Zweck |
-|----------|-------|
-| `POST /api/v1/public/ai/ask` | Freie Wissensfrage ohne Pflanzenkontext (kein Login, IP-ratenbegrenzt) |
-| `GET /api/v1/public/ai/health` | Prüft, ob die Wissensbasis erreichbar ist |
+| Endpunkt | Modus | Zweck |
+|----------|-------|-------|
+| `POST /api/v1/t/{tenant_slug}/ai/knowledge/ask` | Voll-Modus | Freie Wissensfrage im Garten: ab Gärtner, Stufe 1 + 2, Einwilligung `ai_knowledge_question` (mit Pflanzenwerten im `context` zusätzlich `ai_tenant_data_access`), KI-Tagesbudget |
+| `POST /api/v1/public/ai/ask` | nur Light-Modus | Freie Wissensfrage ohne Pflanzenkontext als System-Nutzer (kein Login, IP-ratenbegrenzt); im Voll-Modus `404` |
+| `GET /api/v1/public/ai/health` | nur Light-Modus | Prüft, ob die Wissensbasis erreichbar ist; im Voll-Modus `404` |
 
 Details zu allen KI-Endpunkten (inkl. Chat, Tipps, Erklärungen) stehen in der [API-Referenz](../reference/api-reference.md#ki-assistent).
 
@@ -130,7 +137,7 @@ Details zu allen KI-Endpunkten (inkl. Chat, Tipps, Erklärungen) stehen in der [
 
 ## Tageskontingent für KI-Anfragen {#tageskontingent}
 
-Jede Anfrage, die ein Sprachmodell anspricht — Tipps oder den Tipp des Tages erzeugen, „Warum?“, eine Chat-Nachricht, eine Glossar-Erklärung erzeugen, eine KI-Diagnose —, zählt zu einem Tageskontingent. Es gibt drei Grenzen, alle pro Kalendertag (UTC):
+Jede Anfrage, die ein Sprachmodell anspricht — eine Wissensfrage im Voll-Modus, Tipps oder den Tipp des Tages erzeugen, „Warum?“, eine Chat-Nachricht, eine Glossar-Erklärung erzeugen, eine KI-Diagnose —, zählt zu einem Tageskontingent. Es gibt drei Grenzen, alle pro Kalendertag (UTC):
 
 - **Dein Kontingent in einem Garten** — standardmäßig 50 Anfragen. Bist du Mitglied in mehreren Gärten, hast du in jedem ein eigenes.
 - **Das Kontingent des Gartens** — standardmäßig 500 Anfragen aller Mitglieder zusammen. Wer an seinem eigenen Kontingent abgewiesen wird, verbraucht das des Gartens nicht.
@@ -147,6 +154,8 @@ Ist eine Grenze erreicht, erklärt dir die Oberfläche, welche — ab Mitternach
 
 Ist die zugrunde liegende Wissensbasis (Knowledge Service) nicht erreichbar, liefert der KI-Assistent statt eines Fehlers eine regelbasierte Antwort ohne Sprachmodell — die Anwendung bleibt nutzbar, die Qualität der Antwort ist dann aber geringer.
 
+Die Wissensfrage auf der Seite **KI-Assistent** hat keine solche Ersatzantwort: Ist die Wissensbasis nicht erreichbar, zeigt die Seite den Hinweis, dass die Antwort nicht geladen werden konnte.
+
 ---
 
 ## Häufige Fragen
@@ -159,6 +168,9 @@ Ist die zugrunde liegende Wissensbasis (Knowledge Service) nicht erreichbar, lie
 
 ??? question "Warum sehe ich beim Chat den Hinweis auf eine fehlende Einwilligung?"
     Der Chat nutzt deinen Pflanzenkontext und benötigt deshalb deine Einwilligung „KI-Zugriff auf deine Pflanzendaten". Wie du sie erteilst, steht unter [Einwilligung erteilen](#einwilligung-erteilen).
+
+??? question "Warum fragt mich die KI-Seite nach einer Einwilligung, obwohl ich nichts über meine Pflanzen frage?"
+    Auch eine reine Wissensfrage geht als Text an ein Sprachmodell. Im Voll-Modus willigst du deshalb einmal in „KI-Wissensfrage an die Wissensbasis“ ein. Daten deiner Pflanzen gehen dabei nur mit, wenn du sie selbst zur Frage angibst.
 
 ??? question "Kann ich den KI-Assistenten vollständig lokal betreiben?"
     Das entscheidet der Plattformbetreiber bei der Konfiguration der Wissensbasis. Mit einem lokalen Modell (Ollama) verlassen keine Daten das eigene Netzwerk und es ist keine Einwilligung zur Cloud-Verarbeitung nötig. Details für Selbsthoster: [KI-Provider einrichten](ai-providers.md).

@@ -127,7 +127,12 @@ class PestDetectionService:
     # ── History / feedback (§6) ──
 
     def get_history(self, *, tenant_key: str, plant_instance_key: str, limit: int = 20) -> list[dict]:
-        return [self._to_response(d) for d in self._repo.list_for_plant(tenant_key, plant_instance_key, limit)]
+        return [
+            self._to_response(d)
+            for d in self._repo.list_for_plant(
+                tenant_key=tenant_key, plant_instance_key=plant_instance_key, limit=limit
+            )
+        ]
 
     def submit_feedback(
         self,
@@ -159,7 +164,7 @@ class PestDetectionService:
         ``inspected_by_key`` (#1669) — keyword-only and without a default, so a
         caller cannot create an inspection nobody is attributed to.
         """
-        detection = self._repo.get(detection_key, tenant_key)
+        detection = self._repo.get(detection_key, tenant_key=tenant_key)
         if detection is None:
             raise NotFoundError("PestDetection", detection_key)
 
@@ -198,7 +203,7 @@ class PestDetectionService:
         Schädlings-Bild-Signal in the shape the fusion will consume — a confirmed
         finding must strengthen the IPM/infestation signal (§9.1).
         """
-        detections = self._repo.list_for_plant(tenant_key, plant_instance_key, limit=10)
+        detections = self._repo.list_for_plant(tenant_key=tenant_key, plant_instance_key=plant_instance_key, limit=10)
         confirmed_pests: set[str] = set()
         max_conf = 0.0
         for d in detections:

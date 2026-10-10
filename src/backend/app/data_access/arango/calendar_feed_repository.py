@@ -8,6 +8,9 @@ from app.domain.models.calendar import CalendarFeed
 
 class ArangoCalendarFeedRepository(BaseArangoRepository[CalendarFeed], ICalendarFeedRepository):
     _model_cls = CalendarFeed
+    #: Every row belongs to exactly one tenant; a base list read without a
+    #: ``tenant_key`` (or an explicit ``all_tenants=True``) raises (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.CALENDAR_FEEDS)
@@ -21,6 +24,7 @@ class ArangoCalendarFeedRepository(BaseArangoRepository[CalendarFeed], ICalendar
     def list_by_user(
         self,
         user_key: str,
+        *,
         tenant_key: str,
     ) -> list[CalendarFeed]:
         query = """

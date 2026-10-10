@@ -470,7 +470,7 @@ def test_link_plant_instance_persists_and_returns_keys():
     out = service.link_plant_instance("ident_1", "plant_42", tenant_key="t1")
 
     assert out == {"request_key": "ident_1", "plant_instance_key": "plant_42"}
-    identification_repo.get.assert_called_once_with("ident_1", "t1")
+    identification_repo.get.assert_called_once_with("ident_1", tenant_key="t1")
     identification_repo.set_plant_instance_key.assert_called_once_with("ident_1", "t1", "plant_42")
 
 
