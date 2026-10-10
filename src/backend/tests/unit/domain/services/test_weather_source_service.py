@@ -376,6 +376,34 @@ class TestTestSource:
         assert result.reachable is False
         assert result.error
 
+    # #2169: `kind` picks the constructor, `source_name` the class. A mismatch
+    # built the adapter with the wrong arguments and raised TypeError — a 500.
+    @pytest.mark.asyncio
+    async def test_public_source_sent_as_home_assistant_is_refused_not_raised(self, registry_guard):
+        _register_public("dwd")
+        service, _, _, _ = _build_service(ha_client=MagicMock())
+        entry = WeatherSourceEntryRequest(
+            source_name="dwd",
+            kind="home_assistant",
+            ha_config=WeatherSourceHaConfigRequest(mode="weather_entity", weather_entity_id="weather.home"),
+        )
+
+        result = await service.test_source(SITE_KEY, TENANT_KEY, entry)
+
+        assert result.reachable is False
+        assert result.error == "Weather source 'dwd' is not a home_assistant source."
+
+    @pytest.mark.asyncio
+    async def test_home_assistant_source_sent_as_public_is_refused_not_raised(self, registry_guard):
+        _register_ha()
+        service, _, _, _ = _build_service(ha_client=MagicMock())
+        entry = WeatherSourceEntryRequest(source_name="ha_weather", kind="public")
+
+        result = await service.test_source(SITE_KEY, TENANT_KEY, entry)
+
+        assert result.reachable is False
+        assert result.error == "Weather source 'ha_weather' is not a public source."
+
 
 class TestHaEntities:
     def test_weather_entities_with_token(self):
