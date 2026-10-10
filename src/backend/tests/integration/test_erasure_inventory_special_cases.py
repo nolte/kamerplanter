@@ -26,7 +26,6 @@ Runs against a real ArangoDB (see ``tests/integration/conftest.py``).
 from __future__ import annotations
 
 import asyncio
-import secrets
 
 import pytest
 from arango import ArangoClient
@@ -45,6 +44,7 @@ from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
+from app.domain.engines.token_engine import TokenEngine
 from app.domain.models.calendar import CalendarFeed
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import Membership
@@ -132,15 +132,16 @@ class TestCalendarFeedTokenStopsServing:
     def test_the_feed_token_of_an_erased_user_no_longer_resolves(self, database):
         _insert_user(database, "feed-owner")
         repo = ArangoCalendarFeedRepository(database)
-        token = secrets.token_urlsafe(24)
-        feed = repo.save(CalendarFeed(tenant_key="t-feed", name="Mein Kalender", token=token, user_key="feed-owner"))
         service = CalendarService(feed_repo=repo, aggregation_engine=None, source_repo=None)  # type: ignore[arg-type]
+        issued = service.create_feed(CalendarFeed(tenant_key="t-feed", name="Mein Kalender", user_key="feed-owner"))
+        feed, token = issued.feed, issued.token
+        token_hash = TokenEngine.hash_token(token)
         # Positive control: before the erasure the token resolves to the feed.
-        assert repo.get_by_token(token) is not None
+        assert repo.get_by_token_hash(token_hash) is not None
 
         _erase(database, "feed-owner")
 
-        assert repo.get_by_token(token) is None
+        assert repo.get_by_token_hash(token_hash) is None
         with pytest.raises(ValidationError, match="Invalid feed token"):
             service.generate_ical_for_feed(feed.key, token)
 

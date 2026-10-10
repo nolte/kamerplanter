@@ -6,7 +6,7 @@ Covers:
 - Category filter chips
 - Plant filter tree
 - Event interaction (popover, click-through)
-- Feed management (create, copy URL, regenerate token, delete)
+- Feed management (create, one-time URL dialog, regenerate token, delete)
 - Sowing calendar specifics (frost chips, category filters, favorites)
 - Season overview (12-month cards)
 """
@@ -61,6 +61,10 @@ class CalendarPage(BasePage):
     FEED_NAME_INPUT = (By.CSS_SELECTOR, "[data-testid='feed-name-input']")
     FEED_SAVE_BTN = (By.CSS_SELECTOR, "[data-testid='feed-save-btn']")
     FEED_CANCEL_BTN = (By.CSS_SELECTOR, "[data-testid='feed-cancel-btn']")
+    #: The dialog that shows a feed's subscription URL once, after create / rotate (#2171).
+    FEED_URL_DIALOG = (By.CSS_SELECTOR, "[data-testid='feed-url-dialog']")
+    FEED_URL_VALUE = (By.CSS_SELECTOR, "[data-testid='feed-url-value']")
+    FEED_URL_CLOSE_BTN = (By.CSS_SELECTOR, "[data-testid='feed-url-close-btn']")
 
     # ── Sowing calendar sub-view ────────────────────────────────────────
     SOWING_CATEGORY_FILTER_CLEAR = (By.CSS_SELECTOR, "[data-testid='sowing-category-filter-clear']")
@@ -445,8 +449,9 @@ class CalendarPage(BasePage):
     #: Every iCal feed row, by the product's own per-feed testid.
     FEED_ITEMS = (By.CSS_SELECTOR, "[data-testid^='feed-item-']")
     #: The feed's *name* inside such a row. `renderFeedItem` puts it in the
-    #: `ListItemText` primary slot and the iCal URL in the secondary one, so the
-    #: whole row's text is not a statement about the name alone.
+    #: `ListItemText` primary slot and a "rotate to get a new URL" hint in the
+    #: secondary one (#2171), so the whole row's text is not a statement about the
+    #: name alone.
     FEED_NAME = (By.CSS_SELECTOR, ".MuiListItemText-primary")
 
     def get_feed_items(self) -> list[WebElement]:
@@ -477,9 +482,17 @@ class CalendarPage(BasePage):
 
         return self.retry_on_stale(_read)
 
-    def click_feed_copy(self, feed_key: str) -> None:
-        """Click the copy URL button for a feed."""
-        self.wait_and_click((By.CSS_SELECTOR, f"[data-testid='feed-copy-{feed_key}']"))
+    def get_issued_feed_url(self, timeout: int = DEFAULT_TIMEOUT) -> str:
+        """Return the subscription URL the one-time dialog shows after create / rotate (#2171)."""
+        self.wait_for_element(self.FEED_URL_DIALOG, timeout=timeout)
+        return (
+            self.wait_for_element(self.FEED_URL_VALUE, timeout=timeout).get_attribute("value") or ""
+        )
+
+    def close_feed_url_dialog(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Close the one-time URL dialog and wait until it is gone; the URL is not shown again."""
+        self.wait_and_click(self.FEED_URL_CLOSE_BTN)
+        self.wait_for_element_hidden(self.FEED_URL_DIALOG, timeout=timeout)
 
     def click_feed_regenerate(self, feed_key: str) -> None:
         """Click the regenerate token button for a feed."""

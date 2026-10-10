@@ -39,7 +39,6 @@ import ViewListIcon from '@mui/icons-material/ViewList';
 import GrassIcon from '@mui/icons-material/Grass';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import RssFeedIcon from '@mui/icons-material/RssFeed';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -56,6 +55,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import CalendarFeedUrlDialog from './CalendarFeedUrlDialog';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchCalendarEvents,
@@ -200,6 +200,11 @@ export default function CalendarPage() {
   const [deleteFeedKey, setDeleteFeedKey] = useState<string | null>(null);
   const [deleteFeedName, setDeleteFeedName] = useState('');
   const [deletingFeed, setDeletingFeed] = useState(false);
+  // #2171: rotating replaces the URL every subscribed calendar uses, so it is confirmed first.
+  const [rotateFeed, setRotateFeed] = useState<{ key: string; name: string } | null>(null);
+  const [rotatingFeed, setRotatingFeed] = useState(false);
+  // The subscription URL of a feed just created or rotated — shown once, then discarded (#2171).
+  const [issuedFeedUrl, setIssuedFeedUrl] = useState<{ name: string; url: string } | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   // Plant tree filter state
@@ -458,7 +463,7 @@ export default function CalendarPage() {
 
   const handleCreateFeed = useCallback(async () => {
     if (!newFeedName.trim()) return;
-    await dispatch(
+    const issued = await dispatch(
       createCalendarFeed({
         name: newFeedName.trim(),
         filters: { categories: [...selectedCategories], site_key: null },
@@ -467,6 +472,7 @@ export default function CalendarPage() {
     notification.success(t('common.saved'));
     setNewFeedName('');
     setCreateFeedDialogOpen(false);
+    setIssuedFeedUrl({ name: issued.name, url: issued.ical_url });
   }, [dispatch, newFeedName, selectedCategories, notification, t]);
 
   const handleDeleteFeed = useCallback(async () => {
@@ -484,13 +490,19 @@ export default function CalendarPage() {
     }
   }, [dispatch, deleteFeedKey, notification, t]);
 
-  const handleRegenerateToken = useCallback(
-    async (key: string) => {
-      await dispatch(regenerateCalendarFeedToken(key)).unwrap();
-      notification.success(t('common.saved'));
-    },
-    [dispatch, notification, t],
-  );
+  const handleRegenerateToken = useCallback(async () => {
+    if (!rotateFeed) return;
+    setRotatingFeed(true);
+    try {
+      const issued = await dispatch(regenerateCalendarFeedToken(rotateFeed.key)).unwrap();
+      setRotateFeed(null);
+      setIssuedFeedUrl({ name: issued.name, url: issued.ical_url });
+    } catch {
+      notification.error(t('common.retry'));
+    } finally {
+      setRotatingFeed(false);
+    }
+  }, [dispatch, rotateFeed, notification, t]);
 
   const handleCopyUrl = useCallback(
     async (url: string) => {
@@ -834,39 +846,13 @@ export default function CalendarPage() {
     <ListItem key={feed.key} divider data-testid={`feed-item-${feed.key}`}>
       <ListItemText
         primary={feed.name}
-        secondary={
-          feed.ical_url ? (
-            <Typography
-              variant="caption"
-              component="span"
-              sx={{
-                display: 'block',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                maxWidth: '20rem',
-              }}
-            >
-              {feed.ical_url}
-            </Typography>
-          ) : null
-        }
+        secondary={t('pages.calendar.feedUrlHidden')}
       />
       <ListItemSecondaryAction>
-        <Tooltip title={t('pages.calendar.copyUrl')}>
-          <IconButton
-            size="small"
-            onClick={() => handleCopyUrl(feed.ical_url)}
-            aria-label={t('pages.calendar.copyUrl')}
-            data-testid={`feed-copy-${feed.key}`}
-          >
-            <ContentCopyIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
         <Tooltip title={t('pages.calendar.regenerateToken')}>
           <IconButton
             size="small"
-            onClick={() => handleRegenerateToken(feed.key)}
+            onClick={() => setRotateFeed({ key: feed.key, name: feed.name })}
             aria-label={t('pages.calendar.regenerateToken')}
             data-testid={`feed-regenerate-${feed.key}`}
           >
@@ -1504,6 +1490,26 @@ export default function CalendarPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Rotate feed token confirm dialog (#2171) */}
+      <ConfirmDialog
+        open={rotateFeed !== null}
+        title={t('pages.calendar.regenerateToken')}
+        message={t('pages.calendar.regenerateConfirm', { name: rotateFeed?.name ?? '' })}
+        confirmLabel={t('pages.calendar.regenerateToken')}
+        onConfirm={handleRegenerateToken}
+        onCancel={() => setRotateFeed(null)}
+        destructive
+        loading={rotatingFeed}
+      />
+
+      {/* One-time display of a new subscription URL (#2171) */}
+      <CalendarFeedUrlDialog
+        feedName={issuedFeedUrl?.name ?? null}
+        url={issuedFeedUrl?.url ?? null}
+        onCopy={handleCopyUrl}
+        onClose={() => setIssuedFeedUrl(null)}
+      />
 
       {/* Delete feed confirm dialog */}
       <ConfirmDialog

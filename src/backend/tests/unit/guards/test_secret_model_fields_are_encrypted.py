@@ -71,9 +71,9 @@ DECIDED: dict[tuple[str, str], str] = {
         "response DTO of a key rotation (#2137): the new key, shown once; never persisted - the stored ApiKey "
         "keeps key_hash only"
     ),
-    ("calendar.CalendarFeed", "token"): (
-        "persisted in clear: the iCal endpoint looks the feed up BY the token value, so Fernet (random IV) cannot "
-        "serve the lookup; hashing it is the fix and is a separate change (#2113 class sweep, reported)"
+    ("calendar.CalendarFeedIssued", "token"): (
+        "service result of creating a feed or rotating its token (#2171): the raw token, shown once in that "
+        "response; never persisted - the stored CalendarFeed keeps token_hash only"
     ),
 }
 

@@ -324,7 +324,8 @@ class DataExportEngine:
             fields=["channels", "quiet_hours", "batching", "escalation", "type_overrides", "daily_summary"],
         ),
         DataSourceDefinition(
-            # ``token`` is deliberately not exported: it is a live credential.
+            # ``token_hash`` is deliberately not exported: it is the stored form of a
+            # live credential (#2171; the token itself is not kept at all).
             collection="calendar_feeds",
             filter_field="user_key",
             label="Calendar feeds",
@@ -600,7 +601,7 @@ class DataExportEngine:
         ),
         DataSourceDefinition(
             # ``key_hash`` is deliberately not exported: it is the stored form of
-            # a live credential (the ``calendar_feeds.token`` argument).
+            # a live credential (the ``calendar_feeds.token_hash`` argument).
             collection="api_keys",
             filter_field="user_key",
             label="API keys (without the secret)",

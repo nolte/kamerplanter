@@ -22,6 +22,7 @@ from app.domain.engines.sowing_calendar_engine import (
     SowingCalendarEntry,
     SpeciesData,
 )
+from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.calendar_feed_repository import ICalendarFeedRepository
 from app.domain.interfaces.calendar_source_repository import ICalendarSourceRepository
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -30,6 +31,7 @@ from app.domain.models.calendar import (
     CalendarEvent,
     CalendarEventsQuery,
     CalendarFeed,
+    CalendarFeedIssued,
 )
 from app.domain.models.site import Site
 from app.domain.services.ical_generator import ICalGenerator
@@ -112,9 +114,22 @@ class CalendarService:
 
     # ── Feed CRUD ────────────────────────────────────────────────────
 
-    def create_feed(self, feed: CalendarFeed) -> CalendarFeed:
-        feed.token = secrets.token_urlsafe(32)
-        return self._feed_repo.save(feed)
+    @staticmethod
+    def _issue_token(feed: CalendarFeed) -> str:
+        """Give ``feed`` a fresh iCal token; only its digest stays on the feed (#2171).
+
+        The raw value goes back to the caller for the one response that shows it;
+        the stored feed carries ``TokenEngine.hash_token`` of it - the same SHA-256
+        digest refresh, invitation, reset and verification tokens are stored as.
+        """
+        raw = secrets.token_urlsafe(32)
+        feed.token_hash = TokenEngine.hash_token(raw)
+        return raw
+
+    def create_feed(self, feed: CalendarFeed) -> CalendarFeedIssued:
+        """Persist ``feed`` with a new token and return it with the raw token, once."""
+        raw = self._issue_token(feed)
+        return CalendarFeedIssued(feed=self._feed_repo.save(feed), token=raw)
 
     def get_feed(self, key: str, *, tenant_key: str) -> CalendarFeed:
         """The feed ``key`` of ``tenant_key``, or 404 — never skipped, whoever calls (#2119).
@@ -131,13 +146,13 @@ class CalendarService:
         return self._feed_repo.list_by_user(user_key, tenant_key=tenant_key)
 
     def update_feed(self, key: str, feed: CalendarFeed, *, tenant_key: str) -> CalendarFeed:
-        """Replace name, filters and state of an owned feed; owner, token and expiry stay."""
+        """Replace name, filters and state of an owned feed; owner, token digest and expiry stay."""
         existing = self.get_feed(key, tenant_key=tenant_key)
         # The request builds a fresh model without owner fields; written as-is it
         # would blank tenant_key/user_key and drop the feed from its owner's list.
         feed.tenant_key = existing.tenant_key
         feed.user_key = existing.user_key
-        feed.token = existing.token
+        feed.token_hash = existing.token_hash
         feed.expires_at = existing.expires_at
         feed.created_at = existing.created_at
         return self._feed_repo.update(key, feed)
@@ -146,10 +161,15 @@ class CalendarService:
         self.get_feed(key, tenant_key=tenant_key)
         return self._feed_repo.delete(key)
 
-    def regenerate_token(self, key: str, *, tenant_key: str) -> CalendarFeed:
+    def regenerate_token(self, key: str, *, tenant_key: str) -> CalendarFeedIssued:
+        """Replace the token of an owned feed; the old URL stops resolving at once.
+
+        This is also how a member gets a URL for a feed whose URL was lost: the
+        stored digest cannot be turned back into the token (#2171).
+        """
         feed = self.get_feed(key, tenant_key=tenant_key)
-        feed.token = secrets.token_urlsafe(32)
-        return self._feed_repo.update(key, feed)
+        raw = self._issue_token(feed)
+        return CalendarFeedIssued(feed=self._feed_repo.update(key, feed), token=raw)
 
     # ── Sowing calendar (REQ-015 §3.8) ─────────────────────────────
 
@@ -391,7 +411,9 @@ class CalendarService:
     # ── iCal generation ──────────────────────────────────────────────
 
     def generate_ical_for_feed(self, feed_key: str, token: str) -> str:
-        feed = self._feed_repo.get_by_token(token)
+        # Resolved by the digest of what the URL presents, never by the raw value
+        # (#2171); the stored digest itself is not a working token.
+        feed = self._feed_repo.get_by_token_hash(TokenEngine.hash_token(token)) if token else None
         if feed is None or feed.key != feed_key:
             raise ValidationError("Invalid feed token")
         if not feed.is_active:

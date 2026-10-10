@@ -320,7 +320,7 @@ Kamerplanter automatically creates the following indexes on startup:
 | `activities` | `tenant_key, name` | Persistent | Yes |
 | `workflow_templates` | `tenant_key, name` | Persistent | Yes |
 | `refresh_tokens` | `token_hash` | Persistent | Yes |
-| `calendar_feeds` | `token` | Persistent | Yes |
+| `calendar_feeds` | `token_hash` | Persistent (sparse) | Yes |
 | `tasks` | `status`, `plant_key` | Persistent | No |
 | `feeding_events` | `plant_key`, `timestamp` | Persistent | No |
 

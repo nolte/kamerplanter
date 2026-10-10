@@ -139,15 +139,21 @@ Du kannst deinen Kamerplanter-Kalender in externe Kalender-Apps abonnieren. So e
 !!! note "Nur lesen — keine bidirektionale Synchronisation"
     Der iCal-Feed ist nur lesbar. Änderungen in Google Calendar oder Apple Calendar werden nicht an Kamerplanter zurückgespiegelt. Neue Aufgaben erstellst du weiterhin in Kamerplanter.
 
+!!! warning "Noch nicht implementiert"
+    Feeds kannst du bereits anlegen, erneuern und löschen. Den Abruf der Abo-URL durch deine Kalender-App wird Kamerplanter erst mit einer kommenden Version beantworten — bis dahin wird die App beim Abonnieren einen Fehler melden. Die Schritte unten beschreiben, wie das Abonnieren funktionieren wird. <!-- REQ-015 -->
+
 ### Schritt 1: Kalender-Feed einrichten
 
 1. Öffne den Bereich **iCal-Feeds** unten im Kalender.
 2. Klicke auf **Feed erstellen**.
 3. Gib dem Feed einen Namen (z.B. „Mein Hauptkalender"). Der Feed übernimmt beim Erstellen deine aktuell aktivierten Kategorie-Filter.
 
-### Schritt 2: Feed-URL kopieren
+### Schritt 2: Abo-URL sichern
 
-Nach dem Speichern erscheint der Feed in der Liste mit seiner `webcal://`-URL. Klicke auf **URL kopieren**.
+Nach dem Speichern zeigt dir Kamerplanter die Abo-URL des Feeds in einem eigenen Fenster. Klicke auf **URL kopieren** und trage sie gleich in deiner Kalender-App ein (Schritt 3).
+
+!!! warning "Die URL siehst du nur ein einziges Mal"
+    Die Abo-URL enthält einen geheimen Token. Kamerplanter speichert davon nur einen nicht umkehrbaren Fingerabdruck (Hash) — so kann niemand, der die Datenbank oder eine Sicherung liest, deine Feeds abrufen. Deshalb kann Kamerplanter dir die URL nach dem Schließen des Fensters nicht noch einmal zeigen. Hast du sie verloren, erneuere den Token (siehe unten): Du bekommst dann eine neue URL.
 
 ### Schritt 3: In externem Kalender abonnieren
 
@@ -156,14 +162,14 @@ Nach dem Speichern erscheint der Feed in der Liste mit seiner `webcal://`-URL. K
     1. Öffne Google Calendar auf dem Desktop.
     2. Links unter "Andere Kalender" klicke auf das Plus-Symbol.
     3. Wähle **Per URL**.
-    4. Füge die `webcal://`-URL ein.
+    4. Füge die Abo-URL ein.
     5. Klicke auf **Kalender hinzufügen**.
 
 === "Apple Calendar (macOS)"
 
     1. Öffne Apple Calendar.
     2. Klicke auf **Ablage → Neues Kalenderabonnement**.
-    3. Füge die `webcal://`-URL ein.
+    3. Füge die Abo-URL ein.
     4. Klicke auf **Abonnieren**.
 
 === "Thunderbird (Lightning)"
@@ -177,14 +183,16 @@ Nach dem Speichern erscheint der Feed in der Liste mit seiner `webcal://`-URL. K
 === "Android (Standard-Kalender)"
 
     1. Installiere eine App wie **ICSx5** aus dem Play Store.
-    2. Füge die `webcal://`-URL als neues Abonnement hinzu.
+    2. Füge die Abo-URL als neues Abonnement hinzu.
 
 ### Feed-Token erneuern
 
-Jeder Feed hat eine geheime, in der URL enthaltene Token-Kennung. Über **Token erneuern** generierst du eine neue Token-Kennung und damit eine neue Feed-URL.
+Jeder Feed hat eine geheime, in der URL enthaltene Token-Kennung. Über **Token erneuern** (Pfeil-Symbol neben dem Feed) generierst du eine neue Token-Kennung und damit eine neue Abo-URL. Kamerplanter fragt vorher nach und zeigt dir die neue URL danach — wie beim Anlegen — genau einmal.
+
+Das ist auch der Weg, wenn du die URL eines Feeds verloren hast: In der Feed-Liste steht keine URL mehr, weil Kamerplanter sie nicht speichert.
 
 !!! warning "Alter Link wird sofort ungültig"
-    Sobald du den Token erneuerst, funktioniert die bisherige `webcal://`-URL nicht mehr — die externe App zeigt einen Fehler statt neuer Ereignisse. Trage die neue URL in jeder App nach, in der du den Feed abonniert hast. Nutze diese Funktion, wenn du einen Feed-Link versehentlich geteilt hast oder den Zugriff eines ehemaligen Mitglieds beenden willst.
+    Sobald du den Token erneuerst, funktioniert die bisherige Abo-URL nicht mehr — die externe App zeigt einen Fehler statt neuer Ereignisse. Trage die neue URL in jeder App nach, in der du den Feed abonniert hast. Nutze diese Funktion, wenn du einen Feed-Link verloren oder versehentlich geteilt hast oder den Zugriff eines ehemaligen Mitglieds beenden willst.
 
 ### Feed löschen
 
