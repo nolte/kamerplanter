@@ -61,6 +61,7 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 | `REGISTRATION_ALLOWED_DOMAINS` | — (empty) | No | Optional comma-separated email domains (e.g. `club.example,garden.example`), exact, no subdomains. Empty = any domain. An email invitation for the address is the exception; through OIDC only an address the provider verified counts |
 | `TENANT_MAX_MEMBERS_CEILING` | `50` | No | Platform ceiling of every tenant's member limit (at least `1`). The effective limit is `min(max_members, TENANT_MAX_MEMBERS_CEILING)`; a `max_members` above it is refused (`422`), a new organization created without one takes this value. A full tenant refuses further joins with `422 MEMBER_LIMIT_REACHED`. Lowering it removes nobody |
 | `TENANT_MAX_SERVICE_ACCOUNTS` | `20` | No | How many active service accounts a tenant may hold (at least `1`). Beyond it, creating one answers `422 SERVICE_ACCOUNT_LIMIT_REACHED`. A service account also takes a seat of the member limit. Lowering it removes none |
+| `TENANT_INVITATION_EMAILS_PER_DAY` | `50` | No | How many email invitations one account may send in 24 hours, across all its tenants (at least `1`). Every email invitation goes to an address the inviter chooses freely; beyond it `POST /api/v1/tenants/{slug}/invitations/email` answers `429 RATE_LIMIT_EXCEEDED`, and nothing is created or sent. Counted from the stored invitations (issue #2162) |
 | `HIBP_ENABLED` | `false` | No | Enable "Have I Been Pwned" check on password change |
 | `COOKIE_SECURE` | `true` | No | Sets the `Secure` flag on the refresh-token cookie. Only set to `false` for plain-HTTP E2E test environments without TLS — **always** leave `true` in production. |
 
@@ -184,7 +185,9 @@ install without SMTP or Resend configured, since the Helm chart sets no adapter 
 default — it writes a startup warning to the log
 (`email_adapter_console_in_production`). For a production install, configure either
 `EMAIL_ADAPTER=smtp` or `EMAIL_ADAPTER=resend`; otherwise registration and password
-reset cannot be completed.
+reset cannot be completed. Email invitations into a tenant do not go out either: the
+invitation is created, the response reports `delivered: false`, and the UI shows the
+inviter the link to pass on (issue #2162). The link points at `FRONTEND_URL`.
 
 !!! info "Resend: hosted email delivery over an HTTP API"
     `EMAIL_ADAPTER=resend` sends the same system emails (email verification,
@@ -518,6 +521,7 @@ Before it is reported, the value is checked against `^[0-9a-f]{7,40}$` (after st
 | `RATE_LIMIT_INFERENCE` | `20/minute` | No | Budget per account and route for routes that run a model: CV diagnosis, pest detection, plant identification, reference contribution, and every route that calls an LLM (generating tips and the daily tip, "Why?", chat message, glossary generation, AI diagnosis, knowledge question `POST /api/v1/t/{slug}/ai/knowledge/ask`). The daily caps of identification and reference contribution and the daily AI budgets (`AI_BUDGET_*`) apply on top. |
 | `RATE_LIMIT_EXPORT` | `20/minute` | No | Budget per account and route for the PDF prints under `/print` (nutrient plan, care checklist, plant labels). |
 | `RATE_LIMIT_RESEND_VERIFICATION` | `10/hour` | No | Per-client-IP rate limit for `POST /api/v1/auth/resend-verification`. It bounds mail to caller-chosen addresses, hence far below `RATE_LIMIT_AUTH`. The additional per-address limit (3 requests, refilled after an hour without one) is fixed and not configurable. |
+| `RATE_LIMIT_INVITATION_EMAIL` | `10/minute` | No | Per-account rate limit for `POST /api/v1/tenants/{slug}/invitations/email`: every call sends an email to a freely chosen address. The daily ceiling per account is `TENANT_INVITATION_EMAILS_PER_DAY` (issue #2162) |
 | `RATE_LIMIT_HEALTH` | `60/minute` | No | Rate limit for `GET /api/health` — see [Health endpoint and build identity](#health-endpoint) |
 
 **Format:** `[count]/[unit]` — units: `second`, `minute`, `hour`, `day`

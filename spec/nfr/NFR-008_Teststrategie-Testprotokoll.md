@@ -909,7 +909,7 @@ Mandantentrennung (REQ-024) ist eine Eigenschaft, die ein Positivtest nicht prü
 
 **SOLL**: Die Fehlerklassen sind zusätzlich statisch abgesichert (`tests/unit/guards/`): Katalog-Lesepfade tragen ein Tenant-Prädikat pro Schleifenvariable, Lesepfade sind aus den Modellen abgeleitet tenant-gebunden (inkl. Reverse-Lookups und Traversals), Service-Methoden, die per Schlüssel laden und schreiben, nehmen `*, tenant_key: str` ohne Default.
 
-**SOLL**: Auf E2E-Ebene existieren Browser-Negativproben mit fremden Schlüsseln in Deep-Links (`spec/e2e-testcases/TC-REQ-024.md`, `TC-024-094` – `TC-024-097`).
+**SOLL**: Auf E2E-Ebene existieren Browser-Negativproben mit fremden Schlüsseln in Deep-Links (`spec/e2e-testcases/TC-REQ-024.md`, `TC-024-094` – `TC-024-097`; umgesetzt in `tests/e2e/test_req024_cross_tenant_probe.py`, Full-Modus).
 
 ---
 

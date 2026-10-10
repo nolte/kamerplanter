@@ -1285,6 +1285,10 @@ def get_tenant_service() -> TenantService:
         tenant_erasure_grace_days=settings.retention_tenant_erasure_grace_days,
         email_service=get_email_service(),
         user_repo=get_user_repo(),
+        # #2162 — an e-mail invitation's accept link points at the configured frontend.
+        frontend_url=settings.frontend_url,
+        # #2162 review W-1 — the daily ceiling of e-mail invitations per account.
+        invitation_emails_per_day=settings.tenant_invitation_emails_per_day,
         # #2133 (REQ-024 AK-64) — no tenant's member limit exceeds the platform ceiling.
         max_members_ceiling=settings.tenant_max_members_ceiling,
         # #2137 (MT-041, REQ-023 §5b) — the tenant's service accounts: their keys and the per-tenant quota.

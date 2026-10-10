@@ -14,7 +14,7 @@ class ConsoleEmailAdapter(IEmailService):
     (#1773 review GDPR-004): a log stream has no retention rule of its own. The
     recipient's display name is never logged either.
 
-    **The verification / password-reset link — and the step-up code (#1815) — is logged only when
+    **The verification / password-reset / invitation (#2162) link — and the step-up code (#1815) — is logged only when
     ``settings.debug`` is true (#1795).** Its token takes over the account (a
     reset link sets a new password), and this adapter is not only a development
     tool: ``EMAIL_ADAPTER`` defaults to ``console`` and the Helm chart sets none,
@@ -47,6 +47,15 @@ class ConsoleEmailAdapter(IEmailService):
             return
         url = f"{frontend_url}/email-change/{token}"
         logger.info("email_change", to_sha256=email_digest(to_email), url_logged=True, email_change_url=url)
+
+    def send_invitation_email(self, to_email: str, token: str, frontend_url: str) -> None:
+        # The link joins a tenant (#2162): the #1795 rule. Outside debug nothing is delivered, and
+        # the inviter is told so (the route answers ``delivered: false``) instead of "sent".
+        if not settings.debug:
+            logger.info("email_invitation", to_sha256=email_digest(to_email), url_logged=False, delivered=False)
+            raise EmailUndeliverableError("The console e-mail adapter does not deliver invitations outside debug.")
+        url = f"{frontend_url}/invitations/accept?token={token}"
+        logger.info("email_invitation", to_sha256=email_digest(to_email), url_logged=True, invitation_url=url)
 
     def send_step_up_code_email(self, to_email: str, display_name: str, code: str, purpose: str) -> None:
         # The code confirms an account erasure or a credential change (#1815) — the

@@ -42,12 +42,14 @@ SITE_KEY = "site-1"
 BASE = "/api/v1/t/test-slug"
 
 
-def _ctx() -> TenantContext:
+def _ctx(role: TenantRole = TenantRole.LEAD) -> TenantContext:
+    """The acting member. Defaults to ``lead``: choosing a site's weather sources
+    (and testing a candidate source) is the lead's decision (REQ-049 §2.10, #2181)."""
     return TenantContext(
         tenant_key=TENANT_KEY,
         tenant_slug="test-slug",
         user_key="user-1",
-        role=TenantRole.GROWER,
+        role=role,
     )
 
 
@@ -407,7 +409,7 @@ def test_site_weather_forecast_unknown_site_404():
 
 
 def test_a_viewer_is_still_refused_with_403_before_any_site_read():
-    """The role gate is not part of #1871 B8: a member without the grower role
+    """The role gate is not part of #1871 B8: a member without the lead role
     keeps its 403, and the site is not even looked up (so no 404/403 split)."""
     site_repo = MagicMock()
     service = WeatherSourceService(
@@ -425,3 +427,48 @@ def test_a_viewer_is_still_refused_with_403_before_any_site_read():
 
     assert resp.status_code == 403
     site_repo.get_site_by_key.assert_not_called()
+
+
+# ── Selection per site is the lead's (REQ-049 §2.10 / §4.4, #2181) ─────────
+
+_SELECTION_WRITES = [
+    ("PUT", f"{BASE}/sites/{SITE_KEY}/weather-source", {"enabled": True, "sources": []}, "save_config"),
+    (
+        "POST",
+        f"{BASE}/sites/{SITE_KEY}/weather-sources/test",
+        {"source_name": "open-meteo", "kind": "public"},
+        "test_source",
+    ),
+]
+
+
+@pytest.mark.parametrize("role", [TenantRole.GROWER, TenantRole.VIEWER])
+@pytest.mark.parametrize(("method", "url", "body", "service_method"), _SELECTION_WRITES)
+def test_below_lead_cannot_change_or_test_the_site_selection(role, method, url, body, service_method):
+    """REQ-049 §2.10: "Gärtner sehen sie ebenfalls; geändert wird sie von der Leitung".
+
+    Before #2181 both routes were gated on ``grower``, so a grower could rewrite
+    which source a site trusts. The refusal comes before the service is touched.
+    """
+    service = MagicMock()
+    service.test_source = AsyncMock()
+    app = _build_app(service)
+    app.dependency_overrides[get_current_tenant] = lambda: _ctx(role)
+
+    resp = TestClient(app).request(method, url, json=body)
+
+    assert resp.status_code == 403
+    getattr(service, service_method).assert_not_called()
+
+
+def test_a_grower_still_reads_the_site_selection():
+    """The read side stays open to every member (REQ-049 §2.10: growers *see* it)."""
+    service = MagicMock()
+    service.get_config.return_value = _config_with_owm_cipher()
+    app = _build_app(service)
+    app.dependency_overrides[get_current_tenant] = lambda: _ctx(TenantRole.GROWER)
+
+    resp = TestClient(app).get(f"{BASE}/sites/{SITE_KEY}/weather-source")
+
+    assert resp.status_code == 200
+    assert resp.json()["sources"][0]["source_name"] == "openweathermap"

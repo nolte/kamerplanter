@@ -9,7 +9,7 @@ coverage_areas:
   - Tenant-Switcher in der App-Bar (TenantSwitcher-Komponente)
   - Mitgliederverwaltung (Tab "Mitglieder" in TenantSettingsPage)
   - Einladungssystem — E-Mail-Einladung und Einladungslink
-  - Einladung annehmen (InvitationAcceptPage — /invitations/accept/:token)
+  - Einladung annehmen (InvitationAcceptPage — /invitations/accept?token=…)
   - RBAC-Rollensystem (Admin, Gärtner, Beobachter) — UI-seitige Berechtigungssteuerung
   - Standort-Zuweisungen (AssignmentListPage — /t/{slug}/assignments)
   - Zuweisungsbasierte Write-Kontrolle (sichtbare Bearbeitungs-Buttons je Rolle)
@@ -1949,7 +1949,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 **Tags**: [req-024, cross-tenant-isolation, mt-024, druck, export, kritisch]
 
-> **Automatisierungsstand (2026-10-05):** TC-024-094 bis TC-024-097 sind spezifiziert, aber noch **nicht** als Browser-Test automatisiert und nicht gelaufen. Die API-Schicht derselben Probe deckt `tests/integration/test_cross_tenant_equipment_actuators_print.py` sowie die Boundary-Tests aus #2148 (`test_fertilizer_catalogue_write_gate.py`, `test_shared_workflow_template_write_gate.py`) ab.
+> **Automatisierungsstand (2026-10-10):** TC-024-094 bis TC-024-097 sind als Browser-Test automatisiert in `tests/e2e/test_req024_cross_tenant_probe.py` (#2120). Jeder Test registriert seine eigenen Konten Anna und Bernd und legt Bernds Datensätze über die API an; er prüft zusätzlich die API-Antwort derselben Probe (404, beim globalen Seed-Dünger 403) und eine Positivkontrolle mit Bernds eigenem Schlüssel. Er braucht zwei Konten und läuft deshalb nur im Full-Modus (Nightly-Profile `full` und `full-mobile`); im Light-Modus überspringt ihn der Marker `requires_auth`. Die SPA-Routen tragen keinen Tenant-Slug: Der Deep-Link `/t/garten-anna/pflanzen/…` der Testfälle entspricht `/pflanzen/plant-instances/<Schlüssel>` bei aktivem Tenant von Anna. Beim globalen Seed-Dünger sendet der Schreibversuch den gespeicherten Namen unverändert, damit ein defektes Gate den gemeinsamen Katalog nicht verändert. Die API-Schicht derselben Probe deckt `tests/integration/test_cross_tenant_equipment_actuators_print.py` sowie die Boundary-Tests aus #2148 (`test_fertilizer_catalogue_write_gate.py`, `test_shared_workflow_template_write_gate.py`) ab.
 
 ---
 

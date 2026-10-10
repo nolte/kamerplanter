@@ -11,7 +11,7 @@ For every outdoor, greenhouse, or balcony site, you decide where Kamerplanter ge
 
 - A site with the **type** **Outdoor**, **Greenhouse**, or **Balcony** — you set the type directly in the site form (see [Locations & Substrates](locations-substrates.md#filling-in-basic-data)). A balcony counts as a frost-exposed outdoor location and therefore gets the same weather and frost features as Outdoor and Greenhouse. For the other types (Indoor, Windowsill, Grow Tent) the "Weather Source" section doesn't appear, since you already measure there via [sensors](sensors.md) or Home Assistant.
 - **GPS coordinates** (latitude and longitude) for this site — also editable directly in the site form. Without stored coordinates, Kamerplanter shows a hint that you first need to add the coordinates.
-- Your role in the tenant is **Grower** or **Admin** (see [Tenants & Gardens](tenants.md#roles-and-permissions)) — as a **Viewer** you can only see the configuration, not change it.
+- Your role in the tenant is **Lead** (see [Tenants & Gardens](tenants.md#roles-and-permissions)) — which sources a location uses is decided by the garden's lead. As a **Grower** or **Viewer** you only see the configuration, without changing it or testing a source. <!-- Issue #2181 -->
 - For the Home Assistant option, additionally: a stored Home Assistant access token (see [Home Assistant Integration](../guides/home-assistant-integration.md#setting-up-tokens)).
 
 ---

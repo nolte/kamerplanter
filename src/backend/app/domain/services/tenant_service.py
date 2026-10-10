@@ -30,6 +30,7 @@ from app.common.exceptions import (
     InvalidStatusTransitionError,
     MemberLimitReachedError,
     NotFoundError,
+    RateLimitError,
     ServiceAccountLimitReachedError,
     TenantErasureClaimLostError,
     TenantErasureIncompleteError,
@@ -44,7 +45,7 @@ from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
-from app.domain.interfaces.email_service import IEmailService
+from app.domain.interfaces.email_service import EmailUndeliverableError, IEmailService
 from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.invitation_repository import IInvitationRepository
 from app.domain.interfaces.location_assignment_repository import (
@@ -158,6 +159,8 @@ class TenantService:
         max_members_ceiling: int = 50,
         api_key_repo: IApiKeyRepository | None = None,
         max_service_accounts: int = 20,
+        frontend_url: str = "",
+        invitation_emails_per_day: int = 50,
     ) -> None:
         # #2137 (MT-041, REQ-023 §5b) — the keys of the tenant's service accounts and how many such accounts
         # a tenant may hold (``TENANT_MAX_SERVICE_ACCOUNTS``); ``get_tenant_service`` wires both.
@@ -165,6 +168,10 @@ class TenantService:
             raise ValueError("max_service_accounts must be at least 1")
         self._api_key_repo = api_key_repo
         self._max_service_accounts = max_service_accounts
+        # #2162 review W-1 — e-mail invitations one account may issue per 24 h (``TENANT_INVITATION_EMAILS_PER_DAY``).
+        if invitation_emails_per_day < 1:
+            raise ValueError("invitation_emails_per_day must be at least 1")
+        self._invitation_emails_per_day = invitation_emails_per_day
         # REQ-024 AK-64 (#2133) — the platform ceiling of every tenant's member limit
         # (``TENANT_MAX_MEMBERS_CEILING``); ``get_tenant_service`` passes the setting, and the class guard
         # ``test_membership_mutations_write_the_security_audit`` holds that it does.
@@ -186,6 +193,8 @@ class TenantService:
         # (Art. 20 export window). Best effort: ``None`` (doubles, light mode) skips the mail.
         self._email_service = email_service
         self._user_repo = user_repo
+        # #2162 — the base of an invitation's accept link (``settings.frontend_url``, as the account mails).
+        self._frontend_url = frontend_url
         # The tasks a membership that ends takes its assignee off (#2114). ``None`` only where no membership
         # is ever ended (doubles); ``get_tenant_service`` always wires it, and the class guard holds that every
         # method that deletes a membership calls :meth:`_end_task_assignments`.
@@ -2216,7 +2225,7 @@ class TenantService:
         Distinct from :meth:`list_my_tenants`, which is scoped to one user's
         memberships. This is a system-context read the platform-admin panel used
         to hand-write as raw AQL in the router (#1019); the per-tenant member
-        count is derived by the caller from :meth:`list_members`. ``offset``/``limit``
+        count is derived by the caller from :meth:`count_active_members`. ``offset``/``limit``
         read one window (MT-035, #2131); both ``None`` reads every tenant.
         """
         return self._tenant_repo.list_all(offset=offset, limit=limit)
@@ -2224,6 +2233,15 @@ class TenantService:
     def count_tenants(self, *, active_only: bool = False) -> int:
         """Number of tenants; ``active_only`` counts only ``is_active`` ones (#1019)."""
         return self._tenant_repo.count(active_only=active_only)
+
+    def count_active_members(self, tenant_key: str) -> int:
+        """Active memberships of one tenant, counted in the database (``is_active != false``).
+
+        The platform-admin tenant views show this number. They used to read every
+        member joined to its user and count ``is_active`` in Python — a full list per
+        tenant per row of the admin table (#2131). Same seats the member limit counts.
+        """
+        return self._membership_repo.count_active_members(tenant_key=tenant_key)
 
     def count_memberships(self) -> int:
         """Total number of membership documents (platform-admin statistics, #1019)."""
@@ -2241,8 +2259,12 @@ class TenantService:
 
     # --- Member Management ---
 
-    def list_members(self, tenant_key: str) -> list[MemberInfo]:
-        return self._membership_repo.list_by_tenant(tenant_key)
+    def list_members(self, tenant_key: str, *, offset: int | None = None, limit: int | None = None) -> list[MemberInfo]:
+        """A tenant's members, oldest first; ``offset``/``limit`` read one window (MT-035, #2131).
+
+        Both ``None`` reads every member.
+        """
+        return self._membership_repo.list_by_tenant(tenant_key, offset=offset, limit=limit)
 
     # --- Platform-admin membership writes (#1019) ---
     #
@@ -3004,8 +3026,9 @@ class TenantService:
         stored state: the actor's role comes from their stored, *active* membership in the
         tenant, and whether the tenant is the platform tenant from the tenant row - never from
         the request. Every service function that hands out a membership role through the
-        tenant-scoped routes (:meth:`change_member_role`, the two invitations) calls it; the
-        class guard ``test_membership_role_grants_check_for_escalation`` holds that.
+        tenant-scoped routes (:meth:`change_member_role`, the two invitations, and since #2180
+        :meth:`accept_invitation` with the issuer as actor) calls it; the class guard
+        ``test_membership_role_grants_check_for_escalation`` holds that.
         """
         # The rule only bites on a self-raise or on ``lead``; skip the two reads otherwise.
         if not is_own_membership and target_role != TenantRole.LEAD:
@@ -3016,11 +3039,25 @@ class TenantService:
             target_role=target_role,
             current_role=current_role,
             is_own_membership=is_own_membership,
-            tenant_is_platform=bool(tenant and tenant.is_platform),
+            tenant_is_platform=self._is_platform_tenant(tenant_key, tenant),
             actor_role=actor.role if actor and actor.is_active else None,
         )
         if reason:
             raise ForbiddenError(reason)
+
+    @staticmethod
+    def _is_platform_tenant(tenant_key: str, tenant: Tenant | None) -> bool:
+        """Whether *tenant_key* is the tenant whose ``lead`` is the platform role (#2180 review W-2).
+
+        Two spellings exist and both count. ``is_platform_admin`` reads a membership in the literal key
+        ``platform`` (:data:`_PLATFORM_TENANT_KEY`) - but the seed cannot give the tenant row that key:
+        ``BaseArangoRepository._to_doc`` drops ``_key`` on insert, so the seeded row carries a generated
+        key and ``is_platform: true`` while the admin membership names ``platform`` (measured on ArangoDB
+        3.12 through ``seed_auth._ensure_platform_admin``). A rule that asked only the flag would miss an
+        invitation or membership addressed to the literal key; one that asked only the key would miss
+        the flagged row. The rank rule asks both, as migration ``v0089`` does.
+        """
+        return tenant_key == _PLATFORM_TENANT_KEY or bool(tenant and tenant.is_platform)
 
     def change_member_scopes(
         self,
@@ -3272,6 +3309,7 @@ class TenantService:
             current_role=None,
             is_own_membership=False,
         )
+        self._refuse_beyond_invitation_mail_budget(invited_by_user_key)
         raw_token, token_hash = self._invitation_engine.create_invitation_token()
         expires_at = self._invitation_engine.calculate_expiry(days=7)
 
@@ -3287,11 +3325,58 @@ class TenantService:
         invitation = self._invitation_repo.create(invitation)
 
         logger.info("email_invitation_created", tenant=log_tenant(tenant_key), email_sha256=email_digest(email))
+        delivered = self._send_invitation_mail(tenant_key=tenant_key, email=email, raw_token=raw_token)
         return InvitationLink(
             invitation_key=invitation.key,
             token=raw_token,
             expires_at=expires_at,
+            accept_url=self._invitation_engine.accept_url(self._frontend_url, raw_token),
+            delivered=delivered,
         )
+
+    def _refuse_beyond_invitation_mail_budget(self, invited_by_user_key: str) -> None:
+        """429 once *invited_by_user_key* issued the day's e-mail invitations (#2162 review W-1).
+
+        Every e-mail invitation mails an address the inviter names; any account holds ``management`` in
+        a tenant it founds, so without a ceiling the route relays mail for anyone. Counted from the stored
+        invitations (any tenant, any status) over the last 24 hours - durable across replicas and
+        restarts - and asked before anything is stored or mailed.
+        """
+        since = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+        issued = int(self._invitation_repo.count_email_invitations_issued_since(invited_by_user_key, since))
+        if issued >= self._invitation_emails_per_day:
+            logger.warning("email_invitation_budget_exhausted", subject=log_subject(invited_by_user_key))
+            raise RateLimitError("invitation_email", retry_after=3600)
+
+    def _send_invitation_mail(self, *, tenant_key: str, email: str, raw_token: str) -> bool:
+        """Mail the accept link of a stored e-mail invitation; whether it left (#2162).
+
+        Until #2162 nothing was sent and the UI said "sent": an e-mail invitation reached nobody.
+        The invitation is stored before the send and stays whatever the send does - the inviter
+        is the one who can still hand the link over, so a failure is **reported** (``False``, the
+        route's ``delivered``) rather than raised or swallowed. What counts as "did not leave" is
+        the step-up code's set (#1862): the adapter refused (:class:`EmailUndeliverableError` - the
+        console adapter outside debug, a refusing Resend), it cannot send this kind of mail
+        (``NotImplementedError``), or the transport failed (``OSError``: SMTP errors, connection
+        failures; ``UnicodeError``: SMTP refuses a non-ASCII recipient). Logged by type only:
+        ``SMTPRecipientsRefused`` names the address in its text.
+        """
+        if self._email_service is None:
+            logger.warning("email_invitation_not_sent", tenant=log_tenant(tenant_key), reason="no_mailer")
+            return False
+        try:
+            self._email_service.send_invitation_email(to_email=email, token=raw_token, frontend_url=self._frontend_url)
+        except (EmailUndeliverableError, NotImplementedError, OSError, UnicodeError) as exc:
+            # UnicodeError (review S-1): smtplib refuses a non-ASCII recipient before any byte leaves.
+            logger.warning(
+                "email_invitation_not_sent",
+                tenant=log_tenant(tenant_key),
+                email_sha256=email_digest(email),
+                error_type=type(exc).__name__,
+            )
+            return False
+        logger.info("email_invitation_sent", tenant=log_tenant(tenant_key), email_sha256=email_digest(email))
+        return True
 
     def create_link_invitation(
         self,
@@ -3325,6 +3410,7 @@ class TenantService:
             invitation_key=invitation.key,
             token=raw_token,
             expires_at=expires_at,
+            accept_url=self._invitation_engine.accept_url(self._frontend_url, raw_token),
         )
 
     def email_invitation_admits(self, *, email: str, token: str) -> bool:
@@ -3358,7 +3444,27 @@ class TenantService:
             and invitation.status == InvitationStatus.PENDING
             and (invitation.email or "").strip().lower() == address
             and not self._invitation_engine.is_expired(invitation.expires_at)
+            and self._rank_rule_admits(invitation)
         )
+
+    def _rank_rule_admits(self, invitation: Invitation) -> bool:
+        """Whether :meth:`accept_invitation` would let *invitation* pass the rank rule now (#2162 review S-3).
+
+        The registration exception (REQ-023 §3.2d) asks the same question acceptance asks: an
+        invitation that can no longer be accepted - a platform ``lead`` invitation whose issuer is
+        not (or no longer) its lead, #2180 - opens no account past ``invite_only`` or the domain list.
+        """
+        try:
+            self._refuse_role_grant(
+                tenant_key=invitation.tenant_key,
+                actor_user_key=invitation.invited_by_user_key,
+                target_role=invitation.role,
+                current_role=None,
+                is_own_membership=False,
+            )
+        except ForbiddenError:
+            return False
+        return True
 
     def list_invitations(
         self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
@@ -3386,6 +3492,12 @@ class TenantService:
         (:attr:`User.address_proven` - the verified flag alone proves nothing, #1948); otherwise
         403, before anything about the invitation (status, tenant, role) is told and with nothing
         written. A link invitation is meant to be shared and stays open to any account.
+
+        **The rank rule is asked again here (#2180, REQ-024 AK-58).** :meth:`_refuse_role_grant`
+        with the issuer as actor: ``lead`` in the platform tenant is the platform role, and an
+        invitation whose issuer is not (or no longer) the platform tenant's active lead does not
+        hand it out - neither one created before the rule existed (#2084) nor one whose issuer was
+        demoted since. 403, nothing written, the invitation stays pending.
         """
         # #2137 (MT-041 / audit ID-14) — joining a tenant is a person's act; a machine identity is placed in
         # its one tenant by the service-account route and accepts no invitation. Before the token is looked
@@ -3411,6 +3523,17 @@ class TenantService:
         )
         if not can_accept:
             raise ValidationError(reason)
+        # #2180 (REQ-024 AK-58) - the rank rule is asked again at acceptance, against the issuer's role
+        # *now*: an invitation created before #2084 never met it at issuance, and a lead invitation into
+        # the platform tenant must not outlive its issuer's own demotion. Refused with nothing written;
+        # the invitation stays pending until it expires or is revoked.
+        self._refuse_role_grant(
+            tenant_key=invitation.tenant_key,
+            actor_user_key=invitation.invited_by_user_key,
+            target_role=invitation.role,
+            current_role=None,
+            is_own_membership=False,
+        )
         # #2133 - a full tenant is refused before the invitation is touched; it stays pending.
         self._refuse_beyond_member_limit(invitation.tenant_key)
 
@@ -3478,8 +3601,11 @@ class TenantService:
 
     # --- Location Assignments ---
 
-    def list_assignments(self, tenant_key: str) -> list[LocationAssignment]:
-        return self._assignment_repo.list_by_tenant(tenant_key)
+    def list_assignments(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[LocationAssignment]:
+        """A tenant's location assignments, oldest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self._assignment_repo.list_by_tenant(tenant_key, offset=offset, limit=limit)
 
     def create_assignment(
         self,

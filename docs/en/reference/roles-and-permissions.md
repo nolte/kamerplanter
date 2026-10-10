@@ -346,7 +346,7 @@ The first two points only affect the gradation **inside** a garden. The third af
 
 ### Location Assignments via the API
 
-Assignments are managed under the path `/api/v1/t/{garden-slug}/assignments`; all writing calls there require the Management scope. An assignment links a membership to a location and carries a flag for the intended edit permission plus a free-text note field. The corresponding calls already exist in the frontend as interface functions but are not yet wired to any page.
+Assignments are managed under the path `/api/v1/tenants/{garden-slug}/assignments`; all writing calls there require the Management scope. An assignment links a membership to a location and carries a flag for the intended edit permission plus a free-text note field. The corresponding calls already exist in the frontend as interface functions but are not yet wired to any page.
 
 ---
 

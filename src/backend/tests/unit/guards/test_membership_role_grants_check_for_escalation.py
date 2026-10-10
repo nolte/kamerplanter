@@ -52,10 +52,6 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "platform-admin path: both routes require require_platform_admin and a platform admin may change any "
         "role in any tenant; the acting admin's step-up is checked here (#2032)"
     ),
-    ("tenant_service.py", "TenantService.accept_invitation"): (
-        "copies the role of an invitation whose creation passed the check (create_email_invitation, "
-        "create_link_invitation); the accepting account chooses nothing"
-    ),
 }
 
 
@@ -173,6 +169,9 @@ def test_the_tenant_scoped_grants_are_gated() -> None:
         # #2106 - the platform-admin add meets the same rule behind its route's gate: ``lead`` in the
         # platform tenant is handed out only by someone who holds it. The entry that classified it is gone.
         ("tenant_service.py", "TenantService.admin_add_membership"),
+        # #2180 - acceptance asks the rule again with the issuer as actor: an invitation created before
+        # #2084 never met it at issuance. The entry that classified it ("copies a checked role") is gone.
+        ("tenant_service.py", "TenantService.accept_invitation"),
     ):
         assert entry in found and found[entry][1], f"{entry} does not call self.{_GATE}"
 

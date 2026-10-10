@@ -22,6 +22,8 @@ from app.common.decoys import email_digest
 from app.config.settings import settings
 from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
+from app.domain.engines.invitation_engine import InvitationEngine
+from app.domain.interfaces.email_service import EmailUndeliverableError
 
 RECIPIENT = "recipient-9d2c41@example.com"
 DISPLAY_NAME = "Erika Mustermann-9d2c41"
@@ -174,6 +176,35 @@ class TestConsoleAdapterLinks:
         assert entry["url_logged"] is True
         assert entry[url_field] == url
         assert DISPLAY_NAME not in repr(logs)
+
+
+class TestConsoleAdapterInvitation:
+    """#2162: the invitation link joins a tenant - the #1795 rule, and outside debug no claim of delivery."""
+
+    def test_outside_debug_the_link_is_not_logged_and_the_mail_is_refused(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "debug", False)
+
+        with structlog.testing.capture_logs() as logs, pytest.raises(EmailUndeliverableError):
+            ConsoleEmailAdapter().send_invitation_email(RECIPIENT, TOKEN, "https://app.test")
+
+        (entry,) = logs
+        assert (entry["event"], entry["url_logged"], entry["delivered"]) == ("email_invitation", False, False)
+        assert entry["to_sha256"] == email_digest(RECIPIENT)
+        assert TOKEN not in repr(logs)
+        assert RECIPIENT not in repr(logs)
+
+    def test_in_debug_the_link_is_logged_for_the_local_operator(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(settings, "debug", True)
+
+        with structlog.testing.capture_logs() as logs:
+            ConsoleEmailAdapter().send_invitation_email(RECIPIENT, TOKEN, "https://app.test")
+
+        (entry,) = logs
+        assert entry["url_logged"] is True
+        assert entry["invitation_url"] == InvitationEngine.accept_url("https://app.test", TOKEN)
+        assert RECIPIENT not in repr(logs)
 
 
 class TestConsoleAdapterStartupWarning:
