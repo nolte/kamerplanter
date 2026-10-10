@@ -366,6 +366,52 @@ class TestTheLeadListsEveryFeed:
         assert client.get(f"/api/v1/t/{TENANT_SLUG}/calendar/feeds?scope=everything").status_code == 422
 
 
+class TestOneFeedIsReadByItsOwnerOrTheLead:
+    """#2226 re-review SEC-W1 — ``GET /feeds/{key}`` follows the list: own feed, or any for the lead.
+
+    Measured before the change: a grower or viewer who knew a colleague's feed key
+    read its name, owner and filters with a 200, while ``?scope=all`` refused them
+    the same feed with a 403. The answer to a colleague's key is now the 404 of an
+    unknown key, so the key does not even confirm that the feed exists.
+    """
+
+    @pytest.fixture
+    def colleagues_feed(self, store: _FeedStore) -> str:
+        return store.save(CalendarFeed(name="Colleague", tenant_key=TENANT, user_key="colleague")).key or ""
+
+    @pytest.mark.parametrize("role", [TenantRole.GROWER, TenantRole.VIEWER])
+    def test_a_colleagues_key_answers_like_an_unknown_one(
+        self, client: TestClient, ctx: TenantContext, colleagues_feed: str, role: TenantRole
+    ) -> None:
+        ctx.role = role
+
+        foreign = client.get(f"/api/v1/t/{TENANT_SLUG}/calendar/feeds/{colleagues_feed}")
+
+        assert foreign.status_code == 404
+        assert "Colleague" not in foreign.text
+        assert "colleague" not in foreign.text
+
+    @pytest.mark.parametrize("role", [TenantRole.GROWER, TenantRole.VIEWER])
+    def test_the_own_feed_is_read(self, client: TestClient, ctx: TenantContext, role: TenantRole) -> None:
+        mine = _create_feed(client)
+        ctx.role = role
+
+        response = client.get(f"/api/v1/t/{TENANT_SLUG}/calendar/feeds/{mine['key']}")
+
+        assert response.status_code == 200
+        assert response.json()["name"] == "Garden"
+
+    def test_the_lead_reads_a_colleagues_feed(
+        self, client: TestClient, ctx: TenantContext, colleagues_feed: str
+    ) -> None:
+        ctx.role = TenantRole.LEAD
+
+        response = client.get(f"/api/v1/t/{TENANT_SLUG}/calendar/feeds/{colleagues_feed}")
+
+        assert response.status_code == 200
+        assert (response.json()["name"], response.json()["user_key"]) == ("Colleague", "colleague")
+
+
 class TestTheIssuedUrlNamesTheConfiguredAddress:
     """#2226 review SEC-004 — the URL is built from ``APP_BASE_URL``, never from the request's ``Host``."""
 

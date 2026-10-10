@@ -14,6 +14,10 @@ class ArangoCalendarFeedRepository(BaseArangoRepository[CalendarFeed], ICalendar
     #: Every row belongs to exactly one tenant; a base list read without a
     #: ``tenant_key`` (or an explicit ``all_tenants=True``) raises (MT-023, #2119).
     is_tenant_scoped = True
+    #: ``filters`` is a value: a ``PUT`` writes the whole filter set, and a sub-key
+    #: no longer in it - the retired ``site_key`` of a legacy feed - goes with the
+    #: next update instead of being merged back in (#2226 re-review SEC-S1).
+    _update_fields_merges_objects = False
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.CALENDAR_FEEDS)

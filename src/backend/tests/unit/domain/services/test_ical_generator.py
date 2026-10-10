@@ -175,6 +175,49 @@ class TestMemberWrittenTextStaysInItsProperty:
         assert r"SUMMARY:a\\b\;c\,d" in _unfold(generator.generate([event]))
 
 
+_UNICODE_BREAKS = ["\u0085", " ", " "]
+
+
+class TestUnicodeLineBreaksStayInTheirProperty:
+    """#2226 re-review SEC-S2 — NEL, LINE SEPARATOR and PARAGRAPH SEPARATOR are line breaks too.
+
+    Measured before the change: ``_escape`` and ``_plain`` handled CR and LF only,
+    so the three Unicode breaks reached the document as they were - and a parser
+    that splits lines the way ``str.splitlines`` does read the text after them as
+    a property of its own.
+    """
+
+    @pytest.mark.parametrize("breaker", _UNICODE_BREAKS, ids=["NEL", "LS", "PS"])
+    def test_in_a_text_value_it_is_an_escaped_line_break(self, generator, breaker: str) -> None:
+        event = CalendarEvent(
+            id="task:1",
+            title=f"Water{breaker}ATTACH:https://evil.example/a.exe",
+            description=f"note{breaker}END:VEVENT",
+        )
+
+        ics = generator.generate([event], f"Garden{breaker}X-INJECTED:1")
+        split_like_python = [line.split(":", 1)[0] for line in ics.replace("\r\n ", "").splitlines()]
+
+        assert breaker not in ics
+        assert "ATTACH" not in split_like_python
+        assert "X-INJECTED" not in split_like_python
+        assert "SUMMARY:Water\\nATTACH:https://evil.example/a.exe" in _unfold(ics)
+        assert "DESCRIPTION:note\\nEND:VEVENT" in _unfold(ics)
+        assert "X-WR-CALNAME:Garden\\nX-INJECTED:1" in _unfold(ics)
+
+    @pytest.mark.parametrize("breaker", _UNICODE_BREAKS, ids=["NEL", "LS", "PS"])
+    def test_in_any_other_value_it_is_removed(self, generator, breaker: str) -> None:
+        event = CalendarEvent(id=f"task:1{breaker}X", color=f"#fff{breaker}X-BAD:1", status=f"tentative{breaker}")
+
+        ics = generator.generate([event])
+        lines = _unfold(ics)
+
+        assert breaker not in ics
+        assert "UID:task:1X@kamerplanter" in lines
+        assert "X-APPLE-CALENDAR-COLOR:#fffX-BAD:1" in lines
+        assert "STATUS:TENTATIVE" in lines
+
+
 class TestLongLinesAreFolded:
     """RFC 5545 §3.1 — no content line exceeds 75 octets; unfolding gives back the value."""
 

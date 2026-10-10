@@ -188,7 +188,7 @@ Jeder Feed hat eine geheime, in der URL enthaltene Token-Kennung. Über **Token 
 
 Das ist auch der Weg, wenn du die URL eines Feeds verloren hast: In der Feed-Liste steht keine URL mehr, weil Kamerplanter sie nicht speichert.
 
-Die Feed-Liste zeigt dir nur deine eigenen Feeds, und nur sie kannst du ändern oder erneuern — den Feed eines anderen Mitglieds kann außer ihm nur die Leitung des Gartens anfassen. Als Leitung siehst du alle Feeds des Gartens über die technische API (`GET …/calendar/feeds?scope=all`); in der Oberfläche gibt es diese Gesamtliste noch nicht.
+Die Feed-Liste zeigt dir nur deine eigenen Feeds, und nur sie kannst du abrufen, ändern oder erneuern — den Feed eines anderen Mitglieds kann außer ihm nur die Leitung des Gartens anfassen. Als Leitung siehst du alle Feeds des Gartens über die technische API (`GET …/calendar/feeds?scope=all`); in der Oberfläche gibt es diese Gesamtliste noch nicht.
 
 Ein Feed liest den Garten mit den Rechten seines Mitglieds. Verlässt das Mitglied den Garten oder wird es entfernt, löscht Kamerplanter seine Feeds in diesem Garten, und die Abo-URLs funktionieren ab sofort nicht mehr. Dasselbe gilt, solange sein Konto oder der Garten deaktiviert ist.
 

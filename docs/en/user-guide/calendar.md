@@ -188,7 +188,7 @@ Every feed has a secret token embedded in its URL. Use **Regenerate Token** (the
 
 This is also the way to go if you lost a feed's URL: the feed list no longer shows a URL, because Kamerplanter does not store it.
 
-The feed list shows only your own feeds, and only those can you change or regenerate — another member's feed can be touched by nobody but that member and the garden's lead. As the lead you see every feed of the garden through the technical API (`GET …/calendar/feeds?scope=all`); the UI does not offer this overall list yet.
+The feed list shows only your own feeds, and only those can you open, change or regenerate — another member's feed can be touched by nobody but that member and the garden's lead. As the lead you see every feed of the garden through the technical API (`GET …/calendar/feeds?scope=all`); the UI does not offer this overall list yet.
 
 A feed reads the garden with its member's rights. When the member leaves the garden or is removed, Kamerplanter deletes their feeds in that garden, and the subscription URLs stop working at once. The same holds while their account or the garden is deactivated.
 

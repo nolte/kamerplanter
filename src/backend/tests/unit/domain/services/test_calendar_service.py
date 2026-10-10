@@ -64,14 +64,14 @@ class TestGetFeed:
         feed.key = "f1"
         mock_repo.get_by_key.return_value = feed
 
-        result = service.get_feed("f1", tenant_key="t1")
+        result = service.get_feed("f1", tenant_key="t1", user_key="u1", role=TenantRole.GROWER)
         assert result.name == "Feed"
 
     def test_not_found(self, service, mock_repo):
         mock_repo.get_by_key.return_value = None
 
         with pytest.raises(NotFoundError):
-            service.get_feed("missing", tenant_key="t1")
+            service.get_feed("missing", tenant_key="t1", user_key="u1", role=TenantRole.LEAD)
 
 
 class TestUpdateFeed:

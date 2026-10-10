@@ -156,13 +156,23 @@ class CalendarService:
         raw = self._issue_token(feed)
         return CalendarFeedIssued(feed=self._feed_repo.save(feed), token=raw)
 
-    def get_feed(self, key: str, *, tenant_key: str) -> CalendarFeed:
-        """The feed ``key`` of ``tenant_key``, or 404 — never skipped, whoever calls (#2119).
+    def get_feed(self, key: str, *, tenant_key: str, user_key: str, role: TenantRole) -> CalendarFeed:
+        """The feed ``key`` as the caller may read it: their own, or any of the tenant's for a lead.
 
-        Fails closed: a foreign feed and any feed for an empty ``tenant_key`` answer
-        alike. The only tenant-less way to a feed is the public iCal URL, which
-        authenticates by the feed token in :meth:`generate_ical_for_feed`.
+        The same rule as changing it (:meth:`_managed_feed`, #2226 re-review SEC-W1):
+        a feed belongs to one member, and its name and filters say what that member
+        follows. A grower or viewer asking for a colleague's key gets the 404 an
+        unknown key gets, so a key does not tell them whether that feed exists; the
+        lead sees every feed of the tenant, as ``?scope=all`` already lists them.
+        Never skipped, whoever calls (#2119): a foreign feed and any feed for an
+        empty ``tenant_key`` answer alike. The only tenant-less way to a feed is the
+        public iCal URL, which authenticates by the feed token in
+        :meth:`generate_ical_for_feed`.
         """
+        return self._managed_feed(key, tenant_key=tenant_key, user_key=user_key, role=role)
+
+    def _tenant_feed(self, key: str, *, tenant_key: str) -> CalendarFeed:
+        """The feed ``key`` of ``tenant_key``, or 404 - the tenant half of every feed rule."""
         feed = self._feed_repo.get_or_raise(key)
         verify_tenant_ownership(feed, tenant_key, "CalendarFeed")
         return feed
@@ -183,9 +193,9 @@ class CalendarService:
         return self._feed_repo.list_by_tenant(tenant_key=tenant_key)
 
     def _managed_feed(self, key: str, *, tenant_key: str, user_key: str, role: TenantRole) -> CalendarFeed:
-        """The feed ``key`` the caller may change: their own, or any of the tenant's for a lead.
+        """The feed ``key`` the caller may read or change: their own, or any of the tenant's for a lead.
 
-        ``get_feed`` answers for the tenant; a feed belongs to one member (REQ-015
+        ``_tenant_feed`` answers for the tenant; a feed belongs to one member (REQ-015
         CF-002), and a grower who changes, rotates or deletes another member's feed
         would break - or take over - that member's calendar subscription. A lead
         manages every feed of the tenant, as the lead manages everything else in it.
@@ -193,7 +203,7 @@ class CalendarService:
         tell a grower whether a colleague's feed exists. An empty ``user_key`` never
         matches, not even a legacy feed whose owner was never stamped.
         """
-        feed = self.get_feed(key, tenant_key=tenant_key)
+        feed = self._tenant_feed(key, tenant_key=tenant_key)
         if role != TenantRole.LEAD and (not user_key or feed.user_key != user_key):
             raise NotFoundError("CalendarFeed", key)
         return feed

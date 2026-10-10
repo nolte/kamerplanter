@@ -93,6 +93,30 @@ class TestUpdate:
         assert result.name == "Renamed"
 
 
+class TestUpdateFieldsReplacesTheFilterSet:
+    """#2226 re-review SEC-S1: ``filters`` is written whole, never merged into the stored object.
+
+    ArangoDB merges a sub-object by default, so a legacy ``filters.site_key`` would
+    survive every ``PUT``. The feed repository asks for ``merge=False``; the base
+    default (merge) stays for every other repository.
+    """
+
+    def test_the_feed_write_does_not_merge_objects(self, repo, mock_db):
+        coll = mock_db.collection.return_value
+        coll.update.return_value = {"new": _doc(filters={"categories": ["harvest"]})}
+
+        repo.update_fields("f1", {"filters": {"categories": ["harvest"]}})
+
+        (document,), options = coll.update.call_args
+        assert document["filters"] == {"categories": ["harvest"]}
+        assert options["merge"] is False
+
+    def test_other_repositories_keep_the_merging_default(self):
+        from app.data_access.arango.base_repository import BaseArangoRepository
+
+        assert BaseArangoRepository._update_fields_merges_objects is True
+
+
 class TestListByUser:
     def test_filters_user_and_tenant(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([_doc()])

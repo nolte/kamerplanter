@@ -196,6 +196,23 @@ class Settings(BaseSettings):
     # REQ-032 Print: base URL for QR codes on plant labels
     app_base_url: str = "http://localhost:5173"
 
+    @field_validator("app_base_url")
+    @classmethod
+    def _app_base_url_is_an_http_url(cls, value: str) -> str:
+        """Refuse an ``APP_BASE_URL`` that is not an absolute ``http(s)://host`` URL (#2226 re-review I3).
+
+        The value bases every link the server hands out - QR codes, the OAuth
+        callback, the iCal subscription URL. Without a scheme (``garden.example``)
+        each of them came out as a relative path, and the iCal URL silently lost
+        its ``https`` upgrade; a start that fails names the variable instead. Not
+        echoed: the message names the expected shape only.
+        """
+        parts = urlsplit(value.strip())
+        if parts.scheme.lower() not in {"http", "https"} or not parts.hostname:
+            msg = "APP_BASE_URL must be an absolute http:// or https:// URL with a host (value withheld)"
+            raise ValueError(msg)
+        return value
+
     perenual_api_key: str = ""
     trefle_api_key: str = ""
     enrichment_http_timeout: int = 30

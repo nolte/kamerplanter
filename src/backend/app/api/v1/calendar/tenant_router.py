@@ -271,9 +271,9 @@ def get_feed(
     key: Annotated[str, Path(description="Document key of the calendar feed.")],
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> CalendarFeedResponse:
-    """Return a single calendar feed by key (without its token, which is not kept)."""
+    """Return one calendar feed (own feed; a lead: any), without its token, which is not kept."""
     svc: CalendarService = get_calendar_service()
-    feed = svc.get_feed(key, tenant_key=ctx.tenant_key)
+    feed = svc.get_feed(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
     return _feed_response(feed)
 
 

@@ -167,6 +167,32 @@ def test_an_update_racing_a_rotation_does_not_restore_the_retired_url(db) -> Non
     assert service.generate_ical_for_feed(key, rotated.token).startswith("BEGIN:VCALENDAR")
 
 
+def test_an_update_removes_the_retired_site_filter_of_a_legacy_feed(db) -> None:
+    """#2226 re-review SEC-S1: the next ``PUT`` drops a stored ``filters.site_key``.
+
+    Measured before the change: ``update_fields`` let ArangoDB merge the new
+    ``filters`` object into the stored one, so the legacy ``site_key`` survived
+    every update while the model docstring said the update dropped it.
+    """
+    service = _service(db)
+    service.create_feed(_new_feed())
+    key = _stored(db)["_key"]
+    db.collection(col.CALENDAR_FEEDS).update({"_key": key, "filters": {"categories": [], "site_key": "site-legacy"}})
+    assert _stored(db)["filters"]["site_key"] == "site-legacy"
+
+    service.update_feed(
+        key,
+        CalendarFeed(name="Garten", is_active=True, filters={"categories": ["harvest"]}),
+        tenant_key=TENANT,
+        **OWNER,
+    )
+    stored = _stored(db)
+
+    assert stored["filters"] == {"categories": ["harvest"]}
+    assert stored["user_key"] == "owner"
+    assert stored["tenant_key"] == TENANT
+
+
 def test_two_feeds_can_be_created_one_after_the_other(db) -> None:
     """The unique index is on ``token_hash`` now; no attribute both feeds lack is indexed uniquely."""
     service = _service(db)

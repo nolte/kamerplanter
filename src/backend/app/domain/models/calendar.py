@@ -39,8 +39,9 @@ class CalendarFeedFilters(BaseModel):
     A ``site_key`` filter was accepted and stored until #2226 but never applied by
     any event source, so a "site-only" feed served the whole tenant. It was removed
     rather than built (review SEC-003); a ``filters.site_key`` still stored on a
-    legacy feed is ignored on read (Pydantic drops unknown fields) and dropped by
-    the feed's next update.
+    legacy feed is ignored on read (Pydantic drops unknown fields) and removed by
+    the feed's next update, which replaces the stored filter set whole rather than
+    merging into it (``ArangoCalendarFeedRepository._update_fields_merges_objects``).
     """
 
     categories: list[CalendarEventCategory] = Field(default_factory=list)

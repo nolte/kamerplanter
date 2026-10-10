@@ -11,6 +11,13 @@ _MAX_LINE_OCTETS = 75
 #: applies to TEXT values; in every other value they are removed with the rest.
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0a-\x1f\x7f]")
 
+#: Every line break a parser may honour: CRLF, CR, LF and the three Unicode ones -
+#: NEL (U+0085), LINE SEPARATOR (U+2028) and PARAGRAPH SEPARATOR (U+2029). Python's
+#: own ``str.splitlines`` and several calendar libraries end a line on each of the
+#: Unicode three, so they could end a property like a CR would (#2226 re-review
+#: SEC-S2). In a TEXT value each is one escaped ``\n``; elsewhere each is removed.
+_LINE_BREAKS = re.compile(r"\r\n|[\r\n\u0085\u2028\u2029]")
+
 
 class ICalGenerator:
     """Generate RFC 5545 iCalendar output from CalendarEvents."""
@@ -106,19 +113,20 @@ class ICalGenerator:
         Event titles and descriptions are member-written (task names, plant names,
         notes). A bare CR ended the property for many parsers and let the rest of
         the value read as a new one - ``x\\rATTACH:...`` attached a URL to every
-        subscriber's event (#2226 review SEC-002). CRLF, CR and LF are all one line
-        break, written as the escaped ``\\n``; every other control character is
+        subscriber's event (#2226 review SEC-002). CRLF, CR, LF, NEL, LINE SEPARATOR
+        and PARAGRAPH SEPARATOR are all one line break (``_LINE_BREAKS``, re-review
+        SEC-S2), written as the escaped ``\\n``; every other control character is
         dropped; backslash, semicolon and comma are escaped.
         """
-        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        text = _LINE_BREAKS.sub("\n", text)
         text = text.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")
         text = text.replace("\n", "\\n")
         return _CONTROL_CHARS.sub("", text)
 
     @staticmethod
     def _plain(value: str) -> str:
-        """A non-TEXT value (UID, colour, status): control characters, CR and LF included, removed."""
-        return _CONTROL_CHARS.sub("", value)
+        """A non-TEXT value (UID, colour, status): control characters and every line break removed."""
+        return _CONTROL_CHARS.sub("", _LINE_BREAKS.sub("", value))
 
     @staticmethod
     def _fold(line: str) -> str:
