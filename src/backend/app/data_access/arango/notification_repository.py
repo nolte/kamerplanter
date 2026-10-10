@@ -18,6 +18,9 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
     """ArangoDB-backed notification repository."""
 
     _model_cls = Notification
+    #: Every row belongs to exactly one tenant; a base list read without a
+    #: ``tenant_key`` (or an explicit ``all_tenants=True``) raises (MT-023, #2119).
+    is_tenant_scoped = True
 
     #: Full-replace null semantics for ``notifications`` (#1516).
     #:
@@ -202,7 +205,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         )
         return [self._to_notification(doc) for doc in cursor]
 
-    def exists_by_group_key(self, group_key: str, tenant_key: str) -> bool:
+    def exists_by_group_key(self, group_key: str, *, tenant_key: str) -> bool:
         """Return whether the tenant has any notification carrying ``group_key``.
 
         Existence-only primitive: ``LIMIT 1 RETURN 1`` stops at the first match and
@@ -223,7 +226,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         )
         return next(cursor, None) is not None
 
-    def list_by_group_key(self, group_key: str, tenant_key: str) -> list[Notification]:
+    def list_by_group_key(self, group_key: str, *, tenant_key: str) -> list[Notification]:
         """Return every notification carrying ``(group_key, tenant_key)`` (newest first).
 
         Strictly tenant-scoped (SEC-B4): the ``tenant_key`` is bound into the filter
@@ -243,7 +246,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         )
         return [self._to_notification(doc) for doc in cursor]
 
-    def find_notified_user_keys(self, group_key: str, tenant_key: str) -> set[str]:
+    def find_notified_user_keys(self, group_key: str, *, tenant_key: str) -> set[str]:
         """Return the ``user_key`` set already notified for ``(group_key, tenant_key)``.
 
         Projected, index-backed read (``RETURN DISTINCT doc.user_key``) — full

@@ -51,9 +51,10 @@ _ENDPOINT_DIR = (_REPO_ROOT or Path()) / "src" / "frontend" / "src" / "api" / "e
 
 
 def _mounted_routes() -> set[tuple[str, str]]:
+    """The full-mode app the suite imports, plus the light-only routers (#2208)."""
     from app.main import app
 
-    return checker.collect_mounted_routes(app)
+    return checker.collect_mounted_routes(app) | checker.collect_light_only_routes()
 
 
 def test_the_scan_found_both_operands() -> None:
@@ -107,3 +108,17 @@ def test_every_frontend_call_reaches_a_route() -> None:
     unserved = checker.find_unserved(checker.collect_frontend_calls(_ENDPOINT_DIR), _mounted_routes())
 
     assert not unserved, "frontend calls no backend route serves: " + "; ".join(call.describe() for call in unserved)
+
+
+def test_the_light_only_routes_join_the_served_side() -> None:
+    """``/public/ai/*`` is mounted in light mode only; the frontend calls it there.
+
+    Without the light-only side the full-mode import would report the light-mode
+    knowledge question as a dead control.
+    """
+    from app.main import app
+
+    light_only = checker.collect_light_only_routes()
+
+    assert ("POST", "/api/v1/public/ai/ask") in light_only
+    assert ("POST", "/api/v1/public/ai/ask") not in checker.collect_mounted_routes(app)

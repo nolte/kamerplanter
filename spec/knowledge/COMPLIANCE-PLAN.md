@@ -37,7 +37,7 @@ Antworten des /ask-Endpoints werden nicht als KI-generiert gekennzeichnet.
 
 **Backend:**
 - `src/backend/app/api/v1/knowledge/schemas.py`: `disclaimers`-Feld in `KnowledgeAskResponse`
-- `src/backend/app/api/v1/knowledge/router.py`: Durchreichen
+- `src/backend/app/api/v1/ki_assistent/tenant_router.py` (`ask_knowledge`, `POST /t/{slug}/ai/knowledge/ask`, seit #2175): Durchreichen
 
 **Frontend:**
 - `src/frontend/src/i18n/locales/de/translation.json`: i18n-Key `pages.knowledge.disclaimerAi`
@@ -58,7 +58,7 @@ Antworten des /ask-Endpoints werden nicht als KI-generiert gekennzeichnet.
 ### Aenderungen
 
 - `src/backend/app/config/settings.py`: Neuer Wert `rate_limit_knowledge_ask: str = "10/minute"`
-- `src/backend/app/api/v1/knowledge/router.py`: `@limiter.limit()` Dekorator auf `ask_knowledge()`
+- `src/backend/app/api/v1/ki_assistent/tenant_router.py`: `@limiter.limit()` Dekorator auf `ask_knowledge()` (Stand: umgesetzt mit `rate_limit_inference` und `user_rate_limit_key`, #2110; Route seit #2175 tenant-scoped)
 - Eigene `key_func` die `request.state.user.key` extrahiert (statt IP)
 
 ### Hinweis

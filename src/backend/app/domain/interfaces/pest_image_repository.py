@@ -22,12 +22,12 @@ class IPestImageRepository(ABC):
         """Persist a new contribution and return it with its assigned key."""
 
     @abstractmethod
-    def get(self, key: str, tenant_key: str) -> PestImageContribution | None:
+    def get(self, key: str, *, tenant_key: str) -> PestImageContribution | None:
         """Return the contribution in ``tenant_key``, or ``None`` if absent/foreign."""
 
     @abstractmethod
     def list_for_pest(
-        self, tenant_key: str, pest_key: str, *, include_inactive: bool = False
+        self, *, tenant_key: str, pest_key: str, include_inactive: bool = False
     ) -> list[PestImageContribution]:
         """Return the tenant's contributions for a pest, newest first.
 
@@ -37,7 +37,7 @@ class IPestImageRepository(ABC):
         """
 
     @abstractmethod
-    def list_for_tenant(self, tenant_key: str) -> list[PestImageContribution]:
+    def list_for_tenant(self, *, tenant_key: str) -> list[PestImageContribution]:
         """Return all of a tenant's contributions (DSGVO erasure lookup)."""
 
     @abstractmethod

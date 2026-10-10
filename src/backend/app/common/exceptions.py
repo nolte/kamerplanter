@@ -779,9 +779,16 @@ class AttachmentNotFoundError(NotFoundError):
 
 
 class ConsentRequiredError(KamerplanterError):
-    """REQ-029 §5 — processing blocked because a required consent is missing."""
+    """REQ-029 §5 — processing blocked because a required consent is missing.
+
+    ``details[0].purpose`` names the missing purpose key machine-readably, so a
+    client that has to ask for exactly that consent need not parse ``message``
+    (one route can refuse for either of two purposes — the knowledge question,
+    REQ-031 §5.1). Additive: ``field`` stays ``"consent"``.
+    """
 
     def __init__(self, purpose: str) -> None:
+        self.purpose = purpose
         super().__init__(
             message=f"Consent for '{purpose}' is required for this action.",
             error_code="CONSENT_REQUIRED",
@@ -791,6 +798,7 @@ class ConsentRequiredError(KamerplanterError):
                     "field": "consent",
                     "reason": f"Grant consent for '{purpose}' to use this feature.",
                     "code": "CONSENT_REQUIRED",
+                    "purpose": purpose,
                 }
             ],
         )

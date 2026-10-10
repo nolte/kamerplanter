@@ -228,19 +228,17 @@ service:
 ```yaml
 ingress:
   main:
-    enabled: true                   # Standard: deaktiviert
+    enabled: true                   # ohne hosts entsteht kein Ingress
     hosts:
       - host: pflanzen.example.com
         paths:
-          - path: /api
-            pathType: Prefix
-            service:
-              identifier: backend
-          - path: /
+          - path: /              # auch /api: das Frontend-nginx leitet es ans Backend weiter
             pathType: Prefix
             service:
               identifier: frontend
 ```
+
+Leite `/api` nicht direkt auf den Backend-Service: Die NetworkPolicy des Backends lässt nur das Frontend auf Port 8000 zu, und das Frontend-nginx setzt die Upload-Grenze sowie den `X-Forwarded-For`-Eintrag, auf den `TRUSTED_PROXY_HOPS: "1"` abgestimmt ist.
 
 !!! tip "TLS"
     Für HTTPS füge eine `tls`-Sektion hinzu und verwende z.B. cert-manager mit Let's Encrypt:
@@ -259,6 +257,12 @@ ingress:
             hosts:
               - pflanzen.example.com
     ```
+
+#### Upload-Grenze (Request-Body)
+
+Das Frontend-nginx nimmt Request-Bodys bis `storage.maxFileSizeMb` + 1 MiB an (Standard: `26m`). Das zusätzliche MiB deckt die Multipart-Hülle eines Uploads ab: Ein Anhang mit der vollen erlaubten Größe kommt beim Backend an, ein etwas größerer bekommt dort eine verständliche `413`-Antwort, und alles über der Grenze lehnt nginx selbst mit `413` ab. Ohne diese Einstellung lag die Grenze bei nginx' Standard von 1 MiB, und jeder größere Upload scheiterte schon am Proxy.
+
+Das Chart setzt am Ingress `main` dieselbe Grenze als Annotation `nginx.ingress.kubernetes.io/proxy-body-size`, weil ingress-nginx sonst ebenfalls bei 1 MiB abschneidet. Beides folgt `storage.maxFileSizeMb`: Wenn du die Upload-Grenze anhebst, wachsen nginx und Ingress mit. Traefik und Contour/Envoy werten die Annotation nicht aus und setzen von sich aus keine Body-Grenze; dort greift die Grenze des Frontend-nginx, solange `/` und `/api` über das Frontend laufen. Nutzt du einen Ingress unter einem anderen Schlüssel als `main` oder einen eigenen `HTTPProxy`, setze die Grenze dort selbst auf denselben Wert.
 
 ### Valkey (Redis-kompatibler Cache)
 

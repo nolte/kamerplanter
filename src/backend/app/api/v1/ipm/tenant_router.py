@@ -27,6 +27,7 @@ from app.common.dependencies import get_ipm_service, get_pest_image_service
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, NotFoundError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.common.upload_bounds import declared_body_exceeds
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.models.ipm import Inspection, TreatmentApplication
@@ -45,13 +46,6 @@ router = APIRouter(prefix="/ipm", tags=["ipm"], responses=NOT_FOUND_RESPONSE)
 # Chunk size for the bounded streaming upload read (1 MiB) — mirrors the
 # attachment router so an oversized body is never fully buffered (SEC-005).
 _UPLOAD_CHUNK_SIZE = 1024 * 1024
-
-
-def _parse_content_length(request: Request) -> int | None:
-    raw = request.headers.get("content-length")
-    if raw is None or not raw.strip().isdigit():
-        return None
-    return int(raw)
 
 
 async def _read_upload_bounded(file: UploadFile, max_bytes: int) -> bytes:
@@ -292,8 +286,7 @@ async def contribute_pest_image(
 
     # SEC-005 — reject oversized uploads before buffering the body.
     max_bytes = service.attachment_service_max_upload_bytes()
-    content_length = _parse_content_length(request)
-    if content_length is not None and content_length > max_bytes:
+    if declared_body_exceeds(request, max_bytes):
         raise FileTooLargeError(max_bytes)
     data = await _read_upload_bounded(file, max_bytes)
 

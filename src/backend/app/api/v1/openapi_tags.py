@@ -3,7 +3,9 @@
 Every tag used by a router MUST be declared here with a description so the
 generated document carries a complete top-level ``tags`` list
 (spec/project/api-documentation/). ``scripts/export_openapi.py`` fails the
-export when a router uses a tag that is missing from this list.
+export when a router uses a tag that is missing from this list, and
+``tests/unit/guards/test_router_tags_are_declared.py`` enforces the same rule in
+the required guards lane (#2167).
 """
 
 OPENAPI_TAGS: list[dict[str, str]] = [

@@ -41,6 +41,7 @@ from app.common.enums import AttachmentCategory, CaptureDevice
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, KamerplanterError, ValidationError
 from app.common.openapi_responses import CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
+from app.common.upload_bounds import declared_body_exceeds
 from app.config.settings import settings
 from app.core.permissions import Action
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
@@ -52,14 +53,6 @@ router = APIRouter(prefix="/attachments", tags=["attachments"], responses=CRUD_R
 
 # Chunk size for the bounded streaming upload read (1 MiB).
 _UPLOAD_CHUNK_SIZE = 1024 * 1024
-
-
-def _parse_content_length(request: Request) -> int | None:
-    """Return the request ``Content-Length`` as an int, or ``None`` if absent/invalid."""
-    raw = request.headers.get("content-length")
-    if raw is None or not raw.strip().isdigit():
-        return None
-    return int(raw)
 
 
 async def _read_upload_bounded(file: UploadFile, max_bytes: int) -> bytes:
@@ -146,8 +139,7 @@ async def upload_attachment(
 
     # SEC-005 — reject oversized uploads before reading the body into memory.
     max_bytes = service.max_upload_bytes()
-    content_length = _parse_content_length(request)
-    if content_length is not None and content_length > max_bytes:
+    if declared_body_exceeds(request, max_bytes):
         raise FileTooLargeError(max_bytes)
     # Defense in depth: stream the body in bounded chunks so a missing/forged
     # Content-Length cannot force the whole file into RAM before the size check.

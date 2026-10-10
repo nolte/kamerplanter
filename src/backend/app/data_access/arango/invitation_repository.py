@@ -13,6 +13,10 @@ from app.domain.models.invitation import Invitation
 
 class ArangoInvitationRepository(BaseArangoRepository[Invitation], IInvitationRepository):
     _model_cls = Invitation
+    #: Every invitation belongs to the tenant it invites into. The token and
+    #: pending-email probes read by other keys on purpose and are hand-written;
+    #: only the base list reads are gated (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.INVITATIONS)

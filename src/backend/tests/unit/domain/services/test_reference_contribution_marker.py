@@ -19,7 +19,6 @@ report "nothing to delete" and says what to configure instead. What is pinned:
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -28,8 +27,11 @@ from app.common import dependencies
 from app.common.exceptions import FeatureNotConfiguredError
 from app.config.settings import settings
 from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
+from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.services.reference_image_service import ReferenceImageService
+from tests.support.fake_consent_repo import GrantAllConsentRepo
 from tests.support.fake_contribution_marker import FakeContributionMarker
+from tests.support.fake_species_repo import FakeSpeciesRepo
 
 SINCE = datetime(2026, 9, 1, tzinfo=UTC)
 
@@ -55,8 +57,8 @@ def _contribution_service(marker, calls: list[str]) -> ReferenceImageService:
         return {"status": "ok", "dim": 4}
 
     inference.upsert_reference.side_effect = _upsert
-    species_repo = MagicMock()
-    species_repo.get_or_raise.return_value = SimpleNamespace(key="sp", scientific_name="Genus species")
+    species_repo = FakeSpeciesRepo()
+    species_repo.add("sp", "Genus species")
     if marker is not None:
         original = marker.record_reference_contributions
 
@@ -74,6 +76,9 @@ def _contribution_service(marker, calls: list[str]) -> ReferenceImageService:
         rate_limiter=MagicMock(),
         identification_engine=IdentificationEngine(species_repo=MagicMock(), identification_repo=MagicMock()),
         contribution_marker=marker,
+        # #2174 — the contribution path reads the reference_contribution opt-in.
+        consent_repo=GrantAllConsentRepo(),
+        consent_engine=ConsentEngine(),
     )
 
 

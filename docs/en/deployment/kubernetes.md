@@ -33,8 +33,7 @@ flowchart TB
         end
     end
 
-    ING -->|"/api/*"| BE
-    ING -->|"/"| FE
+    ING -->|"/ and /api/*"| FE
     BE --> DB
     BE --> VK
     FE -->|"proxy /api"| BE
@@ -201,11 +200,7 @@ ingress:
     hosts:
       - host: plants.example.com    # (6)!
         paths:
-          - path: /api
-            pathType: Prefix
-            service:
-              identifier: backend
-          - path: /
+          - path: /              # /api too: the frontend nginx proxies it to the backend
             pathType: Prefix
             service:
               identifier: frontend
