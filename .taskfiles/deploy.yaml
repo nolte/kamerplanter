@@ -73,6 +73,20 @@ tasks:
       - helm dependency build helm/kamerplanter
       - ./scripts/ci/assert_chart_contracts.sh helm/kamerplanter
 
+  verify:proxy-body-limit:
+    desc: |
+      #2144 (G-10) — run the image's and the chart's nginx configuration in the
+      production nginx image and probe the edge body limit (the largest upload
+      is forwarded, 30 MiB answers 413). The same script the skaffold-verify CI
+      job runs. Needs docker, helm and mikefarah yq v4; builds the chart
+      dependencies first. NGINX_IMAGE overrides the pinned image (e.g. a cached
+      tag when the digest cannot be pulled).
+    cmds:
+      - helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/ --force-update
+      - helm repo add ollama https://otwld.github.io/ollama-helm/ --force-update
+      - helm dependency build helm/kamerplanter
+      - ./scripts/ci/probe_proxy_body_limit.sh helm/kamerplanter
+
   security:nuclei:validate:
     desc: |
       Validate the project-specific Nuclei templates — the
