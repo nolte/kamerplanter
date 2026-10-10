@@ -355,8 +355,13 @@ _REVERSE_LOOKUP_LITERAL = re.compile(r"DOCUMENT\(\s*CONCAT\(\s*[\"']([a-z_][a-z_
 #: this number exists to record. 2026-10-04 (#2102): 102 -> 103 with no new method —
 #: the derivation began counting a traversal's vertex collection as touched, so
 #: three existing grant checks (``is_granted``, ``is_granted_to``,
-#: ``is_cultivar_granted_to``) became subject reads.
-POSITIONAL_TENANT_COUNT = 103
+#: ``is_cultivar_granted_to``) became subject reads. 2026-10-10 (#2119, MT-023): 103 -> 92 —
+#: eleven reads of the user-data repositories that took ``is_tenant_scoped`` now take
+#: the tenant keyword-only (identification ``get``/``list_for_user``, pest detection
+#: ``get``/``list_for_plant``, pest image ``get``/``list_for_pest``/``list_for_tenant``,
+#: calendar feed ``list_by_user``, notification ``exists_by_group_key``/
+#: ``list_by_group_key``/``find_notified_user_keys``).
+POSITIONAL_TENANT_COUNT = 92
 
 #: Anti-vacuity floors, a margin below the measured 2026-09-24 inventory (see
 #: :class:`TestTheInventoryIsNotVacuous` for the printed counts).

@@ -265,7 +265,7 @@ class IdentificationEngine:
             NotFoundError: request does not exist in this tenant.
             ValidationError: rank is out of range.
         """
-        request = self._identification_repo.get(request_key, tenant_key)
+        request = self._identification_repo.get(request_key, tenant_key=tenant_key)
         if request is None:
             raise NotFoundError("IdentificationRequest", request_key)
 
