@@ -30,6 +30,7 @@ import ScheduledTenantDeletionsCard from '@/components/tenants/ScheduledTenantDe
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { useStepUpResume } from '@/hooks/useStepUpReauth';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
+import { INVITATION_MAX_USES_LIMIT } from '@/api/types';
 import type { Membership, Invitation, InvitationCreated } from '@/api/types';
 
 /**
@@ -41,6 +42,15 @@ interface ShareableInvitation {
   url: string;
   /** When the invitation expires (the backend's `expires_at`) — shown, never assumed. */
   expiresAt: string;
+  /** How many accounts may join with it (#2182) — the backend's answer, `1` for an e-mail invitation. */
+  maxUses: number;
+}
+
+/** `max_uses` typed into the link form as a whole number within its bounds, else `null` (REQ-024 AK-07). */
+function parseMaxUses(raw: string): number | null {
+  if (!/^\d+$/.test(raw.trim())) return null;
+  const value = Number(raw.trim());
+  return value >= 1 && value <= INVITATION_MAX_USES_LIMIT ? value : null;
 }
 
 export default function TenantSettingsPage() {
@@ -58,6 +68,9 @@ export default function TenantSettingsPage() {
   const [members, setMembers] = useState<Membership[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
+  // #2182 (REQ-024 AK-07) — how many people one link admits; kept as typed so an empty field can be edited.
+  const [linkMaxUses, setLinkMaxUses] = useState('1');
+  const maxUses = parseMaxUses(linkMaxUses);
   const [shareable, setShareable] = useState<ShareableInvitation | null>(null);
   // #2162 review S5 — one invitation request at a time: a double click would send two mails.
   const [submitting, setSubmitting] = useState(false);
@@ -133,17 +146,17 @@ export default function TenantSettingsPage() {
       enqueueSnackbar(t('pages.tenants.invitationSent'), { variant: 'success' });
     } else {
       // The warning panel carries the message (review S2): no second, vanishing copy of it.
-      setShareable({ kind: 'notDelivered', url: result.accept_url, expiresAt: result.expires_at });
+      setShareable({ kind: 'notDelivered', url: result.accept_url, expiresAt: result.expires_at, maxUses: 1 });
     }
   };
 
   // #2162 — the link copied is the accept page's link, not the bare token nobody could use.
   const handleCreateLink = async () => {
-    if (!slug || submitting) return;
+    if (!slug || submitting || maxUses === null) return;
     let result: InvitationCreated;
     setSubmitting(true);
     try {
-      result = await tenantApi.createLinkInvitation(slug, { role: 'viewer' });
+      result = await tenantApi.createLinkInvitation(slug, { role: 'viewer', max_uses: maxUses });
     } catch (err) {
       enqueueSnackbar(parseApiError(err), { variant: 'error' });
       return;
@@ -151,7 +164,12 @@ export default function TenantSettingsPage() {
       setSubmitting(false);
     }
     void loadInvitations();
-    setShareable({ kind: 'link', url: result.accept_url, expiresAt: result.expires_at });
+    setShareable({
+      kind: 'link',
+      url: result.accept_url,
+      expiresAt: result.expires_at,
+      maxUses: result.max_uses,
+    });
     const copied = await copyToClipboard(result.accept_url);
     enqueueSnackbar(t(copied ? 'pages.tenants.linkCopied' : 'pages.tenants.linkCopyFailed'), {
       variant: copied ? 'success' : 'info',
@@ -238,6 +256,29 @@ export default function TenantSettingsPage() {
     return cols;
   }, [isAdmin, t]);
 
+  // #2182 review SCR-001 — one revoke control for the table row and the mobile card, so both
+  // layouts keep the `revoke-invitation-<key>` hook and the same accessible name.
+  const renderRevokeInvitation = useCallback(
+    (r: Invitation) =>
+      r.status === 'pending' ? (
+        <Tooltip title={t('pages.tenants.revokeInvitation')}>
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRevokeInvitation(r.key);
+            }}
+            aria-label={t('pages.tenants.revokeInvitation')}
+            data-testid={`revoke-invitation-${r.key}`}
+            sx={{ minWidth: 44, minHeight: 44 }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      ) : null,
+    [t, handleRevokeInvitation],
+  );
+
   const invitationColumns: Column<Invitation>[] = useMemo(
     () => [
       {
@@ -271,30 +312,26 @@ export default function TenantSettingsPage() {
         searchValue: (r) => t(`enums.invitationStatus.${r.status}`),
       },
       {
+        // #2182 (REQ-024 AK-07) — a link may admit several people: uses consumed / uses granted.
+        id: 'uses',
+        label: t('pages.tenants.invitationUses'),
+        render: (r) => (
+          <Typography variant="body2" data-testid={`invitation-uses-${r.key}`}>
+            {t('pages.tenants.invitationUsesValue', { used: r.use_count, max: r.max_uses })}
+          </Typography>
+        ),
+        searchable: false,
+      },
+      {
         id: 'actions',
         label: t('common.actions'),
         align: 'right',
         sortable: false,
         searchable: false,
-        render: (r) =>
-          r.status === 'pending' ? (
-            <Tooltip title={t('pages.tenants.revokeInvitation')}>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRevokeInvitation(r.key);
-                }}
-                aria-label={t('pages.tenants.revokeInvitation')}
-                data-testid={`revoke-invitation-${r.key}`}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          ) : null,
+        render: renderRevokeInvitation,
       },
     ],
-    [t, handleRevokeInvitation],
+    [t, renderRevokeInvitation],
   );
 
   // #2166 — a garden whose deletion is scheduled resolves for nobody, so it can never be the
@@ -381,7 +418,9 @@ export default function TenantSettingsPage() {
                 display: 'flex',
                 gap: 1,
                 mb: 3,
-                flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                // #2182 review SCR-007 — four controls share the row: one line only from `md`;
+                // below that the e-mail field takes the first line and the link controls wrap.
+                flexWrap: { xs: 'wrap', md: 'nowrap' },
                 alignItems: 'flex-start',
               }}
             >
@@ -408,11 +447,23 @@ export default function TenantSettingsPage() {
               >
                 {t('pages.tenants.sendInvitation')}
               </Button>
+              <TextField
+                size="small"
+                type="number"
+                label={t('pages.tenants.linkMaxUses')}
+                value={linkMaxUses}
+                onChange={(e) => setLinkMaxUses(e.target.value)}
+                error={maxUses === null}
+                helperText={t('pages.tenants.linkMaxUsesHelper', { max: INVITATION_MAX_USES_LIMIT })}
+                sx={{ flex: '0 1 200px', minWidth: 140 }}
+                slotProps={{ htmlInput: { min: 1, max: INVITATION_MAX_USES_LIMIT, step: 1, inputMode: 'numeric' } }}
+                data-testid="form-field-link-max-uses"
+              />
               <Button
                 variant="outlined"
                 size="small"
                 onClick={handleCreateLink}
-                disabled={submitting}
+                disabled={submitting || maxUses === null}
                 startIcon={<LinkIcon />}
                 data-testid="create-link-btn"
                 sx={{ flexShrink: 0, minHeight: 44 }}
@@ -435,7 +486,10 @@ export default function TenantSettingsPage() {
                     shareable.kind === 'notDelivered'
                       ? 'pages.tenants.invitationNotDeliveredHint'
                       : 'pages.tenants.invitationLinkHint',
-                    { date: new Date(shareable.expiresAt).toLocaleDateString(i18n.language) },
+                    {
+                      date: new Date(shareable.expiresAt).toLocaleDateString(i18n.language),
+                      count: shareable.maxUses,
+                    },
                   )}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
@@ -469,6 +523,48 @@ export default function TenantSettingsPage() {
               variant="simple"
               ariaLabel={t('pages.tenants.tabInvitations')}
               emptyMessage={t('pages.tenants.noInvitations')}
+              // #2182 review SCR-001 — below `sm` the five-column table becomes cards: type, role and
+              // status as keyed chips, the uses as the subtitle, the revoke control as trailing.
+              mobileCardRenderer={(r) => (
+                <MobileCard
+                  title={r.email ?? t('pages.tenants.invitationAcceptLink')}
+                  subtitle={
+                    <span data-testid={`invitation-uses-${r.key}`}>
+                      {t('pages.tenants.invitationUsesSubtitle', { used: r.use_count, max: r.max_uses })}
+                    </span>
+                  }
+                  subtitleId="uses"
+                  chips={[
+                    {
+                      id: 'invitation_type',
+                      content: (
+                        <Chip
+                          label={t(`enums.invitationType.${r.invitation_type}`, {
+                            defaultValue: r.invitation_type,
+                          })}
+                          size="small"
+                          variant="outlined"
+                        />
+                      ),
+                    },
+                    {
+                      id: 'role',
+                      content: <Chip label={t(`enums.tenantRole.${r.role}`)} size="small" />,
+                    },
+                    {
+                      id: 'status',
+                      content: (
+                        <Chip
+                          label={t(`enums.invitationStatus.${r.status}`)}
+                          size="small"
+                          color={r.status === 'pending' ? 'warning' : 'default'}
+                        />
+                      ),
+                    },
+                  ]}
+                  trailing={renderRevokeInvitation(r) ?? undefined}
+                />
+              )}
             />
           </CardContent>
         </Card>

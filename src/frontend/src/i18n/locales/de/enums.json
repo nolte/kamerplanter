@@ -877,6 +877,10 @@
       "orphaned": "Verwaist",
       "deleted": "Wird gelöscht"
     },
+    "invitationType": {
+      "email": "E-Mail",
+      "link": "Link"
+    },
     "invitationStatus": {
       "pending": "Ausstehend",
       "accepted": "Angenommen",

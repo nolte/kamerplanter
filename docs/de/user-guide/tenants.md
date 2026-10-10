@@ -111,19 +111,24 @@ Kamerplanter schickt der Adresse eine E-Mail mit einem Link zur Annahme-Seite; e
 
 ### Methode 2: Einladungslink
 
-1. Navigiere zu **Einstellungen** > **Mitglieder** > **Einladungslink generieren**
-2. Stelle optional ein:
-    - Maximale Anzahl Nutzungen (z.B. 20)
-    - Ablaufdatum (z.B. in 30 Tagen)
-    - Rolle, die neue Mitglieder erhalten
-3. Kopiere den Link und teile ihn (WhatsApp, Aushang, E-Mail-Verteiler)
+1. Navigiere zu **Einstellungen** > Tab **Einladungen**
+2. Trage unter **Personen pro Link** ein, wie viele Personen mit dem Link beitreten können (1 bis 100, voreingestellt 1)
+3. Klicke auf **Einladungslink** — der Link wird in die Zwischenablage kopiert und zum erneuten Kopieren angezeigt
+4. Teile ihn (WhatsApp, Aushang, E-Mail-Verteiler)
+
+Der Link vergibt die Rolle **Beobachter** und gilt 7 Tage. Jedes angemeldete Konto, das ihn öffnet und **Einladung annehmen** bestätigt, wird Mitglied, bis die Nutzungen verbraucht sind; in der Liste der Einladungen siehst du unter **Genutzt**, wie viele es schon waren (z. B. „3 von 20“). Dasselbe Konto kann einen Link nur einmal nutzen. Solange dein Tenant gesperrt, verwaist oder zur Löschung vorgemerkt ist, kann niemand eine Einladung annehmen; ist er wieder aktiv, gilt sie bis zu ihrem Ablauf weiter. <!-- Issue #2182, REQ-024 AK-07 -->
 
 !!! tip "Ideal für große Gruppen"
-    Der Einladungslink ist besonders praktisch für Gemeinschaftsgärten: Hänge ihn am Gartentor aus oder verschicke ihn im Vereins-Newsletter. Jeder mit dem Link kann beitreten, bis das Limit erreicht ist.
+    Der Einladungslink ist besonders praktisch für Gemeinschaftsgärten: Hänge ihn am Gartentor aus oder verschicke ihn im Vereins-Newsletter. Stell die Personenzahl so ein, wie viele du erwartest — wer den Link später noch hat, kann danach nicht mehr beitreten. Jede Nutzung zählt außerdem gegen das Mitgliederlimit deines Tenants: Ist er voll, wird niemand mehr aufgenommen, auch wenn der Link noch Nutzungen übrig hat.
+
+!!! warning "Noch nicht implementiert"
+    Ein eigenes Ablaufdatum und die Rolle, die neue Mitglieder erhalten, kannst du beim Einladungslink in der Oberfläche nicht wählen: Er gilt immer 7 Tage und vergibt **Beobachter**. Eine andere Rolle gibst du dem Mitglied nach dem Beitritt unter [Rollen ändern](#rollen-andern). <!-- REQ-024 §1 Einladungssystem -->
 
 ### Methode 3: OIDC (OpenID Connect) Auto-Join
 
-Für Vereine und Organisationen mit eigenem Identity Provider (Keycloak, etc.) kann die OIDC-Integration so konfiguriert werden, dass neue Nutzer automatisch dem Tenant beitreten. Dies richtet der Plattform-Administrator ein.
+Für Vereine und Organisationen mit eigenem Identity Provider (Keycloak etc.) kann die Plattform-Administration beim Anmeldeanbieter einen **Standard-Mandanten** hinterlegen (siehe [Plattform-Admin](admin.md)). Wer sich dann zum **ersten Mal** über diesen Anbieter anmeldet und dabei ein neues Konto bekommt, tritt deinem Tenant automatisch als **Beobachter** bei — zusätzlich zu seinem persönlichen Garten. Eine andere Rolle oder eine Zusatzberechtigung gibst du dem Mitglied danach selbst. <!-- Issue #2182, REQ-024 AK-09 -->
+
+Wer schon ein Konto hat und den Anbieter nur verknüpft, tritt nicht automatisch bei — lade diese Personen wie gewohnt ein. Ist dein Tenant voll, gesperrt oder in Löschung, oder hat der Anbieter die E-Mail-Adresse der Person nicht bestätigt, wird der Beitritt still übersprungen; die Anmeldung selbst klappt trotzdem. Einen Standard-Mandanten gibt es nur bei einem eigenen OIDC-Anbieter, nicht bei Google, GitHub oder Apple — dort kann sich jede Person ein Konto anlegen.
 
 ---
 
@@ -221,8 +226,7 @@ Mit der Zusatzberechtigung **Verwaltung** erreichst du alle Einstellungen unter 
 |-------------|-------------|
 | **Name & Slug** | Anzeigename und URL-Kurzname |
 | **Stammdaten-Zuweisung** | Welche globalen Pflanzenarten sind sichtbar |
-| **Einladungseinstellungen** | Standard-Rolle für neue Mitglieder |
-| **OIDC-Konfiguration** | Auto-Join über externen Identity Provider |
+| **Einladungen** | E-Mail-Einladungen und Einladungslinks (Tab **Einladungen**, siehe [Mitglieder einladen](#mitglieder-einladen)) |
 
 !!! warning "Slug ändern bricht URLs"
     Wenn du den Slug änderst, ändern sich alle URLs innerhalb des Tenants. Lesezeichen und geteilte Links werden ungültig. Ändere den Slug nur, wenn nötig.
