@@ -129,6 +129,7 @@ Changes not yet published in a release.
 - Care reminders: completing a due watering task creates the follow-up task immediately — previously it only appeared with the nightly planning run
 - Care reminders: a confirmation now only closes care tasks that are due today or earlier; a follow-up task already scheduled is left in place
 - Tenancy (hardening, issue #2119): every repository whose records belong to a garden now decides its tenant binding explicitly. Twelve more — attachments, plant diary, notifications, calendar feeds, pest detections, pest images, plant identifications, AI providers, invitations, memberships, location assignments and erasure records — refuse a list query without a garden instead of returning every garden's rows. Species, substrates and activities stay deliberately exempt (global catalogue plus your own entries) and state their reason; the guard `test_tenant_bearing_repositories_declare_their_scope` holds this. Nothing changes for you.
+- Calendar feeds (issue #2119): editing a calendar feed (name, filters, active) keeps it assigned to your garden and your account — before, saving dropped that assignment, the feed vanished from your feed list and could no longer be opened. Edit, delete and token renewal now check ownership themselves and answer "not found" for another garden's feed.
 
 ### Deployment (Helm)
 

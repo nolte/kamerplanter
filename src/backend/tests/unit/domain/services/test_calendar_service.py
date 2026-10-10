@@ -45,14 +45,14 @@ class TestGetFeed:
         feed.key = "f1"
         mock_repo.get_by_key.return_value = feed
 
-        result = service.get_feed("f1")
+        result = service.get_feed("f1", tenant_key="t1")
         assert result.name == "Feed"
 
     def test_not_found(self, service, mock_repo):
         mock_repo.get_by_key.return_value = None
 
         with pytest.raises(NotFoundError):
-            service.get_feed("missing")
+            service.get_feed("missing", tenant_key="t1")
 
 
 class TestUpdateFeed:
@@ -68,7 +68,7 @@ class TestUpdateFeed:
         mock_repo.update.return_value = existing
 
         updated = CalendarFeed(name="New", tenant_key="t1", user_key="u1")
-        service.update_feed("f1", updated)
+        service.update_feed("f1", updated, tenant_key="t1")
 
         call_args = mock_repo.update.call_args
         assert call_args[0][1].token == "secret123"
@@ -86,7 +86,7 @@ class TestRegenerateToken:
         mock_repo.get_by_key.return_value = feed
         mock_repo.update.return_value = feed
 
-        service.regenerate_token("f1")
+        service.regenerate_token("f1", tenant_key="t1")
 
         call_args = mock_repo.update.call_args
         new_token = call_args[0][1].token
@@ -101,13 +101,13 @@ class TestDeleteFeed:
         mock_repo.get_by_key.return_value = feed
         mock_repo.delete.return_value = True
 
-        assert service.delete_feed("f1") is True
+        assert service.delete_feed("f1", tenant_key="t1") is True
 
     def test_delete_not_found(self, service, mock_repo):
         mock_repo.get_by_key.return_value = None
 
         with pytest.raises(NotFoundError):
-            service.delete_feed("missing")
+            service.delete_feed("missing", tenant_key="t1")
 
 
 class TestGenerateIcalForFeed:

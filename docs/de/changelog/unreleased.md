@@ -129,6 +129,7 @@
 - Pflegeerinnerungen: Das Abschließen einer fälligen Gieß-Aufgabe legt die Folgeaufgabe unmittelbar an — zuvor entstand sie erst beim nächtlichen Planungslauf
 - Pflegeerinnerungen: Eine Bestätigung schließt nur noch Pflegeaufgaben, die heute oder früher fällig sind; eine bereits eingeplante Folgeaufgabe bleibt erhalten
 - Mandanten (Härtung, Issue #2119): Jedes Repository, dessen Datensätze einem Garten gehören, entscheidet jetzt ausdrücklich über seine Mandantenbindung. Zwölf weitere — Anhänge, Pflanzentagebuch, Benachrichtigungen, Kalender-Feeds, Schädlingserkennungen, Schädlingsbilder, Pflanzenerkennungen, KI-Anbieter, Einladungen, Mitgliedschaften, Standort-Zuweisungen und Löschprotokolle — lehnen eine Listenabfrage ohne Garten ab, statt die Zeilen aller Gärten zu liefern. Arten, Substrate und Aktivitäten bleiben bewusst ausgenommen (globaler Katalog plus eigene Einträge) und nennen ihren Grund; der Guard `test_tenant_bearing_repositories_declare_their_scope` hält das fest. Für dich ändert sich nichts.
+- Kalender-Feeds (Issue #2119): Bearbeitest du einen Kalender-Feed (Name, Filter, aktiv), bleibt er deinem Garten und deinem Konto zugeordnet — vorher verlor er beim Speichern seine Zuordnung, verschwand aus deiner Feed-Liste und ließ sich nicht mehr öffnen. Bearbeiten, Löschen und Token-Erneuern prüfen den Besitz jetzt selbst und antworten bei einem fremden Feed mit „nicht gefunden“.
 
 ### Deployment (Helm)
 

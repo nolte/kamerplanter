@@ -116,26 +116,38 @@ class CalendarService:
         feed.token = secrets.token_urlsafe(32)
         return self._feed_repo.save(feed)
 
-    def get_feed(self, key: str, tenant_key: str = "") -> CalendarFeed:
+    def get_feed(self, key: str, *, tenant_key: str) -> CalendarFeed:
+        """The feed ``key`` of ``tenant_key``, or 404 — never skipped, whoever calls (#2119).
+
+        Fails closed: a foreign feed and any feed for an empty ``tenant_key`` answer
+        alike. The only tenant-less way to a feed is the public iCal URL, which
+        authenticates by the feed token in :meth:`generate_ical_for_feed`.
+        """
         feed = self._feed_repo.get_or_raise(key)
-        if tenant_key:
-            verify_tenant_ownership(feed, tenant_key, "CalendarFeed")
+        verify_tenant_ownership(feed, tenant_key, "CalendarFeed")
         return feed
 
     def list_feeds(self, user_key: str, tenant_key: str) -> list[CalendarFeed]:
         return self._feed_repo.list_by_user(user_key, tenant_key=tenant_key)
 
-    def update_feed(self, key: str, feed: CalendarFeed) -> CalendarFeed:
-        existing = self.get_feed(key)
+    def update_feed(self, key: str, feed: CalendarFeed, *, tenant_key: str) -> CalendarFeed:
+        """Replace name, filters and state of an owned feed; owner, token and expiry stay."""
+        existing = self.get_feed(key, tenant_key=tenant_key)
+        # The request builds a fresh model without owner fields; written as-is it
+        # would blank tenant_key/user_key and drop the feed from its owner's list.
+        feed.tenant_key = existing.tenant_key
+        feed.user_key = existing.user_key
         feed.token = existing.token
+        feed.expires_at = existing.expires_at
+        feed.created_at = existing.created_at
         return self._feed_repo.update(key, feed)
 
-    def delete_feed(self, key: str) -> bool:
-        self.get_feed(key)
+    def delete_feed(self, key: str, *, tenant_key: str) -> bool:
+        self.get_feed(key, tenant_key=tenant_key)
         return self._feed_repo.delete(key)
 
-    def regenerate_token(self, key: str) -> CalendarFeed:
-        feed = self.get_feed(key)
+    def regenerate_token(self, key: str, *, tenant_key: str) -> CalendarFeed:
+        feed = self.get_feed(key, tenant_key=tenant_key)
         feed.token = secrets.token_urlsafe(32)
         return self._feed_repo.update(key, feed)
 
