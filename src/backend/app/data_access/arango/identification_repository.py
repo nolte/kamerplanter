@@ -12,11 +12,14 @@ class ArangoIdentificationRepository(BaseArangoRepository[IdentificationRequest]
     """ArangoDB-backed repository for ``identification_requests``."""
 
     _model_cls = IdentificationRequest
+    #: Every row belongs to exactly one tenant; a base list read without a
+    #: ``tenant_key`` (or an explicit ``all_tenants=True``) raises (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.IDENTIFICATION_REQUESTS)
 
-    def get(self, key: str, tenant_key: str) -> IdentificationRequest | None:
+    def get(self, key: str, *, tenant_key: str) -> IdentificationRequest | None:
         request = super().get_by_key(key)
         if request is None or request.tenant_key != tenant_key:
             return None
@@ -86,6 +89,7 @@ class ArangoIdentificationRepository(BaseArangoRepository[IdentificationRequest]
 
     def list_for_user(
         self,
+        *,
         tenant_key: str,
         user_key: str,
         limit: int = 20,

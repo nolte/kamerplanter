@@ -48,7 +48,6 @@ _KNOWN_DEAD: frozenset[tuple[str, str]] = frozenset(
         ("ArangoIrrigationDemandRepository", "get_latest_for_site"),
         ("ArangoLocationAssignmentRepository", "list_by_membership"),
         ("ArangoMcpAuditRepository", "list_for_user_accounts"),
-        ("ArangoNotificationRepository", "exists_by_group_key"),
         ("ArangoNutrientPlanRepository", "get_phase_entry_by_key"),
         ("ArangoOverwinteringProfileTemplateRepository", "count_subjects"),
         ("ArangoPostHarvestRepository", "list_burping_events"),

@@ -110,6 +110,9 @@ class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDi
     """ArangoDB implementation for plant diary entries."""
 
     _model_cls = PlantDiaryEntry
+    #: Every row belongs to exactly one tenant; a base list read without a
+    #: ``tenant_key`` (or an explicit ``all_tenants=True``) raises (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.PLANT_DIARY_ENTRIES)

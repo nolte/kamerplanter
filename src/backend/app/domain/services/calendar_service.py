@@ -123,7 +123,7 @@ class CalendarService:
         return feed
 
     def list_feeds(self, user_key: str, tenant_key: str) -> list[CalendarFeed]:
-        return self._feed_repo.list_by_user(user_key, tenant_key)
+        return self._feed_repo.list_by_user(user_key, tenant_key=tenant_key)
 
     def update_feed(self, key: str, feed: CalendarFeed) -> CalendarFeed:
         existing = self.get_feed(key)
