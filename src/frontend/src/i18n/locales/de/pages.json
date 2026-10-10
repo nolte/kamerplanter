@@ -1185,7 +1185,17 @@
       "invitationConfirmTitle": "Du wurdest in einen Garten eingeladen",
       "invitationConfirmHint": "Mit „Einladung annehmen“ wirst du mit dem Konto Mitglied, mit dem du gerade angemeldet bist.",
       "invitationAccept": "Einladung annehmen",
-      "invitationAskForNew": "Bitte die einladende Person um eine neue Einladung."
+      "invitationAskForNew": "Bitte die einladende Person um eine neue Einladung.",
+      "scheduledDeletionsTitle": "Zur Löschung vorgemerkte Gärten",
+      "scheduledDeletionsIntro": "Diese Gärten sind gesperrt und tauchen deshalb nicht in der Gartenauswahl auf. Bis zum genannten Datum kann eine Leitung mit Verwaltungsrecht die Löschung noch abbrechen – danach werden alle Daten des Gartens endgültig entfernt.",
+      "scheduledDeletionPendingInfo": "Wird am {{date}} mit allen Daten gelöscht. Bis dahin kannst du deine eigenen Daten über den Datenexport sichern.",
+      "scheduledDeletionOrphanedInfo": "Verwaist: Nach einer Kontolöschung kann diesen Garten niemand mehr verwalten. Er wird am {{date}} mit allen Daten gelöscht; diese Löschung lässt sich nicht abbrechen.",
+      "scheduledDeletionManagementOnly": "Abbrechen kann die Löschung nur eine Leitung mit Verwaltungsrecht in diesem Garten.",
+      "cancelScheduledDeletion": "Löschung abbrechen",
+      "cancelScheduledDeletionTitle": "Geplante Löschung abbrechen",
+      "cancelScheduledDeletionDescription": "„{{name}}“ wird wieder aktiv, alle Mitgliedschaften bleiben, wie sie waren. Bestätige das mit deinem eigenen Passwort.",
+      "scheduledDeletionCancelled": "Löschung abgebrochen: „{{name}}“ ist wieder aktiv",
+      "gardenSettings": "Garten-Einstellungen"
     },
     "dashboard": {
       "title": "Dashboard",

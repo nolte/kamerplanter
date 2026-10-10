@@ -213,6 +213,10 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         never. The ``LIMIT`` follows the user lookup only so the ``SORT`` clause stays
         literal for the timestamp guard; the optimizer moves the lookup below it
         (``move-calculations-down``), so only the window's users are read.
+
+        The projection names every :class:`MemberInfo` field: ``admin_scopes`` has a
+        default, so leaving it out failed nothing and every member reported no scope
+        (#2166). A document from before REQ-049 without the field reads as ``[]``.
         """
         bind_vars: dict[str, Any] = {
             "@memberships": col.MEMBERSHIPS,
@@ -236,6 +240,7 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
             display_name: u.display_name,
             email: u.email,
             role: m.role,
+            admin_scopes: NOT_NULL(m.admin_scopes, []),
             is_active: m.is_active,
             joined_at: m.joined_at
           }}

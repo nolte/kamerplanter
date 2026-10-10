@@ -107,3 +107,9 @@ class TenantWithRole(BaseModel):
     # other; the tenant switcher and every gated action need both.
     admin_scopes: list[AdminScope] = Field(default_factory=list)
     is_active: bool
+    #: Lifecycle state (#2166). ``active`` for every tenant the default listing
+    #: returns; ``pending_deletion`` / ``orphaned`` only when the caller asked for
+    #: the tenants whose deletion is scheduled (their management can cancel it).
+    status: TenantStatus = TenantStatus.ACTIVE
+    #: End of the cancellable grace of a scheduled deletion, ``None`` otherwise.
+    deletion_scheduled_at: datetime | None = None

@@ -32,6 +32,18 @@ describe('tenants endpoints — tenant CRUD', () => {
     expect(client.get).toHaveBeenCalledWith('/tenants');
   });
 
+  it('listMyTenantsWithScheduledDeletion asks for the scheduled deletions too (#2166)', async () => {
+    client.get.mockResolvedValue({ data: [] });
+    await tenants.listMyTenantsWithScheduledDeletion();
+    expect(client.get).toHaveBeenCalledWith('/tenants', { params: { include_scheduled_deletion: true } });
+  });
+
+  it('cancelTenantErasure posts the step-up to the cancel route (#2166)', async () => {
+    client.post.mockResolvedValue({ data: { key: 't1', status: 'active' } });
+    await tenants.cancelTenantErasure('club', { current_password: 'x' });
+    expect(client.post).toHaveBeenCalledWith('/tenants/club/erasure/cancel', { current_password: 'x' });
+  });
+
   it('createOrganization posts to /tenants', async () => {
     client.post.mockResolvedValue({ data: { key: 't1' } });
     const payload = { name: 'Org' } as never;

@@ -1185,7 +1185,17 @@
       "invitationConfirmTitle": "You have been invited to a garden",
       "invitationConfirmHint": "With “Accept invitation” you become a member with the account you are signed in with right now.",
       "invitationAccept": "Accept invitation",
-      "invitationAskForNew": "Please ask the person who invited you for a new invitation."
+      "invitationAskForNew": "Please ask the person who invited you for a new invitation.",
+      "scheduledDeletionsTitle": "Gardens scheduled for deletion",
+      "scheduledDeletionsIntro": "These gardens are closed and therefore missing from the garden switcher. Until the date shown, a lead with the management right can still cancel the deletion — after that, all of the garden’s data is removed for good.",
+      "scheduledDeletionPendingInfo": "Will be deleted with all its data on {{date}}. Until then you can save your own data through the data export.",
+      "scheduledDeletionOrphanedInfo": "Orphaned: after an account deletion nobody can administer this garden any more. It will be deleted with all its data on {{date}}; this deletion cannot be cancelled.",
+      "scheduledDeletionManagementOnly": "Only a lead with the management right in this garden can cancel the deletion.",
+      "cancelScheduledDeletion": "Cancel deletion",
+      "cancelScheduledDeletionTitle": "Cancel the scheduled deletion",
+      "cancelScheduledDeletionDescription": "“{{name}}” becomes active again, every membership stays as it was. Confirm with your own password.",
+      "scheduledDeletionCancelled": "Deletion cancelled: “{{name}}” is active again",
+      "gardenSettings": "Garden settings"
     },
     "dashboard": {
       "title": "Dashboard",

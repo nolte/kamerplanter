@@ -25,6 +25,29 @@ export async function listMyTenants(): Promise<TenantWithRole[]> {
   return res.data;
 }
 
+/**
+ * Every tenant of the account **including** those whose deletion is scheduled (#2166):
+ * `pending_deletion` and `orphaned` tenants come with `status` and `deletion_scheduled_at`.
+ * They resolve for nobody, so this list is for showing them (and offering the cancellation
+ * to their management) — never for the tenant switcher; that one uses {@link listMyTenants}.
+ */
+export async function listMyTenantsWithScheduledDeletion(): Promise<TenantWithRole[]> {
+  const res = await client.get<TenantWithRole[]>(BASE, {
+    params: { include_scheduled_deletion: true },
+  });
+  return res.data;
+}
+
+/**
+ * Cancel the scheduled deletion of a tenant inside its grace (#2123, #2166). Only a lead with
+ * the `management` scope may; the body carries the requester's **own** step-up for the act
+ * `tenant_erasure_cancel`, bound to the tenant's key. Answers the reopened tenant.
+ */
+export async function cancelTenantErasure(slug: string, stepUp: CredentialStepUp): Promise<Tenant> {
+  const res = await client.post<Tenant>(`${BASE}/${slug}/erasure/cancel`, stepUp);
+  return res.data;
+}
+
 export async function createOrganization(data: TenantCreate): Promise<Tenant> {
   const res = await client.post<Tenant>(BASE, data);
   return res.data;

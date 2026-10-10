@@ -26,6 +26,7 @@ import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import { parseApiError } from '@/api/errors';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
+import ScheduledTenantDeletionsCard from '@/components/tenants/ScheduledTenantDeletionsCard';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { useStepUpResume } from '@/hooks/useStepUpReauth';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
@@ -296,11 +297,14 @@ export default function TenantSettingsPage() {
     [t, handleRevokeInvitation],
   );
 
-  if (!activeTenant) return null;
+  // #2166 — a garden whose deletion is scheduled resolves for nobody, so it can never be the
+  // active tenant; the card lists it (and offers its management the cancellation) either way.
+  if (!activeTenant) return <ScheduledTenantDeletionsCard />;
 
   return (
     <Box>
       <PageTitle title={`${activeTenant.name} — ${t('pages.tenants.settings')}`} />
+      <ScheduledTenantDeletionsCard />
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label={t('pages.tenants.tabMembers')} />
         {isAdmin && <Tab label={t('pages.tenants.tabInvitations')} />}
