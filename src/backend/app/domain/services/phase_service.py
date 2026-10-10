@@ -16,8 +16,19 @@ from app.domain.interfaces.plant_instance_repository import IPlantInstanceReposi
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, PhaseHistory, PhaseTransitionRule, RequirementProfile
 from app.domain.models.plant_instance import PlantInstance
+from app.domain.services.fields_kept_on_edit import keep_stored_fields
 
 logger = structlog.get_logger()
+
+#: Growth-phase fields ``PUT /growth-phases/{key}`` does not carry (``PhaseCreate``
+#: lacks them), so :meth:`PhaseService.update_phase` takes them from the stored
+#: phase. The route rebuilds the model from the body, which held
+#: ``is_recurring=False`` and ``kc_source=""``: every edit turned the recurring
+#: productive phase of an indeterminate species into a linear one and dropped the
+#: provenance of its crop coefficient (REQ-037). ``crop_coefficient_kc`` defaults
+#: to ``None`` and survived the merge-mode write; it is listed so the rule does not
+#: hang on that repository mode. The seeds write all three.
+GROWTH_PHASE_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = ("crop_coefficient_kc", "is_recurring", "kc_source")
 
 
 @dataclass(frozen=True)
@@ -227,7 +238,9 @@ class PhaseService:
         return self._repo.create_phase(phase)
 
     def update_phase(self, key: PhaseKey, phase: GrowthPhase) -> GrowthPhase:
-        self.get_phase(key)
+        """Rewrite a growth phase; the fields the edit body lacks keep their stored values."""
+        existing = self.get_phase(key)
+        keep_stored_fields(phase, existing, GROWTH_PHASE_FIELDS_KEPT_ON_EDIT)
         return self._repo.update_phase(key, phase)
 
     def delete_phase(self, key: PhaseKey) -> bool:

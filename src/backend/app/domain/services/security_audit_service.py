@@ -3,7 +3,12 @@
 The one write path: every service function that changes a tenant membership, its
 role or its scopes hands the change here (``TenantService._audit_membership``),
 and ``tests/unit/guards/test_membership_mutations_write_the_security_audit.py``
-holds that for the class. The row keeps the opaque account keys (NFR-011 R-38,
+holds that for the class. A platform admin's change of an account's trust flags
+(``UserService._audit_account``) and every change of a tenant's lifecycle - a
+suspension, a reactivation, an accepted or withdrawn deletion
+(``TenantService._audit_tenant``) - come here too;
+``tests/unit/guards/test_account_and_tenant_mutations_write_the_security_audit.py``
+holds that class. The row keeps the opaque account keys (NFR-011 R-38,
 pseudonymised on an account erasure); the log line beside it carries only the
 salted references (``log_subject`` / ``log_tenant``, #1781).
 
@@ -68,9 +73,7 @@ class SecurityAuditService:
             old_scopes=old_scopes,
             new_scopes=new_scopes,
         )
-        entry.key = self._repo.record(entry)
-        self.announce(entry)
-        return entry
+        return self._write(entry)
 
     @staticmethod
     def membership_entry(
@@ -120,6 +123,55 @@ class SecurityAuditService:
             old_role=entry.old_role,
             new_role=entry.new_role,
         )
+
+    def record_account_change(
+        self,
+        *,
+        action: SecurityAuditAction,
+        via: SecurityAuditVia,
+        actor_user_key: str,
+        target_user_key: str,
+    ) -> SecurityAuditEntry:
+        """Append the row of one change of an account's trust flag (#2111); it names no tenant.
+
+        The action says the before and after (``account_deactivated`` = active -> inactive), so the row
+        carries no value of the account - no address, no name.
+        """
+        return self._write(
+            SecurityAuditEntry(
+                action=action,
+                via=via,
+                actor_user_key=actor_user_key,
+                target_user_key=target_user_key,
+                request_id=_current_request_id(),
+                created_at=datetime.now(UTC),
+            )
+        )
+
+    def record_tenant_change(
+        self,
+        *,
+        action: SecurityAuditAction,
+        via: SecurityAuditVia,
+        actor_user_key: str,
+        tenant_key: str,
+    ) -> SecurityAuditEntry:
+        """Append the row of one change of a whole tenant's lifecycle (#2111); it names no target account."""
+        return self._write(
+            SecurityAuditEntry(
+                action=action,
+                via=via,
+                actor_user_key=actor_user_key,
+                tenant_key=tenant_key,
+                request_id=_current_request_id(),
+                created_at=datetime.now(UTC),
+            )
+        )
+
+    def _write(self, entry: SecurityAuditEntry) -> SecurityAuditEntry:
+        entry.key = self._repo.record(entry)
+        self.announce(entry)
+        return entry
 
     def list_recent(self, *, tenant_key: str | None = None, limit: int = 100) -> list[SecurityAuditEntry]:
         return self._repo.list_recent(tenant_key=tenant_key, limit=max(1, min(limit, MAX_READ_LIMIT)))
