@@ -123,6 +123,12 @@ _PLATFORM_TENANT_KEY = "platform"
 #: only through the erasure itself or :meth:`TenantService.cancel_tenant_erasure` (#2123).
 _TOGGLEABLE_STATUSES = frozenset({TenantStatus.ACTIVE, TenantStatus.SUSPENDED})
 
+#: The states of a tenant whose deletion is scheduled and still inside its grace
+#: (#2123, #2134). ``list_my_tenants(include_scheduled_deletion=True)`` lists them so
+#: their members see the deletion date and their management can cancel a
+#: ``pending_deletion`` one (#2166); an ``orphaned`` one is listed, not cancellable.
+_SCHEDULED_DELETION_STATUSES = frozenset({TenantStatus.PENDING_DELETION, TenantStatus.ORPHANED})
+
 #: Fields of the tenant document no partial update may write: the lifecycle state
 #: moves only through the step-up paths that own it (#2009, #2123).
 _LIFECYCLE_FIELDS = frozenset({"is_active", "status", "deletion_scheduled_at"})
@@ -2212,14 +2218,30 @@ class TenantService:
             )
         return reported
 
-    def list_my_tenants(self, user_key: str) -> list[TenantWithRole]:
+    def list_my_tenants(self, user_key: str, *, include_scheduled_deletion: bool = False) -> list[TenantWithRole]:
+        """The tenants *user_key* is an active member of, with the member's role and scopes.
+
+        By default only tenants that resolve (``tenant.is_active``): this is the list
+        the tenant switcher, ``GET /tenants`` and the MCP authenticator stand on, so a
+        tenant that resolves for nobody must not appear as one to act in (#2105).
+
+        ``include_scheduled_deletion`` adds the tenants whose deletion is scheduled
+        (``pending_deletion``, ``orphaned``) with their ``status`` and
+        ``deletion_scheduled_at`` (#2166): they resolve for nobody, so without this
+        listing their management had no surface from which to cancel the deletion.
+        A listed tenant is information, never an authorization context — the cancel
+        route proves lead + ``management`` from the stored membership itself.
+        Suspended and deleted tenants stay out either way.
+        """
         memberships = self._membership_repo.list_by_user(user_key)
         result: list[TenantWithRole] = []
         for m in memberships:
             if not m.is_active:
                 continue
             tenant = self._tenant_repo.get_by_key(m.tenant_key)
-            if tenant and tenant.is_active:
+            if tenant is None:
+                continue
+            if tenant.is_active or (include_scheduled_deletion and tenant.status in _SCHEDULED_DELETION_STATUSES):
                 result.append(
                     TenantWithRole(
                         key=tenant.key,
@@ -2230,6 +2252,8 @@ class TenantService:
                         role=m.role,
                         admin_scopes=m.admin_scopes,
                         is_active=tenant.is_active,
+                        status=tenant.status,
+                        deletion_scheduled_at=tenant.deletion_scheduled_at,
                     )
                 )
         return result

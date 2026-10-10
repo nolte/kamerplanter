@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Path, Request
+from fastapi import APIRouter, Body, Depends, Path, Query, Request
 
 from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.tenants.schemas import (
@@ -69,10 +69,24 @@ def _tenant_response(t: Tenant) -> TenantResponse:
 
 @router.get("", response_model=list[TenantWithRoleResponse])
 def list_my_tenants(
+    include_scheduled_deletion: bool = Query(
+        default=False,
+        description=(
+            "Also list the tenants whose deletion is scheduled (`pending_deletion`, `orphaned`) with their "
+            "`status` and `deletion_scheduled_at`, so their management can cancel a pending deletion. "
+            "Such a tenant resolves for nobody: it is no context to act in."
+        ),
+    ),
     user: User = Depends(get_current_user),
     service: TenantService = Depends(get_tenant_service),
 ):
     """List all tenants the current user is a member of.
+
+    By default only the tenants the user can act in (``status == active``). With
+    ``include_scheduled_deletion=true`` the tenants whose deletion is scheduled are
+    listed too (#2166) — the only surface from which a lead with the ``management``
+    scope finds a ``pending_deletion`` tenant to cancel its deletion
+    (``POST /tenants/{slug}/erasure/cancel``).
 
     A tenant-scoped API key sees only the tenant it is restricted to (#1851):
     the list is the account's, and the key must not learn the owner's other
@@ -80,7 +94,11 @@ def list_my_tenants(
     integration reads it to find its tenant.
     """
     scope = user.api_key_tenant_scope
-    items = [t for t in service.list_my_tenants(user.key) if api_key_scope_admits(scope, tenant_key=t.key)]
+    items = [
+        t
+        for t in service.list_my_tenants(user.key, include_scheduled_deletion=include_scheduled_deletion)
+        if api_key_scope_admits(scope, tenant_key=t.key)
+    ]
     return [TenantWithRoleResponse(**t.model_dump()) for t in items]
 
 

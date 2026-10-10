@@ -95,7 +95,7 @@ def _tenant(key: str, slug: str) -> TenantWithRole:
 class _TenantService:
     """The owner is a lead in two clubs and a platform admin."""
 
-    def list_my_tenants(self, user_key: str) -> list[TenantWithRole]:
+    def list_my_tenants(self, user_key: str, *, include_scheduled_deletion: bool = False) -> list[TenantWithRole]:
         return [_tenant("t_a", "club-a"), _tenant("t_b", "club-b")]
 
     def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace | None:
