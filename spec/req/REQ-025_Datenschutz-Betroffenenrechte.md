@@ -375,6 +375,12 @@ Die Engines sind reine Logik ohne I/O. Das Manifest liest
    ohnehin sichtbar — eine erneute Herausgabe an sie beeinträchtigt die Rechte der
    Schreibenden nicht. Ein Bundle enthält deshalb keine Daten, die der Person nicht schon
    in der App angezeigt wurden.
+   Das gilt ausdrücklich auch für die Garten-Protokolle aus #2165: `notes` an Tank-, Gieß-,
+   Dünge- und Wartungseinträgen sowie `metadata` an Sensor-Messwerten, die **eingeladene
+   Mitglieder** erfasst haben, stehen im Export der Eigentümerin bzw. des Eigentümers
+   **unmaskiert** (Abwägung nach Art. 15(4), bewusst entschieden): Die Schreibenden haben sie
+   in einen fremden Garten eingetragen, in dem die Eigentümerin sie ohnehin sieht; ihre
+   Kontokennung (`performed_by`) bleibt draußen.
 
 #### 3.1.3 Regeln für Löschung, Anonymisierung und Pseudonymisierung (Art. 17)
 

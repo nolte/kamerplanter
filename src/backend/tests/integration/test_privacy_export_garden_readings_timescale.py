@@ -21,6 +21,8 @@ Locally it needs a server::
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import psycopg
 import pytest
 
@@ -39,8 +41,13 @@ AGES = (1, 2, 5, 120, 400)
 
 
 @pytest.fixture(scope="module")
-def database():
-    name = ts.provision_database("tsexport")
+def database_name() -> str:
+    return ts.provision_database("tsexport")
+
+
+@pytest.fixture(scope="module")
+def database(database_name: str):
+    name = database_name
     pool = ts.open_pool(name)
     ensure_timescale_schema(pool)
     with psycopg.connect(ts.conninfo(name), autocommit=True) as conn:
@@ -135,3 +142,73 @@ def test_a_source_that_is_not_a_declared_table_is_refused(database) -> None:
     forged = _source("sensor_readings").model_copy(update={"collection": "users"})
     with pytest.raises(ValueError, match="no known time-series table"):
         database.collect_personal_tenant_series(forged, [OWN], [], max_rows=10)
+
+
+class _CursorInterleavingAWrite:
+    """Delegates to a real cursor; after its first export query a reading is committed elsewhere."""
+
+    def __init__(self, cursor, write) -> None:  # type: ignore[no-untyped-def]
+        self._cursor = cursor
+        self._write = write
+
+    def execute(self, query, params=None):  # type: ignore[no-untyped-def]
+        result = self._cursor.execute(query, params)
+        if self._write is not None and isinstance(query, psycopg.sql.Composable):
+            write, self._write = self._write, None
+            write()
+        return result
+
+    def __getattr__(self, name: str):  # type: ignore[no-untyped-def]
+        return getattr(self._cursor, name)
+
+
+class _PoolInterleavingAWrite:
+    """The repository's pool, whose cursors let a concurrent writer in between its statements."""
+
+    def __init__(self, pool, write) -> None:  # type: ignore[no-untyped-def]
+        self._pool = pool
+        self._write = write
+
+    @contextmanager
+    def connection(self):  # type: ignore[no-untyped-def]
+        with self._pool.connection() as conn:
+            pool = self
+
+            class _Conn:
+                def transaction(self):  # type: ignore[no-untyped-def]
+                    return conn.transaction()
+
+                @contextmanager
+                def cursor(self, **kwargs):  # type: ignore[no-untyped-def]
+                    with conn.cursor(**kwargs) as cur:
+                        yield _CursorInterleavingAWrite(cur, pool._write)
+
+            yield _Conn()
+
+
+def test_the_total_and_the_page_come_from_one_snapshot(database, database_name: str) -> None:
+    """S-1: page and count are two statements; a reading committed between them is in neither.
+
+    Under READ COMMITTED the count would see the new reading and claim one row more than
+    the bundle's page and its omission note were computed from.
+    """
+    source = _source("sensor_readings")
+    before = database.collect_personal_tenant_series(source, [OWN], OWN_SENSORS, max_rows=1000).total
+
+    def write() -> None:
+        with psycopg.connect(ts.conninfo(database_name), autocommit=True) as conn:
+            conn.execute(
+                "INSERT INTO sensor_readings (time, tenant_key, sensor_key, sensor_type, value, unit) "
+                "VALUES (now(), %s, 's-own-ec', 'ec_ms', 99.0, 'mS/cm')",
+                (OWN,),
+            )
+
+    interleaved = TimescalePersonalTimeSeriesRepository(_PoolInterleavingAWrite(database._pool, write))  # type: ignore[arg-type]
+    try:
+        found = interleaved.collect_personal_tenant_series(source, [OWN], OWN_SENSORS, max_rows=2)
+        assert len(found.records) == 2
+        assert all(row["value"] != 99.0 for row in found.records)
+        assert found.total == before
+    finally:
+        with psycopg.connect(ts.conninfo(database_name), autocommit=True) as conn:
+            conn.execute("DELETE FROM sensor_readings WHERE sensor_key = 's-own-ec' AND value = 99.0")
