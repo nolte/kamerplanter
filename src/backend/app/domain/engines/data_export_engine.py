@@ -561,19 +561,19 @@ class DataExportEngine:
                 "entity_keys",
             ],
         ),
-        # MT-014 (#2111): the security audit names two accounts per row. The rows about the
-        # subject's own memberships (target) and the rows of changes the subject made (actor)
-        # are disclosed; the *other* account's key is left out of each (Art. 15(4)).
+        # MT-014 (#2111): the security audit names up to two accounts per row. The rows about the
+        # subject's own memberships and account flags (target) and the rows of changes the subject
+        # made (actor) are disclosed; the *other* account's key is left out of each (Art. 15(4)).
         DataSourceDefinition(
             collection="security_audit_log",
             filter_field="target_user_key",
-            label="Changes to your tenant memberships (security audit)",
+            label="Changes to your tenant memberships and account (security audit)",
             fields=["tenant_key", "action", "via", "old_role", "new_role", "old_scopes", "new_scopes", "created_at"],
         ),
         DataSourceDefinition(
             collection="security_audit_log",
             filter_field="actor_user_key",
-            label="Membership changes you made (security audit)",
+            label="Membership, account and tenant changes you made (security audit)",
             fields=["tenant_key", "action", "via", "old_role", "new_role", "old_scopes", "new_scopes", "created_at"],
         ),
         DataSourceDefinition(
