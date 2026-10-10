@@ -16,10 +16,18 @@ class ActivityService:
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
+        *,
+        tenant_key: str,
     ) -> tuple[list[Activity], int]:
-        return self._repo.get_all(offset, limit, filters)
+        """The activities ``tenant_key`` may read: its own plus the global catalogue (#2119)."""
+        return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
+
+    def get_readable_activity(self, key: ActivityKey, *, tenant_key: str) -> Activity:
+        """One activity for a reader: its own row or a global one, else 404 (#2119)."""
+        return self._repo.get_readable_or_raise(key, tenant_key=tenant_key)
 
     def get_activity(self, key: ActivityKey) -> Activity:
+        """Any activity by key — the platform admin's write paths load through this."""
         activity = self._repo.get_or_raise(key)
         return activity
 
@@ -79,8 +87,8 @@ class ActivityService:
             raise ForbiddenError("System activities cannot be deleted.")
         return self._repo.delete(key)
 
-    def get_system_activities(self) -> list[Activity]:
-        return self._repo.get_system_activities()
+    def get_system_activities(self, *, tenant_key: str) -> list[Activity]:
+        return self._repo.get_system_activities(tenant_key=tenant_key)
 
-    def get_by_category(self, category: str) -> list[Activity]:
-        return self._repo.get_by_category(category)
+    def get_by_category(self, category: str, *, tenant_key: str) -> list[Activity]:
+        return self._repo.get_by_category(category, tenant_key=tenant_key)
