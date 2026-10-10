@@ -1142,7 +1142,8 @@
       "adminAddMemberStepUpTitle": "Mitglied hinzufügen bestätigen",
       "adminAddMemberStepUpDescription": "Du fügst „{{name}}“ der Organisation „{{tenant}}“ als „{{role}}“ hinzu. Die Rolle bestimmt, was die Person in der Organisation ändern und löschen darf – eine Leitung kann auch die Organisation löschen. Deshalb bestätigst du das mit deinem eigenen Zugang.",
       "adminAddMemberStepUpConfirm": "Mitglied hinzufügen",
-      "providerUnlinked": "Anmeldeweg entfernt"
+      "providerUnlinked": "Anmeldeweg entfernt",
+      "pendingInvitation": "Du hast eine Einladung geöffnet. Melde dich mit der eingeladenen E-Mail-Adresse an – oder registriere dich mit ihr –, danach wird die Einladung angenommen."
     },
     "tenants": {
       "selectTenant": "Garten wählen",
@@ -1164,7 +1165,7 @@
       "inviteEmail": "E-Mail-Adresse",
       "sendInvitation": "Einladung senden",
       "createLink": "Einladungslink",
-      "invitationSent": "Einladung gesendet",
+      "invitationSent": "Einladung per E-Mail verschickt",
       "linkCopied": "Einladungslink in die Zwischenablage kopiert",
       "invitationType": "Typ",
       "invitationStatus": "Status",
@@ -1175,7 +1176,16 @@
       "noInvitations": "Keine ausstehenden Einladungen.",
       "inviteNewMember": "Neues Mitglied einladen",
       "removeMember": "Mitglied entfernen",
-      "revokeInvitation": "Einladung widerrufen"
+      "revokeInvitation": "Einladung widerrufen",
+      "invitationNotDeliveredHint": "Die Einladung ist angelegt, aber die E-Mail ist nicht rausgegangen (auf dieser Installation ist kein E-Mail-Versand eingerichtet oder der Versand ist fehlgeschlagen). Gib den Link selbst an die eingeladene Person weiter – annehmen kann ihn nur, wer sich mit genau dieser E-Mail-Adresse anmeldet. Er gilt bis {{date}}.",
+      "invitationLinkHint": "Teile diesen Link mit den Personen, die du einladen willst. Wer ihn öffnet und angemeldet ist, wird Mitglied – gib ihn also nur gezielt weiter. Er gilt bis {{date}}.",
+      "invitationAcceptLink": "Einladungslink",
+      "copyInvitationLink": "Link kopieren",
+      "linkCopyFailed": "Kopieren nicht möglich – markiere den Link und kopiere ihn selbst",
+      "invitationConfirmTitle": "Du wurdest in einen Garten eingeladen",
+      "invitationConfirmHint": "Mit „Einladung annehmen“ wirst du mit dem Konto Mitglied, mit dem du gerade angemeldet bist.",
+      "invitationAccept": "Einladung annehmen",
+      "invitationAskForNew": "Bitte die einladende Person um eine neue Einladung."
     },
     "dashboard": {
       "title": "Dashboard",
@@ -4706,6 +4716,8 @@
       "testUnreachable": "Quelle nicht erreichbar.",
       "previewValues": "min {{min}} °C / max {{max}} °C / Regen {{rain}} mm",
       "attribution": "Datenquellen: Deutscher Wetterdienst (DWD, GeoNutzV) · Weather data by Open-Meteo.com (CC BY 4.0) · OpenWeatherMap gemäß deren Nutzungsbedingungen.",
+      "readOnlyHint": "Die Wetterquellen dieses Standorts legt die Leitung deines Gartens fest. Du siehst hier, welche Quellen in welcher Reihenfolge genutzt werden.",
+      "readOnlyEmpty": "Für diesen Standort ist noch keine Wetterquelle eingerichtet. Die Leitung deines Gartens kann eine hinzufügen.",
       "gpsRequiredHint": "Für diesen Standort können Wetterquellen konfiguriert werden, sobald GPS-Koordinaten hinterlegt sind.",
       "haEntitiesTechnicalOnly": "Home-Assistant-Entitäten auswählen können nur Mitglieder mit dem Recht „Technik“. Bitte eine Person mit diesem Recht, die Quelle einzurichten – eine bestehende Quelle bleibt unverändert."
     },

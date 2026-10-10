@@ -146,11 +146,14 @@ async def link_entity(
 @router.get("/references", response_model=list[InvenTreeReferenceResponse])
 def list_references(
     entity_collection: str | None = Query(None, description="Filter references by linked entity collection."),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
-    """List the tenant's InvenTree entity references."""
-    references = service.list_references(ctx.tenant_key, entity_collection)
+    """List the tenant's InvenTree entity references (paginated, MT-035)."""
+    references = service.list_references(
+        ctx.tenant_key, entity_collection, offset=pagination.offset, limit=pagination.limit
+    )
     return [to_response(r, InvenTreeReferenceResponse) for r in references]
 
 

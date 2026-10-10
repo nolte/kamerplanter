@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from datetime import UTC, date, datetime
-from typing import cast
+from typing import Any, cast
 
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
@@ -1252,8 +1252,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             result[row["wf_key"]] = {"species_name": row["species_name"], "entity_count": row["entity_count"]}
         return result
 
-    def get_executions_for_template(self, template_key: str, *, tenant_key: str) -> list[dict]:
-        """Return ``tenant_key``'s executions of a template, with enriched entity info.
+    def get_executions_for_template(
+        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50
+    ) -> list[dict]:
+        """Return ``tenant_key``'s executions of a template, newest first, with enriched entity info.
 
         ``WorkflowExecution`` carries no ``tenant_key``; it belongs to the entity
         it runs on. A shared system template is readable by every tenant, so
@@ -1262,13 +1264,26 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         read off the entity: its own ``tenant_key``, or for a location its site's
         (``Location.tenant_key`` is never written, #1397). An execution whose
         entity no longer resolves belongs to nobody and is not listed.
+
+        ``offset``/``limit`` read one window inside the query (MT-035, #2131): the
+        window is cut right after the owner filter, so only its rows are enriched
+        with species and entity names. The order breaks ``created_at`` ties on
+        ``_key`` so a pager walks a total order.
         """
         self._require_tenant_key(tenant_key, "get_executions_for_template")
+        bind_vars: dict[str, Any] = {
+            "template_key": template_key,
+            "tenant_key": tenant_key,
+            "offset": offset,
+            "limit": limit,
+        }
         query = f"""
         FOR we IN {col.WORKFLOW_EXECUTIONS}
           FILTER we.workflow_template_key == @template_key
           {_EXECUTION_OWNER}
           FILTER owner == @tenant_key
+          SORT DATE_TIMESTAMP(we.created_at) DESC, we._key DESC
+          LIMIT @offset, @limit
           LET sp = plant != null AND plant.species_key != null
             ? DOCUMENT(CONCAT('{col.SPECIES}/', plant.species_key))
             : null
@@ -1278,7 +1293,6 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
           LET entity_name = plant != null
             ? (plant.plant_name || plant.instance_id || ekey)
             : (loc != null ? loc.name : (tank != null ? tank.name : (run_doc != null ? run_doc.name : ekey)))
-          SORT DATE_TIMESTAMP(we.created_at) DESC
           RETURN {{
             key: we._key,
             entity_key: ekey,
@@ -1292,7 +1306,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             completed_at: we.completed_at
           }}
         """
-        cursor = self._db.aql.execute(query, bind_vars={"template_key": template_key, "tenant_key": tenant_key})
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return list(cursor)
 
     # ── Dashboard counts (REQ-009) ──

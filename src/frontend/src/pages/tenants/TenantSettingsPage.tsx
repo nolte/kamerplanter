@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useTranslation } from 'react-i18next';
 import { useSnackbar } from 'notistack';
@@ -13,6 +13,8 @@ import Tab from '@mui/material/Tab';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import Alert from '@mui/material/Alert';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import LinkIcon from '@mui/icons-material/Link';
@@ -27,10 +29,21 @@ import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { useStepUpResume } from '@/hooks/useStepUpReauth';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
-import type { Membership, Invitation } from '@/api/types';
+import type { Membership, Invitation, InvitationCreated } from '@/api/types';
+
+/**
+ * The accept link the inviter has to pass on (#2162): a link invitation always, an e-mail invitation
+ * when its mail did not leave. `kind` picks the explanation shown above it.
+ */
+interface ShareableInvitation {
+  kind: 'link' | 'notDelivered';
+  url: string;
+  /** When the invitation expires (the backend's `expires_at`) — shown, never assumed. */
+  expiresAt: string;
+}
 
 export default function TenantSettingsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
   const activeTenant = useAppSelector((s) => s.tenants.activeTenant);
   // REQ-049: member and invitation management hangs off the `management`
@@ -44,6 +57,15 @@ export default function TenantSettingsPage() {
   const [members, setMembers] = useState<Membership[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [shareable, setShareable] = useState<ShareableInvitation | null>(null);
+  // #2162 review S5 — one invitation request at a time: a double click would send two mails.
+  const [submitting, setSubmitting] = useState(false);
+  // #2162 review S1 — the link panel takes the focus when it appears, so keyboard and screen-reader
+  // users land on what they have to do next.
+  const copyButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (shareable) copyButtonRef.current?.focus();
+  }, [shareable]);
   // #2032 — removing a member locks that person out, so it passes the acting administrator's
   // own step-up, bound to the membership (#1884). The chosen member does not survive the round
   // trip to the identity provider, so the resume context is only consumed; the pending token is
@@ -79,28 +101,68 @@ export default function TenantSettingsPage() {
     void loadInvitations();
   }, [loadMembers, loadInvitations]);
 
-  const handleInviteEmail = async () => {
-    if (!inviteEmail || !slug) return;
+  /** Copy *url*; whether it worked (the clipboard is refused outside a secure context or by policy). */
+  const copyToClipboard = async (url: string): Promise<boolean> => {
     try {
-      await tenantApi.createEmailInvitation(slug, { email: inviteEmail, role: 'viewer' });
-      enqueueSnackbar(t('pages.tenants.invitationSent'), { variant: 'success' });
-      setInviteEmail('');
-      loadInvitations();
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      await navigator.clipboard.writeText(url);
+      return true;
+    } catch {
+      return false;
     }
   };
 
-  const handleCreateLink = async () => {
-    if (!slug) return;
+  // #2162 — the answer says whether the mail left. Only then is "sent" true; otherwise the
+  // invitation exists and its link is shown for the inviter to pass on themselves.
+  const handleInviteEmail = async () => {
+    if (!inviteEmail || !slug || submitting) return;
+    let result: InvitationCreated;
+    setSubmitting(true);
     try {
-      const result = await tenantApi.createLinkInvitation(slug, { role: 'viewer' });
-      await navigator.clipboard.writeText(result.token);
-      enqueueSnackbar(t('pages.tenants.linkCopied'), { variant: 'success' });
-      loadInvitations();
+      result = await tenantApi.createEmailInvitation(slug, { email: inviteEmail, role: 'viewer' });
     } catch (err) {
       enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      return;
+    } finally {
+      setSubmitting(false);
     }
+    setInviteEmail('');
+    void loadInvitations();
+    if (result.delivered) {
+      setShareable(null);
+      enqueueSnackbar(t('pages.tenants.invitationSent'), { variant: 'success' });
+    } else {
+      // The warning panel carries the message (review S2): no second, vanishing copy of it.
+      setShareable({ kind: 'notDelivered', url: result.accept_url, expiresAt: result.expires_at });
+    }
+  };
+
+  // #2162 — the link copied is the accept page's link, not the bare token nobody could use.
+  const handleCreateLink = async () => {
+    if (!slug || submitting) return;
+    let result: InvitationCreated;
+    setSubmitting(true);
+    try {
+      result = await tenantApi.createLinkInvitation(slug, { role: 'viewer' });
+    } catch (err) {
+      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      return;
+    } finally {
+      setSubmitting(false);
+    }
+    void loadInvitations();
+    setShareable({ kind: 'link', url: result.accept_url, expiresAt: result.expires_at });
+    const copied = await copyToClipboard(result.accept_url);
+    enqueueSnackbar(t(copied ? 'pages.tenants.linkCopied' : 'pages.tenants.linkCopyFailed'), {
+      variant: copied ? 'success' : 'info',
+    });
+  };
+
+  const handleCopyShareable = async () => {
+    if (!shareable) return;
+    const copied = await copyToClipboard(shareable.url);
+    enqueueSnackbar(t(copied ? 'pages.tenants.linkCopied' : 'pages.tenants.linkCopyFailed'), {
+      variant: copied ? 'success' : 'info',
+    });
   };
 
   const handleRevokeInvitation = useCallback(
@@ -316,7 +378,7 @@ export default function TenantSettingsPage() {
                 type="email"
                 sx={{ flex: '1 1 220px', minWidth: 0 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && inviteEmail) handleInviteEmail();
+                  if (e.key === 'Enter' && inviteEmail && !submitting) handleInviteEmail();
                 }}
                 data-testid="invite-email-field"
               />
@@ -324,10 +386,10 @@ export default function TenantSettingsPage() {
                 variant="contained"
                 size="small"
                 onClick={handleInviteEmail}
-                disabled={!inviteEmail}
+                disabled={!inviteEmail || submitting}
                 startIcon={<PersonAddIcon />}
                 data-testid="send-invitation-btn"
-                sx={{ flexShrink: 0 }}
+                sx={{ flexShrink: 0, minHeight: 44 }}
               >
                 {t('pages.tenants.sendInvitation')}
               </Button>
@@ -335,13 +397,55 @@ export default function TenantSettingsPage() {
                 variant="outlined"
                 size="small"
                 onClick={handleCreateLink}
+                disabled={submitting}
                 startIcon={<LinkIcon />}
                 data-testid="create-link-btn"
-                sx={{ flexShrink: 0 }}
+                sx={{ flexShrink: 0, minHeight: 44 }}
               >
                 {t('pages.tenants.createLink')}
               </Button>
             </Box>
+
+            {shareable && (
+              <Alert
+                severity={shareable.kind === 'notDelivered' ? 'warning' : 'info'}
+                onClose={() => setShareable(null)}
+                sx={{ mb: 3 }}
+                data-testid={
+                  shareable.kind === 'notDelivered' ? 'invitation-not-delivered' : 'invitation-link-created'
+                }
+              >
+                <Typography variant="body2" gutterBottom>
+                  {t(
+                    shareable.kind === 'notDelivered'
+                      ? 'pages.tenants.invitationNotDeliveredHint'
+                      : 'pages.tenants.invitationLinkHint',
+                    { date: new Date(shareable.expiresAt).toLocaleDateString(i18n.language) },
+                  )}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    value={shareable.url}
+                    label={t('pages.tenants.invitationAcceptLink')}
+                    slotProps={{ htmlInput: { readOnly: true, 'data-testid': 'invitation-accept-url' } }}
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<ContentCopyIcon />}
+                    onClick={handleCopyShareable}
+                    ref={copyButtonRef}
+                    data-testid="copy-invitation-link-btn"
+                    sx={{ flexShrink: 0, minHeight: 44 }}
+                  >
+                    {t('pages.tenants.copyInvitationLink')}
+                  </Button>
+                </Box>
+              </Alert>
+            )}
 
             <DataTable
               columns={invitationColumns}

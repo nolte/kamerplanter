@@ -140,10 +140,12 @@ class FakeRepo:
         return None
 
     # references
-    def list_references(self, tenant_key, entity_collection=None):
+    def list_references(self, tenant_key, entity_collection=None, *, offset=None, limit=None):
         items = [r for r in self.references.values() if r.tenant_key == tenant_key]
         if entity_collection:
             items = [r for r in items if r.entity_collection == entity_collection]
+        if offset is not None and limit is not None:
+            items = items[offset : offset + limit]
         return items
 
     def get_reference_or_raise(self, key):

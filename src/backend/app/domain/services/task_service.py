@@ -1898,5 +1898,8 @@ class TaskService:
         """``tenant_key``'s execution ``key``; foreign, orphaned and unknown are one 404 (#1714)."""
         return self._repo.get_workflow_execution_or_raise(key, tenant_key=tenant_key)
 
-    def get_executions_for_template(self, template_key: str, *, tenant_key: str) -> list[dict]:
-        return self._repo.get_executions_for_template(template_key, tenant_key=tenant_key)
+    def get_executions_for_template(
+        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50
+    ) -> list[dict]:
+        """A template's executions in ``tenant_key``, newest first; ``offset``/``limit`` read one window (MT-035)."""
+        return self._repo.get_executions_for_template(template_key, tenant_key=tenant_key, offset=offset, limit=limit)

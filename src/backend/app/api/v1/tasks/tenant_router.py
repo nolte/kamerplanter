@@ -190,12 +190,15 @@ def duplicate_workflow(
 @router.get("/workflows/{key}/executions", response_model=list[WorkflowExecutionListItem])
 def list_workflow_executions(
     key: Annotated[str, Path(description="Document key of the workflow template.")],
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
-    """List a workflow template's executions with enriched entity info."""
+    """List a workflow template's executions, newest first, with enriched entity info (paginated, MT-035)."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
-    return service.get_executions_for_template(key, tenant_key=ctx.tenant_key)
+    return service.get_executions_for_template(
+        key, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit
+    )
 
 
 @router.post("/workflows/{key}/instantiate", response_model=WorkflowExecutionResponse, status_code=201)

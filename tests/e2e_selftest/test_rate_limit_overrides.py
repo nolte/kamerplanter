@@ -52,6 +52,11 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "A couple of change requests per run; the flow is not on any journey path."
     ),
     "rate_limit_email_change_confirm": ("Same volume as the request half it follows."),
+    "rate_limit_invitation_email": (
+        "One e-mail invitation per run (TC-024-022 in test_req024_tenant_settings.py), per account; "
+        "the budget is per account and minute (#2162 review W-1) and is a mail-relay defence, so "
+        "raising it here would test nothing the suite uses."
+    ),
     "rate_limit_export_download": (
         "No E2E test downloads an Art. 15 export bundle (grep over tests/e2e finds no "
         "call to the download route, #1666), and a user downloads their own bundle "

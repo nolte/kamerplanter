@@ -61,6 +61,7 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 | `REGISTRATION_ALLOWED_DOMAINS` | — (leer) | Nein | Optionale kommagetrennte E-Mail-Domains (z. B. `verein.example,garten.example`), exakt, ohne Subdomains. Leer = jede Domain. Eine E-Mail-Einladung für die Adresse ist die Ausnahme; über OIDC zählt nur eine vom Anbieter bestätigte Adresse |
 | `TENANT_MAX_MEMBERS_CEILING` | `50` | Nein | Plattform-Obergrenze für das Mitgliederlimit jedes Mandanten (mindestens `1`). Wirksam ist `min(max_members, TENANT_MAX_MEMBERS_CEILING)`; `max_members` darüber wird abgelehnt (`422`), eine neue Organisation ohne Angabe erhält diesen Wert. Ein voller Mandant verweigert weitere Beitritte mit `422 MEMBER_LIMIT_REACHED`. Senken entfernt niemanden |
 | `TENANT_MAX_SERVICE_ACCOUNTS` | `20` | Nein | Wie viele aktive Service Accounts ein Mandant haben darf (mindestens `1`). Darüber antwortet das Anlegen mit `422 SERVICE_ACCOUNT_LIMIT_REACHED`. Ein Service Account belegt zusätzlich einen Platz im Mitgliederlimit. Senken entfernt keinen |
+| `TENANT_INVITATION_EMAILS_PER_DAY` | `50` | Nein | Wie viele E-Mail-Einladungen ein Konto in 24 Stunden verschicken darf, über alle seine Mandanten zusammen (mindestens `1`). Jede E-Mail-Einladung geht an eine Adresse, die der Einladende frei wählt; darüber antwortet `POST /api/v1/tenants/{slug}/invitations/email` mit `429 RATE_LIMIT_EXCEEDED`, und es wird nichts angelegt und nichts verschickt. Gezählt wird aus den gespeicherten Einladungen (Issue #2162) |
 | `HIBP_ENABLED` | `false` | Nein | "Have I Been Pwned"-Prüfung bei Passwortänderung aktivieren |
 | `COOKIE_SECURE` | `true` | Nein | Setzt das `Secure`-Flag auf dem Refresh-Token-Cookie. Nur für reine HTTP-E2E-Testumgebungen ohne TLS auf `false` setzen — in Produktion **immer** `true` belassen. |
 
@@ -184,7 +185,10 @@ Fall bei einer produktiven Installation ohne SMTP- oder Resend-Konfiguration, da
 Helm-Chart standardmäßig keinen Adapter setzt — schreibt sie beim Start eine Warnung ins
 Log (`email_adapter_console_in_production`). Für eine produktive Installation bleibt dann
 `EMAIL_ADAPTER=smtp` oder `EMAIL_ADAPTER=resend` zu konfigurieren, sonst lassen sich
-Registrierung und Passwort-Reset nicht abschließen.
+Registrierung und Passwort-Reset nicht abschließen. Auch E-Mail-Einladungen in einen
+Tenant gehen dann nicht raus: Die Einladung wird angelegt, die Antwort meldet
+`delivered: false`, und die Oberfläche zeigt dem Einladenden den Link zum Weitergeben
+(Issue #2162). Der Link zeigt auf `FRONTEND_URL`.
 
 !!! info "Resend: gehostete E-Mail-Zustellung über eine HTTP-API"
     `EMAIL_ADAPTER=resend` verschickt dieselben System-E-Mails (E-Mail-Bestätigung,
@@ -519,6 +523,7 @@ Der Wert wird vor der Ausgabe gegen `^[0-9a-f]{7,40}$` geprüft (nach dem Abschn
 | `RATE_LIMIT_INFERENCE` | `20/minute` | Nein | Budget je Konto und Route für Routen, die ein Modell ausführen: CV-Diagnose, Schädlingserkennung, Pflanzenbestimmung, Referenzbeitrag und jede Route, die ein LLM anspricht (Tipps und Tagestipp erzeugen, „Warum?“, Chat-Nachricht, Glossar-Erzeugung, KI-Diagnose, Wissensfrage `POST /api/v1/t/{slug}/ai/knowledge/ask`). Die Tagesgrenzen von Bestimmung und Referenzbeitrag sowie die KI-Tagesbudgets (`AI_BUDGET_*`) gelten zusätzlich. |
 | `RATE_LIMIT_EXPORT` | `20/minute` | Nein | Budget je Konto und Route für die PDF-Drucke unter `/print` (Nährstoffplan, Pflegeliste, Pflanzenetiketten). |
 | `RATE_LIMIT_RESEND_VERIFICATION` | `10/hour` | Nein | Rate-Limit je Client-IP für `POST /api/v1/auth/resend-verification`. Begrenzt E-Mails an frei wählbare Adressen, deshalb weit unter `RATE_LIMIT_AUTH`. Die zusätzliche Grenze je Adresse (3 Anfragen, Auffüllung nach einer Stunde Ruhe) ist fest und nicht konfigurierbar. |
+| `RATE_LIMIT_INVITATION_EMAIL` | `10/minute` | Nein | Rate-Limit je Konto für `POST /api/v1/tenants/{slug}/invitations/email`: Jeder Aufruf verschickt eine E-Mail an eine frei gewählte Adresse. Die Tagesgrenze je Konto ist `TENANT_INVITATION_EMAILS_PER_DAY` (Issue #2162) |
 | `RATE_LIMIT_HEALTH` | `60/minute` | Nein | Rate-Limit für `GET /api/health` — siehe [Health-Endpunkt und Build-Kennung](#health-endpunkt) |
 
 **Format:** `[anzahl]/[einheit]` — Einheiten: `second`, `minute`, `hour`, `day`

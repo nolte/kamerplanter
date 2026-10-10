@@ -122,6 +122,14 @@ class FakeInvitationRepo:
     def get_by_key(self, key: str) -> Invitation | None:
         return self.stored.get(key)
 
+    def count_email_invitations_issued_since(self, invited_by_user_key: str, since_iso: str) -> int:
+        """The daily mail budget's count (#2162 review W-1); this fake keeps no creation time, so: all of them."""
+        return sum(
+            1
+            for i in self.stored.values()
+            if i.invited_by_user_key == invited_by_user_key and i.invitation_type == InvitationType.EMAIL
+        )
+
     def get_by_token_hash(self, token_hash: str) -> Invitation | None:
         return next((i for i in self.stored.values() if i.token_hash == token_hash), None)
 

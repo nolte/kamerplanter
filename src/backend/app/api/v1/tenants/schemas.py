@@ -285,6 +285,11 @@ class InvitationLinkResponse(BaseModel):
     invitation_key: str
     token: str
     expires_at: datetime
+    #: The accept page's link with the token (#2162): what the inviter copies and shares.
+    accept_url: str
+    #: E-mail invitations: whether the invitation mail left (#2162). ``false`` - the invitation
+    #: exists but reached nobody; the inviter passes ``accept_url`` on. ``null`` for a link invitation.
+    delivered: bool | None = None
 
 
 class AcceptInvitationRequest(BaseModel):

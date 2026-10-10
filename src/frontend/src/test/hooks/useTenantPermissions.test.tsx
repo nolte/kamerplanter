@@ -65,6 +65,15 @@ describe('useTenantPermissions — axis 1 (domain role)', () => {
     expect(p.canEdit).toBe(false);
     expect(p.canDelete).toBe(false);
   });
+
+  it('reserves the weather-source selection of a site for the lead (REQ-049 §2.10, #2181)', () => {
+    expect(permissionsFor(tenant('lead', [])).canSelectWeatherSource).toBe(true);
+    // A grower sees the selection but does not change it — not even with the
+    // technical scope, which governs the HA connection, not the choice.
+    expect(permissionsFor(tenant('grower', ['technical'])).canSelectWeatherSource).toBe(false);
+    expect(permissionsFor(tenant('viewer', [])).canSelectWeatherSource).toBe(false);
+    expect(permissionsFor(null).canSelectWeatherSource).toBe(false);
+  });
 });
 
 describe('useTenantPermissions — axis 2 (administrative scopes)', () => {
