@@ -23,7 +23,7 @@ Grundlage: DSGVO Art. 5 Abs. 1 lit. e. <!-- NFR-011 -->
 | R-07a | Rückgängig-Fenster einer bestätigten E-Mail-Änderung | 7 Tage nach der Bestätigung | `previous_email`, Hash des Rückgängig-Tokens und dessen Ablaufzeitpunkt nullen | Zweckentfall — der Rückgängig-Link ist abgelaufen |
 | R-11 | Abgelaufene Refresh Tokens | Sofort nach Ablauf | Hard-Delete (TTL-Index) | Zweckentfall |
 | R-12 | Abgelaufene Einladungen | 30 Tage nach Ablauf | Status auf `expired` setzen, nach 30 Tagen Hard-Delete (`app.tasks.tenant_tasks.cleanup_expired_invitations`, täglich 02:00 UTC) | Zweckentfall |
-| R-38 | Sicherheits-Audit (Mitgliedschafts-, Rollen- und Scope-Änderungen) | 730 Tage (2 Jahre) nach Anlage, fest | Hard-Delete (`security_audit.purge_expired`, täglich 02:55 UTC); bei einer Kontolöschung werden die Kontoschlüssel der Zeile zu Tombstone-Hashes, bei einer Mandantenlöschung bleibt sie bestehen | Art. 32 DSGVO (Nachweis von Zugriffsänderungen), Art. 5(2) |
+| R-38 | Sicherheits-Audit (Mitgliedschafts-, Rollen- und Scope-Änderungen; Deaktivierung und E-Mail-Bestätigung eines Kontos durch Platform-Admins; Sperre, Reaktivierung und Löschauftrag eines Mandanten) | 730 Tage (2 Jahre) nach Anlage, fest | Hard-Delete (`security_audit.purge_expired`, täglich 02:55 UTC); bei einer Kontolöschung werden die Kontoschlüssel der Zeile zu Tombstone-Hashes, bei einer Mandantenlöschung bleibt sie bestehen | Art. 32 DSGVO (Nachweis von Zugriffsänderungen), Art. 5(2) |
 
 Jede Frist außer R-11 (TTL-Index), R-06a und R-38 (fest) wird über genau eine Einstellung gelesen (siehe
 [Umgebungsvariablen](../reference/environment-variables.md#datenschutz-dsgvo-req-025-nfr-011)

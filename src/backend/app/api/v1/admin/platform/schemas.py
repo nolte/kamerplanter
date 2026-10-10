@@ -200,8 +200,10 @@ class SecurityAuditEntryResponse(BaseModel):
     action: str
     via: str
     actor_user_key: str
-    target_user_key: str
-    tenant_key: str
+    #: ``None`` on a row about a whole tenant (suspension, deletion; #2111).
+    target_user_key: str | None = None
+    #: ``None`` on a row about an account's trust flags (``is_active``, ``email_verified``; #2111).
+    tenant_key: str | None = None
     membership_key: str | None = None
     old_role: str | None = None
     new_role: str | None = None
