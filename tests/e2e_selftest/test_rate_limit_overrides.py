@@ -49,6 +49,10 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "REQ-015 CF-004 on an unauthenticated route; raising it here would test nothing the "
         "suite uses."
     ),
+    "rate_limit_calendar_feed_per_token": (
+        "The per-token bucket of the same feed.ics route (#2226 review SEC-005); no E2E test "
+        "fetches a feed.ics URL, so no request ever reaches it."
+    ),
     "rate_limit_device_pairing_redeem": (
         "One redemption per pairing test, a handful per run (#1118). Nowhere near a "
         "per-minute budget, and the limit is a brute-force defence whose behaviour "

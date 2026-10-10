@@ -34,4 +34,12 @@ class ICalendarFeedRepository(ABC):
     ) -> list[CalendarFeed]: ...
 
     @abstractmethod
+    def list_by_tenant(self, *, tenant_key: str) -> list[CalendarFeed]:
+        """Every feed of ``tenant_key``; an empty key lists nothing."""
+
+    @abstractmethod
+    def delete_by_user(self, user_key: str, *, tenant_key: str) -> int:
+        """Delete every feed ``user_key`` owns in ``tenant_key``; empty keys delete nothing."""
+
+    @abstractmethod
     def delete(self, key: CalendarFeedKey) -> bool: ...

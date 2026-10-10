@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from urllib.parse import urlsplit
 
@@ -58,10 +59,41 @@ class _FeedStore:
         self.feeds[key] = updated
         return updated
 
+    def list_by_user(self, user_key: str, *, tenant_key: str) -> list[CalendarFeed]:
+        return [f for f in self.feeds.values() if f.user_key == user_key and f.tenant_key == tenant_key]
+
+    def list_by_tenant(self, *, tenant_key: str) -> list[CalendarFeed]:
+        return [f for f in self.feeds.values() if f.tenant_key == tenant_key]
+
+
+class _Standing:
+    """Who stands where: accounts, memberships and tenants the feed route asks about its owner (SEC-001)."""
+
+    def __init__(self) -> None:
+        self.users: dict[str, SimpleNamespace] = {"owner": SimpleNamespace(is_active=True)}
+        self.memberships: dict[tuple[str, str], SimpleNamespace] = {("owner", TENANT): SimpleNamespace(is_active=True)}
+        self.tenants: dict[str, SimpleNamespace] = {TENANT: SimpleNamespace(is_active=True)}
+
+    def get_by_key(self, key: str) -> SimpleNamespace | None:  # the user and the tenant store alike
+        return self.users.get(key) or self.tenants.get(key)
+
+    def get_by_user_and_tenant(self, user_key: str, tenant_key: str) -> SimpleNamespace | None:
+        return self.memberships.get((user_key, tenant_key))
+
 
 @pytest.fixture
 def store() -> _FeedStore:
     return _FeedStore()
+
+
+@pytest.fixture
+def standing() -> _Standing:
+    return _Standing()
+
+
+@pytest.fixture
+def ctx() -> TenantContext:
+    return TenantContext(tenant_key=TENANT, tenant_slug=TENANT_SLUG, user_key="owner", role=TenantRole.GROWER)
 
 
 @pytest.fixture
@@ -76,9 +108,15 @@ def sources() -> MagicMock:
 
 
 @pytest.fixture
-def client(store: _FeedStore, sources: MagicMock) -> Iterator[TestClient]:
-    service = CalendarService(store, CalendarAggregationEngine(), sources)  # type: ignore[arg-type]
-    ctx = TenantContext(tenant_key=TENANT, tenant_slug=TENANT_SLUG, user_key="owner", role=TenantRole.GROWER)
+def client(store: _FeedStore, sources: MagicMock, standing: _Standing, ctx: TenantContext) -> Iterator[TestClient]:
+    service = CalendarService(
+        store,  # type: ignore[arg-type]
+        CalendarAggregationEngine(),
+        sources,
+        membership_repo=standing,  # type: ignore[arg-type]
+        user_repo=standing,  # type: ignore[arg-type]
+        tenant_repo=standing,  # type: ignore[arg-type]
+    )
     with (
         patch("app.main.get_connection"),
         patch("app.main.ensure_collections"),
@@ -255,3 +293,137 @@ class TestTheTokenNeverReachesALogLine:
         assert issued["token"] not in line
         assert issued["key"] not in line
         assert "/api/v1/calendar/feeds/{}/feed.ics?<redacted>" in line
+
+
+class TestTheFeedReadsWithItsOwnersStanding:
+    """#2226 review SEC-001 — a feed stops at once when its owner no longer stands in the tenant.
+
+    Measured before the change: the route checked token, key and ``is_active`` of
+    the feed only, so the URL of a removed member, a deactivated account or a
+    deactivated tenant went on rendering the tenant's calendar.
+    """
+
+    @pytest.mark.parametrize(
+        "lose_standing",
+        [
+            pytest.param(lambda s: s.memberships.pop(("owner", TENANT)), id="membership removed"),
+            pytest.param(lambda s: setattr(s.memberships[("owner", TENANT)], "is_active", False), id="membership off"),
+            pytest.param(lambda s: s.users.pop("owner"), id="account deleted"),
+            pytest.param(lambda s: setattr(s.users["owner"], "is_active", False), id="account deactivated"),
+            pytest.param(lambda s: setattr(s.tenants[TENANT], "is_active", False), id="tenant deactivated"),
+        ],
+    )
+    def test_the_url_answers_the_same_404(self, client: TestClient, standing: _Standing, lose_standing) -> None:
+        issued = _create_feed(client)
+        url = _path_and_query(issued["ical_url"])
+        assert client.get(url).status_code == 200
+
+        lose_standing(standing)
+        response = client.get(url)
+
+        assert response.status_code == 404
+        assert response.json()["error_code"] == "ENTITY_NOT_FOUND"
+        assert "token" not in response.json()["message"].lower()
+
+    def test_a_feed_without_an_owner_is_served_to_nobody(self, client: TestClient, store: _FeedStore) -> None:
+        issued = _create_feed(client)
+        store.update_fields(issued["key"], {"user_key": ""})
+
+        assert client.get(_path_and_query(issued["ical_url"])).status_code == 404
+
+    def test_an_expired_feed_of_a_removed_member_answers_404_not_410(
+        self, client: TestClient, store: _FeedStore, standing: _Standing
+    ) -> None:
+        issued = _create_feed(client)
+        store.update_fields(issued["key"], {"expires_at": datetime.now(tz=UTC) - timedelta(minutes=1)})
+        standing.memberships.pop(("owner", TENANT))
+
+        assert client.get(_path_and_query(issued["ical_url"])).status_code == 404
+
+
+class TestTheLeadListsEveryFeed:
+    def test_scope_all_lists_the_feeds_of_every_member_for_the_lead(
+        self, client: TestClient, store: _FeedStore, ctx: TenantContext
+    ) -> None:
+        mine = _create_feed(client)
+        store.save(CalendarFeed(name="Colleague", tenant_key=TENANT, user_key="colleague"))
+        store.save(CalendarFeed(name="Elsewhere", tenant_key="other-tenant", user_key="colleague"))
+        ctx.role = TenantRole.LEAD
+
+        listed = client.get(f"/api/v1/t/{TENANT_SLUG}/calendar/feeds?scope=all")
+        own = client.get(f"/api/v1/t/{TENANT_SLUG}/calendar/feeds")
+
+        assert listed.status_code == 200
+        assert sorted(f["name"] for f in listed.json()) == ["Colleague", "Garden"]
+        assert [f["key"] for f in own.json()] == [mine["key"]]
+
+    def test_scope_all_is_refused_to_a_grower(self, client: TestClient) -> None:
+        _create_feed(client)
+
+        assert client.get(f"/api/v1/t/{TENANT_SLUG}/calendar/feeds?scope=all").status_code == 403
+
+    def test_an_unknown_scope_is_a_validation_error(self, client: TestClient) -> None:
+        assert client.get(f"/api/v1/t/{TENANT_SLUG}/calendar/feeds?scope=everything").status_code == 422
+
+
+class TestTheIssuedUrlNamesTheConfiguredAddress:
+    """#2226 review SEC-004 — the URL is built from ``APP_BASE_URL``, never from the request's ``Host``."""
+
+    def test_a_forged_host_header_does_not_reach_the_url(self, client: TestClient) -> None:
+        with patch.object(settings, "app_base_url", "https://garden.example.org"):
+            response = client.post(
+                f"/api/v1/t/{TENANT_SLUG}/calendar/feeds",
+                json={"name": "Garden", "filters": {}},
+                headers={"Host": "attacker.example"},
+            )
+
+        url = urlsplit(response.json()["ical_url"])
+        assert (url.scheme, url.netloc) == ("https", "garden.example.org")
+
+    def test_a_plain_http_public_address_is_raised_to_https(self, client: TestClient) -> None:
+        with patch.object(settings, "app_base_url", "http://garden.example.org/"):
+            issued = _create_feed(client)
+
+        assert issued["ical_url"].startswith("https://garden.example.org/api/v1/calendar/feeds/")
+
+    @pytest.mark.parametrize("base", ["http://localhost:5173", "http://127.0.0.1:8000", "http://[::1]:8000"])
+    def test_a_loopback_development_address_keeps_http(self, client: TestClient, base: str) -> None:
+        with patch.object(settings, "app_base_url", base):
+            issued = _create_feed(client)
+
+        assert issued["ical_url"].startswith(f"{base}/api/v1/calendar/feeds/")
+
+    def test_a_base_under_a_path_keeps_the_path(self, client: TestClient) -> None:
+        with patch.object(settings, "app_base_url", "https://example.org/garden/"):
+            issued = _create_feed(client)
+
+        assert issued["ical_url"].startswith("https://example.org/garden/api/v1/calendar/feeds/")
+
+
+class TestTheRouteIsRateLimitedPerToken:
+    """#2226 review SEC-005 — a URL polled from many addresses still spends one bounded bucket."""
+
+    def test_the_token_budget_holds_across_addresses(self, client: TestClient) -> None:
+        issued = _create_feed(client)
+        budget = int(settings.rate_limit_calendar_feed_per_token.split("/")[0])
+        url = _path_and_query(issued["ical_url"])
+
+        def from_address(n: int) -> int:
+            caller = TestClient(client.app, raise_server_exceptions=False, client=(f"198.51.100.{n % 250}", 1000 + n))
+            return caller.get(url).status_code
+
+        granted = [from_address(n) for n in range(budget)]
+
+        assert set(granted) == {200}
+        assert from_address(budget) == 429
+
+    def test_another_token_keeps_its_own_budget(self, client: TestClient) -> None:
+        """Keyed by the token: a caller without it cannot spend a subscriber's budget."""
+        from app.api.v1.calendar.feed_router import feed_token_rate_limit_key
+
+        def key(query: str) -> str:
+            return feed_token_rate_limit_key(SimpleNamespace(query_params=dict([query.split("=")])))  # type: ignore[arg-type]
+
+        assert key("token=a") == key("token=a")
+        assert key("token=a") != key("token=b")
+        assert "secret-token" not in key("token=secret-token")

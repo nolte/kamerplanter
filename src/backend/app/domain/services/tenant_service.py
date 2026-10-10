@@ -45,6 +45,7 @@ from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
+from app.domain.interfaces.calendar_feed_repository import ICalendarFeedRepository
 from app.domain.interfaces.email_service import EmailUndeliverableError, IEmailService
 from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.invitation_repository import IInvitationRepository
@@ -167,7 +168,12 @@ class TenantService:
         max_service_accounts: int = 20,
         frontend_url: str = "",
         invitation_emails_per_day: int = 50,
+        calendar_feed_repo: ICalendarFeedRepository | None = None,
     ) -> None:
+        # #2226 review SEC-001 — the iCal feeds a membership that ends takes with it. ``None`` only where no
+        # membership is ever ended (doubles); ``get_tenant_service`` wires it. The public feed route checks the
+        # owner's membership itself, so a leftover feed answers 404 - this delete is the tidy-up.
+        self._calendar_feed_repo = calendar_feed_repo
         # #2137 (MT-041, REQ-023 §5b) — the keys of the tenant's service accounts and how many such accounts
         # a tenant may hold (``TENANT_MAX_SERVICE_ACCOUNTS``); ``get_tenant_service`` wires both.
         if max_service_accounts < 1:
@@ -203,7 +209,7 @@ class TenantService:
         self._frontend_url = frontend_url
         # The tasks a membership that ends takes its assignee off (#2114). ``None`` only where no membership
         # is ever ended (doubles); ``get_tenant_service`` always wires it, and the class guard holds that every
-        # method that deletes a membership calls :meth:`_end_task_assignments`.
+        # method that deletes a membership calls :meth:`_end_membership` (which clears them).
         self._task_repo = task_repo
         # The persistent security audit of every membership, role and scope change
         # (MT-014, #2111). ``None`` only where no membership is ever changed (read-only
@@ -2754,7 +2760,7 @@ class TenantService:
                 tenant_key=tenant_key,
                 membership=membership,
             )
-            self._end_task_assignments(tenant_key, service_account_key)
+            self._end_membership(tenant_key, service_account_key)
         if not any(m.is_active for m in self._membership_repo.list_by_user(service_account_key)):
             self._user_repo.update_fields(service_account_key, {"is_active": False})
         logger.info(
@@ -2944,7 +2950,7 @@ class TenantService:
                 tenant_key=membership.tenant_key,
                 membership=membership,
             )
-            self._end_task_assignments(membership.tenant_key, membership.user_key)
+            self._end_membership(membership.tenant_key, membership.user_key)
         return removed
 
     def _resolve_admin_membership(
@@ -3227,7 +3233,7 @@ class TenantService:
                 tenant_key=tenant_key,
                 membership=membership,
             )
-            self._end_task_assignments(tenant_key, membership.user_key)
+            self._end_membership(tenant_key, membership.user_key)
         return removed
 
     def leave_tenant(self, tenant_key: str, user_key: str) -> bool:
@@ -3251,8 +3257,46 @@ class TenantService:
                 tenant_key=tenant_key,
                 membership=membership,
             )
-            self._end_task_assignments(tenant_key, user_key)
+            self._end_membership(tenant_key, user_key)
         return left
+
+    def _end_membership(self, tenant_key: str, user_key: str) -> None:
+        """What ending *user_key*'s membership in *tenant_key* takes with it, after the delete succeeded.
+
+        The member's task assignments in the tenant (#2114) and their iCal feeds in it (#2226 review
+        SEC-001). Every method that deletes a membership calls this - held by
+        ``test_membership_mutations_write_the_security_audit``.
+        """
+        self._end_task_assignments(tenant_key, user_key)
+        self._end_calendar_feeds(tenant_key, user_key)
+
+    def _end_calendar_feeds(self, tenant_key: str, user_key: str) -> None:
+        """Delete *user_key*'s calendar feeds in *tenant_key* after its membership ended (#2226 review SEC-001).
+
+        A feed is a standing read of the tenant by URL; it must not outlive the membership it was issued
+        under. A failing delete does not undo the removal and is not raised: the feed route asks the stored
+        membership before it serves (``CalendarService.generate_ical_for_feed``), so a leftover feed answers
+        404 - the delete is the tidy-up, the route's check the barrier. Logged pseudonymised.
+        """
+        if self._calendar_feed_repo is None:
+            return
+        try:
+            deleted = self._calendar_feed_repo.delete_by_user(user_key, tenant_key=tenant_key)
+        except Exception as exc:  # noqa: BLE001 - see the docstring: the removal stands, the route checks membership
+            logger.warning(
+                "calendar_feeds_not_deleted",
+                tenant=log_tenant(tenant_key),
+                subject=log_subject(user_key),
+                error_type=type(exc).__name__,
+            )
+            return
+        if deleted:
+            logger.info(
+                "calendar_feeds_deleted",
+                tenant=log_tenant(tenant_key),
+                subject=log_subject(user_key),
+                feeds=int(deleted),
+            )
 
     def _end_task_assignments(self, tenant_key: str, user_key: str) -> None:
         """Take *user_key* off the assignee of *tenant_key*'s tasks after its membership ended (#2114).

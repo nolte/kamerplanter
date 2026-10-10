@@ -82,6 +82,11 @@ _SITES: dict[str, tuple[str, str, str]] = {
         "tenant",
         "an API key's tenant_scope may only name an active tenant (#1852)",
     ),
+    "app/domain/services/calendar_service.py:CalendarService._owner_stands": (
+        _READS,
+        "tenant",
+        "the public iCal feed serves a tenant's calendar only while that tenant is active (#2226 review SEC-001)",
+    ),
     # -- lookups that hand the document to a caller which is itself a site --------------
     f"{_TS}:TenantService.get_tenant": (_DECIDED, "", "returns the document; its callers are sites"),
     f"{_TS}:TenantService.get_tenant_by_slug": (_DECIDED, "", "returns the document; its callers are sites"),

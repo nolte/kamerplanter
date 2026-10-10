@@ -188,14 +188,19 @@ Every feed has a secret token embedded in its URL. Use **Regenerate Token** (the
 
 This is also the way to go if you lost a feed's URL: the feed list no longer shows a URL, because Kamerplanter does not store it.
 
-The feed list shows only your own feeds, and only those can you change or regenerate — another member's feed can be touched by nobody but that member and the garden's lead.
+The feed list shows only your own feeds, and only those can you change or regenerate — another member's feed can be touched by nobody but that member and the garden's lead. As the lead you see every feed of the garden through the technical API (`GET …/calendar/feeds?scope=all`); the UI does not offer this overall list yet.
+
+A feed reads the garden with its member's rights. When the member leaves the garden or is removed, Kamerplanter deletes their feeds in that garden, and the subscription URLs stop working at once. The same holds while their account or the garden is deactivated.
 
 !!! warning "The old link stops working immediately"
-    As soon as you regenerate the token, the previous subscription URL no longer works — the external app shows an error instead of new events. Update the URL in every app where you subscribed to the feed. Use this if you lost or accidentally shared a feed link or want to revoke a former member's access.
+    As soon as you regenerate the token, the previous subscription URL no longer works — the external app shows an error instead of new events. Update the URL in every app where you subscribed to the feed. Use this if you lost or accidentally shared a feed link. You don't need to end a former member's access yourself — their feeds end with their membership.
 
 ### Deleting a Feed
 
 Feeds can be deleted at any time under **iCal Feeds**. When deleted, the feed link becomes invalid — it must be removed from the external app as well.
+
+!!! warning "Note for operators: the subscription URL can end up in ingress logs"
+    Kamerplanter writes the subscription URL's token into none of its own log lines. An ingress or reverse proxy in front of it (e.g. Traefik) logs the full URL including `?token=…`, though, when its access log is on. Whoever can read those logs can fetch the feeds with them. Turn the access log off for the path `/api/v1/calendar/feeds/`, mask the query string, or treat the logs like credentials. Kamerplanter builds the subscription URL from `APP_BASE_URL` — set it to the public `https://` address in production.
 
 !!! info "Expiry only via the API"
     Kamerplanter internally supports an optional expiry date for feeds — once expired, the feed endpoint returns an error (HTTP 410 "Gone") instead of events. An expiry date cannot currently be set through the UI, only via the technical API.

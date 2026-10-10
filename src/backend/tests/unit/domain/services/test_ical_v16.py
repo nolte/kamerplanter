@@ -9,6 +9,7 @@ import pytest
 from app.common.exceptions import FeedExpiredError, NotFoundError
 from app.domain.models.calendar import CalendarEvent, CalendarFeed, CalendarFeedFilters
 from app.domain.services.ical_generator import ICalGenerator
+from tests.support.calendar_feed_owner import every_owner_stands
 
 
 def _event(**overrides) -> CalendarEvent:
@@ -70,6 +71,7 @@ class TestFeedExpiry:
             feed_repo=feed_repo,
             aggregation_engine=MagicMock(),
             source_repo=MagicMock(),
+            **every_owner_stands(),
         )
 
         with pytest.raises(FeedExpiredError) as exc:
@@ -89,6 +91,7 @@ class TestFeedExpiry:
             feed_repo=feed_repo,
             aggregation_engine=engine,
             source_repo=MagicMock(),
+            **every_owner_stands(),
         )
 
         result = svc.generate_ical_for_feed("feed-1", "tkn-abc")

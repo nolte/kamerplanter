@@ -1290,6 +1290,8 @@ def get_tenant_service() -> TenantService:
         frontend_url=settings.frontend_url,
         # #2162 review W-1 — the daily ceiling of e-mail invitations per account.
         invitation_emails_per_day=settings.tenant_invitation_emails_per_day,
+        # #2226 review SEC-001 — a membership that ends deletes the member's iCal feeds in the tenant.
+        calendar_feed_repo=get_calendar_feed_repo(),
         # #2133 (REQ-024 AK-64) — no tenant's member limit exceeds the platform ceiling.
         max_members_ceiling=settings.tenant_max_members_ceiling,
         # #2137 (MT-041, REQ-023 §5b) — the tenant's service accounts: their keys and the per-tenant quota.
@@ -1620,6 +1622,10 @@ def get_calendar_service() -> CalendarService:
         species_repo=get_species_repo(),
         site_repo=get_site_repo(),
         planting_run_service=get_planting_run_service(),
+        # #2226 review SEC-001 — the public feed serves only while its owner stands in the tenant.
+        membership_repo=get_membership_repo(),
+        user_repo=get_user_repo(),
+        tenant_repo=get_tenant_repo(),
     )
 
 

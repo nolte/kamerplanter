@@ -33,6 +33,7 @@ from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEn
 from app.domain.models.calendar import CalendarFeed
 from app.domain.services.calendar_service import CalendarService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.calendar_feed_owner import every_owner_stands
 
 TEST_DATABASE = run_database_name("calendar_feed_token_at_rest")
 TENANT = "tenant-feed"
@@ -68,6 +69,7 @@ def _service(db) -> CalendarService:
         ArangoCalendarFeedRepository(db),
         CalendarAggregationEngine(),
         ArangoCalendarSourceRepository(db),
+        **every_owner_stands(),
     )
 
 

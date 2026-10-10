@@ -915,6 +915,13 @@ class Settings(BaseSettings):
     #: often. Thirty a minute leaves room for many subscriptions behind one NAT
     #: address.
     rate_limit_calendar_feed: str = "30/minute"
+    #: The same route, per presented feed token (#2226 review SEC-005), on top of
+    #: the per-address limit above. A subscription URL pasted into several
+    #: devices (phone, laptop, Home Assistant) is polled a few times an hour by
+    #: each; sixty an hour leaves room for that and bounds a leaked URL polled
+    #: from many addresses at once. Keyed by a digest of the token, so nobody
+    #: without the token can spend its budget.
+    rate_limit_calendar_feed_per_token: str = "60/hour"
     #: ``GET /api/health``, per client IP (#1210, SEC-003).
     #:
     #: **Why this endpoint has a limit and the Kubernetes probes do not.** The

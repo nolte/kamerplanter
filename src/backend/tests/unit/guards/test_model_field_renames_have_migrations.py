@@ -160,6 +160,19 @@ _CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
     ("site.py", "Slot", "tenant_key"): _MigratedBy("0087"),
     # #2171 — the clear iCal token became its SHA-256 digest ``token_hash``; v0090 hashes and unsets it.
     ("calendar.py", "CalendarFeed", "token"): _MigratedBy("0090"),
+    ("calendar.py", "CalendarEventsQuery", "site_key"): _NoStoredDocuments(
+        "A query object built per request and handed to the aggregation engine; never written to "
+        "any collection. Removed in the #2226 review (SEC-003) that followed 31329837d, together with the "
+        "feed filter that fed it."
+    ),
+    ("calendar.py", "CalendarFeedFilters", "site_key"): _NoStoredDocuments(
+        "Stored documents DO carry filters.site_key, and that is deliberate (#2226 review SEC-003 on "
+        "31329837d, the commit that restored the public feed route): the "
+        "value was never applied by any event source, so no reader depends on it. CalendarFeedFilters "
+        "ignores the unknown key on read (Pydantic default extra='ignore'), and the feed's next PUT "
+        "rewrites filters without it - no migration is needed for correctness, and keeping the stored "
+        "value loses nothing a reader could still see."
+    ),
     ("actuator.py", "Actuator", "state"): _NoStoredDocuments(
         "Renamed to current_state in 426be8b4e (#561), the same commit whose v0015 "
         "CREATES the actuators collection — no actuator document can predate it."

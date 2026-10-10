@@ -4685,9 +4685,12 @@ export interface CalendarEventsResponse {
   total: number;
 }
 
+/**
+ * What a feed narrows the tenant's calendar to: event categories. A site
+ * filter was stored but never applied and was removed (#2226 review SEC-003).
+ */
 export interface CalendarFeedFilters {
   categories: string[];
-  site_key: string | null;
 }
 
 /**

@@ -15,7 +15,11 @@ What the route holds, and where:
   (:meth:`CalendarService.generate_ical_for_feed`), so neither a feed key nor a
   token can be probed. A feed past ``expires_at`` answers ``410`` (CF-005) — to
   the holder of its token only.
-* **Per-IP rate limit** ``settings.rate_limit_calendar_feed`` (CF-004).
+* **Two rate limits** (CF-004): per client IP ``settings.rate_limit_calendar_feed``,
+  and per presented token ``settings.rate_limit_calendar_feed_per_token``
+  (#2226 review SEC-005) - a leaked URL polled from many addresses is still one
+  bounded bucket. The token bucket is keyed by a digest of the token, so a
+  caller without the token cannot spend a subscriber's budget.
 * **No token in a log line.** The backend access log and the request logging
   write the path through ``loggable_path`` (feed key → ``{}``, query →
   ``?<redacted>``), the frontend nginx logs ``/api/...`` only, and the error
@@ -30,6 +34,7 @@ in one place and pinned against this route's template by a test.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request
@@ -54,6 +59,18 @@ _MAX_TOKEN_LENGTH = 256
 router = APIRouter(tags=["calendar"])
 
 
+def feed_token_rate_limit_key(request: Request) -> str:
+    """The rate-limit bucket of the token a ``feed.ics`` request presents (#2226 review SEC-005).
+
+    A truncated SHA-256 of the token with its own prefix: the raw token never
+    becomes a storage key, and it is a different digest from the one the feed
+    row stores, so a storage dump does not name a feed. Requests without a
+    token share one bucket; they are refused with 404 anyway.
+    """
+    token = request.query_params.get("token", "")[:_MAX_TOKEN_LENGTH]
+    return "feed-token:" + hashlib.sha256(b"kamerplanter-feed-rate-limit:" + token.encode()).hexdigest()[:32]
+
+
 @router.get(
     FEED_ICS_PATH,
     response_class=Response,
@@ -67,10 +84,14 @@ router = APIRouter(tags=["calendar"])
             "description": "No active feed with this key opens with this token (also: no token, inactive feed).",
         },
         410: {"model": ErrorResponse, "description": "The feed is past its expiry date (CF-005)."},
-        429: {"model": ErrorResponse, "description": "Too many feed requests from this address (CF-004)."},
+        429: {
+            "model": ErrorResponse,
+            "description": "Too many feed requests from this address, or for this token (CF-004).",
+        },
     },
 )
 @limiter.limit(settings.rate_limit_calendar_feed)
+@limiter.limit(settings.rate_limit_calendar_feed_per_token, key_func=feed_token_rate_limit_key)
 def get_ical_feed(
     request: Request,
     key: Annotated[str, Path(max_length=_MAX_KEY_LENGTH, description="Key of the calendar feed.")],
