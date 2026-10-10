@@ -51,7 +51,6 @@ from app.data_access.arango.base_repository import BaseArangoRepository
 #: what converting it to ``is_tenant_scoped`` records.
 EXEMPT_REPOSITORIES: frozenset[str] = frozenset(
     {
-        "ArangoActivityRepository",
         "ArangoSpeciesRepository",
         "ArangoSubstrateRepository",
     }

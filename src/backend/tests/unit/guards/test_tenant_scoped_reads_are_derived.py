@@ -818,13 +818,8 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "filter is the scope, measured in tests/integration/test_ai_provider_system_default_reach.py; no "
         "route writes ai_provider_configs at all, so no tenant can place a row there (#2110)",
     ),
-    ("ArangoActivityRepository", "get_all"): Exclusion("catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"),
-    ("ArangoActivityRepository", "get_system_activities"): Exclusion(
-        "catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"
-    ),
-    ("ArangoActivityRepository", "get_by_category"): Exclusion(
-        "catalogue", f"activities: {_CATALOGUE_WRITTEN_BY_ADMINS}"
-    ),
+    # The three ArangoActivityRepository reads left this list with #2119 (MT-023): each now
+    # takes tenant_key keyword-only and carries the hybrid-union predicate.
     # The ones below became subjects in #2102, when a traversal's vertex collection began to
     # count as touched (``edge_vertices`` in :func:`build_inventory`); each was read for
     # whether a tenant-owned species can sit behind the edge it walks.
