@@ -208,7 +208,7 @@ class PestImageService:
         enforces the privilege): when ``True`` deselected contributions are
         returned too (dimmed in the UI); the default hides them for everyone.
         """
-        own = self._repo.list_for_pest(tenant_key, pest_key, include_inactive=include_inactive)
+        own = self._repo.list_for_pest(tenant_key=tenant_key, pest_key=pest_key, include_inactive=include_inactive)
         own_keys = {c.key for c in own}
         foreign_promoted = [
             c
@@ -335,7 +335,7 @@ class PestImageService:
         then the attachment — so a failed attachment delete never strands a
         dangling reference (the attachment cleanup is itself idempotent).
         """
-        contribution = self._repo.get(contribution_key, tenant_key)
+        contribution = self._repo.get(contribution_key, tenant_key=tenant_key)
         if contribution is None:
             return False
 

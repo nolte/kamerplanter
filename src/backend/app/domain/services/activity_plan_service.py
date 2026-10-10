@@ -146,7 +146,10 @@ class ActivityPlanService:
             )
 
         # Load all activities
-        activities = get_all_pages(self._activity_repo)  # every catalogue activity, not the first 500 (#2015)
+        # Every catalogue activity this plan's owner may read, not the first 500 (#2015):
+        # a shared template (tenant_key "") is built from global activities only, so a
+        # tenant's own activity can never land in a plan every tenant reads (#2119).
+        activities = get_all_pages(self._activity_repo, tenant_key=tenant_key)
 
         wt, templates = self._engine.generate_plan(
             species_name=species_name,

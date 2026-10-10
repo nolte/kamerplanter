@@ -238,13 +238,12 @@ def update_feed(
 ) -> CalendarFeedResponse:
     """Update a calendar feed's name, filters or active state."""
     svc: CalendarService = get_calendar_service()
-    svc.get_feed(key, tenant_key=ctx.tenant_key)
     feed = CalendarFeed(
         name=body.name,
         is_active=body.is_active,
         filters=CalendarFeedFilters(categories=body.filters.categories, site_key=body.filters.site_key),
     )
-    updated = svc.update_feed(key, feed)
+    updated = svc.update_feed(key, feed, tenant_key=ctx.tenant_key)
     return _feed_response(updated, request)
 
 
@@ -255,8 +254,7 @@ def delete_feed(
 ) -> None:
     """Delete a calendar feed."""
     svc: CalendarService = get_calendar_service()
-    svc.get_feed(key, tenant_key=ctx.tenant_key)
-    svc.delete_feed(key)
+    svc.delete_feed(key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/feeds/{key}/regenerate-token")
@@ -267,6 +265,5 @@ def regenerate_token(
 ) -> CalendarFeedResponse:
     """Rotate a calendar feed's access token, invalidating the old iCal URL."""
     svc: CalendarService = get_calendar_service()
-    svc.get_feed(key, tenant_key=ctx.tenant_key)
-    feed = svc.regenerate_token(key)
+    feed = svc.regenerate_token(key, tenant_key=ctx.tenant_key)
     return _feed_response(feed, request)

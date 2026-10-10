@@ -97,14 +97,14 @@ class _CatalogueRepo:
 
 
 class _ActivityRepo:
-    """``ArangoActivityRepository.get_all(offset, limit, filters)``: no tenant arguments."""
+    """``ArangoActivityRepository.get_all(offset, limit, filters, *, tenant_key)``: hybrid union (#2119)."""
 
     def __init__(self, rows: list[Activity]) -> None:
         self.rows = sorted(rows, key=lambda r: r.key or "")
 
-    def get_all(self, offset=0, limit=50, filters=None):
+    def get_all(self, offset=0, limit=50, filters=None, *, tenant_key):
         assert not filters
-        return _window(self.rows, offset, limit)
+        return _window([r for r in self.rows if r.tenant_key in ("", tenant_key)], offset, limit)
 
 
 class _FertilizerRepo:
@@ -248,6 +248,39 @@ def test_generated_plan_is_offered_every_catalogue_activity() -> None:
 
     offered = engine.generate_plan.call_args.kwargs["activities"]
     assert [a.key for a in offered] == [a.key for a in activities]
+
+
+def _activities_offered_to_a_plan_owned_by(tenant_key: str) -> list[str]:
+    activities = [
+        Activity(_key="g", name="Global"),
+        Activity(_key="a", name="Tenant A", tenant_key="tenant-a"),
+        Activity(_key="b", name="Tenant B", tenant_key="tenant-b"),
+    ]
+    engine = MagicMock()
+    engine.generate_plan.return_value = (MagicMock(), [])
+    phase_repo = MagicMock()
+    phase_repo.get_lifecycle_by_species.return_value = SimpleNamespace(key="lc1")
+    phase_repo.get_phases_by_lifecycle.return_value = [MagicMock()]
+    service = ActivityPlanService(
+        engine,
+        _ActivityRepo(activities),
+        phase_repo,
+        MagicMock(),
+        MagicMock(),
+        species_repo=MagicMock(get_by_key=MagicMock(return_value=None)),
+    )
+    service.generate_plan("sp1", tenant_key=tenant_key)
+    return sorted(a.key for a in engine.generate_plan.call_args.kwargs["activities"])
+
+
+def test_a_shared_plan_template_is_built_from_global_activities_only() -> None:
+    """#2119: a shared template (tenant "") is read by every tenant, so no tenant's activity may enter it."""
+    assert _activities_offered_to_a_plan_owned_by("") == ["g"]
+
+
+def test_a_tenant_plan_is_built_from_its_own_and_the_global_activities() -> None:
+    """#2119: own ∪ global — never another tenant's activity."""
+    assert _activities_offered_to_a_plan_owned_by("tenant-a") == ["a", "g"]
 
 
 # ── sowing calendar (calendar_service.get_sowing_calendar, old limit 5000) ──

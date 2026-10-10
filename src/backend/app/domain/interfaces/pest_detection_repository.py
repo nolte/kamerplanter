@@ -11,11 +11,12 @@ class IPestDetectionRepository(ABC):
     def create(self, detection: PestDetection) -> PestDetection: ...
 
     @abstractmethod
-    def get(self, key: str, tenant_key: str) -> PestDetection | None: ...
+    def get(self, key: str, *, tenant_key: str) -> PestDetection | None: ...
 
     @abstractmethod
     def list_for_plant(
         self,
+        *,
         tenant_key: str,
         plant_instance_key: str,
         limit: int = 20,

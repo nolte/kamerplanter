@@ -589,6 +589,7 @@
     },
     "errors": {
       "disabled": "Die KI-Funktionen sind für diesen Garten aktuell deaktiviert. Eine Administratorin oder ein Administrator kann sie in den Tenant-Einstellungen aktivieren.",
+      "notEnabled": "Die KI-Funktionen sind auf dieser Installation nicht eingeschaltet. Die Betreiberin oder der Betreiber kann sie aktivieren.",
       "consentRequired": "Für diese KI-Funktion fehlt deine Einwilligung zur Nutzung deiner Pflanzendaten. Du kannst sie in den Datenschutz-Einstellungen erteilen.",
       "consentRequiredLink": "Zu den Datenschutz-Einstellungen",
       "budgetUserExceeded": "Du hast dein Tageskontingent an KI-Anfragen in diesem Garten aufgebraucht. Ab Mitternacht (UTC) kannst du wieder fragen.",
@@ -925,6 +926,28 @@
       "serviceUnavailable": "Der Wissensassistent ist gerade nicht erreichbar. Bitte versuche es später erneut.",
       "invalidOutput": "Die KI konnte kein verwertbares Ergebnis liefern. Bitte versuche es erneut.",
       "noResult": "Zu den gewählten Symptomen konnte keine Diagnose ermittelt werden."
+    }
+  },
+  "consent": {
+    "banner": {
+      "aria_label": "Datenschutz-Einwilligung",
+      "title": "Wir respektieren deine Privatsphäre",
+      "body": "Notwendige Speicherungen für Login, Sprache und Mandantenauswahl sind immer aktiv. Optional kannst du die Fehleranalyse erlauben: Stürzt die Anwendung ab, wird ein bereinigter Fehlerbericht an den vom Betreiber konfigurierten Fehler-Tracker gesendet. Du kannst deine Entscheidung jederzeit in den Datenschutz-Einstellungen ändern.",
+      "settings": "Einstellungen",
+      "necessary": "Nur Notwendige",
+      "accept_all": "Alle akzeptieren",
+      "save": "Auswahl speichern",
+      "category": {
+        "error_tracking": {
+          "label": "Fehleranalyse",
+          "description": "Sendet bei einem Absturz einen Fehlerbericht ohne Formularinhalte, Cookies oder E-Mail-Adresse an den Fehler-Tracker des Betreibers."
+        }
+      }
+    },
+    "browser": {
+      "heading": "Einwilligungen in diesem Browser",
+      "description": "Diese Entscheidung gilt nur für diesen Browser und wirkt sofort, ohne Neuladen.",
+      "error_tracking": "Fehleranalyse erlauben"
     }
   }
 }

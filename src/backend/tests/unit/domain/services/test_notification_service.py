@@ -614,7 +614,7 @@ class TestSendFrostForecastNotifications:
         assert result == {"status": "complete", "users_notified": 2}
         assert mock_engine.notify.await_count == 2
         group_key = f"frost-forecast:site1:{self._DATE.isoformat()}"
-        mock_notification_repo.find_notified_user_keys.assert_called_once_with(group_key, "t1")
+        mock_notification_repo.find_notified_user_keys.assert_called_once_with(group_key, tenant_key="t1")
 
     @pytest.mark.asyncio
     async def test_counts_only_delivered_sends(self, service, mock_engine, mock_notification_repo):

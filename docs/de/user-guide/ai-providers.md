@@ -18,7 +18,7 @@ Kamerplanter unterstützt mehrere KI-Provider, die je nach Hardware, Datenschutz
 
 | Variable | Beschreibung | Default |
 |----------|-------------|---------|
-| `LLM_PROVIDER` | `anthropic`, `ollama` oder `openai_compatible` | `ollama` |
+| `LLM_PROVIDER` | `anthropic`, `ollama` oder `openai_compatible`. Ein anderer Wert (z. B. der Tippfehler `openai-compatible`) verhindert den Start des Knowledge Service | `ollama` |
 | `LLM_API_URL` | Basis-URL des Providers (bei Ollama/OpenAI-kompatibel) | `http://ollama:11434` |
 | `LLM_API_KEY` | API-Key (bei Anthropic/OpenAI-kompatibel, falls erforderlich) | leer |
 | `LLM_MODEL` | Modellname | `gemma3:12b` |
@@ -263,7 +263,7 @@ LLM_MODEL=<Modellname>
 
 Der Knowledge-Service verwendet zum jetzigen Zeitpunkt **genau einen** konfigurierten Provider (`LLM_PROVIDER`) — es gibt keine Mehrfach-Konfiguration mit automatischem Failover zwischen mehreren Cloud-/Lokal-Providern.
 
-Falls kein Provider erreichbar ist oder `POST /api/v1/knowledge/ask` fehlschlägt, greift der **regelbasierte Fallback** für Tipp-Karten (sobald diese Funktion verfügbar ist): Das System generiert Tipp-Karten auf Basis der Stammdaten und der aktuellen Phase — ohne Sprachmodell.
+Falls kein Provider erreichbar ist oder der Knowledge-Service nicht antwortet, greift der **regelbasierte Fallback** für Tipp-Karten (sobald diese Funktion verfügbar ist): Das System generiert Tipp-Karten auf Basis der Stammdaten und der aktuellen Phase — ohne Sprachmodell.
 
 ---
 

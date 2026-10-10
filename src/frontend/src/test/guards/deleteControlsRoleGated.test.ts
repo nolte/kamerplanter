@@ -173,7 +173,6 @@ const NOT_LEAD_ONLY: Record<string, string> = {
   deleteRestriction: 'privacy/router.py — get_current_user, own restriction',
   deleteConsent: 'privacy/router.py — get_current_user, own consent',
   removeFavorite: 'favorites/tenant_router.py — get_current_tenant only; a favourite is personal to the member',
-  deleteConversation: 'ki_assistent/tenant_router.py — get_current_tenant only',
   deleteTaskPhoto: 'tasks/photo_router.py — require_attachment_permission(CREATE); the service splits per state (#1393): a referenced completion photo is lead-only, a staged upload may be withdrawn by its creator',
   removeFertilizerFromChannel: 'nutrient_plans — PUT entry, require_permission(NUTRIENT_PLAN, UPDATE)',
   removePlantPlan: 'plant_instances — require_permission(PLANT, UPDATE)',

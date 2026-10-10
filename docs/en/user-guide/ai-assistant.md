@@ -3,7 +3,7 @@
 !!! note "Partially available"
     The AI Assistant is usable as its own page **AI Assistant** (`/ki-assistent`): knowledge questions and a context-free chat already work. The **tip cards**, **tip of the day**, and **"why?" buttons** described further down on this page have already been built as frontend components, but are not yet wired into any plant, planting-run, or task page — they don't appear anywhere yet. The next two sections describe today's state in the present tense; the sections after that describe the **planned behavior** in future tense. <!-- REQ-031 -->
 
-The AI Assistant answers knowledge questions about plant care based on a curated knowledge base — clearly labeled as AI-generated, with source references, and without sending your personal data to a language model.
+The AI Assistant answers knowledge questions about plant care based on a curated knowledge base — clearly labeled as AI-generated and with source references. Only the text of your question goes to the language model, no data about your plants.
 
 ---
 
@@ -11,12 +11,17 @@ The AI Assistant answers knowledge questions about plant care based on a curated
 
 Open **AI Assistant** in the menu. Enter your question in the text field — for example "What is VPD and why does it matter?" — and click **Ask** (or submit with Ctrl/Cmd + Enter). The answer appears below, with AI labeling and expandable sources.
 
-These knowledge questions are **purely factual** — they don't relate to your specific plants, only to general plant knowledge from the knowledge base. That's why no consent is required, and the feature is also available in anonymous [Light Mode](light-mode.md) without logging in.
+These knowledge questions are **purely factual** — they don't relate to your specific plants, only to general plant knowledge from the knowledge base.
+
+- **In [Light Mode](light-mode.md)** you need neither a login nor a consent: the instance works without sign-in as the system user, and there is no consent management there.
+- **In full mode** you ask the question inside your garden. Because your freely formulated text then goes — attributed to your account — to the knowledge base and its language model, you need the consent **AI knowledge question to the knowledge base** (`ai_knowledge_question`), plus your garden's AI approval and at least the grower role. If you add plant values to the question yourself (species, phase, substrate, EC, pH), the consent **AI access to your plant data** (`ai_tenant_data_access`) is required as well.
 
 !!! example "Example questions"
     - "What is VPD?"
     - "How do I lower the pH of the nutrient solution?"
     - "What is a pre-harvest interval?"
+
+**Consent right on the page:** if you are missing the knowledge-question consent in full mode, a notice explaining what is sent appears right below the text field after you submit. **Consent and send question** grants it and sends your question straight away. **Not now** leaves everything as it was, and the question is not answered. Every question in full mode counts towards your [daily quota](#daily-quota). You can revoke the consent at any time under **Privacy**, tab **Consents**, with **Revoke**; the revocation applies from the next question.
 
 ## Context-aware chat
 
@@ -39,18 +44,19 @@ An AI feature only answers when every relevant stage agrees:
 | 2. Garden (tenant) | Your garden's administrator | All AI features that use your plant context (chat, and tip cards in the future) |
 | 3. Your consent | You | Whether your plant data may be sent as context, and whether a cloud provider may be used instead of a local model |
 
-Plain knowledge questions without a plant reference (see above) only need stage 1 — that's why they also work in Light Mode without logging in.
+Plain knowledge questions without a plant reference (see above) only need stage 1 in Light Mode and work there without logging in. In full mode they need all three stages; stage 3 there is the dedicated consent `ai_knowledge_question`.
 
 ## Granting consent {#granting-consent}
 
-Two consents are relevant to the AI Assistant:
+Three consents are relevant to the AI Assistant:
 
 | Consent | Needed for |
 |---------|-----------|
+| AI knowledge question to the knowledge base | Knowledge questions on the **AI Assistant** page in full mode. You can grant it right on the page when you ask your first question |
 | AI access to your plant data | Chat, tip cards, tip of the day, and "why?" explanations — anywhere the answer uses your specific plant context (species, phase, substrate, EC/pH readings) |
 | AI processing via cloud provider | Additionally needed only if your instance uses a cloud provider instead of a local model |
 
-Both appear in the **Privacy** area under the **Consents** tab, where you can currently only view them, not grant or revoke them by clicking — that still works only through the API. Details, the wording of the consent texts, and the exact click-through flow are described in [Privacy & GDPR](privacy.md#managing-consents-gdpr-art-7).
+All three appear in the **Privacy** area under the **Consents** tab. You revoke a granted consent there with **Revoke**. You can't grant one there: the knowledge-question consent is granted on the **AI Assistant** page, the other two still only through the API. Details and the wording of the consent texts are in [Privacy & GDPR](privacy.md#managing-consents-gdpr-art-7).
 
 ---
 
@@ -115,14 +121,15 @@ The AI Assistant is unlocked through three levels — details and environment va
 
 **Stage 2 (tenant):** The field `tenant.settings.ai_features_enabled` controls whether AI features are active for a specific garden (tenant) (default: `false`). There is currently **neither a UI nor a dedicated API endpoint** for this — the field can only be set through direct access to the tenant document in ArangoDB. Without this step, every tenant-scoped AI feature (chat, and tip cards in the future) stays disabled even when stage 1 is on.
 
-**Stage 3 (consent):** `POST /api/v1/privacy/consents` with `purpose: ai_tenant_data_access` or `purpose: ai_cloud_processing` (see [Privacy & GDPR](privacy.md#for-technical-users-self-hosters)).
+**Stage 3 (consent):** `POST /api/v1/privacy/consents` with `purpose: ai_knowledge_question` (knowledge question), `purpose: ai_tenant_data_access` (plant data as context) or `purpose: ai_cloud_processing` (cloud provider) (see [Privacy & GDPR](privacy.md#for-technical-users-self-hosters)).
 
-The plain knowledge question only needs stage 1 and is reachable as a rate-limited, anonymous endpoint:
+The knowledge question has one endpoint per mode:
 
-| Endpoint | Purpose |
-|----------|---------|
-| `POST /api/v1/public/ai/ask` | Free-form knowledge question with no plant context (no login, IP rate-limited) |
-| `GET /api/v1/public/ai/health` | Checks whether the knowledge base is reachable |
+| Endpoint | Mode | Purpose |
+|----------|------|---------|
+| `POST /api/v1/t/{tenant_slug}/ai/knowledge/ask` | full mode | Free-form knowledge question inside a garden: grower and up, stages 1 + 2, consent `ai_knowledge_question` (with plant values in `context` also `ai_tenant_data_access`), daily AI budget |
+| `POST /api/v1/public/ai/ask` | Light Mode only | Free-form knowledge question with no plant context as the system user (no login, IP rate-limited); `404` in full mode |
+| `GET /api/v1/public/ai/health` | Light Mode only | Checks whether the knowledge base is reachable; `404` in full mode |
 
 Details for all AI endpoints (including chat, tips, explanations) are in the [API reference](../reference/api-reference.md#ki-assistent).
 
@@ -130,7 +137,7 @@ Details for all AI endpoints (including chat, tips, explanations) are in the [AP
 
 ## Daily quota for AI requests {#daily-quota}
 
-Every request that calls a language model — generating tips or the tip of the day, "Why?", a chat message, generating a glossary explanation, an AI diagnosis — counts towards a daily quota. There are three limits, all per calendar day (UTC):
+Every request that calls a language model — a knowledge question in full mode, generating tips or the tip of the day, "Why?", a chat message, generating a glossary explanation, an AI diagnosis — counts towards a daily quota. There are three limits, all per calendar day (UTC):
 
 - **Your quota in a garden** — 50 requests by default. If you are a member of several gardens, you have one in each.
 - **The garden's quota** — 500 requests of all members together by default. A member refused at their own quota does not use up the garden's.
@@ -147,6 +154,8 @@ When a limit is reached, the interface tells you which one — you can ask again
 
 If the underlying knowledge base (Knowledge Service) is unreachable, the AI Assistant returns a rule-based answer without a language model instead of an error — the application stays usable, but answer quality is then lower.
 
+The knowledge question on the **AI Assistant** page has no such fallback answer: if the knowledge base is unreachable, the page says that the answer could not be loaded.
+
 ---
 
 ## Frequently Asked Questions
@@ -159,6 +168,9 @@ If the underlying knowledge base (Knowledge Service) is unreachable, the AI Assi
 
 ??? question "Why does chat show a missing-consent notice?"
     Chat uses your plant context and therefore needs your "AI access to your plant data" consent. How to grant it is described under [Granting consent](#granting-consent).
+
+??? question "Why does the AI page ask for consent although I'm not asking about my plants?"
+    Even a purely factual question goes to a language model as text. In full mode, you therefore consent once to "AI knowledge question to the knowledge base". Data about your plants is only included if you add it to the question yourself.
 
 ??? question "Can I run the AI Assistant entirely locally?"
     That's decided by the platform operator when configuring the knowledge base. With a local model (Ollama), no data leaves your own network and no cloud-processing consent is needed. Details for self-hosters: [AI Provider Setup](ai-providers.md).

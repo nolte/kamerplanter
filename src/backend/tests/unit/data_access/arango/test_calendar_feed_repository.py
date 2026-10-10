@@ -91,7 +91,7 @@ class TestListByUser:
     def test_filters_user_and_tenant(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([_doc()])
 
-        result = repo.list_by_user("u1", "t1")
+        result = repo.list_by_user("u1", tenant_key="t1")
 
         assert len(result) == 1
         assert isinstance(result[0], CalendarFeed)
@@ -101,7 +101,7 @@ class TestListByUser:
 
     def test_empty_result(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
-        assert repo.list_by_user("u1", "t1") == []
+        assert repo.list_by_user("u1", tenant_key="t1") == []
 
 
 class TestDelete:

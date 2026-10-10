@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.activities.schemas import ActivityCreate, ActivityResponse, ActivityUpdate
-from app.common.auth import get_current_user, get_is_platform_admin, require_platform_admin
+from app.common.auth import get_active_tenant_key, get_current_user, get_is_platform_admin, require_platform_admin
 from app.common.dependencies import get_activity_service
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
@@ -28,8 +28,13 @@ def list_activities(
     ),
     species: str | None = Query(None, description="Filter by species name (substring match in species_compatible)"),
     service: ActivityService = Depends(get_activity_service),
+    tenant_key: str = Depends(get_active_tenant_key),
 ) -> list[ActivityResponse]:
-    """List catalog activities, optionally filtered by category, scope or species."""
+    """List catalog activities, optionally filtered by category, scope or species.
+
+    The catalogue is hybrid (#2119): the caller sees the global activities plus
+    those of the tenant it acts in, never another tenant's.
+    """
     filters: dict = {}
     if category:
         filters["category"] = category
@@ -37,7 +42,7 @@ def list_activities(
         filters["scope"] = scope
     if species:
         filters["species"] = species
-    items, _ = service.list_activities(pagination.offset, pagination.limit, filters or None)
+    items, _ = service.list_activities(pagination.offset, pagination.limit, filters or None, tenant_key=tenant_key)
     return [to_response(a, ActivityResponse) for a in items]
 
 
@@ -61,9 +66,10 @@ def create_activity(
 def get_activity(
     key: Annotated[str, Path(description="Document key of the activity.")],
     service: ActivityService = Depends(get_activity_service),
+    tenant_key: str = Depends(get_active_tenant_key),
 ) -> ActivityResponse:
-    """Return a single catalog activity by key."""
-    return to_response(service.get_activity(key), ActivityResponse)
+    """Return a single catalog activity by key — a global one or the caller's tenant's own."""
+    return to_response(service.get_readable_activity(key, tenant_key=tenant_key), ActivityResponse)
 
 
 @router.put(
