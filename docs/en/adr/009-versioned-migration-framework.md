@@ -51,7 +51,7 @@ python -m app.migrations create <slug> # scaffold a new vNNNN_<slug>.py from a t
 
 `upgrade` and `downgrade` support `--dry-run` to compute the plan without writing anything — a prerequisite for controlled production execution. This CLI does not change the public HTTP API; it is a pure ops/developer tool.
 
-Migrations currently still run inside the FastAPI `lifespan` on startup (protected by the concurrency lock). The medium-term target is to run them instead as a dedicated Kubernetes Job / Helm `pre-upgrade` hook, so app replicas never migrate themselves — the CLI entry point is already the foundation for that.
+Migrations currently still run inside the FastAPI `lifespan` on startup (protected by the concurrency lock). The medium-term target is to run them instead as a dedicated Kubernetes Job / Helm `pre-upgrade` hook, so app replicas never migrate themselves — the CLI entry point is already the foundation for that. **As of 2026-10-10 (issue #2125):** the operator decided to keep migrations and seeds in the `lifespan`; instead of a job, a `startupProbe` gives the start up to 900 s, documented under [Backend start-up time](../deployment/kubernetes.md#backend-start-up-time).
 
 ### Rejected alternatives
 
