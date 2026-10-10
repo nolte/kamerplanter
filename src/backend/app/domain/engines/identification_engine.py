@@ -25,11 +25,16 @@ from app.domain.interfaces.plant_identification_adapter import (
 )
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.identification import IdentificationCandidate, IdentificationRequest
+from app.domain.services.species_visibility import readable_species
 
 logger = structlog.get_logger()
 
 _JPEG_MAGIC = b"\xff\xd8"
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+
+#: ``external_id`` namespace of a suggestion that names a row of the own species
+#: catalogue (REQ-029-A §0.1.1 point 5) — the self-hosted reference index.
+_LOCAL_CATALOGUE_NAMESPACE = "local:"
 
 
 class IdentificationEngine:
@@ -108,10 +113,13 @@ class IdentificationEngine:
         # Hash the sanitized image actually sent to the third party.
         image_hash = self.compute_image_hash(clean_image)
 
-        result: IdentificationResult = adapter.identify(
-            clean_image,
-            organ=organ,
-            language=language,
+        result: IdentificationResult = self._readable_for_tenant(
+            adapter.identify(
+                clean_image,
+                organ=organ,
+                language=language,
+            ),
+            tenant_key,
         )
 
         if not result.is_plant:
@@ -156,6 +164,7 @@ class IdentificationEngine:
         *,
         organ: PlantOrgan = PlantOrgan.AUTO,
         language: str = "de",
+        tenant_key: str,
     ) -> IdentificationResult:
         """Run an identification and return the *raw* adapter result.
 
@@ -164,13 +173,52 @@ class IdentificationEngine:
         create an identification-history record (the verdict is persisted on the
         attachment instead, §4a vs §4). The image is still validated, EXIF-stripped
         and normalized before it reaches the adapter, exactly like :meth:`identify`.
+
+        ``tenant_key`` is required for the same reason as on :meth:`identify`: the
+        assessment stores the suggestions on the attachment, so a self-hosted match
+        naming another tenant's species must be dropped here too (#2173).
         """
         self.validate_image(image_data)
         try:
             clean_image = strip_exif_and_normalize(image_data, max_dimension=self._max_image_dimension)
         except ValueError as exc:
             raise UnsupportedMediaTypeError(["image/jpeg", "image/png"]) from exc
-        return adapter.identify(clean_image, organ=organ, language=language)
+        return self._readable_for_tenant(adapter.identify(clean_image, organ=organ, language=language), tenant_key)
+
+    def _readable_for_tenant(self, result: IdentificationResult, tenant_key: str) -> IdentificationResult:
+        """Drop every catalogue suggestion the caller's tenant may not read (#2173).
+
+        The self-hosted reference index is one table for every tenant and its rows
+        carry no owner, so ``/match`` can name a tenant-owned species — indexed
+        before the acquisition read only the global catalogue, or a quarantined
+        contribution a platform admin activated later. A ``local:<species_key>``
+        suggestion is therefore resolved under ``tenant_key`` with the same rule
+        the species detail read applies (global, own or granted —
+        :func:`readable_species`); a foreign or no-longer-existing species is
+        dropped. This closes already-indexed rows at read time without a cleanup
+        of the index.
+
+        The survivors are re-ranked from 1 so a gap cannot reveal that a row was
+        dropped, and a result whose every suggestion was dropped answers
+        ``is_plant=False`` — what the local adapter reports for an empty match.
+        Suggestions of an external adapter (``plantnet:<id>``) name public
+        taxonomy, not a catalogue row, and pass through unchanged.
+        """
+        kept = []
+        dropped = 0
+        for suggestion in result.suggestions:
+            if suggestion.external_id.startswith(_LOCAL_CATALOGUE_NAMESPACE):
+                species_key = suggestion.external_id.removeprefix(_LOCAL_CATALOGUE_NAMESPACE)
+                if not species_key or readable_species(self._species_repo, species_key, tenant_key) is None:
+                    dropped += 1
+                    continue
+            kept.append(suggestion)
+        if not dropped:
+            return result
+
+        logger.info("identification_unreadable_local_suggestions_dropped", dropped=dropped, kept=len(kept))
+        reranked = [s.model_copy(update={"rank": rank}) for rank, s in enumerate(kept, start=1)]
+        return result.model_copy(update={"suggestions": reranked, "is_plant": result.is_plant and bool(reranked)})
 
     def _match_candidates(self, result: IdentificationResult, tenant_key: str) -> list[IdentificationCandidate]:
         """``tenant_key`` is required on purpose (#1162).

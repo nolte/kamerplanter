@@ -57,13 +57,13 @@ curl http://localhost:8090/modelinfo
 
 ### Step 2: Populate the Reference Index
 
-The reference index contains embedding vectors for all plant species from the master data. It is populated by a Celery task that fetches reference images from GBIF and Wikimedia Commons (CC0/CC-BY licences only), embeds them, and stores the vectors in pgvector. **Original images are not stored.**
+The reference index contains embedding vectors for all global plant species from the master data. Species a garden created itself are not indexed: the index is the same for every garden, and a match only names species the asking garden may see. It is populated by a Celery task that fetches reference images from GBIF and Wikimedia Commons (CC0/CC-BY licences only), embeds them, and stores the vectors in pgvector. **Original images are not stored.**
 
 !!! info "This step also populates the UI images in the species view"
     After the task completes, thumbnails appear in the **species list** and a full **reference image gallery** appears on each **species detail page**. Before the first acquisition run, both views show a placeholder notice. Licence attribution (CC-BY) is stored automatically in the metadata and displayed in the UI. For more information: [Reference Images in the Species View](../user-guide/plant-management.md#reference-images-in-the-species-view).
 
 ```bash
-# Start the Celery task for all species (one-time run; takes several hours):
+# Start the Celery task for all global species (one-time run; takes several hours):
 kubectl exec -it deploy/kamerplanter-backend -n default -- \
   celery -A app.tasks call \
   app.tasks.reference_image_tasks.acquire_all_reference_images_task
@@ -107,8 +107,8 @@ The response shows per species how many reference images were accepted and wheth
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/v1/admin/reference-images/acquire` | Start an acquisition run for all species |
-| `POST` | `/api/v1/admin/reference-images/acquire/{species_key}` | Start or repeat the acquisition run for a single species |
+| `POST` | `/api/v1/admin/reference-images/acquire` | Start an acquisition run for all global species |
+| `POST` | `/api/v1/admin/reference-images/acquire/{species_key}` | Start or repeat the acquisition run for a single global species (a garden's species: `404`) |
 | `GET` | `/api/v1/admin/reference-images/coverage` | Coverage report: identifiable species, species below threshold |
 
 All three endpoints require a valid admin token (`Authorization: Bearer <admin-token>`). They are accessible via the regular backend ingress — no separate port-forward is needed.

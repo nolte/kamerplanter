@@ -64,7 +64,7 @@ from app.schemas import (
 from app.vectordb.config import VectorDbConfig
 from app.vectordb.connection import VectorDbConnection
 from app.vectordb.pest_repository import PestEmbeddingRepository, require_page_limit
-from app.vectordb.repository import SpeciesEmbeddingRepository
+from app.vectordb.repository import USER_CONTRIBUTED_SOURCE, SpeciesEmbeddingRepository
 from app.vectordb.schema import run_migrations
 
 logger = structlog.get_logger(__name__)
@@ -434,7 +434,22 @@ async def upsert_reference(
     excluded from ``/match`` until a platform admin activates it. ``contributed_by``
     / ``tenant_key`` record the provenance of an interactive user contribution so
     it can be attributed and GDPR-erased (SEC-005).
+
+    A ``source='user_contributed'`` row MUST arrive quarantined and attributed:
+    written active it would enter every tenant's ``/match`` without the admin
+    review, and without ``contributed_by`` / ``tenant_key`` the Art. 17 erasure
+    could never reach it. The index refuses either with 422 instead of trusting
+    the caller to send them (#2173).
     """
+    if source == USER_CONTRIBUTED_SOURCE:
+        if is_active:
+            raise HTTPException(
+                status_code=422, detail="user_contributed references must be written with is_active=false"
+            )
+        if not (contributed_by and contributed_by.strip()) or not (tenant_key and tenant_key.strip()):
+            raise HTTPException(
+                status_code=422, detail="user_contributed references require contributed_by and tenant_key"
+            )
     repo = _require_repo()
 
     vector = await _resolve_vector(image, embedding)

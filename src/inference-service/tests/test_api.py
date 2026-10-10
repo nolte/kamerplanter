@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from app.vectordb.repository import SpeciesMatch
 from tests.conftest import make_image_bytes
 
@@ -160,6 +162,56 @@ def test_reference_user_contribution_quarantined_with_provenance(client, fake_re
     assert row["is_active"] is False
     assert row["contributed_by"] == "user_anna"
     assert row["tenant_key"] == "tenant_anna"
+
+
+@pytest.mark.parametrize("is_active", ["true", None])
+def test_reference_user_contribution_written_active_is_refused(client, fake_repo, is_active):
+    # #2173 — the quarantine of a user contribution (SEC-001) is a rule of the
+    # index, not a courtesy of the one caller: a user_contributed row that would be
+    # written active (explicitly, or by the form default) is a 422 and writes
+    # nothing. Activation stays the admin's PATCH.
+    vector = [0.0] * 384
+    vector[0] = 1.0
+    data = {
+        "species_key": "species_monstera_deliciosa",
+        "scientific_name": "Monstera deliciosa",
+        "source": "user_contributed",
+        "source_record_id": "sha256:deadbeef",
+        "embedding": json.dumps(vector),
+        "contributed_by": "user_anna",
+        "tenant_key": "tenant_anna",
+    }
+    if is_active is not None:
+        data["is_active"] = is_active
+    resp = client.post("/reference", data=data)
+    assert resp.status_code == 422
+    assert fake_repo.rows == []
+
+
+@pytest.mark.parametrize("missing", ["contributed_by", "tenant_key"])
+@pytest.mark.parametrize("value", [None, "", "   "])
+def test_reference_user_contribution_without_provenance_is_refused(client, fake_repo, missing, value):
+    # #2173 / SEC-005 — a contribution the Art. 17 erasure cannot reach (no
+    # contributor or no tenant) is refused, not stored unattributed.
+    vector = [0.0] * 384
+    vector[0] = 1.0
+    data = {
+        "species_key": "species_monstera_deliciosa",
+        "scientific_name": "Monstera deliciosa",
+        "source": "user_contributed",
+        "source_record_id": "sha256:deadbeef",
+        "embedding": json.dumps(vector),
+        "is_active": "false",
+        "contributed_by": "user_anna",
+        "tenant_key": "tenant_anna",
+    }
+    if value is None:
+        del data[missing]
+    else:
+        data[missing] = value
+    resp = client.post("/reference", data=data)
+    assert resp.status_code == 422
+    assert fake_repo.rows == []
 
 
 def test_user_contribution_curation_lifecycle(client, fake_repo):
