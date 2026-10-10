@@ -14,8 +14,10 @@ check of an ``async`` route through ``run_in_threadpool``, where every ``def``
 route already runs it. ``GET /api/health`` counts in process memory only and
 never reaches the shared storage.
 
-The three async limited routes are driven here through the real application;
-the class — every async limited route, whichever limiter it uses — is held by
+The three async limited routes are driven here through the real application —
+``/public/ai/*`` through the light-mode mount (:func:`light_app`), because the
+production app the suite imports is full mode, where that router does not
+exist (REQ-031 §5.3); the class — every async limited route, whichever limiter it uses — is held by
 ``tests/unit/guards/test_async_limited_routes_check_off_the_loop.py``.
 """
 
@@ -31,6 +33,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+from fastapi import FastAPI
 
 from app.api.v1.auth.router import limiter
 from app.common.auth import get_current_tenant, get_current_user
@@ -122,11 +125,33 @@ def app_under_test(monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
     yield app
 
 
-#: ``(method, path, json body)`` of the three async limited routes.
+@pytest.fixture
+def light_app(app_under_test: Any) -> FastAPI:
+    """The ``/public/ai/*`` router as ``app/api/v1/router.py`` mounts it in light mode.
+
+    Same router object, same shared limiter, same dependency overrides as the
+    production app — only the mode-dependent mount is reproduced here.
+    """
+    from app.api.v1.ki_assistent.public_router import router as ai_public_router
+
+    light = FastAPI()
+    light.state.limiter = limiter
+    light.include_router(ai_public_router, prefix="/api/v1")
+    light.dependency_overrides = app_under_test.dependency_overrides
+    return light
+
+
+#: ``(app fixture, method, path, json body)`` of the three async limited routes.
 _ASYNC_LIMITED = [
-    pytest.param("post", "/api/v1/public/ai/ask", {"question": "Was ist VPD?"}, id="public_ask"),
-    pytest.param("get", "/api/v1/privacy/export/exp-1/download", None, id="download_export"),
-    pytest.param("post", "/api/v1/t/garden/notifications/test", {"channel_key": "email"}, id="send_test_notification"),
+    pytest.param("light_app", "post", "/api/v1/public/ai/ask", {"question": "Was ist VPD?"}, id="public_ask"),
+    pytest.param("app_under_test", "get", "/api/v1/privacy/export/exp-1/download", None, id="download_export"),
+    pytest.param(
+        "app_under_test",
+        "post",
+        "/api/v1/t/garden/notifications/test",
+        {"channel_key": "email"},
+        id="send_test_notification",
+    ),
 ]
 
 
@@ -136,13 +161,20 @@ async def _call(client: httpx.AsyncClient, method: str, path: str, body: dict[st
     return response.status_code
 
 
-@pytest.mark.parametrize(("method", "path", "body"), _ASYNC_LIMITED)
+@pytest.mark.parametrize(("app_fixture", "method", "path", "body"), _ASYNC_LIMITED)
 def test_the_limit_check_runs_off_the_event_loop(
-    app_under_test: Any, storage_calls: _StorageCalls, method: str, path: str, body: dict[str, str] | None
+    request: pytest.FixtureRequest,
+    storage_calls: _StorageCalls,
+    app_fixture: str,
+    method: str,
+    path: str,
+    body: dict[str, str] | None,
 ) -> None:
+    target = request.getfixturevalue(app_fixture)
+
     async def scenario() -> tuple[int, int]:
         loop_thread = threading.get_ident()
-        transport = httpx.ASGITransport(app=app_under_test)
+        transport = httpx.ASGITransport(app=target)
         async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
             assert await _call(client, method, path, body) == 200
         return loop_thread, len(storage_calls.threads)
@@ -154,10 +186,10 @@ def test_the_limit_check_runs_off_the_event_loop(
 
 
 def test_an_unrelated_async_route_is_not_held_by_a_slow_limit_check(
-    app_under_test: Any, storage_calls: _StorageCalls
+    light_app: FastAPI, storage_calls: _StorageCalls
 ) -> None:
     async def scenario() -> list[float]:
-        transport = httpx.ASGITransport(app=app_under_test)
+        transport = httpx.ASGITransport(app=light_app)
         async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
 
             async def unrelated() -> list[float]:

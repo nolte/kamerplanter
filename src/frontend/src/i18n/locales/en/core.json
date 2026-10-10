@@ -589,6 +589,7 @@
     },
     "errors": {
       "disabled": "The AI features are currently disabled for this garden. An administrator can enable them in the tenant settings.",
+      "notEnabled": "AI features are not switched on for this installation. The operator can enable them.",
       "consentRequired": "This AI feature requires your consent to use your plant data. You can grant it in the privacy settings.",
       "consentRequiredLink": "Go to privacy settings",
       "budgetUserExceeded": "You have used up your daily AI request quota in this garden. You can ask again after midnight (UTC).",
@@ -925,6 +926,28 @@
       "serviceUnavailable": "The knowledge assistant is temporarily unavailable. Please try again later.",
       "invalidOutput": "The AI could not produce a usable result. Please try again.",
       "noResult": "No diagnosis could be determined for the selected symptoms."
+    }
+  },
+  "consent": {
+    "banner": {
+      "aria_label": "Privacy consent",
+      "title": "We respect your privacy",
+      "body": "Necessary storage for login, language and tenant selection is always active. Optionally you can allow error analysis: if the application crashes, a scrubbed error report is sent to the error tracker configured by the operator. You can change your decision at any time in the privacy settings.",
+      "settings": "Settings",
+      "necessary": "Necessary only",
+      "accept_all": "Accept all",
+      "save": "Save selection",
+      "category": {
+        "error_tracking": {
+          "label": "Error analysis",
+          "description": "Sends an error report without form contents, cookies or email address to the operator's error tracker when something crashes."
+        }
+      }
+    },
+    "browser": {
+      "heading": "Consents in this browser",
+      "description": "This decision applies to this browser only and takes effect immediately, without a reload.",
+      "error_tracking": "Allow error analysis"
     }
   }
 }

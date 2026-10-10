@@ -44,6 +44,7 @@ from app.api.v1.router import api_router
 from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError
 from app.domain.models.tenant_context import TenantContext
+from tests.support.light_mode_routes import light_only_routers
 from tests.unit.api._write_call_graph import (
     CallGraph,
     call_graph,
@@ -192,6 +193,9 @@ def mounted_operations() -> list[tuple[str, str, Any, Any]]:
                 found.append((method, path, endpoint, route))
 
     walk(api_router)
+    # Mounted in light mode only; the api_router imported here is full mode (#2208).
+    for prefix, router in light_only_routers():
+        walk(router, prefix)
     return found
 
 
@@ -870,7 +874,6 @@ _PUBLIC_ALLOWLIST: dict[str, str] = {
     "auth.router.redeem_device_pairing": "authorised by the pairing code",
     "privacy.router.confirm_email_change": "authorised by the emailed token (REQ-025)",
     "privacy.router.revert_email_change": "authorised by the token mailed to the previous address (REQ-025, #1848)",
-    "ki_assistent.public_router.public_ask": "REQ-031 light-mode probe, published on purpose",
     # Authenticates from the API key in the REQUEST BODY, inside the handler, the
     # way `login` authenticates from a password — so it carries no transport
     # credential and never will. It was previously exempt by accident:
@@ -1016,7 +1019,10 @@ _NOT_INSTALLATION_WIDE: dict[str, str] = {
     "privacy": "DSGVO Art. 15-21 self-service; the rows belong to the user",
     "tenants": "tenant lifecycle and membership, gated on require_admin_scope",
     "mcp": "REQ-033 protocol surface, gated on get_mcp_principal",
-    "ki_assistent": "REQ-031 light-mode probe, published on purpose",
+    "ki_assistent": (
+        "REQ-031 §5.3 light-mode knowledge question: answers the system user from the knowledge base, "
+        "writes no installation-wide row"
+    ),
     # `glossar` stood here until #1515, and its removal is the obsolescence rule
     # below working rather than breaking. The entry existed *because* of a
     # persisting read: `public_get_term` answered an anonymous GET and wrote a
