@@ -89,6 +89,135 @@ describe('PrivacySettingsPage', () => {
     });
   });
 
+  describe('revoking a consent (REQ-025 Art. 7(3))', () => {
+    const record = (purpose: string, granted: boolean, required = false) => ({
+      purpose,
+      label: purpose === 'reference_contribution' ? 'Referenzbeitrag' : 'Pflicht-Zweck',
+      description: '',
+      legal_basis: required ? 'contract' : 'consent',
+      required,
+      granted,
+      granted_at: granted ? '2026-10-09T00:00:00Z' : null,
+      revoked_at: null,
+    });
+
+    it('offers revoke only for a granted optional purpose and revokes it', async () => {
+      const revoked: string[] = [];
+      server.use(
+        http.get('/api/v1/privacy/consents', () =>
+          HttpResponse.json([record('reference_contribution', true), record('core', true, true)]),
+        ),
+        http.delete('/api/v1/privacy/consents/:purpose', ({ params }) => {
+          revoked.push(String(params.purpose));
+          return HttpResponse.json({
+            ...record('reference_contribution', false),
+            revoked_at: '2026-10-09T01:00:00Z',
+          });
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<PrivacySettingsPage />);
+
+      const revoke = await screen.findByTestId('consent-revoke-reference_contribution');
+      expect(revoke).toHaveAccessibleName('Einwilligung „Referenzbeitrag“ widerrufen');
+      expect(screen.queryByTestId('consent-revoke-core')).toBeNull();
+
+      await user.click(revoke);
+
+      await waitFor(() =>
+        expect(screen.queryByTestId('consent-revoke-reference_contribution')).toBeNull(),
+      );
+      expect(revoked).toEqual(['reference_contribution']);
+      // Announced, and focus lands on the list heading instead of <body>.
+      expect(screen.getByTestId('privacy-consents-status')).toHaveTextContent(
+        'Einwilligung widerrufen.',
+      );
+      expect(screen.getByTestId('privacy-consents-status')).toHaveAttribute('role', 'status');
+      expect(screen.getByTestId('privacy-consents-heading')).toHaveFocus();
+    });
+
+    it('keeps the other revoke buttons focusable but inert while one call runs', async () => {
+      const revoked: string[] = [];
+      let release: () => void = () => {};
+      server.use(
+        http.get('/api/v1/privacy/consents', () =>
+          HttpResponse.json([
+            record('reference_contribution', true),
+            record('ai_knowledge_question', true),
+          ]),
+        ),
+        http.delete('/api/v1/privacy/consents/:purpose', async ({ params }) => {
+          revoked.push(String(params.purpose));
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return HttpResponse.json(record(String(params.purpose), false));
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<PrivacySettingsPage />);
+
+      await user.click(await screen.findByTestId('consent-revoke-reference_contribution'));
+      const other = screen.getByTestId('consent-revoke-ai_knowledge_question');
+      await waitFor(() => expect(other).toHaveAttribute('aria-disabled', 'true'));
+      expect(other).not.toBeDisabled();
+      expect(other).not.toHaveAttribute('aria-busy');
+      expect(screen.getByTestId('consent-revoke-reference_contribution')).toHaveAttribute(
+        'aria-busy',
+        'true',
+      );
+      await user.click(other);
+      expect(revoked).toEqual(['reference_contribution']);
+      release();
+    });
+
+    it('names a purpose without a backend label in words, not by its identifier', async () => {
+      server.use(
+        http.get('/api/v1/privacy/consents', () =>
+          HttpResponse.json([{ ...record('reference_contribution', true), label: '' }]),
+        ),
+      );
+      renderWithProviders(<PrivacySettingsPage />);
+
+      expect(await screen.findByText('Verarbeitungszweck ohne Bezeichnung')).toBeTruthy();
+      expect(screen.queryByText('reference_contribution')).toBeNull();
+    });
+
+    it('keeps the consent and shows an error when revoking fails', async () => {
+      server.use(
+        http.get('/api/v1/privacy/consents', () =>
+          HttpResponse.json([record('reference_contribution', true)]),
+        ),
+        http.delete('/api/v1/privacy/consents/:purpose', () =>
+          HttpResponse.json(
+            {
+              error_id: 'e',
+              error_code: 'INTERNAL',
+              message: 'boom',
+              details: [],
+              timestamp: '',
+              path: '',
+              method: '',
+            },
+            { status: 500 },
+          ),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<PrivacySettingsPage />);
+
+      await user.click(await screen.findByTestId('consent-revoke-reference_contribution'));
+
+      expect(
+        await screen.findByText(
+          'Die Einwilligung konnte nicht widerrufen werden. Bitte versuche es erneut.',
+        ),
+      ).toBeTruthy();
+      expect(screen.getByTestId('consent-revoke-reference_contribution')).toBeTruthy();
+      expect(screen.getByTestId('privacy-consents-error')).toHaveAttribute('role', 'alert');
+    });
+  });
+
   it('requests a data export and surfaces the resulting status', async () => {
     const user = userEvent.setup();
     renderWithProviders(<PrivacySettingsPage />);

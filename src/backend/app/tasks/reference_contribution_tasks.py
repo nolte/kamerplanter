@@ -44,12 +44,11 @@ from app.common.dependencies import (
 )
 from app.common.log_privacy import log_tenant
 from app.config.settings import settings
+from app.domain.engines.consent_engine import REFERENCE_CONTRIBUTION
 from app.domain.services.species_visibility import readable_species
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
-
-_REFERENCE_CONTRIBUTION_PURPOSE = "reference_contribution"
 
 
 def _evaluate(attachment_id: str, plant_instance_key: str, tenant_key: str, user_key: str) -> dict:
@@ -67,8 +66,8 @@ def _evaluate(attachment_id: str, plant_instance_key: str, tenant_key: str, user
         return {"status": "abort", "reason": "light_mode"}
 
     # Guard 3 — contributor consent must be granted (REQ-025).
-    consent = get_consent_repo().get_by_user_and_purpose(user_key, _REFERENCE_CONTRIBUTION_PURPOSE)
-    if not get_consent_engine().is_processing_allowed(_REFERENCE_CONTRIBUTION_PURPOSE, consent):
+    consent = get_consent_repo().get_by_user_and_purpose(user_key, REFERENCE_CONTRIBUTION)
+    if not get_consent_engine().is_processing_allowed(REFERENCE_CONTRIBUTION, consent):
         return {"status": "abort", "reason": "no_consent"}
 
     # Guard 4 — plant must have a known, resolvable species.
