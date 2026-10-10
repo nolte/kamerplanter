@@ -5,7 +5,12 @@ import i18n from 'i18next';
 
 import TenantSwitcher from '@/components/layout/TenantSwitcher';
 import { getActiveTenantSlug } from '@/api/client';
+import { useLocation } from 'react-router-dom';
 import { createTestStore, renderWithProviders } from '../../helpers';
+
+function LocationProbe() {
+  return <span data-testid="location-probe">{useLocation().pathname}</span>;
+}
 
 const personalTenant = {
   key: 'tenant-a',
@@ -117,6 +122,23 @@ describe('TenantSwitcher', () => {
     await waitFor(() =>
       expect(screen.queryByRole('menuitem', { name: 'Organisation erstellen' })).toBeNull(),
     );
+  });
+
+  it('leads to the garden settings, where scheduled deletions are listed (#2166)', async () => {
+    const user = userEvent.setup();
+    const { container } = renderWithProviders(
+      <>
+        <TenantSwitcher />
+        <LocationProbe />
+      </>,
+      { store: storeWith(personalTenant, [personalTenant, orgTenant]) },
+    );
+
+    await user.click(screen.getByRole('button', { name: /Mein Garten/ }));
+    await user.click(screen.getByRole('menuitem', { name: 'Garten-Einstellungen' }));
+
+    await waitFor(() => expect(container.querySelector('[data-testid="location-probe"]')).toHaveTextContent('/tenants/settings'));
+    expect(reloadMock).not.toHaveBeenCalled();
   });
 
   it('navigates to the create-organization route and closes the menu', async () => {

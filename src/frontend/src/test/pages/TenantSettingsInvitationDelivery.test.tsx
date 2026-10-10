@@ -16,6 +16,9 @@ import { createStoreWithTenantRole, renderWithProviders } from '@/test/helpers';
  */
 
 vi.mock('@/api/endpoints/tenants', () => ({
+  // #2166 — the page lists the account's gardens whose deletion is scheduled; none here.
+  listMyTenantsWithScheduledDeletion: vi.fn().mockResolvedValue([]),
+  cancelTenantErasure: vi.fn(),
   listMembers: vi.fn().mockResolvedValue([]),
   listInvitations: vi.fn().mockResolvedValue([]),
   removeMember: vi.fn(),

@@ -13,6 +13,8 @@ class INutrientPlanRepository(ABC):
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
+        *,
+        tenant_key: str | None = None,
     ) -> tuple[list[NutrientPlan], int]: ...
 
     @abstractmethod

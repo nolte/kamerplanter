@@ -41,6 +41,20 @@ tasks:
     cmds:
       - uv run --locked --extra dev ruff format --check .
 
+  # mypy ratchet (#2169). `[tool.mypy] strict = true` ran nowhere until this
+  # target; ~3450 findings stand, among them for three months the `[call-arg]`
+  # at the six retention-task call sites of #2150. The script holds the count per
+  # (file, error code) against src/backend/mypy-ratchet-baseline.json: no-growth
+  # in general, exact match for the "this call cannot work" classes (call-arg,
+  # name-defined, attr-defined, call-overload). Through `uv run --locked` like
+  # every target here — the counts are only comparable under the locked mypy and
+  # the locked stubs. Pass `-- --tighten` after fixing findings.
+  typecheck:backend:
+    desc: Ratchet mypy's findings on src/backend/app against the recorded baseline (#2169) — the CI gate's exact invocation
+    dir: src/backend
+    cmds:
+      - uv run --locked --extra dev python ../../scripts/check_mypy_ratchet.py {{.CLI_ARGS}}
+
   test:backend:
     desc: Run the full backend pytest suite — the three CI tiers plus tests/integration/, which needs a local ArangoDB
     dir: src/backend
