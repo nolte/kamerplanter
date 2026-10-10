@@ -177,6 +177,8 @@ class FakeMembershipRepo:
     def __init__(self, *memberships: Membership, inactive_accounts: set[str] | None = None) -> None:
         self.stored: dict[str, Membership] = {}
         self.inactive_accounts = set(inactive_accounts or ())
+        #: Service accounts (``allows_interactive_auth`` false) — never heirs of ``management`` (#2166).
+        self.service_accounts: set[str] = set()
         self.before_create: Callable[[], None] | None = None
         #: The tenant-erasure record store the atomic rollback reads (wired by ``Tenants``).
         self.records: Any = None
@@ -225,6 +227,18 @@ class FakeMembershipRepo:
             for m in self.stored.values()
             if m.tenant_key == tenant_key and m.is_active and m.user_key not in self.inactive_accounts
         ]
+
+    def active_service_account_memberships(self, *, tenant_key: str) -> list[Membership]:
+        """The real predicate: active memberships of active **service** accounts (#2137)."""
+        return [m for m in self.active_memberships_of(tenant_key=tenant_key) if m.user_key in self.service_accounts]
+
+    def count_managers(self, tenant_key: str, *, other_than_user_key: str | None = None) -> int:
+        """The real predicate (#2166): ``management`` memberships of live accounts, the named one left out."""
+        return sum(
+            1
+            for m in self.active_memberships_of(tenant_key=tenant_key)
+            if m.has_management and m.user_key and m.user_key != other_than_user_key
+        )
 
     def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
         return {

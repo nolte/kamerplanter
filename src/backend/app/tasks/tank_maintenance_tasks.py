@@ -143,8 +143,15 @@ def sync_tank_states_from_ha() -> dict:
     """
     from datetime import UTC, datetime
 
-    from app.common.dependencies import get_ha_client, get_ha_entity_grant_service, get_sensor_repo, get_tank_repo
+    from app.common.dependencies import (
+        get_ha_client,
+        get_ha_entity_grant_service,
+        get_sensor_repo,
+        get_tank_repo,
+        get_tenant_repo,
+    )
     from app.domain.models.tank import TankState
+    from app.tasks.tenant_gate import ActiveTenants
 
     ha_client = get_ha_client()
     if ha_client is None:
@@ -155,15 +162,23 @@ def sync_tank_states_from_ha() -> dict:
     # MT-015 (#2112): only entities granted to the tank's tenant are read; one
     # read of every tenant's grants for the whole run.
     grants = get_ha_entity_grant_service().snapshot()
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     tanks = get_all_pages(tank_repo, all_tenants=True)  # system task: all tenants
     updated = 0
     skipped = 0
     not_granted = 0
+    closed_tenant = 0
     errors: list[dict] = []
 
     for tank in tanks:
         if not tank.key:
+            continue
+        # #2166 — a suspended, pending-deletion, orphaned or erased tenant resolves for nobody: its Home
+        # Assistant entities are not read and no state is written. A tenantless tank keeps the sweep
+        # (the grants admit nothing for it anyway).
+        if tank.tenant_key and not tenant_is_active(tank.tenant_key):
+            closed_tenant += 1
             continue
 
         sensors = sensor_repo.find_by_tank(tank.key)
@@ -215,6 +230,7 @@ def sync_tank_states_from_ha() -> dict:
         tanks_updated=updated,
         tanks_skipped=skipped,
         sensors_not_granted=not_granted,
+        tanks_of_closed_tenants=closed_tenant,
         errors=len(errors),
     )
     return {"updated": updated, "skipped": skipped, "errors": len(errors), "not_granted": not_granted}

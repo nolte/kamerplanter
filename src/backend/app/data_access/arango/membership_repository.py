@@ -282,18 +282,33 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         """Total number of membership documents (platform-admin statistics, #1019)."""
         return self.collection.count()
 
-    def count_managers(self, tenant_key: str) -> int:
-        """Active memberships in the tenant holding the ``management`` scope (INV-1).
+    def count_managers(self, tenant_key: str, *, other_than_user_key: str | None = None) -> int:
+        """Active memberships of **live accounts** in the tenant holding the ``management`` scope (INV-1).
 
         Counts on axis 2, not on the domain rank: after REQ-049 a lead is not
         automatically an administrator, and the guard has to protect the people
         who can actually invite someone.
+
+        Only an account that can still act counts (#2166): an account that asked for
+        its erasure, or that a platform admin deactivated, is closed
+        (``is_active == false``) while its membership stays active until the hard
+        delete. Counted, it let the last *live* holder leave or drop the scope —
+        the tenant kept a ``management`` membership nobody could use. The account
+        population is :meth:`active_memberships_of`'s.
+
+        Args:
+            other_than_user_key: Leave this account's membership out — the holder
+                about to leave, be removed or lose the scope (``None`` counts all).
         """
         query = """
         FOR doc IN @@collection
           FILTER doc.tenant_key == @tenant_key
             AND doc.is_active == true
             AND @scope IN doc.admin_scopes
+            AND doc.user_key != null AND doc.user_key != ""
+            AND doc.user_key != @other_than
+          LET account = DOCUMENT(@@users, doc.user_key)
+          FILTER account != null AND account.is_active != false
           COLLECT WITH COUNT INTO cnt
           RETURN cnt
         """
@@ -301,8 +316,10 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
             query,
             bind_vars={
                 "@collection": col.MEMBERSHIPS,
+                "@users": col.USERS,
                 "tenant_key": tenant_key,
                 "scope": AdminScope.MANAGEMENT.value,
+                "other_than": other_than_user_key or "",
             },
         )
         return next(cursor, 0)

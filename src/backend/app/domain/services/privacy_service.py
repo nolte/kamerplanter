@@ -949,6 +949,10 @@ class PrivacyService:
             # #1825 SEC-004: a request-time revocation that failed on the first
             # request is repeated when the subject asks again.
             self._revoke_personal_tenant_invitations(user_key)
+            # #2166 — so is an organisation settlement that failed (it is best effort). Idempotent:
+            # a settled organisation reads ``unaffected`` (the heir holds management) or is skipped
+            # (already orphaned), so nothing is handed over or mailed twice.
+            self._settle_organisations_at_request(user_key, now=datetime.now(UTC))
             raise ValidationError("An erasure request is already in progress.")
 
         now = datetime.now(UTC)
@@ -981,8 +985,10 @@ class PrivacyService:
         # account; they hear of it now, with the whole grace left to export.
         if created_here:
             self._deliver_member_notice(created, now=now, delete_at=erasure.hard_delete_scheduled_at)
-        # #2166 — the organisations are settled now, not at the hard delete up to 90 days later.
-        self._settle_organisations_at_request(user_key, now=now)
+            # #2166 — the organisations are settled now, not at the hard delete up to 90 days later.
+            # Only by the call that created the request: two concurrent requests would both read
+            # the organisation before either wrote, and hand management over (audited, mailed) twice.
+            self._settle_organisations_at_request(user_key, now=now)
 
         logger.info(
             "privacy_erasure_requested",

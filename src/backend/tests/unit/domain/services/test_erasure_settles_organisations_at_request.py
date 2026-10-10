@@ -27,7 +27,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
+
 from app.common.enums import AdminScope, SecurityAuditVia, TenantRole, TenantStatus, TenantType
+from app.common.exceptions import ValidationError
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.models.membership import Membership
@@ -96,7 +99,7 @@ def _users(*keys: str) -> MagicMock:
 class _World:
     """The subject's personal tenant plus one organisation, around the real services."""
 
-    def __init__(self, org_members: list[Membership]) -> None:
+    def __init__(self, org_members: list[Membership], *, erasure_repo: Any = None) -> None:
         self.tenants = Tenants(_personal_tenant(), _organisation(), members=[_member(OWNER), *org_members])
         self.users = _users(*(m.user_key for m in org_members if m.user_key != OWNER))
         service = self.tenants.service
@@ -108,7 +111,7 @@ class _World:
         service._security_audit = MagicMock()
         self.org_mailer: MagicMock = service._email_service
         self.audit: MagicMock = service._security_audit
-        self.privacy, _ = _privacy(self.tenants, FakeErasureRepo(), user_repo=self.users)
+        self.privacy, _ = _privacy(self.tenants, erasure_repo or FakeErasureRepo(), user_repo=self.users)
 
     def request(self) -> Any:
         return self.privacy.request_erasure(OWNER, **step_up(OWNER_EMAIL, OWNER_PASSWORD))
@@ -230,3 +233,79 @@ class TestASettlementThatFailsNeverUndoesTheRequest:
         outcomes = service.settle_organisations_of_erased_account(OWNER, now=datetime.now(UTC) + timedelta(days=90))
         assert [o.outcome for o in outcomes] == ["management_passes_to_lead"]
         assert AdminScope.MANAGEMENT in world.membership(LEAD).admin_scopes
+
+
+class _ReadBeforeTheOtherWrote(FakeErasureRepo):
+    """Two concurrent requests: each read finds no open request; the second insert hits the first's key."""
+
+    def find_active_for_user(self, user_key: str) -> Any:  # noqa: ARG002 - the race: nothing visible yet
+        return None
+
+
+def _spy_settlement(world: _World) -> list[str]:
+    service = world.tenants.service
+    real = service.settle_organisations_of_erased_account
+    calls: list[str] = []
+
+    def _spy(user_key: str, **kwargs: Any) -> list[Any]:
+        calls.append(user_key)
+        return real(user_key, **kwargs)
+
+    service.settle_organisations_of_erased_account = _spy  # type: ignore[method-assign]
+    return calls
+
+
+class TestASecondRequestCatchesUpOnlyWhatFailed:
+    def test_asking_again_settles_an_organisation_the_first_request_could_not(self) -> None:
+        # #2166 S1 — the settlement is best effort; the repeated request repeats it, like the invitation revocation.
+        world = _World(
+            [_org_member(OWNER, TenantRole.LEAD, [AdminScope.MANAGEMENT]), _org_member(LEAD, TenantRole.LEAD)]
+        )
+        service = world.tenants.service
+
+        def _fail(user_key: str, **_kwargs: Any) -> list[Any]:
+            raise RuntimeError("database unavailable")
+
+        service.settle_organisations_of_erased_account = _fail  # type: ignore[method-assign]
+        world.request()
+        assert AdminScope.MANAGEMENT not in world.membership(LEAD).admin_scopes
+        del service.settle_organisations_of_erased_account
+
+        with pytest.raises(ValidationError, match="already in progress"):
+            world.request()
+
+        assert AdminScope.MANAGEMENT in world.membership(LEAD).admin_scopes
+        (audit_call,) = world.audit.record_membership_change.call_args_list
+        assert audit_call.kwargs["target_user_key"] == LEAD
+
+    def test_asking_again_after_a_settled_request_hands_nothing_over_twice(self) -> None:
+        world = _World(
+            [
+                _org_member(OWNER, TenantRole.LEAD, [AdminScope.MANAGEMENT]),
+                _org_member(LEAD, TenantRole.LEAD),
+                _org_member(GROWER, TenantRole.GROWER),
+            ]
+        )
+        world.request()
+        mails = world.org_mailer.send_notification_email.call_count
+
+        with pytest.raises(ValidationError):
+            world.request()
+
+        assert len(world.audit.record_membership_change.call_args_list) == 1
+        assert world.org_mailer.send_notification_email.call_count == mails
+
+    def test_only_the_call_that_created_the_request_settles(self) -> None:
+        # #2166 S2 — the concurrent second call is answered with the first's record and settles nothing:
+        # both would read the organisation before either wrote and hand management over twice.
+        world = _World(
+            [_org_member(OWNER, TenantRole.LEAD, [AdminScope.MANAGEMENT]), _org_member(LEAD, TenantRole.LEAD)],
+            erasure_repo=_ReadBeforeTheOtherWrote(),
+        )
+        settled = _spy_settlement(world)
+
+        first = world.request()
+        second = world.request()
+
+        assert second.key == first.key
+        assert settled == [OWNER]

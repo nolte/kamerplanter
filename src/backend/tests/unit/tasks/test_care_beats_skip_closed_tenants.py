@@ -8,7 +8,9 @@ membership only (#2114) or for nothing at all:
 * ``generate_due_care_reminders`` wrote new care tasks into such a tenant every morning;
 * ``dispatch_due_care`` and ``send_daily_summary`` notified its members of plants and due
   dates in a tenant they cannot open (it resolves for nobody, #2105);
-* ``escalate_overdue`` escalated its notifications.
+* ``escalate_overdue`` escalated its notifications;
+* ``generate_watering_tasks`` wrote ``FEEDING`` tasks into it, and
+  ``sync_tank_states_from_ha`` read its Home Assistant entities and wrote tank states.
 
 The stored tenant decides (``Tenant.is_active`` — ``status == active`` and nothing else),
 asked once per tenant and run. A plant without a tenant keeps the pre-#1204 behaviour of
@@ -20,7 +22,7 @@ from __future__ import annotations
 import sys
 from datetime import UTC, datetime
 from types import ModuleType, SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -244,3 +246,106 @@ def test_the_escalation_leaves_out_a_tenant_that_is_not_active(notify, status: T
 
     assert notifier.escalated == ["t-open"]
     assert result["tenants_processed"] == 1
+
+
+# ── generate_watering_tasks (FEEDING) ───────────────────────────────────────
+
+
+def _run(run_key: str, tenant_key: str) -> dict:
+    return {
+        "run_key": run_key,
+        "run_name": run_key,
+        "tenant_key": tenant_key,
+        "watering_schedule": {"schedule_mode": "interval", "interval_days": 2, "preferred_time": "08:00"},
+        "plan_key": None,
+    }
+
+
+@pytest.fixture
+def watering_deps(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    deps = ModuleType("app.common.dependencies")
+    for getter in ("get_nutrient_plan_repo", "get_planting_run_repo", "get_task_repo", "get_tenant_repo"):
+        setattr(deps, getter, MagicMock())
+    deps.get_task_repo.return_value.find_by_field.return_value = []  # no history, no task of today
+    monkeypatch.setitem(sys.modules, "app.common.dependencies", deps)
+    return deps
+
+
+def _watering(deps: ModuleType, tenants: _Tenants, runs: list[dict]) -> list[str]:
+    deps.get_planting_run_repo.return_value.get_active_runs_with_schedule.return_value = runs
+    deps.get_tenant_repo.return_value = tenants
+    with patch("app.domain.engines.watering_schedule_engine.WateringScheduleEngine") as engine_cls:
+        engine_cls.return_value.is_watering_due.return_value = True
+        from app.tasks.watering_tasks import generate_watering_tasks
+
+        generate_watering_tasks()
+    return [call.args[0].planting_run_key for call in deps.get_task_repo.return_value.create.call_args_list]
+
+
+@pytest.mark.parametrize("status", CLOSED_STATES)
+def test_no_watering_task_is_written_into_a_tenant_that_is_not_active(
+    watering_deps: ModuleType, status: TenantStatus
+) -> None:
+    tenants = _Tenants(_tenant("t-open"), _tenant("t-closed", status))
+
+    created = _watering(watering_deps, tenants, [_run("r-open", "t-open"), _run("r-closed", "t-closed")])
+
+    assert created == ["r-open"]
+
+
+def test_a_run_whose_tenant_is_gone_gets_no_watering_task(watering_deps: ModuleType) -> None:
+    assert _watering(watering_deps, _Tenants(), [_run("r-1", "t-erased")]) == []
+
+
+def test_a_run_without_a_tenant_keeps_the_installation_sweep(watering_deps: ModuleType) -> None:
+    tenants = _Tenants()
+
+    assert _watering(watering_deps, tenants, [_run("r-legacy", "")]) == ["r-legacy"]
+    assert tenants.asked == []
+
+
+# ── sync_tank_states_from_ha ────────────────────────────────────────────────
+
+
+class _EverythingGranted:
+    def is_granted(self, _tenant_key: str, entity_id: str | None) -> bool:
+        return bool(entity_id)
+
+
+@pytest.fixture
+def tank_deps(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    deps = ModuleType("app.common.dependencies")
+    for getter in ("get_ha_client", "get_sensor_repo", "get_tank_repo", "get_tenant_repo"):
+        setattr(deps, getter, MagicMock())
+    deps.get_ha_entity_grant_service = lambda: SimpleNamespace(snapshot=_EverythingGranted)  # type: ignore[attr-defined]
+    deps.get_ha_client.return_value.get_state.return_value = {"value": 6.1}
+    deps.get_sensor_repo.return_value.find_by_tank.return_value = [
+        SimpleNamespace(key="s1", ha_entity_id="sensor.tank_ph", metric_type="ph")
+    ]
+    monkeypatch.setitem(sys.modules, "app.common.dependencies", deps)
+    return deps
+
+
+@pytest.mark.parametrize("status", CLOSED_STATES)
+def test_the_tank_sync_reads_and_writes_nothing_for_a_tenant_that_is_not_active(
+    tank_deps: ModuleType, status: TenantStatus
+) -> None:
+    tank_repo = tank_deps.get_tank_repo.return_value
+    tank_repo.get_all.return_value = (
+        [
+            SimpleNamespace(key="tank-open", tenant_key="t-open"),
+            SimpleNamespace(key="tank-closed", tenant_key="t-closed"),
+        ],
+        2,
+    )
+    tank_deps.get_tenant_repo.return_value = _Tenants(_tenant("t-open"), _tenant("t-closed", status))
+
+    from app.tasks.tank_maintenance_tasks import sync_tank_states_from_ha
+
+    result = sync_tank_states_from_ha()
+
+    assert [call.args[0].tank_key for call in tank_repo.create_state.call_args_list] == ["tank-open"]
+    assert [call.args[0] for call in tank_deps.get_sensor_repo.return_value.find_by_tank.call_args_list] == [
+        "tank-open"
+    ]
+    assert result["updated"] == 1

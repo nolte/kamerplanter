@@ -36,7 +36,8 @@ def _service(membership: Membership, manager_count: int) -> tuple[TenantService,
     membership_repo = MagicMock()
     membership_repo.get_by_key.return_value = membership
     membership_repo.get_by_user_and_tenant.return_value = membership
-    membership_repo.count_managers.return_value = manager_count
+    # *manager_count* is the tenant's holders, the target included; the repository counts the others (#2166).
+    membership_repo.count_managers.return_value = max(manager_count - 1, 0)
     membership_repo.delete.return_value = True
     membership_repo.update_fields.return_value = membership
 
@@ -86,6 +87,15 @@ class TestLastManagerGuard:
 
         assert service.remove_member("t1", "m1", actor_scopes=_MANAGER, **_STEP_UP) is True
         repo.delete.assert_called_once_with("m1")
+
+    def test_the_guard_counts_the_other_holders_and_leaves_the_target_out(self):
+        # #2166 W1 — the repository counts live accounts only; the target is counted in by the engine
+        # contract, so a closed account's membership stays removable while one live holder remains.
+        service, repo = _service(_membership(_MANAGER), manager_count=2)
+
+        service.remove_member("t1", "m1", actor_scopes=_MANAGER, **_STEP_UP)
+
+        repo.count_managers.assert_called_once_with("t1", other_than_user_key="u1")
 
     def test_the_last_manager_cannot_leave(self):
         service, repo = _service(_membership(_MANAGER), manager_count=1)

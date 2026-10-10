@@ -16,16 +16,18 @@ def generate_watering_tasks() -> dict:
     """
     from datetime import UTC, datetime
 
-    from app.common.dependencies import get_nutrient_plan_repo, get_planting_run_repo, get_task_repo
+    from app.common.dependencies import get_nutrient_plan_repo, get_planting_run_repo, get_task_repo, get_tenant_repo
     from app.common.enums import TaskCategory, TaskPriority, TaskStatus
     from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
     from app.domain.models.nutrient_plan import WateringSchedule
     from app.domain.models.task import Task
+    from app.tasks.tenant_gate import ActiveTenants
 
     run_repo = get_planting_run_repo()
     task_repo = get_task_repo()
     nutrient_plan_repo = get_nutrient_plan_repo()
     engine = WateringScheduleEngine()
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     # UTC (#812): the stamped `due_date` carries a UTC label, and the dedup
     # rule that reads it back moved to UTC in #772 — a local date here made
@@ -33,6 +35,7 @@ def generate_watering_tasks() -> dict:
     today = today_utc()
     created_count = 0
     skipped_count = 0
+    closed_tenant_count = 0
 
     active_runs = run_repo.get_active_runs_with_schedule()
 
@@ -41,6 +44,12 @@ def generate_watering_tasks() -> dict:
         schedule_data = run_data["watering_schedule"]
         run_name = run_data.get("run_name", run_key)
         run_tenant_key = run_data.get("tenant_key", "")
+
+        # #2166 — a suspended, pending-deletion, orphaned or erased tenant resolves for nobody, while its
+        # memberships stay active on purpose: no new watering task. A tenantless run keeps the sweep.
+        if run_tenant_key and not tenant_is_active(run_tenant_key):
+            closed_tenant_count += 1
+            continue
 
         try:
             schedule = WateringSchedule(**schedule_data)
@@ -138,6 +147,7 @@ def generate_watering_tasks() -> dict:
         "watering_tasks_generated",
         created=created_count,
         skipped=skipped_count,
+        closed_tenant_runs=closed_tenant_count,
     )
     return {"created": created_count, "skipped": skipped_count}
 
