@@ -119,8 +119,68 @@ renderChecks:
     {{- if and (eq $storage.backend "local-fs") (ne $storage.localFs.pvc.accessMode "ReadWriteMany") (not $storage.localFs.singleNode) -}}
     {{- range $name := list "backend" "celery-worker" -}}
     {{- $controller := index $.Values.controllers $name | default dict -}}
-    {{- if and (ne (toString $controller.enabled) "false") (gt (int (default 1 $controller.replicas)) 1) -}}
-    {{- fail (printf "controllers.%s.replicas=%d with storage.backend=local-fs on a %s attachment volume: the volume attaches to one node, so a second pod on another node never starts (Multi-Attach error). Use storage.backend=s3 (required for shared operation), or storage.localFs.pvc.accessMode=ReadWriteMany with an RWX storage class, or - on a cluster with exactly one node - storage.localFs.singleNode=true. See docs/deployment/helm.md#storage-konfiguration-nfr-013 (#2124)." $name (int $controller.replicas) $storage.localFs.pvc.accessMode) -}}
+    {{- /* #2127: an autoscaler scales up to maxReplicas, so it is held to the same volume rule as replicas. */ -}}
+    {{- $replicas := int (default 1 $controller.replicas) -}}
+    {{- with $controller.horizontalPodAutoscaler -}}
+    {{- $replicas = int (default 1 .maxReplicas) -}}
+    {{- end -}}
+    {{- if and (ne (toString $controller.enabled) "false") (gt $replicas 1) -}}
+    {{- fail (printf "controllers.%s scales to %d replicas (replicas or horizontalPodAutoscaler.maxReplicas) with storage.backend=local-fs on a %s attachment volume: the volume attaches to one node, so a second pod on another node never starts (Multi-Attach error). Use storage.backend=s3 (required for shared operation), or storage.localFs.pvc.accessMode=ReadWriteMany with an RWX storage class, or - on a cluster with exactly one node - storage.localFs.singleNode=true. See docs/deployment/helm.md#storage-konfiguration-nfr-013 (#2124)." $name $replicas $storage.localFs.pvc.accessMode) -}}
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
+  # #2127 — scaling switches. HPA and PDB are opt-in per controller through the
+  # bjw-s keys `controllers.<name>.horizontalPodAutoscaler` and
+  # `controllers.<name>.podDisruptionBudget` (docs/deployment/helm.md#skalierung).
+  # Two mistakes would render cleanly and only show up in the cluster:
+  #  * a second pod of a singleton — celery-beat schedules every periodic task
+  #    once per replica (duplicate retention and deletion runs), and every
+  #    arangodb / vectordb replica is an independent database on its own claim;
+  #  * a PodDisruptionBudget that admits no eviction (minAvailable >= the
+  #    smallest replica count, a percentage minAvailable that rounds up to it,
+  #    or maxUnavailable 0 / "0%"): every node drain and cluster upgrade then
+  #    hangs.
+  scaling: >-
+    {{- range $name := list "celery-beat" "arangodb" "vectordb" -}}
+    {{- $controller := index $.Values.controllers $name | default dict -}}
+    {{- if ne (toString $controller.enabled) "false" -}}
+    {{- if or $controller.horizontalPodAutoscaler (ne (int (default 1 $controller.replicas)) 1) -}}
+    {{- fail (printf "controllers.%s runs exactly one pod: no horizontalPodAutoscaler, and replicas stays 1 (celery-beat would run every periodic task once per replica; arangodb and vectordb replicas are independent databases, not a cluster). See docs/deployment/helm.md#skalierung (#2127)." $name) -}}
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
+    {{- range $name, $controller := .Values.controllers -}}
+    {{- if and (kindIs "map" $controller) (ne (toString $controller.enabled) "false") $controller.podDisruptionBudget -}}
+    {{- $pdb := $controller.podDisruptionBudget -}}
+    {{- $minReplicas := int (default 1 $controller.replicas) -}}
+    {{- with $controller.horizontalPodAutoscaler -}}
+    {{- $minReplicas = int (default $minReplicas .minReplicas) -}}
+    {{- end -}}
+    {{- /* Kubernetes rounds a percentage UP to whole pods: minAvailable "50%" of one pod is that pod, and
+           any maxUnavailable above 0% is at least one pod. A string without "%" is a count. */ -}}
+    {{- $blocking := "" -}}
+    {{- if hasKey $pdb "minAvailable" -}}
+    {{- $value := $pdb.minAvailable -}}
+    {{- $pods := int $value -}}
+    {{- if and (kindIs "string" $value) (hasSuffix "%" $value) -}}
+    {{- $pods = div (add (mul (atoi (trimSuffix "%" $value)) $minReplicas) 99) 100 -}}
+    {{- end -}}
+    {{- if ge (int $pods) $minReplicas -}}
+    {{- $blocking = printf "minAvailable=%v" $value -}}
+    {{- end -}}
+    {{- end -}}
+    {{- if hasKey $pdb "maxUnavailable" -}}
+    {{- $value := $pdb.maxUnavailable -}}
+    {{- $pods := int $value -}}
+    {{- if and (kindIs "string" $value) (hasSuffix "%" $value) -}}
+    {{- $pods = atoi (trimSuffix "%" $value) -}}
+    {{- end -}}
+    {{- if le (int $pods) 0 -}}
+    {{- $blocking = printf "maxUnavailable=%v" $value -}}
+    {{- end -}}
+    {{- end -}}
+    {{- if $blocking -}}
+    {{- fail (printf "controllers.%s.podDisruptionBudget.%s with %d replica(s) admits no eviction: every node drain and cluster upgrade would hang. Keep at least one pod evictable: minAvailable below the replica count (a percentage is rounded up to whole pods), or maxUnavailable of at least 1 (or a percentage above 0%%); raise replicas (or horizontalPodAutoscaler.minReplicas) if needed. See docs/deployment/helm.md#skalierung (#2127)." $name $blocking $minReplicas) -}}
     {{- end -}}
     {{- end -}}
     {{- end -}}
@@ -149,6 +209,46 @@ database:
     # default keeps today's place; set a Secret of its own to take the root
     # password out of what the backend receives.
     rootPasswordSecret: kamerplanter-secrets
+
+# -- Application Secret from a secret store (#2127, NFR-002 §3.7). OFF by
+# default: the chart then expects `kamerplanter-secrets` to exist, created out
+# of band (docs/deployment/kubernetes.md, "Pflicht-Secrets anlegen").
+#
+# With `enabled: true` the chart renders an ExternalSecret
+# (external-secrets.io/v1 — the External Secrets Operator and its CRDs must be
+# installed) that writes `kamerplanter-secrets` from the store entry named in
+# `dataFrom[0].extract.key`; every property of that entry becomes one key of the
+# Secret. Backend, worker and beat read that Secret in full (envFrom), so the
+# entry carries only the mandatory keys — NOT ARANGO_ROOT_PASSWORD, which goes
+# into a Secret of its own named in database.arangodb.rootPasswordSecret. A
+# `secretStoreRef.name` is required — bjw-s refuses the render without one. A
+# ClusterSecretStore serves every namespace unless its `spec.conditions` limit
+# it; restrict it, or use a namespaced SecretStore.
+# `target.creationPolicy: Owner` lets the operator create and own the Secret; a
+# Secret that already exists from a manual `kubectl create` is not simply
+# adopted — delete it in the same change, or set `Merge` so the operator writes
+# into it (docs/deployment/helm.md#secrets-aus-einem-secret-store). Owner also
+# means `helm uninstall` (which deletes the ExternalSecret) garbage-collects the
+# Secret; deletionPolicy below only covers an entry deleted in the store.
+# Further Secrets (storage.s3.credentialsRef, backup.s3.credentialsRef,
+# database.arangodb.rootPasswordSecret) are added the same way, one entry each.
+externalSecrets:
+  app:
+    enabled: false
+    refreshInterval: 1h
+    secretStoreRef:
+      kind: ClusterSecretStore
+      name: ""
+    target:
+      name: kamerplanter-secrets
+      creationPolicy: Owner
+      # bjw-s defaults to Delete: an entry missing in the store would delete the
+      # Secret and stop every pod start. Retain keeps the last good Secret. It
+      # does not survive `helm uninstall` (ownerReference, see above).
+      deletionPolicy: Retain
+    dataFrom:
+      - extract:
+          key: kamerplanter/app
 
 # -- ArangoDB backup (#2122, NFR-002 §8, NFR-012 §9.1). OFF by default — an
 # enabled backup needs a bucket and credentials only the operator has.
@@ -290,6 +390,24 @@ controllers:
     rollingUpdate:
       surge: 1
       unavailable: 0
+    # #2127 — autoscaling and disruption budget are OFF by default and switched
+    # on per installation with the bjw-s keys below (docs/deployment/helm.md#skalierung).
+    # Both need more than one backend pod, so the attachments must live on S3
+    # or a ReadWriteMany volume first — renderChecks refuses the rest.
+    #   horizontalPodAutoscaler:      # replaces `replicas` (bjw-s drops it from the Deployment)
+    #     minReplicas: 2
+    #     maxReplicas: 6
+    #     metrics:
+    #       - type: Resource
+    #         resource:
+    #           name: cpu
+    #           target:
+    #             type: Utilization
+    #             averageUtilization: 70
+    #   podDisruptionBudget:
+    #     minAvailable: 1             # must stay below replicas / minReplicas
+    # A new pod needs up to the startup budget below before it serves; a
+    # scale-up therefore helps after minutes, not seconds (#2125).
     pod:
       # NOTE: setting pod.securityContext here REPLACES the
       # defaultPodOptions.securityContext (bjw-s does not deep-merge it), so
@@ -568,6 +686,10 @@ controllers:
     rollingUpdate:
       surge: 1
       unavailable: 0
+    # #2127 — opt-in like the backend (stateless nginx, no volume constraint):
+    #   replicas: 2
+    #   podDisruptionBudget:
+    #     minAvailable: 1
     pod:
       securityContext:
         runAsNonRoot: true
@@ -1137,6 +1259,9 @@ controllers:
 
   celery-beat:
     type: deployment
+    # Singleton: one scheduler, stopped before its successor starts (Recreate).
+    # A second replica runs every periodic task twice; renderChecks.scaling
+    # refuses replicas != 1 and an autoscaler here (#2127).
     replicas: 1
     strategy: Recreate
     pod:

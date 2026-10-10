@@ -80,11 +80,16 @@ type: application
 
 dependencies:
   - name: common
-    version: 4.6.2
+    version: 5.2.1
     repository: https://bjw-s-labs.github.io/helm-charts/
   - name: valkey
-    version: 0.9.3
+    version: 0.12.0
     repository: oci://ghcr.io/valkey-io/valkey-helm
+    condition: valkey.enabled
+  - name: ollama
+    version: 1.87.0
+    repository: https://otwld.github.io/ollama-helm/
+    condition: ollama.enabled
 ```
 
 - Subchart-Versionen werden **gepinnt** (exakte Version)
@@ -255,6 +260,11 @@ controllers:
             drop: ["ALL"]
 ```
 
+**Skalierung (#2127):**
+- HPA und PDB ausschliesslich ueber die bjw-s-Schluessel `controllers.<name>.horizontalPodAutoscaler` / `.podDisruptionBudget`, nie als eigene Template-Datei oder `rawResources`; im Chart-Default **nicht gesetzt** (die Bloecke kennen kein `enabled` — jeder nicht leere Block rendert ein Objekt; Beispiele stehen als Kommentar am Controller)
+- Jede Einstellung, die im Cluster still scheitern wuerde, wird als `renderChecks`-Eintrag mit `fail` verweigert: Singletons (`celery-beat`, `arangodb`, `vectordb`) bleiben bei `replicas: 1` ohne HPA; `maxReplicas` zaehlt fuer Volume-Regeln wie `replicas`; ein PDB mit `minAvailable` >= kleinster Replica-Zahl blockiert jeden Drain
+- Opt-in-Ressourcen (HPA, PDB, `ExternalSecret`) erscheinen weder im Default-Render noch in einem `values-*.yaml`-Profil (Vertrag in `scripts/ci/assert_chart_contracts.sh`)
+
 ### 4.2 StatefulSet (Stateful)
 
 ```yaml
@@ -371,7 +381,7 @@ probes:
 
 **Regeln:**
 - **Immer** Custom Probes (`custom: true`)
-- Container, die vor dem ersten `listen` migrieren (Backend), haben einen `startupProbe`, dessen Budget die Migrations-Wartezeit (`BARRIER_TIMEOUT_SECONDS`) uebersteigt (#2125)
+- Container, die vor dem ersten `listen` migrieren (Backend), haben einen `startupProbe`, dessen Budget die Migrations-Wartezeit (`BARRIER_TIMEOUT_SECONDS`) uebersteigt (#2125). Das Budget ist die dokumentierte maximale Startdauer (`docs/{de,en}/deployment/kubernetes.md`, Abschnitt Startdauer des Backends); wer es aendert, aendert die Tabelle dort mit — `test_chart_backend_startup_budget.py` vergleicht beides
 - **Separate** Liveness- und Readiness-Endpunkte
 - Readiness hat kuerzere Intervalle als Liveness
 - ArangoDB: Basic Auth Header in Probe

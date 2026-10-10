@@ -55,13 +55,14 @@ appVersion: "1.0.0"     # Anwendungs-Version
 
 | Dependency | Version | Quelle | Zweck |
 |-----------|---------|--------|-------|
-| common (bjw-s) | 5.0.1 | bjw-s-labs Helm-Charts | Library-Chart für einheitliche Kubernetes-Ressourcen |
-| valkey | 0.10.0 | OCI: ghcr.io/valkey-io/valkey-helm | Redis-kompatibler Cache + Celery-Broker |
+| common (bjw-s) | 5.2.1 | bjw-s-labs Helm-Charts | Library-Chart für einheitliche Kubernetes-Ressourcen |
+| valkey | 0.12.0 | OCI: ghcr.io/valkey-io/valkey-helm | Redis-kompatibler Cache + Celery-Broker |
+| ollama | 1.87.0 | `otwld/ollama-helm` | Lokale LLM-Inferenz, standardmäßig aus (`ollama.enabled: false`) |
 
 <!-- Quelle: helm/kamerplanter/Chart.yaml -->
 
-!!! note "Ollama-Subchart auskommentiert"
-    `Chart.yaml` enthält einen dritten, **auskommentierten** Dependency-Eintrag für einen Ollama-Helm-Chart (`otwld/ollama-helm`). Er ist nicht aktiv — Ollama wird in Kubernetes-Deployments aktuell als eigener, vom Operator ergänzter Controller betrieben (siehe [Betriebsprofile → Profi](betriebsprofile.md#profi)), nicht als Sub-Chart-Abhängigkeit.
+!!! note "Ollama-Subchart standardmäßig aus"
+    Der Ollama-Helm-Chart (`otwld/ollama-helm`) ist als dritte Abhängigkeit eingetragen, wird aber nur mit `ollama.enabled: true` gerendert. Ohne diesen Schalter enthält das Release kein Ollama; wie die Betriebsprofile Ollama einsetzen, steht unter [Betriebsprofile → Profi](betriebsprofile.md#profi).
 
 ---
 
@@ -76,8 +77,9 @@ helm/kamerplanter/
 ├── templates/
 │   └── common.yaml       # bjw-s Library-Loader
 └── charts/
-    ├── common-4.6.2.tgz  # bjw-s Common Library
-    └── valkey-0.9.3.tgz  # Valkey Sub-Chart
+    ├── common-5.2.1.tgz  # bjw-s Common Library
+    ├── valkey-0.12.0.tgz # Valkey Sub-Chart
+    └── ollama-1.87.0.tgz # Ollama Sub-Chart (standardmäßig aus)
 ```
 
 Das Chart nutzt den bjw-s `common.loader.all`-Ansatz: Alle Kubernetes-Ressourcen (Deployments, StatefulSets, Services, ConfigMaps, Ingress) werden deklarativ über `values.yaml` definiert — es gibt keine eigenen Templates.
@@ -272,6 +274,31 @@ valkey:
     enabled: true
     size: 1Gi
 ```
+
+Valkey ist zugleich Cache und Celery-Broker: In ihm warten die Aufgaben auf den Worker. Das Chart setzt dafür weder eine Speichergrenze noch Ressourcen-Limits noch das Append-Only-Log (AOF) — Valkey schreibt nur seine Standard-Snapshots auf das Volume. Für einen Dauerbetrieb empfehlen wir, das in deinen Values zu ergänzen:
+
+```yaml title="values-production.yaml (Ausschnitt)"
+valkey:
+  valkeyConfig: |
+    maxmemory 256mb
+    maxmemory-policy noeviction
+    appendonly yes
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi    # mindestens das Doppelte von maxmemory
+```
+
+- `noeviction` statt einer Verdrängungsstrategie: Ist der Speicher voll, lehnt Valkey neue Schreibzugriffe ab, statt still wartende Aufgaben zu löschen. Ein voller Speicher fällt so als Fehler auf.
+- `appendonly yes` schreibt jede Änderung mit; nach einem Neustart sind auch die Aufgaben der letzten Sekunden wieder da.
+- Setze das Speicherlimit des Containers auf mindestens das Doppelte von `maxmemory`. Für das Umschreiben des Append-Only-Logs und für Snapshots startet Valkey einen Kindprozess, der den Datenbestand kopiert; jede Seite, die sich währenddessen ändert, belegt den Speicher doppelt. Liegt das Limit zu knapp, beendet Kubernetes Valkey, bevor Valkey selbst ablehnen kann.
+
+Die Werte gelten erst nach einem Neustart des Valkey-Pods. Der Chart-Standard bleibt unverändert, damit ein Upgrade bestehende Installationen nicht umstellt.
+
+!!! warning "Valkey ohne Passwort und ohne TLS"
+    Backend, Worker und Beat verbinden sich über `REDIS_URL` (`redis://kamerplanter-valkey:6379/0`) ohne Passwort und ohne Verschlüsselung; der Valkey-Chart läuft mit seinem Standard ohne Anmeldung (`auth.enabled: false`) und ohne TLS. Geschützt ist Valkey nur durch die NetworkPolicies des Charts: Nur Backend, Worker und Beat dürfen den Valkey-Pod erreichen. Schalte die NetworkPolicies deshalb nicht ab, und betreibe Kamerplanter nur in einem Cluster, dessen CNI NetworkPolicies durchsetzt.
 
 ---
 
@@ -653,6 +680,85 @@ Die Metriken sind **nicht öffentlich**: Sie laufen auf einem eigenen Port, nie 
 Ausgeliefert werden `http_request_duration_seconds` (Histogramm) und `http_requests_total` mit den Labels `method`, `handler` (Routenmuster, nie der Pfad; `unmatched` für eine Anfrage ohne Route) und `status`, `http_requests_in_progress` sowie Prozess-Metriken (Speicher, CPU, Dateideskriptoren). Ein Mandant ist bewusst **kein** Label — das vervielfacht jede Zeitreihe mit der Mandantenzahl und legt die Mandantenliste jedem offen, der scrapen darf. Für die Sicht pro Mandant tragen die Logzeilen `tenant=ten_…`.
 
 Noch nicht enthalten: Metriken des Celery-Workers, Recording- und Alert-Regeln (`PrometheusRule`) aus NFR-007.
+
+## Skalierung (HPA und PDB) {#skalierung}
+
+Ohne weitere Einstellungen läuft jede Komponente mit einem Pod. Autoscaler (`HorizontalPodAutoscaler`) und Disruption-Budget (`PodDisruptionBudget`) schaltest du pro Controller dazu; das Chart rendert sie nur, wenn du sie setzt.
+
+```yaml title="values-production.yaml (Ausschnitt)"
+storage:
+  backend: s3                      # Voraussetzung für mehr als einen Backend-Pod
+  # ...
+
+controllers:
+  backend:
+    horizontalPodAutoscaler:
+      minReplicas: 2               # ersetzt replicas
+      maxReplicas: 6
+      metrics:
+        - type: Resource
+          resource:
+            name: cpu
+            target:
+              type: Utilization
+              averageUtilization: 70
+    podDisruptionBudget:
+      minAvailable: 1
+  frontend:
+    replicas: 2
+    podDisruptionBudget:
+      minAvailable: 1
+```
+
+- **Autoscaler:** Mit `horizontalPodAutoscaler` entfällt `replicas` aus dem Deployment; `minReplicas` übernimmt seine Rolle. So setzt ein `helm upgrade` oder ein ArgoCD-Sync die Pod-Zahl nicht auf den festen Wert zurück. Der Autoscaler braucht den metrics-server im Cluster.
+- **Ein neuer Backend-Pod hilft erst nach seinem Start** — bis zu einigen Minuten, siehe [Startdauer des Backends](kubernetes.md#startdauer-des-backends). Kurze Lastspitzen fängt der Autoscaler deshalb nicht ab.
+- **Celery-Worker:** CPU ist für den Worker das falsche Signal — er wartet meist auf externe Dienste. Ein Autoscaler nach Länge der Warteschlange braucht die Worker-Metriken, die noch fehlen. Mehr Worker-Pods setzt du bis dahin fest über `replicas`.
+
+Das Chart verweigert die Darstellung (`helm template`, `helm upgrade`, ArgoCD) mit einer Meldung, wenn eine Einstellung im Cluster still schiefgehen würde:
+
+| Einstellung | Warum abgelehnt |
+|-------------|-----------------|
+| Backend oder Celery-Worker mit mehr als einem Pod (`replicas` oder `maxReplicas`) auf dem Standard-Volume `ReadWriteOnce` | Ein zweiter Pod auf einem anderen Node startet nie (`Multi-Attach error`). Lösung: [S3](#storage-konfiguration-nfr-013) oder `ReadWriteMany`. |
+| Mehr als ein Pod oder ein Autoscaler für `celery-beat`, `arangodb` oder `vectordb` | Zwei Beat-Pods führen jede geplante Aufgabe doppelt aus, auch Lösch- und Aufbewahrungsläufe. Zwei ArangoDB- oder VectorDB-Pods sind zwei getrennte Datenbanken, kein Cluster. |
+| `podDisruptionBudget.minAvailable` gleich oder größer als die Pod-Zahl, auch als Prozentwert (`"100%"`; Kubernetes rundet auf ganze Pods auf, `"50%"` von einem Pod ist dieser Pod), oder `maxUnavailable: 0` bzw. `"0%"` | Kubernetes darf dann keinen Pod verdrängen; jedes Leeren eines Nodes und jedes Cluster-Upgrade bleibt hängen. Prozentwerte, die mindestens einen Pod verdrängbar lassen (`minAvailable: "50%"` bei zwei Pods, `maxUnavailable: "25%"`), sind erlaubt. |
+
+Der Celery-Beat bleibt immer ein einzelner Pod mit der Strategie `Recreate`: Der alte Pod endet, bevor der neue startet.
+
+## Secrets aus einem Secret-Store {#secrets-aus-einem-secret-store}
+
+Statt `kamerplanter-secrets` von Hand anzulegen, kann der [External Secrets Operator](https://external-secrets.io/) es aus deinem Secret-Store (Vault, AWS Secrets Manager, …) schreiben. Das Chart bringt dafür ein `ExternalSecret` mit, das standardmäßig aus ist:
+
+```yaml title="values-production.yaml (Ausschnitt)"
+externalSecrets:
+  app:
+    enabled: true
+    secretStoreRef:
+      kind: ClusterSecretStore     # oder SecretStore im selben Namespace
+      name: mein-secret-store
+    dataFrom:
+      - extract:
+          key: kamerplanter/app    # Eintrag im Store mit den Pflicht-Schlüsseln, ohne ARANGO_ROOT_PASSWORD
+```
+
+- Jeder Schlüssel des Store-Eintrags wird ein Eintrag in `kamerplanter-secrets`, und Backend, Worker und Beat lesen dieses Secret vollständig per `envFrom`. Lege deshalb nur die Pflicht-Schlüssel in den Eintrag ([Pflicht-Secrets](kubernetes.md#2-pflicht-secrets-anlegen)), **nicht** `ARANGO_ROOT_PASSWORD`: Das Root-Passwort gehört in ein eigenes Secret (eigener Store-Eintrag mit einem zweiten `ExternalSecret` oder von Hand angelegt), das du in `database.arangodb.rootPasswordSecret` einträgst.
+- Ein `ClusterSecretStore` liefert ohne Einschränkung an jeden Namespace im Cluster. Beschränke ihn über `spec.conditions` (`namespaces` oder `namespaceSelector`) auf den Kamerplanter-Namespace, oder nutze einen `SecretStore` im selben Namespace (`secretStoreRef.kind: SecretStore`).
+- Ohne `secretStoreRef.name` bricht die Darstellung mit einer Meldung ab.
+- Der Operator und seine CRDs (`external-secrets.io/v1`) müssen im Cluster installiert sein.
+- Fehlt der Eintrag später im Store, bleibt das letzte Secret erhalten (`deletionPolicy: Retain`) — Pods starten weiter.
+- `Retain` gilt nur für einen gelöschten Store-Eintrag. Bei `helm uninstall` verschwindet das `ExternalSecret`, und weil es mit `creationPolicy: Owner` Eigentümer von `kamerplanter-secrets` ist, löscht die Garbage Collection von Kubernetes das Secret mit. Brauchst du die Werte danach noch, liegen sie im Store.
+
+!!! warning "Umstieg von einem handgemachten Secret"
+    Mit `creationPolicy: Owner` (Standard) übernimmt der Operator ein bereits vorhandenes, von Hand angelegtes `kamerplanter-secrets` nicht ohne Weiteres. Lösche das alte Secret im selben Schritt (laufende Pods behalten ihre Werte bis zum nächsten Neustart), oder setze `externalSecrets.app.target.creationPolicy: Merge` — dann schreibt der Operator die Schlüssel in das vorhandene Secret.
+
+Weitere Secrets — die S3-Zugangsdaten (`storage.s3.credentialsRef`), das Backup (`backup.s3.credentialsRef`) und das Root-Passwort der Datenbank (`database.arangodb.rootPasswordSecret`) — legst du auf dieselbe Weise als weitere Einträge unter `externalSecrets` an.
+
+## Externe Datenbanken {#externe-datenbanken}
+
+!!! warning "Noch nicht unterstützt"
+    Das Chart betreibt ArangoDB und Valkey immer selbst im Cluster. Eine verwaltete Datenbank außerhalb des Clusters kannst du derzeit nicht sicher anbinden:
+
+    - **ArangoDB:** Das Backend verbindet sich nur unverschlüsselt per `http://`. Zugangsdaten und alle Daten gingen im Klartext über das Netz. Außerdem bricht `controllers.arangodb.enabled: false` allein die Darstellung ab, weil Service, NetworkPolicy und das Volume `arangodb-apps` an den Datenbank-Controller gebunden sind. Schaltest du die mit ab, rendert das Chart zwar, aber Backend, Worker und Beat sprechen weiter `kamerplanter-arangodb` an, und ihre NetworkPolicies lassen nur den Datenbank-Pod im Cluster zu.
+    - **Valkey:** `valkey.enabled: false` schaltet den Cache ab, aber Backend, Worker und Beat sprechen weiter `kamerplanter-valkey` an, und ihre NetworkPolicies lassen nur den Valkey-Pod im Cluster zu.
 
 ## Siehe auch
 
