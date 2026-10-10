@@ -58,6 +58,8 @@ on:
       - 'src/backend/**'
       - 'spec/knowledge/plants/**'
       - 'scripts/check_schema_examples.py'
+      # Run by the `mypy ratchet` step and by tests/unit/test_mypy_ratchet_check.py (#2169).
+      - 'scripts/check_mypy_ratchet.py'
       - 'scripts/check_boundary_validation.py'
       - 'scripts/check_seed_catalogue_page_size.py'
       - 'scripts/check_seed_harvest_integrity.py'
@@ -161,6 +163,8 @@ on:
       - 'src/backend/**'
       - 'spec/knowledge/plants/**'
       - 'scripts/check_schema_examples.py'
+      # Run by the `mypy ratchet` step and by tests/unit/test_mypy_ratchet_check.py (#2169).
+      - 'scripts/check_mypy_ratchet.py'
       - 'scripts/check_boundary_validation.py'
       - 'scripts/check_seed_catalogue_page_size.py'
       - 'scripts/check_seed_harvest_integrity.py'
@@ -361,6 +365,19 @@ jobs:
 
       - name: Ruff format check
         run: task format:backend
+
+      - name: mypy ratchet (#2169)
+        # `strict = true` in pyproject.toml was never run by any gate; the
+        # `[call-arg]` at the six retention-task call sites of #2150 was in
+        # mypy's report for three months. This holds the findings per (file,
+        # error code) against src/backend/mypy-ratchet-baseline.json: a new
+        # finding is red, and for call-arg / name-defined / attr-defined /
+        # call-overload a fixed one whose entry was not lowered is red too
+        # (NFR-018 §2.5). The script refuses to read a missing or disagreeing
+        # mypy summary as "no findings" (NFR-018 §2); its negative controls are
+        # tests/unit/test_mypy_ratchet_check.py. This lane is advisory — the
+        # gate blocks a merge only once the job is a required context.
+        run: task typecheck:backend
 
       - name: Steckbrief ↔ seed consistency (#680)
         # Fail the build on any non-allowlisted drift of a lifecycle-driving

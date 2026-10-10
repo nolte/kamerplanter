@@ -25,6 +25,8 @@ class IFeedingRepository(ABC):
         self,
         offset: int = 0,
         limit: int = 50,
+        *,
+        tenant_key: str | None = None,
     ) -> tuple[list[FeedingEvent], int]: ...
 
     @abstractmethod

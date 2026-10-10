@@ -331,6 +331,16 @@ class WeatherSourceService:
         adapter_cls = WeatherAdapterRegistry.get(entry.source_name)
         if adapter_cls is None:
             return WeatherTestResult(reachable=False, error=f"Unknown weather source '{entry.source_name}'.")
+        # The constructor below is chosen by ``entry.kind``, the class by
+        # ``entry.source_name``; nothing upstream ties the two together. A
+        # mismatch (``dwd`` sent as ``home_assistant``) built an adapter with the
+        # wrong arguments and raised TypeError outside the try below — a 500.
+        # Found by the mypy ratchet's call-arg class (#2169).
+        if adapter_cls.kind != entry.kind:
+            return WeatherTestResult(
+                reachable=False,
+                error=f"Weather source '{entry.source_name}' is not a {entry.kind} source.",
+            )
 
         config: object | None = None
         if entry.kind == "home_assistant":

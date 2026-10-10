@@ -6,7 +6,7 @@ Kategorie: Code-Qualität / Governance Unterkategorie: Naming, Linting, Formatti
 Technologie: Python 3.14, Ruff, mypy, ESLint, TypeScript, Prettier
 Status: Genehmigt
 Priorität: Kritisch
-Version: 2.2
+Version: 2.3
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-25
 Tags: [code-quality, linting, formatting, naming-conventions, type-safety, english-code]
@@ -20,6 +20,7 @@ Betroffene Module: [ALL]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.3 | 2026-10-10 | **§4.3 mypy als Ratchet (Issue #2169):** `strict = true` lief bis dahin in keiner Prüfung; der `[call-arg]`-Befund hinter #2150 stand drei Monate im Bericht. Durchgesetzt wird mypy für `src/backend/app` jetzt über `task typecheck:backend` gegen eine Baseline je Datei und Fehlercode — exakt für die Klassen „Aufruf kann nicht funktionieren“, kein Wachstum für alle übrigen. |
 | 2.2 | 2026-07-12 | **Scope-Klärung Laufzeit-Inhalte (Issue #568, NFR-017):** §2.1 präzisiert um die Abgrenzung Source-Language vs. lokalisierbare Laufzeit-Inhalte. Die Englisch-Pflicht gilt für Bezeichner/Code/Kommentare/Commits/API-Doku **sowie technische Fehlermeldungen und Logs** (English-only). **Nutzerseitige** Meldungen sind davon ausgenommen und werden über Keys/Katalog lokalisiert — geregelt in NFR-017 (Skalierbare Mehrsprachigkeit). |
 | 2.1 | 2026-02-25 | Bestand (W-015 Python-3.14-Type-Style, W-018 Scope-Klärung Spec/Docs, A-006 API-Response-Konsistenz). |
 
@@ -888,6 +889,19 @@ def process_data(data):  # data hat Typ Any!
 def process_data(data: dict[str, Any]) -> Any:
     return data.get("value")
 ```
+
+### 4.3 Durchsetzung: mypy-Ratchet für `src/backend/app` (Issue #2169)
+
+Die Konfiguration oben ist das Ziel; der Ist-Stand des Backends erreicht sie noch nicht (gemessen 2026-10-10 mit der gelockten Werkzeugkette, mypy 2.4.0: 3452 Befunde, nach den Korrekturen aus #2169 3442). Ein Gate, das ab dem ersten Tag rot ist, wird ab dem ersten Tag ignoriert — ein Bericht, auf den nichts gatet, ebenso: der `[call-arg]`-Befund an den sechs Aufrufstellen der Retention-Tasks (#2150) stand von Juli bis Oktober darin.
+
+**MUSS**: mypy läuft für `src/backend/app` als Ratchet (`scripts/check_mypy_ratchet.py`, `task typecheck:backend`) gegen `src/backend/mypy-ratchet-baseline.json`. Gezählt wird je (Datei, Fehlercode), nicht je Zeile.
+
+- Für `call-arg`, `name-defined`, `attr-defined` und `call-overload` — Aufrufe und Attributzugriffe, die zur Laufzeit nicht funktionieren können — MUSS die Zahl je Datei der Baseline genau entsprechen. Wachstum ist rot; ein behobener Befund, dessen Eintrag nicht im selben Change gesenkt wird, ist ebenfalls rot (NFR-018 §2.5).
+- Für alle übrigen Codes gilt kein Wachstum; ein Rückgang ist grün (NFR-018 §2.1).
+- Eine Datei ohne Eintrag MUSS fehlerfrei sein.
+- Die Baseline ist eine versionierte Datei, abweichend von der Vorzugsform in NFR-018 §2.1 (Betreiberentscheidung in #2169): Für mypy gibt es keinen anderen Vergleichspunkt als den Baum selbst. Sie ist nur unter der gelockten Werkzeugkette (`uv run --locked --extra dev`) vergleichbar.
+
+Der Lauf ist der Schritt „mypy ratchet“ im Job `lint-test` von `backend.yml` und lokal der pre-commit-Hook `mypy-ratchet-backend`. Dieser Job ist kein Pflicht-Check auf `develop`; bis er es wird, meldet das Gate, blockiert aber keinen Merge.
 
 ---
 

@@ -78,11 +78,21 @@ ruff format .
 ### Mypy (Static Typing)
 
 ```bash
-cd src/backend
-mypy app/
+task typecheck:backend               # ratchet against the baseline (the CI invocation)
+task typecheck:backend -- --tighten  # lower the baseline after fixing findings
+task typecheck:backend -- --list     # print every current finding
 ```
 
 Mypy runs in `strict` mode. All public functions and methods must be fully typed.
+
+The existing code is not type-clean yet (measured 2026-10-10: 3442 findings). That is why `task typecheck:backend` checks as a **ratchet** (issue #2169): the findings are compared per file and error code with `src/backend/mypy-ratchet-baseline.json`.
+
+- A new finding is red. A file without a baseline entry has to be clean — new modules always are.
+- For `call-arg`, `name-defined`, `attr-defined` and `call-overload` — calls and attribute accesses that cannot work at runtime — the count has to match exactly. When you fix such a finding, lower its entry in the same change with `--tighten`, otherwise the run is red.
+- For every other code a drop is green and printed as headroom.
+
+!!! warning "Only comparable under the locked toolchain"
+    The counts depend on the mypy version and the installed stubs. Run the ratchet through `task typecheck:backend` (`uv run --locked --extra dev`), not with a global `mypy`. `--record` overwrites the baseline with the current state — only when bumping the toolchain, and with a reason in the pull request.
 
 ### Docstrings (Google Style)
 
@@ -277,7 +287,7 @@ The following checks run automatically in CI on every push to `main` and every p
 cd src/backend
 ruff check .          # Linting
 ruff format --check . # Formatting
-mypy app/             # Types
+task typecheck:backend  # Types (mypy ratchet, from the repository root)
 pytest                # Tests
 
 # Frontend
