@@ -7,7 +7,7 @@ Kategorie: KI & Beratung
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, Redis, React 19, TypeScript 5.9, MUI 7
 Status: Entwurf
-Version: 1.3 (`POST …/generate` hinter dem KI-Schalter des Gartens, REQ-031 §1.3 Stufe 2; Betreiberentscheidung 2026-10-09); 1.2 (Glossar-Cache plattformseitig klassifiziert, KI-Budget, #2110)
+Version: 1.4 (`POST …/generate` hinter dem KI-Schalter des Gartens, REQ-031 §1.3 Stufe 2; Betreiberentscheidung 2026-10-09); 1.3 (Light-Modus-Szenario nennt das LLM des Knowledge Service statt `AI_PUBLIC_PROVIDER_KEY`, #2176); 1.2 (Glossar-Cache plattformseitig klassifiziert, KI-Budget, #2110)
 Abhängigkeit: REQ-021 v1.0 (Erfahrungsstufen), REQ-024 v1.4 (Mandantenverwaltung — fuer optionalen Tenant-Kontext), REQ-027 v1.2 (Light-Modus), REQ-031 v2.0 (KI-Assistent / Knowledge Service)
 Wird benoetigt von: —
 ```
@@ -18,7 +18,8 @@ Wird benoetigt von: —
 |---------|-------|-----------|
 | 1.0 | 2026-04-25 | Initialer Entwurf — auf Basis Knowledge-Service-Realität (REQ-031 v2.0) |
 | 1.2 | 2026-10-05 | **#2110 (MT-013):** Der Glossar-Cache ist Plattform-Output und wird vom **System-Default-Provider** der Plattform klassifiziert, nicht vom Default des zuerst anfragenden Mandanten (§6). Der Cache-Eintrag trägt `uses_cloud_provider` (§2.2); jeder Leser sieht dieses Label. Ein Cache-Miss auf dem Tenant-Pfad belastet das KI-Budget des Aufrufers (REQ-031 §3.4) und trägt das Minutenbudget `RATE_LIMIT_INFERENCE`. Die frühere Aussage „geht auch der Glossar-Aufruf an den Cloud-Provider des Tenants“ war unzutreffend: Der Knowledge Service antwortet immer mit seinem eigenen, per Umgebung konfigurierten LLM; die `/ask`-Anfrage nennt keinen Provider. Der in §6 genannte Schalter `AI_PUBLIC_PROVIDER_KEY` existiert im Code nicht. |
-| 1.3 | 2026-10-09 | **Consent-Gates (PR #2208), Betreiberentscheidung 2026-10-09:** Nur `POST /t/{slug}/glossary/term/{slug}/generate` verlangt zusätzlich den **KI-Schalter des Gartens** (REQ-031 §1.3 Stufe 2, `ai_features_enabled` in den Mandanten-Einstellungen): ausgeschaltet → `403 ai.disabled_for_tenant`, bevor Cache, Budget oder LLM berührt werden; mit abgeschaltetem Betreiber-Flag (Stufe 1) antwortet die Route `404` statt der kuratierten Kurzdefinition. Lesen (`GET /terms`, `GET /term/{slug}`, öffentliche und Admin-Routen) bleibt unverändert offen (§3.1, §6). |
+| 1.4 | 2026-10-09 | **Consent-Gates (PR #2208), Betreiberentscheidung 2026-10-09:** Nur `POST /t/{slug}/glossary/term/{slug}/generate` verlangt zusätzlich den **KI-Schalter des Gartens** (REQ-031 §1.3 Stufe 2, `ai_features_enabled` in den Mandanten-Einstellungen): ausgeschaltet → `403 ai.disabled_for_tenant`, bevor Cache, Budget oder LLM berührt werden; mit abgeschaltetem Betreiber-Flag (Stufe 1) antwortet die Route `404` statt der kuratierten Kurzdefinition. Lesen (`GET /terms`, `GET /term/{slug}`, öffentliche und Admin-Routen) bleibt unverändert offen (§3.1, §6). |
+| 1.3 | 2026-10-09 | **#2176:** Szenario 3 (Light-Modus, §8) setzte voraus, dass `AI_PUBLIC_PROVIDER_KEY` auf ein lokales Ollama zeigt — diesen Schalter gibt es nicht, und REQ-027 v1.7 führt ihn nicht ein. Die Vorbedingung lautet jetzt: der Knowledge Service nutzt ein lokales LLM (`LLM_PROVIDER=ollama`). |
 
 ## 1. Business Case
 
@@ -425,7 +426,7 @@ THEN:
 **Szenario 3: Light-Modus (anonymer Aufruf)**
 ```
 GIVEN: KAMERPLANTER_MODE=light
-  AND: AI_PUBLIC_PROVIDER_KEY zeigt auf lokales Ollama
+  AND: der Knowledge Service nutzt ein lokales LLM (LLM_PROVIDER=ollama; REQ-027 §6.1.1)
 WHEN: GET /api/v1/public/knowledge/term/vpd  (kein Auth-Header)
 THEN:
   - HTTP 200, Antwort wie Szenario 1

@@ -57,14 +57,6 @@ export async function refreshTips(
   return data;
 }
 
-export async function dismissTip(tipKey: string): Promise<void> {
-  await tenantClient.post(`/ai/tips/${tipKey}/dismiss`);
-}
-
-export async function markTipActedOn(tipKey: string): Promise<void> {
-  await tenantClient.post(`/ai/tips/${tipKey}/acted-on`);
-}
-
 /**
  * Today's stored daily tip for the dashboard, or `null`.
  *
@@ -118,10 +110,6 @@ export async function createConversation(
     language,
   });
   return data;
-}
-
-export async function deleteConversation(key: string): Promise<void> {
-  await tenantClient.delete(`/ai/conversations/${key}`);
 }
 
 /** A single Server-Sent-Event frame parsed from the chat stream. */
