@@ -58,6 +58,11 @@ def knowledge_service_ingest(self) -> dict:  # noqa: ANN001 - Celery bound task
 
     Best-effort — a Knowledge-Service outage must not crash the beat worker; the
     autoretry policy handles transient connectivity issues.
+
+    A finished reingest (``status == "ok"``; ``/ingest`` answers only once the
+    indexing is done) queues ``glossary.invalidate_after_reingest`` (REQ-035
+    §4.3, #2169), which drops both glossary cache tiers and queues the warm-up.
+    A skipped reingest changed nothing and leaves the cache alone.
     """
     import httpx
 
@@ -74,4 +79,10 @@ def knowledge_service_ingest(self) -> dict:  # noqa: ANN001 - Celery bound task
     response.raise_for_status()
     result = response.json()
     logger.info("ai_knowledge_service_ingest", status=result.get("status"))
+    if result.get("status") == "ok":
+        # Imported here: the glossary task module pulls in the glossary service graph,
+        # which this module does not otherwise need.
+        from app.tasks.glossary_tasks import invalidate_after_reingest
+
+        invalidate_after_reingest.delay()
     return result

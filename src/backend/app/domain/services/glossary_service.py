@@ -32,8 +32,9 @@ is reached only through the adapter's ``/ask`` call.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, get_args
+from typing import TYPE_CHECKING, Protocol, get_args
 
 import structlog
 
@@ -67,6 +68,36 @@ logger = structlog.get_logger(__name__)
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+class _KeyScanningRedis(Protocol):
+    """The two Redis calls the hot-cache invalidation makes."""
+
+    def scan_iter(self, match: str | None = ...) -> Iterator[str]: ...
+
+    def delete(self, *names: str) -> int: ...
+
+
+def invalidate_hot_cache(redis_client: _KeyScanningRedis | None, slug: str | None = None) -> None:
+    """Drop the Redis hot-cache copies of one term's answers, or of every term's.
+
+    The glossary cache has two tiers and the read path asks Redis *first*
+    (:meth:`GlossaryService._load_cache`). Clearing only the ArangoDB rows
+    therefore changes nothing a reader or the warm-up sees while the Redis copy
+    lives (up to the 7-day TTL) — the warm-up would find every variant "cached"
+    and regenerate none (#2169). Module-level so the reingest task can clear the
+    tier without assembling the whole service. Best-effort like every other Redis
+    touch of the service: a failure is logged, never raised.
+    """
+    if redis_client is None:
+        return
+    try:
+        pattern = f"glossary:term:{slug}:*" if slug else "glossary:term:*"
+        keys = list(redis_client.scan_iter(match=pattern))
+        if keys:
+            redis_client.delete(*keys)
+    except Exception:  # noqa: BLE001 — best-effort invalidation.
+        logger.debug("glossary_redis_invalidate_failed", slug=slug)
 
 
 #: Glossary answers are quasi-static and cached for 7 days (§1, §2.2).
@@ -491,15 +522,7 @@ class GlossaryService:
             logger.debug("glossary_redis_set_failed", slug=entry.term_slug)
 
     def _redis_invalidate(self, slug: str | None) -> None:
-        if self._redis is None:
-            return
-        try:
-            pattern = f"glossary:term:{slug}:*" if slug else "glossary:term:*"
-            keys = list(self._redis.scan_iter(match=pattern))
-            if keys:
-                self._redis.delete(*keys)
-        except Exception:  # noqa: BLE001 — best-effort invalidation.
-            logger.debug("glossary_redis_invalidate_failed", slug=slug)
+        invalidate_hot_cache(self._redis, slug)
 
     # ── Response assembly + audit ──────────────────────────────────────
 
