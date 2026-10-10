@@ -853,8 +853,9 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "PestImageService.list_for_pest unions it with the caller's own and marks foreign ones",
     ),
     # ── credential ─────────────────────────────────────────────────────────
-    ("ArangoCalendarFeedRepository", "get_by_token"): Exclusion(
-        "credential", "the iCal feed token is the credential of the unauthenticated feed URL (REQ-015)"
+    ("ArangoCalendarFeedRepository", "get_by_token_hash"): Exclusion(
+        "credential",
+        "the hash of the iCal feed token, which is the credential of the unauthenticated feed URL (REQ-015, #2171)",
     ),
     ("ArangoInvitationRepository", "get_by_token_hash"): Exclusion(
         "credential", "the hashed invitation token is what the invitee presents; it names one invitation"

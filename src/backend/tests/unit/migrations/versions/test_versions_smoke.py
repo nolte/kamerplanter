@@ -155,6 +155,9 @@ class _NoopCollection:
             # (harvest_indicators sparse; the IPM edges' vertex pair), so it creates none.
             {"type": "persistent", "fields": col.HARVEST_INDICATOR_IDENTITY_FIELDS, "unique": True, "sparse": True},
             {"type": "persistent", "fields": col.EDGE_PAIR_FIELDS, "unique": True},
+            # v0090 (#2171): calendar_feeds.token_hash is bootstrapped unique+sparse on a
+            # fresh volume and the legacy token index is absent, so it creates and drops nothing.
+            {"type": "persistent", "fields": col.CALENDAR_FEED_TOKEN_HASH_INDEX_FIELDS, "unique": True, "sparse": True},
             # v0045 (#1301): tasks.care_dedup_key is bootstrapped unique+sparse on a
             # fresh volume, so the dedup+constraint migration finds it present → no-op.
             {

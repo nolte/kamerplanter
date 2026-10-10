@@ -465,7 +465,10 @@ class TenantService:
         cannot undo a concurrent change (#1992 review SEC-003).
 
         The platform tenant is refused (403, #1021) before any step-up is asked for.
-        Without a valid step-up nothing is written.
+        Without a valid step-up nothing is written. An actual change of ``is_active``
+        writes the security-audit row ``tenant_suspended`` / ``tenant_reactivated``
+        (MT-014, #2111) after the store; a rename or a member-limit edit writes none
+        (no account gains or loses access through it).
         """
         current = self._tenant_repo.get_by_key(tenant_key)
         if current is None:
@@ -502,7 +505,16 @@ class TenantService:
             data["status"] = TenantStatus.ACTIVE if wanted else TenantStatus.SUSPENDED
         if not data:
             return current
-        return self._apply_tenant_update(tenant_key, data)
+        updated = self._apply_tenant_update(tenant_key, data)
+        if changes_active:
+            # MT-014 (#2111) — a suspension locks every member out with one request; written after the store.
+            self._audit_tenant(
+                SecurityAuditAction.TENANT_REACTIVATED if wanted else SecurityAuditAction.TENANT_SUSPENDED,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=requester.key or "",
+                tenant_key=tenant_key,
+            )
+        return updated
 
     def _apply_tenant_update(self, tenant_key: str, data: dict) -> Tenant:
         """The write both update paths share: the #1021 guard, the slug on rename, the store.
@@ -597,6 +609,9 @@ class TenantService:
            as they are so :meth:`cancel_tenant_erasure` restores them unchanged), the
            members are told the date, and the request returns. A repeated request
            inside the grace re-asserts the state and returns the same record.
+           The request that created the record writes the security-audit row
+           ``tenant_deletion_requested`` (MT-014, #2111) after its effects; a
+           repeat writes none.
         3. After the grace (or at once with a grace of ``0``) the tenant becomes
            ``deleted``, every membership is deactivated and the erasure runs:
            ``completed`` only when the executor found nothing left; otherwise
@@ -649,6 +664,7 @@ class TenantService:
         configuration_error = self._tenant_erasure_configuration_error()
         if configuration_error is not None:
             raise FeatureNotConfiguredError("tenant_deletion", configuration_error)
+        accepted_here = False
         requested_by_ref = log_subject(requester.key)
         logger.info(
             "tenant_erasure.authorized",
@@ -684,7 +700,14 @@ class TenantService:
                 raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
             if scheduled_for is not None and tenant is not None:
                 self._schedule_tenant_erasure(tenant, scheduled_for, requester_key=requester.key)
+                self._audit_tenant(
+                    SecurityAuditAction.TENANT_DELETION_REQUESTED,
+                    via=self._audit_via_of(origin),
+                    actor_user_key=requester.key or "",
+                    tenant_key=tenant_key,
+                )
                 return record
+            accepted_here = True
 
         elif record.status == "scheduled":
             # #2123 — a repeated request inside the grace changes nothing but re-asserts the
@@ -708,7 +731,36 @@ class TenantService:
         self._mark_tenant_erasing(tenant_key)
         self._membership_repo.deactivate_all_for_tenant(tenant_key)
         self._dispatch_tenant_erasure(record_key)
+        if accepted_here:
+            # MT-014 (#2111) — the request that created the record is the one recorded; a repeat that only
+            # re-dispatches an open deletion changed nothing that was not recorded before.
+            self._audit_tenant(
+                SecurityAuditAction.TENANT_DELETION_REQUESTED,
+                via=self._audit_via_of(origin),
+                actor_user_key=requester.key or "",
+                tenant_key=tenant_key,
+            )
         return record
+
+    @staticmethod
+    def _audit_via_of(origin: TenantErasureOrigin) -> SecurityAuditVia:
+        """The audit door of a person's tenant-deletion entry: the platform panel or the tenant's own management."""
+        return SecurityAuditVia.PLATFORM_ADMIN if origin == "platform_admin" else SecurityAuditVia.TENANT_ADMIN
+
+    def _audit_tenant(
+        self, action: SecurityAuditAction, *, via: SecurityAuditVia, actor_user_key: str, tenant_key: str
+    ) -> None:
+        """Write the persistent security-audit row of one change of a tenant's lifecycle (MT-014, #2111).
+
+        The one place a suspension, a reactivation, an accepted or a withdrawn deletion is handed to
+        (``test_account_and_tenant_mutations_write_the_security_audit`` holds that). Called **after** the
+        change succeeded, like :meth:`_audit_membership`; a failing audit write raises.
+        """
+        if self._security_audit is None:
+            return
+        self._security_audit.record_tenant_change(
+            action=action, via=via, actor_user_key=actor_user_key, tenant_key=tenant_key
+        )
 
     # --- Tenant lifecycle: grace and cancellation (REQ-024 AK-52, MT-027 #2123) ---
 
@@ -885,6 +937,13 @@ class TenantService:
             # A run claimed it between the read above and now (or nothing was recorded).
             raise InvalidStatusTransitionError(str(TenantStatus.DELETED), str(TenantStatus.ACTIVE))
         self._set_tenant_status(tenant_key, TenantStatus.ACTIVE, None)
+        # MT-014 (#2111) — the withdrawal removed the erasure record, so this row is what is left of the request.
+        self._audit_tenant(
+            SecurityAuditAction.TENANT_DELETION_CANCELLED,
+            via=self._audit_via_of(origin),
+            actor_user_key=requester.key or "",
+            tenant_key=tenant_key,
+        )
         logger.info(
             "tenant_erasure.cancelled", tenant=log_tenant(tenant_key), origin=origin, subject=log_subject(requester.key)
         )

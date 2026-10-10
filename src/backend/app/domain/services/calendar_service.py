@@ -4,6 +4,7 @@ from datetime import date, datetime
 import structlog
 
 from app.common.datetimes import replace_year, today_utc
+from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.data_access.arango.base_repository import get_all_pages
@@ -22,6 +23,7 @@ from app.domain.engines.sowing_calendar_engine import (
     SowingCalendarEntry,
     SpeciesData,
 )
+from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.calendar_feed_repository import ICalendarFeedRepository
 from app.domain.interfaces.calendar_source_repository import ICalendarSourceRepository
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -30,6 +32,7 @@ from app.domain.models.calendar import (
     CalendarEvent,
     CalendarEventsQuery,
     CalendarFeed,
+    CalendarFeedIssued,
 )
 from app.domain.models.site import Site
 from app.domain.services.ical_generator import ICalGenerator
@@ -112,9 +115,22 @@ class CalendarService:
 
     # ── Feed CRUD ────────────────────────────────────────────────────
 
-    def create_feed(self, feed: CalendarFeed) -> CalendarFeed:
-        feed.token = secrets.token_urlsafe(32)
-        return self._feed_repo.save(feed)
+    @staticmethod
+    def _issue_token(feed: CalendarFeed) -> str:
+        """Give ``feed`` a fresh iCal token; only its digest stays on the feed (#2171).
+
+        The raw value goes back to the caller for the one response that shows it;
+        the stored feed carries ``TokenEngine.hash_token`` of it - the same SHA-256
+        digest refresh, invitation, reset and verification tokens are stored as.
+        """
+        raw = secrets.token_urlsafe(32)
+        feed.token_hash = TokenEngine.hash_token(raw)
+        return raw
+
+    def create_feed(self, feed: CalendarFeed) -> CalendarFeedIssued:
+        """Persist ``feed`` with a new token and return it with the raw token, once."""
+        raw = self._issue_token(feed)
+        return CalendarFeedIssued(feed=self._feed_repo.save(feed), token=raw)
 
     def get_feed(self, key: str, *, tenant_key: str) -> CalendarFeed:
         """The feed ``key`` of ``tenant_key``, or 404 — never skipped, whoever calls (#2119).
@@ -130,26 +146,63 @@ class CalendarService:
     def list_feeds(self, user_key: str, tenant_key: str) -> list[CalendarFeed]:
         return self._feed_repo.list_by_user(user_key, tenant_key=tenant_key)
 
-    def update_feed(self, key: str, feed: CalendarFeed, *, tenant_key: str) -> CalendarFeed:
-        """Replace name, filters and state of an owned feed; owner, token and expiry stay."""
-        existing = self.get_feed(key, tenant_key=tenant_key)
-        # The request builds a fresh model without owner fields; written as-is it
-        # would blank tenant_key/user_key and drop the feed from its owner's list.
-        feed.tenant_key = existing.tenant_key
-        feed.user_key = existing.user_key
-        feed.token = existing.token
-        feed.expires_at = existing.expires_at
-        feed.created_at = existing.created_at
-        return self._feed_repo.update(key, feed)
+    def _managed_feed(self, key: str, *, tenant_key: str, user_key: str, role: TenantRole) -> CalendarFeed:
+        """The feed ``key`` the caller may change: their own, or any of the tenant's for a lead.
 
-    def delete_feed(self, key: str, *, tenant_key: str) -> bool:
-        self.get_feed(key, tenant_key=tenant_key)
+        ``get_feed`` answers for the tenant; a feed belongs to one member (REQ-015
+        CF-002), and a grower who changes, rotates or deletes another member's feed
+        would break - or take over - that member's calendar subscription. A lead
+        manages every feed of the tenant, as the lead manages everything else in it.
+        A foreign feed answers exactly like an unknown one (404), so a key does not
+        tell a grower whether a colleague's feed exists. An empty ``user_key`` never
+        matches, not even a legacy feed whose owner was never stamped.
+        """
+        feed = self.get_feed(key, tenant_key=tenant_key)
+        if role != TenantRole.LEAD and (not user_key or feed.user_key != user_key):
+            raise NotFoundError("CalendarFeed", key)
+        return feed
+
+    #: What a ``PUT`` may change. Everything else on a feed - owner, tenant, token
+    #: digest, expiry, creation time - is set by create / rotate and never by an edit.
+    _EDITABLE_FEED_FIELDS = frozenset({"name", "filters", "is_active"})
+
+    def update_feed(
+        self,
+        key: str,
+        feed: CalendarFeed,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+    ) -> CalendarFeed:
+        """Change name, filters and state of a managed feed - those three fields and nothing else.
+
+        Written as a field merge from an allow-list, not as the full model (#2171
+        review W-2): the request model carries no owner and no token digest, and a
+        full write that copied them from the feed read first would put back the
+        digest a rotation committed in between - reviving the URL the member just
+        retired and killing the one they just copied. ``feed`` is a validated
+        model, so its dump types every value it hands to the merge.
+        """
+        self._managed_feed(key, tenant_key=tenant_key, user_key=user_key, role=role)
+        fields = feed.model_dump(mode="json", include=set(self._EDITABLE_FEED_FIELDS))
+        return self._feed_repo.update_fields(key, fields)
+
+    def delete_feed(self, key: str, *, tenant_key: str, user_key: str, role: TenantRole) -> bool:
+        self._managed_feed(key, tenant_key=tenant_key, user_key=user_key, role=role)
         return self._feed_repo.delete(key)
 
-    def regenerate_token(self, key: str, *, tenant_key: str) -> CalendarFeed:
-        feed = self.get_feed(key, tenant_key=tenant_key)
-        feed.token = secrets.token_urlsafe(32)
-        return self._feed_repo.update(key, feed)
+    def regenerate_token(self, key: str, *, tenant_key: str, user_key: str, role: TenantRole) -> CalendarFeedIssued:
+        """Replace the token of a managed feed; the old URL stops resolving at once.
+
+        This is also how a member gets a URL for a feed whose URL was lost: the
+        stored digest cannot be turned back into the token (#2171). Only the digest
+        is written, so a rotation cannot undo an edit that committed in between.
+        """
+        feed = self._managed_feed(key, tenant_key=tenant_key, user_key=user_key, role=role)
+        raw = self._issue_token(feed)
+        stored = self._feed_repo.update_fields(key, {"token_hash": feed.token_hash})
+        return CalendarFeedIssued(feed=stored, token=raw)
 
     # ── Sowing calendar (REQ-015 §3.8) ─────────────────────────────
 
@@ -391,7 +444,9 @@ class CalendarService:
     # ── iCal generation ──────────────────────────────────────────────
 
     def generate_ical_for_feed(self, feed_key: str, token: str) -> str:
-        feed = self._feed_repo.get_by_token(token)
+        # Resolved by the digest of what the URL presents, never by the raw value
+        # (#2171); the stored digest itself is not a working token.
+        feed = self._feed_repo.get_by_token_hash(TokenEngine.hash_token(token)) if token else None
         if feed is None or feed.key != feed_key:
             raise ValidationError("Invalid feed token")
         if not feed.is_active:

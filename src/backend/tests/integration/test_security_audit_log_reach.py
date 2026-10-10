@@ -176,6 +176,41 @@ def test_an_admin_add_a_role_change_and_a_removal_each_leave_a_row_the_admin_can
     assert memberships.get_by_user_and_tenant("u-new", TENANT) is None
 
 
+def test_an_account_deactivation_and_a_tenant_suspension_leave_rows_the_admin_can_read(db) -> None:
+    """#2111: the trust-flag and lifecycle rows through the real routes, repositories and collection."""
+    from app.data_access.arango.user_repository import ArangoUserRepository
+    from app.domain.services.user_service import UserService
+
+    client, service, _memberships = _client(db)
+    users = UserService(
+        ArangoUserRepository(db),
+        step_up_verifier=PassedStepUpVerifier(),  # type: ignore[arg-type]
+        refresh_token_repo=MagicMock(),
+        membership_repo=ArangoMembershipRepository(db),
+        security_audit=service._security_audit,  # noqa: SLF001
+    )
+    client.app.dependency_overrides[get_user_service] = lambda: users  # type: ignore[attr-defined]
+
+    deactivated = client.patch(
+        "/api/v1/admin/platform/users/u-new", json={"is_active": False, "current_password": PASSWORD}
+    )
+    assert deactivated.status_code == 200, deactivated.text
+    suspended = client.patch(
+        f"/api/v1/admin/platform/tenants/{TENANT}", json={"is_active": False, "current_password": PASSWORD}
+    )
+    assert suspended.status_code == 200, suspended.text
+
+    rows = _rows(db)
+    assert [(r["action"], r["actor_user_key"], r.get("target_user_key"), r.get("tenant_key")) for r in rows] == [
+        ("account_deactivated", ADMIN.key, "u-new", None),
+        ("tenant_suspended", ADMIN.key, None, TENANT),
+    ]
+    assert all(r["via"] == "platform_admin" and "@" not in str(r) for r in rows)
+    listed = client.get("/api/v1/admin/platform/security-audit")
+    assert listed.status_code == 200, listed.text
+    assert [r["action"] for r in listed.json()] == ["tenant_suspended", "account_deactivated"]
+
+
 def test_leaving_scopes_and_creation_leave_rows_through_the_real_repositories(db) -> None:
     service, memberships = _service(db)
 

@@ -27,7 +27,7 @@ from fastapi.testclient import TestClient
 
 from app.common.auth import get_current_tenant
 from app.common.enums import CalendarEventCategory, TenantRole
-from app.domain.models.calendar import CalendarFeed, CalendarFeedFilters
+from app.domain.models.calendar import CalendarFeed, CalendarFeedFilters, CalendarFeedIssued
 from app.domain.models.tenant_context import TenantContext
 
 BASE = "/api/v1/t/personal/calendar"
@@ -43,23 +43,22 @@ class _FakeCalendarService:
         self.last_query = query
         return []
 
-    def create_feed(self, feed: CalendarFeed) -> CalendarFeed:
+    def create_feed(self, feed: CalendarFeed) -> CalendarFeedIssued:
         feed.key = "feed-1"
-        feed.token = "tok"
-        return feed
+        return CalendarFeedIssued(feed=feed, token="tok")
 
     def get_feed(self, key: str, *, tenant_key: str) -> CalendarFeed:
         return CalendarFeed(
             _key=key,
             tenant_key="personal",
             name="Feed",
-            token="tok",
             filters=CalendarFeedFilters(categories=[CalendarEventCategory.HARVEST]),
         )
 
-    def update_feed(self, key: str, feed: CalendarFeed, *, tenant_key: str) -> CalendarFeed:
+    def update_feed(
+        self, key: str, feed: CalendarFeed, *, tenant_key: str, user_key: str, role: TenantRole
+    ) -> CalendarFeed:
         feed.key = key
-        feed.token = "tok"
         return feed
 
 
