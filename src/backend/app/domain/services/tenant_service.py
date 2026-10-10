@@ -856,7 +856,8 @@ class TenantService:
         if orphaned:
             # #2134 — nobody is left who could administer it, so nobody can cancel.
             who_can_stop = (
-                "Nobody is left who can administer it: its last person with the management right deleted their account."
+                "Nobody is left who can administer it: its last person with the management right "
+                "asked to delete their account."
             )
         else:
             who_can_stop = "The garden's management can cancel the deletion until then."
@@ -1184,6 +1185,13 @@ class TenantService:
             if member.user_key != leaving_user_key
         ]
 
+    def _service_account_user_keys(self, tenant_key: str) -> frozenset[str]:
+        """The tenant's active service accounts — never heirs of ``management`` (#2166, ``allows_interactive_auth``)."""
+        return frozenset(
+            member.user_key
+            for member in self._membership_repo.active_service_account_memberships(tenant_key=tenant_key)
+        )
+
     def organisation_erasure_preview(self, user_key: str) -> list[OrganisationErasurePreview]:
         """The organisations an erasure of *user_key* would change, before it is confirmed (#2134).
 
@@ -1193,7 +1201,9 @@ class TenantService:
         preview: list[OrganisationErasurePreview] = []
         for tenant, membership in self._organisations_of(user_key):
             outcome, _heir = self._membership_engine.departure_settlement(
-                membership, self._remaining_members(tenant.key or "", user_key)
+                membership,
+                self._remaining_members(tenant.key or "", user_key),
+                non_interactive_user_keys=self._service_account_user_keys(tenant.key or ""),
             )
             if outcome != "unaffected":
                 preview.append(OrganisationErasurePreview(name=tenant.name, outcome=outcome))
@@ -1204,8 +1214,10 @@ class TenantService:
     ) -> list[OrganisationSettlement]:
         """Keep every organisation of an erased account administrable, or schedule it for deletion (#2134).
 
-        Called by the account erasure before its ArangoDB plan removes the subject's
-        memberships — the cascade that bypassed INV-1 (MT-038). Per organisation
+        Called when the account erasure is **requested** (#2166 — the account is closed
+        then, so waiting for the hard delete left the organisation without management for
+        the whole grace) and again by the hard delete before its ArangoDB plan removes the
+        subject's memberships — the cascade that bypassed INV-1 (MT-038). Per organisation
         (:meth:`MembershipEngine.departure_settlement`):
 
         * ``management_passes_to_lead`` — the longest-serving remaining ``lead``
@@ -1226,7 +1238,9 @@ class TenantService:
         for tenant, membership in self._organisations_of(user_key):
             tenant_key = tenant.key or ""
             remaining = self._remaining_members(tenant_key, user_key)
-            outcome, heir = self._membership_engine.departure_settlement(membership, remaining)
+            outcome, heir = self._membership_engine.departure_settlement(
+                membership, remaining, non_interactive_user_keys=self._service_account_user_keys(tenant_key)
+            )
             if outcome == "management_passes_to_lead" and heir is not None:
                 self._hand_management_to(heir, tenant, subject_user_key=user_key, remaining=remaining)
             elif outcome == "orphaned":
@@ -1264,7 +1278,9 @@ class TenantService:
         name = html.escape(tenant.name)
         body = (
             "<h2>The management of your organisation has passed on</h2>"
-            f"<p>The last person with the management right in <strong>{name}</strong> has deleted their account. "
+            # #2166 — sent when the erasure is requested: the account is closed, not yet erased.
+            f"<p>The last person with the management right in <strong>{name}</strong> has asked Kamerplanter "
+            "to delete their account. "
             "The longest-serving lead of the organisation now holds the management right, "
             "so members can still be invited and the organisation administered.</p>"
             "<p>Nothing else changes for you.</p>"
@@ -1305,7 +1321,8 @@ class TenantService:
         name = html.escape(tenant.name)
         body = (
             "<h2>An organisation was orphaned by an account deletion</h2>"
-            f"<p>After an account deletion nobody can administer the organisation <strong>{name}</strong> any more. "
+            f"<p>After an account deletion request nobody can administer the organisation <strong>{name}</strong> "
+            "any more. "
             f"It is shown as orphaned in the admin area and will be deleted with all its data on {due} (UTC).</p>"
         )
         platform_leads = [
@@ -3102,7 +3119,7 @@ class TenantService:
         losing_management = membership.has_management and AdminScope.MANAGEMENT not in new_scopes
         if losing_management:
             self._guard_last_manager(
-                tenant_key,
+                membership,
                 "Cannot remove the management scope from the last member who has it",
             )
 
@@ -3162,7 +3179,7 @@ class TenantService:
             raise NotFoundError("Membership", membership_key)
 
         if membership.has_management:
-            self._guard_last_manager(tenant_key, "Cannot remove the last member with the management scope")
+            self._guard_last_manager(membership, "Cannot remove the last member with the management scope")
 
         self._step_up_verifier.verify(
             requester,
@@ -3196,7 +3213,7 @@ class TenantService:
 
         if membership.has_management:
             self._guard_last_manager(
-                tenant_key,
+                membership,
                 "Cannot leave as the last member with the management scope. Hand it over first.",
             )
 
@@ -3286,10 +3303,19 @@ class TenantService:
             **fields,
         )
 
-    def _guard_last_manager(self, tenant_key: str, message: str) -> None:
-        """Raise unless the tenant keeps at least one ``MANAGEMENT`` membership (INV-1)."""
-        manager_count = self._membership_repo.count_managers(tenant_key)
-        if not self._membership_engine.validate_not_last_manager(manager_count, True):
+    def _guard_last_manager(self, membership: Membership, message: str) -> None:
+        """Raise unless another live person account keeps the ``MANAGEMENT`` scope in the tenant (INV-1).
+
+        *membership* holds ``MANAGEMENT`` and is about to lose it (removal, leave, demotion).
+        The others are counted among **live** accounts only (#2166): a holder whose account
+        asked for its erasure or was deactivated cannot administer anything, so counting it
+        let the last live holder strand the tenant; a service account's ``MANAGEMENT`` does not
+        count either, it passes no step-up (re-review W-1). *membership* itself is counted in by the
+        engine's contract ("the target included") whatever its account's state, so removing
+        a closed account's membership is not blocked while one live holder remains.
+        """
+        others = self._membership_repo.count_managers(membership.tenant_key, other_than_user_key=membership.user_key)
+        if not self._membership_engine.validate_not_last_manager(others + 1, True):
             raise ValidationError(message)
 
     # --- Invitations ---

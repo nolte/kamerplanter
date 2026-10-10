@@ -6,6 +6,7 @@ administer. Everything here is a pure function of those two values, so the rules
 can be asserted directly without a request or a database.
 """
 
+from collections.abc import Set as AbstractSet
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
 
@@ -165,7 +166,7 @@ class MembershipEngine:
 
     @staticmethod
     def departure_settlement(
-        leaving: Membership, others: list[Membership]
+        leaving: Membership, others: list[Membership], *, non_interactive_user_keys: AbstractSet[str]
     ) -> tuple[DepartureOutcome, Membership | None]:
         """What the erasure of *leaving*'s account does to its organisation (#2134, MT-038, INV-1).
 
@@ -180,16 +181,33 @@ class MembershipEngine:
           remaining ``lead`` (earliest ``joined_at``; an unrecorded start sorts last,
           the membership key breaks a tie) receives it: ``management_passes_to_lead``;
           without a remaining ``lead`` → ``orphaned``;
-        * otherwise → ``unaffected``.
+        * otherwise (another **person** holds ``management``) → ``unaffected``.
+
+        Only a person's account inherits (#2166): *non_interactive_user_keys* are the
+        service accounts among *others* (``allows_interactive_auth`` is false). A machine
+        identity holds no session and cannot pass the step-up member administration asks
+        for, so ``management`` handed to it would leave the organisation as unadministrable
+        as no heir at all — a ``lead`` service account (the platform-admin path allows one,
+        REQ-023 §5b.3) is passed over, and without a person ``lead`` the organisation is
+        ``orphaned``. For the same reason a service account's own ``management`` keeps
+        nothing administrable (re-review W-1): only a person's counts as the remaining
+        holder that leaves the organisation ``unaffected``. Keyword-only without a
+        default, so a caller cannot forget the set.
 
         Returns the outcome and, for a handover, the membership that receives
         ``management``.
         """
         if not others:
             return "orphaned", None
-        if not leaving.has_management or any(member.has_management for member in others):
+        if not leaving.has_management or any(
+            member.has_management and member.user_key not in non_interactive_user_keys for member in others
+        ):
             return "unaffected", None
-        leads = [member for member in others if member.role == TenantRole.LEAD]
+        leads = [
+            member
+            for member in others
+            if member.role == TenantRole.LEAD and member.user_key not in non_interactive_user_keys
+        ]
         if not leads:
             return "orphaned", None
         heir = min(leads, key=lambda m: (_started(m), m.key or "", m.user_key))

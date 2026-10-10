@@ -214,7 +214,8 @@ class TestTankTasks:
 
         sensor_repo = MagicMock()
         sensor_repo.find_by_tank.return_value = []
-        tanks = [SimpleNamespace(key=k, name=k) for k in _keys(1001, "tank")]
+        # #2166 — the sync asks the tank's tenant; the MagicMock tenant repository answers "active".
+        tanks = [SimpleNamespace(key=k, name=k, tenant_key="t1") for k in _keys(1001, "tank")]
         _repoint(
             monkeypatch,
             module,

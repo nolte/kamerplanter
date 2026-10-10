@@ -161,8 +161,12 @@ class _Memberships:
         self.rows[key] = self.rows[key].model_copy(update=fields)
         return self.rows[key]
 
-    def count_managers(self, tenant_key: str) -> int:
-        return sum(1 for m in self.rows.values() if m.tenant_key == tenant_key and m.is_active and m.has_management)
+    def count_managers(self, tenant_key: str, *, other_than_user_key: str | None = None) -> int:
+        return sum(
+            1
+            for m in self.rows.values()
+            if m.tenant_key == tenant_key and m.is_active and m.has_management and m.user_key != other_than_user_key
+        )
 
     def count_active_members(self, *, tenant_key: str) -> int:
         return sum(1 for m in self.rows.values() if m.tenant_key == tenant_key and m.is_active)

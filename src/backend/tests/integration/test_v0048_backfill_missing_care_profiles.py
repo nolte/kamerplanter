@@ -313,6 +313,10 @@ def test_the_backfilled_plant_receives_a_care_task_from_the_nightly_run(db, monk
     from app.tasks.care_tasks import generate_due_care_reminders
 
     monkeypatch.setattr(dependencies, "get_db", lambda: db)
+    # #2166 — the generator skips a tenant that is not stored as ``active`` (``tasks/tenant_gate.py``).
+    db.collection(col.TENANTS).insert(
+        {"_key": _TENANT, "name": _TENANT, "slug": _TENANT, "owner_user_key": "owner", "status": "active"}
+    )
     plant_key = _seed_unprofiled_plant(db)
 
     before = generate_due_care_reminders()
