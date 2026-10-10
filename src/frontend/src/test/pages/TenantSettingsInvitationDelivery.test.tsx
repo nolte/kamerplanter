@@ -3,6 +3,7 @@ import { screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n from 'i18next';
 import type { Invitation, InvitationCreated } from '@/api/types';
+import { ApiError } from '@/api/errors';
 import { createStoreWithTenantRole, renderWithProviders } from '@/test/helpers';
 
 /**
@@ -223,6 +224,9 @@ describe('TenantSettingsPage — a link for several people (#2182, REQ-024 AK-07
 
     await userEvent.clear(maxUsesInput());
     await userEvent.type(maxUsesInput(), '20');
+    // Review SCR-002 — the field holds what was typed (not "120" appended to the default "1").
+    expect(maxUsesInput()).toHaveValue(20);
+    expect(maxUsesInput()).not.toHaveAttribute('aria-invalid', 'true');
     await userEvent.click(screen.getByTestId('create-link-btn'));
 
     await waitFor(() =>
@@ -242,8 +246,8 @@ describe('TenantSettingsPage — a link for several people (#2182, REQ-024 AK-07
     expect(tenantApi.createLinkInvitation).not.toHaveBeenCalled();
   });
 
-  it('lists how often each invitation was used', async () => {
-    const row: Invitation = {
+  function linkRow(): Invitation {
+    return {
       key: 'i-7',
       tenant_key: 't1',
       email: null,
@@ -256,9 +260,64 @@ describe('TenantSettingsPage — a link for several people (#2182, REQ-024 AK-07
       max_uses: 20,
       use_count: 3,
     };
-    (tenantApi.listInvitations as ReturnType<typeof vi.fn>).mockResolvedValue([row]);
+  }
+
+  it('lists how often each invitation was used', async () => {
+    (tenantApi.listInvitations as ReturnType<typeof vi.fn>).mockResolvedValue([linkRow()]);
     await renderInvitationsTab();
 
-    expect(await screen.findByTestId('invitation-uses-i-7')).toHaveTextContent('3 / 20');
+    expect(await screen.findByTestId('invitation-uses-i-7')).toHaveTextContent('3 von 20');
+  });
+
+  it('lists the uses in English words too (review SCR-006)', async () => {
+    await i18n.changeLanguage('en');
+    (tenantApi.listInvitations as ReturnType<typeof vi.fn>).mockResolvedValue([linkRow()]);
+    await renderInvitationsTab();
+
+    expect(await screen.findByTestId('invitation-uses-i-7')).toHaveTextContent('3 of 20');
+  });
+
+  it('keeps the form and shows no link when the backend refuses the link (review SCR-003)', async () => {
+    // A 422 the link route really answers: a ``max_uses`` the backend bounds refuse (the page
+    // bounds the field to the same limit, an older backend may still be narrower). The link route
+    // does not answer MEMBER_LIMIT_REACHED - the member limit is met per use, at acceptance.
+    (tenantApi.createLinkInvitation as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new ApiError(
+        {
+          error_id: 'e-1',
+          error_code: 'VALIDATION_ERROR',
+          message: 'max_uses: Input should be less than or equal to 10',
+          details: [{ field: 'body.max_uses', reason: 'Input should be less than or equal to 10', code: 'less_than_equal' }],
+          timestamp: '',
+          path: '/api/v1/t/testgarten/invitations/link',
+          method: 'POST',
+        },
+        422,
+      ),
+    );
+    await renderInvitationsTab();
+    await userEvent.clear(maxUsesInput());
+    await userEvent.type(maxUsesInput(), '20');
+
+    await userEvent.click(screen.getByTestId('create-link-btn'));
+
+    expect(await screen.findByText('max_uses: Input should be less than or equal to 10')).toBeInTheDocument();
+    expect(screen.queryByTestId('invitation-link-created')).toBeNull();
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
+    expect(maxUsesInput()).toHaveValue(20);
+    await waitFor(() => expect(screen.getByTestId('create-link-btn')).not.toBeDisabled());
+  });
+
+  it.each([
+    [1, 'after that it is used up'],
+    [20, 'Up to 20 people'],
+  ])('says in English how many people a link for %i admits (review SCR-004)', async (maxUses, expected) => {
+    await i18n.changeLanguage('en');
+    (tenantApi.createLinkInvitation as ReturnType<typeof vi.fn>).mockResolvedValue(created(null, maxUses));
+    await renderInvitationsTab();
+
+    await userEvent.click(screen.getByTestId('create-link-btn'));
+
+    expect(await screen.findByTestId('invitation-link-created')).toHaveTextContent(expected);
   });
 });

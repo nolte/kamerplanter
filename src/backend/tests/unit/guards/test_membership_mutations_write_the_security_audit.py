@@ -244,6 +244,11 @@ _ENDING_CLASSIFIED: dict[tuple[str, str], str] = {
         "the take-back of a join a concurrent join pushed over the member limit (#2133): the membership never "
         "stood, so the account was never assigned a task of this tenant through it"
     ),
+    ("tenant_service.py", "TenantService.join_provider_default_tenant"): (
+        "the take-back of an OIDC auto-join whose audit row could not be written (#2182 review I-1): the "
+        "membership was created a moment before by a brand-new account's first sign-in, so no task of this "
+        "tenant was ever assigned through it"
+    ),
 }
 
 
@@ -303,6 +308,8 @@ def test_the_ending_predicate_sees_the_class() -> None:
         ("tenant_service.py", "TenantService.remove_service_account"),
         ("tenant_service.py", "TenantService._settle_join_against_freeze"),
         ("tenant_service.py", "TenantService._settle_join_against_member_limit"),
+        # +1 with #2182 review I-1: the take-back of an unaudited OIDC auto-join (classified).
+        ("tenant_service.py", "TenantService.join_provider_default_tenant"),
     }
     assert [name for (_, name), clears in found.items() if clears] != []
 

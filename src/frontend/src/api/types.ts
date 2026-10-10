@@ -6884,8 +6884,9 @@ export type OidcProviderType = 'google' | 'github' | 'apple' | 'oidc';
 /**
  * `OidcProviderResponse` of `GET /admin/oidc-providers`. The client secret is
  * write-only: the API never returns it (or its ciphertext), and neither do
- * the endpoint URL overrides nor the default tenant — those can be set on
- * create (and on update through the API) but not read back.
+ * the endpoint URL overrides — those can be set on create (and on update
+ * through the API) but not read back. The default tenant is returned since
+ * #2182 (security review SEC-002).
  */
 export interface OidcProvider {
   key: string;
@@ -6899,6 +6900,8 @@ export interface OidcProvider {
   enabled: boolean;
   icon_url: string | null;
   auto_discover: boolean;
+  /** The tenant every new account of this provider joins as viewer (REQ-024 AK-09, #2182); `null` when none. */
+  default_tenant_key: string | null;
   discovery_refreshed_at: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -6938,7 +6941,8 @@ export interface OidcProviderUpdate extends CredentialStepUp {
   auto_discover?: boolean;
   enabled?: boolean;
   icon_url?: string;
-  default_tenant_key?: string;
+  /** `null` or `''` clears it (#2182 SEC-002); generic `oidc` providers only, an existing organisation. */
+  default_tenant_key?: string | null;
 }
 
 export interface OidcScopeCheck {

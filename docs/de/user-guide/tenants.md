@@ -116,7 +116,7 @@ Kamerplanter schickt der Adresse eine E-Mail mit einem Link zur Annahme-Seite; e
 3. Klicke auf **Einladungslink** — der Link wird in die Zwischenablage kopiert und zum erneuten Kopieren angezeigt
 4. Teile ihn (WhatsApp, Aushang, E-Mail-Verteiler)
 
-Der Link vergibt die Rolle **Beobachter** und gilt 7 Tage. Jedes angemeldete Konto, das ihn öffnet und **Einladung annehmen** bestätigt, wird Mitglied, bis die Nutzungen verbraucht sind; in der Liste der Einladungen siehst du unter **Genutzt**, wie viele es schon waren (z. B. `3 / 20`). Dasselbe Konto kann einen Link nur einmal nutzen. <!-- Issue #2182, REQ-024 AK-07 -->
+Der Link vergibt die Rolle **Beobachter** und gilt 7 Tage. Jedes angemeldete Konto, das ihn öffnet und **Einladung annehmen** bestätigt, wird Mitglied, bis die Nutzungen verbraucht sind; in der Liste der Einladungen siehst du unter **Genutzt**, wie viele es schon waren (z. B. „3 von 20“). Dasselbe Konto kann einen Link nur einmal nutzen. Solange dein Tenant gesperrt, verwaist oder zur Löschung vorgemerkt ist, kann niemand eine Einladung annehmen; ist er wieder aktiv, gilt sie bis zu ihrem Ablauf weiter. <!-- Issue #2182, REQ-024 AK-07 -->
 
 !!! tip "Ideal für große Gruppen"
     Der Einladungslink ist besonders praktisch für Gemeinschaftsgärten: Hänge ihn am Gartentor aus oder verschicke ihn im Vereins-Newsletter. Stell die Personenzahl so ein, wie viele du erwartest — wer den Link später noch hat, kann danach nicht mehr beitreten. Jede Nutzung zählt außerdem gegen das Mitgliederlimit deines Tenants: Ist er voll, wird niemand mehr aufgenommen, auch wenn der Link noch Nutzungen übrig hat.
@@ -128,7 +128,7 @@ Der Link vergibt die Rolle **Beobachter** und gilt 7 Tage. Jedes angemeldete Kon
 
 Für Vereine und Organisationen mit eigenem Identity Provider (Keycloak etc.) kann die Plattform-Administration beim Anmeldeanbieter einen **Standard-Mandanten** hinterlegen (siehe [Plattform-Admin](admin.md)). Wer sich dann zum **ersten Mal** über diesen Anbieter anmeldet und dabei ein neues Konto bekommt, tritt deinem Tenant automatisch als **Beobachter** bei — zusätzlich zu seinem persönlichen Garten. Eine andere Rolle oder eine Zusatzberechtigung gibst du dem Mitglied danach selbst. <!-- Issue #2182, REQ-024 AK-09 -->
 
-Wer schon ein Konto hat und den Anbieter nur verknüpft, tritt nicht automatisch bei — lade diese Personen wie gewohnt ein. Ist dein Tenant voll, gesperrt oder in Löschung, wird der Beitritt still übersprungen; die Anmeldung selbst klappt trotzdem.
+Wer schon ein Konto hat und den Anbieter nur verknüpft, tritt nicht automatisch bei — lade diese Personen wie gewohnt ein. Ist dein Tenant voll, gesperrt oder in Löschung, oder hat der Anbieter die E-Mail-Adresse der Person nicht bestätigt, wird der Beitritt still übersprungen; die Anmeldung selbst klappt trotzdem. Einen Standard-Mandanten gibt es nur bei einem eigenen OIDC-Anbieter, nicht bei Google, GitHub oder Apple — dort kann sich jede Person ein Konto anlegen.
 
 ---
 

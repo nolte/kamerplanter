@@ -30,7 +30,7 @@ from app.api.v1.auth.router import limiter
 from app.api.v1.users.router import router as users_router
 from app.common.auth import get_current_user, get_is_platform_admin
 from app.common.dependencies import get_auth_service, get_oidc_config_repo, get_oidc_provider_admin_service
-from app.common.enums import TenantRole
+from app.common.enums import TenantRole, TenantType
 from app.common.exceptions import KamerplanterError
 from app.data_access.external.step_up_code_store import MemoryStepUpCodeStore
 from app.data_access.external.step_up_throttle import MemoryStepUpThrottleStore
@@ -41,6 +41,7 @@ from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.models.membership import Membership
 from app.domain.models.oidc_config import OidcProviderConfig
+from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
 from app.domain.services.oidc_provider_admin_service import OidcProviderAdminService
@@ -160,8 +161,29 @@ class _World:
                 oidc_config_repo=self.configs,
             ),
         )
+        # #2182 SEC-002 - the default tenant is checked when written: "t-victim" is an organisation.
+        self.tenants = MagicMock(
+            **{
+                "get_by_key.side_effect": lambda key: (
+                    Tenant(
+                        _key=key,
+                        name="Victim",
+                        slug="victim",
+                        owner_user_key="u-x",
+                        tenant_type=TenantType.ORGANIZATION,
+                    )
+                    if key == "t-victim"
+                    else None
+                )
+            }
+        )
         self.service = OidcProviderAdminService(
-            self.configs, EncryptionEngine(Fernet.generate_key().decode()), OAuthEngine(), self.verifier, MagicMock()
+            self.configs,
+            EncryptionEngine(Fernet.generate_key().decode()),
+            OAuthEngine(),
+            self.verifier,
+            MagicMock(),
+            self.tenants,
         )
         self.mail = MagicMock()
         self.auth = AuthService(

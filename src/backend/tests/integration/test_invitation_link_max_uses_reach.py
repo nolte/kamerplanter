@@ -282,3 +282,62 @@ def test_handing_back_the_last_use_reopens_an_accepted_invitation(database):
         1,
         None,
     )
+
+
+@pytest.mark.parametrize("status", ["suspended", "orphaned", "pending_deletion"])
+def test_a_link_into_a_tenant_that_is_not_active_admits_nobody_and_spends_no_use(database, status):
+    """#2182 review I-4 - a suspension stops joins; the link works again once the tenant is reactivated."""
+    stage = _stage(database)
+    created = stage.create_link(role="viewer", max_uses=3)
+    token, key = created.json()["token"], created.json()["invitation_key"]
+    database.collection(col.TENANTS).update({"_key": GARDEN, "status": status})
+
+    refused = stage.accept("anna", token)
+
+    assert refused.status_code == 422, refused.text
+    assert not stage.is_member("anna")
+    stored = stage.invitation(key)
+    assert (stored["use_count"], stored["status"]) == (0, "pending")
+
+    database.collection(col.TENANTS).update({"_key": GARDEN, "status": "active"})
+    assert stage.accept("anna", token).status_code == 200
+    assert stage.is_member("anna")
+
+
+def test_a_use_whose_membership_stands_after_a_failed_step_is_not_handed_back(database, monkeypatch):
+    """#2182 review I-2 - the insert committed, a later step raised: the use stays consumed (no max_uses + 1)."""
+    stage = _stage(database)
+    created = stage.create_link(role="viewer", max_uses=2)
+    token, key = created.json()["token"], created.json()["invitation_key"]
+    insert = stage.service._create_membership_unless_erasing
+
+    def _inserted_then_failed(membership):
+        insert(membership)
+        raise RuntimeError("reply lost after the commit")
+
+    monkeypatch.setattr(stage.service, "_create_membership_unless_erasing", _inserted_then_failed)
+
+    failed = stage.accept("anna", token)
+
+    assert failed.status_code == 500
+    assert stage.is_member("anna")
+    stored = stage.invitation(key)
+    assert (stored["use_count"], stored["status"]) == (1, "pending")
+
+
+def test_a_use_whose_join_failed_without_a_membership_is_handed_back(database, monkeypatch):
+    stage = _stage(database)
+    created = stage.create_link(role="viewer", max_uses=1)
+    token, key = created.json()["token"], created.json()["invitation_key"]
+
+    def _failed(membership):
+        raise RuntimeError("write conflict")
+
+    monkeypatch.setattr(stage.service, "_create_membership_unless_erasing", _failed)
+
+    failed = stage.accept("anna", token)
+
+    assert failed.status_code == 500
+    assert not stage.is_member("anna")
+    stored = stage.invitation(key)
+    assert (stored["use_count"], stored["status"]) == (0, "pending")

@@ -116,7 +116,7 @@ Kamerplanter sends the address an email with a link to the acceptance page; it i
 3. Click **Invitation Link** — the link is copied to your clipboard and shown for copying again
 4. Share it (WhatsApp, notice board, email list)
 
-The link grants the role **Viewer** and is valid for 7 days. Every signed-in account that opens it and confirms **Accept invitation** becomes a member until the uses are spent; the invitation list shows under **Used** how many there were so far (e.g. `3 / 20`). The same account can use a link only once. <!-- Issue #2182, REQ-024 AK-07 -->
+The link grants the role **Viewer** and is valid for 7 days. Every signed-in account that opens it and confirms **Accept invitation** becomes a member until the uses are spent; the invitation list shows under **Used** how many there were so far (e.g. “3 of 20”). The same account can use a link only once. While your tenant is suspended, orphaned or scheduled for deletion, nobody can accept an invitation; once it is active again, the invitation keeps working until it expires. <!-- Issue #2182, REQ-024 AK-07 -->
 
 !!! tip "Ideal for large groups"
     The invitation link is especially practical for community gardens: pin it at the garden gate or include it in the association newsletter. Set the number of people to as many as you expect — anyone who still has the link afterwards can no longer join. Every use also counts against your tenant's member limit: once it is full, nobody else is admitted, even if the link has uses left.
@@ -128,7 +128,7 @@ The link grants the role **Viewer** and is valid for 7 days. Every signed-in acc
 
 For associations and organisations with their own identity provider (Keycloak etc.), the platform administration can store a **default tenant** on the sign-in provider (see [Platform Admin](admin.md)). Anyone who then signs in through that provider for the **first time** and gets a new account joins your tenant automatically as **Viewer** — in addition to their personal garden. You give the member another role or an additional permission yourself afterwards. <!-- Issue #2182, REQ-024 AK-09 -->
 
-Someone who already has an account and only links the provider does not join automatically — invite these people as usual. If your tenant is full, suspended or being deleted, the join is skipped quietly; the sign-in itself still works.
+Someone who already has an account and only links the provider does not join automatically — invite these people as usual. If your tenant is full, suspended or being deleted, or the provider did not verify the person's email address, the join is skipped quietly; the sign-in itself still works. A default tenant exists only for your own OIDC provider, not for Google, GitHub or Apple — anyone can create an account there.
 
 ---
 

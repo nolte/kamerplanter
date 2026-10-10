@@ -2128,6 +2128,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 **Preconditions**:
 - OIDC-Provider "keycloak-anbauverein" ist konfiguriert mit `default_tenant_key` = Tenant "Cannabis Social Club Berlin" (eine Rolle je Provider, `default_role`, ist nicht implementiert: der Beitritt ist immer "Beobachter", REQ-024 v1.34)
 - Nutzer "Anna" hat noch keinen Kamerplanter-Account
+- Der Provider ist vom Typ "OIDC" (bei Google, GitHub und Apple lässt sich kein Standard-Mandant setzen) und meldet Annas E-Mail-Adresse als bestätigt (`email_verified: true`); ohne Bestätigung wird der Beitritt übersprungen, die Anmeldung gelingt (#2182 Review SEC-001)
 
 **Testschritte**:
 1. Anna öffnet die Kamerplanter-Loginseite

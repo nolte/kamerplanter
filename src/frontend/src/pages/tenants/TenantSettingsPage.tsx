@@ -256,6 +256,29 @@ export default function TenantSettingsPage() {
     return cols;
   }, [isAdmin, t]);
 
+  // #2182 review SCR-001 — one revoke control for the table row and the mobile card, so both
+  // layouts keep the `revoke-invitation-<key>` hook and the same accessible name.
+  const renderRevokeInvitation = useCallback(
+    (r: Invitation) =>
+      r.status === 'pending' ? (
+        <Tooltip title={t('pages.tenants.revokeInvitation')}>
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRevokeInvitation(r.key);
+            }}
+            aria-label={t('pages.tenants.revokeInvitation')}
+            data-testid={`revoke-invitation-${r.key}`}
+            sx={{ minWidth: 44, minHeight: 44 }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      ) : null,
+    [t, handleRevokeInvitation],
+  );
+
   const invitationColumns: Column<Invitation>[] = useMemo(
     () => [
       {
@@ -294,7 +317,7 @@ export default function TenantSettingsPage() {
         label: t('pages.tenants.invitationUses'),
         render: (r) => (
           <Typography variant="body2" data-testid={`invitation-uses-${r.key}`}>
-            {`${r.use_count} / ${r.max_uses}`}
+            {t('pages.tenants.invitationUsesValue', { used: r.use_count, max: r.max_uses })}
           </Typography>
         ),
         searchable: false,
@@ -305,25 +328,10 @@ export default function TenantSettingsPage() {
         align: 'right',
         sortable: false,
         searchable: false,
-        render: (r) =>
-          r.status === 'pending' ? (
-            <Tooltip title={t('pages.tenants.revokeInvitation')}>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRevokeInvitation(r.key);
-                }}
-                aria-label={t('pages.tenants.revokeInvitation')}
-                data-testid={`revoke-invitation-${r.key}`}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          ) : null,
+        render: renderRevokeInvitation,
       },
     ],
-    [t, handleRevokeInvitation],
+    [t, renderRevokeInvitation],
   );
 
   // #2166 — a garden whose deletion is scheduled resolves for nobody, so it can never be the
@@ -410,7 +418,9 @@ export default function TenantSettingsPage() {
                 display: 'flex',
                 gap: 1,
                 mb: 3,
-                flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                // #2182 review SCR-007 — four controls share the row: one line only from `md`;
+                // below that the e-mail field takes the first line and the link controls wrap.
+                flexWrap: { xs: 'wrap', md: 'nowrap' },
                 alignItems: 'flex-start',
               }}
             >
@@ -513,6 +523,48 @@ export default function TenantSettingsPage() {
               variant="simple"
               ariaLabel={t('pages.tenants.tabInvitations')}
               emptyMessage={t('pages.tenants.noInvitations')}
+              // #2182 review SCR-001 — below `sm` the five-column table becomes cards: type, role and
+              // status as keyed chips, the uses as the subtitle, the revoke control as trailing.
+              mobileCardRenderer={(r) => (
+                <MobileCard
+                  title={r.email ?? t('pages.tenants.invitationAcceptLink')}
+                  subtitle={
+                    <span data-testid={`invitation-uses-${r.key}`}>
+                      {t('pages.tenants.invitationUsesSubtitle', { used: r.use_count, max: r.max_uses })}
+                    </span>
+                  }
+                  subtitleId="uses"
+                  chips={[
+                    {
+                      id: 'invitation_type',
+                      content: (
+                        <Chip
+                          label={t(`enums.invitationType.${r.invitation_type}`, {
+                            defaultValue: r.invitation_type,
+                          })}
+                          size="small"
+                          variant="outlined"
+                        />
+                      ),
+                    },
+                    {
+                      id: 'role',
+                      content: <Chip label={t(`enums.tenantRole.${r.role}`)} size="small" />,
+                    },
+                    {
+                      id: 'status',
+                      content: (
+                        <Chip
+                          label={t(`enums.invitationStatus.${r.status}`)}
+                          size="small"
+                          color={r.status === 'pending' ? 'warning' : 'default'}
+                        />
+                      ),
+                    },
+                  ]}
+                  trailing={renderRevokeInvitation(r) ?? undefined}
+                />
+              )}
             />
           </CardContent>
         </Card>

@@ -14,6 +14,7 @@ Real service, router and engine; the repositories are the in-memory doubles of t
 from __future__ import annotations
 
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -200,6 +201,7 @@ def test_the_loser_of_two_concurrent_creations_purges_none_of_the_winners_links(
         OAuthEngine(),
         _InterleavingVerifier(lambda: _winner_creates_and_gets_a_link(_service(store, world), world)),  # type: ignore[arg-type]
         world.providers,  # type: ignore[arg-type]
+        MagicMock(),
     )
 
     with pytest.raises(DuplicateError):

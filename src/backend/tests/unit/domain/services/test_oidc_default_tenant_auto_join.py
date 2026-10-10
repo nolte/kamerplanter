@@ -47,17 +47,23 @@ NEW_ADDRESS = "anna@club.example"
 # ── the callback: who is asked to join ──────────────────────────────────────
 
 
-def _oauth_user() -> OAuthUserInfo:
+def _oauth_user(email_verified: bool | None = True) -> OAuthUserInfo:
     return OAuthUserInfo(
         provider=AuthProviderType.OIDC,
         provider_user_id="anna-subject",
         email=NEW_ADDRESS,
         display_name="Anna",
-        email_verified=True,
+        email_verified=email_verified,
     )
 
 
-def _auth(*, default_tenant_key: str | None, existing: User | None) -> tuple[AuthService, MagicMock]:
+def _auth(
+    *,
+    default_tenant_key: str | None,
+    existing: User | None,
+    email_verified: bool | None = True,
+    provider_type: str = "oidc",
+) -> tuple[AuthService, MagicMock]:
     """An AuthService over doubles with a real OAuth engine; returns it and its tenant-service double."""
     user_repo = MagicMock()
     user_repo.get_by_email.return_value = existing
@@ -66,7 +72,7 @@ def _auth(*, default_tenant_key: str | None, existing: User | None) -> tuple[Aut
     auth_provider_repo.list_by_provider.return_value = []
     oauth_engine = MagicMock(wraps=OAuthEngine())
     oauth_engine.exchange_code_for_tokens.return_value = {"access_token": "t", "id_token": ""}
-    oauth_engine.authenticate_login.return_value = _oauth_user()
+    oauth_engine.authenticate_login.return_value = _oauth_user(email_verified)
     state_store = MagicMock()
     state_store.get_and_delete.return_value = {
         "provider_slug": "club",
@@ -82,6 +88,8 @@ def _auth(*, default_tenant_key: str | None, existing: User | None) -> tuple[Aut
         client_id="cid",
         client_secret_encrypted="secret",
         enabled=True,
+        provider_type=provider_type,
+        scopes=["openid", "email", "profile", "user:email"],
         default_tenant_key=default_tenant_key,
     )
     token_engine = MagicMock()
@@ -120,6 +128,31 @@ def test_a_new_account_of_a_provider_with_a_default_tenant_is_asked_to_join_it()
 @pytest.mark.parametrize("unset", [None, "", "   "])
 def test_a_provider_without_a_default_tenant_joins_nobody(unset: str | None) -> None:
     service, tenants = _auth(default_tenant_key=unset, existing=None)
+
+    service.complete_oauth("club", "code", "state")
+
+    tenants.create_personal_tenant.assert_called_once()
+    tenants.join_provider_default_tenant.assert_not_called()
+
+
+@pytest.mark.parametrize("claim", [False, None], ids=["email_verified false", "email_verified absent"])
+def test_an_account_whose_address_the_provider_did_not_verify_does_not_join(claim: bool | None) -> None:
+    """#2182 SEC-001 - the default tenant admits the organisation's people; an unproven address is nobody's.
+
+    Registration still succeeds (the personal garden is created) - only the join is refused, quietly.
+    """
+    service, tenants = _auth(default_tenant_key=CLUB, existing=None, email_verified=claim)
+
+    service.complete_oauth("club", "code", "state")
+
+    tenants.create_personal_tenant.assert_called_once()
+    tenants.join_provider_default_tenant.assert_not_called()
+
+
+@pytest.mark.parametrize("provider_type", ["google", "github", "apple"])
+def test_a_default_tenant_stored_on_an_open_registration_provider_admits_nobody(provider_type: str) -> None:
+    """#2182 SEC-001 - a record stored before the write gate must not let everybody with such an account in."""
+    service, tenants = _auth(default_tenant_key=CLUB, existing=None, provider_type=provider_type)
 
     service.complete_oauth("club", "code", "state")
 
@@ -252,3 +285,59 @@ def test_a_join_a_concurrent_join_pushed_over_the_limit_is_taken_back_quietly() 
     assert world.join() is None
     world.memberships.delete.assert_called_once_with("m-new")
     world.audit.record_membership_change.assert_not_called()
+
+
+# ── #2182 review I-1: no failure of the join reaches the sign-in ────────────
+
+
+def test_a_tenant_deleted_between_the_read_and_the_insert_is_skipped_quietly() -> None:
+    """``_refuse_beyond_member_limit`` reads the tenant again and answers ``NotFoundError`` when it is gone."""
+    world = _Tenants(_club())
+    world.tenant_repo.get_by_key.side_effect = [_club(), None]
+
+    assert world.join() is None
+    world.memberships.create.assert_not_called()
+    world.audit.record_membership_change.assert_not_called()
+
+
+def test_an_unexpected_database_error_costs_the_join_not_the_sign_in() -> None:
+    world = _Tenants(_club())
+    world.memberships.create.side_effect = RuntimeError("connection reset by peer")
+
+    assert world.join() is None
+    world.audit.record_membership_change.assert_not_called()
+
+
+def test_a_join_whose_audit_row_cannot_be_written_is_taken_back() -> None:
+    """MT-014: no membership stands that the security audit does not show - and the sign-in goes on."""
+    world = _Tenants(_club())
+    world.memberships.count_active_members.side_effect = lambda *, tenant_key: 1
+    world.audit.record_membership_change.side_effect = RuntimeError("audit store down")
+
+    assert world.join() is None
+    world.memberships.create.assert_called_once()
+    world.memberships.delete.assert_called_once_with("m-new")
+
+
+def test_a_failed_take_back_of_an_unaudited_join_is_logged_not_raised() -> None:
+    world = _Tenants(_club())
+    world.memberships.count_active_members.side_effect = lambda *, tenant_key: 1
+    world.audit.record_membership_change.side_effect = RuntimeError("audit store down")
+    world.memberships.delete.side_effect = RuntimeError("still down")
+
+    assert world.join() is None
+
+
+def test_the_callback_survives_a_tenant_service_that_raises() -> None:
+    """End to end through ``complete_oauth``: the real tenant service over a failing store, sign-in succeeds."""
+    service, _ = _auth(default_tenant_key=CLUB, existing=None)
+    world = _Tenants(_club())
+    world.memberships.create.side_effect = RuntimeError("connection reset by peer")
+    world.service.create_personal_tenant = MagicMock()  # type: ignore[method-assign]
+    world.service.email_invitation_pending_for = MagicMock(return_value=False)  # type: ignore[method-assign]
+    service._tenant_service = world.service
+
+    result = service.complete_oauth("club", "code", "state")
+
+    assert result is not None
+    world.memberships.create.assert_called_once()
