@@ -20,14 +20,19 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.data_access.arango.ai_repository import ArangoAiProviderRepository
 from app.data_access.arango.attachment_repository import ArangoAttachmentRepository
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.calendar_feed_repository import ArangoCalendarFeedRepository
 from app.data_access.arango.identification_repository import ArangoIdentificationRepository
+from app.data_access.arango.invitation_repository import ArangoInvitationRepository
+from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
+from app.data_access.arango.membership_repository import ArangoMembershipRepository
 from app.data_access.arango.notification_repository import ArangoNotificationRepository
 from app.data_access.arango.pest_detection_repository import ArangoPestDetectionRepository
 from app.data_access.arango.pest_image_repository import ArangoPestImageRepository
 from app.data_access.arango.plant_diary_repository import ArangoPlantDiaryRepository
+from app.data_access.arango.tenant_erasure_repository import ArangoTenantErasureRepository
 from app.domain.models.pest_detection import PestFeedback
 from tests.support.tenant_replay import apply_predicates
 
@@ -43,6 +48,11 @@ SCOPED_BY_2119: tuple[type[BaseArangoRepository[Any]], ...] = (
     ArangoPestDetectionRepository,
     ArangoPestImageRepository,
     ArangoIdentificationRepository,
+    ArangoAiProviderRepository,
+    ArangoInvitationRepository,
+    ArangoLocationAssignmentRepository,
+    ArangoMembershipRepository,
+    ArangoTenantErasureRepository,
 )
 
 
