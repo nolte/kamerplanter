@@ -47,7 +47,7 @@ def _world(
     )
     invitations = MagicMock()
     invitations.get_by_token_hash.return_value = invitation
-    invitations.mark_accepted_if_pending.return_value = invitation
+    invitations.consume_use_if_pending.return_value = invitation
     memberships = MagicMock()
     memberships.get_by_user_and_tenant.side_effect = lambda user, _tenant: issuer if user == "u-issuer" else None
     memberships.create.side_effect = lambda m: m.model_copy(update={"key": "m-new"})
@@ -88,7 +88,7 @@ def test_a_platform_lead_invitation_without_a_lead_behind_it_is_refused(issuer: 
         service.accept_invitation(TOKEN, NEWCOMER)
 
     memberships.create.assert_not_called()
-    service._invitation_repo.mark_accepted_if_pending.assert_not_called()  # type: ignore[attr-defined]
+    service._invitation_repo.consume_use_if_pending.assert_not_called()  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize(

@@ -48,8 +48,9 @@ _FOUNDING_GATE = "membership_entry"
 _CLASSIFIED: dict[tuple[str, str], str] = {
     ("tenant_service.py", "TenantService._create_membership_unless_erasing"): (
         "the insert helper: it writes no row itself because its callers (admin_add_membership, "
-        "accept_invitation) record the join after it returned - a join the erasure freeze took back "
-        "raises before any row is written, so no membership that never stood is recorded"
+        "accept_invitation, create_service_account, join_provider_default_tenant) record the join after "
+        "it returned - a join the erasure freeze took back raises before any row is written, so no "
+        "membership that never stood is recorded"
     ),
     ("tenant_service.py", "TenantService._settle_join_against_freeze"): (
         "the take-back of a join the erasure froze meanwhile (REQ-025 AK-IE-07): it removes the "
@@ -145,7 +146,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: signal to read, not to update blindly: a new member needs the gate or a classification, a
 #: vanished one may mean the predicate went blind.
 #: +2 with #2137: create_service_account (joins) and remove_service_account (removes).
-EXPECTED_MEMBERS = 15  # +1 with #2134: _hand_management_to (the account erasure's INV-1 handover); +1 with #2133
+#: +1 with #2182: join_provider_default_tenant (audited, via oidc_auto_join).
+EXPECTED_MEMBERS = 16  # +1 with #2134: _hand_management_to (the account erasure's INV-1 handover); +1 with #2133
 
 
 def test_every_membership_mutation_writes_the_audit_or_is_classified() -> None:
@@ -179,6 +181,7 @@ def test_the_predicate_sees_the_class() -> None:
         ("tenant_service.py", "TenantService.remove_member"),
         ("tenant_service.py", "TenantService.leave_tenant"),
         ("tenant_service.py", "TenantService.accept_invitation"),
+        ("tenant_service.py", "TenantService.join_provider_default_tenant"),
         ("tenant_service.py", "TenantService.create_service_account"),
         ("tenant_service.py", "TenantService.remove_service_account"),
     ):
@@ -492,6 +495,8 @@ def test_the_creation_predicate_sees_the_class() -> None:
         ("tenant_service.py", "TenantService.accept_invitation"): "helper",
         # #2137 - a service account takes a seat: it joins through the limited door like everybody else.
         ("tenant_service.py", "TenantService.create_service_account"): "helper",
+        # #2182 - the OIDC auto-join takes a seat through the same limited door.
+        ("tenant_service.py", "TenantService.join_provider_default_tenant"): "helper",
     }
 
 

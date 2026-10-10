@@ -2031,6 +2031,7 @@ class AuthService:
                 self._require_configuration_unchanged(config)
                 user = self._register_oauth_user(oauth_user)
                 self._create_oauth_provider(user.key or "", oauth_user, token_response, config=config)
+                self._join_provider_default_tenant(user, config)
 
         user.last_login_at = datetime.now(UTC)
         if user.key:
@@ -2187,6 +2188,21 @@ class AuthService:
                 raise
         logger.info("oauth_user_registered", email_sha256=email_digest(oauth_user.email), provider=oauth_user.provider)
         return created
+
+    def _join_provider_default_tenant(self, user: User, config: OidcProviderConfig) -> None:
+        """REQ-024 AK-09 (#2182): a **new** account of *config* joins its ``default_tenant_key``, if one is set.
+
+        Only on the account-creating branch of the callback - an existing account that signs in or is
+        linked to the provider never joins. The tenant service decides and refuses quietly (viewer
+        only; never ``platform`` or a personal tenant; member limit and erasure freeze apply), so a
+        misconfigured provider costs the new account the join, never the sign-in.
+        """
+        tenant_key = (config.default_tenant_key or "").strip()
+        if not tenant_key or self._tenant_service is None or not user.key:
+            return
+        self._tenant_service.join_provider_default_tenant(
+            user_key=user.key, tenant_key=tenant_key, provider_slug=config.slug
+        )
 
     def _create_oauth_provider(
         self,

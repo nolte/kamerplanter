@@ -4305,6 +4305,10 @@ export interface Invitation {
   created_by: string;
   expires_at: string;
   created_at: string | null;
+  /** How many accounts may join with it (REQ-024 AK-07, #2182); `1` for an e-mail invitation. */
+  max_uses: number;
+  /** Uses consumed so far; the invitation turns `accepted` with the one that reaches `max_uses`. */
+  use_count: number;
 }
 
 export interface InvitationCreate {
@@ -4324,10 +4328,16 @@ export interface InvitationCreated {
   expires_at: string;
   accept_url: string;
   delivered: boolean | null;
+  /** How many accounts may join with it (REQ-024 AK-07, #2182). */
+  max_uses: number;
 }
+
+/** Bounds of `max_uses` — the backend's `INVITATION_MAX_USES_LIMIT` (REQ-024 AK-07, #2182). */
+export const INVITATION_MAX_USES_LIMIT = 100;
 
 export interface InvitationLinkCreate {
   role: TenantRole;
+  /** How many accounts may join with the link, `1`..`INVITATION_MAX_USES_LIMIT`; omitted: `1`. */
   max_uses?: number;
 }
 

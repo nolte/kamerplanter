@@ -77,6 +77,11 @@ _SITES: dict[str, tuple[str, str, str]] = {
         "tenant",
         "GET /tenants and the MCP authenticator's memberships (McpAuthenticator._resolve_memberships)",
     ),
+    f"{_TS}:TenantService.join_provider_default_tenant": (
+        _READS,
+        "tenant",
+        "an OIDC provider's default tenant admits a new account only while active (REQ-024 AK-09, #2182)",
+    ),
     "app/domain/services/auth_service.py:AuthService._canonical_tenant_scope": (
         _READS,
         "tenant",

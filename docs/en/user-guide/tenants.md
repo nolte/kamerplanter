@@ -111,19 +111,24 @@ Kamerplanter sends the address an email with a link to the acceptance page; it i
 
 ### Method 2: Invitation Link
 
-1. Navigate to **Settings** > **Members** > **Generate Invitation Link**
-2. Optionally set:
-    - Maximum number of uses (e.g. 20)
-    - Expiry date (e.g. in 30 days)
-    - Role new members will receive
-3. Copy the link and share it (WhatsApp, notice board, email list)
+1. Navigate to **Settings** > **Invitations** tab
+2. Under **People per link**, enter how many people can join with the link (1 to 100, default 1)
+3. Click **Invitation Link** — the link is copied to your clipboard and shown for copying again
+4. Share it (WhatsApp, notice board, email list)
+
+The link grants the role **Viewer** and is valid for 7 days. Every signed-in account that opens it and confirms **Accept invitation** becomes a member until the uses are spent; the invitation list shows under **Used** how many there were so far (e.g. `3 / 20`). The same account can use a link only once. <!-- Issue #2182, REQ-024 AK-07 -->
 
 !!! tip "Ideal for large groups"
-    The invitation link is especially practical for community gardens: pin it at the garden gate or include it in the association newsletter. Anyone with the link can join until the limit is reached.
+    The invitation link is especially practical for community gardens: pin it at the garden gate or include it in the association newsletter. Set the number of people to as many as you expect — anyone who still has the link afterwards can no longer join. Every use also counts against your tenant's member limit: once it is full, nobody else is admitted, even if the link has uses left.
+
+!!! warning "Not yet implemented"
+    You cannot choose your own expiry date or the role new members receive for an invitation link in the interface: it is always valid for 7 days and grants **Viewer**. You give the member another role after they joined under [Changing roles](#changing-roles). <!-- REQ-024 §1 invitation system -->
 
 ### Method 3: OIDC (OpenID Connect) Auto-Join
 
-For associations and organisations with their own identity provider (Keycloak, etc.), the OIDC integration can be configured so that new users automatically join the tenant. This is set up by the platform administrator.
+For associations and organisations with their own identity provider (Keycloak etc.), the platform administration can store a **default tenant** on the sign-in provider (see [Platform Admin](admin.md)). Anyone who then signs in through that provider for the **first time** and gets a new account joins your tenant automatically as **Viewer** — in addition to their personal garden. You give the member another role or an additional permission yourself afterwards. <!-- Issue #2182, REQ-024 AK-09 -->
+
+Someone who already has an account and only links the provider does not join automatically — invite these people as usual. If your tenant is full, suspended or being deleted, the join is skipped quietly; the sign-in itself still works.
 
 ---
 
@@ -221,8 +226,7 @@ With the **Management** scope, you can access all settings under **Settings** (g
 |---------|-------------|
 | **Name & Slug** | Display name and URL short name |
 | **Master data assignment** | Which global plant species are visible |
-| **Invitation settings** | Default role for new members |
-| **OIDC configuration** | Auto-join via external identity provider |
+| **Invitations** | Email invitations and invitation links (**Invitations** tab, see [Inviting members](#inviting-members)) |
 
 !!! warning "Changing the slug breaks URLs"
     If you change the slug, all URLs within the tenant change. Bookmarks and shared links become invalid. Only change the slug if necessary.

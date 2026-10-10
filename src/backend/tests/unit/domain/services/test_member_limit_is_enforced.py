@@ -22,7 +22,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.enums import InvitationStatus, InvitationType, TenantRole, TenantType
+from app.common.enums import InvitationType, TenantRole, TenantType
 from app.common.exceptions import KamerplanterError, ValidationError
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
@@ -94,7 +94,7 @@ class _World:
         )
         self.invitations = MagicMock()
         self.invitations.get_by_token_hash.return_value = self.invitation
-        self.invitations.mark_accepted_if_pending.return_value = self.invitation
+        self.invitations.consume_use_if_pending.return_value = self.invitation
         self.audit = MagicMock()
         self.step_up = PassedStepUpVerifier()
         kwargs: dict[str, Any] = {
@@ -124,9 +124,9 @@ class _World:
         """No membership is left, no audit row written, no invitation consumed."""
         created = self.memberships.create.called
         taken_back = self.memberships.delete.called
-        consumed = self.invitations.mark_accepted_if_pending.called and not any(
-            call.args[1].get("status") == InvitationStatus.PENDING
-            for call in self.invitations.update_fields.call_args_list
+        # A consumed use counts as handed back only through ``release_use`` for this very account (#2182).
+        consumed = self.invitations.consume_use_if_pending.called and not any(
+            call.args == ("i1", _JOINER.key) for call in self.invitations.release_use.call_args_list
         )
         return (not created or taken_back) and not self.audit.record_membership_change.called and not consumed
 

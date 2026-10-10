@@ -2410,6 +2410,74 @@ class TenantService:
         )
         return created
 
+    def join_provider_default_tenant(self, *, user_key: str, tenant_key: str, provider_slug: str) -> Membership | None:
+        """Place a just-created federated account in its provider's default tenant (REQ-024 AK-09, #2182).
+
+        The consumer of ``OidcProviderConfig.default_tenant_key``: the platform admin who set it
+        (behind the step-up, #1883) decided that every **new** account of that provider joins that
+        tenant. Nothing joins unless the field is set; an existing account that signs in or links the
+        provider never joins (only :meth:`AuthService._register_oauth_user` calls this).
+
+        **Always as ``viewer``, never with an administrative scope.** The configuration names no
+        role, and the lowest one is the only one a configuration nobody in the tenant confirmed may
+        hand out; the tenant's management raises it afterwards (the rank rule applies there).
+
+        **Refused, never raised** - the sign-in itself must not fail over a convenience. ``None``
+        and a log line (no address, no key of the account) when the tenant is unknown, not
+        ``active``, a ``personal`` tenant (somebody's own garden), the ``platform`` tenant (a seat
+        there is the platform role, REQ-049 §2.5), being erased, full (AK-64) or already the
+        account's. The join itself goes through the one door every join passes
+        (:meth:`_create_membership_unless_erasing`) and is recorded in the security audit.
+        """
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        reason: str | None = None
+        if tenant is None:
+            reason = "unknown_tenant"
+        elif tenant.is_platform:
+            reason = "platform_tenant"
+        elif tenant.tenant_type == TenantType.PERSONAL:
+            reason = "personal_tenant"
+        elif not tenant.is_active:
+            # Derived from ``status``: suspended, pending deletion, orphaned and deleted tenants admit nobody.
+            reason = "tenant_not_active"
+        elif self._membership_repo.get_by_user_and_tenant(user_key, tenant_key) is not None:
+            reason = "already_member"
+        if reason is not None:
+            logger.warning(
+                "oidc_auto_join_refused", provider=provider_slug, tenant=log_tenant(tenant_key), reason=reason
+            )
+            return None
+        membership = Membership(
+            user_key=user_key,
+            tenant_key=tenant_key,
+            role=TenantRole.VIEWER,
+            is_active=True,
+            joined_at=datetime.now(UTC).isoformat(),
+        )
+        try:
+            self._refuse_while_erasing(tenant_key)
+            created = self._create_membership_unless_erasing(membership)
+        except (ForbiddenError, MemberLimitReachedError) as exc:
+            logger.warning(
+                "oidc_auto_join_refused",
+                provider=provider_slug,
+                tenant=log_tenant(tenant_key),
+                reason=type(exc).__name__,
+            )
+            return None
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.OIDC_AUTO_JOIN,
+            actor_user_key=user_key,
+            target_user_key=user_key,
+            tenant_key=tenant_key,
+            membership=created,
+        )
+        logger.info(
+            "oidc_auto_join", provider=provider_slug, tenant=log_tenant(tenant_key), subject=log_subject(user_key)
+        )
+        return created
+
     # --- Service accounts (REQ-023 §5b, #2137) ---
 
     def create_service_account(
@@ -3433,7 +3501,15 @@ class TenantService:
         tenant_key: str,
         invited_by_user_key: str,
         role: TenantRole = TenantRole.VIEWER,
+        max_uses: int = 1,
     ) -> InvitationLink:
+        """Create a shareable invitation link that admits up to *max_uses* accounts (REQ-024 AK-07, #2182).
+
+        Every use is one join and meets everything a join meets at acceptance - the rank rule against
+        the issuer, the erasure freeze and the tenant's member limit (AK-64) - so a link with more uses
+        than free seats admits only as many as fit. ``max_uses`` outside ``1..INVITATION_MAX_USES_LIMIT``
+        is refused by the model (422 at the route).
+        """
         self._refuse_invitation_while_owner_erasing(tenant_key=tenant_key)
         self._refuse_role_grant(
             tenant_key=tenant_key,
@@ -3452,15 +3528,17 @@ class TenantService:
             role=role,
             token_hash=token_hash,
             expires_at=expires_at.isoformat(),
+            max_uses=max_uses,
         )
         invitation = self._invitation_repo.create(invitation)
 
-        logger.info("link_invitation_created", tenant=log_tenant(tenant_key))
+        logger.info("link_invitation_created", tenant=log_tenant(tenant_key), max_uses=invitation.max_uses)
         return InvitationLink(
             invitation_key=invitation.key,
             token=raw_token,
             expires_at=expires_at,
             accept_url=self._invitation_engine.accept_url(self._frontend_url, raw_token),
+            max_uses=invitation.max_uses,
         )
 
     def email_invitation_admits(self, *, email: str, token: str) -> bool:
@@ -3587,16 +3665,17 @@ class TenantService:
         # #2133 - a full tenant is refused before the invitation is touched; it stays pending.
         self._refuse_beyond_member_limit(invitation.tenant_key)
 
-        # Accepted first, and only while still pending (#1825 SEC-001 and PR
-        # review): a revocation that landed after the status read above — the
+        # A use is consumed first, and only while still pending with a use left (#1825 SEC-001 and PR
+        # review, #2182): a revocation that landed after the status read above — the
         # request-time revocation of an account erasure — wins before any
         # membership exists, so no erasure decision can count a member that is
-        # about to be taken back, and a failing write leaves no membership.
-        accepted = self._invitation_repo.mark_accepted_if_pending(
+        # about to be taken back, and a failing write leaves no membership. Two
+        # accounts racing for a link's last use cannot both take it.
+        consumed = self._invitation_repo.consume_use_if_pending(
             invitation.key or "",
             {"accepted_by_user_key": user_key, "accepted_at": datetime.now(UTC).isoformat()},
         )
-        if accepted is None:
+        if consumed is None:
             raise ValidationError("Invitation is no longer pending")
 
         membership = Membership(
@@ -3610,11 +3689,9 @@ class TenantService:
             # Refused and taken back if the tenant froze meanwhile.
             membership = self._create_membership_unless_erasing(membership)
         except Exception:
-            # The join did not happen: the invitation is handed back as it was.
-            self._invitation_repo.update_fields(
-                invitation.key or "",
-                {"status": InvitationStatus.PENDING, "accepted_by_user_key": None, "accepted_at": None},
-            )
+            # The join did not happen: the use is handed back (#2182) - an invitation the use had
+            # set ``accepted`` is pending again, one revoked meanwhile stays revoked.
+            self._invitation_repo.release_use(invitation.key or "", user_key)
             raise
 
         self._audit_membership(

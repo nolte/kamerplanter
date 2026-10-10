@@ -2126,7 +2126,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 **Priority**: Medium
 **Category**: Happy Path
 **Preconditions**:
-- OIDC-Provider "keycloak-anbauverein" ist konfiguriert mit `default_tenant_key` = Tenant "Cannabis Social Club Berlin" und `default_role: 'grower'`
+- OIDC-Provider "keycloak-anbauverein" ist konfiguriert mit `default_tenant_key` = Tenant "Cannabis Social Club Berlin" (eine Rolle je Provider, `default_role`, ist nicht implementiert: der Beitritt ist immer "Beobachter", REQ-024 v1.34)
 - Nutzer "Anna" hat noch keinen Kamerplanter-Account
 
 **Testschritte**:
@@ -2137,11 +2137,11 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 **Erwartete Ergebnisse**:
 - Anna ist jetzt eingeloggt in Kamerplanter
-- Im Tenant-Switcher erscheint "Cannabis Social Club Berlin" mit Rolle "Gärtner"
+- Im Tenant-Switcher erscheint "Cannabis Social Club Berlin" mit Rolle "Beobachter"
 - Anna wird automatisch auf das Tenant-Dashboard weitergeleitet
 
 **Nachbedingungen**:
-- Anna hat Membership mit Rolle "grower" im "Cannabis Social Club Berlin"-Tenant
+- Anna hat Membership mit Rolle "viewer" im "Cannabis Social Club Berlin"-Tenant
 
 **Tags**: [req-024, oidc-auto-join, ak-09, szenario-4, happy-path]
 

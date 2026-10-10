@@ -83,7 +83,7 @@ In the **Admin > Users** section you can:
 
 - View all user accounts on the platform
 - Lock or deactivate user accounts
-- Assign platform roles (`admin`, `viewer`)
+- Grant the platform role **admin** (a membership with the role Lead in the `platform` tenant)
 - Trigger password resets for users
 - Process GDPR requests (data deletion, data access)
 
@@ -153,7 +153,10 @@ A new provider starts **switched off**. It only shows up on the sign-in page onc
     The client secret is stored encrypted and never shown again — not in the list, not in the edit form. When you edit a provider, leave **New client secret** empty to keep the stored one; a new secret needs your confirmation. <!-- #1906 -->
 
 !!! info "Fixed endpoints and the default tenant are set when you add the provider"
-    **Advanced** in the add form takes fixed addresses for authorization, token, userinfo and key set, and the default tenant that new federated accounts join. The interface does not show them afterwards because the interface to the server does not return them; to change them later, use the REST API under `/api/v1/admin/oidc-providers` (`PUT`). The short name (slug) cannot be changed after adding either: it is part of the callback URL. <!-- #1906 -->
+    **Advanced** in the add form takes fixed addresses for authorization, token, userinfo and key set, and the default tenant that new federated accounts join (see below). The interface does not show them afterwards because the interface to the server does not return them; to change them later, use the REST API under `/api/v1/admin/oidc-providers` (`PUT`). The short name (slug) cannot be changed after adding either: it is part of the callback URL. <!-- #1906 -->
+
+!!! info "What the default tenant does"
+    If a default tenant (`default_tenant_key`) is stored on the provider, every account that is **newly created** on its **first** sign-in through that provider joins the tenant as **Viewer** — in addition to its personal garden. Existing accounts that only link the provider do not join. Kamerplanter never uses the `platform` tenant or a personal garden as a default tenant; if the tenant is unknown, not active, being deleted or full, Kamerplanter skips the join (log line `oidc_auto_join_refused`) and the sign-in still succeeds. Every join is recorded in the security audit log. Setting or changing the default tenant requires your confirmation, because it decides who gets access to a garden automatically. <!-- Issue #2182, REQ-024 AK-09 -->
 
 !!! info "Register the callback URL with the provider"
     Register exactly `{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback` as the provider's callback URL (redirect URI) — with the public address from `APP_BASE_URL` and the provider's short name (slug), e.g. `https://garden.example/api/v1/auth/oauth/google/callback`. Sign-in and the fresh sign-in that confirms an action use the same URL. While `APP_BASE_URL` is still the default `http://localhost:5173`, the provider refuses the sign-in. <!-- #1865 -->
@@ -539,7 +542,10 @@ Moderation lives in the admin area, in the **"Contributed pest images"** card:
     No, not the domain data. A platform admin sees administrative data across all tenants — that a tenant exists, its name, who is a member — but no plants, harvests or diaries of another tenant. For that they would have to be added there as a regular member. <!-- REQ-049 §2.5 -->
 
 ??? question "Is there a viewer role for the admin area?"
-    Yes. The platform role `viewer` grants read access to all admin statistics and tenant overviews, but no write permissions.
+    Not yet. There is only the full platform role **admin**. A Viewer membership in the `platform` tenant does not open the admin area — not even read-only.
+
+    !!! warning "Not yet implemented"
+        A read-only role for the admin area (view statistics and tenant overviews, change nothing) is planned but not implemented. <!-- REQ-024 §1a.4 platform viewer, #2179 -->
 
 ??? question "Where exactly in the UI do I find the Pl@ntNet key setting?"
     Open **Account Settings** (click your profile picture in the top right) → **Integrations** tab → **Plant Identification** section. There you can enter, test, and remove the key. The setting is only visible to users with the platform role **admin**.

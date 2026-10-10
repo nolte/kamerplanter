@@ -70,7 +70,7 @@ Using [location-based write access](../user-guide/tenants.md#location-based-writ
 
 ## 6. Central Member Sign-In via Single Sign-On (OIDC)
 
-If your association already runs its own member directory (e.g. via Keycloak or another OpenID Connect provider), your platform administration can set it up as an additional sign-in provider — members then sign in through the association's own provider, as described in [Account & Sign-In](../user-guide/account.md#signing-in-with-google-github-or-another-provider). In addition, **OIDC auto-join** can be configured so new members automatically join your association's tenant on their first login instead of needing to be invited manually — see [Tenants & Gardens — Method 3: OIDC Auto-Join](../user-guide/tenants.md#inviting-members).
+If your association already runs its own member directory (e.g. via Keycloak or another OpenID Connect provider), your platform administration can set it up as an additional sign-in provider — members then sign in through the association's own provider, as described in [Account & Sign-In](../user-guide/account.md#signing-in-with-google-github-or-another-provider). In addition, **OIDC auto-join** can be configured so new members automatically join your association's tenant on their first login — as Viewer; your management decides afterwards which members may do more — instead of needing to be invited manually — see [Tenants & Gardens — Method 3: OIDC Auto-Join](../user-guide/tenants.md#inviting-members).
 
 !!! info "Set up by the platform administration"
     Connecting your own identity provider via OIDC isn't something the association's board configures itself — it's set up by the technical administration of your Kamerplanter instance (self-hoster or operator).
