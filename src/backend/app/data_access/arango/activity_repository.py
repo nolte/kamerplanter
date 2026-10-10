@@ -12,6 +12,12 @@ from app.domain.models.activity import Activity
 
 class ArangoActivityRepository(BaseArangoRepository[Activity], IActivityRepository):
     _model_cls = Activity
+    tenant_scope_exempt_reason = (
+        "activity catalogue written only by platform admins and seeds, every stored row global (#2148 "
+        "measurement); its unfiltered get_all is the activity-plan generator's whole-catalogue read. The "
+        "own-or-global read and is_tenant_scoped are PR #2219 (#2119) - whichever lands second drops this "
+        "reason and the name from EXEMPT_REPOSITORIES"
+    )
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.ACTIVITIES)

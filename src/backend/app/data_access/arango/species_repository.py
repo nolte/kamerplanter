@@ -17,6 +17,13 @@ from app.domain.models.species import Cultivar, Species
 
 class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository):
     _model_cls = Species
+    tenant_scope_exempt_reason = (
+        "hybrid catalogue (global seeds with tenant_key '' plus tenant rows): get_all overrides the base "
+        "list read with the own-or-global-or-granted union for a tenant, and tenant_key=None is the "
+        "documented system-context read of the seeders, enrichment and reference-image tasks; strict mode "
+        "would make that read raise and the base strict filter would hide the global seeds (#324, P4 in "
+        "test_species_repository_cultivar_tenant_scope.py)"
+    )
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.SPECIES)

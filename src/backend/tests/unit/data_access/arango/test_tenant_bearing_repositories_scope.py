@@ -99,6 +99,7 @@ def _db(rows: list[dict[str, Any]]) -> MagicMock:
 class TestTheBaseListReadsAreTenantBound:
     def test_the_repository_is_tenant_scoped(self, repo_cls) -> None:
         assert repo_cls.is_tenant_scoped is True
+        assert repo_cls.tenant_scope_exempt_reason is None
 
     def test_a_list_without_a_tenant_is_refused(self, repo_cls) -> None:
         repo = repo_cls(_db([]))

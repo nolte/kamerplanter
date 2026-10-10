@@ -908,6 +908,7 @@ Konventionen: **Aufwand** XS (< ½ Tag) · S (½–1 Tag) · M (2–3 Tage) · L
 **Tests:** Unit: Activities A/B/global → Read als A liefert A+global; Guard rot auf altem Stand.
 **Acceptance Criteria:** wie Tests.
 **Definition of Done:** Tests grün.
+**Umsetzung Guard (2026-10-10, #2119):** Gemessen 43 Repository-Klassen mit `tenant_key`-Modell, davon 15 ohne `is_tenant_scoped`. Zwölf setzen es jetzt (Attachment, CalendarFeed, Identification, Notification, PestDetection, PestImage, PlantDiary, AiProvider, Invitation, LocationAssignment, Membership, TenantErasure) — keine davon hatte einen Aufrufer der Basis-Listenlesung, die Änderung ist Härtung, kein geschlossenes Leck; elf ihrer Lesemethoden nehmen `tenant_key` jetzt keyword-only. Drei bleiben bewusst ausgenommen und tragen den Grund in `tenant_scope_exempt_reason`: Species und Substrate (Hybrid-Katalog, Union-Lesung, `None` = System-Kontext der Seeder), Activity bis PR #2219. Guard: `tests/unit/guards/test_tenant_bearing_repositories_declare_their_scope.py` („Flag oder Begründung, nie beides, Ausnahmen exakt gepinnt“). Nicht abgedeckt: 17 komponierte `BaseArangoRepository[M](…)`-Sichten über tenant-tragende Modelle und `find_by_field`/`get_page`, die das Flag nicht prüft.
 
 #### MT-024 — Cross-Tenant-Testlücken und Guard-Semantik
 **Kategorie:** Testing · **Priorität:** P1 · **Aufwand:** M · **Breaking Change:** Nein · **Migration:** Nein

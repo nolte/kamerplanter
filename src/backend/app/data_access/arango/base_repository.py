@@ -193,6 +193,14 @@ class BaseArangoRepository[TModel: BaseModel]:
     #: returning documents of *all* tenants (SEC-B4 cross-tenant leak guard).
     is_tenant_scoped: bool = False
 
+    #: Why a repository whose model declares ``tenant_key`` deliberately leaves
+    #: :attr:`is_tenant_scoped` off (MT-023, #2119). A tenant-bearing repository
+    #: either sets the flag or states its reason here; leaving both unset is a
+    #: finding of ``tests/unit/guards/test_tenant_bearing_repositories_declare_their_scope.py``,
+    #: and so is setting both. This attribute is the registry: the guard pins the
+    #: set of exempt classes, so a new exemption is a reviewed change, never a default.
+    tenant_scope_exempt_reason: ClassVar[str | None] = None
+
     #: Caller-supplied foreign references this repository's documents carry, as
     #: ``{model field: target collection}``. Every declared field is
     #: ownership-verified against the row's own ``tenant_key`` before the
