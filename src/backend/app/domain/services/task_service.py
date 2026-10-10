@@ -1022,6 +1022,23 @@ class TaskService:
         self._require_tenant_key(tenant_key, "list_tasks")
         return self._repo.get_all_tasks(offset, limit, filters, tenant_key=tenant_key, origins=origins)
 
+    def list_tasks_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
+        """One page of the tenant's tasks without the count query (MT-035, #2131).
+
+        The list route answers a bare array; the ``total`` :meth:`list_tasks` pays a
+        second scan of every matching task for was never read there.
+        """
+        self._require_tenant_key(tenant_key, "list_tasks_window")
+        return self._repo.get_tasks_window(offset, limit, filters, tenant_key=tenant_key, origins=origins)
+
     @staticmethod
     def _require_tenant_key(tenant_key: str, method: str) -> None:
         """Reject the empty-``tenant_key`` sentinel before a tenant-scoped load.

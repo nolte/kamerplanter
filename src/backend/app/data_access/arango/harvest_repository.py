@@ -144,25 +144,40 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
         named endpoints.
         """
         self._require_tenant_key(tenant_key, "get_observations_for_plant")
-        bind_vars = {
+        count_cursor = self._db.aql.execute(
+            f"{self._OBSERVATIONS_FOR_PLANT_BODY} COLLECT WITH COUNT INTO cnt RETURN cnt",
+            bind_vars=self._observations_for_plant_vars(plant_key, tenant_key),
+        )
+        total = next(count_cursor, 0)
+
+        items = self.get_observations_for_plant_window(plant_key, offset, limit, tenant_key=tenant_key)
+        return items, total
+
+    def get_observations_for_plant_window(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[HarvestObservation]:
+        """The page of :meth:`get_observations_for_plant` without its count query (MT-035, #2131)."""
+        self._require_tenant_key(tenant_key, "get_observations_for_plant_window")
+        cursor = self._db.aql.execute(
+            f"{self._OBSERVATIONS_FOR_PLANT_BODY} SORT DATE_TIMESTAMP(doc.observed_at) DESC, doc._key DESC "
+            "LIMIT @offset, @limit RETURN doc",
+            bind_vars={**self._observations_for_plant_vars(plant_key, tenant_key), "offset": offset, "limit": limit},
+        )
+        return [HarvestObservation(**self._from_doc(doc)) for doc in cursor]
+
+    @staticmethod
+    def _observations_for_plant_vars(plant_key: str, tenant_key: str) -> dict[str, str]:
+        return {
             "@observations": col.HARVEST_OBSERVATIONS,
             "plants": col.PLANT_INSTANCES,
             "plant_key": plant_key,
             "tenant_key": tenant_key,
         }
-        count_cursor = self._db.aql.execute(
-            f"{self._OBSERVATIONS_FOR_PLANT_BODY} COLLECT WITH COUNT INTO cnt RETURN cnt",
-            bind_vars=bind_vars,
-        )
-        total = next(count_cursor, 0)
-
-        cursor = self._db.aql.execute(
-            f"{self._OBSERVATIONS_FOR_PLANT_BODY} SORT DATE_TIMESTAMP(doc.observed_at) DESC "
-            "LIMIT @offset, @limit RETURN doc",
-            bind_vars={**bind_vars, "offset": offset, "limit": limit},
-        )
-        items = [HarvestObservation(**self._from_doc(doc)) for doc in cursor]
-        return items, total
 
     def get_latest_observations_by_indicator(self, plant_key: str, *, tenant_key: str) -> list[HarvestObservation]:
         """Newest observation per indicator for a plant, **inside one tenant** (#927).
@@ -203,6 +218,11 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
         tenant_key: str,
     ) -> tuple[list[HarvestBatch], int]:
         return super().get_all(offset, limit, tenant_key=tenant_key)
+
+    def list_batches_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[HarvestBatch]:
+        """The page of :meth:`get_all_batches` without its count query (MT-035, #2131)."""
+        self._require_tenant_key(tenant_key, "list_batches_window")
+        return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key)
 
     def get_batch_by_key(self, key: HarvestBatchKey) -> HarvestBatch | None:
         return super().get_by_key(key)

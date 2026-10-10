@@ -28,7 +28,7 @@ from fastapi.testclient import TestClient
 
 from app.api.v1.ki_assistent.deps import require_ai_tenant_enabled
 from app.common import dependencies as deps
-from app.common.auth import get_current_tenant, require_platform_admin
+from app.common.auth import get_active_tenant_context, get_current_tenant, get_current_user, require_platform_admin
 from app.common.enums import AdminScope, TenantRole
 from app.domain.models.tenant_context import TenantContext
 
@@ -98,7 +98,107 @@ _CURSOR_ROUTES = [
     _Route(f"/api/v1/t/{SLUG}/watering-events", deps.get_watering_service, "list_events_window", _kw),
 ]
 
-_ALL = _OFFSET_ROUTES + _CURSOR_ROUTES
+
+def _args(first: int) -> Callable[[Any], tuple[int, int]]:
+    """Reads ``(offset, limit)`` from two adjacent positional arguments of the call."""
+
+    def read(call: Any) -> tuple[int, int]:
+        return call.args[first], call.args[first + 1]
+
+    return read
+
+
+@dataclass(frozen=True)
+class _CountFree:
+    route: _Route
+    #: The counted sibling the route used to call: it must not be called any more.
+    counted: str
+
+
+#: The third conversion round (#2131): offset routes that were already bounded but
+#: called a service method returning ``(rows, total)`` and dropped the total —
+#: a second scan of every matching row per page. They now call the count-free window.
+_COUNT_FREE = [
+    _CountFree(
+        _Route(f"/api/v1/t/{SLUG}/ipm/plants/p1/inspections", deps.get_ipm_service, "get_inspections_window", _args(1)),
+        "get_inspections",
+    ),
+    _CountFree(
+        _Route(
+            f"/api/v1/t/{SLUG}/ipm/plants/p1/treatment-applications",
+            deps.get_ipm_service,
+            "get_applications_window",
+            _args(1),
+        ),
+        "get_applications",
+    ),
+    _CountFree(
+        _Route(
+            f"/api/v1/t/{SLUG}/harvest/plants/p1/observations",
+            deps.get_harvest_service,
+            "get_observations_window",
+            _args(1),
+        ),
+        "get_observations",
+    ),
+    _CountFree(
+        _Route(f"/api/v1/t/{SLUG}/harvest/batches", deps.get_harvest_service, "list_batches_window", _args(0)),
+        "list_batches",
+    ),
+    _CountFree(
+        _Route(
+            f"/api/v1/t/{SLUG}/plant-instances/p1/diary",
+            deps.get_plant_diary_service,
+            "list_entries_for_plant_window",
+            _kw,
+        ),
+        "list_entries_for_plant",
+    ),
+    _CountFree(
+        _Route(
+            f"/api/v1/t/{SLUG}/planting-runs/r1/plants/p1/diary",
+            deps.get_plant_diary_service,
+            "list_entries_for_plant_window",
+            _kw,
+        ),
+        "list_entries_for_plant",
+    ),
+    _CountFree(
+        _Route(
+            f"/api/v1/t/{SLUG}/planting-runs/r1/diary",
+            deps.get_plant_diary_service,
+            "list_entries_for_run_window",
+            _kw,
+        ),
+        "list_entries_for_run",
+    ),
+    _CountFree(
+        _Route(f"/api/v1/t/{SLUG}/post-harvest", deps.get_post_harvest_service, "list_batches_window", _kw),
+        "list_batches",
+    ),
+    _CountFree(
+        _Route(f"/api/v1/t/{SLUG}/propagation/events", deps.get_propagation_service, "list_events_window", _kw),
+        "list_events",
+    ),
+    _CountFree(
+        _Route(f"/api/v1/t/{SLUG}/propagation/batches", deps.get_propagation_service, "list_batches_window", _kw),
+        "list_batches",
+    ),
+    _CountFree(
+        _Route(f"/api/v1/t/{SLUG}/tasks", deps.get_task_service, "list_tasks_window", _args(0)),
+        "list_tasks",
+    ),
+    _CountFree(
+        _Route(f"/api/v1/t/{SLUG}/planting-runs", deps.get_planting_run_service, "list_runs_window", _args(0)),
+        "list_runs",
+    ),
+    _CountFree(
+        _Route("/api/v1/import/jobs", deps.get_import_service, "list_jobs_window", _args(0)),
+        "list_jobs",
+    ),
+]
+
+_ALL = _OFFSET_ROUTES + _CURSOR_ROUTES + [c.route for c in _COUNT_FREE]
 
 
 def _returning(service: MagicMock) -> Callable[[], MagicMock]:
@@ -121,6 +221,13 @@ def client() -> Iterator[tuple[TestClient, dict[Any, MagicMock]]]:
         getattr(service, route.method).return_value = []
         app.dependency_overrides[route.provider] = _returning(service)
     app.dependency_overrides[get_current_tenant] = _ctx
+    app.dependency_overrides[get_active_tenant_context] = _ctx
+    # The import router authenticates at router level before the tenant context.
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key="user_lisa")
+    # The diary routes resolve the plant / run against the tenant first; a mock answers.
+    for provider in (deps.get_plant_instance_service, deps.get_planting_run_service):
+        services.setdefault(provider, MagicMock())
+        app.dependency_overrides[provider] = _returning(services[provider])
     # The KI router's own gate reads the tenant's AI settings; not what is tested here.
     app.dependency_overrides[require_ai_tenant_enabled] = lambda: None
     app.dependency_overrides[require_platform_admin] = lambda: SimpleNamespace(key="admin_1")
@@ -184,3 +291,15 @@ def test_an_unusable_cursor_is_refused(client, route: _Route, params: dict[str, 
     assert response.status_code == 422, response.text
     assert response.json()["error_code"] == "VALIDATION_ERROR"
     getattr(services[route.provider], route.method).assert_not_called()
+
+
+@pytest.mark.parametrize("entry", _COUNT_FREE, ids=_ids([c.route for c in _COUNT_FREE]))
+def test_a_count_free_route_never_calls_its_counted_sibling(client, entry: _CountFree) -> None:
+    """The window is read without the ``total`` the counted method pays a second scan for."""
+    test_client, services = client
+    response = test_client.get(entry.route.url, params={"offset": 2, "limit": 5})
+
+    assert response.status_code == 200, response.text
+    service = services[entry.route.provider]
+    assert entry.route.window(getattr(service, entry.route.method).call_args) == (2, 5)
+    getattr(service, entry.counted).assert_not_called()

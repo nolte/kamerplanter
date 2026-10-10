@@ -246,7 +246,9 @@ def test_every_plant_scoped_service_read_demands_a_tenant_key() -> None:
 
     methods = [
         "get_inspections",
+        "get_inspections_window",
         "get_applications",
+        "get_applications_window",
         "get_karenz_periods",
         "check_harvest_safety",
         "get_inspection_schedule",

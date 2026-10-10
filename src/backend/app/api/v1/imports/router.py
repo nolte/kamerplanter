@@ -194,7 +194,7 @@ def list_jobs(
     service: ImportService = Depends(get_import_service),
 ):
     """List the caller's tenant's import jobs (paginated, #1501)."""
-    items, _total = service.list_jobs(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
+    items = service.list_jobs_window(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_job_response(j) for j in items]
 
 
