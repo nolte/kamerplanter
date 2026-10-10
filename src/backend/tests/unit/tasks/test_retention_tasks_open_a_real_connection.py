@@ -61,6 +61,8 @@ def test_the_task_runs_on_the_provider_connection(task_name: str, arango_boundar
     with (
         patch.object(module, repo_name, return_value=repo) as repo_cls,
         patch("app.tasks.glossary_tasks.warm_glossary_cache"),
+        # The reingest invalidation also clears the Redis hot tier (#2169); no Valkey here.
+        patch("app.tasks.glossary_tasks._redis_client_or_none", return_value=None),
     ):
         result = celery_app.tasks[task_name].apply()
 

@@ -60,12 +60,6 @@ _NOT_STARTED_BY_THE_APP: dict[str, str] = {
         "avg_temp_c for every plant; chill days are per site. Same prerequisite as "
         "check_dormancy_triggers (per-site weather input + #2128 chunking)."
     ),
-    "glossary.invalidate_after_reingest": (
-        "documented as 'chained after ai.knowledge_service_ingest' but nothing chains it (found by this "
-        "guard, #2144). Not wired here on purpose: it drops the whole glossary cache and queues a warm-up "
-        "of one LLM call per term and variant — wiring it to the weekly reingest is a cost decision "
-        "(REQ-035 §4.3, AI budget #2110) for the operator. Until then the cache expires by its TTL."
-    ),
     "app.tasks.storage_tasks.migrate_storage": (
         "operator-invoked one-off (NFR-013 §7.3 AC-07): moves object storage between backends with "
         "explicit source/target arguments; started by hand (celery call), never scheduled."
@@ -178,5 +172,7 @@ def test_the_sweep_sees_both_ways_in() -> None:
 
     assert how["retention.purge_expired_consent_records"] == "scheduled"
     assert how["app.tasks.storage_tasks.generate_thumbnails"] == "dispatched"
+    # #2169: chained after a finished reingest; its warm-up is reachable only through it.
+    assert how["glossary.invalidate_after_reingest"] == "dispatched"
     # Behind a feature flag: read from the source, not from the live beat_schedule.
     assert how["app.tasks.weather_tasks.fetch_weather_forecasts"] == "scheduled"

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import functools
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from arango.database import StandardDatabase
@@ -1889,6 +1889,8 @@ class _DecodedRedis(Protocol):
     def ttl(self, name: str) -> int: ...
 
     def delete(self, *names: str) -> int: ...
+
+    def scan_iter(self, match: str | None = ...) -> Iterator[str]: ...
 
     def decr(self, name: str, amount: int = ...) -> int: ...
 
