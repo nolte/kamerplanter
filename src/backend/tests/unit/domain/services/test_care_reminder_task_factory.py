@@ -177,6 +177,7 @@ class TestCeleryPathUsesFactory:
             "get_planting_run_repo",
             "get_season_state_repo",
             "get_task_repo",
+            "get_tenant_repo",
         ):
             setattr(mock_deps, getter, MagicMock())
         monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)

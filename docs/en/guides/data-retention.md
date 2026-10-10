@@ -352,7 +352,10 @@ over management, and the members are notified. If no lead is left or you are the
 member, the organization becomes **orphaned**: it is closed and deleted with all its data
 after the tenant-deletion grace period (`RETENTION_TENANT_ERASURE_GRACE_DAYS`, default 90
 days); the remaining members and the operators are notified. The preview shows you both
-before you confirm the deletion. <!-- Issue #2134 -->
+before you confirm the deletion. Both happen as soon as you **request** the deletion —
+not only at the final deletion up to 90 days later: your account is closed from the
+request on, and the organization must not stay without management for that long. The
+grace period of an orphaned organization starts with your request. <!-- Issue #2134, #2166 -->
 
 An AI tip you dismissed stays dismissed for the other members of your garden. Only
 the note that you dismissed it is replaced with `_anonymized`.
@@ -1021,14 +1024,17 @@ TimescaleDB is configured but unreachable it exits 1 and changes nothing.
 ## Frequently Asked Questions
 
 ??? question "Can I extend the 90-day soft-delete period?"
-    Yes, via `RETENTION_SOFT_DELETE_RETENTION_DAYS` (minimum 1 day). Reducing it below
-    30 days is not recommended, as users would have no opportunity to recover
-    accidentally deleted accounts.
+    Yes, via `RETENTION_SOFT_DELETE_RETENTION_DAYS` (minimum 1 day). The period is not an
+    undo window: an erasure request cannot be withdrawn, the account is closed from the
+    request on (without a password), and it is deleted after the period in any case. The
+    period gives the other members of a personal garden time to save their data. <!-- Issue #2166 -->
 
-??? question "What happens to tenant data when the last admin of a tenant is deleted?"
-    The Celery task `detect_orphaned_tenants` detects tenants without an active admin
-    and sets an `orphaned_since` timestamp. A platform admin can then appoint an
-    emergency admin.
+??? question "What happens to an organization when its last management holder requests their account's deletion?"
+    At the request, the longest-serving remaining lead takes over management. If no lead
+    is left, the organization becomes **orphaned** and is deleted after
+    `RETENTION_TENANT_ERASURE_GRACE_DAYS`; this cannot be cancelled. Members and platform
+    admins are notified by email. There is no emergency admin and no
+    `detect_orphaned_tenants` task any more. <!-- Issue #2134, #2166 -->
 
 ??? question "How can I verify that the retention tasks are running correctly?"
     There is no Prometheus metric for this. Look in the structured logs (structlog)

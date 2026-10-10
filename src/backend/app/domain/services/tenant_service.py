@@ -795,7 +795,8 @@ class TenantService:
         if orphaned:
             # #2134 — nobody is left who could administer it, so nobody can cancel.
             who_can_stop = (
-                "Nobody is left who can administer it: its last person with the management right deleted their account."
+                "Nobody is left who can administer it: its last person with the management right "
+                "asked to delete their account."
             )
         else:
             who_can_stop = "The garden's management can cancel the deletion until then."
@@ -1136,8 +1137,10 @@ class TenantService:
     ) -> list[OrganisationSettlement]:
         """Keep every organisation of an erased account administrable, or schedule it for deletion (#2134).
 
-        Called by the account erasure before its ArangoDB plan removes the subject's
-        memberships — the cascade that bypassed INV-1 (MT-038). Per organisation
+        Called when the account erasure is **requested** (#2166 — the account is closed
+        then, so waiting for the hard delete left the organisation without management for
+        the whole grace) and again by the hard delete before its ArangoDB plan removes the
+        subject's memberships — the cascade that bypassed INV-1 (MT-038). Per organisation
         (:meth:`MembershipEngine.departure_settlement`):
 
         * ``management_passes_to_lead`` — the longest-serving remaining ``lead``
@@ -1196,7 +1199,9 @@ class TenantService:
         name = html.escape(tenant.name)
         body = (
             "<h2>The management of your organisation has passed on</h2>"
-            f"<p>The last person with the management right in <strong>{name}</strong> has deleted their account. "
+            # #2166 — sent when the erasure is requested: the account is closed, not yet erased.
+            f"<p>The last person with the management right in <strong>{name}</strong> has asked Kamerplanter "
+            "to delete their account. "
             "The longest-serving lead of the organisation now holds the management right, "
             "so members can still be invited and the organisation administered.</p>"
             "<p>Nothing else changes for you.</p>"
@@ -1237,7 +1242,8 @@ class TenantService:
         name = html.escape(tenant.name)
         body = (
             "<h2>An organisation was orphaned by an account deletion</h2>"
-            f"<p>After an account deletion nobody can administer the organisation <strong>{name}</strong> any more. "
+            f"<p>After an account deletion request nobody can administer the organisation <strong>{name}</strong> "
+            "any more. "
             f"It is shown as orphaned in the admin area and will be deleted with all its data on {due} (UTC).</p>"
         )
         platform_leads = [

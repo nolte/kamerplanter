@@ -15,9 +15,10 @@ def generate_tank_maintenance_tasks() -> dict:
     """
     from datetime import UTC, datetime, timedelta
 
-    from app.common.dependencies import get_tank_repo, get_task_repo
+    from app.common.dependencies import get_tank_repo, get_task_repo, get_tenant_repo
     from app.common.enums import TaskCategory, TaskPriority, TaskStatus
     from app.domain.models.task import Task
+    from app.tasks.tenant_gate import ActiveTenants
 
     maintenance_to_task_priority = {
         "low": TaskPriority.LOW,
@@ -28,6 +29,7 @@ def generate_tank_maintenance_tasks() -> dict:
 
     tank_repo = get_tank_repo()
     task_repo = get_task_repo()
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     schedules = tank_repo.get_active_auto_create_schedules()
     created_count = 0
@@ -76,6 +78,10 @@ def generate_tank_maintenance_tasks() -> dict:
             # Reachable: ``Tank.tenant_key`` defaults to `""` with no `min_length`.
             logger.warning("tank_maintenance_skipped_tenantless_tank", tank_key=tank_key)
             skipped_unresolved_count += 1
+            continue
+        if not tenant_is_active(tank_tenant_key):
+            # #2166 — a suspended, pending-deletion or orphaned tenant resolves for nobody: no new task.
+            skipped_count += 1
             continue
 
         # Idempotency: is one of THIS tenant's tasks with this name still open?
@@ -279,12 +285,14 @@ def check_runoff_trends() -> dict:
     """
     from datetime import UTC, datetime
 
-    from app.common.dependencies import get_feeding_repo, get_task_repo
+    from app.common.dependencies import get_feeding_repo, get_task_repo, get_tenant_repo
     from app.common.enums import PhaseName, TaskCategory, TaskPriority, TaskStatus
     from app.domain.models.task import Task
+    from app.tasks.tenant_gate import ActiveTenants
 
     feeding_repo = get_feeding_repo()
     task_repo = get_task_repo()
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     # Get all active plant instances in vegetative or flowering phase.
     # Removed plants must not spawn flush tasks.
@@ -324,6 +332,10 @@ def check_runoff_trends() -> dict:
             # feeding read — precisely the cross-tenant scan #927 removes — so
             # the sweep skips it and says so instead of widening the query.
             logger.warning("runoff_trend_check_skipped_tenantless_plant", plant_key=plant_key)
+            skipped += 1
+            continue
+        if not tenant_is_active(plant_tenant_key):
+            # #2166 — a suspended, pending-deletion or orphaned tenant resolves for nobody: no flush task.
             skipped += 1
             continue
 

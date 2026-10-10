@@ -229,6 +229,18 @@ class FakeMembershipRepo:
         """The seats the member limit counts (#2133): active memberships, as the real AQL counts them."""
         return sum(1 for m in self.stored.values() if m.tenant_key == tenant_key and m.is_active)
 
+    def update_fields(self, key: str, fields: dict[str, Any]) -> Membership | None:
+        """The real merge-and-revalidate: an undeclared field is refused, the merged document re-parsed (#2166)."""
+        current = self.stored.get(key)
+        if current is None:
+            return None
+        for field in fields:
+            if field not in Membership.model_fields:
+                raise AttributeError(f"'{field}' is not a field of Membership")
+        merged = Membership.model_validate({**current.model_dump(by_alias=True), **fields})
+        self.stored[key] = merged
+        return merged
+
     def deactivate_all_for_tenant(self, tenant_key: str) -> int:
         hit = [m for m in self.stored.values() if m.tenant_key == tenant_key and m.is_active]
         for membership in hit:

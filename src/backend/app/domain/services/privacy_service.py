@@ -981,6 +981,8 @@ class PrivacyService:
         # account; they hear of it now, with the whole grace left to export.
         if created_here:
             self._deliver_member_notice(created, now=now, delete_at=erasure.hard_delete_scheduled_at)
+        # #2166 — the organisations are settled now, not at the hard delete up to 90 days later.
+        self._settle_organisations_at_request(user_key, now=now)
 
         logger.info(
             "privacy_erasure_requested",
@@ -1019,6 +1021,33 @@ class PrivacyService:
             if existing.user_key != user_key or existing.status == "completed":
                 raise ValidationError("An erasure request is already in progress.") from exc
             return existing, False
+
+    def _settle_organisations_at_request(self, user_key: UserKey, *, now: datetime) -> None:
+        """Settle the subject's organisations when the erasure is requested (#2166, REQ-025 §3.1.3 rule 4).
+
+        The account is closed at request time, so an organisation whose last ``management``
+        holder it was had nobody able to administer it until the hard delete settled it
+        (#2134) — up to ``RETENTION_SOFT_DELETE_RETENTION_DAYS`` later — and its members
+        heard nothing. The settlement now runs here: the longest-serving lead takes over,
+        or the organisation is orphaned into the tenant-deletion grace; the members are told.
+
+        Nothing has to be restored on a withdrawal, because an account erasure request has
+        none: there is no cancel route, the password hash is dropped with the request and the
+        beat erases every due request whatever ``is_active`` says.
+
+        Best effort towards the subject, like the member notice: the request and the closed
+        account are already written, and :meth:`erase_account` runs the same idempotent
+        settlement before its plan — it settles what failed here, and an organisation that
+        lost its management again during the grace.
+        """
+        try:
+            self._settle_organisations(user_key, now=now)
+        except Exception as exc:  # noqa: BLE001 - the Art. 17 request stands; the hard delete settles again
+            logger.error(
+                "account_erasure.organisations_settlement_deferred",
+                subject=self.log_subject(user_key),
+                error_type=type(exc).__name__,
+            )
 
     def _revoke_personal_tenant_invitations(self, user_key: UserKey) -> None:
         """REQ-025 AK-IE-06 — the one call both erasure entry points make when the erasure is requested."""
@@ -3067,12 +3096,12 @@ class PrivacyService:
         )
         return report
 
-    def _settle_organisations(self, user_key: str) -> list[OrganisationSettlement]:
-        """Step 4b of :meth:`erase_account` — the subject's organisations (#2134); see TenantService."""
+    def _settle_organisations(self, user_key: str, *, now: datetime | None = None) -> list[OrganisationSettlement]:
+        """The subject's organisations (#2134): at request time (#2166) and as step 4b of :meth:`erase_account`."""
         tenant_service = self._tenant_service
         if tenant_service is None:  # pragma: no cover - refused by the configuration check
             raise FeatureNotConfiguredError("account_erasure", "No tenant service is wired.")
-        return tenant_service.settle_organisations_of_erased_account(user_key)
+        return tenant_service.settle_organisations_of_erased_account(user_key, now=now)
 
     def _erase_personal_tenants(
         self,
