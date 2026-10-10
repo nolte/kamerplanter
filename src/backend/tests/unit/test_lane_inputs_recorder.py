@@ -20,6 +20,7 @@ about it have to be pinned rather than trusted:
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -764,15 +765,24 @@ class TestCompareHoldsTheDurationsPresence:
 # ------------------------------------ #1683: the job hash ignores action pins
 
 
-#: `github/codeql-action/upload-sarif` before #1734 (v4.38.1) and after it (v4.38.2).
+#: `github/codeql-action/upload-sarif` before #1734 (v4.38.1). The pin the job carries *now* is
+#: read from the job (`_live_codeql_pin`): every Renovate bump moves it, and a copy of it in this
+#: file went stale with the next one (the test then failed on `develop` itself).
 _CODEQL_BEFORE_1734 = "github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd"
-_CODEQL_AFTER_1734 = "github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2"
+_CODEQL_PIN = re.compile(r"github/codeql-action/upload-sarif@[0-9a-f]{40}")
 
 
 def _report_findings_job() -> dict:
     """The live `report-findings` job of security-nuclei-postmerge.yml, the job #1734's bump staled."""
     _path, document = recorder.load_workflow("security-nuclei-postmerge.yml")
     return document["jobs"]["report-findings"]
+
+
+def _live_codeql_pin(job: dict) -> str:
+    """The `upload-sarif` reference the job carries today, whatever Renovate bumped it to."""
+    found = sorted({m.group(0) for m in _CODEQL_PIN.finditer(str(job))})
+    assert len(found) == 1, f"expected exactly one upload-sarif pin in report-findings, found {found}"
+    return found[0]
 
 
 def _with_uses(job: dict, old: str, new: str) -> dict:
@@ -797,16 +807,16 @@ class TestAnActionPinIsNotPartOfTheJobSpec:
 
     def test_the_1734_bump_leaves_the_hash_unchanged(self, guard: ModuleType) -> None:
         live = _report_findings_job()
-        assert _CODEQL_AFTER_1734 in str(live), "the fixture is the job as #1734 left it"
-        before = _with_uses(live, _CODEQL_AFTER_1734, _CODEQL_BEFORE_1734)
+        pin = _live_codeql_pin(live)
+        assert pin != _CODEQL_BEFORE_1734, "the live job carries the pre-#1734 pin, so the bump pinned here is gone"
+        before = _with_uses(live, pin, _CODEQL_BEFORE_1734)
         assert recorder.hash_job_spec(before) == recorder.hash_job_spec(live)
         assert guard.job_spec_hash(before) == guard.job_spec_hash(live)
 
     def test_a_branch_or_tag_ref_is_a_pin_too(self) -> None:
         live = _report_findings_job()
-        assert recorder.hash_job_spec(_with_uses(live, _CODEQL_AFTER_1734, "github/codeql-action/upload-sarif@v4")) == (
-            recorder.hash_job_spec(live)
-        )
+        by_ref = _with_uses(live, _live_codeql_pin(live), "github/codeql-action/upload-sarif@v4")
+        assert recorder.hash_job_spec(by_ref) == recorder.hash_job_spec(live)
 
     @pytest.mark.parametrize(
         "change",
