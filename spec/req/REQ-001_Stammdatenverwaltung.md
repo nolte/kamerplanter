@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.9 (`Species.regulatory_class` aus REQ-055)
+Version: 4.10 (Enum-Werte `root_type`/`frost_sensitivity` an das Modell angeglichen, #2183)
 Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (parent_species_key für KI-Fallback), NFR-011 v1.5 (R-24 Promotion-Audit-Retention; bis NFR-011 v1.4 als R-19 geführt)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.10 | 2026-10-10 | **Enum-Werte an das Modell angeglichen (#2183):** `Species.root_type` (§Datenmodell + `SpeciesDefinition` + `RootType`-Enum) nennt jetzt die Werte des Code-Enums `RootType` — `corm` neu, `rhizomatous`/`aerial` entfallen (die Seed-Daten führen solche Arten als `fibrous`). `Species.frost_sensitivity` nennt die Werte von `FrostTolerance` (`very_hardy`/`hardy`/`moderate`/`sensitive`) statt `hardy`/`half_hardy`/`tender`; die dreistufige Ampel-Sprache bleibt die abgeleitete Sicht von REQ-039/REQ-022 (feste Abbildung, s. §Datenmodell). Zierpflanzen-Seed-Tabelle auf die gespeicherten Werte umgestellt. Der Guard `test_spec_literal_discriminators_match_models.py` vergleicht beide Felder jetzt mit dem Code. |
 | 4.9 | 2026-10-04 | **`Species.regulatory_class` (REQ-055 O-05):** Additives optionales Feld `regulatory_class: Optional[Literal['cannabis']]` (`None` = unreguliert). Zweck: Funktionen mit Außenwirkung — zuerst öffentliche Pflanzenprofile und Social-Veröffentlichung (REQ-055 PS-PRI-040, KCanG § 6 Werbe- und Sponsoringverbot) — sperren sich für Arten dieser Klasse per Default; der Betreiber kann die Sperre instanzweit aufheben. Gepflegt im Seed (`species.yaml`) für die Gattung *Cannabis*; bis zur Seed-Pflege gilt als Fallback der Gattungsabgleich auf `scientific_name` beginnend mit `Cannabis ` (REQ-055 §17.5). Kein Einfluss auf Stammdatensichtbarkeit (die bleibt beim Tenant-Overlay §2), keine Migration (Feld fehlt = unreguliert). Weitere Klassen (z. B. invasive Arten, Artenschutz) sind bewusst nicht vorweggenommen. (v4.8 — Rechte-Vokabular REQ-049 — hatte keinen eigenen Eintrag.) |
 | 4.7 | 2026-07-19 | **Seed↔Phase-Sequence-Tracking (#611 WS1, Audit #576/#586):** (1) `LifecycleConfig.growth_determinacy: Optional[GrowthDeterminacy]` (`determinate`/`indeterminate`/`semi_determinate`) im Body **nachgezogen** — das Feld existierte bereits in `species.schema.yaml`/`_defs.schema.yaml`, im `LifecycleConfig`-Model, in `species.yaml/lifecycle_overrides` und in REQ-003 §E4, war aber nie in REQ-001 geführt (selbst ein „not-carried-through"-Spec-Gap). Neuer `GrowthDeterminacy`-Enum. (2) **Lifecycle-Resolution-Pflichtfelder** explizit gemacht: `cultivation_cycle_type`, `flowering_strategy` und `growth_determinacy` sind verbindliche **Resolution-Inputs je Species** (nicht optionale Metadaten) — sie speisen den attributgetriebenen Phase-Sequence-Resolver (REQ-003 §D14), `resolve_effective_cycle` und die REQ-047-Überwinterungs-Kopplung. Fehlen sie, fällt die Art auf das strukturell falsche `indoor_default`-Blankett. Reine Spec-Schärfung, keine Code-/Migration-Änderung. |
 | 4.6 | 2026-07-19 | **`cultivation_flexible`-Flag (ADR-006 E6, #615):** Additives Boolean `Species.cultivation_flexible` (default `false`) — Fähigkeits-Signal „diese Art kann fakultativ annuell ODER perennial kultiviert werden" (frostzarte Staude überwintert vs. neu gekauft, einjährig gezogene Erdbeere). Drückt die *Fähigkeit* aus, nicht den Wert (der Default bleibt `cycle_type`/`cultivation_cycle_type`, #297 unangetastet). Master-Data-gepflegt aus `species.yaml/lifecycle_overrides` (Steckbrief-belegte Kohorte), in `SpeciesResponse` exponiert; die Pflanz-Anlage-Maske gated damit die per-Instanz-Kulturführungs-Wahl (ADR-006 E1/#539). Non-breaking, keine Migration nötig. |
@@ -81,7 +82,7 @@ Zusätzlich erfasst das System:
     - `hardiness_zones: list[str]` (z.B. ["7a", "7b", "8a"])
     - `native_habitat: str`
     - `growth_habit: GrowthHabit` (herb, shrub, subshrub, tree, vine, groundcover, grass, succulent, bulb_geophyte, fern, aquatic, epiphyte — Wuchsform; steuert Stütz-/Pflanztiefe-/Bewässerungs-Defaults) <!-- Spec-Audit 2026-07-02 A3 -->
-    - `root_type: Literal['fibrous', 'taproot', 'tuberous', 'bulbous', 'rhizomatous', 'aerial']` — `rhizomatous`: Rhizom-bildend (Calathea, Ingwer, Iris, viele Farne); `aerial`: Luftwurzeln/hemiepiphytisch (Monstera, Philodendron, Orchideen). Optional ergänzend: `root_adaptations: list[str]` für Arten mit Mehrfachzuweisung (z.B. Monstera hat Faserwurzeln UND Luftwurzeln).
+    - `root_type: Literal['fibrous', 'taproot', 'tuberous', 'bulbous', 'corm']` — `corm`: Sprossknolle (Krokus, Gladiole). Rhizom-bildende Arten (Calathea, Ingwer, Iris, viele Farne) und Luftwurzel-Arten (Monstera, Philodendron, Orchideen) haben **keinen eigenen Wert** im Modell (`RootType`, #2183); die Seed-Daten führen sie als `fibrous`. Optional ergänzend: `root_adaptations: list[str]` für Arten mit Mehrfachzuweisung (z.B. Monstera hat Faserwurzeln UND Luftwurzeln).
     - `root_adaptations: list[str]` (z.B. `["aerial", "epiphytic", "stoloniferous"]` — ergänzende Wurzelanpassungen über den Primärtyp hinaus)
     - `allelopathy_score: float` (-1.0 = stark hemmend, 0 = neutral, 1.0 = fördernd) — generelle allelopathische Tendenz der Art. Hinweis: Allelopathische Wirkungen sind stark partnerabhängig (z.B. *Juglans nigra* hemmt *Solanum lycopersicum*, aber kaum *Phaseolus vulgaris*). Die paarspezifischen `compatible_with`/`incompatible_with`-Edges sind die autoritativen Daten; dieser Score dient nur als Erstindikator.
     - `toxicity: Optional[ToxicityInfo]` — Embedded-Objekt, siehe ToxicityInfo-Definition (U-001)
@@ -94,7 +95,7 @@ Zusätzlich erfasst das System:
     - `propagation_notes: Optional[str]` (Freitext-Hinweise zur Vermehrung — Besonderheiten und worauf der Nutzer achten muss)
     <!-- Quelle: Outdoor-Garden-Planner Review G-001, G-006 -->
     # Freiland-/Gartenplanung (Quelle: Outdoor-Garden-Planner Review G-001)
-    - `frost_sensitivity: Optional[Literal['hardy', 'half_hardy', 'tender']]` (hardy = übersteht Frost, half_hardy = leichter Frost ok, tender = frostfrei halten)
+    - `frost_sensitivity: Optional[Literal['very_hardy', 'hardy', 'moderate', 'sensitive']]` (Enum `FrostTolerance`: very_hardy = übersteht strengen Frost, hardy = übersteht Frost, moderate = leichter Frost ok, sensitive = frostfrei halten). Die Winterhärte-Ampel (REQ-039 §3, REQ-022) rechnet in der dreistufigen Ampel-Sprache `hardy`/`half_hardy`/`tender`; die Abbildung ist fest: `very_hardy` + `hardy` → `hardy`, `moderate` → `half_hardy`, `sensitive` → `tender` (`map_frost_sensitivity`, #2183). Gespeichert wird immer der `FrostTolerance`-Wert.
     - `hardiness_detail: Optional[str]` (z.B. "Winterhart bis -15°C, Wurzelschutz empfohlen")
     <!-- Quelle: REQ-055 O-05 -->
     - `regulatory_class: Optional[Literal['cannabis']]` (Regulierungsklasse mit Außenwirkung; `None` = unreguliert; sperrt per Default öffentliche Profile und Social-Veröffentlichung, REQ-055 PS-PRI-040)
@@ -608,19 +609,19 @@ Die folgenden Zierpflanzen-Species erweitern die initiale Datenbasis um gängige
 |----------------|-------------------|--------|-------------|-----------|-------------------|-----------|--------------------------------------|-------------|----------------------|--------|
 | *Viola x wittrockiana* | Stiefmütterchen, Gartenstiefmütterchen | Violaceae | herb | fibrous | hardy | annual | 12 | [3, 4, 5, 6, 9, 10] | light_feeder | ornamental |
 | *Viola cornuta* | Hornveilchen | Violaceae | herb | fibrous | hardy | perennial | 12 | [3, 4, 5, 6, 7, 8, 9, 10] | light_feeder | ornamental |
-| *Petunia x hybrida* | Petunie | Solanaceae | herb | fibrous | tender | annual | 10 | [5, 6, 7, 8, 9, 10] | medium_feeder | ornamental |
-| *Pelargonium zonale* | Geranie, Stehende Geranie | Geraniaceae | herb | fibrous | tender | perennial | 12 | [5, 6, 7, 8, 9, 10] | medium_feeder | ornamental |
-| *Tagetes patula* | Studentenblume, Tagetes | Asteraceae | herb | fibrous | tender | annual | 6 | [6, 7, 8, 9, 10] | light_feeder | ornamental |
-| *Lobelia erinus* | Männertreu, Blaue Lobelie | Campanulaceae | herb | fibrous | tender | annual | 10 | [5, 6, 7, 8, 9] | light_feeder | ornamental |
-| *Osteospermum ecklonis* | Kapkörbchen, Kapmargerite | Asteraceae | herb | fibrous | half_hardy | perennial | 8 | [5, 6, 7, 8, 9, 10] | medium_feeder | ornamental |
-| *Impatiens walleriana* | Fleißiges Lieschen | Balsaminaceae | herb | fibrous | tender | annual | 10 | [5, 6, 7, 8, 9, 10] | light_feeder | ornamental |
-| *Calibrachoa × hybrida* | Zauberglöckchen, Calibrachoa | Solanaceae | herb | fibrous | tender | annual | 10 | [5, 6, 7, 8, 9, 10] | heavy_feeder | ornamental |
+| *Petunia x hybrida* | Petunie | Solanaceae | herb | fibrous | sensitive | annual | 10 | [5, 6, 7, 8, 9, 10] | medium_feeder | ornamental |
+| *Pelargonium zonale* | Geranie, Stehende Geranie | Geraniaceae | herb | fibrous | sensitive | perennial | 12 | [5, 6, 7, 8, 9, 10] | medium_feeder | ornamental |
+| *Tagetes patula* | Studentenblume, Tagetes | Asteraceae | herb | fibrous | sensitive | annual | 6 | [6, 7, 8, 9, 10] | light_feeder | ornamental |
+| *Lobelia erinus* | Männertreu, Blaue Lobelie | Campanulaceae | herb | fibrous | sensitive | annual | 10 | [5, 6, 7, 8, 9] | light_feeder | ornamental |
+| *Osteospermum ecklonis* | Kapkörbchen, Kapmargerite | Asteraceae | herb | fibrous | moderate | perennial | 8 | [5, 6, 7, 8, 9, 10] | medium_feeder | ornamental |
+| *Impatiens walleriana* | Fleißiges Lieschen | Balsaminaceae | herb | fibrous | sensitive | annual | 10 | [5, 6, 7, 8, 9, 10] | light_feeder | ornamental |
+| *Calibrachoa × hybrida* | Zauberglöckchen, Calibrachoa | Solanaceae | herb | fibrous | sensitive | annual | 10 | [5, 6, 7, 8, 9, 10] | heavy_feeder | ornamental |
 | *Primula vulgaris* | Primel, Kissenprimel | Primulaceae | herb | fibrous | hardy | perennial | 10 | [2, 3, 4, 5] | light_feeder | ornamental |
 
 <!-- Quelle: Agrarbiologie-Review AB-011, AB-012, AB-013, 2026-03 -->
 **Korrekturen gegenüber v3.0:**
 - **AB-001:** *Calibrachoa* → *Calibrachoa × hybrida* (Hybridzeichen nach APG IV Binomialnomenklatur)
-- **AB-011:** *Lobelia erinus* `frost_sensitivity` von `half_hardy` → `tender` (Sämlinge sind frostempfindlich; Auspflanzen erst nach Eisheiligen)
+- **AB-011:** *Lobelia erinus* `frost_sensitivity` von `half_hardy` → `tender` (Sämlinge sind frostempfindlich; Auspflanzen erst nach Eisheiligen) — im Modell-Vokabular `sensitive` (#2183)
 - **AB-012:** *Viola x wittrockiana* + *Viola cornuta* `sowing_indoor_weeks_before_last_frost` von `8` → `12` (8 Wochen ergibt zu kleine Pflanzen; kommerzieller Standard: 12–16 Wochen)
 - **AB-004:** `traits`-Spalte ergänzt — alle Zierpflanzen-Species erhalten `ornamental` (lowercase, konsistent mit Cultivar.validate_traits)
 
@@ -1024,7 +1025,7 @@ class SpeciesDefinition(BaseModel):
     photoperiod_type: Literal['short_day', 'long_day', 'day_neutral']
     hardiness_zones: list[str] = Field(min_items=1)
     growth_habit: GrowthHabit  # Spec-Audit 2026-07-02 A3: erweitert (12 Werte, s. GrowthHabit-Enum)
-    root_type: Literal['fibrous', 'taproot', 'tuberous', 'bulbous', 'rhizomatous', 'aerial']
+    root_type: Literal['fibrous', 'taproot', 'tuberous', 'bulbous', 'corm']
     root_adaptations: list[str] = Field(
         default_factory=list,
         description="Ergänzende Wurzelanpassungen, z.B. ['aerial', 'epiphytic', 'stoloniferous']"
@@ -1063,8 +1064,8 @@ class SpeciesDefinition(BaseModel):
     vernalization_days: Optional[int] = Field(None, ge=0, le=180)
 
     # Freiland-/Gartenplanung (Quelle: Outdoor-Garden-Planner Review G-001)
-    frost_sensitivity: Optional[Literal['hardy', 'half_hardy', 'tender']] = Field(
-        None, description="hardy = übersteht Frost, half_hardy = leichter Frost ok, tender = frostfrei halten"
+    frost_sensitivity: Optional[Literal['very_hardy', 'hardy', 'moderate', 'sensitive']] = Field(
+        None, description="very_hardy = strenger Frost ok, hardy = übersteht Frost, moderate = leichter Frost ok, sensitive = frostfrei halten"
     )
     hardiness_detail: Optional[str] = Field(
         None, description="z.B. 'Winterhart bis -15°C, Wurzelschutz empfohlen'"
@@ -1268,8 +1269,7 @@ class RootType(str, Enum):
     TAPROOT = "taproot"
     TUBEROUS = "tuberous"
     BULBOUS = "bulbous"
-    RHIZOMATOUS = "rhizomatous"  # Rhizom-bildend (Calathea, Ingwer, Farne)
-    AERIAL = "aerial"            # Luftwurzeln/hemiepiphytisch (Monstera, Orchideen)
+    CORM = "corm"                # Sprossknolle (Krokus, Gladiole); Rhizom-/Luftwurzel-Arten → FIBROUS (#2183)
 
 class PhotoperiodType(str, Enum):
     SHORT_DAY = "short_day"
