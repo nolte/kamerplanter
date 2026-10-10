@@ -139,9 +139,6 @@ Du kannst deinen Kamerplanter-Kalender in externe Kalender-Apps abonnieren. So e
 !!! note "Nur lesen — keine bidirektionale Synchronisation"
     Der iCal-Feed ist nur lesbar. Änderungen in Google Calendar oder Apple Calendar werden nicht an Kamerplanter zurückgespiegelt. Neue Aufgaben erstellst du weiterhin in Kamerplanter.
 
-!!! warning "Noch nicht implementiert"
-    Feeds kannst du bereits anlegen, erneuern und löschen. Den Abruf der Abo-URL durch deine Kalender-App wird Kamerplanter erst mit einer kommenden Version beantworten — bis dahin wird die App beim Abonnieren einen Fehler melden. Die Schritte unten beschreiben, wie das Abonnieren funktionieren wird. <!-- REQ-015 -->
-
 ### Schritt 1: Kalender-Feed einrichten
 
 1. Öffne den Bereich **iCal-Feeds** unten im Kalender.

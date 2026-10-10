@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.exceptions import FeedExpiredError, ValidationError
+from app.common.exceptions import FeedExpiredError, NotFoundError
 from app.domain.models.calendar import CalendarEvent, CalendarFeed, CalendarFeedFilters
 from app.domain.services.ical_generator import ICalGenerator
 
@@ -106,5 +106,5 @@ class TestFeedExpiry:
             source_repo=MagicMock(),
         )
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(NotFoundError):
             svc.generate_ical_for_feed("feed-1", "wrong-token")

@@ -139,9 +139,6 @@ You can subscribe to your Kamerplanter calendar in external calendar apps. This 
 !!! note "Read-only — no two-way sync"
     The iCal feed is read-only. Changes made in Google Calendar or Apple Calendar are not synced back to Kamerplanter. New tasks are always created in Kamerplanter.
 
-!!! warning "Not yet implemented"
-    You can already create, regenerate and delete feeds. Kamerplanter will answer your calendar app's request for the subscription URL only in an upcoming version — until then the app will report an error when you subscribe. The steps below describe how subscribing will work. <!-- REQ-015 -->
-
 ### Step 1: Create a Calendar Feed
 
 1. Open the **iCal Feeds** section at the bottom of the calendar.

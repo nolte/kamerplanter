@@ -1,11 +1,11 @@
 import secrets
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import structlog
 
 from app.common.datetimes import replace_year, today_utc
 from app.common.enums import TenantRole
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import FeedExpiredError, NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine, CalendarSourceRows
@@ -444,24 +444,25 @@ class CalendarService:
     # ── iCal generation ──────────────────────────────────────────────
 
     def generate_ical_for_feed(self, feed_key: str, token: str) -> str:
-        # Resolved by the digest of what the URL presents, never by the raw value
-        # (#2171); the stored digest itself is not a working token.
+        """The iCal document of the feed ``feed_key`` that ``token`` opens, or 404 (#2226).
+
+        This is the only tenant-less way into a tenant's events (the public
+        ``feed.ics`` route), so every refusal answers alike: no token, a token no
+        feed carries, the token of another feed and a deactivated feed all raise
+        the same ``NotFoundError("CalendarFeed", feed_key)`` - the caller learns
+        nothing it did not send. The feed is resolved by the digest of what the
+        URL presents, never by the raw value (#2171); the stored digest itself is
+        not a working token. Only a feed past its ``expires_at`` answers
+        differently, ``410`` (CF-005), and only to the holder of its token.
+        """
         feed = self._feed_repo.get_by_token_hash(TokenEngine.hash_token(token)) if token else None
-        if feed is None or feed.key != feed_key:
-            raise ValidationError("Invalid feed token")
-        if not feed.is_active:
-            raise ValidationError("Feed is inactive")
+        if feed is None or feed.key != feed_key or not feed.is_active:
+            raise NotFoundError("CalendarFeed", feed_key)
         # REQ-015 v1.6 CF-005: feeds past expires_at return HTTP 410.
         if feed.expires_at is not None:
-            from datetime import datetime as _datetime
-
-            now = _datetime.now(tz=feed.expires_at.tzinfo) if feed.expires_at.tzinfo else _datetime.now()
+            now = datetime.now(tz=feed.expires_at.tzinfo) if feed.expires_at.tzinfo else datetime.now()
             if now >= feed.expires_at:
-                from app.common.exceptions import FeedExpiredError
-
                 raise FeedExpiredError(feed_key)
-
-        from datetime import timedelta
 
         # The window is matched against event dates derived from stored UTC
         # timestamps, so both bounds are anchored in UTC. Resolved once: two

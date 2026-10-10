@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.common.enums import TenantRole
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import NotFoundError
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.models.calendar import CalendarFeed
 from app.domain.services.calendar_service import CalendarService
@@ -136,14 +136,14 @@ class TestGenerateIcalForFeed:
         mock_repo.get_by_token_hash.assert_called_once_with(TokenEngine.hash_token("tok123"))
 
     def test_an_empty_token_never_reaches_the_lookup(self, service, mock_repo):
-        with pytest.raises(ValidationError):
+        with pytest.raises(NotFoundError):
             service.generate_ical_for_feed("f1", "")
         mock_repo.get_by_token_hash.assert_not_called()
 
     def test_invalid_token(self, service, mock_repo):
         mock_repo.get_by_token_hash.return_value = None
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(NotFoundError):
             service.generate_ical_for_feed("f1", "wrong-token")
 
     def test_inactive_feed(self, service, mock_repo):
@@ -157,7 +157,7 @@ class TestGenerateIcalForFeed:
         feed.key = "f1"
         mock_repo.get_by_token_hash.return_value = feed
 
-        with pytest.raises(ValidationError, match="inactive"):
+        with pytest.raises(NotFoundError):
             service.generate_ical_for_feed("f1", "tok123")
 
     def test_wrong_feed_key(self, service, mock_repo):
@@ -170,7 +170,7 @@ class TestGenerateIcalForFeed:
         feed.key = "f1"
         mock_repo.get_by_token_hash.return_value = feed
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(NotFoundError):
             service.generate_ical_for_feed("wrong-key", "tok123")
 
 

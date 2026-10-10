@@ -42,6 +42,13 @@ _API_ROOT = _ROOT / "src" / "backend" / "app" / "api" / "v1"
 #: human-scale. "We have not tripped it yet" is not a reason — that was true of
 #: the refresh budget until the suite grew past it.
 _LEFT_AT_PRODUCTION: dict[str, str] = {
+    "rate_limit_calendar_feed": (
+        "No E2E test fetches a feed.ics URL (#2226): test_req015_calendar.py only reads the "
+        "issued URL text, the browser never requests it. Calendar clients poll a subscription "
+        "every 15 minutes or slower, and the per-minute budget is the anonymous-tier bound of "
+        "REQ-015 CF-004 on an unauthenticated route; raising it here would test nothing the "
+        "suite uses."
+    ),
     "rate_limit_device_pairing_redeem": (
         "One redemption per pairing test, a handful per run (#1118). Nowhere near a "
         "per-minute budget, and the limit is a brute-force defence whose behaviour "

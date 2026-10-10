@@ -1,7 +1,9 @@
 from typing import Annotated
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, Path, Query, Request
 
+from app.api.v1.calendar.feed_router import FEED_ICS_PATH
 from app.api.v1.calendar.schemas import (
     CalendarEventSchema,
     CalendarEventsResponse,
@@ -76,15 +78,25 @@ def _feed_response(feed: CalendarFeed) -> CalendarFeedResponse:
     )
 
 
+def feed_subscription_url(base_url: str, feed_key: str, token: str) -> str:
+    """The subscription URL of a feed: the public ``feed.ics`` route with the token (#2226).
+
+    Built from that route's own template (``FEED_ICS_PATH``) under the ``/api/v1``
+    mount, so the URL handed out here and the route that answers it cannot drift
+    apart again - the route was deleted in March 2026 while this one kept issuing
+    URLs to it. Both values are percent-encoded; neither is expected to need it.
+    """
+    path = FEED_ICS_PATH.format(key=quote(feed_key, safe=""))
+    return f"{base_url.rstrip('/')}/api/v1{path}?{urlencode({'token': token})}"
+
+
 def _issued_feed_response(issued: CalendarFeedIssued, request: Request) -> CalendarFeedIssuedResponse:
     """The create / rotate response: the one place the raw token and its URL appear (#2171)."""
     feed = issued.feed
-    base_url = str(request.base_url).rstrip("/")
-    ical_url = f"{base_url}/api/v1/calendar/feeds/{feed.key}/feed.ics?token={issued.token}"
     return CalendarFeedIssuedResponse(
         **_feed_response(feed).model_dump(),
         token=issued.token,
-        ical_url=ical_url,
+        ical_url=feed_subscription_url(str(request.base_url), feed.key or "", issued.token),
     )
 
 

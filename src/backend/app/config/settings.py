@@ -902,6 +902,19 @@ class Settings(BaseSettings):
     #: new link once, perhaps twice; ten leaves room for several people behind
     #: one NAT address.
     rate_limit_resend_verification: str = "10/hour"
+    #: ``GET /api/v1/calendar/feeds/{key}/feed.ics`` (REQ-015 CF-004, #2226), per client IP.
+    #:
+    #: **Why a limit at all**, given that the feed token is a 256-bit secret looked
+    #: up by hash: the route is unauthenticated and renders a calendar per call
+    #: (five event-source reads), so a flood would drive database load one cheap
+    #: request at a time. CF-004 puts it in the "anonymous" tier of NFR-001 §6.3:
+    #: 30 a minute per address.
+    #:
+    #: **The legitimate side.** A calendar client polls a subscription every 15
+    #: minutes to every few hours, Home Assistant's calendar coordinator about as
+    #: often. Thirty a minute leaves room for many subscriptions behind one NAT
+    #: address.
+    rate_limit_calendar_feed: str = "30/minute"
     #: ``GET /api/health``, per client IP (#1210, SEC-003).
     #:
     #: **Why this endpoint has a limit and the Kubernetes probes do not.** The

@@ -7,7 +7,7 @@ Kategorie: Visualisierung & Integration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React (FullCalendar), iCalendar (RFC 5545)
 Status: Entwurf
-Version: 1.8 (CF-001 umgesetzt: Feed-Token nur als Hash, Klartext einmalig bei Erstellung/Rotation; Bestandsmigration; Feed-Verwaltung nur für Eigentümer und Leitung (CF-002); #2171)
+Version: 1.9 (öffentlicher Abruf `feed.ics` wieder eingebunden: einheitliche 404-Antwort, Rate-Limit `RATE_LIMIT_CALENDAR_FEED`, `Cache-Control: no-store`, Abo-URL aus der Routenvorlage, Feld `ical_url` mit `https://`; #2226)
 ```
 
 ## 1. Business Case
@@ -1595,7 +1595,16 @@ class SeasonOverviewEngine:
 |-----------|-----|---------|-------------|
 | `token` | `str` | ✅ | Authentifizierungs-Token des Feeds |
 
-**Response:** `200 OK` (Content-Type: `text/calendar; charset=utf-8`)
+**Antwortverhalten (v1.9, #2226):**
+
+- `200 OK` mit `Content-Type: text/calendar; charset=utf-8` und `Cache-Control: no-store` — nur für einen **aktiven** Feed, dessen Token-Hash zum übergebenen Token passt und dessen Schlüssel dem Pfad entspricht. Die Ereignisse stammen ausschließlich aus dem Tenant des Feeds (CF-002).
+- `404` — einheitlich (gleicher `error_code`, gleiche Meldungsform) für fehlenden oder leeren Token, unbekannten oder rotierten Token, den Token eines anderen Feeds, einen unbekannten Feed-Schlüssel und einen deaktivierten Feed. Die Antwort verrät weder, ob ein Feed-Schlüssel existiert, noch ob ein Token je gültig war.
+- `410 Gone` — Feed nach `expires_at` (CF-005); erreichbar nur mit dem gültigen Token dieses Feeds.
+- `422` — Token länger als 256 Zeichen oder Feed-Schlüssel länger als 254 Zeichen (Eingabegrenze, vor jedem Lookup).
+- `429` — mehr als `RATE_LIMIT_CALENDAR_FEED` (Standard `30/minute`, CF-004) Abrufe je Client-IP; abgewiesene Abrufe zählen mit, und weder Schlüssel noch Token öffnen ein eigenes Budget.
+- Token und Feed-Schlüssel erscheinen in keiner Log-Zeile: Das Zugriffslog des Backends schreibt `/api/v1/calendar/feeds/{}/feed.ics?<redacted>`, das nginx-Log des Frontends nur `/api/...`.
+
+**Response-Beispiel:** `200 OK` (Content-Type: `text/calendar; charset=utf-8`)
 ```
 BEGIN:VCALENDAR
 VERSION:2.0
@@ -1626,9 +1635,9 @@ END:VEVENT
 END:VCALENDAR
 ```
 
-**webcal:// URL für Kalender-Abonnement:**
+**Abo-URL für Kalender-Abonnement:** Die API gibt sie als `ical_url` mit dem Schema der Anfrage-Basis-URL aus (in Produktion `https://`); sie wird aus der Pfadvorlage des Abruf-Endpunkts gebaut, damit ausgegebene URL und Route nicht auseinanderlaufen (#2226). Kalender-Apps, die `webcal://` erwarten, akzeptieren dieselbe URL mit ersetztem Schema.
 ```
-webcal://kamerplanter.local/api/v1/calendar/feeds/{feed_id}/feed.ics?token={token}
+https://kamerplanter.local/api/v1/calendar/feeds/{feed_id}/feed.ics?token={token}
 ```
 
 **Einrichtung in externen Kalender-Apps:**
@@ -1728,18 +1737,18 @@ mode: single
   "created_at": "2026-02-26T14:00:00",
   "updated_at": "2026-02-26T14:00:00",
   "last_accessed_at": null,
-  "webcal_url": "webcal://kamerplanter.local/api/v1/calendar/feeds/feed_abc123/feed.ics?token=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+  "ical_url": "https://kamerplanter.local/api/v1/calendar/feeds/feed_abc123/feed.ics?token=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
 }
 ```
 
-`token` und `webcal_url` stehen **nur** in dieser Antwort und in der Antwort von `regenerate-token` (CF-001). `GET /api/v1/calendar/feeds`, `GET …/feeds/{feed_id}` und `PUT …/feeds/{feed_id}` liefern weder Token noch Token-Hash noch Abo-URL; die UI zeigt die URL deshalb einmalig in einem Dialog und bietet für bestehende Feeds nur die Rotation an.
+`token` und `ical_url` stehen **nur** in dieser Antwort und in der Antwort von `regenerate-token` (CF-001). `GET /api/v1/calendar/feeds`, `GET …/feeds/{feed_id}` und `PUT …/feeds/{feed_id}` liefern weder Token noch Token-Hash noch Abo-URL; die UI zeigt die URL deshalb einmalig in einem Dialog und bietet für bestehende Feeds nur die Rotation an.
 
 **POST /api/v1/calendar/feeds/{feed_id}/regenerate-token — Response:** `200 OK`
 ```json
 {
   "_key": "feed_abc123",
   "token": "new_token_here_replacing_old_one",
-  "webcal_url": "webcal://kamerplanter.local/api/v1/calendar/feeds/feed_abc123/feed.ics?token=new_token_here_replacing_old_one"
+  "ical_url": "https://kamerplanter.local/api/v1/calendar/feeds/feed_abc123/feed.ics?token=new_token_here_replacing_old_one"
 }
 ```
 

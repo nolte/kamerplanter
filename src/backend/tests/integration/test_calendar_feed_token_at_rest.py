@@ -25,7 +25,7 @@ import pytest
 from arango import ArangoClient
 
 from app.common.enums import TenantRole
-from app.common.exceptions import ValidationError
+from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.calendar_feed_repository import ArangoCalendarFeedRepository
 from app.data_access.arango.calendar_source_repository import ArangoCalendarSourceRepository
@@ -105,7 +105,7 @@ def test_the_stored_hash_is_not_itself_a_working_feed_token(db) -> None:
     service.create_feed(_new_feed())
     stored = _stored(db)
 
-    with pytest.raises(ValidationError, match="Invalid feed token"):
+    with pytest.raises(NotFoundError):
         service.generate_ical_for_feed(stored["_key"], stored["token_hash"])
 
 
@@ -120,7 +120,7 @@ def test_a_rotation_stores_only_the_new_hash_and_retires_the_old_url(db) -> None
     assert rotated.token and rotated.token != old.token
     assert rotated.token not in json.dumps(stored) and old.token not in json.dumps(stored)
     assert stored["token_hash"] == _sha256(rotated.token)
-    with pytest.raises(ValidationError, match="Invalid feed token"):
+    with pytest.raises(NotFoundError):
         service.generate_ical_for_feed(key, old.token)
     assert service.generate_ical_for_feed(key, rotated.token).startswith("BEGIN:VCALENDAR")
 
@@ -160,7 +160,7 @@ def test_an_update_racing_a_rotation_does_not_restore_the_retired_url(db) -> Non
 
     assert stored["name"] == "Umbenannt"
     assert stored["token_hash"] == _sha256(rotated.token)
-    with pytest.raises(ValidationError, match="Invalid feed token"):
+    with pytest.raises(NotFoundError):
         service.generate_ical_for_feed(key, old.token)
     assert service.generate_ical_for_feed(key, rotated.token).startswith("BEGIN:VCALENDAR")
 
