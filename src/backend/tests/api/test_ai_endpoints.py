@@ -1,13 +1,13 @@
 """REQ-031 §5 / §1.3 — API tests for the KI-Assistent three-stage toggle.
 
-Builds a minimal app mounting the tenant + public KI routers with dependency
-overrides, and asserts the 404 (stage 1) / 403 (stage 2) / 403 (stage 3) / 200
-ladder plus the light-mode public ask.
+Builds a minimal app mounting the tenant KI router with dependency overrides,
+and asserts the 404 (stage 1) / 403 (stage 2) / 403 (stage 3) / 200 ladder. The
+light-mode ``/public/ai/*`` routes are covered by
+``test_ai_public_routes_light_mode_only.py``.
 """
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,7 +17,6 @@ from fastapi.testclient import TestClient
 from slowapi.errors import RateLimitExceeded
 
 from app.api.v1.auth.router import limiter
-from app.api.v1.ki_assistent.public_router import router as public_router
 from app.api.v1.ki_assistent.tenant_router import router as tenant_router
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_ai_assistant_service, get_tenant_repo
@@ -48,7 +47,6 @@ def _build_app(*, tenant_ai_enabled: bool = True, service: MagicMock | None = No
     app = FastAPI()
     app.state.limiter = limiter
     app.include_router(tenant_router, prefix="/api/v1")
-    app.include_router(public_router, prefix="/api/v1")
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RateLimitExceeded, lambda r, e: None)  # type: ignore[arg-type]
@@ -121,35 +119,3 @@ def test_tips_returns_ai_response_schema_with_consent() -> None:
     body = resp.json()
     assert body["tips"][0]["uses_tenant_data"] is True
     assert body["tips"][0]["title"] == "Water in the morning"
-
-
-def test_public_ask_available_without_auth(monkeypatch) -> None:
-    # The in-memory slowapi limiter spawns a background ``threading.Timer`` for
-    # window expiry; disable it here so it does not leak a lingering thread.
-    monkeypatch.setattr(limiter, "enabled", False)
-    service = MagicMock()
-
-    async def _ask(question, *, language="de"):  # noqa: ANN001, ARG001
-        return SimpleNamespace(
-            answer_text="VPD is the vapour pressure deficit.",
-            sources=[],
-            language="de",
-            language_mismatch_warning=False,
-            uses_tenant_data=False,
-            uses_cloud_provider=False,
-            confidence="high",
-            model_name="gemma3:12b",
-            provider_type="ollama",
-            kb_version=None,
-            generated_at=None,
-        )
-
-    service.ask_public = _ask
-    app = _build_app(service=service)
-    client = TestClient(app)
-
-    resp = client.post("/api/v1/public/ai/ask", json={"question": "What is VPD?"})
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["uses_tenant_data"] is False
-    assert body["answer_text"].startswith("VPD")

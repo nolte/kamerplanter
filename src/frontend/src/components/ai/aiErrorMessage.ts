@@ -45,6 +45,55 @@ export function resolveAiErrorMessage(error: unknown, t: TFunction, fallback: st
   return fallback;
 }
 
+/**
+ * Whether the error is the stage-3 refusal `403 CONSENT_REQUIRED`.
+ */
+export function isConsentRequired(error: unknown): boolean {
+  return isApiError(error) && error.errorCode === 'CONSENT_REQUIRED';
+}
+
+const CONSENT_PURPOSE_IN_MESSAGE = /'([a-z][a-z0-9_]*)'/;
+
+/**
+ * The consent purpose a `CONSENT_REQUIRED` refusal names, or `null`.
+ *
+ * The backend names it machine-readably in `details[0].purpose`
+ * (`ConsentRequiredError`); that is read first. Older servers carried it only in
+ * the English message (`Consent for '<purpose>' is required for this action.`),
+ * so the message is parsed as a fallback. `null` means "the refusal does not
+ * say" — the caller decides what that defaults to.
+ */
+export function consentPurposeOf(error: unknown): string | null {
+  if (!isApiError(error) || error.errorCode !== 'CONSENT_REQUIRED') return null;
+  const named = error.details[0]?.purpose;
+  if (typeof named === 'string' && named.trim() !== '') return named;
+  const match = CONSENT_PURPOSE_IN_MESSAGE.exec(error.message);
+  return match ? match[1] : null;
+}
+
+/**
+ * Why an AI call cannot work here at all, or `null` when it might on a retry.
+ *
+ * `'tenant'` — stage 2: the garden has AI switched off (`403 AI_DISABLED_FOR_TENANT`).
+ * `'instance'` — stage 1: the operator flag is off, so the AI route answers a
+ * bare `404` (§1.3, "as if it did not exist").
+ *
+ * Neither is fixed by trying again, so a caller hides its trigger instead of
+ * offering a retry that is refused the same way.
+ */
+export type AiUnavailableReason = 'tenant' | 'instance';
+
+export function aiUnavailableReason(error: unknown): AiUnavailableReason | null {
+  if (isApiError(error) && error.errorCode === 'AI_DISABLED_FOR_TENANT') return 'tenant';
+  if (statusOf(error) === 404) return 'instance';
+  return null;
+}
+
+/** The user-facing sentence for an {@link AiUnavailableReason}. */
+export function aiUnavailableMessage(reason: AiUnavailableReason, t: TFunction): string {
+  return reason === 'tenant' ? t('ai.errors.disabled') : t('ai.errors.notEnabled');
+}
+
 function statusOf(error: unknown): number | undefined {
   if (isApiError(error)) return error.statusCode;
   if (error instanceof ChatStreamError) return error.statusCode;

@@ -10,6 +10,9 @@ from app.domain.models.location_assignment import LocationAssignment
 
 class ArangoLocationAssignmentRepository(BaseArangoRepository[LocationAssignment], ILocationAssignmentRepository):
     _model_cls = LocationAssignment
+    #: Every assignment belongs to one tenant's membership; a base list read
+    #: without a ``tenant_key`` raises (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.LOCATION_ASSIGNMENTS)

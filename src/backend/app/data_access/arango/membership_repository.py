@@ -52,6 +52,10 @@ FOR record IN @@records
 
 class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRepository):
     _model_cls = Membership
+    #: Every membership belongs to one tenant. The per-account reads
+    #: (``list_by_user``) span tenants on purpose and are hand-written; only the
+    #: base list reads are gated (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.MEMBERSHIPS)

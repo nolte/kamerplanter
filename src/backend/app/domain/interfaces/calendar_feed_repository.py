@@ -24,6 +24,7 @@ class ICalendarFeedRepository(ABC):
     def list_by_user(
         self,
         user_key: str,
+        *,
         tenant_key: str,
     ) -> list[CalendarFeed]: ...
 
