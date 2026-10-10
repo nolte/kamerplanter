@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -21,6 +21,7 @@ export default function RegisterPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
   const { isLoading, error } = useAppSelector((s) => s.auth);
   // #2132 — which registration the instance offers. Only a hint: the backend
@@ -33,6 +34,16 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   // The token of an e-mail invitation, prefilled from `/register?invitation=…`.
   const [invitationToken, setInvitationToken] = useState(() => params.get('invitation') ?? '');
+
+  // #2162 review W1 — the token is read into the form once; it does not stay in the address bar
+  // (history, screenshots, a shared screen). The form state keeps it.
+  useEffect(() => {
+    if (!params.has('invitation')) return;
+    const rest = new URLSearchParams(params);
+    rest.delete('invitation');
+    const search = rest.toString();
+    navigate({ pathname: location.pathname, search: search ? `?${search}` : '' }, { replace: true });
+  }, [params, navigate, location.pathname]);
   const [localError, setLocalError] = useState('');
   // A refusal of the registration mode is shown in the user's language rather
   // than as the backend's English sentence.

@@ -182,7 +182,10 @@ def client(
     db = _FakeDb(store, member_count)
 
     membership_repo = MagicMock()
-    membership_repo.list_by_tenant.return_value = _members(member_count)
+    # The admin views count in the database (#2131): reading the member list for a
+    # number is the defect, so the list read fails the test instead of answering it.
+    membership_repo.count_active_members.return_value = member_count
+    membership_repo.list_by_tenant.side_effect = AssertionError("member_count must not read the member list")
 
     service = TenantService(
         tenant_repo=ArangoTenantRepository(db),  # type: ignore[arg-type]

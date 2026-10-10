@@ -47,9 +47,17 @@ class SiteService:
         return self._repo.create_site(site)
 
     def update_site(self, key: SiteKey, site: Site, *, tenant_key: str) -> Site:
-        """Rewrite a site of ``tenant_key``; ownership stays with it whatever the body says."""
-        self.get_site(key, tenant_key=tenant_key)
+        """Rewrite a site of ``tenant_key``; ownership stays with it whatever the body says.
+
+        ``weather_source_priority`` is the denormalized view of the site's
+        weather-source selection, written only by ``WeatherSourceService.save_config``
+        (REQ-046 §2.1). The edit body does not carry it, so the rebuilt model held
+        ``[]`` and every site edit erased the view (#2181) — it is taken from the
+        stored site instead.
+        """
+        existing = self.get_site(key, tenant_key=tenant_key)
         site.tenant_key = tenant_key
+        site.weather_source_priority = list(existing.weather_source_priority)
         return self._repo.update_site(key, site)
 
     def delete_site(self, key: SiteKey, *, tenant_key: str) -> bool:
@@ -98,17 +106,26 @@ class SiteService:
         """
         if location.parent_location_key:
             parent = self.get_location(location.parent_location_key, tenant_key=tenant_key)
-            location.depth = parent.depth + 1
-            parent_path = parent.path or parent.name.lower().replace(" ", "_")
-            location.path = f"{parent_path}/{location.name.lower().replace(' ', '_')}"
             location.site_key = parent.site_key
+            self._place_in_tree(location, parent)
         else:
-            location.depth = 0
-            location.path = location.name.lower().replace(" ", "_")
+            self._place_in_tree(location, None)
         self.get_site(location.site_key, tenant_key=tenant_key)
         if location.tank_key:
             self._require_owned_tank(location.tank_key, tenant_key)
         return self._repo.create_location(location)
+
+    @staticmethod
+    def _place_in_tree(location: Location, parent: Location | None) -> None:
+        """Derive ``depth`` and ``path`` from the parent — the fields no request body carries."""
+        segment = location.name.lower().replace(" ", "_")
+        if parent is None:
+            location.depth = 0
+            location.path = segment
+            return
+        location.depth = parent.depth + 1
+        parent_path = parent.path or parent.name.lower().replace(" ", "_")
+        location.path = f"{parent_path}/{segment}"
 
     def update_location(self, key: LocationKey, location: Location, *, tenant_key: str) -> Location:
         """Update a location; the parent and the tank it names are resolved under the tenant (#1872 C4).
@@ -116,8 +133,14 @@ class SiteService:
         The body's ``parent_location_key`` and ``tank_key`` were stored as given —
         only ``site_key`` was checked. A foreign or unknown reference answers 404;
         a location cannot be its own parent.
+
+        ``depth`` and ``path`` are derived as on create: the body does not carry
+        them, so the rebuilt model held ``0`` / ``""`` and every edit turned a nested
+        location into a root without a path (#2181). Descendants keep their stored
+        path when a location is renamed or moved.
         """
         self.get_location(key, tenant_key=tenant_key)
+        parent: Location | None = None
         # The body's site too (#2107): the router used to check it before this call.
         self.get_site(location.site_key, tenant_key=tenant_key)
         if location.parent_location_key:
@@ -128,6 +151,7 @@ class SiteService:
             if parent.site_key != location.site_key:
                 raise ValidationError("A parent location must belong to the same site.")
             self._refuse_parent_cycle(key, parent)
+        self._place_in_tree(location, parent)
         if location.tank_key:
             self._require_owned_tank(location.tank_key, tenant_key)
         return self._repo.update_location(key, location)
@@ -179,9 +203,16 @@ class SiteService:
         return self._repo.create_slot(slot)
 
     def update_slot(self, key: SlotKey, slot: Slot, *, tenant_key: str) -> Slot:
-        """Rewrite a slot of ``tenant_key``; the location it names is resolved under the tenant too (#1871 B1)."""
-        self.get_slot(key, tenant_key=tenant_key)
+        """Rewrite a slot of ``tenant_key``; the location it names is resolved under the tenant too (#1871 B1).
+
+        ``currently_occupied`` is set by placing a plant or a planting run, never by
+        the edit body, which does not carry it: the rebuilt model held ``False`` and
+        every slot edit freed an occupied slot for the next batch placement (#2181).
+        It is taken from the stored slot.
+        """
+        existing = self.get_slot(key, tenant_key=tenant_key)
         self.get_location(slot.location_key, tenant_key=tenant_key)
+        slot.currently_occupied = existing.currently_occupied
         return self._repo.update_slot(key, slot)
 
     def delete_slot(self, key: SlotKey, *, tenant_key: str) -> bool:
