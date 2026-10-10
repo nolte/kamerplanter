@@ -22,6 +22,9 @@ account, the address only when no principal was resolved), or be classified in
 longer names a member fails, and :data:`_EXPECTED_MEMBERS` pins the set so a
 predicate that silently loses a route fails instead of shrinking.
 
+The routers mounted in light mode only (``tests/support/light_mode_routes.py``)
+are walked with the app: the app the suite imports is full mode.
+
 **What it cannot see**: an expensive route that neither uploads nor reaches one
 of the listed providers (a new inference service must be added to the list —
 the pinned member set and this docstring are where a reviewer looks), and the
@@ -36,6 +39,8 @@ from typing import Any
 
 from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute
+
+from tests.support.light_mode_routes import light_only_routers
 
 #: Providers whose service runs a model or renders a document per request.
 _EXPENSIVE_PROVIDER_NAMES = frozenset(
@@ -91,8 +96,8 @@ _CLASSIFIED: dict[str, str] = {
     "GET /api/v1/ai/knowledge-service/health": "a readiness probe of the knowledge service: no LLM call",
     "GET /api/v1/public/ai/health": "a readiness probe of the knowledge service: no LLM call",
     "POST /api/v1/public/ai/ask": (
-        "anonymous light-mode route: there is no account to bucket on; it carries the per-address "
-        "limit AI_PUBLIC_RATE_LIMIT_PER_MIN instead"
+        "light-mode-only route: every caller is the one system user, so a per-user bucket is one "
+        "bucket for the installation; it carries the per-address limit AI_PUBLIC_RATE_LIMIT_PER_MIN"
     ),
     "GET /api/v1/t/{tenant_slug}/diagnosis/symptoms": "reads the symptom catalogue: no LLM call",
     "GET /api/v1/t/{tenant_slug}/glossary/terms": "lists curated terms: no LLM call",
@@ -126,6 +131,7 @@ _EXPECTED_LIMITED = frozenset(
         "POST /api/v1/t/{tenant_slug}/ai/daily-tip/refresh",
         "POST /api/v1/t/{tenant_slug}/ai/explain",
         "POST /api/v1/t/{tenant_slug}/ai/conversations/{conversation_key}/messages",
+        "POST /api/v1/t/{tenant_slug}/ai/knowledge/ask",
         "POST /api/v1/t/{tenant_slug}/glossary/term/{slug}/generate",
         "POST /api/v1/t/{tenant_slug}/diagnosis/analyze",
     }
@@ -158,8 +164,11 @@ def _reaches_expensive_provider(dependant: Dependant) -> bool:
 def _members() -> dict[str, APIRoute]:
     from app.main import app
 
+    routes = list(_leaf_routes(app.router.routes))
+    for prefix, router in light_only_routers():
+        routes += _leaf_routes(router.routes, prefix)
     out: dict[str, APIRoute] = {}
-    for path, route in _leaf_routes(app.router.routes):
+    for path, route in routes:
         if _takes_upload(route.dependant) or _reaches_expensive_provider(route.dependant):
             for method in sorted(route.methods or []):
                 out[f"{method} {path}"] = route
