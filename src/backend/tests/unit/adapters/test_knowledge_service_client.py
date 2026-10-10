@@ -76,68 +76,6 @@ class TestSearch:
             client.search("test")
 
 
-class TestAsk:
-    @patch("app.data_access.external.knowledge_service_client.httpx.post")
-    def test_ask_success(self, mock_post, client):
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "answer": "VPD is the vapor pressure deficit.",
-            "question_type": "factual",
-            "model": "claude-sonnet-4-20250514",
-            "usage": {"prompt_tokens": 200, "completion_tokens": 30},
-            "sources": [
-                {
-                    "source_key": "knowledge_guide:vpd",
-                    "source_type": "knowledge_guide",
-                    "title": "VPD Guide",
-                    "content": "VPD content.",
-                    "score": 0.9,
-                    "metadata": {},
-                    "language": "de",
-                }
-            ],
-        }
-        mock_response.raise_for_status = MagicMock()
-        mock_post.return_value = mock_response
-
-        result = client.ask("What is VPD?", top_k=3, doc_language="de", prompt_language="de")
-
-        assert result["answer"] == "VPD is the vapor pressure deficit."
-        assert result["question_type"] == "factual"
-        assert len(result["sources"]) == 1
-
-        payload = mock_post.call_args[1]["json"]
-        assert payload["question"] == "What is VPD?"
-        assert payload["top_k"] == 3
-        assert payload["doc_language"] == "de"
-        assert payload["prompt_language"] == "de"
-
-    @patch("app.data_access.external.knowledge_service_client.httpx.post")
-    def test_ask_with_context(self, mock_post, client):
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "answer": "Answer.",
-            "model": "test",
-            "usage": {},
-            "sources": [],
-        }
-        mock_response.raise_for_status = MagicMock()
-        mock_post.return_value = mock_response
-
-        context = {"species": "Tomato", "phase": "flowering", "ec": 2.0}
-        client.ask("Help", context=context)
-
-        payload = mock_post.call_args[1]["json"]
-        assert payload["context"] == context
-
-    @patch("app.data_access.external.knowledge_service_client.httpx.post")
-    def test_ask_timeout(self, mock_post, client):
-        mock_post.side_effect = httpx.TimeoutException("Connection timed out")
-
-        with pytest.raises(httpx.TimeoutException):
-            client.ask("test")
-
-
 class TestClassify:
     @patch("app.data_access.external.knowledge_service_client.httpx.post")
     def test_classify_success(self, mock_post, client):
@@ -202,14 +140,14 @@ class TestServiceTokenHeader:
         assert headers["Authorization"] == "Bearer secret-token"
 
     @patch("app.data_access.external.knowledge_service_client.httpx.post")
-    def test_ask_sends_bearer_header(self, mock_post):
+    def test_classify_sends_bearer_header(self, mock_post):
         mock_response = MagicMock()
-        mock_response.json.return_value = {"answer": "a", "model": "m", "usage": {}, "sources": []}
+        mock_response.json.return_value = {"question_type": "factual"}
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
         client = KnowledgeServiceClient(base_url="http://ks:8000", service_token="secret-token")
-        client.ask("q")
+        client.classify("q")
 
         headers = mock_post.call_args[1]["headers"]
         assert headers["Authorization"] == "Bearer secret-token"

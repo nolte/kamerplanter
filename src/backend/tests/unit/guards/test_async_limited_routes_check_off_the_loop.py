@@ -15,8 +15,10 @@ coroutine function**, under whichever ``Limiter`` decorated it — a new async
 route, or a limiter built as a plain ``slowapi.Limiter``, re-opens it. The walk
 reaches leaf routes through the nested ``_IncludedRouter.original_router``
 wrappers (``include_router`` does not flatten) and finds the limiters on the heap
-rather than by import, so one added elsewhere is checked too. A ``def`` route is
-out of the class: FastAPI runs it, check included, in the threadpool.
+rather than by import, so one added elsewhere is checked too. The routers mounted
+in light mode only (``tests/support/light_mode_routes.py``, ``/public/ai/*``) are
+walked as well: the app the suite imports is full mode. A ``def`` route is out of
+the class: FastAPI runs it, check included, in the threadpool.
 
 Non-vacuity: the walk must reach the three async routes the defect was measured
 on, and the detector must flag a route decorated by a plain ``slowapi.Limiter``.
@@ -34,6 +36,7 @@ from fastapi.routing import APIRoute
 from slowapi import Limiter
 
 from app.common.rate_limit import LIMIT_CHECK_OFF_LOOP_ATTRIBUTE
+from tests.support.light_mode_routes import light_only_routers
 
 #: The async limited routes #2048 was measured on; the walk must reach all of them.
 _MEASURED_ROUTES = frozenset(
@@ -80,9 +83,12 @@ def test_every_async_limited_route_checks_its_limit_off_the_loop() -> None:
     from app.main import app
 
     limited = _limited_names()
+    routes = list(_leaf_routes(app.router.routes))
+    for prefix, router in light_only_routers():
+        routes += _leaf_routes(router.routes, prefix)
     async_limited = [
         (path, route)
-        for path, route in _leaf_routes(app.router.routes)
+        for path, route in routes
         if _name(route.endpoint) in limited and inspect.iscoroutinefunction(_handler(route.endpoint))
     ]
     reached = {_name(route.endpoint) for _, route in async_limited}

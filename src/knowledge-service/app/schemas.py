@@ -6,13 +6,17 @@ from pydantic import BaseModel, Field
 
 
 class QuestionContext(BaseModel):
-    """Optional context about the plant/situation."""
+    """Optional context about the plant/situation.
 
-    species: str | None = Field(default=None, description="Plant species name")
-    phase: str | None = Field(default=None, description="Current growth phase")
-    substrate: str | None = Field(default=None, description="Growing medium")
-    ec: float | None = Field(default=None, description="Current EC value")
-    ph: float | None = Field(default=None, description="Current pH value")
+    Bounded like the question (SEC-002, #2175): the values are rendered into the
+    same LLM prompt. The backend bounds them identically; this is the second line.
+    """
+
+    species: str | None = Field(default=None, max_length=100, description="Plant species name")
+    phase: str | None = Field(default=None, max_length=100, description="Current growth phase")
+    substrate: str | None = Field(default=None, max_length=100, description="Growing medium")
+    ec: float | None = Field(default=None, ge=0, le=20, description="Current EC value (mS/cm)")
+    ph: float | None = Field(default=None, ge=0, le=14, description="Current pH value")
 
 
 class KnowledgeChunkResponse(BaseModel):
