@@ -26,12 +26,14 @@ from app.api.v1.ki_assistent.schemas import (
     TipCardSchema,
     TipListResponse,
 )
+from app.api.v1.knowledge.schemas import KnowledgeAskRequest, KnowledgeAskResponse, KnowledgeChunkResponse
 from app.common.auth import get_current_tenant, meets_tenant_role, require_tenant_role
 from app.common.dependencies import get_ai_assistant_service
 from app.common.enums import TenantRole
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
+from app.domain.interfaces.knowledge_service import QuestionContext
 from app.domain.models.ai_assistant import AiResponse, AiTenantSettings, AiTipCard
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.ai_assistant_service import AiAssistantService
@@ -235,6 +237,52 @@ def explain(
         allow_cloud=ai_settings.ai_allow_cloud_providers,
     )
     return _response_schema(response)
+
+
+# ── Knowledge ask ───────────────────────────────────────────────────
+
+
+@router.post("/knowledge/ask", response_model=KnowledgeAskResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
+def ask_knowledge(
+    request: Request,
+    body: KnowledgeAskRequest,
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
+    service: AiAssistantService = Depends(get_ai_assistant_service),
+) -> KnowledgeAskResponse:
+    """RAG question answering over the knowledge base. Consent ``ai_knowledge_question``.
+
+    A question with plant ``context`` additionally needs ``ai_tenant_data_access``.
+    One LLM call per request, admitted like every other generating route here
+    (#2175): rank grower, the stage 1/2 toggle, the consents and the daily AI
+    budget, all before the Knowledge Service is reached; the per-account
+    ``rate_limit_inference`` bounds the minute. Replaces the ungated
+    ``POST /api/v1/knowledge/ask``.
+    """
+    # Only values actually given count as plant context: ``context: {}`` is no
+    # context, and must not be audited as tenant data (I-3).
+    context_values = body.context.model_dump(exclude_none=True) if body.context else {}
+    context = QuestionContext(**context_values) if context_values else None
+    answer = service.ask_knowledge(
+        ctx,
+        question=body.question,
+        top_k=body.top_k,
+        doc_language=body.doc_language,
+        prompt_language=body.prompt_language,
+        context=context,
+        allow_cloud=ai_settings.ai_allow_cloud_providers,
+    )
+    result = answer.result
+    return KnowledgeAskResponse(
+        answer=result.answer,
+        question_type=result.question_type,
+        model=result.model_name,
+        usage=result.usage,
+        sources=[KnowledgeChunkResponse(**chunk.model_dump()) for chunk in result.sources],
+        provider_type=answer.provider_type,
+        uses_cloud_provider=answer.uses_cloud_provider,
+    )
 
 
 # ── Chat (SSE) ──────────────────────────────────────────────────────

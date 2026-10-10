@@ -3,21 +3,26 @@ import { fetchAllPages } from '../paginate';
 import { ApiError } from '../errors';
 import { isLightMode } from '@/config/mode';
 import type {
+  AiConfidence,
   AiConversationSummary,
   AiExplainRequest,
   AiResponse,
+  AiSourceRef,
   AiStatus,
   AiTipCard,
   AiTipListResponse,
   ApiErrorResponse,
+  KnowledgeAskRequest,
+  KnowledgeAskResponse,
 } from '../types';
 
 /**
  * REQ-031 KI-Assistent API layer.
  *
  * Tenant-scoped calls go through the tenant client (`/t/{slug}/ai/...`); the
- * light-mode public knowledge question goes through the plain client
- * (`/public/ai/ask`, no auth, no tenant context — §5.3).
+ * Light-mode knowledge question goes through the plain client
+ * (`/public/ai/ask`, Light system user, no tenant context — §5.3). The Full
+ * mode asks `/t/{slug}/ai/knowledge/ask` (#2175).
  */
 
 const LIGHT_MODE_SLUG = 'mein-garten';
@@ -50,14 +55,6 @@ export async function refreshTips(
     params: { context_type: contextType, context_key: contextKey, language },
   });
   return data;
-}
-
-export async function dismissTip(tipKey: string): Promise<void> {
-  await tenantClient.post(`/ai/tips/${tipKey}/dismiss`);
-}
-
-export async function markTipActedOn(tipKey: string): Promise<void> {
-  await tenantClient.post(`/ai/tips/${tipKey}/acted-on`);
 }
 
 /**
@@ -113,10 +110,6 @@ export async function createConversation(
     language,
   });
   return data;
-}
-
-export async function deleteConversation(key: string): Promise<void> {
-  await tenantClient.delete(`/ai/conversations/${key}`);
 }
 
 /** A single Server-Sent-Event frame parsed from the chat stream. */
@@ -220,10 +213,83 @@ export async function streamChatMessage(
   if (buffer.trim().length > 0) flush(buffer);
 }
 
-/** Light-mode public knowledge question — no auth, no tenant context (§5.3). */
+/**
+ * Light-mode knowledge question — no tenant context (§5.3).
+ *
+ * The route is mounted in the Light mode only and is authenticated as the
+ * Light system user there; the Full mode has no `/public/ai/*` (#2175) and asks
+ * through {@link askTenantKnowledge} instead.
+ */
 export async function publicAsk(question: string, language: 'de' | 'en' = 'de'): Promise<AiResponse> {
   const { data } = await client.post<AiResponse>('/public/ai/ask', { question, language });
   return data;
+}
+
+/**
+ * Full-mode knowledge question — `POST /t/{slug}/ai/knowledge/ask` (#2175).
+ *
+ * Admitted like every generating AI route: rank grower, the garden's AI switch,
+ * the consent `ai_knowledge_question` (plus `ai_tenant_data_access` when
+ * `context` is set) and the daily AI budget.
+ */
+export async function askTenantKnowledge(body: KnowledgeAskRequest): Promise<KnowledgeAskResponse> {
+  const { data } = await tenantClient.post<KnowledgeAskResponse>('/ai/knowledge/ask', body);
+  return data;
+}
+
+/**
+ * What the KI page renders for an answer of either route.
+ *
+ * Narrower than {@link AiResponse} on purpose: the tenant route answers no
+ * confidence, and inventing it would put a claim on the `<AIResponse>` badges
+ * that nothing measured. Its provider type and cloud flag are passed through
+ * when the server sends them (older servers do not). Absent fields fall back to
+ * the component's defaults.
+ */
+export interface KnowledgeAnswer {
+  answer_text: string;
+  sources: AiSourceRef[];
+  model_name: string;
+  provider_type?: string;
+  uses_tenant_data: boolean;
+  uses_cloud_provider?: boolean;
+  confidence?: AiConfidence;
+  language_mismatch_warning?: boolean;
+}
+
+/**
+ * Ask a free-form knowledge question through the route the mode provides.
+ *
+ * The single place the KI page's route is chosen: the Light mode asks
+ * `/public/ai/ask`, the Full mode the tenant route — the public one does not
+ * exist there. No plant context is sent, so the answer never uses tenant data.
+ */
+export async function askKnowledgeQuestion(
+  question: string,
+  language: 'de' | 'en' = 'de',
+): Promise<KnowledgeAnswer> {
+  if (isLightMode) {
+    return publicAsk(question, language);
+  }
+  const data = await askTenantKnowledge({
+    question,
+    doc_language: 'all',
+    prompt_language: language,
+  });
+  return {
+    answer_text: data.answer,
+    sources: data.sources.map((chunk) => ({
+      source_key: chunk.source_key,
+      source_type: chunk.source_type,
+      title: chunk.title,
+      score: chunk.score,
+      language: chunk.language,
+    })),
+    model_name: data.model,
+    provider_type: data.provider_type ?? undefined,
+    uses_tenant_data: false,
+    uses_cloud_provider: data.uses_cloud_provider ?? undefined,
+  };
 }
 
 /**
