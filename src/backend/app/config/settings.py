@@ -196,23 +196,6 @@ class Settings(BaseSettings):
     # REQ-032 Print: base URL for QR codes on plant labels
     app_base_url: str = "http://localhost:5173"
 
-    @field_validator("app_base_url")
-    @classmethod
-    def _app_base_url_is_an_http_url(cls, value: str) -> str:
-        """Refuse an ``APP_BASE_URL`` that is not an absolute ``http(s)://host`` URL (#2226 re-review I3).
-
-        The value bases every link the server hands out - QR codes, the OAuth
-        callback, the iCal subscription URL. Without a scheme (``garden.example``)
-        each of them came out as a relative path, and the iCal URL silently lost
-        its ``https`` upgrade; a start that fails names the variable instead. Not
-        echoed: the message names the expected shape only.
-        """
-        parts = urlsplit(value.strip())
-        if parts.scheme.lower() not in {"http", "https"} or not parts.hostname:
-            msg = "APP_BASE_URL must be an absolute http:// or https:// URL with a host (value withheld)"
-            raise ValueError(msg)
-        return value
-
     perenual_api_key: str = ""
     trefle_api_key: str = ""
     enrichment_http_timeout: int = 30
@@ -1420,5 +1403,37 @@ def report_retention_alias_use(environ: Mapping[str, str] | None = None) -> list
     return found
 
 
+def app_base_url_is_absolute_http(value: str) -> bool:
+    """Whether ``value`` is an absolute ``http://`` or ``https://`` URL with a host."""
+    parts = urlsplit(value.strip())
+    return parts.scheme.lower() in {"http", "https"} and bool(parts.hostname)
+
+
+def report_app_base_url_shape(value: str | None = None) -> bool:
+    """Warn - never fail - when ``APP_BASE_URL`` is not an absolute ``http(s)://host`` URL (#2226 re-review I3).
+
+    The value bases every link the server hands out: QR codes, the OAuth callback,
+    the iCal subscription URL. A start that fails over it would take the whole
+    backend down for a link-shape problem (the precedent: an unresolvable
+    ``HA_URL`` crashed the start), so the start goes on and the operator gets a
+    structured warning naming the variable, never its value. The iCal URL builder
+    adds a missing scheme itself (``tenant_router.public_base_url``).
+
+    Returns whether the value is well-formed.
+    """
+    import structlog  # noqa: PLC0415 — keeps the settings module importable without logging configured
+
+    configured = settings.app_base_url if value is None else value
+    if app_base_url_is_absolute_http(configured):
+        return True
+    structlog.get_logger("app.config.settings").warning(
+        "app_base_url_not_absolute_http",
+        variable="APP_BASE_URL",
+        hint="set it to the public http:// or https:// address with a host; issued links may be broken",
+    )
+    return False
+
+
 settings = load_settings()
 report_retention_alias_use()
+report_app_base_url_shape()

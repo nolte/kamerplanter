@@ -1,3 +1,4 @@
+import re
 from typing import Annotated, Literal
 from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
@@ -93,6 +94,9 @@ def feed_subscription_url(base_url: str, feed_key: str, token: str) -> str:
 #: Hosts a subscription URL may name over plain ``http``: a developer's own machine.
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
+#: A configured base that already names ``http://`` or ``https://``.
+_HTTP_SCHEME = re.compile(r"https?://", re.IGNORECASE)
+
 
 def public_base_url(configured: str) -> str:
     """The base of an issued subscription URL: the configured public URL, ``https`` unless loopback.
@@ -105,10 +109,18 @@ def public_base_url(configured: str) -> str:
     member copies. A plain ``http`` base is raised to ``https`` - a token sent
     over ``http`` is readable on the way - except for ``localhost`` and the
     loopback addresses a development stack runs on.
+
+    A value without an ``http(s)://`` scheme (``garden.example``) is not refused at
+    start (#2226 re-review I3: the settings only warn); it is read as a bare
+    authority and gets ``https`` - or ``http`` for loopback - instead of yielding a
+    relative URL that no calendar app can subscribe to.
     """
-    parts = urlsplit(configured.strip())
-    scheme = parts.scheme.lower()
-    if scheme == "http" and (parts.hostname or "") not in _LOOPBACK_HOSTS:
+    value = configured.strip()
+    if not _HTTP_SCHEME.match(value):
+        value = "//" + value.split("://", 1)[-1].lstrip("/")
+    parts = urlsplit(value)
+    scheme = "http" if (parts.hostname or "") in _LOOPBACK_HOSTS else "https"
+    if parts.scheme.lower() == "https":
         scheme = "https"
     return urlunsplit((scheme, parts.netloc, parts.path.rstrip("/"), "", ""))
 

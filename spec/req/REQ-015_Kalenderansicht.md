@@ -7,7 +7,7 @@ Kategorie: Visualisierung & Integration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React (FullCalendar), iCalendar (RFC 5545)
 Status: Entwurf
-Version: 1.9 (öffentlicher Abruf `feed.ics` wieder eingebunden: einheitliche 404-Antwort, Rate-Limit `RATE_LIMIT_CALENDAR_FEED`, `Cache-Control: no-store`, Abo-URL aus der Routenvorlage, Feld `ical_url` mit `https://`; Security-Review: Feed nur solange sein Eigentümer aktives Mitglied mit aktivem Konto ist, Feeds enden mit der Mitgliedschaft, Leitungsliste `?scope=all`, RFC-5545-Escaping mit Zeilenfaltung, ungenutzter Standortfilter `site_key` entfernt, Abo-URL aus `APP_BASE_URL`, Ereignis-Obergrenze und Rate-Limit je Token; Re-Review: Einzelabruf `GET …/feeds/{key}` nur eigener Feed oder Leitung, Filter-Update ersetzt statt mischt, Unicode-Zeilenumbrüche NEL/LS/PS im Escaping, `APP_BASE_URL` muss `http(s)://` mit Host sein; #2226)
+Version: 1.9 (öffentlicher Abruf `feed.ics` wieder eingebunden: einheitliche 404-Antwort, Rate-Limit `RATE_LIMIT_CALENDAR_FEED`, `Cache-Control: no-store`, Abo-URL aus der Routenvorlage, Feld `ical_url` mit `https://`; Security-Review: Feed nur solange sein Eigentümer aktives Mitglied mit aktivem Konto ist, Feeds enden mit der Mitgliedschaft, Leitungsliste `?scope=all`, RFC-5545-Escaping mit Zeilenfaltung, ungenutzter Standortfilter `site_key` entfernt, Abo-URL aus `APP_BASE_URL`, Ereignis-Obergrenze und Rate-Limit je Token; Re-Review: Einzelabruf `GET …/feeds/{key}` nur eigener Feed oder Leitung, Filter-Update ersetzt statt mischt, Unicode-Zeilenumbrüche NEL/LS/PS im Escaping, `APP_BASE_URL` ohne `http(s)://` warnt beim Start, Abo-URL ergänzt das Schema; #2226)
 ```
 
 ## 1. Business Case
@@ -1650,7 +1650,7 @@ END:VEVENT
 END:VCALENDAR
 ```
 
-**Abo-URL für Kalender-Abonnement:** Die API gibt sie als `ical_url` auf Basis von `APP_BASE_URL` aus, nie aus dem `Host`-Header der Anfrage (Security-Review, v1.9); ein `http://`-Wert wird zu `https://` angehoben, außer für `localhost`, `127.0.0.1` und `::1` (Entwicklung). Ein `APP_BASE_URL` ohne `http://`- oder `https://`-Schema oder ohne Host verhindert den Start des Backends (Re-Review v1.9), statt relative Abo-URLs auszugeben; sie wird aus der Pfadvorlage des Abruf-Endpunkts gebaut, damit ausgegebene URL und Route nicht auseinanderlaufen (#2226). Kalender-Apps, die `webcal://` erwarten, akzeptieren dieselbe URL mit ersetztem Schema.
+**Abo-URL für Kalender-Abonnement:** Die API gibt sie als `ical_url` auf Basis von `APP_BASE_URL` aus, nie aus dem `Host`-Header der Anfrage (Security-Review, v1.9); ein `http://`-Wert wird zu `https://` angehoben, außer für `localhost`, `127.0.0.1` und `::1` (Entwicklung). Ein `APP_BASE_URL` ohne `http://`- oder `https://`-Schema oder ohne Host bricht den Start nicht ab (Re-Review v1.9): Das Backend protokolliert eine Warnung ohne den Wert, und die Abo-URL ergänzt `https://` (Loopback: `http://`), statt eine relative URL auszugeben; sie wird aus der Pfadvorlage des Abruf-Endpunkts gebaut, damit ausgegebene URL und Route nicht auseinanderlaufen (#2226). Kalender-Apps, die `webcal://` erwarten, akzeptieren dieselbe URL mit ersetztem Schema.
 ```
 https://kamerplanter.local/api/v1/calendar/feeds/{feed_id}/feed.ics?token={token}
 ```
