@@ -9,7 +9,7 @@ coverage_areas:
   - Tenant-Switcher in der App-Bar (TenantSwitcher-Komponente)
   - Mitgliederverwaltung (Tab "Mitglieder" in TenantSettingsPage)
   - Einladungssystem — E-Mail-Einladung und Einladungslink
-  - Einladung annehmen (InvitationAcceptPage — /invitations/accept/:token)
+  - Einladung annehmen (InvitationAcceptPage — /invitations/accept?token=…)
   - RBAC-Rollensystem (Admin, Gärtner, Beobachter) — UI-seitige Berechtigungssteuerung
   - Standort-Zuweisungen (AssignmentListPage — /t/{slug}/assignments)
   - Zuweisungsbasierte Write-Kontrolle (sichtbare Bearbeitungs-Buttons je Rolle)

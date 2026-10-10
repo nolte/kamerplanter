@@ -377,6 +377,14 @@ class Settings(BaseSettings):
     #: value removes nobody; only the next creation is refused (422 ``SERVICE_ACCOUNT_LIMIT_REACHED``).
     tenant_max_service_accounts: int = Field(default=20, ge=1)
 
+    #: #2162 review W-1 — how many e-mail invitations one account may issue in 24 hours, across all its
+    #: tenants. Every e-mail invitation mails an address the inviter names and does not have to own, and
+    #: any account holds ``management`` in the tenants it founds (``POST /tenants``): without a ceiling the
+    #: invitation route is an open mail relay. Counted from the stored invitations, so it holds across
+    #: replicas and restarts; the next one is refused with ``429 RATE_LIMIT_EXCEEDED`` before anything is
+    #: stored or mailed. The per-minute burst is ``rate_limit_invitation_email``.
+    tenant_invitation_emails_per_day: int = Field(default=50, ge=1)
+
     #: E2E only (#1155) — email of a second, platform-admin account to seed.
     #:
     #: The full-mode E2E suite needs an account that may mutate the global
@@ -766,6 +774,11 @@ class Settings(BaseSettings):
     #: account's address is a rare, deliberate act; a handful of attempts an hour
     #: covers a typo plus a change of mind.
     rate_limit_email_change: str = "5/hour"
+    #: ``POST /api/v1/tenants/{slug}/invitations/email`` (#2162 review W-1), per account
+    #: (``user_rate_limit_key``). Like ``rate_limit_email_change`` every call mails an address the
+    #: caller names; inviting a handful of people in a row is the legitimate burst. The daily
+    #: ceiling per account is ``tenant_invitation_emails_per_day``.
+    rate_limit_invitation_email: str = "10/minute"
     #: ``POST /api/v1/t/{slug}/notifications/test`` (REQ-030), per client address.
     #:
     #: **Why there is a limit at all.** The route's docstring claimed "Rate limited

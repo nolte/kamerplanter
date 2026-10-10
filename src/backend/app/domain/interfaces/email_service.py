@@ -40,6 +40,19 @@ class IEmailService(ABC):
         msg = f"{self.__class__.__name__} does not support e-mail change mails"
         raise NotImplementedError(msg)
 
+    def send_invitation_email(self, to_email: str, token: str, frontend_url: str) -> None:
+        """Mail an e-mail invitation's accept link (#2162, REQ-024 §1a.2). Default raises NotImplementedError.
+
+        The link opens ``{frontend_url}/invitations/accept?token={token}``; whoever signs in there with
+        the invited, proven address joins the tenant (#2115). The address was typed by the inviter and
+        nobody has proven it, so the mail carries no requester-chosen text - not the tenant's name, not
+        the inviter's (#1856). The token joins a tenant: never logged outside a local debug setup (#1795).
+        Raises :class:`EmailUndeliverableError` (or ``OSError``) when the mail does not leave: the caller
+        tells the inviter so instead of claiming it was sent.
+        """
+        msg = f"{self.__class__.__name__} does not support invitation emails"
+        raise NotImplementedError(msg)
+
     def send_step_up_code_email(self, to_email: str, display_name: str, code: str, purpose: str) -> None:
         """Send the one-time step-up code (#1815). Default raises NotImplementedError.
 

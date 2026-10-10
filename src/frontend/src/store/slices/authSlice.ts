@@ -4,6 +4,7 @@ import * as authApi from '@/api/endpoints/auth';
 import type { UserProfile } from '@/api/types';
 import { isApiError, parseApiError } from '@/api/errors';
 import { releasePushSubscription } from '@/lib/pushSubscription';
+import { forgetPendingInvitation } from '@/utils/pendingInvitation';
 
 interface AuthState {
   user: UserProfile | null;
@@ -84,6 +85,9 @@ export const fetchProfile = createAsyncThunk('auth/fetchProfile', async () => {
  * the tab — the user asked to leave, and the refresh cookie dies at its expiry.
  */
 export const logoutUser = createAsyncThunk('auth/logout', async () => {
+  // #2162 review S-2 — an invitation remembered across a sign-in belongs to the account that is
+  // leaving; the next account signing in in this tab must not be taken to it.
+  forgetPendingInvitation();
   await releasePushSubscription({ notifyServer: true });
   await authApi.logout();
 });

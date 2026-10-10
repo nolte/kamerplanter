@@ -1,4 +1,5 @@
 import { tenantClient } from '../client';
+import { fetchAllPages } from '../paginate';
 import type {
   Equipment,
   EquipmentCreate,
@@ -75,13 +76,23 @@ export async function deleteConnection(key: string): Promise<void> {
 
 // ── References & transactions ──────────────────────────────────────────────
 
+/**
+ * Every InvenTree reference of the tenant. The route returns one bounded page since MT-035 (#2131); every page is read
+ * so the reference list stays complete.
+ */
 export async function listReferences(
   entityCollection?: string,
 ): Promise<InvenTreeReference[]> {
-  const { data } = await tenantClient.get<InvenTreeReference[]>(`${INV}/references`, {
-    params: entityCollection ? { entity_collection: entityCollection } : undefined,
+  return fetchAllPages(async (offset, limit) => {
+    const { data } = await tenantClient.get<InvenTreeReference[]>(`${INV}/references`, {
+      params: {
+        offset,
+        limit,
+        ...(entityCollection ? { entity_collection: entityCollection } : {}),
+      },
+    });
+    return data;
   });
-  return data;
 }
 
 export async function listTransactions(status?: string): Promise<StockTransaction[]> {

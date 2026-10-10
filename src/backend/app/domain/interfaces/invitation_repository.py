@@ -47,6 +47,13 @@ class IInvitationRepository(ABC):
         """
 
     @abstractmethod
+    def count_email_invitations_issued_since(self, invited_by_user_key: str, since_iso: str) -> int:
+        """How many ``email`` invitations *invited_by_user_key* issued at or after *since_iso* (#2162 review W-1).
+
+        Every status counts - a revoked or accepted invitation was mailed all the same.
+        """
+
+    @abstractmethod
     def mark_accepted_if_pending(self, key: str, fields: dict[str, Any]) -> Invitation | None:
         """Set *key* to ``accepted`` with *fields*, only while it is still ``pending``; else ``None``.
 
