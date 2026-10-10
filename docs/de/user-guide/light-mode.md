@@ -137,6 +137,11 @@ Ein vollständiger Hin-und-her-Wechsel ist möglich und sicher. Alle Daten bleib
 ??? question "Ich habe den Light-Modus aktiviert, aber der Login-Screen erscheint noch. Warum?"
     Stelle sicher, dass du sowohl `KAMERPLANTER_MODE=light` (Backend) als auch `VITE_KAMERPLANTER_MODE=light` (Frontend) gesetzt hast und beide Dienste neu gestartet wurden. Das Frontend-Build liest die Variable beim Start aus — ein Neustart des Frontend-Containers ist erforderlich.
 
+??? question "Darf der KI-Assistent im Light-Modus ein Cloud-Sprachmodell nutzen?"
+    Nein. Im Light-Modus gibt es keine Einwilligungen, also darf keine KI-Frage an einen Cloud-Anbieter gehen. Welches Sprachmodell antwortet, legst du am Knowledge Service mit `LLM_PROVIDER` fest — nicht am Backend.
+
+    Kamerplanter prüft diese Kombination **nicht**: Läuft der Knowledge Service mit `LLM_PROVIDER=anthropic`, gehen auch im Light-Modus alle KI-Fragen an Anthropic. Nutze im Light-Modus `LLM_PROVIDER=ollama` oder `LLM_PROVIDER=openai_compatible` mit einer `LLM_API_URL` in deinem eigenen Netz — oder schalte die KI-Funktionen mit `AI_FEATURES_ENABLED=false` ab. Details: [KI-Provider einrichten](ai-providers.md).
+
 ??? question "Kann ich im Light-Modus die Sprache und Erfahrungsstufe ändern?"
     Ja. Die **Kontoeinstellungen** sind im Light-Modus eingeschränkt verfügbar: Du kannst Sprache, Zeitzone und Erfahrungsstufe anpassen. Passwort, Sessions und Datenschutz-Einstellungen sind ausgeblendet, weil sie im Light-Modus nicht relevant sind.
 

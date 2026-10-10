@@ -85,6 +85,8 @@ _READERS: dict[str, tuple[str, str]] = {
     "app/mcp_server/tools/species.py:GetSpeciesInfo.run": (_RESOLVES, ""),
     "app/mcp_server/tools/phases.py:AssignSpeciesPhaseSequence._resolve": (_RESOLVES, ""),
     "app/tasks/reference_contribution_tasks.py:_evaluate": (_RESOLVES, ""),
+    # #2174: the interactive contribution resolves the species under the contributor's tenant.
+    "app/domain/services/reference_image_service.py:ReferenceImageService.contribute_user_reference": (_RESOLVES, ""),
     "app/domain/engines/companion_planting_engine.py:CompanionPlantingEngine.check_compatibility": (
         _LISTED,
         _NEIGHBOUR_NAME_REASON,

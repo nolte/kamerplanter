@@ -179,6 +179,14 @@ jobs:
         # ubuntu runner image ships.
         run: scripts/ci/assert_chart_contracts.sh helm/kamerplanter
 
+      - name: Probe the edge body limit in the production nginx
+        # #2144 (G-10). Runs the image's and the chart's nginx configuration in
+        # the nginx image the frontend Dockerfile pins and posts three bodies:
+        # 2 MiB and the largest upload must be forwarded, 30 MiB must answer 413.
+        # Same script as `task verify:proxy-body-limit`. Needs docker (the runner
+        # image ships it), helm and yq (above).
+        run: scripts/ci/probe_proxy_body_limit.sh helm/kamerplanter
+
       - name: Upload rendered manifests
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()

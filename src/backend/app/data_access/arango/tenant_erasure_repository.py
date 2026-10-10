@@ -15,6 +15,10 @@ from app.domain.models.tenant_erasure import TenantErasureRecord
 
 class ArangoTenantErasureRepository(BaseArangoRepository[TenantErasureRecord], ITenantErasureRepository):
     _model_cls = TenantErasureRecord
+    #: Each record names the one tenant it erases. The erasure beat reads
+    #: through :meth:`list_due` and by key; a base list read without a
+    #: ``tenant_key`` (or ``all_tenants=True``) raises (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.TENANT_ERASURE_RECORDS)

@@ -15,7 +15,7 @@ A tenant is the central isolation container for all resources: plants, locations
 
 ### Personal Tenant
 
-When you register, the system automatically creates your **personal tenant**. You are automatically the admin there. All resources you create in Kamerplanter land in your personal tenant by default.
+When you register, the system automatically creates your **personal tenant**. You automatically hold the **Lead** role there plus both scopes (**Management** and **Technical**). All resources you create in Kamerplanter land in your personal tenant by default.
 
 !!! info "Personal data stays private"
     Your personal tenant is completely isolated from all other tenants. No member of another tenant can see your private houseplants or balcony garden — even if you belong to the same community garden.
@@ -83,13 +83,13 @@ What a widget shows, by contrast, always comes from the currently active garden:
 
 4. Click **Create**
 
-You are automatically the admin of the new tenant.
+You are automatically **Lead** of the new tenant and hold both scopes (**Management** and **Technical**).
 
 ---
 
 ## Inviting Members
 
-As an admin you can invite members in three ways:
+With the **Management** scope you can invite members in three ways:
 
 !!! note "When the tenant is full, the invitation stays open"
     Once your tenant has reached its member limit, nobody else can join — neither through an email invitation nor through an invitation link. The invitation does not expire because of it: as soon as a seat is free (somebody leaves the tenant) or you raise the limit, it can be accepted. Members who are already in always stay — even if you lower the limit below the current number of members. <!-- Issue #2133 -->
@@ -98,10 +98,13 @@ As an admin you can invite members in three ways:
 
 1. Navigate to **Settings** > **Members** > **Invite**
 2. Enter the member's email address
-3. Choose the role (Admin, Grower, Viewer)
+3. The invitation grants the **Viewer** role — you give the member another role after they join, under [Changing Roles](#changing-roles)
 4. Click **Send Invitation**
 
-The system sends an invitation email. After clicking the link in the email, the user is added to your tenant with the pre-selected role — whether they register fresh or already have an account.
+Kamerplanter sends the address an email with a link to the acceptance page; it is valid for 7 days. Whoever opens it signs in — or registers with exactly this address —, confirms with **Accept invitation** on the acceptance page and is added to your tenant with the pre-selected role. If they are not signed in yet when they open it, they land on the acceptance page again after signing in (also through a sign-in provider). The email names neither you nor the tenant — the invited person only sees what it is about after signing in.
+
+!!! note "When the email does not go out"
+    After you send it, the page tells you whether the email went out. If the installation has no email delivery set up, or sending fails, the invitation still exists: the page then shows you the invitation link with a button to copy it — pass it on yourself, for example by messenger. Even then, only someone signing in with the invited address can accept it. Whether an installation sends email is up to your operator (`EMAIL_ADAPTER`). <!-- Issue #2162, REQ-024 AK-06 -->
 
 !!! warning "The invitation is valid for the invited address only"
     An email invitation can only be accepted by the account whose email address is the invited one **and** has been confirmed. Forwarding the link does not hand the membership to anyone: another account — or the same account with a still unconfirmed address — gets `403`, the invitation stays open and nothing is created. When you are invited, confirm your account's address first and sign in with the account that carries it. An **invitation link** (method 2), by contrast, is meant to be shared and stays valid for any signed-in account. <!-- Issue #2115, REQ-024 AK-61 -->
@@ -126,20 +129,25 @@ For associations and organisations with their own identity provider (Keycloak, e
 
 ## Roles and Permissions
 
-Each member has exactly one role per tenant. The role determines what they are allowed to do:
+Each member has exactly one role per tenant: **Lead**, **Grower** or **Viewer**. The role determines what they may do with the garden's data. Independently of it, a member can hold scopes: **Management** (members, invitations, settings) and **Technical** (Home Assistant, sensors, import). There is no "Admin" role in a tenant any more.
 
 ### Role Comparison
 
-| Task | Admin | Grower | Viewer |
-|------|:-----:|:------:|:------:|
+| Task | Lead | Grower | Viewer |
+|------|:----:|:------:|:------:|
 | Read everything | Yes | Yes | Yes |
 | Create/edit plants | Yes | Yes | No |
 | Create/edit locations | Yes | Yes | No |
 | Create tasks | Yes | Yes | No |
 | Document harvests | Yes | Yes | No |
-| Invite members | Yes | No | No |
-| Change roles | Yes | No | No |
-| Change tenant settings | Yes | No | No |
+| Delete data | Yes | No | No |
+| Choose a location's weather sources | Yes | No | No |
+
+| Task | Who may do it? |
+|------|----------------|
+| Invite members | **Management** scope, regardless of role |
+| Change roles | **Management** scope, regardless of role |
+| Change tenant settings | **Management** scope, regardless of role |
 
 The full permission overview — including platform roles, service accounts, and the question of who sees which data — is available under [Roles, Tenants & Visibility](../reference/roles-and-permissions.md).
 
@@ -157,7 +165,7 @@ The full permission overview — including platform roles, service accounts, and
     Whoever changes a member's role or removes a member enters **their own** current password for it — with no local password, they sign in again at their identity provider instead, or, only when they sign in exclusively through GitHub or Apple, have a code e-mailed. Reason: the role decides what someone may change and delete in the tenant, and removing a member locks that person out — the last lead too. Re-sending a role unchanged needs no confirmation. Deleting a plot attribution does not: it locks nobody out of the tenant.
 
 !!! warning "You cannot raise your own role"
-    Even with the management scope you cannot raise the role of your **own** membership — lowering it stays possible. In the technical `platform` tenant the lead role is the platform role; there, only someone who holds it hands it out, by role change as by invitation. In every other tenant the management scope may still appoint a lead. <!-- Issue #2078, REQ-024 AK-58 -->
+    Even with the management scope you cannot raise the role of your **own** membership — lowering it stays possible. In the technical `platform` tenant the lead role is the platform role; there, only someone who holds it hands it out, by role change as by invitation. This is checked again on acceptance: a lead invitation into `platform` whose sender is no longer lead there cannot be accepted. In every other tenant the management scope may still appoint a lead. <!-- Issue #2078, #2180, REQ-024 AK-58 -->
 
 ---
 
@@ -169,7 +177,7 @@ A garden is a shared working set: all growers tend all plants and tasks. A plot 
 - **Communal areas** such as compost or greenhouse need no attribution at all.
 - **Viewers** read everything and change nothing — regardless of attributions.
 
-The practical benefit: when someone drops out at short notice, another member steps in without an admin having to change anything first.
+The practical benefit: when someone drops out at short notice, another member steps in without someone with the Management scope having to change anything first.
 
 !!! tip "Keeping something truly private"
     Separation always runs along the garden boundary, never inside a garden. Whatever concerns only you belongs in your personal garden — or in another garden, which you can create at any time.
@@ -186,7 +194,7 @@ The practical benefit: when someone drops out at short notice, another member st
 
 ### Bulletin Board
 
-The bulletin board will be a shared message area for all tenant members: members will be able to publish posts, and admins will be able to pin and delete posts.
+The bulletin board will be a shared message area for all tenant members: members will be able to publish posts, and the lead will be able to pin and delete posts.
 
 !!! example "Typical bulletin board posts (concept)"
     - "Slug alert! Please set out beer traps."
@@ -195,17 +203,17 @@ The bulletin board will be a shared message area for all tenant members: members
 
 ### Watering Rotation
 
-A rotation feature is planned for distributing watering duties among members: an interval (e.g. weekly) and the participating members will be configurable, and the system will remind the responsible member each week. Members will be able to swap duties among themselves without involving the admin.
+A rotation feature is planned for distributing watering duties among members: an interval (e.g. weekly) and the participating members will be configurable, and the system will remind the responsible member each week. Members will be able to swap duties among themselves without involving the lead.
 
 ### Shared Shopping List
 
-A shared shopping list is planned: all growers will be able to add entries and tick them off, and admins will be able to archive lists.
+A shared shopping list is planned: all growers will be able to add entries and tick them off, and the lead will be able to archive lists.
 
 ---
 
 ## Tenant Settings
 
-As an admin, you can access all settings under **Settings** (gear icon).
+With the **Management** scope, you can access all settings under **Settings** (gear icon).
 
 ### Key Settings
 
@@ -223,16 +231,16 @@ As an admin, you can access all settings under **Settings** (gear icon).
 
 ## Leaving a Tenant
 
-You can leave a tenant as long as you are not the only admin:
+You can leave a tenant as long as you are not the only member with the **Management** scope:
 
 1. Navigate to **Settings** > **Membership** > **Leave Tenant**
 2. Confirm
 
 !!! note "Tasks and reminders"
-    When you leave a tenant — or an admin removes you — you are no longer assigned to any task there: the tasks stay in the tenant, but without an assignee. The daily care reminders and the daily summary go to active members only; a summary holds the tasks of **one** tenant only (with several tenants you get one per tenant). <!-- Issue #2114, REQ-024 AK-62 -->
+    When you leave a tenant — or someone with the Management scope removes you — you are no longer assigned to any task there: the tasks stay in the tenant, but without an assignee. The daily care reminders and the daily summary go to active members only; a summary holds the tasks of **one** tenant only (with several tenants you get one per tenant). <!-- Issue #2114, REQ-024 AK-62 -->
 
-!!! warning "If you are the only admin"
-    If you are the only admin, you must either promote another member to admin first, or delete the tenant — the latter additionally requires that you hold both the Lead role and the Management scope there. See [Roles, Tenants & Visibility](../reference/roles-and-permissions.md) for details. <!-- Issue #1791 -->
+!!! warning "If you are the only member with Management"
+    If you are the only member with the Management scope, you must either hand it to another member first, or delete the tenant — the latter additionally requires that you hold both the Lead role and the Management scope there. See [Roles, Tenants & Visibility](../reference/roles-and-permissions.md) for details. <!-- Issue #1791 -->
 
 ---
 
@@ -253,8 +261,8 @@ You can leave a tenant as long as you are not the only admin:
 
     If not everything could be removed immediately, the deletion stays recorded and is retried automatically every day until it is complete. Your personal tenant and your memberships in other tenants are not affected by such a deletion.
 
-??? question "Can tenant admins see my personal houseplants?"
-    No. Your personal tenant is completely isolated from all other tenants. Even if an admin has more rights in the community garden, they can never see data in your personal tenant.
+??? question "Can the lead of a community garden see my personal houseplants?"
+    No. Your personal tenant is completely isolated from all other tenants. Even if someone is lead or holds scopes in the community garden, they can never see data in your personal tenant.
 
 ---
 

@@ -108,7 +108,7 @@ class _Db:
 @pytest.mark.parametrize(
     "call",
     [
-        lambda db: ArangoActivityRepository(db).get_all(filters={_HOSTILE: 1}),
+        lambda db: ArangoActivityRepository(db).get_all(filters={_HOSTILE: 1}, tenant_key="t1"),
         lambda db: ArangoFertilizerRepository(db).get_all(filters={_HOSTILE: 1}, tenant_key="t1"),
         lambda db: ArangoNutrientPlanRepository(db).get_all(filters={_HOSTILE: 1}, tenant_key="t1"),
         lambda db: ArangoPlantingRunRepository(db).get_all(filters={_HOSTILE: 1}, tenant_key="t1"),

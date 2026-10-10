@@ -48,7 +48,7 @@ class _FakeCalendarService:
         feed.token = "tok"
         return feed
 
-    def get_feed(self, key: str, tenant_key: str = "") -> CalendarFeed:
+    def get_feed(self, key: str, *, tenant_key: str) -> CalendarFeed:
         return CalendarFeed(
             _key=key,
             tenant_key="personal",
@@ -57,7 +57,7 @@ class _FakeCalendarService:
             filters=CalendarFeedFilters(categories=[CalendarEventCategory.HARVEST]),
         )
 
-    def update_feed(self, key: str, feed: CalendarFeed) -> CalendarFeed:
+    def update_feed(self, key: str, feed: CalendarFeed, *, tenant_key: str) -> CalendarFeed:
         feed.key = key
         feed.token = "tok"
         return feed

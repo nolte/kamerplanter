@@ -99,14 +99,13 @@ def list_all_tenants(
     """List tenants with member counts, newest first (paginated, MT-035). Platform admin only.
 
     Routes through ``TenantService.list_all_tenants`` (#1019). The per-tenant
-    active-member count is derived from ``list_members``, the same way
-    ``update_tenant`` already does it — the router no longer hand-writes the
-    tenant/member-count AQL.
+    active-member count is ``count_active_members`` — one ``COLLECT WITH COUNT``
+    per tenant, not the tenant's whole member list (#2131).
     """
     results: list[AdminTenantResponse] = []
     for tenant in tenant_service.list_all_tenants(offset=pagination.offset, limit=pagination.limit):
         tenant_key = tenant.key or ""
-        member_count = sum(1 for member in tenant_service.list_members(tenant_key) if member.is_active)
+        member_count = tenant_service.count_active_members(tenant_key)
         results.append(
             AdminTenantResponse(
                 key=tenant_key,
@@ -230,7 +229,7 @@ def update_tenant(
         else tenant_service.get_tenant(key)
     )
 
-    member_count = sum(1 for member in tenant_service.list_members(key) if member.is_active)
+    member_count = tenant_service.count_active_members(key)
 
     return AdminTenantResponse(
         key=tenant.key or key,
@@ -394,7 +393,7 @@ def cancel_tenant_erasure(
         origin="platform_admin",
         client_ip=client_ip,
     )
-    member_count = sum(1 for member in tenant_service.list_members(key) if member.is_active)
+    member_count = tenant_service.count_active_members(key)
     return AdminTenantResponse(
         key=tenant.key or key,
         name=tenant.name,
@@ -529,10 +528,11 @@ def get_erasure(
 )
 def list_tenant_members(
     tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
+    pagination: PaginationParams = Depends(get_pagination),
     _user: User = Depends(require_platform_admin),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
-    """List all members of a tenant. Platform admin only.
+    """List a tenant's members, oldest membership first (paginated, MT-035). Platform admin only.
 
     Routes through ``TenantService.get_tenant`` (existence, 404) and
     ``list_members`` (#1019) — the member/user join now lives in the membership
@@ -549,7 +549,7 @@ def list_tenant_members(
             is_active=member.is_active,
             joined_at=member.joined_at,
         )
-        for member in tenant_service.list_members(tenant_key)
+        for member in tenant_service.list_members(tenant_key, offset=pagination.offset, limit=pagination.limit)
     ]
 
 

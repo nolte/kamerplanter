@@ -77,6 +77,19 @@
       "notConfigured": {
         "title": "AI Assistant unavailable",
         "description": "AI features are not enabled on this instance. Contact your administrator if you would like to use them."
+      },
+      "consent": {
+        "title": "Consent for AI knowledge questions",
+        "body": "So that the AI assistant can answer your question, the text you enter is sent to the knowledge base and the AI language model connected to it.",
+        "noPlantData": "Data about your plants (species, phase, substrate, EC/pH) is not included.",
+        "revoke": "You can revoke this consent at any time in the",
+        "privacyLink": "privacy settings",
+        "accept": "Consent and send question",
+        "decline": "Not now",
+        "declined": "Without your consent, the AI assistant cannot answer the question. You can ask it again at any time.",
+        "grantFailed": "Your consent could not be saved. Please try again.",
+        "stillMissing": "Your consent was saved, but the question was still refused. Check the consent in the privacy settings and try again.",
+        "otherPurpose": "This question needs a further consent, for example for processing by a cloud AI provider. You can grant it in the privacy settings."
       }
     },
     "environmentControl": {
@@ -741,7 +754,12 @@
       "erasurePreviewError": "We could not check which personal gardens are affected. Your personal gardens are deleted with everything in them in any case, even when other members use them.",
       "erasurePreviewOrgHeading": "Your organizations after your account is deleted:",
       "erasurePreviewOrgManagementPasses": "In “{{name}}” you are the last person with the management right. The longest-serving lead takes over management; the members are notified.",
-      "erasurePreviewOrgOrphaned": "In “{{name}}” nobody is left who can administer the organization. It is deleted with all its data after a grace period (90 days by default); the members and the operators are notified."
+      "erasurePreviewOrgOrphaned": "In “{{name}}” nobody is left who can administer the organization. It is deleted with all its data after a grace period (90 days by default); the members and the operators are notified.",
+      "consentRevoke": "Revoke",
+      "consentRevokeAria": "Revoke consent “{{label}}”",
+      "consentRevokeFailed": "The consent could not be revoked. Please try again.",
+      "consentRevokedStatus": "Consent revoked.",
+      "consentPurposeUnnamed": "Processing purpose without a name"
     },
     "activities": {
       "title": "Activities",
@@ -1124,7 +1142,8 @@
       "adminAddMemberStepUpTitle": "Confirm adding the member",
       "adminAddMemberStepUpDescription": "You are adding \"{{name}}\" to the organization \"{{tenant}}\" as \"{{role}}\". The role decides what they may change and delete in the organization – a lead may also delete it. So you confirm this with your own credentials.",
       "adminAddMemberStepUpConfirm": "Add member",
-      "providerUnlinked": "Sign-in method removed"
+      "providerUnlinked": "Sign-in method removed",
+      "pendingInvitation": "You opened an invitation. Sign in with the invited email address – or register with it – and the invitation is accepted afterwards."
     },
     "tenants": {
       "selectTenant": "Select Garden",
@@ -1146,7 +1165,7 @@
       "inviteEmail": "Email address",
       "sendInvitation": "Send Invitation",
       "createLink": "Invitation Link",
-      "invitationSent": "Invitation sent",
+      "invitationSent": "Invitation emailed",
       "linkCopied": "Invitation link copied to clipboard",
       "invitationType": "Type",
       "invitationStatus": "Status",
@@ -1157,7 +1176,16 @@
       "noInvitations": "No pending invitations.",
       "inviteNewMember": "Invite new member",
       "removeMember": "Remove member",
-      "revokeInvitation": "Revoke invitation"
+      "revokeInvitation": "Revoke invitation",
+      "invitationNotDeliveredHint": "The invitation exists, but the email did not go out (this installation has no email delivery set up, or sending failed). Pass the link on to the invited person yourself – only someone signing in with exactly this email address can accept it. It is valid until {{date}}.",
+      "invitationLinkHint": "Share this link with the people you want to invite. Anyone who opens it while signed in becomes a member – so only pass it on deliberately. It is valid until {{date}}.",
+      "invitationAcceptLink": "Invitation link",
+      "copyInvitationLink": "Copy link",
+      "linkCopyFailed": "Copying is not possible – select the link and copy it yourself",
+      "invitationConfirmTitle": "You have been invited to a garden",
+      "invitationConfirmHint": "With “Accept invitation” you become a member with the account you are signed in with right now.",
+      "invitationAccept": "Accept invitation",
+      "invitationAskForNew": "Please ask the person who invited you for a new invitation."
     },
     "dashboard": {
       "title": "Dashboard",
@@ -2104,10 +2132,14 @@
         "saveToGallery": "Reuse photo as gallery image",
         "saveToGalleryHelper": "The photo you captured during identification is added as the first image of this plant's gallery, so you don't have to take a second one.",
         "useAsReference": "Use as recognition reference",
-        "useAsReferenceHint": "The photo is processed locally and improves automatic plant recognition for this species. It never leaves your instance.",
-        "useAsReferenceHelper": "Only available with self-hosted recognition active. The photo is added to this species' recognition base without permanently storing the original image.",
+        "useAsReferenceHint": "The photo is processed on this installation. Only a numerical fingerprint (embedding) is stored, not the photo itself. After review by the administrators, it improves recognition of this species for every garden on this installation.",
+        "useAsReferenceHelper": "Only available with self-hosted recognition active. Switching this on and saving gives your consent to use the photo as a recognition reference.",
         "uploadFailed": "The plant was created, but the photo could not be added to the gallery.",
-        "referenceFailed": "The plant was created, but the photo could not be saved as a recognition reference."
+        "referenceFailed": "The plant was created, but the photo could not be saved as a recognition reference.",
+        "referenceConsentNotice": "By saving, you consent to a numerical fingerprint (embedding) of this photo being added to the shared recognition index once the administrators have reviewed and approved it. It then helps every garden on this installation recognise this species. The photo itself is not stored and does not leave the installation.",
+        "referenceConsentRevoke": "You can revoke it at any time in the",
+        "referenceConsentPrivacyLink": "privacy settings",
+        "referenceConsentFailed": "Your consent to use the photo as a recognition reference could not be saved. The plant has not been created yet. Try again or switch the reference use off."
       },
       "editIntro": "Edit the associations of this plant. Instance ID and species cannot be changed.",
       "info": "Info",
@@ -4683,6 +4715,8 @@
       "testUnreachable": "Source not reachable.",
       "previewValues": "min {{min}} °C / max {{max}} °C / rain {{rain}} mm",
       "attribution": "Data sources: Deutscher Wetterdienst (DWD, GeoNutzV) · Weather data by Open-Meteo.com (CC BY 4.0) · OpenWeatherMap under their terms of use.",
+      "readOnlyHint": "The weather sources of this location are chosen by your garden's lead. Here you can see which sources are used, in which order.",
+      "readOnlyEmpty": "No weather source is set up for this location yet. Your garden's lead can add one.",
       "gpsRequiredHint": "Weather sources can be configured for this location once GPS coordinates are stored.",
       "haEntitiesTechnicalOnly": "Only members with the “Technical” scope can pick Home Assistant entities. Ask someone with that scope to set up the source – an existing source stays unchanged."
     },

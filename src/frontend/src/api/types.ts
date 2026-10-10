@@ -189,6 +189,13 @@ export interface ApiErrorDetail {
    * `"15"`). Set only on the `STEP_UP_LOCKED` detail of a 429 (#1816).
    */
   retry_after_minutes?: string;
+  /**
+   * The consent purpose a `403 CONSENT_REQUIRED` refusal names, e.g.
+   * `ai_knowledge_question` (field `consent`). Machine-readable, so a caller
+   * need not parse the English `message`; absent on older servers and on every
+   * other error.
+   */
+  purpose?: string | null;
 }
 
 // Botanical Families
@@ -4296,6 +4303,20 @@ export interface InvitationCreate {
   role: TenantRole;
 }
 
+/**
+ * What creating an invitation answers (#2162). `accept_url` is the accept page's link with the
+ * token — the one an e-mail invitation mails and the one the inviter shares. `delivered` says
+ * whether the e-mail invitation's mail left (`null` for a link invitation): when it is `false`
+ * the invitation exists, but nobody received it.
+ */
+export interface InvitationCreated {
+  invitation_key: string;
+  token: string;
+  expires_at: string;
+  accept_url: string;
+  delivered: boolean | null;
+}
+
 export interface InvitationLinkCreate {
   role: TenantRole;
   max_uses?: number;
@@ -6151,6 +6172,57 @@ export interface AiResponse {
   provider_type: string;
   kb_version?: string | null;
   generated_at?: string | null;
+}
+
+/**
+ * Request of `POST /t/{slug}/ai/knowledge/ask` (#2175) — the Full-mode
+ * knowledge question. `context` would additionally need the consent
+ * `ai_tenant_data_access`; the KI page sends none.
+ */
+export interface KnowledgeAskRequest {
+  question: string;
+  top_k?: number;
+  doc_language?: 'de' | 'en' | 'all';
+  prompt_language?: 'de' | 'en';
+  context?: {
+    species?: string;
+    phase?: string;
+    substrate?: string;
+    ec?: number;
+    ph?: number;
+  };
+}
+
+/** One retrieved knowledge chunk of a {@link KnowledgeAskResponse}. */
+export interface KnowledgeChunk {
+  source_key: string;
+  source_type: string;
+  title: string;
+  content: string;
+  score: number;
+  metadata: Record<string, unknown>;
+  language: string;
+}
+
+/** Response of `POST /t/{slug}/ai/knowledge/ask`. */
+export interface KnowledgeAskResponse {
+  answer: string;
+  question_type: string;
+  model: string;
+  usage: Record<string, number>;
+  sources: KnowledgeChunk[];
+  /**
+   * Provider type of the platform's system default provider (`ollama`,
+   * `anthropic`, …) — the Knowledge Service answers with that model, not the
+   * garden's. Optional: older servers do not send it.
+   */
+  provider_type?: string | null;
+  /**
+   * Whether the answer counts as produced by a cloud LLM (classified like the
+   * glossary cache). `null`/absent on older servers — then no cloud label is
+   * claimed.
+   */
+  uses_cloud_provider?: boolean | null;
 }
 
 /** A single tip card. */

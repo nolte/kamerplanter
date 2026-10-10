@@ -25,6 +25,7 @@ import structlog.testing
 from app.config.settings import settings
 from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
+from app.domain.engines.invitation_engine import InvitationEngine
 
 RECIPIENT = "new-owner-7a1c@example.org"
 MARKUP = '<a href="https://evil.example/confirm">Confirm your account</a>'
@@ -116,3 +117,20 @@ def test_the_console_adapter_logs_the_email_change_link_only_under_debug(monkeyp
     assert quiet[0]["url_logged"] is False
     assert loud[0]["email_change_url"] == f"{FRONTEND}/email-change/{TOKEN}"
     assert RECIPIENT not in repr(loud)
+
+
+def test_the_invitation_mail_carries_the_accept_link_and_no_requester_text(smtp: SmtpEmailAdapter) -> None:
+    """#2162: the inviter typed the address and nobody proved it - the #1856 rule, no tenant or inviter name."""
+    smtp.send_invitation_email(RECIPIENT, TOKEN, FRONTEND)
+
+    html = _html()
+    assert f'href="{InvitationEngine.accept_url(FRONTEND, TOKEN)}"' in html
+    assert "{" not in html  # every placeholder was filled
+
+
+def test_the_invitation_link_is_escaped_inside_its_attribute(smtp: SmtpEmailAdapter) -> None:
+    smtp.send_invitation_email(RECIPIENT, 'x"><script>', FRONTEND)
+
+    html = _html()
+    assert "<script>" not in html
+    assert "&quot;&gt;&lt;script&gt;" in html

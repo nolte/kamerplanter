@@ -1282,6 +1282,10 @@ def get_tenant_service() -> TenantService:
         tenant_erasure_grace_days=settings.retention_tenant_erasure_grace_days,
         email_service=get_email_service(),
         user_repo=get_user_repo(),
+        # #2162 — an e-mail invitation's accept link points at the configured frontend.
+        frontend_url=settings.frontend_url,
+        # #2162 review W-1 — the daily ceiling of e-mail invitations per account.
+        invitation_emails_per_day=settings.tenant_invitation_emails_per_day,
         # #2133 (REQ-024 AK-64) — no tenant's member limit exceeds the platform ceiling.
         max_members_ceiling=settings.tenant_max_members_ceiling,
         # #2137 (MT-041, REQ-023 §5b) — the tenant's service accounts: their keys and the per-tenant quota.
@@ -2423,8 +2427,9 @@ def get_reference_image_service() -> ReferenceImageService:
     """REQ-029-A §4 — reference-image acquisition pipeline (DINOv2 index).
 
     Also serves the interactive user-contribution path (issue #447), which needs
-    the per-user rate limiter and the identification engine (image hashing) — the
-    acquisition pipeline itself does not use those.
+    the per-user rate limiter, the identification engine (image hashing) and the
+    ``reference_contribution`` consent check (#2174) — the acquisition pipeline
+    itself does not use those.
     """
     from app.data_access.external.gbif_adapter import GBIFAdapter
     from app.data_access.external.gbif_media_client import GBIFMediaClient
@@ -2449,6 +2454,8 @@ def get_reference_image_service() -> ReferenceImageService:
         rate_limiter=IdentificationRateLimiter(_get_redis_client()),
         identification_engine=identification_engine,
         contribution_marker=get_system_settings_repo(),
+        consent_repo=get_consent_repo(),
+        consent_engine=get_consent_engine(),
     )
 
 

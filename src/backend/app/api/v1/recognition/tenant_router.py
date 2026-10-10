@@ -15,11 +15,14 @@ REQ-052 §9 already draws between opening the capture dialog and looking at
 images that exist.
 
 The role check does not replace the consent check and is not replaced by it.
-``/identify`` additionally enforces ``plant_identification`` inside the service
-(REQ-029-A §0.1.1 point 2) before any photo leaves the instance. The two answer
-different questions — may this person write in this tenant, and may this image
-leave the installation — so a grower without consent is refused, and an observer
-with consent is refused too.
+Two writes process a photo under a consent purpose, each checked inside its
+service before the photo is used: ``/identify`` enforces ``plant_identification``
+(REQ-029-A §0.1.1 point 2) before any photo leaves the instance, and
+``/reference`` enforces ``reference_contribution`` (REQ-034 §4.1, #2174) before
+the photo is embedded into the recognition index — and refuses in Light mode.
+The two checks answer different questions — may this person write in this
+tenant, and may this image be processed for that purpose — so a grower without
+consent is refused, and an observer with consent is refused too.
 """
 
 from typing import Annotated
@@ -48,6 +51,7 @@ from app.common.exceptions import (
 )
 from app.common.image_bounds import MAX_IMAGE_PIXELS, open_bounded_image
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.common.upload_bounds import declared_body_exceeds
 from app.config.settings import settings
 from app.domain.interfaces.plant_identification_adapter import PlantOrgan
 from app.domain.models.tenant_context import TenantContext
@@ -72,14 +76,6 @@ def _parse_organ(value: str) -> PlantOrgan:
         return PlantOrgan(value)
     except ValueError as exc:
         raise UnsupportedMediaTypeError([o.value for o in PlantOrgan]) from exc
-
-
-def _parse_content_length(request: Request) -> int | None:
-    """Return the request ``Content-Length`` as an int, or ``None`` if absent/invalid."""
-    raw = request.headers.get("content-length")
-    if raw is None or not raw.strip().isdigit():
-        return None
-    return int(raw)
 
 
 async def _read_upload_bounded(file: UploadFile, max_bytes: int) -> bytes:
@@ -187,6 +183,11 @@ async def contribute_reference(
       image curation view. A cross-tenant contribution therefore cannot silently
       change what other tenants' identifications return.
     * At least the ``grower`` role is required — a ``viewer`` cannot contribute.
+    * The contributor's ``reference_contribution`` consent is required (403
+      ``CONSENT_REQUIRED`` when missing or revoked), and Light mode refuses
+      (409, REQ-034 §4.1 Guard 2). Both are checked in the service before the
+      species lookup, the quota, the contribution marker and the embedding
+      (#2174).
     * ``species_key`` is validated server-side and the scientific name is derived
       from the master record (any client-supplied name is ignored). A per-user
       daily quota, image dedup, upload size/type/decode/bomb validation and
@@ -209,8 +210,7 @@ async def contribute_reference(
     # SEC-004 — reject oversized uploads before buffering, then bound the read
     # and fully validate the bytes (magic/decode/bomb) before any embedding.
     max_bytes = settings.identification_max_image_size_mb * 1024 * 1024
-    content_length = _parse_content_length(request)
-    if content_length is not None and content_length > max_bytes:
+    if declared_body_exceeds(request, max_bytes):
         raise PayloadTooLargeError(max_bytes)
     image_data = await _read_upload_bounded(image, max_bytes)
     _validate_reference_image(image_data, max_bytes)

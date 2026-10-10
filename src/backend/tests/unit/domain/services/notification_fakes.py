@@ -70,7 +70,7 @@ class FakeNotificationRepo:
     def get(self, key: str) -> Notification | None:
         return self._store.get(key)
 
-    def list_by_group_key(self, group_key: str, tenant_key: str) -> list[Notification]:
+    def list_by_group_key(self, group_key: str, *, tenant_key: str) -> list[Notification]:
         rows = [n for n in self._store.values() if n.group_key == group_key and n.tenant_key == tenant_key]
         rows.sort(key=lambda n: n.created_at or datetime.min.replace(tzinfo=UTC), reverse=True)
         return rows

@@ -24,7 +24,7 @@ class INotificationRepository(ABC):
         ...
 
     @abstractmethod
-    def list_by_group_key(self, group_key: str, tenant_key: str) -> list[Notification]:
+    def list_by_group_key(self, group_key: str, *, tenant_key: str) -> list[Notification]:
         """Return every notification carrying ``(group_key, tenant_key)`` (newest first).
 
         Index-backed by the ``(group_key, tenant_key)`` persistent index. Backs the
@@ -70,7 +70,7 @@ class INotificationRepository(ABC):
     ) -> list[Notification]: ...
 
     @abstractmethod
-    def exists_by_group_key(self, group_key: str, tenant_key: str) -> bool:
+    def exists_by_group_key(self, group_key: str, *, tenant_key: str) -> bool:
         """Return whether the tenant has any notification carrying ``group_key``.
 
         Existence-only primitive (no document materialisation) backing cross-run
@@ -80,7 +80,7 @@ class INotificationRepository(ABC):
         ...
 
     @abstractmethod
-    def find_notified_user_keys(self, group_key: str, tenant_key: str) -> set[str]:
+    def find_notified_user_keys(self, group_key: str, *, tenant_key: str) -> set[str]:
         """Return the ``user_key`` set already notified for ``(group_key, tenant_key)``.
 
         Projected read (``RETURN DISTINCT doc.user_key``) — never materialises full

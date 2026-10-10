@@ -10,6 +10,7 @@ The terminology glossary explains terms like VPD, EC, or the pre-harvest interva
 - Logging in is **not** required: the glossary is purely factual knowledge with no reference to your specific plants, so it also works in anonymous [Light Mode](light-mode.md).
 - If the instance uses a cloud provider instead of a local model as its default, **generating** a new explanation additionally needs your "AI processing via cloud provider" consent — see [Granting consent](ai-assistant.md#granting-consent). What counts is the instance's default provider, not your garden's: an explanation is generated once and shown to every garden. Reading an existing explanation needs no consent. This doesn't apply in Light Mode, since it always processes locally.
 - Generating a new explanation counts towards your daily quota of AI requests, as with the [AI Assistant](ai-assistant.md). <!-- #2110 -->
+- To **generate** a new explanation, your garden must also have AI features enabled — the same garden-level approval the [AI chat](ai-assistant.md#for-technical-users-self-hosters) needs. If it is off, Kamerplanter refuses to generate ("The AI features are currently disabled for this garden."). You can still read the terms and any explanation that has already been prepared.
 
 ## Browsing the glossary
 
@@ -43,9 +44,11 @@ Opening a term costs nothing and triggers no AI request: the glossary shows you 
 Explanations are prepared in two places:
 
 - **automatically**, after the operator re-ingests the knowledge base. The cache is cleared and then refilled in the background for the whole term catalogue.
-- **on request**, when somebody with the Gardener or Lead role in their garden has an explanation generated. Viewers and anonymous visitors cannot trigger it.
+- **on request**, when somebody with the Gardener or Lead role in a garden that has AI features enabled has an explanation generated. Viewers, anonymous visitors and gardens without AI enabled cannot trigger it.
 
 That is deliberate: every AI explanation costs the installation's operator compute time or money. Previously, the first person to click a term decided when that cost was incurred — in anonymous Light Mode, somebody without an account at all. <!-- #1460 -->
+
+You only see the **Generate detailed explanation** button while AI features are available. If Kamerplanter refuses to generate because AI features are switched off for your garden or for the whole installation, the button disappears, for the other terms too, and the reason is shown in its place. Another attempt would be refused the same way. Other errors, such as a used-up daily quota, keep the button so you can try again later.
 
 ## The inline question-mark icon
 
@@ -62,7 +65,7 @@ The glossary is one of the few features that works entirely without a user accou
 
 ## For Technical Users / Self-Hosters {#for-technical-users-self-hosters}
 
-The glossary uses the same instance-wide AI toggle as the [AI Assistant](ai-assistant.md#for-technical-users-self-hosters) (`AI_FEATURES_ENABLED=true`), but **not** the additional garden-level toggle (stage 2) — it needs no tenant-level AI activation because it doesn't use any plant data. Details on the environment variable are in [Environment Variables — AI Assistant](../reference/environment-variables.md#ki-assistent).
+The glossary uses the same instance-wide AI toggle as the [AI Assistant](ai-assistant.md#for-technical-users-self-hosters) (`AI_FEATURES_ENABLED=true`), The additional garden-level toggle (stage 2, `tenant.settings.ai_features_enabled`) only gates **generating** (`POST /api/v1/t/{slug}/glossary/term/{slug}/generate`): if it is off, the route answers `403` (`AI_DISABLED_FOR_TENANT`) before the cache, the daily quota or the language model is touched; if the instance-wide toggle is off already, it answers `404`. Reading (the term list, single terms, the public routes) needs no garden-level activation, because it makes no AI request. Details on the environment variable are in [Environment Variables — AI Assistant](../reference/environment-variables.md#ki-assistent).
 
 If the **instance's system default provider** (a provider record without a tenant) is a cloud provider, generating runs the regular "AI processing via cloud provider" consent check (`ai_cloud_processing`). A single garden's default provider plays no part, because an explanation is generated once and served to every garden; its cloud notice is stored with the entry. Which language model actually answers is set by the Knowledge Service through its own environment (`LLM_PROVIDER`) <!-- #2110 --> — see [Privacy & GDPR](privacy.md#for-technical-users-self-hosters). If consent is missing or the associated user can't be determined unambiguously, the request is rejected outright rather than silently redirected to a local model.
 

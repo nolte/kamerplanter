@@ -383,7 +383,7 @@ class NotificationPropagationService:
 
     def _safe_lookup(self, group_key: str, tenant_key: str) -> list[Notification]:
         try:
-            return self._repo.list_by_group_key(group_key, tenant_key)
+            return self._repo.list_by_group_key(group_key, tenant_key=tenant_key)
         except Exception:
             logger.warning("notification_propagation_lookup_failed", group_kind=_group_kind(group_key))
             return []
