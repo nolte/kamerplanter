@@ -78,11 +78,21 @@ ruff format .
 ### Mypy (Statische Typisierung)
 
 ```bash
-cd src/backend
-mypy app/
+task typecheck:backend               # Ratchet gegen die Baseline (CI-Aufruf)
+task typecheck:backend -- --tighten  # nach dem Beheben von Befunden die Baseline senken
+task typecheck:backend -- --list     # alle aktuellen Befunde ausgeben
 ```
 
 Mypy läuft im `strict`-Modus. Alle öffentlichen Funktionen und Methoden müssen vollständig typisiert sein.
+
+Der Altbestand ist noch nicht typrein (gemessen 2026-10-10: 3442 Befunde). Deshalb prüft `task typecheck:backend` als **Ratchet** (Issue #2169): Die Befunde werden je Datei und Fehlercode mit `src/backend/mypy-ratchet-baseline.json` verglichen.
+
+- Ein neuer Befund ist rot. Eine Datei ohne Eintrag in der Baseline muss fehlerfrei sein — neue Module also immer.
+- Für `call-arg`, `name-defined`, `attr-defined` und `call-overload` — Aufrufe und Attributzugriffe, die zur Laufzeit nicht funktionieren können — muss die Zahl genau stimmen. Behebst du so einen Befund, senkst du den Eintrag im selben Change mit `--tighten`, sonst ist der Lauf rot.
+- Für alle anderen Codes ist ein Rückgang grün und wird als Spielraum ausgegeben.
+
+!!! warning "Nur mit der gelockten Werkzeugkette vergleichbar"
+    Die Zahlen hängen von der mypy-Version und den installierten Stubs ab. Ruf das Ratchet deshalb über `task typecheck:backend` auf (`uv run --locked --extra dev`), nicht mit einem globalen `mypy`. `--record` überschreibt die Baseline mit dem Ist-Stand — nur beim Anheben der Werkzeugkette, und mit Begründung im Pull Request.
 
 ### Docstrings (Google Style)
 
@@ -277,7 +287,7 @@ In der CI-Pipeline laufen folgende Prüfungen automatisch:
 cd src/backend
 ruff check .          # Linting
 ruff format --check . # Formatierung
-mypy app/             # Typen
+task typecheck:backend  # Typen (mypy-Ratchet, aus dem Repository-Root)
 pytest                # Tests
 
 # Frontend

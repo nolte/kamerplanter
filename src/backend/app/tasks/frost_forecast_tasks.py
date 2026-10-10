@@ -33,18 +33,21 @@ def evaluate_forecast_frost_warnings(self) -> dict:  # noqa: ANN001 — Celery b
         get_membership_repo,
         get_notification_service,
         get_site_repo,
+        get_tenant_repo,
         get_weather_forecast_repo,
         get_weather_source_config_repo,
     )
     from app.data_access.arango.collections import WEATHER_SOURCE_CONFIGS
     from app.domain.engines.frost_warning_engine import evaluate_forecast_frost_warning
     from app.domain.models.weather import WeatherSourceConfig
+    from app.tasks.tenant_gate import ActiveTenants
 
     config_repo = get_weather_source_config_repo()
     forecast_repo = get_weather_forecast_repo()
     site_repo = get_site_repo()
     membership_repo = get_membership_repo()
     notification_service = get_notification_service()
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     db = config_repo._db  # noqa: SLF001 — direct AQL for cross-tenant iteration
     cursor = db.aql.execute(
@@ -73,6 +76,10 @@ def evaluate_forecast_frost_warnings(self) -> dict:  # noqa: ANN001 — Celery b
                     config_tenant=log_tenant(config.tenant_key),
                     site_tenant=log_tenant(site.tenant_key),
                 )
+                skipped += 1
+                continue
+            if not tenant_is_active(site.tenant_key):
+                # #2166 — a suspended, pending-deletion or orphaned tenant resolves for nobody: no warning.
                 skipped += 1
                 continue
 

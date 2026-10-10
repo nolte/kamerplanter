@@ -280,6 +280,66 @@ class TenantErasureEngine:
         assert any(v.startswith("R2") and "sites" in v for v in violations)
 
 
+def _series(collection: str) -> str:
+    """A manifest line declaring *collection* as a time series of the personal tenant (#2165)."""
+    return (
+        f'\n        DataSourceDefinition(collection="{collection}", label="X", personal_tenant_scope=_PERSONAL, '
+        f'time_series=TimeSeriesScope(time_column="time")),'
+    )
+
+
+class TestR2PersonalTenantTimeSeries:
+    """#2165 — a time series of the personal garden must be erasable by the TimescaleDB tenant delete.
+
+    The readings are not in ``TenantErasureEngine.INVENTORY`` (ArangoDB); the tenant erasure
+    removes them through ``TimescaleObservationRepository.delete_by_tenant``. The rule reads
+    that method's ``DELETE`` statement and the aggregate views it purges with it.
+    """
+
+    OBSERVATION_REPOSITORY = '''
+_DELETE_BY_TENANT_SQL = """
+DELETE FROM sensor_readings
+WHERE tenant_key = %(tenant_key)s
+"""
+
+AGGREGATE_VIEWS = ("sensor_hourly", "sensor_daily")
+'''
+
+    def _with_repository(self, tmp_path: Path, sources: str, repository: str | None) -> Path:
+        app = _tree(tmp_path, sources=sources)
+        if repository is not None:
+            target = app / "data_access" / "timescale" / "observation_repository.py"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(textwrap.dedent(repository), encoding="utf-8")
+        return app
+
+    def test_the_raw_table_and_both_aggregates_pass(self, tmp_path: Path) -> None:
+        sources = GOOD_SOURCES + _series("sensor_readings") + _series("sensor_hourly") + _series("sensor_daily")
+        assert checker.check(self._with_repository(tmp_path, sources, self.OBSERVATION_REPOSITORY)) == []
+
+    def test_a_table_the_tenant_delete_does_not_reach_is_named(self, tmp_path: Path) -> None:
+        sources = GOOD_SOURCES + _series("sensor_minutely")
+        violations = checker.check(self._with_repository(tmp_path, sources, self.OBSERVATION_REPOSITORY))
+        assert any(v.startswith("R2") and "sensor_minutely" in v and "time series" in v for v in violations)
+
+    def test_an_aggregate_dropped_from_the_purge_is_named(self, tmp_path: Path) -> None:
+        repository = self.OBSERVATION_REPOSITORY.replace('("sensor_hourly", "sensor_daily")', '("sensor_hourly",)')
+        sources = GOOD_SOURCES + _series("sensor_daily")
+        violations = checker.check(self._with_repository(tmp_path, sources, repository))
+        assert any(v.startswith("R2") and "sensor_daily" in v for v in violations)
+
+    def test_without_the_repository_no_time_series_passes(self, tmp_path: Path) -> None:
+        sources = GOOD_SOURCES + _series("sensor_readings")
+        violations = checker.check(self._with_repository(tmp_path, sources, None))
+        assert any(v.startswith("R2") and "sensor_readings" in v for v in violations)
+
+    def test_a_time_series_is_not_checked_against_the_arango_inventory(self, tmp_path: Path) -> None:
+        """``sensor_readings`` is in no ArangoDB inventory; the time-series rule alone decides."""
+        sources = GOOD_SOURCES + _series("sensor_readings")
+        violations = checker.check(self._with_repository(tmp_path, sources, self.OBSERVATION_REPOSITORY))
+        assert not any("TenantErasureEngine" in v for v in violations)
+
+
 class TestR2ReverseEveryErasureTargetIsDisclosed:
     """#1719 — the direction R2 did not check.
 

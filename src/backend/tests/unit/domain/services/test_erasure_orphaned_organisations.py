@@ -76,13 +76,19 @@ class TestTheDecision:
         subject = _m(SUBJECT, TenantRole.GROWER)
         others = [_m("lead-1", TenantRole.LEAD, [AdminScope.MANAGEMENT])]
 
-        assert MembershipEngine.departure_settlement(subject, others) == ("unaffected", None)
+        assert MembershipEngine.departure_settlement(subject, others, non_interactive_user_keys=frozenset()) == (
+            "unaffected",
+            None,
+        )
 
     def test_another_management_holder_keeps_the_organisation_administrable(self) -> None:
         subject = _m(SUBJECT, TenantRole.LEAD, [AdminScope.MANAGEMENT])
         others = [_m("sec-1", TenantRole.VIEWER, [AdminScope.MANAGEMENT])]
 
-        assert MembershipEngine.departure_settlement(subject, others) == ("unaffected", None)
+        assert MembershipEngine.departure_settlement(subject, others, non_interactive_user_keys=frozenset()) == (
+            "unaffected",
+            None,
+        )
 
     def test_the_last_manager_hands_management_to_the_longest_serving_lead(self) -> None:
         subject = _m(SUBJECT, TenantRole.LEAD, [AdminScope.MANAGEMENT])
@@ -90,7 +96,9 @@ class TestTheDecision:
         old = _m("lead-old", TenantRole.LEAD, [AdminScope.TECHNICAL], joined="2025-03-01T00:00:00+00:00")
         grower = _m("grower-oldest", TenantRole.GROWER, joined="2024-01-01T00:00:00+00:00")
 
-        outcome, heir = MembershipEngine.departure_settlement(subject, [young, grower, old])
+        outcome, heir = MembershipEngine.departure_settlement(
+            subject, [young, grower, old], non_interactive_user_keys=frozenset()
+        )
 
         assert outcome == "management_passes_to_lead"
         assert heir is not None and heir.user_key == "lead-old"
@@ -100,7 +108,9 @@ class TestTheDecision:
         unknown = _m("lead-unknown", TenantRole.LEAD, joined=None)
         known = _m("lead-known", TenantRole.LEAD, joined="2026-09-01T00:00:00+00:00")
 
-        _outcome, heir = MembershipEngine.departure_settlement(subject, [unknown, known])
+        _outcome, heir = MembershipEngine.departure_settlement(
+            subject, [unknown, known], non_interactive_user_keys=frozenset()
+        )
 
         assert heir is not None and heir.user_key == "lead-known"
 
@@ -108,10 +118,57 @@ class TestTheDecision:
         subject = _m(SUBJECT, TenantRole.LEAD, [AdminScope.MANAGEMENT])
         others = [_m("grower-1", TenantRole.GROWER), _m("viewer-1", TenantRole.VIEWER)]
 
-        assert MembershipEngine.departure_settlement(subject, others) == ("orphaned", None)
+        assert MembershipEngine.departure_settlement(subject, others, non_interactive_user_keys=frozenset()) == (
+            "orphaned",
+            None,
+        )
+
+    def test_a_service_account_lead_is_passed_over_for_the_longest_serving_person(self) -> None:
+        # #2166 W2 — a machine identity cannot pass the step-up member administration asks for.
+        subject = _m(SUBJECT, TenantRole.LEAD, [AdminScope.MANAGEMENT])
+        robot = _m("robot", TenantRole.LEAD, joined="2020-01-01T00:00:00+00:00")
+        person = _m("person", TenantRole.LEAD, joined="2026-01-01T00:00:00+00:00")
+
+        outcome, heir = MembershipEngine.departure_settlement(
+            subject, [robot, person], non_interactive_user_keys=frozenset({"robot"})
+        )
+
+        assert outcome == "management_passes_to_lead"
+        assert heir is not None and heir.user_key == "person"
+
+    def test_a_service_account_as_the_only_lead_orphans_the_organisation(self) -> None:
+        subject = _m(SUBJECT, TenantRole.LEAD, [AdminScope.MANAGEMENT])
+        others = [_m("robot", TenantRole.LEAD), _m("grower-1", TenantRole.GROWER)]
+
+        assert MembershipEngine.departure_settlement(
+            subject, others, non_interactive_user_keys=frozenset({"robot"})
+        ) == ("orphaned", None)
+
+    def test_a_service_accounts_management_is_no_living_administration(self) -> None:
+        # #2166 re-review W-1 — a machine identity holding ``management`` cannot administer either.
+        subject = _m(SUBJECT, TenantRole.LEAD, [AdminScope.MANAGEMENT])
+        robot = _m("robot", TenantRole.LEAD, [AdminScope.MANAGEMENT], joined="2020-01-01T00:00:00+00:00")
+        person = _m("person", TenantRole.LEAD, joined="2026-01-01T00:00:00+00:00")
+
+        outcome, heir = MembershipEngine.departure_settlement(
+            subject, [robot, person], non_interactive_user_keys=frozenset({"robot"})
+        )
+
+        assert outcome == "management_passes_to_lead"
+        assert heir is not None and heir.user_key == "person"
+
+    def test_a_service_account_with_management_and_no_person_lead_orphans_the_organisation(self) -> None:
+        subject = _m(SUBJECT, TenantRole.LEAD, [AdminScope.MANAGEMENT])
+        others = [_m("robot", TenantRole.LEAD, [AdminScope.MANAGEMENT]), _m("grower-1", TenantRole.GROWER)]
+
+        assert MembershipEngine.departure_settlement(
+            subject, others, non_interactive_user_keys=frozenset({"robot"})
+        ) == ("orphaned", None)
 
     def test_the_last_member_orphans_the_organisation_whatever_its_scopes(self) -> None:
-        assert MembershipEngine.departure_settlement(_m(SUBJECT, TenantRole.VIEWER), []) == ("orphaned", None)
+        assert MembershipEngine.departure_settlement(
+            _m(SUBJECT, TenantRole.VIEWER), [], non_interactive_user_keys=frozenset()
+        ) == ("orphaned", None)
 
 
 # ── The service ──────────────────────────────────────────────────────────────

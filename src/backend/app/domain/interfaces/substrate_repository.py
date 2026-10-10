@@ -7,7 +7,7 @@ from app.domain.models.substrate import Substrate, SubstrateBatch
 class ISubstrateRepository(ABC):
     @abstractmethod
     def get_all_substrates(
-        self, offset: int = 0, limit: int = 50, query: str | None = None
+        self, offset: int = 0, limit: int = 50, query: str | None = None, *, tenant_key: str | None = None
     ) -> tuple[list[Substrate], int]: ...
 
     @abstractmethod

@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from app.common.types import UserKey
-from app.domain.models.privacy import DataSourceDefinition
+from app.domain.models.privacy import DataSourceDefinition, TimeSeriesSlice
 
 
 class IPersonalDataRepository(ABC):
@@ -55,4 +55,31 @@ class IPersonalDataRepository(ABC):
         source the repository cannot resolve raises rather than returning
         ``[]``: an empty list is indistinguishable from "no data", which is how
         an Art. 15 disclosure silently under-delivers.
+        """
+
+
+class IPersonalTimeSeriesRepository(ABC):
+    """Reads a time-series manifest source of the subject's personal garden (#2165).
+
+    The sensor readings live in TimescaleDB, outside the document store
+    :class:`IPersonalDataRepository` reads. The caller hands over the declared source
+    (``source.time_series`` set) and never names a table itself.
+    """
+
+    @abstractmethod
+    def collect_personal_tenant_series(
+        self,
+        source: DataSourceDefinition,
+        tenant_keys: Sequence[str],
+        series_keys: Sequence[str],
+        *,
+        max_rows: int,
+    ) -> TimeSeriesSlice:
+        """Return at most *max_rows* rows of *source* for the garden, newest first, and their total.
+
+        A row belongs when its ``tenant_key`` is one of *tenant_keys* (the personal
+        tenants the subject owns), or when it carries the empty tenant key the Home
+        Assistant poll stamped before #2076 **and** its ``sensor_key`` is one of
+        *series_keys* (the garden's sensors). No personal tenant means no rows, never
+        all of them. A source that is not a declared time-series table raises.
         """

@@ -149,6 +149,8 @@ def beat(db, monkeypatch):
     monkeypatch.setattr(deps, "get_notification_service", lambda: recorder)
     monkeypatch.setattr(deps, "get_task_repo", lambda: ArangoTaskRepository(db))
     monkeypatch.setattr(deps, "get_membership_repo", lambda: ArangoMembershipRepository(db))
+    # #2166 — the beat asks the stored tenant as well (``tenant_gate.ActiveTenants``); this database's.
+    monkeypatch.setattr(deps, "get_tenant_repo", lambda: ArangoTenantRepository(db))
     return recorder
 
 

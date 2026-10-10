@@ -46,6 +46,12 @@ class ArangoPersonalDataRepository(IPersonalDataRepository):
             msg = f"Manifest source '{source.collection}' declares no fields to export."
             raise ValueError(msg)
 
+        if source.time_series is not None:
+            # #2165 — a TimescaleDB table, not a collection: answering here would query a
+            # collection that does not exist, or worse, one that happens to share the name.
+            msg = f"Manifest source '{source.collection}' is a time-series table, not an ArangoDB collection."
+            raise ValueError(msg)
+
         if source.personal_tenant_scope is not None:
             return self._collect_personal_tenant(source, tenant_keys)
 
@@ -127,7 +133,8 @@ class ArangoPersonalDataRepository(IPersonalDataRepository):
         ``tenant_key`` is one of them, or — for ``locations`` / ``slots``, whose own
         ``tenant_key`` no write path fills (#1397) — when its declared parent chain
         reaches a row that carries one: the anchor the tenant-erasure inventory uses.
-        No personal tenant means no rows, never all of them.
+        A scope with several chains (#2165, ``sensors``: tank, site or location) matches
+        a row that any of them reaches. No personal tenant means no rows, never all of them.
         """
         if not tenant_keys:
             return []
@@ -138,25 +145,25 @@ class ArangoPersonalDataRepository(IPersonalDataRepository):
             "tenant_keys": list(tenant_keys),
             "fields": list(source.fields),
         }
-        if not scope.via:
-            anchor = "doc.tenant_key IN @tenant_keys"
-        elif len(scope.via) == 1:
-            hop = scope.via[0]
-            bind_vars |= {"f1": hop.field, "c1": hop.collection}
-            anchor = (
-                "doc.tenant_key IN @tenant_keys OR "
-                "(doc[@f1] != null AND DOCUMENT(@c1, doc[@f1]).tenant_key IN @tenant_keys)"
+        clauses = ["doc.tenant_key IN @tenant_keys"]
+        for index, chain in enumerate(scope.chains):
+            if not chain:
+                continue  # the row's own tenant_key, already the first clause
+            # Every name is a bind parameter, numbered per chain; no identifier is spliced.
+            f1, c1 = f"c{index}f1", f"c{index}c1"
+            bind_vars |= {f1: chain[0].field, c1: chain[0].collection}
+            if len(chain) == 1:
+                clauses.append(f"(doc[@{f1}] != null AND DOCUMENT(@{c1}, doc[@{f1}]).tenant_key IN @tenant_keys)")
+                continue
+            f2, c2 = f"c{index}f2", f"c{index}c2"
+            bind_vars |= {f2: chain[1].field, c2: chain[1].collection}
+            clauses.append(
+                f"(doc[@{f1}] != null AND LENGTH("
+                f"FOR p IN [DOCUMENT(@{c1}, doc[@{f1}])] "
+                f"FILTER p != null AND (p.tenant_key IN @tenant_keys OR "
+                f"(p[@{f2}] != null AND DOCUMENT(@{c2}, p[@{f2}]).tenant_key IN @tenant_keys)) RETURN 1) > 0)"
             )
-        else:
-            first, second = scope.via
-            bind_vars |= {"f1": first.field, "c1": first.collection, "f2": second.field, "c2": second.collection}
-            anchor = (
-                "doc.tenant_key IN @tenant_keys OR ("
-                "doc[@f1] != null AND LENGTH("
-                "FOR p IN [DOCUMENT(@c1, doc[@f1])] "
-                "FILTER p != null AND (p.tenant_key IN @tenant_keys OR "
-                "(p[@f2] != null AND DOCUMENT(@c2, p[@f2]).tenant_key IN @tenant_keys)) RETURN 1) > 0)"
-            )
+        anchor = " OR ".join(clauses)
         query = f"""
         FOR doc IN @@collection
           FILTER {anchor}

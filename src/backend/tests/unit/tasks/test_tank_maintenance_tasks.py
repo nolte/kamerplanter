@@ -34,6 +34,8 @@ def _mock_dependencies(monkeypatch):
     mock_deps.get_feeding_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_plant_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_db = MagicMock()  # type: ignore[attr-defined]
+    # #2166 — every tenant here is active (a MagicMock tenant is truthy); the gate has its own test.
+    mock_deps.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]
 
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 

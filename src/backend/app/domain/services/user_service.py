@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 
@@ -187,7 +188,7 @@ class UserService:
         self._audit_account(user_key, data, requester=requester)
         return user
 
-    def _audit_account(self, user_key: UserKey, written: dict, *, requester: User) -> None:
+    def _audit_account(self, user_key: UserKey, written: dict[str, Any], *, requester: User) -> None:
         """Write one security-audit row per trust field *written* changed (MT-014, #2111).
 
         *written* is the payload that reached the store, from which a re-sent unchanged value was already
