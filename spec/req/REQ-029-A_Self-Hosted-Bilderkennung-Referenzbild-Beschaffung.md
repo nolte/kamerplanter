@@ -7,12 +7,13 @@ Kategorie: Integration / KI
 Fokus: Backend (Inferenz-Microservice), Datenbeschaffung, Architektur
 Technologie: Python 3.14+, ONNX Runtime, FastAPI, ArangoDB (Vektor-Index), Celery, React/TypeScript
 Status: Entwurf
-Version: 1.4 (Mandantengrenze des Referenz-Index festgehalten, G-3/#2145)
+Version: 1.5 (Referenz-Index nur aus globalen Arten, Treffer im Sichtbarkeitsbereich des Mandanten, #2173)
 Quelle: spec/analysis/n-001-pflanzenerkennung-bilderkennung-research.md (Deep-Research, 2026-06-15)
 Korrigiert: REQ-029 v1.0 (primärer Dienst Plant.id ist kostenpflichtig → disqualifiziert; siehe §0)
 Geändert (v1.1): Roll-out in zwei Phasen — Pl@ntNet-Free-Tier-Adapter als sofort lauffähiger Phase-1-Primäradapter, DINOv2-Embedding-Matching als Phase-2-Zielarchitektur (siehe §0.1)
 Geändert (v1.2): REQ-034 Foto-Beitrag (Security-Review SR-003/SR-007) — `species_embeddings` um Provenienz-Felder `tenant_key`/`contributed_by`/`contributed_at` für `user_contributed`-Beiträge erweitert (§5.1, Migration 003); `POST /reference`-Endpunkt-Vertrag + `InferenceServiceClient.reference()` in §3.3 definiert (erzwingt `is_active=false` + Provenienz bei user_contributed).
 Geändert (v1.4): Audit-Lücke G-3 (#2145) — §5.4 hält die gemessene Mandantengrenze des Referenz-Index als Designentscheidung fest: Nutzerbeiträge wirken erst nach Platform-Admin-Freigabe und dann für alle Mandanten; `/match` liefert keine Beitragsherkunft. §3.3 korrigiert: Die Quarantäne erzwingt das Backend, nicht der Inferenz-Service.
+Geändert (v1.5): #2173 — der offene Punkt aus §5.4 ist geschlossen: Die Beschaffung indiziert nur globale Arten (§5.4), die Erkennung löst jeden `local:<species_key>`-Treffer im Sichtbarkeitsbereich des anfragenden Mandanten auf (global, eigen oder freigegeben) und verwirft die übrigen — auch für bereits indizierte Zeilen. §3.3: `POST /reference` lehnt `user_contributed` ohne `is_active=false` oder ohne `contributed_by`/`tenant_key` jetzt selbst mit 422 ab.
 Abhängigkeit: REQ-001 v5.0 (Stammdaten/Species), REQ-010 v1.0 (IPM), REQ-011 v1.0 (Adapter-Pattern), REQ-025 v1.4 (Datenschutz, Referenz-Index-Erasure), REQ-029 v1.0 (Adapter-Interface, Consent, EXIF, Frontend — wiederverwendet), REQ-034 v1.1 (Pflanzenfoto-Galerie, user_contributed-Beitrag)
 ```
 
@@ -196,7 +197,7 @@ def preprocess(image_bytes: bytes) -> "np.ndarray":
 
 > **`InferenceServiceClient.reference(...)`** (Backend-Client, von REQ-034 §4.1 aufgerufen) kapselt `POST /reference`. Bei `source="user_contributed"` müssen `is_active=false` sowie gesetzte `tenant_key`/`contributed_by` mitgeschickt werden — damit der DSGVO-Erasure-Cleanup (REQ-025 Phase 0.5) die Provenienz garantiert vorfindet.
 >
-> **Ist-Stand (gemessen 2026-10-05, #2145):** Erzwungen wird das im **Backend** (`ReferenceImageService.contribute_user_reference` schickt `is_active=False` und beide Provenienzfelder; die Gallery-Hook-Variante `add_user_contribution` ist inert). Der Inferenz-Service selbst prüft es nicht: `POST /reference` übernimmt `is_active` (Default `true`) und die Provenienz ungeprüft. Er ist nur mit dem internen Service-Token erreichbar (ClusterIP); die Server-seitige 422 ist offen (Defense-in-Depth).
+> **Ist-Stand (gemessen 2026-10-05, #2145):** Erzwungen wird das im **Backend** (`ReferenceImageService.contribute_user_reference` schickt `is_active=False` und beide Provenienzfelder; die Gallery-Hook-Variante `add_user_contribution` ist inert). Seit #2173 prüft es zusätzlich der Inferenz-Service (Defense-in-Depth): `POST /reference` mit `source=user_contributed` antwortet 422, wenn `is_active` nicht `false` ist (auch beim Formular-Default `true`) oder `contributed_by`/`tenant_key` fehlen bzw. leer sind; es wird nichts geschrieben. Er ist weiterhin nur mit dem internen Service-Token erreichbar (ClusterIP).
 
 ### 3.4 LocalEmbeddingAdapter (im Hauptbackend, registriert in der REQ-029-Registry)
 
@@ -382,12 +383,17 @@ FOR e IN species_embeddings
 Der Referenz-Index (`species_embeddings` in pgvector) ist **global**: Die Vektorsuche `/match` filtert nur auf `is_active` und `model`, nicht auf `tenant_key`. Für Nutzerbeiträge (`source = 'user_contributed'`) ist das so gewollt und abgesichert:
 
 - **Beitrag = Quarantäne.** Ein Beitrag (`POST /t/{slug}/identification/reference`, ab Gärtner) wird mit `is_active = false` geschrieben und fließt in **keine** Erkennung ein — auch nicht in die des beitragenden Mandanten.
-- **Freigabe = Promotion zu global.** Nur ein Platform-Admin aktiviert einen Beitrag (Kuratierungsansicht §4.5). Ab dann verbessert er die Erkennung **aller** Mandanten der Instanz — wie ein kuratiertes GBIF-/Wikimedia-Bild. Das ist der Zweck des Beitrags; die Nutzerdoku nennt es („hilft … auch für andere Nutzer deiner Instanz“).
+- **Freigabe = Promotion zu global.** Nur ein Platform-Admin aktiviert einen Beitrag (Kuratierungsansicht §4.5). Ab dann verbessert er die Erkennung **aller** Mandanten der Instanz, die die Art sehen dürfen (bei einer globalen Art: aller; bei einer mandanteneigenen Art: nur des Eigentümers und der Mandanten mit Freigabe, siehe unten) — wie ein kuratiertes GBIF-/Wikimedia-Bild. Das ist der Zweck des Beitrags; die Nutzerdoku nennt es („hilft … auch für andere Nutzer deiner Instanz“).
 - **Keine Herkunft im Ergebnis.** `/match` liefert je Treffer nur `species_key`, `scientific_name`, `score`, `confidence` — keinen Mandanten, kein Konto, keine Bild-URL. Das Originalfoto wird nie gespeichert (§4.4), nur der EXIF-bereinigte Vektor.
 - **Keine Herkunft in der Galerie.** Die öffentliche Galerie zeigt nur Zeilen mit `source_url`; Beiträge haben keine. Provenienz (`tenant_key`, `contributed_by`) sieht nur die Platform-Admin-Kuratierung.
 - **Löschung.** Account- und Mandantenlöschung entfernen die Beitragsvektoren (REQ-025 Phase 0.5), aktiv oder nicht.
 
-**Offen (nicht Teil dieser Entscheidung):** Der Index unterscheidet nicht zwischen globalen und **mandanteneigenen Arten**. Referenzbilder, die für eine mandanteneigene Art indiziert werden (Beschaffung über alle Arten, oder ein freigegebener Beitrag zu einer solchen Art), erscheinen mit deren `species_key` und `scientific_name` in den Treffern anderer Mandanten; der Beitragsweg löst die Art zudem ohne Mandantenprüfung auf. Folge-Befund aus #2145, gesondert zu bewerten.
+**Mandanteneigene Arten (#2173, geschlossen).** Der Index trägt keinen Eigentümer der Art; die Grenze ziehen zwei Regeln im Backend:
+
+- **Beschaffung nur global.** Die Massen-Beschaffung (`acquire_all_reference_images_task`) liest den Arten-Katalog ausschließlich global (`tenant_key = ""`), nie mandanteneigene Arten. Die Einzel-Beschaffung `POST /admin/reference-images/acquire/{species_key}` antwortet für eine mandanteneigene Art mit 404 wie für eine unbekannte.
+- **Treffer im Sichtbarkeitsbereich.** Die `IdentificationEngine` löst jeden `local:<species_key>`-Treffer vor der Rückgabe unter dem anfragenden Mandanten auf — dieselbe Regel wie die Art-Detailansicht (`readable_species`: global, eigen oder per Freigabe geteilt). Ein Treffer zu einer fremden oder nicht mehr existierenden Art wird verworfen; die übrigen werden ab 1 neu nummeriert, und bleibt keiner übrig, antwortet die Erkennung wie bei einem leeren Index (`is_plant = false`). Das gilt für die Bestimmung (Verlauf) und die Fotoqualitäts-Bewertung (REQ-034 §4a, die Vorschläge am Anhang speichert). Treffer externer Adapter (`plantnet:<id>`) benennen öffentliche Taxonomie, keine Katalogzeile, und bleiben unberührt.
+
+Die Lese-Regel schließt auch Zeilen, die vor #2173 indiziert wurden oder aus einem freigegebenen Beitrag zu einer mandanteneigenen Art stammen — ein Bereinigen des Index ist dafür nicht nötig. Solche Zeilen belegen nur Platz und erscheinen weiter in der Admin-Kuratierung. Der Beitragsweg löst die Art seit PR #2208 (#2174) im Sichtbarkeitsbereich des Mandanten auf (REQ-034 AC-17).
 
 ---
 
