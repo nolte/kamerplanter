@@ -59,7 +59,7 @@ class _World:
         )
         self.invitations = MagicMock()
         self.invitations.get_by_token_hash.return_value = self.invitation
-        self.invitations.mark_accepted_if_pending.return_value = self.invitation
+        self.invitations.consume_use_if_pending.return_value = self.invitation
         self.memberships = MagicMock()
         self.memberships.get_by_user_and_tenant.return_value = None
         self.memberships.create.side_effect = lambda m: m.model_copy(update={"key": "m-new"})
@@ -85,7 +85,7 @@ class _World:
 
     def nothing_was_written(self) -> bool:
         return (
-            not self.invitations.mark_accepted_if_pending.called
+            not self.invitations.consume_use_if_pending.called
             and not self.memberships.create.called
             and not self.audit.record_membership_change.called
         )
@@ -132,7 +132,7 @@ def test_the_proven_invited_address_accepts_whatever_its_case(spelling: str) -> 
     membership = world.accept(_account(email=spelling))
 
     assert (membership.user_key, membership.tenant_key, membership.role) == ("u-friend", TENANT, TenantRole.GROWER)
-    world.invitations.mark_accepted_if_pending.assert_called_once()
+    world.invitations.consume_use_if_pending.assert_called_once()
     world.audit.record_membership_change.assert_called_once()
 
 

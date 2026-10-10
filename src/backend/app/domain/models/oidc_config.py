@@ -29,6 +29,19 @@ GITHUB_REQUIRED_SCOPE = "user:email"
 _SCOPE_SEPARATORS = re.compile(r"[\s,]+")
 
 
+def admits_default_tenant(provider_type: str) -> bool:
+    """Whether a provider of *provider_type* may place new accounts in a default tenant (#2182 SEC-001).
+
+    Only a generic ``oidc`` provider - an organisation's own identity provider, whose accounts the
+    organisation issues. On ``google``, ``github`` and ``apple`` **anybody** can create an identity,
+    so a ``default_tenant_key`` there would turn "every new account of the provider joins the tenant"
+    into "everybody on the internet may join it": refused when set (422,
+    ``OidcProviderAdminService``) and ignored at sign-in for a record stored before that gate. An
+    allow-list, so a spelling stored before the #1497 vocabulary gate admits none either.
+    """
+    return provider_type == OidcProviderType.OIDC.value
+
+
 def is_github_provider(provider_type: str) -> bool:
     """Whether this provider takes the GitHub branch of ``extract_user_info``.
 
@@ -174,6 +187,9 @@ class OidcProviderConfig(BaseModel):
     auto_discover: bool = True
     enabled: bool = False
     icon_url: str | None = None
+    #: The tenant every **new** account of this provider joins as ``viewer`` (REQ-024 AK-09, #2182).
+    #: Generic OIDC providers only (:func:`admits_default_tenant`); checked when written by
+    #: ``OidcProviderAdminService`` - an existing organisation, never personal, never ``platform``.
     default_tenant_key: str | None = None
     discovery_document: dict | None = None
     discovery_refreshed_at: datetime | None = None

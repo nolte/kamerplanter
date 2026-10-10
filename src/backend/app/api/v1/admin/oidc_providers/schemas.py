@@ -26,6 +26,18 @@ def _require_https(value: str | None) -> str | None:
     return value
 
 
+def _blank_is_none(value: str | None) -> str | None:
+    """``default_tenant_key``: surrounding blanks dropped, an empty value means "no default tenant" (#2182)."""
+    if value is None:
+        return None
+    return value.strip() or None
+
+
+#: The field a PUT may set to ``null`` (or ``""``) to clear it (#2182 SEC-002). ``exclude_none``
+#: keeps every other update partial, so this one is carried by ``model_fields_set`` instead.
+CLEARABLE_FIELDS = ("default_tenant_key",)
+
+
 class OidcProviderCreateRequest(CredentialStepUp):
     """Body of ``POST /admin/oidc-providers``.
 
@@ -56,11 +68,15 @@ class OidcProviderCreateRequest(CredentialStepUp):
     auto_discover: bool = True
     enabled: bool = False
     icon_url: str | None = None
-    default_tenant_key: str | None = None
+    #: REQ-024 AK-09 (#2182): the tenant new accounts of this provider join as ``viewer``. Generic
+    #: ``oidc`` providers only, and an existing organisation (never personal, never ``platform``) - 422
+    #: otherwise, before the step-up.
+    default_tenant_key: str | None = Field(default=None, max_length=200)
 
     #: https only (#1987) — a plain-http issuer or endpoint makes the discovery document,
     #: the code exchange and the key set answerable by whoever is on the path.
     _urls_are_https = field_validator(*OIDC_URL_FIELDS)(_require_https)
+    _default_tenant_blank_is_none = field_validator("default_tenant_key")(_blank_is_none)
 
 
 class OidcProviderUpdateRequest(CredentialStepUp):
@@ -89,12 +105,15 @@ class OidcProviderUpdateRequest(CredentialStepUp):
     auto_discover: bool | None = None
     enabled: bool | None = None
     icon_url: str | None = None
-    default_tenant_key: str | None = None
+    #: Same rules as on create (#2182). Sent as ``null`` or ``""`` it is **cleared** (SEC-002) - the
+    #: one field of this body where ``null`` means "remove" rather than "leave as it is".
+    default_tenant_key: str | None = Field(default=None, max_length=200)
 
     #: Same rule as on create (#1987). Sending ``issuer_url`` also clears the explicit
     #: ``authorization_url`` / ``token_url`` / ``userinfo_url`` / ``jwks_url`` of the
     #: stored configuration that this body does not repeat (see the service).
     _urls_are_https = field_validator(*OIDC_URL_FIELDS)(_require_https)
+    _default_tenant_blank_is_none = field_validator("default_tenant_key")(_blank_is_none)
 
 
 class OidcProviderDeleteRequest(CredentialStepUp):
@@ -124,6 +143,8 @@ class OidcProviderResponse(BaseModel):
     enabled: bool
     icon_url: str | None
     auto_discover: bool = True
+    #: The tenant new accounts of this provider join (REQ-024 AK-09, #2182 SEC-002); ``null`` when none.
+    default_tenant_key: str | None = None
     discovery_refreshed_at: datetime | None
     created_at: datetime | None
     updated_at: datetime | None

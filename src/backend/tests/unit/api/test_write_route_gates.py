@@ -388,6 +388,13 @@ _INTENTIONAL_PERSISTING_READS: dict[str, tuple[str, frozenset[str]]] = {
                 # (``ArangoTenantRepository.create_with_lead_membership``, via ``_register_oauth_user``).
                 "transaction.collection(collection).insert() in app.data_access.arango.tenant_repository"
                 "::ArangoTenantRepository._insert_in",
+                # #2182 (REQ-024 AK-09) — the OIDC auto-join: a new account joins its provider's default
+                # tenant through ``_create_membership_unless_erasing`` (whose freeze take-back is the rollback
+                # query) and the join is written to the security audit (``via: oidc_auto_join``).
+                "module-level query write _ROLLBACK_UNCLAIMED_AQL in app.data_access.arango.membership_repository"
+                "::ArangoMembershipRepository.delete_while_tenant_frozen",
+                "self._db.collection(col.SECURITY_AUDIT_LOG).insert() in "
+                "app.data_access.arango.security_audit_repository::ArangoSecurityAuditRepository.record",
                 "self.collection.delete() in app.data_access.arango.base_repository::BaseArangoRepository._delete_doc",
                 "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
                 "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc",

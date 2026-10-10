@@ -181,6 +181,12 @@ _MEMBERSHIP_CLASSIFIED[("tenant_service.py", "TenantService.accept_invitation")]
     "its proven address (_require_invited_account, #2115); it grants no more than the invitation says "
     "(REQ-024 §1a.2)"
 )
+_MEMBERSHIP_CLASSIFIED[("tenant_service.py", "TenantService.join_provider_default_tenant")] = (
+    "the OIDC auto-join (REQ-024 AK-09, #2182): the decision is the platform admin's, confirmed by their own "
+    "step-up when default_tenant_key was set (OidcProviderAdminService, #1883); the joining account is the "
+    "one just created and chooses nothing; always viewer, never platform or a personal tenant, and written "
+    "to the security audit (via oidc_auto_join)"
+)
 _CLASSIFIED.update(_MEMBERSHIP_CLASSIFIED)
 
 #: Known members without a step-up yet -> the follow-up issue tracking each. Emptied
@@ -347,7 +353,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
 EXPECTED_MEMBERS = (
-    40  # unchanged by MT-045.2 (#2144): change_member_scopes stays a member, it moved from classified to gated;
+    41  # +1 with #2182: join_provider_default_tenant (classified, the OIDC auto-join via the insert helper);
+    # unchanged by MT-045.2 (#2144): change_member_scopes stays a member, it moved from classified to gated;
     # +3 with #2137: create_service_account (constructs a User, joins it, mints its key),
     # rotate_service_account_key (mints a key) and remove_service_account (deletes a membership) - all gated
     # by the acting lead's own step-up (service_account_change);

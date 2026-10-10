@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path
 
 from app.api.v1.admin.oidc_providers.schemas import (
+    CLEARABLE_FIELDS,
     OidcProviderCreateRequest,
     OidcProviderDeleteRequest,
     OidcProviderResponse,
@@ -83,8 +84,16 @@ def _write_fields(body: OidcProviderCreateRequest | OidcProviderUpdateRequest) -
 
     ``exclude_none`` keeps a partial update partial; the step-up fields are the
     admin's confirmation and never reach the configuration (#1883).
+
+    **Except a clearable field sent empty (#2182 SEC-002).** ``default_tenant_key`` sent as
+    ``null`` or ``""`` (the schema reads both as ``None``) means "no default tenant": it is
+    carried as ``None`` - ``model_fields_set`` tells it from a field that was not sent - so an
+    admin can remove the setting again. On create it is the same as leaving it out.
     """
     data = body.model_dump(exclude_none=True, exclude=CREDENTIAL_STEP_UP_FIELDS)
+    for field in CLEARABLE_FIELDS:
+        if field in body.model_fields_set and getattr(body, field) is None:
+            data[field] = None
     return {field: _plain(value) for field, value in data.items()}
 
 
@@ -100,6 +109,7 @@ def _response(c: OidcProviderConfig) -> OidcProviderResponse:
         enabled=c.enabled,
         icon_url=c.icon_url,
         auto_discover=c.auto_discover,
+        default_tenant_key=c.default_tenant_key,
         discovery_refreshed_at=c.discovery_refreshed_at,
         created_at=c.created_at,
         updated_at=c.updated_at,

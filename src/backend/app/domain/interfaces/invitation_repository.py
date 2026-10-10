@@ -54,12 +54,24 @@ class IInvitationRepository(ABC):
         """
 
     @abstractmethod
-    def mark_accepted_if_pending(self, key: str, fields: dict[str, Any]) -> Invitation | None:
-        """Set *key* to ``accepted`` with *fields*, only while it is still ``pending``; else ``None``.
+    def consume_use_if_pending(self, key: str, fields: dict[str, Any]) -> Invitation | None:
+        """Consume one use of *key* while it is ``pending`` with a use left; else ``None`` (REQ-024 AK-07).
 
-        One conditional statement, so a revocation that lands between the
-        caller's read and this write wins instead of being overwritten
-        (REQ-025 AK-IE-06, #1825 security review SEC-001).
+        One conditional statement: ``use_count`` goes up by one and *fields* are merged in; the use
+        that reaches ``max_uses`` sets the invitation ``accepted``. A revocation that lands between
+        the caller's read and this write wins instead of being overwritten (REQ-025 AK-IE-06,
+        #1825 security review SEC-001), and two concurrent accepts of a link's last use cannot both
+        consume it (#2182). A row without ``max_uses``/``use_count`` (stored before #2182) is single use.
+        """
+        ...
+
+    @abstractmethod
+    def release_use(self, key: str, user_key: str) -> Invitation | None:
+        """Hand back the use :meth:`consume_use_if_pending` took for *user_key* when its join failed (#2182).
+
+        One conditional statement: ``use_count`` goes down by one (never below zero), an invitation
+        that the consumed use had set ``accepted`` is ``pending`` again - a ``revoked`` or ``expired``
+        one stays what it is - and the acceptor fields are cleared when they still name *user_key*.
         """
         ...
 

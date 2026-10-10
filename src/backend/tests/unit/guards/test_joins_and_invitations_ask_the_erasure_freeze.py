@@ -36,7 +36,7 @@ _EXCLUDED = ("migrations",)
 
 _MEMBERSHIP_GATE = "_create_membership_unless_erasing"
 _INVITATION_GATE = "_refuse_invitation_while_owner_erasing"
-_INVITATION_WRITES = frozenset({"create", "mark_accepted_if_pending"})
+_INVITATION_WRITES = frozenset({"create", "consume_use_if_pending"})
 _FOUNDING = "create_with_lead_membership"
 
 
@@ -204,7 +204,7 @@ def test_the_invitation_sweep_flags_a_create_and_an_accept_that_skip_the_owner_c
                 return self._invitation_repo.create(i)
 
             def accept(self, k):
-                return self._invitation_repo.mark_accepted_if_pending(k, {})
+                return self._invitation_repo.consume_use_if_pending(k, {})
         """
     )
     problems, sites = _invitation_findings(bad, "bad.py")

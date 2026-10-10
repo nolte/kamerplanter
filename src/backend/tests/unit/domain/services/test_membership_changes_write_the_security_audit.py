@@ -274,7 +274,7 @@ def test_accepting_an_invitation_writes_the_accepting_account_and_the_invited_ro
         email="a@example.com",
     )
     service._invitations.get_by_token_hash.return_value = invitation  # type: ignore[attr-defined]
-    service._invitations.mark_accepted_if_pending.return_value = invitation  # type: ignore[attr-defined]
+    service._invitations.consume_use_if_pending.return_value = invitation  # type: ignore[attr-defined]
 
     service.accept_invitation(
         "raw-token",
