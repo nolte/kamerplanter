@@ -465,7 +465,10 @@ class TenantService:
         cannot undo a concurrent change (#1992 review SEC-003).
 
         The platform tenant is refused (403, #1021) before any step-up is asked for.
-        Without a valid step-up nothing is written.
+        Without a valid step-up nothing is written. An actual change of ``is_active``
+        writes the security-audit row ``tenant_suspended`` / ``tenant_reactivated``
+        (MT-014, #2111) after the store; a rename or a member-limit edit writes none
+        (no account gains or loses access through it).
         """
         current = self._tenant_repo.get_by_key(tenant_key)
         if current is None:
@@ -502,7 +505,16 @@ class TenantService:
             data["status"] = TenantStatus.ACTIVE if wanted else TenantStatus.SUSPENDED
         if not data:
             return current
-        return self._apply_tenant_update(tenant_key, data)
+        updated = self._apply_tenant_update(tenant_key, data)
+        if changes_active:
+            # MT-014 (#2111) — a suspension locks every member out with one request; written after the store.
+            self._audit_tenant(
+                SecurityAuditAction.TENANT_REACTIVATED if wanted else SecurityAuditAction.TENANT_SUSPENDED,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=requester.key or "",
+                tenant_key=tenant_key,
+            )
+        return updated
 
     def _apply_tenant_update(self, tenant_key: str, data: dict) -> Tenant:
         """The write both update paths share: the #1021 guard, the slug on rename, the store.
@@ -597,6 +609,9 @@ class TenantService:
            as they are so :meth:`cancel_tenant_erasure` restores them unchanged), the
            members are told the date, and the request returns. A repeated request
            inside the grace re-asserts the state and returns the same record.
+           The request that created the record writes the security-audit row
+           ``tenant_deletion_requested`` (MT-014, #2111) after its effects; a
+           repeat writes none.
         3. After the grace (or at once with a grace of ``0``) the tenant becomes
            ``deleted``, every membership is deactivated and the erasure runs:
            ``completed`` only when the executor found nothing left; otherwise
@@ -649,6 +664,7 @@ class TenantService:
         configuration_error = self._tenant_erasure_configuration_error()
         if configuration_error is not None:
             raise FeatureNotConfiguredError("tenant_deletion", configuration_error)
+        accepted_here = False
         requested_by_ref = log_subject(requester.key)
         logger.info(
             "tenant_erasure.authorized",
@@ -684,7 +700,14 @@ class TenantService:
                 raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
             if scheduled_for is not None and tenant is not None:
                 self._schedule_tenant_erasure(tenant, scheduled_for, requester_key=requester.key)
+                self._audit_tenant(
+                    SecurityAuditAction.TENANT_DELETION_REQUESTED,
+                    via=self._audit_via_of(origin),
+                    actor_user_key=requester.key or "",
+                    tenant_key=tenant_key,
+                )
                 return record
+            accepted_here = True
 
         elif record.status == "scheduled":
             # #2123 — a repeated request inside the grace changes nothing but re-asserts the
@@ -708,7 +731,36 @@ class TenantService:
         self._mark_tenant_erasing(tenant_key)
         self._membership_repo.deactivate_all_for_tenant(tenant_key)
         self._dispatch_tenant_erasure(record_key)
+        if accepted_here:
+            # MT-014 (#2111) — the request that created the record is the one recorded; a repeat that only
+            # re-dispatches an open deletion changed nothing that was not recorded before.
+            self._audit_tenant(
+                SecurityAuditAction.TENANT_DELETION_REQUESTED,
+                via=self._audit_via_of(origin),
+                actor_user_key=requester.key or "",
+                tenant_key=tenant_key,
+            )
         return record
+
+    @staticmethod
+    def _audit_via_of(origin: TenantErasureOrigin) -> SecurityAuditVia:
+        """The audit door of a person's tenant-deletion entry: the platform panel or the tenant's own management."""
+        return SecurityAuditVia.PLATFORM_ADMIN if origin == "platform_admin" else SecurityAuditVia.TENANT_ADMIN
+
+    def _audit_tenant(
+        self, action: SecurityAuditAction, *, via: SecurityAuditVia, actor_user_key: str, tenant_key: str
+    ) -> None:
+        """Write the persistent security-audit row of one change of a tenant's lifecycle (MT-014, #2111).
+
+        The one place a suspension, a reactivation, an accepted or a withdrawn deletion is handed to
+        (``test_account_and_tenant_mutations_write_the_security_audit`` holds that). Called **after** the
+        change succeeded, like :meth:`_audit_membership`; a failing audit write raises.
+        """
+        if self._security_audit is None:
+            return
+        self._security_audit.record_tenant_change(
+            action=action, via=via, actor_user_key=actor_user_key, tenant_key=tenant_key
+        )
 
     # --- Tenant lifecycle: grace and cancellation (REQ-024 AK-52, MT-027 #2123) ---
 
@@ -804,7 +856,8 @@ class TenantService:
         if orphaned:
             # #2134 — nobody is left who could administer it, so nobody can cancel.
             who_can_stop = (
-                "Nobody is left who can administer it: its last person with the management right deleted their account."
+                "Nobody is left who can administer it: its last person with the management right "
+                "asked to delete their account."
             )
         else:
             who_can_stop = "The garden's management can cancel the deletion until then."
@@ -884,6 +937,13 @@ class TenantService:
             # A run claimed it between the read above and now (or nothing was recorded).
             raise InvalidStatusTransitionError(str(TenantStatus.DELETED), str(TenantStatus.ACTIVE))
         self._set_tenant_status(tenant_key, TenantStatus.ACTIVE, None)
+        # MT-014 (#2111) — the withdrawal removed the erasure record, so this row is what is left of the request.
+        self._audit_tenant(
+            SecurityAuditAction.TENANT_DELETION_CANCELLED,
+            via=self._audit_via_of(origin),
+            actor_user_key=requester.key or "",
+            tenant_key=tenant_key,
+        )
         logger.info(
             "tenant_erasure.cancelled", tenant=log_tenant(tenant_key), origin=origin, subject=log_subject(requester.key)
         )
@@ -1125,6 +1185,13 @@ class TenantService:
             if member.user_key != leaving_user_key
         ]
 
+    def _service_account_user_keys(self, tenant_key: str) -> frozenset[str]:
+        """The tenant's active service accounts — never heirs of ``management`` (#2166, ``allows_interactive_auth``)."""
+        return frozenset(
+            member.user_key
+            for member in self._membership_repo.active_service_account_memberships(tenant_key=tenant_key)
+        )
+
     def organisation_erasure_preview(self, user_key: str) -> list[OrganisationErasurePreview]:
         """The organisations an erasure of *user_key* would change, before it is confirmed (#2134).
 
@@ -1134,7 +1201,9 @@ class TenantService:
         preview: list[OrganisationErasurePreview] = []
         for tenant, membership in self._organisations_of(user_key):
             outcome, _heir = self._membership_engine.departure_settlement(
-                membership, self._remaining_members(tenant.key or "", user_key)
+                membership,
+                self._remaining_members(tenant.key or "", user_key),
+                non_interactive_user_keys=self._service_account_user_keys(tenant.key or ""),
             )
             if outcome != "unaffected":
                 preview.append(OrganisationErasurePreview(name=tenant.name, outcome=outcome))
@@ -1145,8 +1214,10 @@ class TenantService:
     ) -> list[OrganisationSettlement]:
         """Keep every organisation of an erased account administrable, or schedule it for deletion (#2134).
 
-        Called by the account erasure before its ArangoDB plan removes the subject's
-        memberships — the cascade that bypassed INV-1 (MT-038). Per organisation
+        Called when the account erasure is **requested** (#2166 — the account is closed
+        then, so waiting for the hard delete left the organisation without management for
+        the whole grace) and again by the hard delete before its ArangoDB plan removes the
+        subject's memberships — the cascade that bypassed INV-1 (MT-038). Per organisation
         (:meth:`MembershipEngine.departure_settlement`):
 
         * ``management_passes_to_lead`` — the longest-serving remaining ``lead``
@@ -1167,7 +1238,9 @@ class TenantService:
         for tenant, membership in self._organisations_of(user_key):
             tenant_key = tenant.key or ""
             remaining = self._remaining_members(tenant_key, user_key)
-            outcome, heir = self._membership_engine.departure_settlement(membership, remaining)
+            outcome, heir = self._membership_engine.departure_settlement(
+                membership, remaining, non_interactive_user_keys=self._service_account_user_keys(tenant_key)
+            )
             if outcome == "management_passes_to_lead" and heir is not None:
                 self._hand_management_to(heir, tenant, subject_user_key=user_key, remaining=remaining)
             elif outcome == "orphaned":
@@ -1205,7 +1278,9 @@ class TenantService:
         name = html.escape(tenant.name)
         body = (
             "<h2>The management of your organisation has passed on</h2>"
-            f"<p>The last person with the management right in <strong>{name}</strong> has deleted their account. "
+            # #2166 — sent when the erasure is requested: the account is closed, not yet erased.
+            f"<p>The last person with the management right in <strong>{name}</strong> has asked Kamerplanter "
+            "to delete their account. "
             "The longest-serving lead of the organisation now holds the management right, "
             "so members can still be invited and the organisation administered.</p>"
             "<p>Nothing else changes for you.</p>"
@@ -1246,7 +1321,8 @@ class TenantService:
         name = html.escape(tenant.name)
         body = (
             "<h2>An organisation was orphaned by an account deletion</h2>"
-            f"<p>After an account deletion nobody can administer the organisation <strong>{name}</strong> any more. "
+            f"<p>After an account deletion request nobody can administer the organisation <strong>{name}</strong> "
+            "any more. "
             f"It is shown as orphaned in the admin area and will be deleted with all its data on {due} (UTC).</p>"
         )
         platform_leads = [
@@ -3043,7 +3119,7 @@ class TenantService:
         losing_management = membership.has_management and AdminScope.MANAGEMENT not in new_scopes
         if losing_management:
             self._guard_last_manager(
-                tenant_key,
+                membership,
                 "Cannot remove the management scope from the last member who has it",
             )
 
@@ -3103,7 +3179,7 @@ class TenantService:
             raise NotFoundError("Membership", membership_key)
 
         if membership.has_management:
-            self._guard_last_manager(tenant_key, "Cannot remove the last member with the management scope")
+            self._guard_last_manager(membership, "Cannot remove the last member with the management scope")
 
         self._step_up_verifier.verify(
             requester,
@@ -3137,7 +3213,7 @@ class TenantService:
 
         if membership.has_management:
             self._guard_last_manager(
-                tenant_key,
+                membership,
                 "Cannot leave as the last member with the management scope. Hand it over first.",
             )
 
@@ -3227,10 +3303,19 @@ class TenantService:
             **fields,
         )
 
-    def _guard_last_manager(self, tenant_key: str, message: str) -> None:
-        """Raise unless the tenant keeps at least one ``MANAGEMENT`` membership (INV-1)."""
-        manager_count = self._membership_repo.count_managers(tenant_key)
-        if not self._membership_engine.validate_not_last_manager(manager_count, True):
+    def _guard_last_manager(self, membership: Membership, message: str) -> None:
+        """Raise unless another live person account keeps the ``MANAGEMENT`` scope in the tenant (INV-1).
+
+        *membership* holds ``MANAGEMENT`` and is about to lose it (removal, leave, demotion).
+        The others are counted among **live** accounts only (#2166): a holder whose account
+        asked for its erasure or was deactivated cannot administer anything, so counting it
+        let the last live holder strand the tenant; a service account's ``MANAGEMENT`` does not
+        count either, it passes no step-up (re-review W-1). *membership* itself is counted in by the
+        engine's contract ("the target included") whatever its account's state, so removing
+        a closed account's membership is not blocked while one live holder remains.
+        """
+        others = self._membership_repo.count_managers(membership.tenant_key, other_than_user_key=membership.user_key)
+        if not self._membership_engine.validate_not_last_manager(others + 1, True):
             raise ValidationError(message)
 
     # --- Invitations ---

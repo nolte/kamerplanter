@@ -177,6 +177,8 @@ class FakeMembershipRepo:
     def __init__(self, *memberships: Membership, inactive_accounts: set[str] | None = None) -> None:
         self.stored: dict[str, Membership] = {}
         self.inactive_accounts = set(inactive_accounts or ())
+        #: Service accounts (``allows_interactive_auth`` false) — never heirs of ``management`` (#2166).
+        self.service_accounts: set[str] = set()
         self.before_create: Callable[[], None] | None = None
         #: The tenant-erasure record store the atomic rollback reads (wired by ``Tenants``).
         self.records: Any = None
@@ -226,6 +228,18 @@ class FakeMembershipRepo:
             if m.tenant_key == tenant_key and m.is_active and m.user_key not in self.inactive_accounts
         ]
 
+    def active_service_account_memberships(self, *, tenant_key: str) -> list[Membership]:
+        """The real predicate: active memberships of active **service** accounts (#2137)."""
+        return [m for m in self.active_memberships_of(tenant_key=tenant_key) if m.user_key in self.service_accounts]
+
+    def count_managers(self, tenant_key: str, *, other_than_user_key: str | None = None) -> int:
+        """The real predicate (#2166): ``management`` memberships of live accounts, the named one left out."""
+        return sum(
+            1
+            for m in self.active_memberships_of(tenant_key=tenant_key)
+            if m.has_management and m.user_key and m.user_key != other_than_user_key
+        )
+
     def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
         return {
             m.user_key: m.joined_at
@@ -236,6 +250,18 @@ class FakeMembershipRepo:
     def count_active_members(self, *, tenant_key: str) -> int:
         """The seats the member limit counts (#2133): active memberships, as the real AQL counts them."""
         return sum(1 for m in self.stored.values() if m.tenant_key == tenant_key and m.is_active)
+
+    def update_fields(self, key: str, fields: dict[str, Any]) -> Membership | None:
+        """The real merge-and-revalidate: an undeclared field is refused, the merged document re-parsed (#2166)."""
+        current = self.stored.get(key)
+        if current is None:
+            return None
+        for field in fields:
+            if field not in Membership.model_fields:
+                raise AttributeError(f"'{field}' is not a field of Membership")
+        merged = Membership.model_validate({**current.model_dump(by_alias=True), **fields})
+        self.stored[key] = merged
+        return merged
 
     def deactivate_all_for_tenant(self, tenant_key: str) -> int:
         hit = [m for m in self.stored.values() if m.tenant_key == tenant_key and m.is_active]

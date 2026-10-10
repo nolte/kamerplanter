@@ -35,12 +35,20 @@ def acquire_reference_images_task(self, species_key: str, scientific_name: str) 
 
 @celery_app.task  # type: ignore[misc]
 def acquire_all_reference_images_task(batch_size: int = 100) -> dict:
-    """Fan out per-species acquisition across all species (initial index build)."""
+    """Fan out per-species acquisition across the global species catalogue (initial index build).
+
+    Global species only (#2173): the reference index is one table every tenant's
+    ``/match`` reads, so a tenant-owned species indexed there would be returned —
+    key and scientific name — to every other tenant. ``tenant_key=""`` is the
+    documented global-only read of the hybrid catalogue (the union of the empty
+    tenant's own rows with the global seeds is the global seeds); ``None`` would be
+    the whole catalogue, tenant rows included.
+    """
     species_repo = get_species_repo()
     dispatched = 0
     offset = 0
     while True:
-        species, total = species_repo.get_all(offset=offset, limit=batch_size)
+        species, total = species_repo.get_all(offset=offset, limit=batch_size, tenant_key="")
         if not species:
             break
         for sp in species:
@@ -52,5 +60,5 @@ def acquire_all_reference_images_task(batch_size: int = 100) -> dict:
         if offset >= total:
             break
 
-    logger.info("acquire_all_reference_images_dispatched", dispatched=dispatched)
+    logger.info("acquire_all_reference_images_dispatched", dispatched=dispatched, scope="global")
     return {"dispatched": dispatched}

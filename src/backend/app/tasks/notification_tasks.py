@@ -11,7 +11,9 @@ import structlog
 from app.common.log_privacy import log_subject, log_tenant
 from app.data_access.arango.base_repository import get_all_pages
 from app.domain.interfaces.membership_repository import IMembershipRepository
+from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.tasks import celery_app
+from app.tasks.tenant_gate import ActiveTenants
 
 logger = structlog.get_logger()
 
@@ -43,17 +45,25 @@ class _ActiveMembers:
     and the beat then notified an ex-member of a tenant's plants and due dates. The stored membership of
     ``(user, tenant)`` decides, the question ``frost_forecast_tasks`` already asks. A task with no assignee
     asks for the pair ``("", tenant)`` and is refused like any non-member.
+
+    #2166: the tenant must be active as well. A ``suspended``, ``pending_deletion`` or ``orphaned`` tenant keeps
+    its memberships active on purpose (a cancelled deletion restores them unchanged) but resolves for nobody, and
+    the beat notified its members of plants and due dates in a tenant they cannot open.
     """
 
-    def __init__(self, membership_repo: IMembershipRepository) -> None:
+    def __init__(self, membership_repo: IMembershipRepository, tenant_repo: ITenantRepository) -> None:
         self._repo = membership_repo
+        self._tenant_is_active = ActiveTenants(tenant_repo)
         self._answers: dict[tuple[str, str], bool] = {}
 
     def __call__(self, user_key: str, tenant_key: str) -> bool:
         pair = (user_key, tenant_key)
         if pair not in self._answers:
-            membership = self._repo.get_by_user_and_tenant(user_key, tenant_key) if user_key and tenant_key else None
-            self._answers[pair] = membership is not None and bool(getattr(membership, "is_active", False))
+            if not (user_key and tenant_key) or not self._tenant_is_active(tenant_key):
+                self._answers[pair] = False
+            else:
+                membership = self._repo.get_by_user_and_tenant(user_key, tenant_key)
+                self._answers[pair] = membership is not None and bool(getattr(membership, "is_active", False))
         return self._answers[pair]
 
 
@@ -70,12 +80,12 @@ def dispatch_due_care_notifications() -> dict:
     """
     from datetime import UTC, datetime
 
-    from app.common.dependencies import get_membership_repo, get_notification_service, get_task_repo
+    from app.common.dependencies import get_membership_repo, get_notification_service, get_task_repo, get_tenant_repo
     from app.common.enums import TaskCategory, TaskStatus
 
     task_repo = get_task_repo()
     service = get_notification_service()
-    is_active_member = _ActiveMembers(get_membership_repo())
+    is_active_member = _ActiveMembers(get_membership_repo(), get_tenant_repo())
 
     # Work in UTC consistently: the task is scheduled at 06:05 UTC and the
     # window boundaries below carry UTC tzinfo. Using date.today() (local
@@ -207,6 +217,7 @@ def escalate_overdue_notifications() -> dict:
     - Day +7: final warning
     """
     from app.common.dependencies import get_notification_service, get_tenant_repo
+    from app.common.enums import TenantStatus
 
     service = get_notification_service()
     tenant_repo = get_tenant_repo()
@@ -220,6 +231,9 @@ def escalate_overdue_notifications() -> dict:
     for tenant_doc in tenants:
         tenant_key = tenant_doc.get("_key", tenant_doc.get("key", ""))
         if not tenant_key:
+            continue
+        # #2166 — a suspended, pending-deletion or orphaned tenant resolves for nobody: nothing to escalate to.
+        if tenant_doc.get("status", TenantStatus.ACTIVE.value) != TenantStatus.ACTIVE.value:
             continue
 
         try:
@@ -262,13 +276,13 @@ def send_daily_summary() -> dict:
     """
     from datetime import UTC, datetime
 
-    from app.common.dependencies import get_membership_repo, get_notification_service, get_task_repo
+    from app.common.dependencies import get_membership_repo, get_notification_service, get_task_repo, get_tenant_repo
     from app.common.enums import TaskCategory, TaskStatus
     from app.domain.models.notification import NotificationUrgency
 
     service = get_notification_service()
     task_repo = get_task_repo()
-    is_active_member = _ActiveMembers(get_membership_repo())
+    is_active_member = _ActiveMembers(get_membership_repo(), get_tenant_repo())
 
     # Consistent UTC (see dispatch_due_care_notifications) — date.today() would
     # drift the window by a day across the local-vs-UTC midnight boundary.

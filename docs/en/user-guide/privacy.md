@@ -75,7 +75,8 @@ The export contains the data Kamerplanter attributes to you as a person:
 - what you recorded: tasks and comments, diary entries, harvests and quality assessments, inspections and treatments, plant identifications and diagnoses, pest detections, attachments and contributed reference images, imports
 - your conversations with the AI assistant, dismissed tips and the related logs
 - notifications and their settings, calendar feeds, weather sources and manual device overrides
-- **your personal garden**: sites with their GPS coordinates, beds and slots, plants, planting runs, all tasks, the diary and the details of photos and files (not the files themselves) — including entries other members created in your personal garden, but without their account identifiers. Not yet included are the sensor readings and the garden's tank, watering and feeding logs. <!-- Issue #2135 -->
+- **your personal garden**: sites with their GPS coordinates, beds and slots, plants, planting runs, all tasks, the diary and the details of photos and files (not the files themselves) — including entries other members created in your personal garden, but without their account identifiers. <!-- Issue #2135 -->
+- **readings and logs of your personal garden**: tanks with their measurements, fills and maintenance, watering and feeding logs, your sensors and their readings — the individual values of the last 90 days, hourly averages of the last 2 years and daily averages of the last 5 years. If a section holds more than 100,000 readings, it contains the newest and states how many older ones it leaves out; the hourly and daily averages cover the same sensor over the longer period. Readings the Home Assistant connection stored before 4 October 2026 are included as long as the sensor still exists in your garden. Notes and additional details that invited members left on these entries are included unchanged — you already see them in the app; the export does not name who wrote them. <!-- Issue #2165 -->
 
 In an **organization** (community garden), plants, locations and sensor data belong to the group, not to one person, so they are not part of your personal export — only your membership and what you recorded yourself. Location assignments hang off your membership; your garden's lead can show you which locations are assigned to you.
 
@@ -330,6 +331,10 @@ Immediately:
   (email and link invitations) are revoked, and new ones can
   neither be created nor redeemed during the 90 days;
   nobody can join it during the 90 days any more
+- If you were the last person with the management right in an
+  organization, the longest-serving lead takes over now, or the
+  organization is orphaned (deleted after the grace period);
+  its members get an email right away
 
 Personal data (GDPR Art. 17):
 - Anonymised immediately or deleted after 90 days
@@ -348,6 +353,9 @@ After 90 days:
 
 !!! danger "Your personal garden is deleted with it"
     Your personal garden is irreversibly deleted with everything in it — even when other members are in it; their entries go with it. Those members get an email as soon as you request the deletion and can secure their data until the final deletion. The email names neither you nor your address. Only if someone newly joins after your request is the garden kept for that person, without your name. Details: [Data Retention — What happens to your personal garden](../guides/data-retention.md#what-happens-to-your-personal-garden).
+
+!!! info "Organizations you manage"
+    If you are the last person with the management right in an organization, this is settled as soon as you request the deletion — not after 90 days: the longest-serving remaining lead takes over management, or, with no lead left, the organization is orphaned and deleted after the tenant-deletion grace period. The members get an email right away; it does not name you. The dialog shows you which organizations are affected before you confirm. An erasure request cannot be withdrawn, so this hand-over is not taken back either. <!-- Issue #2166 -->
 
 ---
 

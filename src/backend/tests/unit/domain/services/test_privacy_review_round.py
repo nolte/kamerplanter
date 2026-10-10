@@ -226,7 +226,8 @@ class TestTheWalkIsBoundToTheSubjectsTenants:
         assert scoped, "guard against a vacuous loop"
         # Positional: since #2135 a collection can be a source twice (``tasks`` by the
         # assignee and as part of the personal garden), each with its own bound.
-        walked = [s for s in DataExportEngine.USER_DATA_MANIFEST if s.disclosure_gap is None]  # a gap is never asked
+        # A gap is never asked; a time series (#2165) goes to the time-series reader, not this one.
+        walked = [s for s in DataExportEngine.USER_DATA_MANIFEST if s.disclosure_gap is None and s.time_series is None]
         asked = {id(source): keys for source, (_collection, keys) in zip(walked, reader.asked, strict=True)}
         for source in scoped:
             assert asked[id(source)] == ("t-a", "t-b"), source.collection

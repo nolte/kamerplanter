@@ -2066,6 +2066,18 @@ HARVEST_BATCH_ID_INDEX_FIELDS = ["tenant_key", "batch_id"]
 #: drops the sparse one, v0030/v0073 dropped the dense one.
 LEGACY_HARVEST_BATCH_ID_INDEX_FIELDS = ["batch_id"]
 
+#: The calendar feed lookup index (#2171): the public iCal URL is resolved by the
+#: SHA-256 digest of its token, globally (no tenant is known yet). **Sparse**, so a
+#: feed written before v0090 hashed its plaintext token - no ``token_hash`` yet -
+#: does not stop ``ensure_collections`` from creating the index on the boot that
+#: runs that migration.
+CALENDAR_FEED_TOKEN_HASH_INDEX_FIELDS = ["token_hash"]
+
+#: The pre-#2171 index on the plaintext token; ``v0090`` drops it once the digests
+#: are written. Dense and unique: left behind, it would refuse the second feed that
+#: has no ``token`` attribute (two ``null`` values).
+LEGACY_CALENDAR_FEED_TOKEN_INDEX_FIELDS = ["token"]
+
 #: The identity a seed gives a harvest indicator (#1956, #2001):
 #: ``(species, indicator_type, measurement_unit)`` — see
 #: ``ArangoHarvestRepository.find_indicator``. **Sparse**, so a legacy species-less
@@ -2401,7 +2413,7 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     # REQ-015 Calendar indexes
     calendar_feeds_col = db.collection(CALENDAR_FEEDS)
-    calendar_feeds_col.add_persistent_index(fields=["token"], unique=True)
+    calendar_feeds_col.add_persistent_index(fields=CALENDAR_FEED_TOKEN_HASH_INDEX_FIELDS, unique=True, sparse=True)
 
     # REQ-013 v2.0 Plant Diary indexes
     plant_diary_entries_col = db.collection(PLANT_DIARY_ENTRIES)

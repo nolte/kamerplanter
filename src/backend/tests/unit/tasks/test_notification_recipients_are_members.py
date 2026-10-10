@@ -77,6 +77,8 @@ def world(monkeypatch):
     deps.get_task_repo = MagicMock(return_value=tasks)  # type: ignore[attr-defined]
     deps.get_notification_service = MagicMock(return_value=notifier)  # type: ignore[attr-defined]
     deps.get_membership_repo = MagicMock(return_value=memberships)  # type: ignore[attr-defined]
+    # #2166 — every tenant here is active; the tenant gate has its own test (test_care_beats_skip_closed_tenants).
+    deps.get_tenant_repo = MagicMock(return_value=MagicMock(get_by_key=lambda key: MagicMock(is_active=True)))  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", deps)
 
     class World:

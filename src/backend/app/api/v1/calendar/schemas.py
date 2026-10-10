@@ -83,17 +83,29 @@ class CalendarFeedUpdateRequest(BaseModel):
 
 
 class CalendarFeedResponse(BaseModel):
+    """A feed as every read shows it: no token, no token digest, no subscription URL (#2171).
+
+    The token exists in clear only in the response of the call that issued it
+    (:class:`CalendarFeedIssuedResponse`); the server keeps its SHA-256 digest, so a
+    lost URL is replaced by ``POST …/regenerate-token``.
+    """
+
     key: str = ""
     name: str = ""
-    token: str = ""
     user_key: str = ""
     filters: CalendarFeedFiltersSchema = Field(
         default_factory=CalendarFeedFiltersSchema,
     )
     is_active: bool = True
-    ical_url: str = ""
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class CalendarFeedIssuedResponse(CalendarFeedResponse):
+    """Response of creating a feed or rotating its token - the one place the token appears (#2171)."""
+
+    token: str = Field(description="The new iCal token. Shown once; the server stores only its hash.")
+    ical_url: str = Field(description="The subscription URL carrying the new token. Shown once.")
 
 
 class CalendarQueryParams(BaseModel):

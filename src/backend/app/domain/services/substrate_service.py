@@ -13,7 +13,17 @@ from app.domain.services.catalogue_authorization import (
     authorize_hybrid_catalogue_write,
     require_role_for_catalogue_create,
 )
+from app.domain.services.fields_kept_on_edit import keep_stored_fields
 from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_slot
+
+#: Substrate fields ``PUT /substrates/{key}`` does not carry (``SubstrateCreate``
+#: lacks them), so :meth:`SubstrateService.update_substrate` takes them from the
+#: stored substrate. The route rebuilds the model from the body, which held
+#: ``is_mix=False`` and ``mix_components=[]``: every edit of a mix turned it into a
+#: plain substrate without components, which can then be used as a component of a
+#: new mix — the nesting :meth:`SubstrateService.create_mix` refuses. Only
+#: ``create_mix`` writes the two.
+SUBSTRATE_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = ("is_mix", "mix_components")
 
 
 class SubstrateService:
@@ -106,6 +116,7 @@ class SubstrateService:
         # explicit migration — a full-replace update must not be able to move a
         # tenant's mix into the global catalogue, nor claim a global medium.
         substrate.tenant_key = existing.tenant_key
+        keep_stored_fields(substrate, existing, SUBSTRATE_FIELDS_KEPT_ON_EDIT)
         return self._repo.update_substrate(key, substrate)
 
     def delete_substrate(

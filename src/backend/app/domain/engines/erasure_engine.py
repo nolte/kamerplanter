@@ -600,9 +600,9 @@ class ErasureEngine:
             user_field="user_key",
         ),
         ErasureStep(
-            # REQ-015: the feed row holds the token the iCal endpoint serves
-            # (``calendar_feed_repository.get_by_token``); removing the row is
-            # what makes the token stop serving.
+            # REQ-015: the feed row holds the digest of the token the iCal endpoint
+            # serves (``calendar_feed_repository.get_by_token_hash``, #2171);
+            # removing the row is what makes the token stop serving.
             collection="calendar_feeds",
             kind="document",
             executor="account_erasure",
@@ -721,7 +721,7 @@ class ErasureEngine:
         ),
         PseudonymizationRule(
             # MT-014 (#2111) — the security audit is a retained proof (NFR-011 R-38, two years)
-            # that names two accounts: who acted and whose membership changed. Both keys become
+            # that names up to two accounts: who acted and whose membership or trust flag changed. Both keys become
             # the tombstone hash, so a retained row stays linkable without naming anybody.
             collection="security_audit_log",
             user_field="actor_user_key",
@@ -736,8 +736,8 @@ class ErasureEngine:
             user_field="target_user_key",
             replacement_strategy="tombstone_hash",
             reason=(
-                "NFR-011 R-38: the account whose membership changed is pseudonymised at erasure, the same "
-                "way as the acting one."
+                "NFR-011 R-38: the account whose membership or trust flag changed is pseudonymised at erasure, "
+                "the same way as the acting one."
             ),
         ),
         PseudonymizationRule(

@@ -53,6 +53,7 @@ def deps(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     module.get_sensor_repo = MagicMock()  # type: ignore[attr-defined]
     module.get_tank_repo = MagicMock()  # type: ignore[attr-defined]
     module.get_actuator_repo = MagicMock()  # type: ignore[attr-defined]
+    module.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]  # #2166 — every tenant here is active
     module.get_ha_entity_grant_service = lambda: grant_service(GRANTS)  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", module)
     from app.config.settings import settings

@@ -472,10 +472,10 @@ version: "1.5 (REQ-015) / 1.2 (REQ-015-A)"
 
 **Erwartetes Ergebnis:**
 - Der Dialog schliesst sich
-- Der neue Feed "Mein Hauptkalender" erscheint in der Feed-Liste
-- Eine `webcal://`-URL wird fuer den Feed angezeigt (Format: `webcal://[host]/api/v1/calendar/feeds/[feed_id]/feed.ics?token=[token]`)
+- Ein Dialog zeigt die Abo-URL des neuen Feeds genau einmal (Format: `[host]/api/v1/calendar/feeds/[feed_id]/feed.ics?token=[token]`), mit "URL kopieren" und dem Hinweis, dass die URL danach nicht mehr angezeigt wird (REQ-015 CF-001, #2171)
+- Nach dem Schliessen dieses Dialogs erscheint der neue Feed "Mein Hauptkalender" in der Feed-Liste — ohne URL, mit dem Hinweis, dass eine neue URL per Token-Erneuerung entsteht
 - Eine Erfolgs-Benachrichtigung erscheint
-- Der Feed zeigt seinen Namen, eine Zusammenfassung der konfigurierten Filter, sowie Schaltflaechen "URL kopieren", "Token erneuern", "Loeschen"
+- Der Feed zeigt seinen Namen sowie die Schaltflaechen "Token erneuern" und (Rolle Leitung) "Loeschen"
 
 ---
 
@@ -504,18 +504,18 @@ version: "1.5 (REQ-015) / 1.2 (REQ-015-A)"
 
 ### TC-015-032: Feed-URL kopieren
 
-**Zusammenfassung:** Nutzer kopiert die webcal-URL eines Feeds in die Zwischenablage.
+**Zusammenfassung:** Nutzer kopiert die Abo-URL eines Feeds in die Zwischenablage — nur im Einmal-Dialog direkt nach Erstellung oder Token-Erneuerung (CF-001); die Feed-Liste bietet keinen Kopieren-Knopf.
 
-**Anforderung:** REQ-015 §3.7 — Feed-Management-Dialog: "[URL kopieren]"-Button
+**Anforderung:** REQ-015 §3.7 — Feed-Management-Dialog: "[URL kopieren]"-Button; CF-001
 **Prioritaet:** High
 **Kategorie:** Happy Path / Feed-Management
 **Tags:** [req-015, feed, url-kopieren, zwischenablage]
 
 **Vorbedingungen:**
-- Mindestens ein Feed existiert in der Feed-Liste
+- Der Einmal-Dialog mit der Abo-URL ist nach "Feed erstellen" oder "Token erneuern" geoeffnet
 
 **Testschritte:**
-1. Nutzer klickt in der Feed-Karte auf "URL kopieren" (Clipboard-Symbol)
+1. Nutzer klickt im Dialog auf "URL kopieren"
 
 **Erwartetes Ergebnis:**
 - Eine Erfolgs-Benachrichtigung erscheint: "URL kopiert"
@@ -533,16 +533,14 @@ version: "1.5 (REQ-015) / 1.2 (REQ-015-A)"
 **Tags:** [req-015, feed, token, rotation, sicherheit]
 
 **Vorbedingungen:**
-- Mindestens ein Feed mit einer sichtbaren webcal-URL existiert
-- Nutzer hat die alte URL notiert
+- Mindestens ein Feed existiert; Nutzer hat dessen alte URL beim Erstellen notiert
 
 **Testschritte:**
 1. Nutzer klickt auf "Token erneuern" (Aktualisierungs-Symbol) in der Feed-Karte
-2. Evtl. erscheint ein Bestaetigung-Dialog — Nutzer bestaetigt
+2. Ein Bestaetigungs-Dialog erklaert, dass die alte URL danach nicht mehr funktioniert — Nutzer bestaetigt
 
 **Erwartetes Ergebnis:**
-- Eine Erfolgs-Benachrichtigung erscheint
-- Die angezeigte webcal-URL in der Feed-Karte aendert sich (neues Token in der URL sichtbar)
+- Der Einmal-Dialog zeigt die neue Abo-URL (neues Token); nach dem Schliessen ist sie nirgends mehr sichtbar
 - Die alte URL ist ab sofort ungueltig — wenn Nutzer die alte URL im Browser oeffnet, erscheint ein Fehler (Feed nicht gefunden oder 401/403)
 
 ---

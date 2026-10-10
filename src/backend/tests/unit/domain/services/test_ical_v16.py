@@ -1,5 +1,6 @@
 """REQ-015 v1.6 — VALARM, PRIORITY, STATUS in iCal output and HTTP 410 on expired feeds."""
 
+import hashlib
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
@@ -51,7 +52,7 @@ class TestFeedExpiry:
             key="feed-1",
             tenant_key="t-1",
             name="My feed",
-            token="tkn-abc",
+            token_hash=hashlib.sha256(b"tkn-abc").hexdigest(),
             user_key="u-1",
             filters=CalendarFeedFilters(),
             is_active=True,
@@ -63,7 +64,7 @@ class TestFeedExpiry:
 
         feed = self._feed(expires_at=datetime.now() - timedelta(hours=1))
         feed_repo = MagicMock()
-        feed_repo.get_by_token.return_value = feed
+        feed_repo.get_by_token_hash.return_value = feed
 
         svc = CalendarService(
             feed_repo=feed_repo,
@@ -80,7 +81,7 @@ class TestFeedExpiry:
 
         feed = self._feed(expires_at=datetime.now() + timedelta(days=1))
         feed_repo = MagicMock()
-        feed_repo.get_by_token.return_value = feed
+        feed_repo.get_by_token_hash.return_value = feed
         engine = MagicMock()
         engine.aggregate.return_value = []
 
@@ -97,7 +98,7 @@ class TestFeedExpiry:
         from app.domain.services.calendar_service import CalendarService
 
         feed_repo = MagicMock()
-        feed_repo.get_by_token.return_value = None
+        feed_repo.get_by_token_hash.return_value = None
 
         svc = CalendarService(
             feed_repo=feed_repo,

@@ -75,7 +75,8 @@ Der Export enthält die Daten, die Kamerplanter dir als Person zuordnet:
 - was du erfasst hast: Aufgaben und Kommentare, Tagebucheinträge, Ernten und Qualitätsbewertungen, Inspektionen und Behandlungen, Pflanzenbestimmungen und Diagnosen, Schädlingserkennungen, Anhänge und beigetragene Referenzbilder, Importe
 - deine Gespräche mit dem KI-Assistenten, ausgeblendete Tipps und die zugehörigen Protokolle
 - Benachrichtigungen und deren Einstellungen, Kalender-Feeds, Wetterquellen und manuelle Eingriffe in Geräte
-- **dein persönlicher Garten**: Standorte mit ihren GPS-Koordinaten, Beete und Stellplätze, Pflanzen, Pflanzdurchläufe, alle Aufgaben, das Tagebuch und die Angaben zu Fotos und Dateien (ohne die Dateien selbst) — auch Einträge, die andere Mitglieder in deinem persönlichen Garten angelegt haben, aber ohne deren Kontokennungen. Noch nicht enthalten sind die Messwerte der Sensoren sowie Tank-, Gieß- und Düngeprotokolle des Gartens. <!-- Issue #2135 -->
+- **dein persönlicher Garten**: Standorte mit ihren GPS-Koordinaten, Beete und Stellplätze, Pflanzen, Pflanzdurchläufe, alle Aufgaben, das Tagebuch und die Angaben zu Fotos und Dateien (ohne die Dateien selbst) — auch Einträge, die andere Mitglieder in deinem persönlichen Garten angelegt haben, aber ohne deren Kontokennungen. <!-- Issue #2135 -->
+- **Messwerte und Protokolle deines persönlichen Gartens**: Tanks mit ihren Messungen, Befüllungen und Wartungen, Gieß- und Düngeprotokolle, deine Sensoren und ihre Messwerte — die einzelnen Werte der letzten 90 Tage, Stundenmittel der letzten 2 Jahre und Tagesmittel der letzten 5 Jahre. Hat ein Abschnitt mehr als 100.000 Messwerte, enthält er die neuesten und nennt die Zahl der ausgelassenen älteren; die Stunden- und Tagesmittel decken denselben Sensor über den längeren Zeitraum ab. Messwerte, die die Home-Assistant-Anbindung vor dem 4. Oktober 2026 gespeichert hat, kommen mit, solange der Sensor noch in deinem Garten existiert. Notizen und Zusatzangaben, die eingeladene Mitglieder an diesen Einträgen hinterlassen haben, stehen unverändert darin — du siehst sie in der App ohnehin; wer sie geschrieben hat, nennt der Export nicht. <!-- Issue #2165 -->
 
 Aus einer **Organisation** (Gemeinschaftsgarten) gehören Pflanzen, Standorte und Sensordaten der Gruppe, nicht einer einzelnen Person. Sie sind deshalb nicht im persönlichen Export enthalten — nur deine Mitgliedschaft und das, was du selbst erfasst hast. Die Standort-Zuweisungen hängen an deiner Mitgliedschaft; welche Standorte dir zugewiesen sind, kann dir die Leitung deines Gartens zeigen.
 
@@ -330,6 +331,10 @@ Sofort:
   (E-Mail- und Link-Einladungen) werden widerrufen, neue lassen
   sich waehrend der 90 Tage nicht mehr anlegen oder einloesen;
   niemand kann ihm waehrend der 90 Tage mehr beitreten
+- Warst du in einer Organisation die letzte Person mit
+  Verwaltungsrecht, uebernimmt jetzt die dienstaelteste Leitung,
+  oder die Organisation verwaist (Loeschung nach der Frist);
+  die Mitglieder bekommen sofort eine E-Mail
 
 Persoenliche Daten (Art. 17 DSGVO):
 - Werden sofort anonymisiert oder nach 90 Tagen geloescht
@@ -348,6 +353,9 @@ Nach 90 Tagen:
 
 !!! danger "Dein persönlicher Garten geht mit"
     Dein persönlicher Garten wird mit allem, was darin ist, unwiderruflich gelöscht — auch wenn weitere Mitglieder darin sind; ihre Einträge gehen dann mit. Diese Mitglieder bekommen eine E-Mail, sobald du die Löschung beantragst, und können bis zur endgültigen Löschung ihre Daten sichern. Die E-Mail nennt weder deinen Namen noch deine Adresse. Nur wenn nach deinem Antrag noch jemand neu beitritt, bleibt der Garten für diese Person erhalten, ohne deinen Namen. Details dazu: [Datenaufbewahrung — Was mit deinem persönlichen Garten passiert](../guides/data-retention.md#was-mit-deinem-personlichen-garten-passiert).
+
+!!! info "Organisationen, die du verwaltest"
+    Bist du in einer Organisation die letzte Person mit Verwaltungsrecht, wird das schon geregelt, wenn du die Löschung beantragst — nicht erst nach 90 Tagen: Die dienstälteste verbleibende Leitung übernimmt die Verwaltung, oder die Organisation verwaist, wenn keine Leitung mehr da ist, und wird nach der Frist der Mandantenlöschung gelöscht. Die Mitglieder bekommen dazu sofort eine E-Mail; sie nennt deinen Namen nicht. Welche Organisationen das betrifft, zeigt dir der Dialog vor der Bestätigung. Ein Löschantrag lässt sich nicht zurücknehmen, deshalb wird auch diese Übergabe nicht zurückgenommen. <!-- Issue #2166 -->
 
 ---
 

@@ -18,8 +18,11 @@ class ArangoCalendarFeedRepository(BaseArangoRepository[CalendarFeed], ICalendar
     def save(self, feed: CalendarFeed) -> CalendarFeed:
         return super().create(feed)
 
-    def get_by_token(self, token: str) -> CalendarFeed | None:
-        return self.find_one_by_field("token", token)
+    def get_by_token_hash(self, token_hash: str) -> CalendarFeed | None:
+        """The feed whose stored token digest is ``token_hash``; ``None`` for an empty digest (#2171)."""
+        if not token_hash:
+            return None
+        return self.find_one_by_field("token_hash", token_hash)
 
     def list_by_user(
         self,

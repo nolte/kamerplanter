@@ -4681,16 +4681,27 @@ export interface CalendarFeedFilters {
   site_key: string | null;
 }
 
+/**
+ * A calendar feed as every read returns it. It carries no token and no
+ * subscription URL: the server keeps only a hash of the token (#2171).
+ */
 export interface CalendarFeed {
   key: string;
   name: string;
-  token: string;
   user_key: string;
   filters: CalendarFeedFilters;
   is_active: boolean;
-  ical_url: string;
   created_at: string | null;
   updated_at: string | null;
+}
+
+/**
+ * Response of creating a feed or rotating its token — the only place the token
+ * and its subscription URL appear. Shown once, never kept in the store.
+ */
+export interface CalendarFeedIssued extends CalendarFeed {
+  token: string;
+  ical_url: string;
 }
 
 // Sowing Calendar (REQ-015 §3.8)

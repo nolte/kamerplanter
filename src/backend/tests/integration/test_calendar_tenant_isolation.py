@@ -198,10 +198,9 @@ class TestTheIcalFeedIsScopedToTheFeedsTenant:
     """The token-authenticated export builds its query from ``feed.tenant_key``."""
 
     def test_the_feed_exports_its_tenants_events_only(self, db) -> None:
-        repo = ArangoCalendarFeedRepository(db)
-        feed = repo.save(CalendarFeed(name="Alice feed", tenant_key=TENANT_A, user_key="user-a", token="tok-alice"))
+        issued = _service(db).create_feed(CalendarFeed(name="Alice feed", tenant_key=TENANT_A, user_key="user-a"))
 
-        ics = _service(db).generate_ical_for_feed(feed.key, "tok-alice")
+        ics = _service(db).generate_ical_for_feed(issued.feed.key, issued.token)
 
         assert _SEED[TENANT_A]["plant_name"] in ics
         assert _SEED[TENANT_A]["tank_action"] in ics

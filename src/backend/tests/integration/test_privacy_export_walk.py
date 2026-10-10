@@ -266,7 +266,9 @@ def db():
         users.insert(doc)
 
     for source in DataExportEngine.USER_DATA_MANIFEST:
-        if source.collection == col.USERS:
+        if source.collection == col.USERS or source.time_series is not None:
+            # #2165 — a time series lives in TimescaleDB, not here; measured against a real
+            # server in ``test_privacy_export_garden_readings_timescale.py``.
             continue
         if not database.has_collection(source.collection):
             database.create_collection(source.collection, edge=source.filter_field in EDGE_ENDPOINT_FIELDS)
@@ -333,7 +335,10 @@ def _profile_source():
     raise AssertionError("the manifest no longer declares the user profile")
 
 
-DISCLOSED = [source for source in DataExportEngine.USER_DATA_MANIFEST if not source.disclosure_gap]
+#: The ArangoDB sources; the #2165 time series are read by the TimescaleDB reader instead.
+DISCLOSED = [
+    source for source in DataExportEngine.USER_DATA_MANIFEST if not source.disclosure_gap and source.time_series is None
+]
 #: The #1669 sources: disclosed by key, with pre-attribution rows stated as a gap.
 ATTRIBUTED = [source for source in DISCLOSED if source.attribution_gap]
 
@@ -484,6 +489,7 @@ def _service_under_test(database, storage_root):
     """
     from app.data_access.arango.data_export_repository import ArangoDataExportRepository
     from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
+    from app.data_access.timescale.personal_time_series_repository import NullPersonalTimeSeriesRepository
     from app.domain.engines.consent_engine import ConsentEngine
     from app.domain.engines.erasure_engine import ErasureEngine
     from app.domain.services.privacy_service import PrivacyService
@@ -517,6 +523,8 @@ def _service_under_test(database, storage_root):
         personal_data_repo=ArangoPersonalDataRepository(database),
         # #2135 — the personal tenants the subject owns bound the personal-garden sources.
         tenant_service=MagicMock(**{"personal_tenant_keys_of.return_value": [PERSONAL_TENANT[SUBJECT]]}),
+        # #2165 — the garden's readings come from TimescaleDB; this walk measures ArangoDB only.
+        time_series_repo=NullPersonalTimeSeriesRepository(),
     )
     return service, export_repo
 

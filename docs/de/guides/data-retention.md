@@ -23,7 +23,7 @@ Grundlage: DSGVO Art. 5 Abs. 1 lit. e. <!-- NFR-011 -->
 | R-07a | Rückgängig-Fenster einer bestätigten E-Mail-Änderung | 7 Tage nach der Bestätigung | `previous_email`, Hash des Rückgängig-Tokens und dessen Ablaufzeitpunkt nullen | Zweckentfall — der Rückgängig-Link ist abgelaufen |
 | R-11 | Abgelaufene Refresh Tokens | Sofort nach Ablauf | Hard-Delete (TTL-Index) | Zweckentfall |
 | R-12 | Abgelaufene Einladungen | 30 Tage nach Ablauf | Status auf `expired` setzen, nach 30 Tagen Hard-Delete (`app.tasks.tenant_tasks.cleanup_expired_invitations`, täglich 02:00 UTC) | Zweckentfall |
-| R-38 | Sicherheits-Audit (Mitgliedschafts-, Rollen- und Scope-Änderungen) | 730 Tage (2 Jahre) nach Anlage, fest | Hard-Delete (`security_audit.purge_expired`, täglich 02:55 UTC); bei einer Kontolöschung werden die Kontoschlüssel der Zeile zu Tombstone-Hashes, bei einer Mandantenlöschung bleibt sie bestehen | Art. 32 DSGVO (Nachweis von Zugriffsänderungen), Art. 5(2) |
+| R-38 | Sicherheits-Audit (Mitgliedschafts-, Rollen- und Scope-Änderungen; Deaktivierung und E-Mail-Bestätigung eines Kontos durch Platform-Admins; Sperre, Reaktivierung und Löschauftrag eines Mandanten) | 730 Tage (2 Jahre) nach Anlage, fest | Hard-Delete (`security_audit.purge_expired`, täglich 02:55 UTC); bei einer Kontolöschung werden die Kontoschlüssel der Zeile zu Tombstone-Hashes, bei einer Mandantenlöschung bleibt sie bestehen | Art. 32 DSGVO (Nachweis von Zugriffsänderungen), Art. 5(2) |
 
 Jede Frist außer R-11 (TTL-Index), R-06a und R-38 (fest) wird über genau eine Einstellung gelesen (siehe
 [Umgebungsvariablen](../reference/environment-variables.md#datenschutz-dsgvo-req-025-nfr-011)
@@ -367,7 +367,10 @@ werden benachrichtigt. Bleibt keine Leitung oder bist du das einzige Mitglied, w
 Organisation **verwaist**: Sie ist gesperrt und wird nach der Frist der Mandantenlöschung
 (`RETENTION_TENANT_ERASURE_GRACE_DAYS`, Standard 90 Tage) mit allen Daten gelöscht; die
 verbleibenden Mitglieder und die Betreiber werden benachrichtigt. Beides zeigt dir die
-Vorschau, bevor du die Löschung bestätigst. <!-- Issue #2134 -->
+Vorschau, bevor du die Löschung bestätigst. Beides passiert, sobald du die Löschung
+**beantragst** — nicht erst beim endgültigen Löschen bis zu 90 Tage später: Dein Konto ist
+ab dem Antrag geschlossen, und die Organisation soll nicht so lange ohne Verwaltung
+bleiben. Die Frist einer verwaisten Organisation läuft ab deinem Antrag. <!-- Issue #2134, #2166 -->
 
 Ein KI-Tipp, den du ausgeblendet hast, bleibt für die anderen Mitglieder deines
 Gartens ausgeblendet. Nur der Vermerk, dass du es warst, wird durch `_anonymized`
@@ -1075,14 +1078,18 @@ TimescaleDB konfiguriert, aber nicht erreichbar, endet er mit Exit-Code 1 und ä
 ## Häufige Fragen
 
 ??? question "Kann ich die 90-Tage-Frist für Soft-Delete verlängern?"
-    Ja, per `RETENTION_SOFT_DELETE_RETENTION_DAYS` (Minimum 1 Tag). Eine Verkürzung
-    unter 30 Tage wird nicht empfohlen, da Nutzer sonst keine Chance haben, irrtümlich
-    gelöschte Accounts wiederherzustellen.
+    Ja, per `RETENTION_SOFT_DELETE_RETENTION_DAYS` (Minimum 1 Tag). Die Frist ist kein
+    Rückgängig-Fenster: Ein Löschantrag lässt sich nicht zurücknehmen, das Konto ist ab dem
+    Antrag geschlossen (ohne Passwort), und nach der Frist wird es in jedem Fall gelöscht.
+    In der Frist bekommen die anderen Mitglieder eines persönlichen Gartens Zeit, ihre Daten
+    zu sichern. <!-- Issue #2166 -->
 
-??? question "Was passiert mit Tenant-Daten wenn der letzte Admin eines Tenants gelöscht wird?"
-    Der Celery-Task `detect_orphaned_tenants` erkennt Tenants ohne aktiven Admin und
-    setzt einen `orphaned_since`-Timestamp. Ein Platform-Admin kann dann einen
-    Notfall-Admin ernennen.
+??? question "Was passiert mit einer Organisation, wenn ihre letzte Verwaltung die Löschung ihres Kontos beantragt?"
+    Beim Antrag übernimmt die dienstälteste verbleibende Leitung die Verwaltung. Gibt es
+    keine Leitung mehr, wird die Organisation **verwaist** (`orphaned`) und nach
+    `RETENTION_TENANT_ERASURE_GRACE_DAYS` gelöscht; das lässt sich nicht abbrechen. Mitglieder
+    und Plattform-Admins werden per E-Mail informiert. Einen Notfall-Admin oder einen Task
+    `detect_orphaned_tenants` gibt es nicht mehr. <!-- Issue #2134, #2166 -->
 
 ??? question "Wie kann ich prüfen, ob die Retention-Tasks korrekt laufen?"
     Es gibt keine Prometheus-Metrik dafür. Schau stattdessen in die strukturierten Logs
