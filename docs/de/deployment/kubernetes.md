@@ -290,7 +290,7 @@ Was das für dich bedeutet:
 
 - **Wartet ein Pod länger als 600 Sekunden** auf eine Migration, die ein anderer Pod hält, beendet er sich selbst mit `MigrationBarrierTimeoutError` — das Backend entscheidet über den Fehlschlag, nicht das Kubelet. Die maximale Startdauer liegt deshalb immer über dieser Wartezeit.
 - **Wird ein migrierender Pod abgebrochen**, bleibt sein Lock bis zu 300 Sekunden stehen; danach übernimmt ein anderer Pod. Ein Neustart in dieser Zeit wartet also, statt sofort zu migrieren.
-- **Braucht eine Migration länger als 15 Minuten**, erhöhe vor dem Upgrade `failureThreshold` des `startupProbe` (die übrigen Probe-Werte bleiben erhalten). Senke ihn nie unter 61: Unter 610 Sekunden bricht Kubernetes einen Pod ab, der noch rechtmäßig auf eine fremde Migration wartet.
+- **Braucht eine Migration länger als 15 Minuten**, erhöhe vor dem Upgrade `failureThreshold` des `startupProbe` (die übrigen Probe-Werte bleiben erhalten). Senke ihn nie unter 70: Ein Pod, der die vollen 600 Sekunden auf eine fremde Migration gewartet hat, braucht danach noch seinen eigenen Start (rund 40 Sekunden, unter 1 CPU länger). 10 s × 70 = 700 Sekunden lassen dafür 100 Sekunden Aufschlag; mit weniger bricht Kubernetes einen Pod ab, der rechtmäßig wartet oder gerade fertig startet.
 - **Beim Hochskalieren** (Replicas oder [Autoscaler](helm.md#skalierung)) hilft ein neuer Pod erst nach seinem Start. Plane die Skalierung mit Minuten, nicht Sekunden.
 
 ```yaml title="values-production.yaml (Ausschnitt) — nur bei sehr langen Migrationen"

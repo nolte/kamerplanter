@@ -137,7 +137,9 @@ renderChecks:
   #    once per replica (duplicate retention and deletion runs), and every
   #    arangodb / vectordb replica is an independent database on its own claim;
   #  * a PodDisruptionBudget that admits no eviction (minAvailable >= the
-  #    smallest replica count): every node drain and cluster upgrade then hangs.
+  #    smallest replica count, a percentage minAvailable that rounds up to it,
+  #    or maxUnavailable 0 / "0%"): every node drain and cluster upgrade then
+  #    hangs.
   scaling: >-
     {{- range $name := list "celery-beat" "arangodb" "vectordb" -}}
     {{- $controller := index $.Values.controllers $name | default dict -}}
@@ -154,8 +156,31 @@ renderChecks:
     {{- with $controller.horizontalPodAutoscaler -}}
     {{- $minReplicas = int (default $minReplicas .minReplicas) -}}
     {{- end -}}
-    {{- if and (hasKey $pdb "minAvailable") (not (kindIs "string" $pdb.minAvailable)) (ge (int $pdb.minAvailable) $minReplicas) -}}
-    {{- fail (printf "controllers.%s.podDisruptionBudget.minAvailable=%d with %d replica(s) admits no eviction: every node drain and cluster upgrade would hang. Raise replicas (or horizontalPodAutoscaler.minReplicas) above minAvailable. See docs/deployment/helm.md#skalierung (#2127)." $name (int $pdb.minAvailable) $minReplicas) -}}
+    {{- /* Kubernetes rounds a percentage UP to whole pods: minAvailable "50%" of one pod is that pod, and
+           any maxUnavailable above 0% is at least one pod. A string without "%" is a count. */ -}}
+    {{- $blocking := "" -}}
+    {{- if hasKey $pdb "minAvailable" -}}
+    {{- $value := $pdb.minAvailable -}}
+    {{- $pods := int $value -}}
+    {{- if and (kindIs "string" $value) (hasSuffix "%" $value) -}}
+    {{- $pods = div (add (mul (atoi (trimSuffix "%" $value)) $minReplicas) 99) 100 -}}
+    {{- end -}}
+    {{- if ge (int $pods) $minReplicas -}}
+    {{- $blocking = printf "minAvailable=%v" $value -}}
+    {{- end -}}
+    {{- end -}}
+    {{- if hasKey $pdb "maxUnavailable" -}}
+    {{- $value := $pdb.maxUnavailable -}}
+    {{- $pods := int $value -}}
+    {{- if and (kindIs "string" $value) (hasSuffix "%" $value) -}}
+    {{- $pods = atoi (trimSuffix "%" $value) -}}
+    {{- end -}}
+    {{- if le (int $pods) 0 -}}
+    {{- $blocking = printf "maxUnavailable=%v" $value -}}
+    {{- end -}}
+    {{- end -}}
+    {{- if $blocking -}}
+    {{- fail (printf "controllers.%s.podDisruptionBudget.%s with %d replica(s) admits no eviction: every node drain and cluster upgrade would hang. Keep at least one pod evictable: minAvailable below the replica count (a percentage is rounded up to whole pods), or maxUnavailable of at least 1 (or a percentage above 0%%); raise replicas (or horizontalPodAutoscaler.minReplicas) if needed. See docs/deployment/helm.md#skalierung (#2127)." $name $blocking $minReplicas) -}}
     {{- end -}}
     {{- end -}}
     {{- end -}}
@@ -193,12 +218,18 @@ database:
 # (external-secrets.io/v1 — the External Secrets Operator and its CRDs must be
 # installed) that writes `kamerplanter-secrets` from the store entry named in
 # `dataFrom[0].extract.key`; every property of that entry becomes one key of the
-# Secret, so the entry carries the same keys as the hand-made Secret. A
-# `secretStoreRef.name` is required — bjw-s refuses the render without one.
+# Secret. Backend, worker and beat read that Secret in full (envFrom), so the
+# entry carries only the mandatory keys — NOT ARANGO_ROOT_PASSWORD, which goes
+# into a Secret of its own named in database.arangodb.rootPasswordSecret. A
+# `secretStoreRef.name` is required — bjw-s refuses the render without one. A
+# ClusterSecretStore serves every namespace unless its `spec.conditions` limit
+# it; restrict it, or use a namespaced SecretStore.
 # `target.creationPolicy: Owner` lets the operator create and own the Secret; a
 # Secret that already exists from a manual `kubectl create` is not simply
 # adopted — delete it in the same change, or set `Merge` so the operator writes
-# into it (docs/deployment/helm.md#secrets-aus-einem-secret-store).
+# into it (docs/deployment/helm.md#secrets-aus-einem-secret-store). Owner also
+# means `helm uninstall` (which deletes the ExternalSecret) garbage-collects the
+# Secret; deletionPolicy below only covers an entry deleted in the store.
 # Further Secrets (storage.s3.credentialsRef, backup.s3.credentialsRef,
 # database.arangodb.rootPasswordSecret) are added the same way, one entry each.
 externalSecrets:
@@ -212,7 +243,8 @@ externalSecrets:
       name: kamerplanter-secrets
       creationPolicy: Owner
       # bjw-s defaults to Delete: an entry missing in the store would delete the
-      # Secret and stop every pod start. Retain keeps the last good Secret.
+      # Secret and stop every pod start. Retain keeps the last good Secret. It
+      # does not survive `helm uninstall` (ownerReference, see above).
       deletionPolicy: Retain
     dataFrom:
       - extract:

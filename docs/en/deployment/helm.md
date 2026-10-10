@@ -54,13 +54,14 @@ appVersion: "1.0.0"     # Application version
 
 | Dependency | Version | Source | Purpose |
 |-----------|---------|--------|---------|
-| common (bjw-s) | 5.0.1 | bjw-s-labs Helm Charts | Library chart for standardized Kubernetes resources |
-| valkey | 0.10.0 | OCI: ghcr.io/valkey-io/valkey-helm | Redis-compatible cache + Celery broker |
+| common (bjw-s) | 5.2.1 | bjw-s-labs Helm Charts | Library chart for standardized Kubernetes resources |
+| valkey | 0.12.0 | OCI: ghcr.io/valkey-io/valkey-helm | Redis-compatible cache + Celery broker |
+| ollama | 1.87.0 | `otwld/ollama-helm` | Local LLM inference, off by default (`ollama.enabled: false`) |
 
 <!-- Source: helm/kamerplanter/Chart.yaml -->
 
-!!! note "Ollama subchart is commented out"
-    `Chart.yaml` contains a third, **commented-out** dependency entry for an Ollama Helm chart (`otwld/ollama-helm`). It is not active — in Kubernetes deployments, Ollama currently runs as a separate controller added by the operator (see [Deployment Profiles → Professional](betriebsprofile.md#profi)), not as a sub-chart dependency.
+!!! note "Ollama subchart is off by default"
+    The Ollama Helm chart (`otwld/ollama-helm`) is listed as the third dependency, but it only renders with `ollama.enabled: true`. Without that switch the release contains no Ollama; how the deployment profiles use Ollama is described under [Deployment Profiles → Professional](betriebsprofile.md#profi).
 
 ---
 
@@ -75,8 +76,9 @@ helm/kamerplanter/
 ├── templates/
 │   └── common.yaml       # bjw-s library loader
 └── charts/
-    ├── common-4.6.2.tgz  # bjw-s Common Library
-    └── valkey-0.9.3.tgz  # Valkey sub-chart
+    ├── common-5.2.1.tgz  # bjw-s Common Library
+    ├── valkey-0.12.0.tgz # Valkey sub-chart
+    └── ollama-1.87.0.tgz # Ollama sub-chart (off by default)
 ```
 
 The chart uses the bjw-s `common.loader.all` approach: all Kubernetes resources (Deployments, StatefulSets, Services, ConfigMaps, Ingress) are defined declaratively via `values.yaml` — there are no custom templates.
@@ -285,14 +287,17 @@ valkey:
       cpu: 50m
       memory: 128Mi
     limits:
-      memory: 384Mi
+      memory: 512Mi    # at least twice maxmemory
 ```
 
 - `noeviction` rather than an eviction policy: when memory is full, Valkey refuses new writes instead of silently dropping waiting tasks. A full memory thus shows up as an error.
 - `appendonly yes` records every change; after a restart the tasks of the last seconds are back too.
-- Set the container's memory limit above `maxmemory`, otherwise Kubernetes kills Valkey before Valkey itself can refuse.
+- Set the container's memory limit to at least twice `maxmemory`. To rewrite the append-only file and to take snapshots, Valkey forks a child process that copies the data set; every page that changes meanwhile occupies memory twice. With a tight limit, Kubernetes kills Valkey before Valkey itself can refuse.
 
 The values take effect after the Valkey pod restarts. The chart default stays unchanged, so an upgrade does not switch existing installations over.
+
+!!! warning "Valkey without password and without TLS"
+    Backend, worker and beat connect through `REDIS_URL` (`redis://kamerplanter-valkey:6379/0`) without a password and without encryption; the Valkey chart runs with its default of no authentication (`auth.enabled: false`) and no TLS. Valkey is protected only by the chart's NetworkPolicies: only backend, worker and beat may reach the Valkey pod. So do not switch the NetworkPolicies off, and run Kamerplanter only in a cluster whose CNI enforces NetworkPolicies.
 
 ---
 
@@ -714,7 +719,7 @@ The chart refuses to render (`helm template`, `helm upgrade`, ArgoCD) with a mes
 |---------|-------------|
 | Backend or Celery worker with more than one pod (`replicas` or `maxReplicas`) on the default `ReadWriteOnce` volume | A second pod on another node never starts (`Multi-Attach error`). Fix: [S3](#storage-configuration-nfr-013) or `ReadWriteMany`. |
 | More than one pod or an autoscaler for `celery-beat`, `arangodb` or `vectordb` | Two beat pods run every scheduled task twice, deletion and retention runs included. Two ArangoDB or VectorDB pods are two separate databases, not a cluster. |
-| `podDisruptionBudget.minAvailable` equal to or above the pod count | Kubernetes may then evict no pod; every node drain and every cluster upgrade hangs. |
+| `podDisruptionBudget.minAvailable` equal to or above the pod count, also as a percentage (`"100%"`; Kubernetes rounds up to whole pods, `"50%"` of one pod is that pod), or `maxUnavailable: 0` or `"0%"` | Kubernetes may then evict no pod; every node drain and every cluster upgrade hangs. Percentages that still let at least one pod be evicted (`minAvailable: "50%"` with two pods, `maxUnavailable: "25%"`) are allowed. |
 
 Celery beat always stays a single pod with the `Recreate` strategy: the old pod ends before the new one starts.
 
@@ -731,13 +736,15 @@ externalSecrets:
       name: my-secret-store
     dataFrom:
       - extract:
-          key: kamerplanter/app    # store entry with the same keys as kamerplanter-secrets
+          key: kamerplanter/app    # store entry with the mandatory keys, without ARANGO_ROOT_PASSWORD
 ```
 
-- The store entry needs the same keys as the hand-made Secret ([mandatory secrets](kubernetes.md#2-create-the-mandatory-secrets)); every key becomes an entry of `kamerplanter-secrets`.
+- Every key of the store entry becomes an entry of `kamerplanter-secrets`, and backend, worker and beat read that Secret in full through `envFrom`. So put only the mandatory keys into the entry ([mandatory secrets](kubernetes.md#2-create-the-mandatory-secrets)), **not** `ARANGO_ROOT_PASSWORD`: the root password belongs in a Secret of its own (its own store entry with a second `ExternalSecret`, or created by hand) that you name in `database.arangodb.rootPasswordSecret`.
+- A `ClusterSecretStore` without restriction serves every namespace in the cluster. Restrict it to the Kamerplanter namespace through `spec.conditions` (`namespaces` or `namespaceSelector`), or use a `SecretStore` in the same namespace (`secretStoreRef.kind: SecretStore`).
 - Without `secretStoreRef.name` the render stops with a message.
 - The operator and its CRDs (`external-secrets.io/v1`) must be installed in the cluster.
 - If the entry later disappears from the store, the last Secret is kept (`deletionPolicy: Retain`) — pods keep starting.
+- `Retain` only covers a deleted store entry. On `helm uninstall` the `ExternalSecret` goes away, and because with `creationPolicy: Owner` it owns `kamerplanter-secrets`, Kubernetes garbage collection deletes the Secret with it. If you still need the values afterward, they are in the store.
 
 !!! warning "Moving from a hand-made Secret"
     With `creationPolicy: Owner` (the default) the operator does not simply adopt an existing, hand-made `kamerplanter-secrets`. Delete the old Secret in the same step (running pods keep their values until their next restart), or set `externalSecrets.app.target.creationPolicy: Merge` — the operator then writes the keys into the existing Secret.
@@ -749,7 +756,7 @@ Further Secrets — the S3 credentials (`storage.s3.credentialsRef`), the backup
 !!! warning "Not supported yet"
     The chart always runs ArangoDB and Valkey itself in the cluster. You cannot safely connect a managed database outside the cluster at the moment:
 
-    - **ArangoDB:** the backend connects only unencrypted over `http://`. Credentials and all data would cross the network in plain text. Besides, `controllers.arangodb.enabled: false` stops the render, and the NetworkPolicies admit only the in-cluster database pod.
+    - **ArangoDB:** the backend connects only unencrypted over `http://`. Credentials and all data would cross the network in plain text. Besides, `controllers.arangodb.enabled: false` alone stops the render, because the service, the NetworkPolicy and the `arangodb-apps` volume are bound to the database controller. Switch those off too and the chart renders, but backend, worker and beat keep addressing `kamerplanter-arangodb`, and their NetworkPolicies admit only the in-cluster database pod.
     - **Valkey:** `valkey.enabled: false` switches the cache off, but backend, worker and beat keep addressing `kamerplanter-valkey`, and their NetworkPolicies admit only the in-cluster Valkey pod.
 
 ## See also

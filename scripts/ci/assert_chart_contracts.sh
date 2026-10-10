@@ -476,6 +476,42 @@ for singleton in celery-beat arangodb; do
   expect_refusal "scaling-${singleton}-replicas" "runs exactly one pod" --set "controllers.${singleton}.replicas=2"
   expect_refusal "scaling-${singleton}-hpa" "runs exactly one pod" --set "controllers.${singleton}.horizontalPodAutoscaler.maxReplicas=2"
 done
+# vectordb is off by default, and the refusal deliberately skips a disabled
+# controller — so the contract switches it on, and the disabled case is held too.
+expect_refusal scaling-vectordb-replicas "runs exactly one pod" \
+  --set controllers.vectordb.enabled=true --set controllers.vectordb.replicas=2
+expect_refusal scaling-vectordb-hpa "runs exactly one pod" \
+  --set controllers.vectordb.enabled=true --set controllers.vectordb.horizontalPodAutoscaler.maxReplicas=2
+render scaling-vectordb-disabled --set controllers.vectordb.replicas=2
+expect scaling-vectordb-disabled "a disabled vectordb with replicas=2 renders no vectordb workload" \
+  'select(.kind == "StatefulSet" or .kind == "Deployment") | select(.metadata.name == "kamerplanter-vectordb") | .metadata.name' '[]'
+
+# A PDB admits no eviction in more spellings than minAvailable >= pods:
+# maxUnavailable 0 (as number, "0" or "0%"), and a percentage minAvailable that
+# Kubernetes rounds UP to every pod ("100%" always; "50%" of a single pod).
+# A percentage that leaves one pod evictable must still render.
+expect_refusal scaling-pdb-max-unavailable-zero "admits no eviction" \
+  --set controllers.frontend.replicas=2 --set controllers.frontend.podDisruptionBudget.maxUnavailable=0
+expect_refusal scaling-pdb-max-unavailable-zero-string "admits no eviction" \
+  --set controllers.frontend.replicas=2 --set-string controllers.frontend.podDisruptionBudget.maxUnavailable=0
+expect_refusal scaling-pdb-max-unavailable-zero-percent "admits no eviction" \
+  --set controllers.frontend.replicas=2 --set-string controllers.frontend.podDisruptionBudget.maxUnavailable=0%
+expect_refusal scaling-pdb-min-available-all-percent "admits no eviction" \
+  --set controllers.frontend.replicas=3 --set-string controllers.frontend.podDisruptionBudget.minAvailable=100%
+expect_refusal scaling-pdb-min-available-percent-of-one "admits no eviction" \
+  --set-string controllers.frontend.podDisruptionBudget.minAvailable=50%
+render scaling-pdb-percent --set controllers.frontend.replicas=2 \
+  --set-string controllers.frontend.podDisruptionBudget.minAvailable=50%
+expect scaling-pdb-percent "a 50% minAvailable of two pods renders unchanged" \
+  'select(.kind == "PodDisruptionBudget") | .spec.minAvailable' '["50%"]'
+render scaling-pdb-max-unavailable-percent --set controllers.frontend.replicas=2 \
+  --set-string controllers.frontend.podDisruptionBudget.maxUnavailable=25%
+expect scaling-pdb-max-unavailable-percent "a 25% maxUnavailable renders (Kubernetes rounds it up to one pod)" \
+  'select(.kind == "PodDisruptionBudget") | .spec.maxUnavailable' '["25%"]'
+render scaling-pdb-max-unavailable-one --set controllers.frontend.replicas=2 \
+  --set controllers.frontend.podDisruptionBudget.maxUnavailable=1
+expect scaling-pdb-max-unavailable-one "maxUnavailable 1 renders" \
+  'select(.kind == "PodDisruptionBudget") | .spec.maxUnavailable' '[1]'
 
 render external-secret --set externalSecrets.app.enabled=true --set externalSecrets.app.secretStoreRef.name=kp-store-render
 expect external-secret "the ExternalSecret writes the Secret the pods read, retained when the store entry goes" \

@@ -80,11 +80,16 @@ type: application
 
 dependencies:
   - name: common
-    version: 4.6.2
+    version: 5.2.1
     repository: https://bjw-s-labs.github.io/helm-charts/
   - name: valkey
-    version: 0.9.3
+    version: 0.12.0
     repository: oci://ghcr.io/valkey-io/valkey-helm
+    condition: valkey.enabled
+  - name: ollama
+    version: 1.87.0
+    repository: https://otwld.github.io/ollama-helm/
+    condition: ollama.enabled
 ```
 
 - Subchart-Versionen werden **gepinnt** (exakte Version)

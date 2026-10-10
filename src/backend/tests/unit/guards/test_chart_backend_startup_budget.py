@@ -34,6 +34,16 @@ contract is therefore the start-up budget itself, published as a table in
 the barrier wait and the lock TTL. Each row is compared with the chart and the
 code constants, so a changed budget, barrier or TTL cannot leave the operator
 page quoting the old number.
+
+**The documented floor of ``failureThreshold``.** The same page tells an operator
+how far the threshold may be lowered. Barrier plus one probe period is not
+enough: a replica that waited the full barrier still runs its own start after it
+(import 5.8 s, ``ensure_collections`` 1.2 s, seeds 24.7 s — ~40 s on the
+workstation above, longer under the 1-CPU limit). The floor therefore covers
+``BARRIER_TIMEOUT_SECONDS + _OWN_START_HEADROOM_SECONDS`` and the page names
+both the floor and that headroom; the guard derives the smallest threshold that
+covers them and requires the page to quote exactly it, and every release to stay
+at or above it.
 """
 
 from __future__ import annotations
@@ -62,6 +72,18 @@ _LIMIT_ROW = re.compile(
 )
 #: The probe arithmetic inside the startupProbe label: ``<period> s × <failureThreshold>``.
 _PROBE_ARITHMETIC = re.compile(r"(?P<period>\d+)\s*s\s*×\s*(?P<threshold>\d+)")
+
+#: Headroom for the replica's own start after a full barrier wait: ~40 s measured
+#: on a workstation (2026-10-04), ×2.5 for the cluster's 1-CPU limit, rounded up.
+_OWN_START_HEADROOM_SECONDS = 100
+#: The floor sentence: ``nie unter <n>`` / ``below <n>``, then ``<period> s × <n> = <budget>`` and
+#: ``<headroom> Sekunden Aufschlag`` / ``<headroom> seconds of headroom`` in the same list item.
+_FLOOR_ITEM = re.compile(r"^- [^\n]*`failureThreshold`[^\n]*$", re.MULTILINE)
+_FLOOR = re.compile(r"(?:nie unter|[Nn]ever lower it below)\s+(?P<floor>\d+)\b")
+_FLOOR_ARITHMETIC = re.compile(
+    r"(?P<period>\d+)\s*s\s*×\s*(?P<threshold>\d+)\s*=\s*(?P<budget>\d+)\s+(?:Sekunden|seconds)"
+)
+_HEADROOM = re.compile(r"(?P<headroom>\d+)\s+(?:Sekunden Aufschlag|seconds of headroom)")
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -189,4 +211,50 @@ def test_documented_migration_waits_are_the_code_constants(doc: Path, ident: str
     assert row is not None, f"{doc.relative_to(_REPO)}: no start-up table row naming `{ident}` (#2125)"
     assert int(row.group("seconds")) == seconds, (
         f"{doc.relative_to(_REPO)}: documents `{ident}` as {row.group('seconds')} s, the code says {seconds} s"
+    )
+
+
+def _smallest_safe_threshold(spec: dict[str, Any]) -> int:
+    """The smallest ``failureThreshold`` whose budget covers the barrier plus the replica's own start."""
+    needed = BARRIER_TIMEOUT_SECONDS + _OWN_START_HEADROOM_SECONDS - int(spec.get("initialDelaySeconds", 0))
+    period = int(spec.get("periodSeconds", 10))
+    return -(-needed // period)
+
+
+@pytest.mark.parametrize("doc", _DEPLOYMENT_DOCS, ids=lambda p: p.parts[-3])
+def test_documented_threshold_floor_covers_barrier_and_own_start(doc: Path) -> None:
+    spec = (_probes(_BASE).get("startup") or {}).get("spec") or {}
+    items = [item for item in _FLOOR_ITEM.findall(doc.read_text(encoding="utf-8")) if _FLOOR.search(item)]
+    assert len(items) == 1, f"{doc.relative_to(_REPO)}: expected one list item naming the failureThreshold floor"
+    item = items[0]
+    floor = int(_FLOOR.search(item).group("floor"))  # type: ignore[union-attr]
+    expected = _smallest_safe_threshold(spec)
+    assert floor == expected, (
+        f"{doc.relative_to(_REPO)}: documents a failureThreshold floor of {floor}; covering the "
+        f"{BARRIER_TIMEOUT_SECONDS} s barrier plus {_OWN_START_HEADROOM_SECONDS} s for the pod's own start "
+        f"at periodSeconds={spec.get('periodSeconds', 10)} needs exactly {expected}"
+    )
+    arithmetic = _FLOOR_ARITHMETIC.search(item)
+    assert arithmetic is not None, f"{doc.relative_to(_REPO)}: the floor item shows no `<period> s × <n> = <s> seconds`"
+    period, threshold, budget = (int(arithmetic.group(k)) for k in ("period", "threshold", "budget"))
+    assert (period, threshold) == (int(spec.get("periodSeconds", 10)), floor) and budget == period * threshold, (
+        f"{doc.relative_to(_REPO)}: the floor arithmetic {period} s × {threshold} = {budget} does not match "
+        f"periodSeconds={spec.get('periodSeconds', 10)} and the floor {floor}"
+    )
+    headroom = _HEADROOM.search(item)
+    assert headroom is not None, f"{doc.relative_to(_REPO)}: the floor item names no headroom for the pod's own start"
+    assert int(headroom.group("headroom")) == budget - BARRIER_TIMEOUT_SECONDS >= _OWN_START_HEADROOM_SECONDS, (
+        f"{doc.relative_to(_REPO)}: documents {headroom.group('headroom')} s headroom; the floor leaves "
+        f"{budget - BARRIER_TIMEOUT_SECONDS} s above the barrier, at least {_OWN_START_HEADROOM_SECONDS} s are needed"
+    )
+
+
+@pytest.mark.parametrize("path", _releases_with_backend(), ids=lambda p: p.name)
+def test_backend_startup_threshold_keeps_the_documented_floor(path: Path) -> None:
+    spec = (_probes(path).get("startup") or {}).get("spec") or {}
+    floor = _smallest_safe_threshold(spec)
+    assert int(spec.get("failureThreshold", 3)) >= floor, (
+        f"{path.name}: startupProbe failureThreshold {spec.get('failureThreshold')} is below {floor} — the barrier "
+        f"({BARRIER_TIMEOUT_SECONDS} s) plus the pod's own start ({_OWN_START_HEADROOM_SECONDS} s) "
+        "no longer fit (#2125)"
     )

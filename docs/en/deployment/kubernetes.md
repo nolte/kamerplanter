@@ -288,7 +288,7 @@ What that means for you:
 
 - **If a pod waits longer than 600 seconds** for a migration another pod holds, it stops itself with `MigrationBarrierTimeoutError` — the backend decides that the start failed, not the kubelet. The maximum start-up time therefore always lies above this wait.
 - **If a migrating pod is killed**, its lock stays for up to 300 seconds; after that another pod takes over. A restart within that window waits instead of migrating right away.
-- **If a migration needs longer than 15 minutes**, raise the `startupProbe`'s `failureThreshold` before the upgrade (the other probe values are kept). Never lower it below 61: under 610 seconds Kubernetes kills a pod that is still legitimately waiting for another pod's migration.
+- **If a migration needs longer than 15 minutes**, raise the `startupProbe`'s `failureThreshold` before the upgrade (the other probe values are kept). Never lower it below 70: a pod that waited the full 600 seconds for another pod's migration still needs its own start afterward (about 40 seconds, longer under 1 CPU). 10 s × 70 = 700 seconds leave 100 seconds of headroom for that; with less, Kubernetes kills a pod that is legitimately waiting or just finishing its start.
 - **When scaling up** (replicas or the [autoscaler](helm.md#scaling)), a new pod only helps after its start. Plan scaling in minutes, not seconds.
 
 ```yaml title="values-production.yaml (excerpt) — only for very long migrations"

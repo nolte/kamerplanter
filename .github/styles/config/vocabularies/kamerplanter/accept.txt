@@ -42,6 +42,7 @@ CRDs?
 ArangoDB
 TimescaleDB
 Valkey
+[Oo]llama
 Redis
 Celery
 FastAPI
