@@ -139,15 +139,21 @@ You can subscribe to your Kamerplanter calendar in external calendar apps. This 
 !!! note "Read-only — no two-way sync"
     The iCal feed is read-only. Changes made in Google Calendar or Apple Calendar are not synced back to Kamerplanter. New tasks are always created in Kamerplanter.
 
+!!! warning "Not yet implemented"
+    You can already create, regenerate and delete feeds. Kamerplanter will answer your calendar app's request for the subscription URL only in an upcoming version — until then the app will report an error when you subscribe. The steps below describe how subscribing will work. <!-- REQ-015 -->
+
 ### Step 1: Create a Calendar Feed
 
 1. Open the **iCal Feeds** section at the bottom of the calendar.
 2. Click **Create Feed**.
 3. Give the feed a name (e.g. "My Main Calendar"). The feed adopts your currently enabled category filters at the time of creation.
 
-### Step 2: Copy the Feed URL
+### Step 2: Save the Subscription URL
 
-After saving, the feed appears in the list with its `webcal://` URL. Click **Copy URL**.
+After saving, Kamerplanter shows you the feed's subscription URL in a dialog of its own. Click **Copy URL** and add it to your calendar app right away (step 3). If your browser does not allow copying, Kamerplanter tells you so — then select the URL in the field and copy it yourself. A click beside the dialog does not close it; only **Close** (or the Escape key) discards the URL.
+
+!!! warning "You see the URL only once"
+    The subscription URL contains a secret token. Kamerplanter stores only an irreversible fingerprint (hash) of it — so nobody who reads the database or a backup can fetch your feeds. That is why Kamerplanter cannot show you the URL again once you close the dialog. If you lost it, regenerate the token (see below): you then get a new URL.
 
 ### Step 3: Subscribe in the External Calendar
 
@@ -156,14 +162,14 @@ After saving, the feed appears in the list with its `webcal://` URL. Click **Cop
     1. Open Google Calendar on a desktop browser.
     2. Under "Other calendars" on the left, click the plus icon.
     3. Select **From URL**.
-    4. Paste the `webcal://` URL.
+    4. Paste the subscription URL.
     5. Click **Add Calendar**.
 
 === "Apple Calendar (macOS)"
 
     1. Open Apple Calendar.
     2. Click **File → New Calendar Subscription**.
-    3. Paste the `webcal://` URL.
+    3. Paste the subscription URL.
     4. Click **Subscribe**.
 
 === "Thunderbird (Lightning)"
@@ -177,14 +183,18 @@ After saving, the feed appears in the list with its `webcal://` URL. Click **Cop
 === "Android (Standard Calendar)"
 
     1. Install an app such as **ICSx5** from the Play Store.
-    2. Add the `webcal://` URL as a new subscription.
+    2. Add the subscription URL as a new subscription.
 
 ### Regenerating the Feed Token
 
-Every feed has a secret token embedded in its URL. Use **Regenerate Token** to generate a new token and, with it, a new feed URL.
+Every feed has a secret token embedded in its URL. Use **Regenerate Token** (the arrow icon next to the feed) to generate a new token and, with it, a new subscription URL. Kamerplanter asks first and then shows you the new URL — as on creation — exactly once.
+
+This is also the way to go if you lost a feed's URL: the feed list no longer shows a URL, because Kamerplanter does not store it.
+
+The feed list shows only your own feeds, and only those can you change or regenerate — another member's feed can be touched by nobody but that member and the garden's lead.
 
 !!! warning "The old link stops working immediately"
-    As soon as you regenerate the token, the previous `webcal://` URL no longer works — the external app shows an error instead of new events. Update the URL in every app where you subscribed to the feed. Use this if you accidentally shared a feed link or want to revoke a former member's access.
+    As soon as you regenerate the token, the previous subscription URL no longer works — the external app shows an error instead of new events. Update the URL in every app where you subscribed to the feed. Use this if you lost or accidentally shared a feed link or want to revoke a former member's access.
 
 ### Deleting a Feed
 

@@ -2,11 +2,28 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type {
   CalendarEvent,
   CalendarFeed,
+  CalendarFeedIssued,
   FrostConfig,
   SeasonOverviewResponse,
   SowingCalendarEntry,
 } from '@/api/types';
 import * as api from '@/api/endpoints/calendar';
+
+/**
+ * The feed without its one-time token and URL (#2171): the store keeps what every
+ * read returns, so the secret lives only in the dialog that shows it once.
+ */
+function withoutIssuedSecret(issued: CalendarFeedIssued): CalendarFeed {
+  return {
+    key: issued.key,
+    name: issued.name,
+    user_key: issued.user_key,
+    filters: issued.filters,
+    is_active: issued.is_active,
+    created_at: issued.created_at,
+    updated_at: issued.updated_at,
+  };
+}
 
 interface CalendarState {
   events: CalendarEvent[];
@@ -135,7 +152,7 @@ const calendarSlice = createSlice({
       })
       // Create feed
       .addCase(createCalendarFeed.fulfilled, (state, action) => {
-        state.feeds.push(action.payload);
+        state.feeds.push(withoutIssuedSecret(action.payload));
       })
       // Delete feed
       .addCase(deleteCalendarFeed.fulfilled, (state, action) => {
@@ -145,7 +162,7 @@ const calendarSlice = createSlice({
       .addCase(regenerateCalendarFeedToken.fulfilled, (state, action) => {
         const index = state.feeds.findIndex((f) => f.key === action.payload.key);
         if (index >= 0) {
-          state.feeds[index] = action.payload;
+          state.feeds[index] = withoutIssuedSecret(action.payload);
         }
       })
       // Sowing calendar

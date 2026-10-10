@@ -181,6 +181,15 @@ RETIRED_INDEXES: Final[tuple[RetiredIndex, ...]] = (
         replacement=IndexShape(fields=tuple(col.SLOT_ID_INDEX_FIELDS), unique=True),
         retired_by=("0079",),
     ),
+    # #2171: the plaintext token index. An older image re-creating it would, with
+    # two or more hashed feeds (no ``token`` attribute), fail on duplicate ``null``s;
+    # with fewer it would refuse the next feed that has no ``token``.
+    RetiredIndex(
+        collection=col.CALENDAR_FEEDS,
+        legacy=IndexShape(fields=tuple(col.LEGACY_CALENDAR_FEED_TOKEN_INDEX_FIELDS), unique=True),
+        replacement=IndexShape(fields=tuple(col.CALENDAR_FEED_TOKEN_HASH_INDEX_FIELDS), unique=True, sparse=True),
+        retired_by=("0090",),
+    ),
 )
 
 

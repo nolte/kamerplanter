@@ -23,6 +23,28 @@ function initial() {
   return reducer(undefined, { type: 'unknown' });
 }
 
+// #2171: a create / rotate response carries the one-time token and URL; the
+// store must keep only what every read returns.
+function stored(key: string) {
+  return {
+    key,
+    name: `Feed ${key}`,
+    user_key: 'u1',
+    filters: { categories: [], site_key: null },
+    is_active: true,
+    created_at: null,
+    updated_at: null,
+  };
+}
+
+function issued(key: string, token: string) {
+  return {
+    ...stored(key),
+    token,
+    ical_url: `https://example.test/api/v1/calendar/feeds/${key}/feed.ics?token=${token}`,
+  };
+}
+
 describe('calendarSlice', () => {
   it('has sensible initial state', () => {
     const state = initial();
@@ -61,10 +83,12 @@ describe('calendarSlice', () => {
     expect(rejected.error).toBe('errors.loadFailed');
   });
 
-  it('createCalendarFeed.fulfilled appends the new feed', () => {
+  it('createCalendarFeed.fulfilled appends the new feed without its token or URL', () => {
     const start = { ...initial(), feeds: [{ key: 'feed1' }] as never };
-    const state = reducer(start, { type: createCalendarFeed.fulfilled.type, payload: { key: 'feed2' } });
+    const state = reducer(start, { type: createCalendarFeed.fulfilled.type, payload: issued('feed2', 'secret-2') });
     expect(state.feeds.map((f) => f.key)).toEqual(['feed1', 'feed2']);
+    expect(state.feeds[1]).toEqual(stored('feed2'));
+    expect(JSON.stringify(state)).not.toContain('secret-2');
   });
 
   it('deleteCalendarFeed.fulfilled removes the feed by key', () => {
@@ -73,13 +97,14 @@ describe('calendarSlice', () => {
     expect(state.feeds.map((f) => f.key)).toEqual(['feed2']);
   });
 
-  it('regenerateCalendarFeedToken.fulfilled replaces the matching feed', () => {
-    const start = { ...initial(), feeds: [{ key: 'feed1', token: 'old' }] as never };
+  it('regenerateCalendarFeedToken.fulfilled replaces the matching feed without its token or URL', () => {
+    const start = { ...initial(), feeds: [stored('feed1')] as never };
     const state = reducer(start, {
       type: regenerateCalendarFeedToken.fulfilled.type,
-      payload: { key: 'feed1', token: 'new' },
+      payload: issued('feed1', 'secret-new'),
     });
-    expect(state.feeds[0]).toEqual({ key: 'feed1', token: 'new' });
+    expect(state.feeds[0]).toEqual(stored('feed1'));
+    expect(JSON.stringify(state)).not.toContain('secret-new');
   });
 
   it('fetchSowingCalendar stores entries, frost config and year', () => {
@@ -133,12 +158,15 @@ describe('calendarSlice thunks', () => {
   });
 
   it('createCalendarFeed appends the new feed', async () => {
-    mocked.createCalendarFeed.mockResolvedValue({ key: 'f2' } as never);
+    mocked.createCalendarFeed.mockResolvedValue(issued('f2', 'secret-f2') as never);
     const store = makeStore();
     const filters = { categories: ['task'], site_key: null };
-    await store.dispatch(createCalendarFeed({ name: 'My Feed', filters }));
+    const result = await store.dispatch(createCalendarFeed({ name: 'My Feed', filters })).unwrap();
     expect(mocked.createCalendarFeed).toHaveBeenCalledWith('My Feed', filters);
-    expect(store.getState().calendar.feeds).toContainEqual({ key: 'f2' });
+    // The caller gets the one-time URL; the store does not keep it.
+    expect(result.ical_url).toContain('secret-f2');
+    expect(store.getState().calendar.feeds).toContainEqual(stored('f2'));
+    expect(JSON.stringify(store.getState())).not.toContain('secret-f2');
   });
 
   it('deleteCalendarFeed removes the feed by key', async () => {
@@ -155,15 +183,16 @@ describe('calendarSlice thunks', () => {
   });
 
   it('regenerateCalendarFeedToken replaces the matching feed', async () => {
-    mocked.regenerateCalendarFeedToken.mockResolvedValue({ key: 'f1', token: 'new' } as never);
+    mocked.regenerateCalendarFeedToken.mockResolvedValue(issued('f1', 'secret-rotated') as never);
     const store = configureStore({
       reducer: { calendar: reducer },
       preloadedState: {
-        calendar: { ...reducer(undefined, { type: 'unknown' }), feeds: [{ key: 'f1', token: 'old' }] as never },
+        calendar: { ...reducer(undefined, { type: 'unknown' }), feeds: [stored('f1')] as never },
       },
     });
     await store.dispatch(regenerateCalendarFeedToken('f1'));
-    expect(store.getState().calendar.feeds[0]).toEqual({ key: 'f1', token: 'new' });
+    expect(store.getState().calendar.feeds[0]).toEqual(stored('f1'));
+    expect(JSON.stringify(store.getState())).not.toContain('secret-rotated');
   });
 
   it('fetchSowingCalendar stores entries, frost config and year', async () => {

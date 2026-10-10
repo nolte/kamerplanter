@@ -46,9 +46,9 @@ TENANT_SCOPE_FIELD = "tenant_key"
 
 #: Unique across tenants **on purpose**, with the reason. ``(collection, fields)``.
 DECLARED: dict[tuple[str, tuple[str, ...]], str] = {
-    (col.CALENDAR_FEEDS, ("token",)): (
-        "secret feed token; the subscription URL carries only the token and is resolved "
-        "without a tenant (CalendarFeedRepository.get_by_token), so it must be unique globally"
+    (col.CALENDAR_FEEDS, ("token_hash",)): (
+        "hash of a secret feed token; the subscription URL carries only the token and is resolved "
+        "without a tenant (CalendarFeedRepository.get_by_token_hash), so it must be unique globally"
     ),
     (col.INVITATIONS, ("token_hash",)): (
         "hash of a secret invitation token; the accept link carries only the token and is "

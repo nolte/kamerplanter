@@ -43,7 +43,11 @@ class CalendarFeed(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     tenant_key: str = ""
     name: str = Field(min_length=1, max_length=200)
-    token: str = ""
+    #: SHA-256 hex digest of the iCal token (``TokenEngine.hash_token``), never the
+    #: token itself (#2171): the token is handed out once, in the create / rotate
+    #: response, and the public feed URL is resolved by hashing what it presents.
+    #: ``None`` (not stored) only for a feed whose token was never issued.
+    token_hash: str | None = None
     user_key: str = ""
     filters: CalendarFeedFilters = Field(default_factory=CalendarFeedFilters)
     is_active: bool = True
@@ -54,3 +58,16 @@ class CalendarFeed(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+
+class CalendarFeedIssued(BaseModel):
+    """A feed together with the raw iCal token just issued for it (#2171).
+
+    Returned by ``CalendarService.create_feed`` / ``regenerate_token`` so the API can
+    show the token - and the subscription URL built from it - exactly once. Never
+    persisted: the stored feed keeps ``token_hash`` only, so a lost URL is replaced
+    by a rotation, not looked up.
+    """
+
+    feed: CalendarFeed
+    token: str

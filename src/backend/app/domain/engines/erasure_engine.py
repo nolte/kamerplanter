@@ -600,9 +600,9 @@ class ErasureEngine:
             user_field="user_key",
         ),
         ErasureStep(
-            # REQ-015: the feed row holds the token the iCal endpoint serves
-            # (``calendar_feed_repository.get_by_token``); removing the row is
-            # what makes the token stop serving.
+            # REQ-015: the feed row holds the digest of the token the iCal endpoint
+            # serves (``calendar_feed_repository.get_by_token_hash``, #2171);
+            # removing the row is what makes the token stop serving.
             collection="calendar_feeds",
             kind="document",
             executor="account_erasure",
