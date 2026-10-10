@@ -277,7 +277,7 @@ class IdentificationService:
             adapter=adapter.adapter_key,
             external=self._is_external(adapter_key),
         )
-        return self._engine.identify_raw(adapter, image_data, organ=organ, language=language)
+        return self._engine.identify_raw(adapter, image_data, organ=organ, language=language, tenant_key=tenant_key)
 
     def list_assessment_adapters(self) -> list[dict]:
         """Adapter choices for the quality-assessment UI (REQ-034 §4a.1).

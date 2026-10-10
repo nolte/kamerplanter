@@ -57,13 +57,13 @@ curl http://localhost:8090/modelinfo
 
 ### Schritt 2: Referenz-Index befüllen
 
-Der Referenz-Index enthält Embedding-Vektoren für alle Pflanzenarten aus den Stammdaten. Er wird durch einen Celery-Task befüllt, der Referenzbilder von GBIF (Global Biodiversity Information Facility) und Wikimedia Commons abruft (nur CC0/CC-BY-Lizenzen), einbettet und die Vektoren in pgvector speichert. **Originalbilder werden dabei nicht persistiert.**
+Der Referenz-Index enthält Embedding-Vektoren für alle globalen Pflanzenarten aus den Stammdaten. Arten, die ein Garten selbst angelegt hat, werden nicht indiziert: Der Index ist für alle Gärten derselbe, und ein Treffer nennt nur Arten, die der anfragende Garten sehen darf. Er wird durch einen Celery-Task befüllt, der Referenzbilder von GBIF (Global Biodiversity Information Facility) und Wikimedia Commons abruft (nur CC0/CC-BY-Lizenzen), einbettet und die Vektoren in pgvector speichert. **Originalbilder werden dabei nicht persistiert.**
 
 !!! info "Dieser Schritt befüllt auch die UI-Bilder in der Artenansicht"
     Nach Abschluss dieses Tasks erscheinen in der **Artenliste** Thumbnails und auf der **Artdetailseite** eine vollständige Referenzbild-Galerie. Beide Ansichten zeigen vor dem ersten Beschaffungslauf einen Platzhalter-Hinweis. Lizenz-Attribution (CC-BY) wird automatisch in den Metadaten mitgeführt und im UI angezeigt. Weitere Informationen: [Referenzbilder in der Artenansicht](../user-guide/plant-management.md#referenzbilder-in-der-artenansicht).
 
 ```bash
-# Celery-Task für alle Arten starten (einmalig, dauert je nach Artenzahl mehrere Stunden):
+# Celery-Task für alle globalen Arten starten (einmalig, dauert je nach Artenzahl mehrere Stunden):
 kubectl exec -it deploy/kamerplanter-backend -n default -- \
   celery -A app.tasks call \
   app.tasks.reference_image_tasks.acquire_all_reference_images_task
@@ -107,8 +107,8 @@ Die Antwort zeigt pro Art, wie viele Referenzbilder akzeptiert wurden und ob die
 
 | Methode | Endpunkt | Beschreibung |
 |---------|----------|-------------|
-| `POST` | `/api/v1/admin/reference-images/acquire` | Beschaffungslauf für alle Arten starten |
-| `POST` | `/api/v1/admin/reference-images/acquire/{species_key}` | Beschaffungslauf für eine einzelne Art starten oder wiederholen |
+| `POST` | `/api/v1/admin/reference-images/acquire` | Beschaffungslauf für alle globalen Arten starten |
+| `POST` | `/api/v1/admin/reference-images/acquire/{species_key}` | Beschaffungslauf für eine einzelne globale Art starten oder wiederholen (Art eines Gartens: `404`) |
 | `GET` | `/api/v1/admin/reference-images/coverage` | Abdeckungs-Report: erkennbare Arten, Arten unter Schwellenwert |
 
 Alle drei Endpunkte erfordern einen gültigen Admin-Token (`Authorization: Bearer <admin-token>`). Die Endpunkte sind über den regulären Backend-Ingress erreichbar — es ist kein separater Port-Forward nötig.
