@@ -18,7 +18,7 @@ cache is never fatal and the warm-up is never on a request's critical path.
 from __future__ import annotations
 
 import asyncio
-from typing import get_args
+from typing import TYPE_CHECKING, get_args
 
 import structlog
 from celery.exceptions import SoftTimeLimitExceeded
@@ -29,7 +29,11 @@ from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.data_access.arango.glossary_repository import ArangoGlossaryTermCacheRepository
 from app.domain.models.glossary_term import ExpertiseLevel, Language
+from app.domain.services.glossary_service import invalidate_hot_cache
 from app.tasks import celery_app
+
+if TYPE_CHECKING:
+    from app.common.dependencies import _DecodedRedis
 
 logger = structlog.get_logger(__name__)
 
@@ -63,6 +67,17 @@ _MAX_CONSECUTIVE_FAILURES = 6
 _RUN_LOCK_KEY = "glossary:warm_cache:running"
 
 
+def _redis_client_or_none() -> _DecodedRedis | None:
+    """The shared Redis client, or ``None`` when it cannot be built (an optional accelerator here)."""
+    try:
+        from app.common.dependencies import _get_redis_client
+
+        return _get_redis_client()
+    except Exception:  # noqa: BLE001 — Redis is an optional accelerator here.
+        logger.debug("glossary_redis_unavailable")
+        return None
+
+
 def _acquire_run_lock() -> tuple[object | None, bool]:
     """Take the single-run lock, or report that another run holds it.
 
@@ -71,11 +86,8 @@ def _acquire_run_lock() -> tuple[object | None, bool]:
     twice, and refusing to warm the cache because the accelerator is down would be
     the worse failure of the two.
     """
-    try:
-        from app.common.dependencies import _get_redis_client
-
-        client = _get_redis_client()
-    except Exception:  # noqa: BLE001 — Redis is an optional accelerator here.
+    client = _redis_client_or_none()
+    if client is None:
         logger.debug("glossary_warm_cache_lock_unavailable")
         return None, True
 
@@ -114,23 +126,28 @@ def cleanup_expired_cache() -> int:
 def invalidate_after_reingest() -> int:
     """Drop the entire glossary cache after a KB reingest (§4.3).
 
-    Meant to run after ``ai.knowledge_service_ingest`` so answers regenerate with
-    the new ``kb_version`` — **but nothing chains it** (found by the MT-051 guard,
-    #2144; it used to say "chained"). Wiring it to the weekly reingest drops the
-    whole cache and queues one LLM call per term and variant, a cost decision left
-    to the operator (``_NOT_STARTED_BY_THE_APP`` in
-    ``tests/unit/guards/test_every_task_is_scheduled_or_dispatched.py``); until then
-    the cache expires by its TTL. When run, it *queues the regeneration itself*: since #1460
-    the read path no longer refills the cache, so an invalidation without a
-    warm-up would leave every term on its editorial fallback until somebody with
-    a grower role happened to press "generate".
+    Queued by ``ai.knowledge_service_ingest`` once a reingest has finished
+    (``status == "ok"``) so answers regenerate against the new knowledge base
+    (#2169). Until then nothing chained it (found by the MT-051 guard, #2144), and
+    that left the warm-up — which only this task queues — never running at all:
+    the cache rows outlived their 7-day TTL once and then every term stayed on its
+    editorial fallback. One weekly reingest now buys one regeneration per TTL
+    period, the cadence the TTL already implies.
 
-    The warm-up is queued rather than called: it is long-running (one LLM call per
-    term and variant) and its failure must not roll back an invalidation that has
-    already happened.
+    Both cache tiers are cleared (REQ-035 §9 scenario 6). Clearing only ArangoDB
+    left the Redis copies, which the read path and the warm-up consult first, so
+    the warm-up would have found every variant "cached" and regenerated none.
+
+    It *queues the regeneration itself*: since #1460 the read path no longer
+    refills the cache, so an invalidation without a warm-up would leave every term
+    on its editorial fallback until somebody with a grower role happened to press
+    "generate". The warm-up is queued rather than called: it is long-running (one
+    LLM call per term and variant) and its failure must not roll back an
+    invalidation that has already happened.
     """
     db = get_db()
     removed = ArangoGlossaryTermCacheRepository(db).invalidate_all()
+    invalidate_hot_cache(_redis_client_or_none())
     logger.info("glossary_invalidate_after_reingest", removed=removed)
     warm_glossary_cache.delay()
     return removed

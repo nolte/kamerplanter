@@ -143,13 +143,28 @@ class ArangoMcpIdempotencyRepository:
         tenant_key: str,
         tool_name: str,
         idempotency_key: str,
+        *,
+        now: datetime | None = None,
     ) -> McpIdempotencyRecord | None:
+        """Return the *live* record for the scoped key, or ``None``.
+
+        A record past its ``expires_at`` is no record (#2169): the hourly
+        ``mcp.cleanup_expired_idempotency`` sweep removes it up to an hour late,
+        and until then the read must not hand it out as a hit. Compared as
+        instants like :meth:`delete_expired`; a missing or unreadable
+        ``expires_at`` counts as expired there and therefore as absent here. The
+        bound matches ``_is_live`` in :mod:`app.mcp_server.idempotency` (strictly
+        later than ``now``), which keeps its own check for doubled repositories.
+        """
+        stamp = (now or datetime.now(UTC)).isoformat()
         query = """
         FOR doc IN @@collection
           FILTER doc.service_account_key == @sa_key
              AND doc.tenant_key == @tenant_key
              AND doc.tool_name == @tool
              AND doc.idempotency_key == @idem
+          FILTER DATE_TIMESTAMP(doc.expires_at) != null
+             AND DATE_TIMESTAMP(doc.expires_at) > DATE_TIMESTAMP(@now)
           LIMIT 1
           RETURN doc
         """
@@ -161,6 +176,7 @@ class ArangoMcpIdempotencyRepository:
                 "tenant_key": tenant_key,
                 "tool": tool_name,
                 "idem": idempotency_key,
+                "now": stamp,
             },
         )
         docs = list(cursor)
