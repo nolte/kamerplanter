@@ -14,6 +14,12 @@ explanation requires the operator flag, which is enforced inside
 :class:`~app.domain.services.glossary_service.GlossaryService` at the RAG-call
 boundary (#684). With the flag off, ``/term/{slug}`` degrades to the curated
 fallback text (``is_fallback=true``) instead of returning 404.
+
+The one route that spends an LLM call — ``POST …/generate`` — additionally sits
+behind the garden's own KI switch (REQ-031 §1.3 stage 2, operator decision
+2026-10-09): ``require_ai_tenant_enabled`` on that route only, never on the
+router, so reading terms and cached explanations stays open in a garden that
+has KI turned off.
 """
 
 from __future__ import annotations
@@ -24,9 +30,11 @@ from fastapi import APIRouter, Depends, Path, Query, Request
 
 from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.glossar.deps import get_glossary_service
+from app.api.v1.ki_assistent.deps import require_ai_tenant_enabled
 from app.common.auth import get_current_tenant, require_permission
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
+from app.domain.models.ai_assistant import AiTenantSettings
 from app.domain.models.glossary_term import (
     ExpertiseLevel,
     GlossaryTermAnswer,
@@ -78,13 +86,19 @@ async def generate_term(
     expertise: ExpertiseLevel = Query("beginner", description="Experience level the explanation targets."),
     language: Language = Query("de", description="Language of the returned explanation (de or en)."),
     ctx: TenantContext = Depends(require_permission(ResourceType.GLOSSARY, Action.CREATE)),
+    # Resolved after the role gate (signature order) and before the handler, so
+    # a garden with KI off answers 403 ``ai.disabled_for_tenant`` before any
+    # cache lookup, budget charge or LLM call; the operator flag off answers 404.
+    _ai: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: GlossaryService = Depends(get_glossary_service),
 ) -> GlossaryTermAnswer:
     """Ask the Knowledge Service for this term's explanation and cache it (§4.1).
 
     The write half of the pair above (#1460). Gated on the domain role because it
-    spends an LLM call on the installation's behalf; idempotent while a cached
-    entry is still valid, so a second request is not a second call.
+    spends an LLM call on the installation's behalf, and on the garden's KI
+    switch (REQ-031 §1.3 stage 2) because a garden that turned KI off must not
+    trigger one; idempotent while a cached entry is still valid, so a second
+    request is not a second call.
 
     ``context=null`` at the Knowledge Service — no tenant data leaves the backend.
     The cached answer is shared by every tenant, so it is classified by the

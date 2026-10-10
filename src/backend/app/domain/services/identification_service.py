@@ -344,7 +344,7 @@ class IdentificationService:
         if self._plant_instance_repo is None:  # pragma: no cover - misconfiguration guard
             raise RuntimeError("link_plant_instance requires a plant_instance_repo.")
 
-        request = self._identification_repo.get(request_key, tenant_key)
+        request = self._identification_repo.get(request_key, tenant_key=tenant_key)
         if request is None:
             raise NotFoundError("IdentificationRequest", request_key)
 

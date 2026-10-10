@@ -15,11 +15,14 @@ REQ-052 §9 already draws between opening the capture dialog and looking at
 images that exist.
 
 The role check does not replace the consent check and is not replaced by it.
-``/identify`` additionally enforces ``plant_identification`` inside the service
-(REQ-029-A §0.1.1 point 2) before any photo leaves the instance. The two answer
-different questions — may this person write in this tenant, and may this image
-leave the installation — so a grower without consent is refused, and an observer
-with consent is refused too.
+Two writes process a photo under a consent purpose, each checked inside its
+service before the photo is used: ``/identify`` enforces ``plant_identification``
+(REQ-029-A §0.1.1 point 2) before any photo leaves the instance, and
+``/reference`` enforces ``reference_contribution`` (REQ-034 §4.1, #2174) before
+the photo is embedded into the recognition index — and refuses in Light mode.
+The two checks answer different questions — may this person write in this
+tenant, and may this image be processed for that purpose — so a grower without
+consent is refused, and an observer with consent is refused too.
 """
 
 from typing import Annotated
@@ -180,6 +183,11 @@ async def contribute_reference(
       image curation view. A cross-tenant contribution therefore cannot silently
       change what other tenants' identifications return.
     * At least the ``grower`` role is required — a ``viewer`` cannot contribute.
+    * The contributor's ``reference_contribution`` consent is required (403
+      ``CONSENT_REQUIRED`` when missing or revoked), and Light mode refuses
+      (409, REQ-034 §4.1 Guard 2). Both are checked in the service before the
+      species lookup, the quota, the contribution marker and the embedding
+      (#2174).
     * ``species_key`` is validated server-side and the scientific name is derived
       from the master record (any client-supplied name is ignored). A per-user
       daily quota, image dedup, upload size/type/decode/bomb validation and

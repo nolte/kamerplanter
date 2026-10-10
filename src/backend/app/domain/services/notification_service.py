@@ -204,7 +204,7 @@ class NotificationService:
         # this (site_key, forecast_date) event are derived from persisted rows via
         # the index-backed projected read, so only newly-eligible members are sent
         # to (mid-event joiners included) without re-notifying prior recipients.
-        already_notified = self._notification_repo.find_notified_user_keys(group_key, tenant_key)
+        already_notified = self._notification_repo.find_notified_user_keys(group_key, tenant_key=tenant_key)
         pending = [user_key for user_key in user_keys if user_key not in already_notified]
 
         if not pending:

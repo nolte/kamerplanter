@@ -20,18 +20,21 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
     """ArangoDB-backed repository for ``pest_image_contributions``."""
 
     _model_cls = PestImageContribution
+    #: Every row belongs to exactly one tenant; a base list read without a
+    #: ``tenant_key`` (or an explicit ``all_tenants=True``) raises (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.PEST_IMAGE_CONTRIBUTIONS)
 
-    def get(self, key: str, tenant_key: str) -> PestImageContribution | None:
+    def get(self, key: str, *, tenant_key: str) -> PestImageContribution | None:
         contribution = super().get_by_key(key)
         if contribution is None or contribution.tenant_key != tenant_key:
             return None
         return contribution
 
     def list_for_pest(
-        self, tenant_key: str, pest_key: str, *, include_inactive: bool = False
+        self, *, tenant_key: str, pest_key: str, include_inactive: bool = False
     ) -> list[PestImageContribution]:
         # ``is_active != false`` keeps legacy documents (no field) visible by
         # treating a missing flag as active. Only an explicit ``false`` hides a
@@ -52,7 +55,7 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PestImageContribution(**self._from_doc(doc)) for doc in cursor]
 
-    def list_for_tenant(self, tenant_key: str) -> list[PestImageContribution]:
+    def list_for_tenant(self, *, tenant_key: str) -> list[PestImageContribution]:
         query = """
         FOR c IN @@collection
           FILTER c.tenant_key == @tenant_key
@@ -141,7 +144,7 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         return super().update(key, updated)
 
     def delete(self, key: str, tenant_key: str) -> bool:
-        existing = self.get(key, tenant_key)
+        existing = self.get(key, tenant_key=tenant_key)
         if existing is None:
             return False
         return super().delete(key)
