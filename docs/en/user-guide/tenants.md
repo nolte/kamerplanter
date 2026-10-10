@@ -101,7 +101,10 @@ As an admin you can invite members in three ways:
 3. Choose the role (Admin, Grower, Viewer)
 4. Click **Send Invitation**
 
-The system sends an invitation email. After clicking the link in the email, the user is added to your tenant with the pre-selected role — whether they register fresh or already have an account.
+Kamerplanter sends the address an email with a link to the acceptance page; it is valid for 7 days. Whoever opens it signs in — or registers with exactly this address —, confirms with **Accept invitation** on the acceptance page and is added to your tenant with the pre-selected role. If they are not signed in yet when they open it, they land on the acceptance page again after signing in (also through a sign-in provider). The email names neither you nor the tenant — the invited person only sees what it is about after signing in.
+
+!!! note "When the email does not go out"
+    After you send it, the page tells you whether the email went out. If the installation has no email delivery set up, or sending fails, the invitation still exists: the page then shows you the invitation link with a button to copy it — pass it on yourself, for example by messenger. Even then, only someone signing in with the invited address can accept it. Whether an installation sends email is up to your operator (`EMAIL_ADAPTER`). <!-- Issue #2162, REQ-024 AK-06 -->
 
 !!! warning "The invitation is valid for the invited address only"
     An email invitation can only be accepted by the account whose email address is the invited one **and** has been confirmed. Forwarding the link does not hand the membership to anyone: another account — or the same account with a still unconfirmed address — gets `403`, the invitation stays open and nothing is created. When you are invited, confirm your account's address first and sign in with the account that carries it. An **invitation link** (method 2), by contrast, is meant to be shared and stays valid for any signed-in account. <!-- Issue #2115, REQ-024 AK-61 -->
@@ -157,7 +160,7 @@ The full permission overview — including platform roles, service accounts, and
     Whoever changes a member's role or removes a member enters **their own** current password for it — with no local password, they sign in again at their identity provider instead, or, only when they sign in exclusively through GitHub or Apple, have a code e-mailed. Reason: the role decides what someone may change and delete in the tenant, and removing a member locks that person out — the last lead too. Re-sending a role unchanged needs no confirmation. Deleting a plot attribution does not: it locks nobody out of the tenant.
 
 !!! warning "You cannot raise your own role"
-    Even with the management scope you cannot raise the role of your **own** membership — lowering it stays possible. In the technical `platform` tenant the lead role is the platform role; there, only someone who holds it hands it out, by role change as by invitation. In every other tenant the management scope may still appoint a lead. <!-- Issue #2078, REQ-024 AK-58 -->
+    Even with the management scope you cannot raise the role of your **own** membership — lowering it stays possible. In the technical `platform` tenant the lead role is the platform role; there, only someone who holds it hands it out, by role change as by invitation. This is checked again on acceptance: a lead invitation into `platform` whose sender is no longer lead there cannot be accepted. In every other tenant the management scope may still appoint a lead. <!-- Issue #2078, #2180, REQ-024 AK-58 -->
 
 ---
 

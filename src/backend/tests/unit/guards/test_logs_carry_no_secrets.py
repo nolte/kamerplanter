@@ -158,6 +158,8 @@ _ALLOWED: dict[str, str] = {
     "::reset_url": _CONSOLE_DEBUG_LINK,
     "app/data_access/external/console_email_adapter.py::ConsoleEmailAdapter.send_email_change_email"
     "::email_change_url": _CONSOLE_DEBUG_LINK,
+    "app/data_access/external/console_email_adapter.py::ConsoleEmailAdapter.send_invitation_email"
+    "::invitation_url": _CONSOLE_DEBUG_LINK,
     "app/data_access/external/console_email_adapter.py::ConsoleEmailAdapter.send_step_up_code_email"
     "::step_up_code": _CONSOLE_DEBUG_LINK,
 }

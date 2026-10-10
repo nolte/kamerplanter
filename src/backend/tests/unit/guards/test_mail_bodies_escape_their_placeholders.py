@@ -36,8 +36,9 @@ _TAG = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]*(\s[^<>]*)?/?>|<[a-zA-Z][a-zA-Z0-9]*\
 #: The class size measured when this guard was written (#1856): 8 on develop, +1 the e-mail change mail (#1848),
 #: +1 the notice to the other members of a personal tenant its owner has asked to erase (#1824; the date is escaped),
 #: +2 the notice to the members of a tenant whose deletion is scheduled (#2123; name and date are escaped),
-#: +2 the management-handover and the orphaned-organisation notices of an account erasure (#2134; escaped).
-EXPECTED_HTML_FSTRINGS = 14
+#: +2 the management-handover and the orphaned-organisation notices of an account erasure (#2134; escaped),
+#: +1 the tenant invitation mail (#2162; the link is escaped, no requester-chosen text).
+EXPECTED_HTML_FSTRINGS = 15
 
 
 def _is_escape_call(node: ast.expr) -> bool:

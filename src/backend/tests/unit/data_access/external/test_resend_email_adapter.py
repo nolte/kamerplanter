@@ -91,8 +91,13 @@ def test_a_mail_is_posted_to_the_emails_endpoint_with_the_key_as_bearer() -> Non
             "Confirmation code",
             CODE,
         ),
+        (
+            lambda a: a.send_invitation_email(RECIPIENT, "tok-2162", "https://app.test"),
+            "Invitation",
+            "https://app.test/invitations/accept?token=tok-2162",
+        ),
     ],
-    ids=["verification", "password-reset", "email-change", "step-up-code"],
+    ids=["verification", "password-reset", "email-change", "step-up-code", "invitation"],
 )
 def test_the_system_mails_are_the_smtp_adapters_texts(send, subject: str, needle: str) -> None:
     resend = _Resend()
@@ -114,6 +119,7 @@ def test_both_delivering_adapters_render_from_one_template() -> None:
             "send_password_reset_email",
             "send_email_change_email",
             "send_step_up_code_email",
+            "send_invitation_email",
         ):
             assert method not in vars(adapter), f"{adapter.__name__} redefines {method}"
 
