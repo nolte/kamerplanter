@@ -52,7 +52,7 @@ from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.legal_retention_repository import ILegalRetentionRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
-from app.domain.interfaces.personal_data_repository import IPersonalDataRepository
+from app.domain.interfaces.personal_data_repository import IPersonalDataRepository, IPersonalTimeSeriesRepository
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
 from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
 from app.domain.interfaces.processing_restriction_repository import (
@@ -217,6 +217,7 @@ class PrivacyService:
         auth_provider_repo: IAuthProviderRepository | None = None,
         api_key_repo: IApiKeyRepository | None = None,
         legal_retention_repo: ILegalRetentionRepository | None = None,
+        time_series_repo: IPersonalTimeSeriesRepository | None = None,
     ) -> None:
         # #1848 — what a revert of a hijacked e-mail change takes back besides the
         # address: sign-in links and API keys created since the change was requested.
@@ -261,6 +262,10 @@ class PrivacyService:
         # absent an export run fails *visibly* rather than silently delivering
         # nothing, which is the whole point of #1645.
         self._personal_data_repo = personal_data_repo
+        # #2165 — the time-series half of the same read side: the personal garden's
+        # sensor readings (TimescaleDB). Optional for the same reason; a run that has
+        # a personal garden to disclose and no reader fails visibly.
+        self._time_series_repo = time_series_repo
         # REQ-025 Art. 17 — the write side of the declared erasure plan (#1664)
         # and the NFR-011 §4 salt its tombstone hashes are built from. Optional
         # for the same reason as above; :meth:`erase_account` refuses to start
@@ -2315,11 +2320,18 @@ class PrivacyService:
         tombstone = self._export_tombstone(export.user_key)
         pseudonymized = TenantErasureEngine.pseudonymized_account_fields()
         sections: list[tuple[DataSourceDefinition, list[dict[str, object]]]] = []
+        #: #2165 — rows a bounded time-series section leaves out, by collection.
+        omitted: dict[str, int] = {}
         for source in manifest:
             if source.disclosure_gap is not None:
                 # Never queried: the bundle carries the reason instead of an
                 # empty list that would read as "no data here".
                 sections.append((source, []))
+                continue
+            if source.time_series is not None:
+                records, left_out = self._collect_time_series(source, personal_tenant_keys, sections)
+                sections.append((source, records))
+                omitted[source.collection] = left_out
                 continue
             by_tombstone = tombstone if (source.collection, source.filter_field) in pseudonymized else None
             bound = personal_tenant_keys if source.personal_tenant_scope is not None else tenant_keys
@@ -2345,6 +2357,7 @@ class PrivacyService:
             sections,
             controller_name=self._data_controller_name,
             controller_email=self._data_controller_email,
+            omitted=omitted,
         )
         payload = json.dumps(bundle, ensure_ascii=False, indent=2, default=str).encode("utf-8")
 
@@ -2383,6 +2396,54 @@ class PrivacyService:
             file_size_bytes=completed.file_size_bytes,
         )
         return completed
+
+    def _collect_time_series(
+        self,
+        source: DataSourceDefinition,
+        personal_tenant_keys: list[str],
+        collected: list[tuple[DataSourceDefinition, list[dict[str, object]]]],
+    ) -> tuple[list[dict[str, object]], int]:
+        """The personal garden's rows of one time-series source, and how many it leaves out (#2165).
+
+        The garden's sensor keys come from the personal-tenant section the source names
+        as its ``series_source`` — collected earlier in the same walk, so the readings
+        of a pre-#2076 Home Assistant poll (empty tenant key) are matched to exactly the
+        sensors this bundle lists. A source declared before its series source is a
+        manifest defect and raises.
+        """
+        if not personal_tenant_keys:
+            # No personal garden: nothing to read, whichever reader is wired.
+            return [], 0
+        if self._time_series_repo is None:
+            raise ExportBundleUnavailableError(
+                "This deployment cannot read the sensor readings of your personal garden: the "
+                "time-series reader is not configured. No data has been delivered; please "
+                "contact the operator."
+            )
+        assert source.time_series is not None  # the caller dispatched on it
+        series_rows = next(
+            (
+                rows
+                for collected_source, rows in collected
+                if collected_source.collection == source.time_series.series_source
+                and collected_source.personal_tenant_scope is not None
+            ),
+            None,
+        )
+        if series_rows is None:
+            msg = (
+                f"Manifest source '{source.collection}' reads the series of "
+                f"'{source.time_series.series_source}', which the walk has not collected before it."
+            )
+            raise ValueError(msg)
+        series_keys = [str(row["_key"]) for row in series_rows if row.get("_key")]
+        found = self._time_series_repo.collect_personal_tenant_series(
+            source,
+            personal_tenant_keys,
+            series_keys,
+            max_rows=self._data_export_engine.TIME_SERIES_SECTION_MAX_ROWS,
+        )
+        return list(found.records), found.total - len(found.records)
 
     async def open_export_bundle(
         self, user_key: UserKey, export_key: str

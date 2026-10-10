@@ -149,6 +149,12 @@ ERASURE_ENGINE_REL = "domain/engines/erasure_engine.py"
 #: #2135 — the declared tenant-erasure inventory: a personal tenant is erased with its owner's
 #: account through it (#1788), so a source disclosed as "your personal garden" is erasable there.
 TENANT_ERASURE_ENGINE_REL = "domain/engines/tenant_erasure_engine.py"
+#: #2165 — the TimescaleDB side of the tenant erasure (``TenantService._purge_tenant_readings``
+#: calls ``delete_by_tenant``): its raw ``DELETE`` statement and the continuous aggregates it
+#: purges with it. A time-series source of the personal garden must name one of those tables.
+OBSERVATION_REPOSITORY_REL = "data_access/timescale/observation_repository.py"
+TENANT_DELETE_SQL = "_DELETE_BY_TENANT_SQL"
+AGGREGATE_VIEWS_NAME = "AGGREGATE_VIEWS"
 EXPORT_ENGINE_REL = "domain/engines/data_export_engine.py"
 PRIVACY_MODELS_REL = "domain/models/privacy.py"
 MODELS_REL = "domain/models"
@@ -259,6 +265,31 @@ def _tenant_inventory_deletes(tree: ast.AST) -> set[str]:
         elif func == "TenantErasureEntry" and _kwarg(call, "action") == "delete":
             if (name := _kwarg(call, "collection")) is not None:
                 names.add(name)
+    return names
+
+
+def _tenant_time_series_deletes(tree: ast.AST) -> set[str]:
+    """Tables the tenant erasure clears in TimescaleDB (#2165), read off the repository's literals.
+
+    ``DELETE FROM <table>`` of :data:`TENANT_DELETE_SQL` plus every literal name in the
+    :data:`AGGREGATE_VIEWS_NAME` tuple, whose buckets ``delete_by_tenant`` removes in the same
+    transaction. A non-literal spelling yields nothing, so the source is reported, not passed.
+    """
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            continue
+        target = node.targets[0]
+        if not isinstance(target, ast.Name):
+            continue
+        if (
+            target.id == TENANT_DELETE_SQL
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            names.update(re.findall(r"DELETE\s+FROM\s+([a-z_][a-z0-9_]*)", node.value.value, flags=re.IGNORECASE))
+        elif target.id == AGGREGATE_VIEWS_NAME and isinstance(node.value, ast.Tuple):
+            names.update(e.value for e in node.value.elts if isinstance(e, ast.Constant) and isinstance(e.value, str))
     return names
 
 
@@ -439,8 +470,28 @@ def check(app_root: pathlib.Path = APP_ROOT) -> list[str]:
         if tenant_erasure_path.is_file()
         else set()
     )
+    observation_path = app_root / OBSERVATION_REPOSITORY_REL
+    time_series_deletes = (
+        _tenant_time_series_deletes(ast.parse(observation_path.read_text(encoding="utf-8")))
+        if observation_path.is_file()
+        else set()
+    )
     manifest_names: set[str] = set()
     for call in manifest:
+        if any(kw.arg == "time_series" for kw in call.keywords):
+            # #2165 — a TimescaleDB table of the personal garden: erased by the tenant erasure's
+            # time-series phase (``delete_by_tenant``), not by an ArangoDB inventory.
+            name = _kwarg(call, "collection")
+            if name is not None:
+                manifest_names.add(name)
+                if name not in time_series_deletes:
+                    violations.append(
+                        f"R2 {EXPORT_ENGINE}:{call.lineno} — '{name}' is disclosed as a time series of the "
+                        f"personal tenant but {OBSERVATION_REPOSITORY_REL} does not delete it per tenant "
+                        f"({TENANT_DELETE_SQL} / {AGGREGATE_VIEWS_NAME}). What must be disclosed must also "
+                        f"be erasable."
+                    )
+            continue
         if any(kw.arg == "personal_tenant_scope" for kw in call.keywords):
             # #2135 — "your personal garden": erased whole by the tenant-erasure inventory when the
             # account goes (#1788), not by the account plan. Same rule, the other declared inventory.

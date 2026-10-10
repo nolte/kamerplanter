@@ -16,6 +16,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.data_access.timescale.personal_time_series_repository import NullPersonalTimeSeriesRepository
 from app.domain.interfaces.personal_data_repository import IPersonalDataRepository
 from app.domain.models.membership import Membership
 from app.domain.models.privacy import DataExportRequest, DataSourceDefinition
@@ -57,7 +58,15 @@ def _service(repo: _RecordingRepo):  # type: ignore[no-untyped-def]
     tenants.personal_tenant_keys_of.return_value = [PERSONAL]
     export = DataExportRequest(key="exp-1", user_key=USER, status="pending", requested_at=datetime.now(UTC))
     storage = _InMemoryStorage()
-    svc = _make_service(export, storage, repo, membership_repo=memberships, tenant_service=tenants)
+    # #2165 — a garden is disclosed with its sensor readings; this deployment stores none.
+    svc = _make_service(
+        export,
+        storage,
+        repo,
+        membership_repo=memberships,
+        tenant_service=tenants,
+        time_series_repo=NullPersonalTimeSeriesRepository(),
+    )
     return svc, tenants
 
 

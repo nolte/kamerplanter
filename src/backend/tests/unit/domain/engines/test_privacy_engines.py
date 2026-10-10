@@ -17,6 +17,7 @@ from app.domain.models.ai_assistant import AiAuditLogEntry, AiConversation, AiTi
 from app.domain.models.attachment import Attachment
 from app.domain.models.auth import ApiKey, AuthProvider, RefreshToken
 from app.domain.models.calendar import CalendarFeed
+from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.harvest import HarvestBatch, QualityAssessment, YieldMetric
 from app.domain.models.identification import IdentificationRequest
 from app.domain.models.import_job import ImportJob
@@ -26,6 +27,7 @@ from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.mcp import McpAuditLog, McpIdempotencyRecord
 from app.domain.models.membership import Membership
 from app.domain.models.notification import Notification, NotificationPreferences
+from app.domain.models.observation import AggregatedReading, SensorReading
 from app.domain.models.onboarding import OnboardingState
 from app.domain.models.pest_detection import PestDetection
 from app.domain.models.pest_image import PestImageContribution
@@ -43,11 +45,15 @@ from app.domain.models.privacy import (
     ProcessingRestriction,
 )
 from app.domain.models.security_audit import SecurityAuditEntry
+from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location, Site, Slot
+from app.domain.models.tank import MaintenanceLog, Tank, TankFillEvent, TankState
 from app.domain.models.task import Task, TaskComment
 from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
 from app.domain.models.user_preference import UserPreference
+from app.domain.models.watering_event import WateringEvent
+from app.domain.models.watering_log import WateringLog
 from app.domain.models.weather import WeatherSourceConfig
 from app.domain.services.favorites_service import FavoritesService
 
@@ -102,6 +108,18 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "slots": Slot,
     "plant_instances": PlantInstance,
     "planting_runs": PlantingRun,
+    # #2165 — tanks, watering and feeding logs, sensors (ArangoDB) and their readings (TimescaleDB).
+    "tanks": Tank,
+    "tank_states": TankState,
+    "tank_fill_events": TankFillEvent,
+    "maintenance_logs": MaintenanceLog,
+    "watering_events": WateringEvent,
+    "watering_logs": WateringLog,
+    "feeding_events": FeedingEvent,
+    "sensors": Sensor,
+    "sensor_readings": SensorReading,
+    "sensor_hourly": AggregatedReading,
+    "sensor_daily": AggregatedReading,
 }
 
 

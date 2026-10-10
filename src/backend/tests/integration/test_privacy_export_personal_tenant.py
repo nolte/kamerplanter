@@ -72,8 +72,24 @@ def _garden(db) -> None:  # type: ignore[no-untyped-def]
             assigned_to_user_key="someone-else",
             completion_notes=f"note {key}",
         )
+        # #2165 — the tank logs hang off their tank (no tenant_key of their own); the
+        # watering and feeding logs carry tenant_key; a sensor hangs off exactly one of a
+        # tank, a site or a location and carries no tenant_key.
+        _ins(db, col.TANKS, _key=f"tank-{key}", tenant_key=key, name=f"Tank {key}", tank_type="nutrient")
+        _ins(db, col.TANK_STATES, _key=f"ts-{key}", tank_key=f"tank-{key}", ph=6.1)
+        _ins(db, col.TANK_FILL_EVENTS, _key=f"tf-{key}", tank_key=f"tank-{key}", performed_by="someone-else")
+        _ins(db, col.MAINTENANCE_LOGS, _key=f"ml-{key}", tank_key=f"tank-{key}", maintenance_type="cleaning")
+        _ins(db, col.WATERING_EVENTS, _key=f"we-{key}", tenant_key=key, volume_liters=1.0)
+        _ins(db, col.WATERING_LOGS, _key=f"wl-{key}", tenant_key=key, volume_liters=2.0, performed_by="u-x")
+        _ins(db, col.FEEDING_EVENTS, _key=f"fe-{key}", tenant_key=key, plant_key=f"plant-{key}")
+        _ins(db, col.SENSORS, _key=f"sensor-tank-{key}", name="EC", metric_type="ec_ms", tank_key=f"tank-{key}")
+        _ins(db, col.SENSORS, _key=f"sensor-site-{key}", name="Air", metric_type="temp", site_key=f"site-{key}")
+        _ins(db, col.SENSORS, _key=f"sensor-loc-{key}", name="Soil", metric_type="vwc", location_key=f"loc-{key}")
     # A location whose parent site is missing must not be attributed to anybody.
     _ins(db, col.LOCATIONS, _key="loc-dangling", tenant_key="", name="Dangling", site_key="site-gone")
+    # Neither may a sensor whose parent is gone, nor a tank log of a missing tank.
+    _ins(db, col.SENSORS, _key="sensor-dangling", name="Lost", metric_type="ph", tank_key="tank-gone")
+    _ins(db, col.TANK_STATES, _key="ts-dangling", tank_key="tank-gone", ph=7.0)
 
 
 def _rows(db, collection: str, keys: list[str]) -> list[dict[str, Any]]:  # type: ignore[no-untyped-def]
@@ -100,6 +116,15 @@ def test_the_own_personal_site_comes_with_its_coordinates(db) -> None:  # type: 
         ("slots", [f"slot-{OWN}"]),
         ("plant_instances", [f"plant-{OWN}"]),
         ("tasks", [f"task-{OWN}"]),
+        # #2165
+        ("tanks", [f"tank-{OWN}"]),
+        ("tank_states", [f"ts-{OWN}"]),
+        ("tank_fill_events", [f"tf-{OWN}"]),
+        ("maintenance_logs", [f"ml-{OWN}"]),
+        ("watering_events", [f"we-{OWN}"]),
+        ("watering_logs", [f"wl-{OWN}"]),
+        ("feeding_events", [f"fe-{OWN}"]),
+        ("sensors", sorted([f"sensor-loc-{OWN}", f"sensor-site-{OWN}", f"sensor-tank-{OWN}"])),
     ],
 )
 def test_only_the_own_personal_garden_is_reached(db, collection: str, expected: list[str]) -> None:  # type: ignore[no-untyped-def]
@@ -115,6 +140,24 @@ def test_another_members_assignment_is_not_handed_out(db) -> None:  # type: igno
     assert task["completion_notes"] == f"note {OWN}"
 
 
+def test_the_logs_carry_no_other_accounts_name(db) -> None:  # type: ignore[no-untyped-def]
+    """#2165 — ``performed_by`` names whoever performed the step; it stays out (Art. 15(4))."""
+    for collection in ("tank_fill_events", "watering_logs"):
+        (row,) = _rows(db, collection, [OWN])
+        assert "performed_by" not in row, collection
+
+
 def test_no_personal_tenant_means_no_rows_not_all_of_them(db) -> None:  # type: ignore[no-untyped-def]
-    for collection in ("sites", "locations", "slots", "plant_instances", "tasks"):
+    for collection in (
+        "sites",
+        "locations",
+        "slots",
+        "plant_instances",
+        "tasks",
+        "tanks",
+        "tank_states",
+        "watering_logs",
+        "feeding_events",
+        "sensors",
+    ):
         assert _rows(db, collection, []) == [], collection
