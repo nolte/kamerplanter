@@ -430,11 +430,7 @@ ingress:
     hosts:
       - host: kamerplanter.local
         paths:
-          - path: /api
-            pathType: Prefix
-            service:
-              identifier: backend
-          - path: /
+          - path: /              # /api too: Vite proxies it to the backend (VITE_BACKEND_URL)
             pathType: Prefix
             service:
               identifier: frontend

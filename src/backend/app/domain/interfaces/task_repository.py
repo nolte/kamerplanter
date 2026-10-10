@@ -308,7 +308,9 @@ class ITaskRepository(ABC):
     def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]: ...
 
     @abstractmethod
-    def get_executions_for_template(self, template_key: str, *, tenant_key: str) -> list[dict]: ...
+    def get_executions_for_template(
+        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50
+    ) -> list[dict]: ...
 
     # ── Batch ──
     @abstractmethod

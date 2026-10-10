@@ -1634,6 +1634,15 @@ configMaps:
             error_log /dev/stderr crit;
             log_not_found off;
 
+            # #2144 (G-10) — request body limit at the edge. nginx's default is
+            # 1 MiB, which refused every upload above 1 MiB with 413. The largest
+            # legitimate body is an attachment (storage.maxFileSizeMb) plus its
+            # multipart framing, hence + 1 MiB: nothing the backend accepts is
+            # cut, a body in between still gets the backend's typed 413, anything
+            # larger stops here. Same expression as the ingress annotation
+            # (ingress.main); held by scripts/ci/assert_chart_contracts.sh.
+            client_max_body_size {{ add (int .Values.storage.maxFileSizeMb) 1 }}m;
+
             location / {
                 try_files $uri $uri/ /index.html;
             }
@@ -1946,7 +1955,24 @@ persistence:
   #         - path: /app/knowledge
   #           readOnly: true
 
-ingress: {}
+# -- Ingress (off unless you give it hosts).
+#
+# #2144 (G-10): `main` carries the request body limit for ingress-nginx, whose
+# own default is 1 MiB and would refuse uploads before they reach the frontend
+# nginx. The value is the frontend nginx's `client_max_body_size` expression —
+# storage.maxFileSizeMb + 1 MiB of multipart headroom — so both follow the
+# upload bound. Other controllers ignore the annotation: Traefik and
+# Contour/Envoy set no body limit by default, and the frontend nginx enforces it
+# on the path `/` and `/api` -> frontend that the backend NetworkPolicy requires
+# (#1159). An ingress under another key than `main` does not inherit it.
+#
+# `enabled` renders `true` as soon as `ingress.main.hosts` is set, so values that
+# give hosts without `enabled` keep their Ingress; `enabled: false` still wins.
+ingress:
+  main:
+    enabled: '{{ if .Values.ingress.main.hosts }}true{{ end }}'
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-body-size: '{{ add (int .Values.storage.maxFileSizeMb) 1 }}m'
 
 # -- #2129 ServiceMonitor for the backend's metrics port (Prometheus Operator).
 # Rendered only with ``monitoring.enabled``; see the ``monitoring`` block.

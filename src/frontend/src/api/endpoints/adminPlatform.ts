@@ -144,11 +144,18 @@ export async function getAdminUserErasurePreview(key: string): Promise<ErasurePr
   return data;
 }
 
+/**
+ * Every member of one tenant, oldest membership first. The route returns one bounded page since MT-035 (#2131); every
+ * page is read so the admin member table stays complete.
+ */
 export async function fetchTenantMembers(tenantKey: string): Promise<AdminTenantMember[]> {
-  const { data } = await apiClient.get<AdminTenantMember[]>(
-    `/admin/platform/tenants/${encodeURIComponent(tenantKey)}/members`,
-  );
-  return data;
+  return fetchAllPages(async (offset, limit) => {
+    const { data } = await apiClient.get<AdminTenantMember[]>(
+      `/admin/platform/tenants/${encodeURIComponent(tenantKey)}/members`,
+      { params: { offset, limit } },
+    );
+    return data;
+  });
 }
 
 /**

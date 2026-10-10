@@ -21,6 +21,7 @@ import ResendVerificationAction from '@/pages/auth/ResendVerificationAction';
 import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import { useRegistrationMode } from '@/hooks/useRegistrationMode';
 import Form from '@/components/form/Form';
+import { forgetPendingInvitation, pendingInvitationToken, postLoginPath } from '@/utils/pendingInvitation';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -44,6 +45,9 @@ export default function LoginPage() {
   // #2132 — a closed instance offers no registration entry; an invite-only one
   // says that registering needs an invitation.
   const registration = useRegistrationMode();
+  // #2162 — the invitation an unauthenticated visitor opened: said on the page, and handed to the
+  // registration so an invite-only instance admits the invited address.
+  const [invitationToken, setInvitationToken] = useState(pendingInvitationToken);
 
   useEffect(() => {
     dispatch(clearError());
@@ -51,7 +55,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+      // #2162 — back to the invitation the visitor opened before signing in, if any.
+      navigate(postLoginPath(), { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -90,6 +95,21 @@ export default function LoginPage() {
             </Box>
           ) : (
             error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+          )}
+
+          {invitationToken && (
+            <Alert
+              severity="info"
+              sx={{ mb: 2 }}
+              data-testid="login-pending-invitation"
+              // #2162 review W2 — a visitor who does not want to (or cannot) use the invitation drops it.
+              onClose={() => {
+                forgetPendingInvitation();
+                setInvitationToken(null);
+              }}
+            >
+              {t('pages.auth.pendingInvitation')}
+            </Alert>
           )}
 
           <Form onSubmit={handleSubmit}>
@@ -170,8 +190,13 @@ export default function LoginPage() {
             {/* Shown while the mode loads (open is the default); hidden only once
                 the instance said it is closed. */}
             {registration.mode !== 'closed' && (
-              <Link component={RouterLink} to="/register" variant="body2" data-testid="login-register-link">
-                {registration.mode === 'invite_only'
+              <Link
+                component={RouterLink}
+                to={invitationToken ? `/register?invitation=${encodeURIComponent(invitationToken)}` : '/register'}
+                variant="body2"
+                data-testid="login-register-link"
+              >
+                {registration.mode === 'invite_only' || invitationToken
                   ? t('pages.auth.registerWithInvitationLink')
                   : t('pages.auth.registerLink')}
               </Link>

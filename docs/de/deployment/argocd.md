@@ -191,11 +191,7 @@ spec:
             hosts:
               - host: pflanzen.example.com                      # (3)!
                 paths:
-                  - path: /api
-                    pathType: Prefix
-                    service:
-                      identifier: backend
-                  - path: /
+                  - path: /              # auch /api: das Frontend-nginx leitet es ans Backend weiter
                     pathType: Prefix
                     service:
                       identifier: frontend
@@ -215,7 +211,7 @@ spec:
       - CreateNamespace=true
 ```
 
-1. Für nginx-ingress: `className: nginx` verwenden und die Traefik-Annotations durch `nginx.ingress.kubernetes.io/proxy-body-size: "10m"` ersetzen.
+1. Für nginx-ingress: `className: nginx` verwenden und die Traefik-Annotations entfernen. Die Body-Grenze `nginx.ingress.kubernetes.io/proxy-body-size` setzt das Chart am Ingress `main` selbst (`storage.maxFileSizeMb` + 1 MiB, Standard `26m`) — überschreibe sie nicht mit einem kleineren Wert, sonst scheitern Uploads am Ingress.
 2. Setzt voraus, dass ein `ClusterIssuer` namens `letsencrypt-prod` im Cluster existiert. Falls du bereits ein Wildcard-Zertifikat hast, entferne diese Annotation und referenziere das bestehende TLS-Secret direkt.
 3. Dein gewünschter Hostname. Der DNS-Eintrag muss auf den Ingress-Controller zeigen.
 4. cert-manager erstellt dieses Secret automatisch. Bei einem bestehenden Wildcard-Zertifikat: den Namen des vorhandenen Secrets verwenden (z.B. `wildcard-example-com-tls`).

@@ -221,7 +221,7 @@ GET /api/v1/t/mein-garten/plant-instances?offset=0&limit=50
 Die Antwort enthält keine Gesamtzahl. Du liest die nächste Seite, bis eine Seite kürzer als `limit` ist.
 
 !!! warning "Ohne `limit` erhältst du nur die ersten 50 Einträge"
-    Seit Issue #2131 sind auch diese Listen begrenzt, die bisher **jeden** Eintrag lieferten: `GET /admin/platform/tenants`, `GET /admin/platform/users`, `GET /tenants/{slug}/invitations`, `GET /t/{slug}/ai/conversations`, `GET /t/{slug}/tasks/plants/{plant_key}` und `GET /t/{slug}/post-harvest/{key}/observations`. Ein Client, der dort kein `limit` schickt, bekommt jetzt die ersten 50 Einträge statt aller. Lies mehr Seiten mit `offset`.
+    Seit Issue #2131 sind auch diese Listen begrenzt, die bisher **jeden** Eintrag lieferten: `GET /admin/platform/tenants`, `GET /admin/platform/users`, `GET /tenants/{slug}/invitations`, `GET /t/{slug}/ai/conversations`, `GET /t/{slug}/tasks/plants/{plant_key}`, `GET /t/{slug}/post-harvest/{key}/observations`, `GET /tenants/{slug}/members`, `GET /tenants/{slug}/assignments`, `GET /admin/platform/tenants/{tenant_key}/members`, `GET /t/{slug}/tasks/workflows/{key}/executions`, `GET /t/{slug}/inventree/references` und `GET /t/{slug}/propagation/stats/by-cultivar`. Ein Client, der dort kein `limit` schickt, bekommt jetzt die ersten 50 Einträge statt aller. Lies mehr Seiten mit `offset`.
 
 **Cursor statt `offset`.** Die Listen `GET /t/{slug}/plant-instances`, `/watering-logs`, `/watering-events` und `/feeding-events` sind nach `key` sortiert und nehmen zusätzlich `after` an: den `key` des letzten Eintrags der vorigen Seite.
 

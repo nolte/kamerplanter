@@ -84,12 +84,32 @@ class ArangoInvenTreeRepository(BaseArangoRepository[InvenTreeConnection]):
 
     # ── References ──────────────────────────────────────────────────────
 
-    def list_references(self, tenant_key: str, entity_collection: str | None = None) -> list[InvenTreeReference]:
+    def list_references(
+        self,
+        tenant_key: str,
+        entity_collection: str | None = None,
+        *,
+        offset: int | None = None,
+        limit: int | None = None,
+    ) -> list[InvenTreeReference]:
+        """A tenant's entity references by ``entity_collection``; ``offset``/``limit`` read one window (MT-035, #2131).
+
+        Both ``None`` reads every reference (the stock sync walks all of them). The
+        ``_key`` tie-break makes the order total, so a pager never repeats or skips a row.
+        """
         self._require_tenant_key(tenant_key, "list_references")
         extra: list[tuple[str, str, Any]] = []
         if entity_collection:
             extra.append(("entity_collection", "==", entity_collection))
-        return self._references.find_by_field("tenant_key", tenant_key, extra_filters=extra, sort="entity_collection")
+        return self._references.find_by_field(
+            "tenant_key",
+            tenant_key,
+            extra_filters=extra,
+            sort="entity_collection",
+            offset=offset,
+            limit=limit,
+            tiebreak_key=True,
+        )
 
     def get_reference(self, key: str) -> InvenTreeReference | None:
         return self._references.get_by_key(key)

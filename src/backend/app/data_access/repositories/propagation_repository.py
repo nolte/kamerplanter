@@ -401,11 +401,18 @@ class PropagationRepository:
 
     # ── Statistics ───────────────────────────────────────────────────────────
 
-    def stats(self, tenant_key: str, group_by: str) -> list[dict[str, Any]]:
-        """Success-rate aggregation grouped by ``method`` / ``species`` / ``protocol``.
+    def stats(
+        self, tenant_key: str, group_by: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[dict[str, Any]]:
+        """Success-rate aggregation grouped by ``method`` / ``species`` / ``protocol`` / ``cultivar``.
 
         ``group_by`` is a code-level whitelist key, mapped to a document field
         here; it is never taken from client input verbatim.
+
+        ``offset``/``limit`` cut one window of the aggregated rows, ordered by the
+        group key (MT-035, #2131) — one row per cultivar grows with the tenant's
+        propagation history. Both ``None`` returns every group. The scan over the
+        tenant's events is the aggregation itself; the window bounds the answer.
         """
         field_map = {
             "method": "method",
@@ -414,20 +421,26 @@ class PropagationRepository:
             "cultivar": "cultivar_key",
         }
         field = field_map[group_by]
-        query = """
+        bind_vars: dict[str, Any] = {"@col": col.PROPAGATION_EVENTS, "tenant_key": tenant_key, "field": field}
+        window = ""
+        if offset is not None and limit is not None:
+            window = "SORT bucket ASC LIMIT @offset, @limit"
+            bind_vars["offset"] = offset
+            bind_vars["limit"] = limit
+        query = f"""
         FOR e IN @@col
           FILTER e.tenant_key == @tenant_key
           COLLECT bucket = e.@field INTO group
+          {window}
           LET total_qty = SUM(group[*].e.quantity)
           LET total_survived = SUM(group[*].e.survived_count)
-          RETURN {
+          RETURN {{
             key: bucket,
             event_count: LENGTH(group),
             total_quantity: total_qty,
             total_survived: total_survived,
             success_rate: total_qty > 0 ? (total_survived / total_qty) : null
-          }
+          }}
         """
-        bind_vars = {"@col": col.PROPAGATION_EVENTS, "tenant_key": tenant_key, "field": field}
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return list(cursor)

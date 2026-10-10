@@ -51,6 +51,7 @@ from app.common.exceptions import (
 )
 from app.common.image_bounds import MAX_IMAGE_PIXELS, open_bounded_image
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.common.upload_bounds import declared_body_exceeds
 from app.config.settings import settings
 from app.domain.interfaces.plant_identification_adapter import PlantOrgan
 from app.domain.models.tenant_context import TenantContext
@@ -75,14 +76,6 @@ def _parse_organ(value: str) -> PlantOrgan:
         return PlantOrgan(value)
     except ValueError as exc:
         raise UnsupportedMediaTypeError([o.value for o in PlantOrgan]) from exc
-
-
-def _parse_content_length(request: Request) -> int | None:
-    """Return the request ``Content-Length`` as an int, or ``None`` if absent/invalid."""
-    raw = request.headers.get("content-length")
-    if raw is None or not raw.strip().isdigit():
-        return None
-    return int(raw)
 
 
 async def _read_upload_bounded(file: UploadFile, max_bytes: int) -> bytes:
@@ -217,8 +210,7 @@ async def contribute_reference(
     # SEC-004 — reject oversized uploads before buffering, then bound the read
     # and fully validate the bytes (magic/decode/bomb) before any embedding.
     max_bytes = settings.identification_max_image_size_mb * 1024 * 1024
-    content_length = _parse_content_length(request)
-    if content_length is not None and content_length > max_bytes:
+    if declared_body_exceeds(request, max_bytes):
         raise PayloadTooLargeError(max_bytes)
     image_data = await _read_upload_bounded(image, max_bytes)
     _validate_reference_image(image_data, max_bytes)

@@ -101,7 +101,10 @@ Mit der Zusatzberechtigung **Verwaltung** kannst du Mitglieder auf drei Wegen ei
 3. Die Einladung vergibt die Rolle **Beobachter** — eine andere Rolle gibst du dem Mitglied nach dem Beitritt unter [Rollen ändern](#rollen-andern)
 4. Klicke auf **Einladung senden**
 
-Das System sendet eine Einladungs-E-Mail. Nach Klick auf den Link im Mail wird der Nutzer deinem Tenant mit der vorgewählten Rolle hinzugefügt — egal ob er sich neu registriert oder bereits ein Konto hat.
+Kamerplanter schickt der Adresse eine E-Mail mit einem Link zur Annahme-Seite; er ist 7 Tage gültig. Wer ihn öffnet, meldet sich an — oder registriert sich mit genau dieser Adresse —, bestätigt auf der Annahme-Seite mit **Einladung annehmen** und wird deinem Tenant mit der vorgewählten Rolle hinzugefügt. Wer beim Öffnen noch nicht angemeldet ist, landet nach der Anmeldung (auch über einen Anmeldeanbieter) wieder auf der Annahme-Seite. Die E-Mail nennt weder deinen Namen noch den Namen des Tenants — die eingeladene Person sieht erst nach der Anmeldung, worum es geht.
+
+!!! note "Wenn die E-Mail nicht rausgeht"
+    Nach dem Absenden sagt dir die Seite, ob die E-Mail verschickt wurde. Ist auf der Installation kein E-Mail-Versand eingerichtet oder schlägt er fehl, ist die Einladung trotzdem angelegt: Die Seite zeigt dir dann den Einladungslink mit einer Schaltfläche zum Kopieren — gib ihn selbst weiter, zum Beispiel per Messenger. Annehmen kann ihn auch dann nur, wer sich mit der eingeladenen Adresse anmeldet. Welche Installation E-Mails verschickt, legt dein Betreiber fest (`EMAIL_ADAPTER`). <!-- Issue #2162, REQ-024 AK-06 -->
 
 !!! warning "Die Einladung gilt nur für die eingeladene Adresse"
     Eine E-Mail-Einladung kann nur das Konto annehmen, dessen E-Mail-Adresse die eingeladene ist **und** die bestätigt wurde. Wer den Link weiterleitet, verleiht damit niemandem die Mitgliedschaft: ein anderes Konto — oder dasselbe Konto mit noch unbestätigter Adresse — bekommt `403`, die Einladung bleibt offen und nichts wird angelegt. Bestätige die Adresse deines Kontos zuerst, wenn du eingeladen wirst, und melde dich mit dem Konto an, das diese Adresse trägt. Ein **Einladungslink** (Methode 2) ist dagegen zum Teilen gedacht und bleibt für jedes angemeldete Konto gültig. <!-- Issue #2115, REQ-024 AK-61 -->
@@ -162,7 +165,7 @@ Die vollständige Rechteübersicht — inklusive Plattform-Rollen, Dienstkonten 
     Wer die Rolle eines Mitglieds ändert oder ein Mitglied entfernt, gibt dazu **sein eigenes** aktuelles Passwort ein — ohne lokales Passwort meldet er sich stattdessen frisch bei seinem Anmeldeanbieter an, oder lässt sich, nur bei einer Anmeldung ausschließlich über GitHub oder Apple, einen Code per E-Mail schicken. Grund: Die Rolle bestimmt, was jemand im Mandanten ändern und löschen darf, und das Entfernen sperrt die Person aus — auch die letzte Leitung. Eine Rolle, die du unverändert erneut sendest, braucht keine Bestätigung. Das Löschen einer Parzellen-Zuordnung braucht sie nicht: Es sperrt niemanden aus dem Mandanten aus.
 
 !!! warning "Du kannst deine eigene Rolle nicht erhöhen"
-    Auch mit Verwaltung erhöhst du die Rolle deiner **eigenen** Mitgliedschaft nicht — das Herabstufen bleibt möglich. Im technischen Mandanten `platform` ist die Rolle Leitung die Plattform-Rolle; sie vergibt dort, per Rollenwechsel wie per Einladung, nur, wer sie selbst hat. In jedem anderen Mandanten darf die Verwaltung weiterhin eine Leitung ernennen. <!-- Issue #2078, REQ-024 AK-58 -->
+    Auch mit Verwaltung erhöhst du die Rolle deiner **eigenen** Mitgliedschaft nicht — das Herabstufen bleibt möglich. Im technischen Mandanten `platform` ist die Rolle Leitung die Plattform-Rolle; sie vergibt dort, per Rollenwechsel wie per Einladung, nur, wer sie selbst hat. Das wird auch beim Annehmen geprüft: Eine Leitungs-Einladung in `platform`, deren Absender dort inzwischen keine Leitung mehr ist, lässt sich nicht annehmen. In jedem anderen Mandanten darf die Verwaltung weiterhin eine Leitung ernennen. <!-- Issue #2078, #2180, REQ-024 AK-58 -->
 
 ---
 

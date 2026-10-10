@@ -377,6 +377,49 @@ expect_set storage-default "no other pod requires the attachment-volume label" \
   "select(.kind == \"Deployment\" or .kind == \"StatefulSet\") | select(.spec.template.spec.affinity.podAffinity) | .metadata.name" \
   '["kamerplanter-backend","kamerplanter-celery-worker"]'
 
+# ---------------------------------------------------------------------------
+# #2144 (audit gap G-10) — the edge body limit follows the upload bound.
+#
+# The chart's default.conf replaces the image's nginx configuration, and it set
+# no client_max_body_size: nginx's 1 MiB default refused every upload above
+# 1 MiB with 413 (measured in the nginx-unprivileged image, see
+# scripts/ci/probe_proxy_body_limit.sh). nginx and the ingress annotation now
+# carry storage.maxFileSizeMb + 1 MiB of multipart headroom — one expression,
+# so raising the upload bound raises both. The ingress `main` renders only with
+# hosts; when it renders, it carries the annotation. The Settings side of the
+# derivation is src/backend/tests/unit/guards/test_proxy_body_limit.py.
+# ---------------------------------------------------------------------------
+nginx_limit='select(.kind == "ConfigMap" and .metadata.name == "kamerplanter") | .data["default.conf"] | capture("(?m)^\s*client_max_body_size\s+(?P<v>[^;]+);") | .v'
+ingress_limit='select(.kind == "Ingress") | .metadata.annotations["nginx.ingress.kubernetes.io/proxy-body-size"]'
+ingress_hosts=(--set 'ingress.main.hosts[0].host=kp.example.test'
+  --set 'ingress.main.hosts[0].paths[0].path=/'
+  --set 'ingress.main.hosts[0].paths[0].service.identifier=frontend')
+
+expect storage-default "nginx limits the body to storage.maxFileSizeMb + 1 MiB" "${nginx_limit}" '["26m"]'
+expect storage-default "no ingress renders without hosts" 'select(.kind == "Ingress") | .metadata.name' '[]'
+
+render body-limit-ingress "${ingress_hosts[@]}"
+expect body-limit-ingress "the ingress carries the nginx limit as proxy-body-size" "${ingress_limit}" '["26m"]'
+
+render body-limit-raised --set storage.maxFileSizeMb=50 "${ingress_hosts[@]}"
+expect body-limit-raised "a raised upload bound raises the nginx limit" "${nginx_limit}" '["51m"]'
+expect body-limit-raised "a raised upload bound raises the ingress limit" "${ingress_limit}" '["51m"]'
+expect body-limit-raised "the backend receives the raised upload bound" \
+  "$(env_of backend STORAGE_MAX_FILE_SIZE_MB)" '["50"]'
+
+render body-limit-ingress-off --set ingress.main.enabled=false "${ingress_hosts[@]}"
+expect body-limit-ingress-off "ingress.main.enabled=false still switches the ingress off" \
+  'select(.kind == "Ingress") | .metadata.name' '[]'
+
+expect profile-values-dev "the dev ingress carries the nginx limit as proxy-body-size" "${ingress_limit}" '["26m"]'
+# /api reaches the backend through the frontend (#1159): the backend policy
+# admits only the frontend, and only that path carries the body limit and the
+# X-Forwarded-For depth TRUSTED_PROXY_HOPS is set for. Every in-chart ingress
+# routes to the frontend Service and nowhere else.
+ingress_targets='select(.kind == "Ingress") | .spec.rules[].http.paths[] | .backend.service.name'
+expect profile-values-dev "the dev ingress routes every path to the frontend" "${ingress_targets}" '["kamerplanter-frontend"]'
+expect body-limit-ingress "the ingress routes every path to the frontend" "${ingress_targets}" '["kamerplanter-frontend"]'
+
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2
   exit 1
