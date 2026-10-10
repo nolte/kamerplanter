@@ -1193,8 +1193,10 @@
       "scheduledDeletionManagementOnly": "Only a lead with the management right in this garden can cancel the deletion.",
       "cancelScheduledDeletion": "Cancel deletion",
       "cancelScheduledDeletionTitle": "Cancel the scheduled deletion",
-      "cancelScheduledDeletionDescription": "“{{name}}” becomes active again, every membership stays as it was. Confirm with your own password.",
+      "cancelScheduledDeletionDescription": "“{{name}}” becomes active again, every membership stays as it was. So you confirm this with your own credentials.",
       "scheduledDeletionCancelled": "Deletion cancelled: “{{name}}” is active again",
+      "scheduledDeletionsLoadFailed": "The gardens scheduled for deletion could not be loaded just now. Try again – if the error persists, reload the page.",
+      "noActiveTenantHint": "Choose a garden in the garden switcher above to manage its members and invitations.",
       "gardenSettings": "Garden settings"
     },
     "dashboard": {

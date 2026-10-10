@@ -299,7 +299,18 @@ export default function TenantSettingsPage() {
 
   // #2166 — a garden whose deletion is scheduled resolves for nobody, so it can never be the
   // active tenant; the card lists it (and offers its management the cancellation) either way.
-  if (!activeTenant) return <ScheduledTenantDeletionsCard />;
+  // Without an active garden the page still has its heading and says what to do (review SCR-005).
+  if (!activeTenant) {
+    return (
+      <Box>
+        <PageTitle title={t('pages.tenants.gardenSettings')} />
+        <Alert severity="info" sx={{ mb: 3 }} data-testid="tenant-settings-no-active-tenant">
+          {t('pages.tenants.noActiveTenantHint')}
+        </Alert>
+        <ScheduledTenantDeletionsCard />
+      </Box>
+    );
+  }
 
   return (
     <Box>

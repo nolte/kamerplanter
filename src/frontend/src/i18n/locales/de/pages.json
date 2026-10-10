@@ -1193,8 +1193,10 @@
       "scheduledDeletionManagementOnly": "Abbrechen kann die Löschung nur eine Leitung mit Verwaltungsrecht in diesem Garten.",
       "cancelScheduledDeletion": "Löschung abbrechen",
       "cancelScheduledDeletionTitle": "Geplante Löschung abbrechen",
-      "cancelScheduledDeletionDescription": "„{{name}}“ wird wieder aktiv, alle Mitgliedschaften bleiben, wie sie waren. Bestätige das mit deinem eigenen Passwort.",
+      "cancelScheduledDeletionDescription": "„{{name}}“ wird wieder aktiv, alle Mitgliedschaften bleiben, wie sie waren. Deshalb bestätigst du das mit deinem eigenen Zugang.",
       "scheduledDeletionCancelled": "Löschung abgebrochen: „{{name}}“ ist wieder aktiv",
+      "scheduledDeletionsLoadFailed": "Die zur Löschung vorgemerkten Gärten ließen sich gerade nicht laden. Versuche es erneut – bleibt der Fehler, lade die Seite neu.",
+      "noActiveTenantHint": "Wähle oben in der Gartenauswahl einen Garten, um seine Mitglieder und Einladungen zu verwalten.",
       "gardenSettings": "Garten-Einstellungen"
     },
     "dashboard": {
