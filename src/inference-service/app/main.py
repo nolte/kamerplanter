@@ -441,12 +441,15 @@ async def upsert_reference(
     could never reach it. The index refuses either with 422 instead of trusting
     the caller to send them (#2173).
     """
+    source = source.strip().lower()
+    contributed_by = contributed_by.strip() if contributed_by else contributed_by
+    tenant_key = tenant_key.strip() if tenant_key else tenant_key
     if source == USER_CONTRIBUTED_SOURCE:
         if is_active:
             raise HTTPException(
                 status_code=422, detail="user_contributed references must be written with is_active=false"
             )
-        if not (contributed_by and contributed_by.strip()) or not (tenant_key and tenant_key.strip()):
+        if not contributed_by or not tenant_key:
             raise HTTPException(
                 status_code=422, detail="user_contributed references require contributed_by and tenant_key"
             )

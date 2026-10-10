@@ -440,3 +440,35 @@ def test_list_references_active_only_hides_excluded(client, fake_repo):
     active = client.get("/reference/species_a?active_only=true").json()
     assert active["count"] == 1
     assert active["images"][0]["id"] == 1
+
+
+@pytest.mark.parametrize("source", ["User_Contributed", " user_contributed "])
+def test_reference_source_spelling_does_not_bypass_the_quarantine(client, fake_repo, source):
+    # #2173 review — a case or whitespace variant of the source must not skip the
+    # quarantine and provenance checks (the erasure filters on the exact constant).
+    vector = [0.0] * 384
+    data = {
+        "species_key": "species_monstera_deliciosa",
+        "scientific_name": "Monstera deliciosa",
+        "source": source,
+        "embedding": json.dumps(vector),
+        "is_active": "true",
+    }
+    assert client.post("/reference", data=data).status_code == 422
+    assert fake_repo.rows == []
+
+
+def test_reference_provenance_is_stored_trimmed(client, fake_repo):
+    vector = [0.0] * 384
+    data = {
+        "species_key": "species_monstera_deliciosa",
+        "scientific_name": "Monstera deliciosa",
+        "source": "user_contributed",
+        "embedding": json.dumps(vector),
+        "is_active": "false",
+        "contributed_by": " user_anna ",
+        "tenant_key": " tenant_anna ",
+    }
+    assert client.post("/reference", data=data).status_code == 200
+    assert fake_repo.rows[0]["contributed_by"] == "user_anna"
+    assert fake_repo.rows[0]["tenant_key"] == "tenant_anna"
