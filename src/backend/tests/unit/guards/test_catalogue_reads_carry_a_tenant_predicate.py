@@ -106,10 +106,6 @@ _DEFAULT_DOC_VAR: dict[str, str] = {
 #: each with the reason it is legitimate. An entry here is a decision someone
 #: wrote down; an unlisted site fails, and an entry that no longer matches a site
 #: fails too (:func:`test_every_allowlist_entry_still_matches_a_site`).
-_ACTIVITIES_2119 = (
-    "activities are written only by platform admins today (require_platform_admin on every activity "
-    "write route), so every row is global; the own-or-global read is #2119 (MT-023) and lands with it"
-)
 _ALLOWLIST: dict[tuple[str, str], str] = {
     # REQ-011 external enrichment: an installation-wide catalogue sweep, reachable
     # only behind ``require_platform_admin`` or the Celery schedule. Its result is
@@ -122,9 +118,6 @@ _ALLOWLIST: dict[tuple[str, str], str] = {
         "backs SpeciesService.list_shadow_pairs, an operator report with no route or MCP caller; "
         "cross-comparing every record is its purpose (the derived-reads guard excludes it alike)"
     ),
-    ("data_access/arango/activity_repository.py", "get_all"): _ACTIVITIES_2119,
-    ("data_access/arango/activity_repository.py", "get_system_activities"): _ACTIVITIES_2119,
-    ("data_access/arango/activity_repository.py", "get_by_category"): _ACTIVITIES_2119,
 }
 
 

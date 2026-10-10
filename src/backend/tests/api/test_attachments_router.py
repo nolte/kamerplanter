@@ -22,6 +22,7 @@ from app.common.auth import get_current_tenant
 from app.common.dependencies import get_attachment_service, get_object_storage
 from app.common.enums import TenantRole
 from app.common.exceptions import KamerplanterError
+from app.common.upload_bounds import MULTIPART_ENVELOPE_BYTES
 from app.config.settings import Settings
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
 from app.domain.models.attachment import Attachment
@@ -108,7 +109,7 @@ def _error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"error_code": exc.error_code, "message": exc.message})
 
 
-def _build(tmp_path, role: TenantRole = TenantRole.LEAD):
+def _build(tmp_path, role: TenantRole = TenantRole.LEAD, settings: Settings | None = None):
     repo = _FakeRepo()
     adapter = LocalFsStorageAdapter(
         root=str(tmp_path),
@@ -116,8 +117,7 @@ def _build(tmp_path, role: TenantRole = TenantRole.LEAD):
         signing_secret="api-test-secret",
         max_object_size_bytes=25 * 1024 * 1024,
     )
-    settings = Settings()
-    service = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings)
+    service = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings or Settings())
 
     app = FastAPI()
     app.include_router(tenant_attachments_router, prefix="/api/v1/t/{tenant_slug}")
@@ -308,9 +308,44 @@ class TestPresignUploadDisabled:
         assert resp.json()["error_code"] == "PRESIGN_UPLOAD_UNSUPPORTED"
 
 
+def _jpeg_of_exactly(size: int) -> bytes:
+    """A decodable JPEG padded after its EOI marker to exactly ``size`` bytes."""
+    jpeg = _make_jpeg()
+    assert len(jpeg) <= size
+    return jpeg + b"\x00" * (size - len(jpeg))
+
+
 class TestUploadSizeGuard:
+    def test_a_file_of_exactly_the_limit_is_accepted(self, tmp_path):
+        # #2144 — the Content-Length pre-check compared the WHOLE multipart body
+        # (file + boundaries + form fields) with the FILE limit, so a file of
+        # exactly the allowed size was refused with 413 before it was read.
+        settings = Settings(storage_max_file_size_mb=1)
+        app, service, _adapter = _build(tmp_path, settings=settings)
+        client = TestClient(app)
+        resp = client.post(
+            _base(),
+            files={"file": ("plant.jpg", _jpeg_of_exactly(service.max_upload_bytes()), "image/jpeg")},
+            data={"category": "diary"},
+        )
+        assert resp.status_code == 201, resp.json()
+
+    def test_a_file_one_byte_over_the_limit_is_refused(self, tmp_path):
+        # The file limit itself stays exact: the bounded read counts file bytes.
+        settings = Settings(storage_max_file_size_mb=1)
+        app, service, _adapter = _build(tmp_path, settings=settings)
+        client = TestClient(app)
+        resp = client.post(
+            _base(),
+            files={"file": ("plant.jpg", _jpeg_of_exactly(service.max_upload_bytes() + 1), "image/jpeg")},
+            data={"category": "diary"},
+        )
+        assert resp.status_code == 413
+        assert resp.json()["error_code"] == "FILE_TOO_LARGE"
+
     def test_oversized_content_length_rejected_without_reading(self, tmp_path):
-        # SEC-005 — an oversized Content-Length is rejected with 413 up front.
+        # SEC-005 — a Content-Length that cannot carry an allowed file (file limit
+        # plus the multipart envelope) is rejected with 413 up front.
         app, service, _adapter = _build(tmp_path)
         max_bytes = service.max_upload_bytes()
         client = TestClient(app)
@@ -318,7 +353,7 @@ class TestUploadSizeGuard:
             _base(),
             files={"file": ("plant.jpg", _make_jpeg(), "image/jpeg")},
             data={"category": "diary"},
-            headers={"Content-Length": str(max_bytes + 1)},
+            headers={"Content-Length": str(max_bytes + MULTIPART_ENVELOPE_BYTES + 1)},
         )
         assert resp.status_code == 413
         assert resp.json()["error_code"] == "FILE_TOO_LARGE"

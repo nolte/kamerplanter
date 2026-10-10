@@ -112,6 +112,9 @@ def client(monkeypatch, adapter: MagicMock, valkey: FakeValkey) -> TestClient:
     consent.require_consent.return_value = None
     providers = MagicMock()
     providers.get_default.return_value = None  # local default, no cloud gate
+    # The knowledge question is gated on the platform model (system default):
+    # none configured counts as local, like the tenant default above.
+    providers.get_system_default.return_value = None
     providers.list_for_tenant.return_value = []
     conversations = MagicMock()
     conversations.get_by_key.side_effect = lambda key: AiConversation(
@@ -195,7 +198,19 @@ def _glossary(client: TestClient):
     return client.post(f"/api/v1/t/{TENANT}/glossary/term/vpd/generate")
 
 
-_GENERATING = {"explain": _explain, "tips": _tips, "daily": _daily, "chat": _chat, "glossary": _glossary}
+def _knowledge(client: TestClient):
+    """#2175 — the free-form knowledge question, formerly the ungated ``/api/v1/knowledge/ask``."""
+    return client.post(f"/api/v1/t/{TENANT}/ai/knowledge/ask", json={"question": "What is VPD?"})
+
+
+_GENERATING = {
+    "explain": _explain,
+    "tips": _tips,
+    "daily": _daily,
+    "chat": _chat,
+    "glossary": _glossary,
+    "knowledge": _knowledge,
+}
 
 
 @pytest.mark.parametrize("route", sorted(_GENERATING))

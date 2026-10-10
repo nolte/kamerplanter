@@ -81,15 +81,15 @@ class _PestImageRepo:
     def list_for_user(self, user_key: str) -> list[PestImageContribution]:
         return [c for c in self.docs.values() if c.contributed_by == user_key]
 
-    def list_for_tenant(self, tenant_key: str) -> list[PestImageContribution]:
+    def list_for_tenant(self, *, tenant_key: str) -> list[PestImageContribution]:
         return [c for c in self.docs.values() if c.tenant_key == tenant_key]
 
-    def get(self, key: str, tenant_key: str) -> PestImageContribution | None:
+    def get(self, key: str, *, tenant_key: str) -> PestImageContribution | None:
         c = self.docs.get(key)
         return c if c is not None and c.tenant_key == tenant_key else None
 
     def delete(self, key: str, tenant_key: str) -> bool:
-        return self.get(key, tenant_key) is not None and self.docs.pop(key) is not None
+        return self.get(key, tenant_key=tenant_key) is not None and self.docs.pop(key) is not None
 
 
 def _contribution(key: str, user: str, tenant: str, status: PestImageStatus) -> PestImageContribution:

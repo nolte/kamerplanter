@@ -29,6 +29,10 @@ class ArangoAiProviderRepository(BaseArangoRepository[AiProviderConfig]):
     """``ai_provider_configs`` — LLM provider configurations (§3.1)."""
 
     _model_cls = AiProviderConfig
+    #: A tenant's own provider rows plus the platform's null-tenant defaults. The
+    #: base list reads filter strictly on ``tenant_key`` (narrower than the two-arm
+    #: union :meth:`list_for_tenant` reads); none is called today (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.AI_PROVIDER_CONFIGS)

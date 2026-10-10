@@ -11,6 +11,12 @@ from app.domain.models.substrate import Substrate, SubstrateBatch
 
 class ArangoSubstrateRepository(BaseArangoRepository[Substrate], ISubstrateRepository):
     _model_cls = Substrate
+    tenant_scope_exempt_reason = (
+        "hybrid catalogue (global base media with tenant_key '' plus tenant mixes): get_all_substrates "
+        "reads the own-or-global union for a tenant and tenant_key=None is the system-context read of the "
+        "seed loaders and the mix resolver (#1195); strict mode would make that read raise and the base "
+        "strict filter would hide the global media (#324)"
+    )
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.SUBSTRATES)

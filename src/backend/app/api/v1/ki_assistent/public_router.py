@@ -1,8 +1,13 @@
-"""REQ-031 §5.3 — Light-mode public KI endpoints (``/public/ai/*``).
+"""REQ-031 §5.3 — Light-mode KI knowledge endpoints (``/public/ai/*``).
 
-No auth, no tenant, strictly ``context=null`` at the Knowledge Service (§5.3).
-IP rate-limited via the shared app limiter. Stage-1 operator flag still applies
-(404 when ``AI_FEATURES_ENABLED=false``).
+Mounted **only in light mode** (``app/api/v1/router.py``); in full mode the
+paths do not exist (404) and the knowledge question is the tenant-scoped,
+consent-gated ``POST /t/{slug}/ai/knowledge/ask`` (§5.1). Not anonymous: every
+route depends on ``get_current_user``, which in light mode resolves the system
+user without a login, so the light frontend needs none. No tenant, strictly
+``context=null`` at the Knowledge Service (§5.3). IP rate-limited via the shared
+app limiter. The stage-1 operator flag still applies (404 when
+``AI_FEATURES_ENABLED=false``).
 """
 
 from __future__ import annotations
@@ -17,6 +22,7 @@ from app.api.v1.ki_assistent.schemas import (
     PublicAskRequest,
     SourceRefSchema,
 )
+from app.common.auth import get_current_user
 from app.common.dependencies import get_ai_assistant_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.config.settings import settings
@@ -25,7 +31,7 @@ from app.domain.services.ai_assistant_service import AiAssistantService
 router = APIRouter(
     prefix="/public/ai",
     tags=["ai-assistant-public"],
-    dependencies=[Depends(require_ai_feature_flag)],
+    dependencies=[Depends(require_ai_feature_flag), Depends(get_current_user)],
     responses=NOT_FOUND_RESPONSE,
 )
 
@@ -39,7 +45,7 @@ async def public_ask(
     body: PublicAskRequest,
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> AiResponseSchema:
-    """Answer a free-form knowledge question with no tenant/user context (§5.3)."""
+    """Answer a free-form knowledge question with no tenant/plant context (light mode, §5.3)."""
     response = await service.ask_public(body.question, language=body.language or "de")
     return AiResponseSchema(
         answer_text=response.answer_text,
@@ -60,5 +66,5 @@ async def public_ask(
 async def public_health(
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> HealthResponse:
-    """Knowledge-Service availability probe (light-mode, unauthenticated)."""
+    """Knowledge-Service availability probe (light mode, system user)."""
     return HealthResponse(healthy=await service.health_check())

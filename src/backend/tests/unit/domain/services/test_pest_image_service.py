@@ -47,14 +47,14 @@ class _FakePestImageRepo:
         self.store[key] = stored
         return stored
 
-    def get(self, key: str, tenant_key: str) -> PestImageContribution | None:
+    def get(self, key: str, *, tenant_key: str) -> PestImageContribution | None:
         c = self.store.get(key)
         if c is None or c.tenant_key != tenant_key:
             return None
         return c
 
     def list_for_pest(
-        self, tenant_key: str, pest_key: str, *, include_inactive: bool = False
+        self, *, tenant_key: str, pest_key: str, include_inactive: bool = False
     ) -> list[PestImageContribution]:
         return [
             c
@@ -62,7 +62,7 @@ class _FakePestImageRepo:
             if c.tenant_key == tenant_key and c.pest_key == pest_key and (include_inactive or c.is_active)
         ]
 
-    def list_for_tenant(self, tenant_key: str) -> list[PestImageContribution]:
+    def list_for_tenant(self, *, tenant_key: str) -> list[PestImageContribution]:
         return [c for c in self.store.values() if c.tenant_key == tenant_key]
 
     def list_for_user(self, user_key: str) -> list[PestImageContribution]:

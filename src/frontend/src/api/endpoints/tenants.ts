@@ -51,9 +51,17 @@ export async function deleteTenant(
 
 // ── Members ─────────────────────────────────────────────────────────
 
+/**
+ * Every member of a tenant, oldest membership first. The route returns one bounded page since MT-035 (#2131); every page
+ * is read so the member list stays complete.
+ */
 export async function listMembers(slug: string): Promise<Membership[]> {
-  const res = await client.get<Membership[]>(`${BASE}/${slug}/members`);
-  return res.data;
+  return fetchAllPages(async (offset, limit) => {
+    const res = await client.get<Membership[]>(`${BASE}/${slug}/members`, {
+      params: { offset, limit },
+    });
+    return res.data;
+  });
 }
 
 /**
@@ -128,9 +136,17 @@ export async function acceptInvitation(token: string): Promise<void> {
 
 // ── Assignments ─────────────────────────────────────────────────────
 
+/**
+ * Every location assignment of a tenant, oldest first. The route returns one bounded page since MT-035 (#2131); every
+ * page is read so the assignment list stays complete.
+ */
 export async function listAssignments(slug: string): Promise<LocationAssignment[]> {
-  const res = await client.get<LocationAssignment[]>(`${BASE}/${slug}/assignments`);
-  return res.data;
+  return fetchAllPages(async (offset, limit) => {
+    const res = await client.get<LocationAssignment[]>(`${BASE}/${slug}/assignments`, {
+      params: { offset, limit },
+    });
+    return res.data;
+  });
 }
 
 export async function createAssignment(

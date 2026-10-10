@@ -86,20 +86,20 @@ class _FakePestRepo:
         self.created.append(detection)
         return detection
 
-    def get(self, key, tenant_key):
+    def get(self, key, *, tenant_key):
         for d in self.created:
             if d.key == key and d.tenant_key == tenant_key:
                 return d
         return None
 
-    def list_for_plant(self, tenant_key, plant_instance_key, limit=20):
+    def list_for_plant(self, *, tenant_key, plant_instance_key, limit=20):
         return [d for d in self.created if d.tenant_key == tenant_key and d.plant_instance_key == plant_instance_key]
 
     def link_suggested_inspection(self, detection_key, inspection_key):
         self.linked.append((detection_key, inspection_key))
 
     def add_feedback(self, key, tenant_key, feedback):
-        d = self.get(key, tenant_key)
+        d = self.get(key, tenant_key=tenant_key)
         if d:
             d.feedback.append(feedback)
         return d
