@@ -90,7 +90,12 @@ describe('TenantSettingsPage — invitation delivery (#2162)', () => {
     expect(notice).toHaveTextContent('nicht rausgegangen');
     expect(screen.getByTestId('invitation-accept-url')).toHaveValue(ACCEPT_URL);
     expect(screen.queryByText('Einladung per E-Mail verschickt')).toBeNull();
-    expect(await screen.findByText(/die E-Mail konnte nicht verschickt werden/)).toBeInTheDocument();
+    // Review S2: the panel carries the message; no second, vanishing snackbar repeats it.
+    expect(screen.queryByText(/konnte nicht verschickt werden/)).toBeNull();
+    // Review S1: the next step has the focus.
+    await waitFor(() => expect(screen.getByTestId('copy-invitation-link-btn')).toHaveFocus());
+    // The expiry comes from the answer, not from a fixed "7 days".
+    expect(notice).toHaveTextContent(new Date('2026-10-17T00:00:00Z').toLocaleDateString('de'));
 
     await userEvent.click(screen.getByTestId('copy-invitation-link-btn'));
 
@@ -138,5 +143,40 @@ describe('TenantSettingsPage — invitation delivery (#2162)', () => {
     await inviteByEmail();
 
     expect(await screen.findByTestId('invitation-not-delivered')).toHaveTextContent('did not go out');
+  });
+});
+
+
+describe('TenantSettingsPage — one invitation request at a time (#2162 review S5)', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+    vi.clearAllMocks();
+    (tenantApi.listMembers as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (tenantApi.listInvitations as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  });
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('disables both invitation buttons while a request runs, so a double click sends one mail', async () => {
+    let finish: (value: InvitationCreated) => void = () => undefined;
+    (tenantApi.createEmailInvitation as ReturnType<typeof vi.fn>).mockReturnValue(
+      new Promise<InvitationCreated>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const field = await renderInvitationsTab();
+    await userEvent.type(field.querySelector('input') as HTMLInputElement, 'friend@example.org');
+
+    await userEvent.click(screen.getByTestId('send-invitation-btn'));
+
+    expect(screen.getByTestId('send-invitation-btn')).toBeDisabled();
+    expect(screen.getByTestId('create-link-btn')).toBeDisabled();
+    // A second click lands on the disabled button (pointer checks off, as a real double click would).
+    await userEvent.setup({ pointerEventsCheck: 0 }).click(screen.getByTestId('send-invitation-btn'));
+    expect(tenantApi.createEmailInvitation).toHaveBeenCalledTimes(1);
+
+    finish(created(true));
+    await waitFor(() => expect(screen.getByTestId('create-link-btn')).not.toBeDisabled());
   });
 });

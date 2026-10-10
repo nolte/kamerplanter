@@ -101,7 +101,7 @@ As an admin you can invite members in three ways:
 3. Choose the role (Admin, Grower, Viewer)
 4. Click **Send Invitation**
 
-Kamerplanter sends the address an email with a link to the acceptance page; it is valid for 7 days. Whoever opens it signs in — or registers with exactly this address — and is then added to your tenant with the pre-selected role. If they are not signed in yet when they open it, they land on the acceptance page again after signing in (also through a sign-in provider). The email names neither you nor the tenant — the invited person only sees what it is about after signing in.
+Kamerplanter sends the address an email with a link to the acceptance page; it is valid for 7 days. Whoever opens it signs in — or registers with exactly this address —, confirms with **Accept invitation** on the acceptance page and is added to your tenant with the pre-selected role. If they are not signed in yet when they open it, they land on the acceptance page again after signing in (also through a sign-in provider). The email names neither you nor the tenant — the invited person only sees what it is about after signing in.
 
 !!! note "When the email does not go out"
     After you send it, the page tells you whether the email went out. If the installation has no email delivery set up, or sending fails, the invitation still exists: the page then shows you the invitation link with a button to copy it — pass it on yourself, for example by messenger. Even then, only someone signing in with the invited address can accept it. Whether an installation sends email is up to your operator (`EMAIL_ADAPTER`). <!-- Issue #2162, REQ-024 AK-06 -->

@@ -1159,12 +1159,15 @@
       "inviteNewMember": "Neues Mitglied einladen",
       "removeMember": "Mitglied entfernen",
       "revokeInvitation": "Einladung widerrufen",
-      "invitationNotDelivered": "Einladung angelegt – die E-Mail konnte nicht verschickt werden",
-      "invitationNotDeliveredHint": "Die Einladung ist angelegt, aber die E-Mail ist nicht rausgegangen (auf dieser Installation ist kein E-Mail-Versand eingerichtet oder der Versand ist fehlgeschlagen). Gib den Link selbst an die eingeladene Person weiter – annehmen kann ihn nur, wer sich mit genau dieser E-Mail-Adresse anmeldet.",
-      "invitationLinkHint": "Teile diesen Link mit den Personen, die du einladen willst. Wer ihn öffnet und angemeldet ist, wird Mitglied – gib ihn also nur gezielt weiter. Er ist 7 Tage gültig.",
+      "invitationNotDeliveredHint": "Die Einladung ist angelegt, aber die E-Mail ist nicht rausgegangen (auf dieser Installation ist kein E-Mail-Versand eingerichtet oder der Versand ist fehlgeschlagen). Gib den Link selbst an die eingeladene Person weiter – annehmen kann ihn nur, wer sich mit genau dieser E-Mail-Adresse anmeldet. Er gilt bis {{date}}.",
+      "invitationLinkHint": "Teile diesen Link mit den Personen, die du einladen willst. Wer ihn öffnet und angemeldet ist, wird Mitglied – gib ihn also nur gezielt weiter. Er gilt bis {{date}}.",
       "invitationAcceptLink": "Einladungslink",
       "copyInvitationLink": "Link kopieren",
-      "linkCopyFailed": "Kopieren nicht möglich – markiere den Link und kopiere ihn selbst"
+      "linkCopyFailed": "Kopieren nicht möglich – markiere den Link und kopiere ihn selbst",
+      "invitationConfirmTitle": "Du wurdest in einen Garten eingeladen",
+      "invitationConfirmHint": "Mit „Einladung annehmen“ wirst du mit dem Konto Mitglied, mit dem du gerade angemeldet bist.",
+      "invitationAccept": "Einladung annehmen",
+      "invitationAskForNew": "Bitte die einladende Person um eine neue Einladung."
     },
     "dashboard": {
       "title": "Dashboard",

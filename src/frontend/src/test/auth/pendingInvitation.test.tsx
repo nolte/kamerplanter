@@ -1,11 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import i18n from 'i18next';
 import ProtectedRoute from '@/auth/ProtectedRoute';
 import PublicOnlyRoute from '@/auth/PublicOnlyRoute';
 import LoginPage from '@/pages/auth/LoginPage';
+import RegisterPage from '@/pages/auth/RegisterPage';
+import { logoutUser } from '@/store/slices/authSlice';
 import InvitationAcceptPage from '@/pages/tenants/InvitationAcceptPage';
 import {
   forgetPendingInvitation,
@@ -115,5 +118,53 @@ describe('pending invitation across the sign-in (#2162)', () => {
     forgetPendingInvitation();
 
     expect(pendingInvitationToken()).toBeNull();
+  });
+});
+
+
+describe('pending invitation — review follow-ups (#2162)', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+    sessionStorage.clear();
+  });
+  afterEach(() => {
+    cleanup();
+    sessionStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('S-2: signing out forgets the invitation, so the next account in the tab is not taken to it', async () => {
+    rememberPendingInvitation('tok-2162');
+    const store = authStore(true);
+
+    await store.dispatch(logoutUser());
+
+    expect(pendingInvitationToken()).toBeNull();
+  });
+
+  it('W2: the login hint can be dismissed, and dismissing it drops the invitation', async () => {
+    rememberPendingInvitation('tok-2162');
+    renderWithProviders(<LoginPage />, { store: authStore(false), route: '/login' });
+
+    const hint = await screen.findByTestId('login-pending-invitation');
+    await userEvent.click(hint.querySelector('button') as HTMLButtonElement);
+
+    expect(screen.queryByTestId('login-pending-invitation')).toBeNull();
+    expect(pendingInvitationToken()).toBeNull();
+    expect(screen.getByTestId('login-register-link')).toHaveAttribute('href', '/register');
+  });
+
+  it('W1: the registration takes the token from the URL into the form and removes it from the address', async () => {
+    const router = createMemoryRouter([{ path: '/register', element: <RegisterPage /> }], {
+      initialEntries: ['/register?invitation=tok-2162&lang=de'],
+    });
+    render(
+      <Provider store={authStore(false)}>
+        <RouterProvider router={router} />
+      </Provider>,
+    );
+
+    await waitFor(() => expect(router.state.location.search).toBe('?lang=de'));
+    expect(screen.getByDisplayValue('tok-2162')).toBeInTheDocument();
   });
 });

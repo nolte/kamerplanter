@@ -21,7 +21,7 @@ import ResendVerificationAction from '@/pages/auth/ResendVerificationAction';
 import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import { useRegistrationMode } from '@/hooks/useRegistrationMode';
 import Form from '@/components/form/Form';
-import { pendingInvitationToken, postLoginPath } from '@/utils/pendingInvitation';
+import { forgetPendingInvitation, pendingInvitationToken, postLoginPath } from '@/utils/pendingInvitation';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -47,7 +47,7 @@ export default function LoginPage() {
   const registration = useRegistrationMode();
   // #2162 — the invitation an unauthenticated visitor opened: said on the page, and handed to the
   // registration so an invite-only instance admits the invited address.
-  const [invitationToken] = useState(pendingInvitationToken);
+  const [invitationToken, setInvitationToken] = useState(pendingInvitationToken);
 
   useEffect(() => {
     dispatch(clearError());
@@ -98,7 +98,16 @@ export default function LoginPage() {
           )}
 
           {invitationToken && (
-            <Alert severity="info" sx={{ mb: 2 }} data-testid="login-pending-invitation">
+            <Alert
+              severity="info"
+              sx={{ mb: 2 }}
+              data-testid="login-pending-invitation"
+              // #2162 review W2 — a visitor who does not want to (or cannot) use the invitation drops it.
+              onClose={() => {
+                forgetPendingInvitation();
+                setInvitationToken(null);
+              }}
+            >
               {t('pages.auth.pendingInvitation')}
             </Alert>
           )}

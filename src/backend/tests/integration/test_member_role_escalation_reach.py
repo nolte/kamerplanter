@@ -330,3 +330,61 @@ def test_a_platform_invitation_below_lead_from_the_secretary_is_still_accepted(s
 
     assert accepted.status_code == 200, accepted.text
     assert (_platform_membership_of(stage, "u-newcomer") or {}).get("role") == "grower"
+
+
+# ── review W-2: the layout the seed actually writes ──────────────────────────
+#
+# The stage above inserts ``platform`` with the key *and* the flag - a layout the application never writes.
+# Measured through ``seed_auth._ensure_platform_admin`` on ArangoDB 3.12: the tenant row gets a generated
+# key and ``is_platform: true`` (``_to_doc`` drops ``_key``), while the admin membership names the literal
+# key ``platform``, which is what ``is_platform_admin`` reads. Both spellings must meet the rank rule.
+
+
+def _seeded_platform_row(db) -> str:
+    """The platform tenant as the boot seed creates it; returns the row's (generated) key."""
+    from app.migrations.seed_auth import _ensure_platform_admin
+
+    db.collection(col.TENANTS).delete("platform")  # the stage's hand-made row, so the seed creates its own
+    _ensure_platform_admin("u-seed-admin", ArangoTenantRepository(db), ArangoMembershipRepository(db))
+    (row,) = [t for t in db.collection(col.TENANTS).all() if t["slug"] == "platform"]
+    return row["_key"]
+
+
+def test_on_the_seeded_layout_a_secretary_lead_invitation_is_refused_at_acceptance(stage):
+    row_key = _seeded_platform_row(stage.db)
+    assert row_key != PLATFORM  # the measured layout, not the stage's
+    stage.memberships.create(
+        Membership(user_key="u-row-secretary", tenant_key=row_key, role=TenantRole.VIEWER, is_active=True)
+    )
+    who = _newcomer(stage)
+    stage.invitations.create(
+        Invitation(
+            tenant_key=row_key,
+            invited_by_user_key="u-row-secretary",
+            invitation_type=InvitationType.LINK,
+            role=TenantRole.LEAD,
+            token_hash=InvitationEngine.hash_token("t-seeded"),
+            expires_at=datetime.now(UTC) + timedelta(days=7),
+        )
+    )
+
+    refused = stage.client(who).post("/api/v1/tenants/invitations/accept", json={"token": "t-seeded"})
+
+    assert refused.status_code == 403, refused.text
+    assert [m for m in stage.db.collection(col.MEMBERSHIPS).all() if m["user_key"] == "u-newcomer"] == []
+
+
+@pytest.mark.parametrize("row", ["without the flag", "no row at all"])
+def test_a_lead_invitation_into_the_literal_platform_key_is_refused_whatever_the_row_says(stage, row):
+    """``is_platform_admin`` reads the literal key: a membership there is the platform role, flag or not."""
+    if row == "without the flag":
+        stage.db.collection(col.TENANTS).update({"_key": PLATFORM, "is_platform": False})
+    else:
+        stage.db.collection(col.TENANTS).delete(PLATFORM)
+    who = _newcomer(stage)
+    _stored_invitation(stage, issuer="plat-secretary", kind="link", token="t-literal", role=TenantRole.LEAD)
+
+    refused = stage.client(who).post("/api/v1/tenants/invitations/accept", json={"token": "t-literal"})
+
+    assert refused.status_code == 403, refused.text
+    assert _platform_membership_of(stage, "u-newcomer") is None

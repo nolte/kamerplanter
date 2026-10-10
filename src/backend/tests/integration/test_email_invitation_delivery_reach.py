@@ -137,7 +137,7 @@ INVITEE = User.model_validate(
 )
 
 
-def _client(db, mailer: IEmailService | None, acting: User) -> TestClient:
+def _client(db, mailer: IEmailService | None, acting: User, *, per_day: int = 50) -> TestClient:
     service = TenantService(
         tenant_repo=ArangoTenantRepository(db),
         membership_repo=ArangoMembershipRepository(db),
@@ -148,6 +148,7 @@ def _client(db, mailer: IEmailService | None, acting: User) -> TestClient:
         invitation_engine=InvitationEngine(),
         email_service=mailer,
         frontend_url=FRONTEND,
+        invitation_emails_per_day=per_day,
     )
     app = FastAPI()
     app.include_router(tenants_router, prefix="/api/v1")
@@ -240,3 +241,25 @@ def test_a_link_invitation_carries_its_accept_link_and_no_delivery_claim(db):
     body = created.json()
     assert body["delivered"] is None
     assert body["accept_url"] == f"{FRONTEND}/invitations/accept?token={body['token']}"
+
+
+def test_beyond_the_daily_budget_the_route_answers_429_and_mails_nobody(db):
+    """Review W-1: the invitation route mails addresses the inviter names; one account's day is bounded."""
+    mailer = _RecordingMailer()
+    client = _client(db, mailer, LEAD, per_day=2)
+    sent = [
+        client.post(f"/api/v1/tenants/{SLUG}/invitations/email", json={"email": f"f{i}@example.com", "role": "viewer"})
+        for i in range(2)
+    ]
+
+    refused = client.post(
+        f"/api/v1/tenants/{SLUG}/invitations/email", json={"email": "f3@example.com", "role": "viewer"}
+    )
+
+    assert [r.status_code for r in sent] == [201, 201]
+    assert refused.status_code == 429, refused.text
+    assert refused.json()["error_code"] == "RATE_LIMIT_EXCEEDED"
+    assert len(mailer.sent) == 2
+    assert len(_stored_invitations(db)) == 2
+    # A link invitation mails nothing and is not counted against the mail budget.
+    assert client.post(f"/api/v1/tenants/{SLUG}/invitations/link", json={"role": "viewer"}).status_code == 201

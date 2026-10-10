@@ -27,12 +27,20 @@ TOKEN = "invitation-token"
 NEWCOMER = User.model_validate({"_key": "u-new", "email": "new@example.org", "display_name": "new"})
 
 
-def _world(*, platform: bool, role: TenantRole, issuer: Membership | None) -> tuple[TenantService, MagicMock]:
+def _world(
+    *,
+    platform: bool,
+    role: TenantRole,
+    issuer: Membership | None,
+    tenant_key: str = "t1",
+    kind: InvitationType = InvitationType.LINK,
+) -> tuple[TenantService, MagicMock]:
     invitation = Invitation(
         _key="i1",
-        tenant_key="t1",
+        tenant_key=tenant_key,
         invited_by_user_key="u-issuer",
-        invitation_type=InvitationType.LINK,
+        invitation_type=kind,
+        email="new@example.org" if kind == InvitationType.EMAIL else None,
         role=role,
         token_hash=InvitationEngine.hash_token(TOKEN),
         expires_at="2999-01-01T00:00:00+00:00",
@@ -46,7 +54,7 @@ def _world(*, platform: bool, role: TenantRole, issuer: Membership | None) -> tu
     memberships.count_active_members.return_value = 1
     tenants = MagicMock()
     tenants.get_by_key.return_value = Tenant(
-        _key="t1", name="t1", slug="t1", owner_user_key="u-issuer", is_platform=platform, max_members=50
+        _key=tenant_key, name="t1", slug="t1", owner_user_key="u-issuer", is_platform=platform, max_members=50
     )
     service = TenantService(
         tenant_repo=tenants,
@@ -97,3 +105,53 @@ def test_what_the_rule_allows_is_still_accepted(platform: bool, role: TenantRole
     membership = service.accept_invitation(TOKEN, NEWCOMER)
 
     assert (membership.user_key, membership.role) == ("u-new", role)
+
+
+# ── review W-2: the platform tenant is the flag *or* the literal key ``platform`` ──
+#
+# ``is_platform_admin`` reads a membership under the literal key ``platform``; the seeded tenant row carries
+# a generated key and the flag (``_to_doc`` drops ``_key``, measured). A row ``platform`` without the flag is
+# exactly what an invitation addressed to the literal key meets, and its ``lead`` is still the platform role.
+
+
+def test_a_lead_invitation_into_the_literal_platform_key_without_the_flag_is_refused() -> None:
+    service, memberships = _world(
+        platform=False, role=TenantRole.LEAD, issuer=_issuer(TenantRole.VIEWER), tenant_key="platform"
+    )
+
+    with pytest.raises(ForbiddenError):
+        service.accept_invitation(TOKEN, NEWCOMER)
+
+    memberships.create.assert_not_called()
+
+
+def test_issuing_a_lead_invitation_into_the_literal_platform_key_is_refused_too() -> None:
+    service, _ = _world(platform=False, role=TenantRole.LEAD, issuer=_issuer(TenantRole.VIEWER), tenant_key="platform")
+
+    with pytest.raises(ForbiddenError):
+        service.create_link_invitation("platform", "u-issuer", TenantRole.LEAD)
+
+
+# ── review S-3: the registration exception asks the same rule ──
+
+
+def test_an_invitation_that_can_no_longer_be_accepted_opens_no_registration() -> None:
+    service, _ = _world(
+        platform=True, role=TenantRole.LEAD, issuer=_issuer(TenantRole.VIEWER), kind=InvitationType.EMAIL
+    )
+    service._invitation_repo.list_pending_email_invitations.return_value = [  # type: ignore[attr-defined]
+        service._invitation_repo.get_by_token_hash.return_value  # type: ignore[attr-defined]
+    ]
+
+    assert service.email_invitation_admits(email="new@example.org", token=TOKEN) is False
+    assert service.email_invitation_pending_for(email="new@example.org") is False
+
+
+def test_an_acceptable_invitation_still_opens_the_registration() -> None:
+    service, _ = _world(platform=True, role=TenantRole.LEAD, issuer=_issuer(TenantRole.LEAD), kind=InvitationType.EMAIL)
+    service._invitation_repo.list_pending_email_invitations.return_value = [  # type: ignore[attr-defined]
+        service._invitation_repo.get_by_token_hash.return_value  # type: ignore[attr-defined]
+    ]
+
+    assert service.email_invitation_admits(email="new@example.org", token=TOKEN) is True
+    assert service.email_invitation_pending_for(email="new@example.org") is True

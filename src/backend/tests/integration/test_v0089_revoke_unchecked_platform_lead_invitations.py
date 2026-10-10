@@ -129,11 +129,41 @@ def test_a_revoked_platform_lead_invitation_can_no_longer_be_found_as_pending(db
     assert pending == []
 
 
-def test_a_volume_without_a_platform_tenant_changes_nothing(db):
-    db.collection(col.TENANTS).update({"_key": PLATFORM, "is_platform": False})
-    _invite(db, "plat-lead-link")
+def test_a_lead_invitation_into_an_ordinary_tenant_is_never_swept(db):
+    _invite(db, "garden-lead", tenant=GARDEN)
 
     report = migration.up(db)
 
     assert (report.scanned, report.changed) == (0, 0)
-    assert _statuses(db) == {"plat-lead-link": "pending"}
+    assert _statuses(db) == {"garden-lead": "pending"}
+
+
+# ── review W-2: the layouts a volume really holds ────────────────────────────
+
+
+def test_on_the_seeded_layout_the_flagged_row_and_the_literal_key_are_both_swept(db):
+    """The seed gives the platform row a generated key and the flag; the admin membership names ``platform``."""
+    from app.data_access.arango.membership_repository import ArangoMembershipRepository
+    from app.data_access.arango.tenant_repository import ArangoTenantRepository
+    from app.migrations.seed_auth import _ensure_platform_admin
+
+    db.collection(col.TENANTS).delete(PLATFORM)
+    _ensure_platform_admin("u-admin", ArangoTenantRepository(db), ArangoMembershipRepository(db))
+    (row,) = [t for t in db.collection(col.TENANTS).all() if t["slug"] == "platform"]
+    assert row["_key"] != PLATFORM and row["is_platform"] is True  # the measured layout
+    _invite(db, "row-lead", tenant=row["_key"])
+    _invite(db, "literal-lead", tenant=PLATFORM)  # no tenant row carries this key any more
+    _invite(db, "garden-lead", tenant=GARDEN)
+
+    report = migration.up(db)
+
+    assert report.changed == 2
+    assert _statuses(db) == {"row-lead": "revoked", "literal-lead": "revoked", "garden-lead": "pending"}
+
+
+def test_a_row_keyed_platform_without_the_flag_is_swept(db):
+    db.collection(col.TENANTS).update({"_key": PLATFORM, "is_platform": False})
+    _invite(db, "plat-lead-link")
+
+    assert migration.up(db).changed == 1
+    assert _statuses(db) == {"plat-lead-link": "revoked"}

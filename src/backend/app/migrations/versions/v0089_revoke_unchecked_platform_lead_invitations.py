@@ -11,7 +11,9 @@ has since become the platform tenant's lead: the acceptance check then passes.
 The operator decided (2026-10-09) to take every such invitation back rather than tell a
 legitimate one from an illegitimate one after the fact: nothing stored says which rule
 an invitation was issued under. This migration revokes **every pending invitation into
-the platform tenant with role** ``lead``, of either type, expired or not.
+the platform tenant with role** ``lead``, of either type, expired or not. "The platform tenant" is
+every tenant row flagged ``is_platform`` and the literal key ``platform`` (see
+:data:`PLATFORM_TENANT_KEY`).
 
 Why no date bound
 -----------------
@@ -55,10 +57,20 @@ from app.migrations.framework.report import MigrationReport
 
 logger = structlog.get_logger()
 
+#: The literal key ``is_platform_admin`` reads a membership under (``app.common.auth``). The seeded
+#: platform tenant row does **not** carry it - ``_to_doc`` drops ``_key`` on insert, so the row has a
+#: generated key and ``is_platform: true`` (measured, #2180 review W-2) - while the admin membership
+#: names ``platform``. Both spellings count, and an invitation addressed to the literal key counts
+#: even when no tenant row carries it.
+PLATFORM_TENANT_KEY = "platform"
+
 #: The pending ``lead`` invitations into a platform tenant; each row says whether it is unexpired.
 #: ``DATE_TIMESTAMP`` parses whatever ISO-8601 spelling ``expires_at`` was stored in.
 _SELECT = """
-LET platforms = (FOR t IN @@tenants FILTER t.is_platform == true RETURN t._key)
+LET platforms = UNION_DISTINCT(
+  (FOR t IN @@tenants FILTER t._key == @platform OR t.is_platform == true RETURN t._key),
+  [@platform]
+)
 FOR i IN @@invitations
   FILTER i.tenant_key IN platforms AND i.role == @lead AND i.status == @pending
 """
@@ -97,6 +109,7 @@ class RevokeUncheckedPlatformLeadInvitationsMigration(Migration):
             "@invitations": col.INVITATIONS,
             "lead": TenantRole.LEAD.value,
             "pending": InvitationStatus.PENDING.value,
+            "platform": PLATFORM_TENANT_KEY,
         }
         counts = {
             bool(row["unexpired"]): int(row["n"])

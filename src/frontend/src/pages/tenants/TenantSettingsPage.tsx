@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useTranslation } from 'react-i18next';
 import { useSnackbar } from 'notistack';
@@ -38,10 +38,12 @@ import type { Membership, Invitation, InvitationCreated } from '@/api/types';
 interface ShareableInvitation {
   kind: 'link' | 'notDelivered';
   url: string;
+  /** When the invitation expires (the backend's `expires_at`) — shown, never assumed. */
+  expiresAt: string;
 }
 
 export default function TenantSettingsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
   const activeTenant = useAppSelector((s) => s.tenants.activeTenant);
   // REQ-049: member and invitation management hangs off the `management`
@@ -56,6 +58,14 @@ export default function TenantSettingsPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [shareable, setShareable] = useState<ShareableInvitation | null>(null);
+  // #2162 review S5 — one invitation request at a time: a double click would send two mails.
+  const [submitting, setSubmitting] = useState(false);
+  // #2162 review S1 — the link panel takes the focus when it appears, so keyboard and screen-reader
+  // users land on what they have to do next.
+  const copyButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (shareable) copyButtonRef.current?.focus();
+  }, [shareable]);
   // #2032 — removing a member locks that person out, so it passes the acting administrator's
   // own step-up, bound to the membership (#1884). The chosen member does not survive the round
   // trip to the identity provider, so the resume context is only consumed; the pending token is
@@ -104,13 +114,16 @@ export default function TenantSettingsPage() {
   // #2162 — the answer says whether the mail left. Only then is "sent" true; otherwise the
   // invitation exists and its link is shown for the inviter to pass on themselves.
   const handleInviteEmail = async () => {
-    if (!inviteEmail || !slug) return;
+    if (!inviteEmail || !slug || submitting) return;
     let result: InvitationCreated;
+    setSubmitting(true);
     try {
       result = await tenantApi.createEmailInvitation(slug, { email: inviteEmail, role: 'viewer' });
     } catch (err) {
       enqueueSnackbar(parseApiError(err), { variant: 'error' });
       return;
+    } finally {
+      setSubmitting(false);
     }
     setInviteEmail('');
     void loadInvitations();
@@ -118,23 +131,26 @@ export default function TenantSettingsPage() {
       setShareable(null);
       enqueueSnackbar(t('pages.tenants.invitationSent'), { variant: 'success' });
     } else {
-      setShareable({ kind: 'notDelivered', url: result.accept_url });
-      enqueueSnackbar(t('pages.tenants.invitationNotDelivered'), { variant: 'warning' });
+      // The warning panel carries the message (review S2): no second, vanishing copy of it.
+      setShareable({ kind: 'notDelivered', url: result.accept_url, expiresAt: result.expires_at });
     }
   };
 
   // #2162 — the link copied is the accept page's link, not the bare token nobody could use.
   const handleCreateLink = async () => {
-    if (!slug) return;
+    if (!slug || submitting) return;
     let result: InvitationCreated;
+    setSubmitting(true);
     try {
       result = await tenantApi.createLinkInvitation(slug, { role: 'viewer' });
     } catch (err) {
       enqueueSnackbar(parseApiError(err), { variant: 'error' });
       return;
+    } finally {
+      setSubmitting(false);
     }
     void loadInvitations();
-    setShareable({ kind: 'link', url: result.accept_url });
+    setShareable({ kind: 'link', url: result.accept_url, expiresAt: result.expires_at });
     const copied = await copyToClipboard(result.accept_url);
     enqueueSnackbar(t(copied ? 'pages.tenants.linkCopied' : 'pages.tenants.linkCopyFailed'), {
       variant: copied ? 'success' : 'info',
@@ -362,7 +378,7 @@ export default function TenantSettingsPage() {
                 type="email"
                 sx={{ flex: '1 1 220px', minWidth: 0 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && inviteEmail) handleInviteEmail();
+                  if (e.key === 'Enter' && inviteEmail && !submitting) handleInviteEmail();
                 }}
                 data-testid="invite-email-field"
               />
@@ -370,10 +386,10 @@ export default function TenantSettingsPage() {
                 variant="contained"
                 size="small"
                 onClick={handleInviteEmail}
-                disabled={!inviteEmail}
+                disabled={!inviteEmail || submitting}
                 startIcon={<PersonAddIcon />}
                 data-testid="send-invitation-btn"
-                sx={{ flexShrink: 0 }}
+                sx={{ flexShrink: 0, minHeight: 44 }}
               >
                 {t('pages.tenants.sendInvitation')}
               </Button>
@@ -381,9 +397,10 @@ export default function TenantSettingsPage() {
                 variant="outlined"
                 size="small"
                 onClick={handleCreateLink}
+                disabled={submitting}
                 startIcon={<LinkIcon />}
                 data-testid="create-link-btn"
-                sx={{ flexShrink: 0 }}
+                sx={{ flexShrink: 0, minHeight: 44 }}
               >
                 {t('pages.tenants.createLink')}
               </Button>
@@ -403,6 +420,7 @@ export default function TenantSettingsPage() {
                     shareable.kind === 'notDelivered'
                       ? 'pages.tenants.invitationNotDeliveredHint'
                       : 'pages.tenants.invitationLinkHint',
+                    { date: new Date(shareable.expiresAt).toLocaleDateString(i18n.language) },
                   )}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
@@ -419,8 +437,9 @@ export default function TenantSettingsPage() {
                     variant="outlined"
                     startIcon={<ContentCopyIcon />}
                     onClick={handleCopyShareable}
+                    ref={copyButtonRef}
                     data-testid="copy-invitation-link-btn"
-                    sx={{ flexShrink: 0 }}
+                    sx={{ flexShrink: 0, minHeight: 44 }}
                   >
                     {t('pages.tenants.copyInvitationLink')}
                   </Button>

@@ -1159,12 +1159,15 @@
       "inviteNewMember": "Invite new member",
       "removeMember": "Remove member",
       "revokeInvitation": "Revoke invitation",
-      "invitationNotDelivered": "Invitation created – the email could not be sent",
-      "invitationNotDeliveredHint": "The invitation exists, but the email did not go out (this installation has no email delivery set up, or sending failed). Pass the link on to the invited person yourself – only someone signing in with exactly this email address can accept it.",
-      "invitationLinkHint": "Share this link with the people you want to invite. Anyone who opens it while signed in becomes a member – so only pass it on deliberately. It is valid for 7 days.",
+      "invitationNotDeliveredHint": "The invitation exists, but the email did not go out (this installation has no email delivery set up, or sending failed). Pass the link on to the invited person yourself – only someone signing in with exactly this email address can accept it. It is valid until {{date}}.",
+      "invitationLinkHint": "Share this link with the people you want to invite. Anyone who opens it while signed in becomes a member – so only pass it on deliberately. It is valid until {{date}}.",
       "invitationAcceptLink": "Invitation link",
       "copyInvitationLink": "Copy link",
-      "linkCopyFailed": "Copying is not possible – select the link and copy it yourself"
+      "linkCopyFailed": "Copying is not possible – select the link and copy it yourself",
+      "invitationConfirmTitle": "You have been invited to a garden",
+      "invitationConfirmHint": "With “Accept invitation” you become a member with the account you are signed in with right now.",
+      "invitationAccept": "Accept invitation",
+      "invitationAskForNew": "Please ask the person who invited you for a new invitation."
     },
     "dashboard": {
       "title": "Dashboard",

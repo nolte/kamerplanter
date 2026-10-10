@@ -15,6 +15,7 @@ import pytest
 import structlog.testing
 
 from app.common.enums import TenantRole
+from app.common.exceptions import RateLimitError
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
@@ -83,8 +84,14 @@ def test_the_stored_invitation_is_mailed_with_its_own_link() -> None:
 
 @pytest.mark.parametrize(
     "failure",
-    [EmailUndeliverableError("console outside debug"), NotImplementedError(), OSError("smtp down")],
-    ids=["undeliverable", "not-implemented", "transport"],
+    [
+        EmailUndeliverableError("console outside debug"),
+        NotImplementedError(),
+        OSError("smtp down"),
+        # Review S-1: smtplib refuses a non-ASCII recipient with a UnicodeEncodeError, not an OSError.
+        UnicodeEncodeError("ascii", "fr\u00e9d@example.org", 2, 3, "ordinal not in range(128)"),
+    ],
+    ids=["undeliverable", "not-implemented", "transport", "non-ascii-recipient"],
 )
 def test_a_mail_that_does_not_leave_is_reported_not_raised(failure: BaseException) -> None:
     service, invitations, _ = _service(_mailer(failure))
@@ -126,3 +133,34 @@ def test_a_link_invitation_sends_nothing_and_claims_nothing() -> None:
     mailer.send_invitation_email.assert_not_called()
     assert link.delivered is None
     assert link.accept_url == f"{FRONTEND}/invitations/accept?token={link.token}"
+
+
+def test_beyond_the_daily_budget_nothing_is_stored_or_mailed() -> None:
+    """Review W-1: every e-mail invitation mails an address the inviter names; the account's day is bounded."""
+    mailer = _mailer()
+    service, invitations, _ = _service(mailer)
+    invitations.count_email_invitations_issued_since.return_value = 50  # the default ceiling
+
+    with pytest.raises(RateLimitError) as refused:
+        service.create_email_invitation(TENANT, "u-lead", INVITED)
+
+    assert refused.value.status_code == 429
+    invitations.create.assert_not_called()
+    mailer.send_invitation_email.assert_not_called()
+    issuer, since = invitations.count_email_invitations_issued_since.call_args.args
+    assert issuer == "u-lead"
+    assert since < _now_iso()
+
+
+def test_below_the_daily_budget_the_invitation_goes_out() -> None:
+    mailer = _mailer()
+    service, invitations, _ = _service(mailer)
+    invitations.count_email_invitations_issued_since.return_value = 49
+
+    assert service.create_email_invitation(TENANT, "u-lead", INVITED).delivered is True
+
+
+def _now_iso() -> str:
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).isoformat()

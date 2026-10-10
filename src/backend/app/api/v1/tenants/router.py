@@ -1,7 +1,8 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Path
+from fastapi import APIRouter, Body, Depends, Path, Request
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.tenants.schemas import (
     AcceptInvitationRequest,
     AssignmentCreateRequest,
@@ -36,6 +37,7 @@ from app.common.enums import AdminScope
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
 from app.common.request_ip import resolve_client_ip
+from app.config.settings import settings
 from app.domain.models.auth import api_key_scope_admits
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_context import TenantContext
@@ -363,7 +365,9 @@ def list_invitations(
     # whoever asked for it once the instance runs in full mode.
     dependencies=[Depends(refuse_in_light_mode)],
 )
+@limiter.limit(settings.rate_limit_invitation_email, key_func=user_rate_limit_key)
 def create_email_invitation(
+    request: Request,
     body: EmailInvitationRequest,
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.MANAGEMENT)),
     service: TenantService = Depends(get_tenant_service),
@@ -375,6 +379,11 @@ def create_email_invitation(
     debug, a refusing or unreachable mail service) still answers 201: the invitation exists and
     ``accept_url`` is what the inviter passes on themselves - only the invited, proven address can
     accept it (#2115).
+
+    **Bounded (#2162 review W-1):** every call mails an address the caller names, so the route is
+    limited per account (``settings.rate_limit_invitation_email``) and the service refuses an
+    account's e-mail invitations beyond ``settings.tenant_invitation_emails_per_day`` in 24 hours
+    (429 ``RATE_LIMIT_EXCEEDED``, nothing stored or mailed). ``request`` is required by the limiter.
     """
     link = service.create_email_invitation(
         tenant_key=ctx.tenant_key,
