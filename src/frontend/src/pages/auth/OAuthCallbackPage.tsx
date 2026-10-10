@@ -8,6 +8,7 @@ import Alert from '@mui/material/Alert';
 import { useTranslation } from 'react-i18next';
 import { useAppDispatch } from '@/store/hooks';
 import { setAccessToken, fetchProfile, refreshAccessToken } from '@/store/slices/authSlice';
+import { postLoginPath } from '@/utils/pendingInvitation';
 
 /**
  * AP-7 (FE-S1/S3): allowed OAuth error codes redirected by the backend, mapped
@@ -60,7 +61,8 @@ export default function OAuthCallbackPage() {
         return dispatch(fetchProfile()).unwrap();
       })
       .then(() => {
-        if (!cancelled) navigate('/dashboard', { replace: true });
+        // #2162 — back to the invitation opened before the sign-in, if any.
+        if (!cancelled) navigate(postLoginPath(), { replace: true });
       })
       .catch(() => {
         if (!cancelled) setErrorKey('pages.auth.oauthErrors.sessionFailed');

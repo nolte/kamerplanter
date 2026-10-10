@@ -64,6 +64,8 @@ class InvitationAcceptPage(BasePage):
     #: ``data-testid='invitation-error-detail'`` added to
     #: ``InvitationAcceptPage.tsx`` (#778 A11).
     ERROR_DETAIL = (By.CSS_SELECTOR, f"{CARD} [data-testid='invitation-error-detail']")
+    #: #2162 review S-2: the page no longer accepts on load; the invitee confirms with this button.
+    ACCEPT_BUTTON = (By.CSS_SELECTOR, f"{CARD} [data-testid='invitation-accept-btn']")
     DASHBOARD_BUTTON = (By.CSS_SELECTOR, f"{CARD} button.MuiButton-contained")
     DASHBOARD_BUTTON_OUTLINED = (By.CSS_SELECTOR, f"{CARD} button.MuiButton-outlined")
 
@@ -83,9 +85,15 @@ class InvitationAcceptPage(BasePage):
 
     # -- Navigation --------------------------------------------------------
 
-    def open_with_token(self, token: str) -> InvitationAcceptPage:
-        """Navigate to the invitation accept page with the given token."""
+    def open_with_token(self, token: str, *, accept: bool = True) -> InvitationAcceptPage:
+        """Navigate to the invitation accept page with the given token and, by default, confirm it.
+
+        Since #2162 (review S-2) the page asks before it joins: the token may have been remembered
+        across a sign-in. ``accept=False`` stops at that question.
+        """
         self.navigate(f"{self.PATH}?token={token}")
+        if accept:
+            self.wait_for_element_clickable(self.ACCEPT_BUTTON).click()
         return self
 
     def open_without_token(self) -> InvitationAcceptPage:

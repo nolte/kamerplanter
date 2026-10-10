@@ -475,11 +475,13 @@ def get_stats(
 
 @router.get("/propagation/stats/by-cultivar", response_model=list[PropagationStatRow])
 def get_stats_by_cultivar(
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PropagationService = Depends(get_propagation_service),
 ):
-    """Return propagation success statistics grouped by cultivar."""
-    return [PropagationStatRow(**row) for row in service.stats(ctx.tenant_key, "cultivar")]
+    """Return propagation success statistics grouped by cultivar, ordered by cultivar key (paginated, MT-035)."""
+    rows = service.stats(ctx.tenant_key, "cultivar", offset=pagination.offset, limit=pagination.limit)
+    return [PropagationStatRow(**row) for row in rows]
 
 
 @router.get("/propagation/stats/by-protocol", response_model=list[PropagationStatRow])

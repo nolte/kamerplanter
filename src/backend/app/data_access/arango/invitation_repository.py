@@ -42,6 +42,25 @@ class ArangoInvitationRepository(BaseArangoRepository[Invitation], IInvitationRe
         )
         return [Invitation(**self._from_doc(doc)) for doc in cast(Cursor, cursor)]
 
+    def count_email_invitations_issued_since(self, invited_by_user_key: str, since_iso: str) -> int:
+        """The issuer's ``email`` invitations created at or after *since_iso*, any status (#2162 review W-1)."""
+        cursor = self._db.aql.execute(
+            """
+            FOR inv IN @@collection
+              FILTER inv.invited_by_user_key == @issuer AND inv.invitation_type == @type
+                AND DATE_TIMESTAMP(inv.created_at) >= DATE_TIMESTAMP(@since)
+              COLLECT WITH COUNT INTO n
+              RETURN n
+            """,
+            bind_vars={
+                "@collection": col.INVITATIONS,
+                "issuer": invited_by_user_key,
+                "type": InvitationType.EMAIL.value,
+                "since": since_iso,
+            },
+        )
+        return int(next(iter(cast(Cursor, cursor)), 0))
+
     def create(self, invitation: Invitation) -> Invitation:
         created = super().create(invitation)
         # Create edge: tenant -> invitation

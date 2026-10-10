@@ -61,6 +61,22 @@ class TemplatedEmailAdapter(IEmailService):
         """
         self._send(to_email, "Kamerplanter — Confirm your new email address", html)
 
+    def send_invitation_email(self, to_email: str, token: str, frontend_url: str) -> None:
+        # The inviter typed the address and nobody has proven it (#2162): no requester-chosen text,
+        # neither the tenant's name nor the inviter's (#1856) - the mail cannot be turned into a
+        # message of the inviter's choosing sent from this installation.
+        url = f"{frontend_url}/invitations/accept?token={token}"
+        html = f"""
+        <h2>You have been invited to Kamerplanter</h2>
+        <p>Hello,</p>
+        <p>A member of a garden on this Kamerplanter installation invited this address to join it.
+        To accept, open the link below and sign in - or register - with this email address:</p>
+        <p><a href="{escape(url)}">Accept the invitation</a></p>
+        <p>The invitation expires in 7 days and can be accepted only with this address.
+        If you did not expect this mail, ignore it - nothing happens.</p>
+        """
+        self._send(to_email, "Kamerplanter — Invitation", html)
+
     def send_step_up_code_email(self, to_email: str, display_name: str, code: str, purpose: str) -> None:
         html = f"""
         <h2>Confirmation code</h2>

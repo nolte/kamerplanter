@@ -306,7 +306,7 @@ def test_stats_valid_grouping_delegates() -> None:
     repo.stats.return_value = [{"key": "cutting", "event_count": 3}]
     service = PropagationService(propagation_repo=repo)
     result = service.stats("tenant-a", "method")
-    repo.stats.assert_called_once_with("tenant-a", "method")
+    repo.stats.assert_called_once_with("tenant-a", "method", offset=None, limit=None)
     assert result[0]["event_count"] == 3
 
 

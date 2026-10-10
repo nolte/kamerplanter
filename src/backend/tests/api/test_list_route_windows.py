@@ -71,6 +71,24 @@ _OFFSET_ROUTES = [
         "list_observations",
         _kw,
     ),
+    # The second conversion round (#2131): five of the nine pinned ``remaining``
+    # routes plus the platform-admin member list that reads the same rows.
+    _Route(f"/api/v1/tenants/{SLUG}/members", deps.get_tenant_service, "list_members", _kw),
+    _Route(f"/api/v1/tenants/{SLUG}/assignments", deps.get_tenant_service, "list_assignments", _kw),
+    _Route("/api/v1/admin/platform/tenants/tenant_1/members", deps.get_tenant_service, "list_members", _kw),
+    _Route(
+        f"/api/v1/t/{SLUG}/tasks/workflows/wf_1/executions",
+        deps.get_task_service,
+        "get_executions_for_template",
+        _kw,
+    ),
+    _Route(f"/api/v1/t/{SLUG}/inventree/references", deps.get_inventree_service, "list_references", _kw),
+    _Route(
+        f"/api/v1/t/{SLUG}/propagation/stats/by-cultivar",
+        deps.get_propagation_service,
+        "stats",
+        _kw,
+    ),
 ]
 
 _CURSOR_ROUTES = [
