@@ -1798,6 +1798,19 @@ class SecurityAuditAction(StrEnum):
     MEMBERSHIP_LEFT = "membership_left"
     #: #2137 — a service account's API key was replaced; the previous keys were revoked or given an end.
     SERVICE_ACCOUNT_KEY_ROTATED = "service_account_key_rotated"
+    # #2111 — a platform admin changed a trust flag of an account (``UserService.admin_update_user``).
+    # One row per flag that really changed; the row names the account, no tenant.
+    ACCOUNT_DEACTIVATED = "account_deactivated"
+    ACCOUNT_REACTIVATED = "account_reactivated"
+    ACCOUNT_EMAIL_VERIFIED = "account_email_verified"
+    ACCOUNT_EMAIL_UNVERIFIED = "account_email_unverified"
+    # #2111 — the lifecycle of a whole tenant: suspended or reactivated by a platform admin
+    # (``TenantService.admin_update_tenant``), its deletion accepted or withdrawn
+    # (``TenantService.delete_tenant`` / ``cancel_tenant_erasure``). The row names the tenant, no target account.
+    TENANT_SUSPENDED = "tenant_suspended"
+    TENANT_REACTIVATED = "tenant_reactivated"
+    TENANT_DELETION_REQUESTED = "tenant_deletion_requested"
+    TENANT_DELETION_CANCELLED = "tenant_deletion_cancelled"
 
 
 class SecurityAuditVia(StrEnum):

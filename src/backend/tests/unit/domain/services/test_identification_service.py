@@ -249,10 +249,12 @@ def test_assess_quality_external_runs_consent_and_returns_raw():
         consent_granted=True,
         registry=registry,
         rate_limiter=rate_limiter,
-        engine=_raw_engine(result),
+        engine=(engine := _raw_engine(result)),
     )
     out = service.assess_quality(_real_jpeg(), adapter_key="plantnet", tenant_key="t1", user_key="u1")
     assert out is result
+    # The caller's tenant reaches the engine, which drops foreign catalogue rows (#2173).
+    assert engine.identify_raw.call_args.kwargs["tenant_key"] == "t1"
     # External path is rate-limited per adapter+user and fails closed (SEC-003).
     _, kwargs = rate_limiter.check_and_increment.call_args
     assert kwargs["key"] == "assess:plantnet:u1"

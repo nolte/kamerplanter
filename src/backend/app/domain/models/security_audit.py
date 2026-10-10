@@ -1,10 +1,13 @@
 """The persistent security-audit record (MT-014, #2111).
 
-One row says *who changed whose membership, role or scopes, in which tenant, when*
-- nothing about the person beyond the opaque account keys. The row is kept as proof
-(NFR-011 R-38) and therefore outlives the tenant; on an account erasure the two
-account keys become tombstone hashes (``ErasureEngine.PSEUDONYMIZE_AUDIT_COLLECTIONS``),
-so a retained row stays linkable without naming anybody.
+One row says *who changed what access, of whom or of which tenant, when* - a
+membership, its role or scopes, a trust flag of an account (``is_active``,
+``email_verified``) or the lifecycle of a whole tenant (suspended, reactivated,
+deletion accepted or withdrawn) - nothing about the person beyond the opaque
+account keys. The row is kept as proof (NFR-011 R-38) and therefore outlives the
+tenant; on an account erasure the account keys become tombstone hashes
+(``ErasureEngine.PSEUDONYMIZE_AUDIT_COLLECTIONS``), so a retained row stays
+linkable without naming anybody.
 
 Source code is English only (NFR-003).
 """
@@ -19,7 +22,7 @@ from app.common.enums import SecurityAuditAction, SecurityAuditVia
 
 
 class SecurityAuditEntry(BaseModel):
-    """One change of tenant membership, role or scopes."""
+    """One change of tenant membership, role or scopes, of an account's trust flags or of a tenant's lifecycle."""
 
     key: str | None = Field(default=None, alias="_key")
     action: SecurityAuditAction
@@ -28,9 +31,10 @@ class SecurityAuditEntry(BaseModel):
     via: SecurityAuditVia
     #: The account that made the change; for an invitation, the one that accepted it.
     actor_user_key: str
-    #: The account whose membership changed.
-    target_user_key: str
-    tenant_key: str
+    #: The account whose membership or trust flag changed; ``None`` for a change of a whole tenant (#2111).
+    target_user_key: str | None = None
+    #: The tenant the change concerns; ``None`` for a change of an account's trust flags (#2111).
+    tenant_key: str | None = None
     membership_key: str | None = None
     old_role: str | None = None
     new_role: str | None = None
