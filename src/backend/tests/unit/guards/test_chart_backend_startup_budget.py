@@ -25,10 +25,20 @@ the number, so a longer barrier cannot silently outgrow the chart.
 
 Overlays are merged onto ``values.yaml`` the way Helm merges them (see
 test_chart_trusted_proxy_hops.py for the helper's rationale).
+
+**The documented maximum start-up time (operator decision on #2125, 2026-10-10).**
+Migrations and seeds stay in the lifespan — no pre-upgrade job. The operator
+contract is therefore the start-up budget itself, published as a table in
+``docs/{de,en}/deployment/kubernetes.md`` (section "Startdauer des Backends" /
+"Backend start-up time"): the maximum start-up time with its probe arithmetic,
+the barrier wait and the lock TTL. Each row is compared with the chart and the
+code constants, so a changed budget, barrier or TTL cannot leave the operator
+page quoting the old number.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -36,10 +46,22 @@ import pytest
 import yaml
 
 from app.migrations.framework.runner import BARRIER_TIMEOUT_SECONDS
+from app.migrations.framework.tracking import LOCK_TTL_SECONDS
 
-_CHART = Path(__file__).resolve().parents[5] / "helm" / "kamerplanter"
+_REPO = Path(__file__).resolve().parents[5]
+_CHART = _REPO / "helm" / "kamerplanter"
 _BASE = _CHART / "values.yaml"
 _LIVENESS_PATH = "/api/v1/health/live"
+_DEPLOYMENT_DOCS = [_REPO / "docs" / lang / "deployment" / "kubernetes.md" for lang in ("de", "en")]
+
+#: One row of the start-up table: ``| <label naming `IDENT`> | <seconds> s [(<n> Minuten|minutes)] |``.
+_LIMIT_ROW = re.compile(
+    r"^\|(?P<label>[^|\n]*`(?P<ident>startupProbe|BARRIER_TIMEOUT_SECONDS|LOCK_TTL_SECONDS)`[^|\n]*)\|"
+    r"\s*(?P<seconds>\d+)\s*s\b(?:\s*\((?P<minutes>\d+)\s+(?:Minuten|minutes)\))?[^|\n]*\|\s*$",
+    re.MULTILINE,
+)
+#: The probe arithmetic inside the startupProbe label: ``<period> s × <failureThreshold>``.
+_PROBE_ARITHMETIC = re.compile(r"(?P<period>\d+)\s*s\s*×\s*(?P<threshold>\d+)")
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -119,3 +141,52 @@ def test_the_budget_formula_is_the_kubelets() -> None:
 def test_the_base_release_runs_the_backend() -> None:
     """Positive control: the parametrised checks must not pass by selecting no release."""
     assert _BASE in _releases_with_backend()
+
+
+def _documented_limits(doc: Path) -> dict[str, re.Match[str]]:
+    """Every start-up limit row of *doc*, by the identifier it names; a duplicate is an error."""
+    # The operator page IS the contract under test (#2125): the number a reader
+    # is told, not code, so reading the published table is the intent.
+    text = doc.read_text(encoding="utf-8")
+    rows: dict[str, re.Match[str]] = {}
+    for match in _LIMIT_ROW.finditer(text):
+        ident = match.group("ident")
+        assert ident not in rows, f"{doc.relative_to(_REPO)}: two start-up table rows name `{ident}`"
+        rows[ident] = match
+    return rows
+
+
+@pytest.mark.parametrize("doc", _DEPLOYMENT_DOCS, ids=lambda p: p.parts[-3])
+def test_documented_maximum_start_up_time_is_the_charts_budget(doc: Path) -> None:
+    spec = (_probes(_BASE).get("startup") or {}).get("spec") or {}
+    row = _documented_limits(doc).get("startupProbe")
+    assert row is not None, f"{doc.relative_to(_REPO)}: no start-up table row naming `startupProbe` (#2125)"
+    budget = _budget_seconds(spec)
+    assert int(row.group("seconds")) == budget, (
+        f"{doc.relative_to(_REPO)}: documents a maximum start-up time of {row.group('seconds')} s, "
+        f"the chart's startupProbe budget is {budget} s"
+    )
+    if row.group("minutes") is not None:
+        assert int(row.group("minutes")) * 60 == budget, (
+            f"{doc.relative_to(_REPO)}: {row.group('minutes')} minutes is not {budget} s"
+        )
+    arithmetic = _PROBE_ARITHMETIC.search(row.group("label"))
+    assert arithmetic is not None, f"{doc.relative_to(_REPO)}: the startupProbe row names no `<period> s × <failures>`"
+    documented = (int(arithmetic.group("period")), int(arithmetic.group("threshold")))
+    assert documented == (int(spec.get("periodSeconds", 10)), int(spec.get("failureThreshold", 3))), (
+        f"{doc.relative_to(_REPO)}: documents {documented[0]} s × {documented[1]}, "
+        f"the chart probes every {spec.get('periodSeconds')} s with failureThreshold {spec.get('failureThreshold')}"
+    )
+
+
+@pytest.mark.parametrize("doc", _DEPLOYMENT_DOCS, ids=lambda p: p.parts[-3])
+@pytest.mark.parametrize(
+    ("ident", "seconds"),
+    [("BARRIER_TIMEOUT_SECONDS", BARRIER_TIMEOUT_SECONDS), ("LOCK_TTL_SECONDS", LOCK_TTL_SECONDS)],
+)
+def test_documented_migration_waits_are_the_code_constants(doc: Path, ident: str, seconds: int) -> None:
+    row = _documented_limits(doc).get(ident)
+    assert row is not None, f"{doc.relative_to(_REPO)}: no start-up table row naming `{ident}` (#2125)"
+    assert int(row.group("seconds")) == seconds, (
+        f"{doc.relative_to(_REPO)}: documents `{ident}` as {row.group('seconds')} s, the code says {seconds} s"
+    )

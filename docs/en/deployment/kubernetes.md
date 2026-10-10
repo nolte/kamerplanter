@@ -214,7 +214,7 @@ ingress:
 6. Your desired hostname. The Ingress controller must be configured for it.
 
 !!! warning "Never inline passwords in the values file"
-    `values-production.yaml` references secrets exclusively via `envFrom`/`secretKeyRef` — never as a plain-text value under `env:`. For GitOps workflows, use a secret management tool like Sealed Secrets or External Secrets Operator instead of a manual `kubectl create secret` (see [ArgoCD — Declarative secret management](argocd.md#prepare-the-secret)).
+    `values-production.yaml` references secrets exclusively via `envFrom`/`secretKeyRef` — never as a plain-text value under `env:`. For GitOps workflows, use a secret management tool like Sealed Secrets or External Secrets Operator instead of a manual `kubectl create secret` (see [ArgoCD — Declarative secret management](argocd.md#prepare-the-secret)). For the External Secrets Operator the chart ships a switchable `ExternalSecret`: [Secrets from a secret store](helm.md#secrets-from-a-secret-store).
 
 ### 4. Install the Helm chart
 
@@ -272,7 +272,35 @@ helm upgrade kamerplanter \
 
 The backend and frontend deployments perform a **rolling update** — there is no downtime, as old pods are only terminated once the new ones are ready.
 
-A new backend pod runs the pending database migrations and the master-data seeds before its first request. On an empty database that takes about a minute, with a long migration or while another pod is migrating several minutes. A `startupProbe` gives the start up to 15 minutes before Kubernetes restarts the container; the old pod keeps serving until then.
+### Backend start-up time {#backend-start-up-time}
+
+Before its first request, a new backend pod prepares the database: it creates missing collections and indexes, runs the pending migrations and loads the master-data seeds. Only then does it accept connections. This happens on purpose inside the backend process and not in a separate migration job — an upgrade needs no extra step.
+
+On an empty database that takes about 40 seconds (measured on a workstation; under the chart's 1-CPU limit rather longer). With a long migration, or while another pod is migrating and this one waits, it takes several minutes. So that Kubernetes does not restart the pod during that time, a `startupProbe` checks the start first; the liveness and readiness probes only begin once it succeeded. Until then the old pod keeps serving.
+
+| Limit | Value |
+|-------|-------|
+| Maximum start-up time (`startupProbe`: 10 s × 90 attempts) | 900 s (15 minutes) |
+| Longest wait for another pod's migration (`BARRIER_TIMEOUT_SECONDS`) | 600 s |
+| When a migration lock counts as orphaned (`LOCK_TTL_SECONDS`) | 300 s |
+
+What that means for you:
+
+- **If a pod waits longer than 600 seconds** for a migration another pod holds, it stops itself with `MigrationBarrierTimeoutError` — the backend decides that the start failed, not the kubelet. The maximum start-up time therefore always lies above this wait.
+- **If a migrating pod is killed**, its lock stays for up to 300 seconds; after that another pod takes over. A restart within that window waits instead of migrating right away.
+- **If a migration needs longer than 15 minutes**, raise the `startupProbe`'s `failureThreshold` before the upgrade (the other probe values are kept). Never lower it below 61: under 610 seconds Kubernetes kills a pod that is still legitimately waiting for another pod's migration.
+- **When scaling up** (replicas or the [autoscaler](helm.md#scaling)), a new pod only helps after its start. Plan scaling in minutes, not seconds.
+
+```yaml title="values-production.yaml (excerpt) — only for very long migrations"
+controllers:
+  backend:
+    containers:
+      main:
+        probes:
+          startup:
+            spec:
+              failureThreshold: 180    # 10 s × 180 = 30 minutes
+```
 
 ---
 

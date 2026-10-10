@@ -420,6 +420,72 @@ ingress_targets='select(.kind == "Ingress") | .spec.rules[].http.paths[] | .back
 expect profile-values-dev "the dev ingress routes every path to the frontend" "${ingress_targets}" '["kamerplanter-frontend"]'
 expect body-limit-ingress "the ingress routes every path to the frontend" "${ingress_targets}" '["kamerplanter-frontend"]'
 
+# ---------------------------------------------------------------------------
+# #2127 (MT-031) — scaling and secret-store switches are opt-in.
+#
+# HPA and PDB use the bjw-s keys `controllers.<name>.horizontalPodAutoscaler` /
+# `.podDisruptionBudget`, the ExternalSecret `externalSecrets.app`. None of them
+# renders by default or in any profile, so an existing release is unchanged.
+# What the switches must not do once on: scale a backend or worker past one
+# pod on a ReadWriteOnce attachment volume (the #2124 refusal, now also for
+# maxReplicas), run a second celery-beat / arangodb / vectordb pod, or ship a
+# PodDisruptionBudget that admits no eviction (every drain hangs).
+# ---------------------------------------------------------------------------
+opt_in_kinds='select(.kind == "HorizontalPodAutoscaler" or .kind == "PodDisruptionBudget" or .kind == "ExternalSecret") | .kind'
+expect storage-default "the default renders no HPA, PDB or ExternalSecret" "${opt_in_kinds}" '[]'
+for profile in "${CHART}"/values-*.yaml; do
+  expect "profile-$(basename "${profile}" .yaml)" "no profile renders an HPA, PDB or ExternalSecret" "${opt_in_kinds}" '[]'
+done
+expect storage-default "celery-beat stays a single pod replaced by Recreate" \
+  "$(deploy celery-beat) | {\"replicas\": .spec.replicas, \"strategy\": .spec.strategy.type}" \
+  '[{"replicas":1,"strategy":"Recreate"}]'
+
+render scaling-backend --set storage.backend=s3 --set storage.s3.bucket=kp-attachments-render \
+  --set controllers.backend.horizontalPodAutoscaler.minReplicas=2 \
+  --set controllers.backend.horizontalPodAutoscaler.maxReplicas=6 \
+  --set controllers.backend.podDisruptionBudget.minAvailable=1
+expect scaling-backend "the backend HPA targets the backend Deployment with the configured bounds" \
+  'select(.kind == "HorizontalPodAutoscaler") | {"kind": .spec.scaleTargetRef.kind, "target": .spec.scaleTargetRef.name, "min": .spec.minReplicas, "max": .spec.maxReplicas}' \
+  '[{"kind":"Deployment","target":"kamerplanter-backend","min":2,"max":6}]'
+# A fixed replica count next to an HPA makes every sync (helm, ArgoCD) reset
+# what the autoscaler scaled to.
+expect scaling-backend "the autoscaled backend Deployment carries no fixed replica count" \
+  "$(deploy backend) | .spec | has(\"replicas\")" '[false]'
+# A PDB whose selector matches no pod protects nothing; it must select exactly
+# what the Deployment selects.
+expect scaling-backend "the backend PDB selects the backend pods" \
+  'select(.kind == "PodDisruptionBudget") | {"min": .spec.minAvailable, "selector": (.spec.selector.matchLabels | sort_keys(.))}' \
+  '[{"min":1,"selector":{"app.kubernetes.io/controller":"backend","app.kubernetes.io/instance":"kamerplanter","app.kubernetes.io/name":"kamerplanter"}}]'
+expect scaling-backend "the backend Deployment selects the same labels" \
+  "$(deploy backend) | .spec.selector.matchLabels | sort_keys(.)" \
+  '[{"app.kubernetes.io/controller":"backend","app.kubernetes.io/instance":"kamerplanter","app.kubernetes.io/name":"kamerplanter"}]'
+
+render scaling-frontend --set controllers.frontend.replicas=2 --set controllers.frontend.podDisruptionBudget.minAvailable=1
+expect scaling-frontend "two frontend pods with a PDB of one" \
+  "select(.kind == \"PodDisruptionBudget\") | .spec.selector.matchLabels[\"app.kubernetes.io/controller\"]" '["frontend"]'
+
+expect_refusal scaling-hpa-backend-rwo "ReadWriteMany" --set controllers.backend.horizontalPodAutoscaler.maxReplicas=4
+expect_refusal scaling-hpa-worker-rwo "ReadWriteMany" --set controllers.celery-worker.horizontalPodAutoscaler.maxReplicas=3
+expect_refusal scaling-pdb-single-pod "admits no eviction" --set controllers.frontend.podDisruptionBudget.minAvailable=1
+expect_refusal scaling-pdb-at-hpa-minimum "admits no eviction" \
+  --set storage.backend=s3 --set storage.s3.bucket=kp-attachments-render \
+  --set controllers.backend.horizontalPodAutoscaler.minReplicas=2 \
+  --set controllers.backend.horizontalPodAutoscaler.maxReplicas=4 \
+  --set controllers.backend.podDisruptionBudget.minAvailable=2
+for singleton in celery-beat arangodb; do
+  expect_refusal "scaling-${singleton}-replicas" "runs exactly one pod" --set "controllers.${singleton}.replicas=2"
+  expect_refusal "scaling-${singleton}-hpa" "runs exactly one pod" --set "controllers.${singleton}.horizontalPodAutoscaler.maxReplicas=2"
+done
+
+render external-secret --set externalSecrets.app.enabled=true --set externalSecrets.app.secretStoreRef.name=kp-store-render
+expect external-secret "the ExternalSecret writes the Secret the pods read, retained when the store entry goes" \
+  'select(.kind == "ExternalSecret") | {"secret": .spec.target.name, "creation": .spec.target.creationPolicy, "deletion": .spec.target.deletionPolicy, "store": .spec.secretStoreRef.name}' \
+  '[{"secret":"kamerplanter-secrets","creation":"Owner","deletion":"Retain","store":"kp-store-render"}]'
+expect external-secret "the pods read their envFrom Secret from that same name" \
+  'select(.kind == "Deployment" or .kind == "StatefulSet") | .spec.template.spec.containers[] | (.envFrom // [])[] | .secretRef.name' \
+  '["kamerplanter-secrets","kamerplanter-secrets","kamerplanter-secrets"]'
+expect_refusal external-secret-without-store "has no SecretStore reference" --set externalSecrets.app.enabled=true
+
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2
   exit 1

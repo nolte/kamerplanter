@@ -273,6 +273,28 @@ valkey:
     size: 1Gi
 ```
 
+Valkey ist zugleich Cache und Celery-Broker: In ihm warten die Aufgaben auf den Worker. Das Chart setzt dafür weder eine Speichergrenze noch Ressourcen-Limits noch das Append-Only-Log (AOF) — Valkey schreibt nur seine Standard-Snapshots auf das Volume. Für einen Dauerbetrieb empfehlen wir, das in deinen Values zu ergänzen:
+
+```yaml title="values-production.yaml (Ausschnitt)"
+valkey:
+  valkeyConfig: |
+    maxmemory 256mb
+    maxmemory-policy noeviction
+    appendonly yes
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 384Mi
+```
+
+- `noeviction` statt einer Verdrängungsstrategie: Ist der Speicher voll, lehnt Valkey neue Schreibzugriffe ab, statt still wartende Aufgaben zu löschen. Ein voller Speicher fällt so als Fehler auf.
+- `appendonly yes` schreibt jede Änderung mit; nach einem Neustart sind auch die Aufgaben der letzten Sekunden wieder da.
+- Setze das Speicherlimit des Containers über `maxmemory`, sonst beendet Kubernetes Valkey, bevor Valkey selbst ablehnen kann.
+
+Die Werte gelten erst nach einem Neustart des Valkey-Pods. Der Chart-Standard bleibt unverändert, damit ein Upgrade bestehende Installationen nicht umstellt.
+
 ---
 
 ## Umgebungsvariablen
@@ -653,6 +675,83 @@ Die Metriken sind **nicht öffentlich**: Sie laufen auf einem eigenen Port, nie 
 Ausgeliefert werden `http_request_duration_seconds` (Histogramm) und `http_requests_total` mit den Labels `method`, `handler` (Routenmuster, nie der Pfad; `unmatched` für eine Anfrage ohne Route) und `status`, `http_requests_in_progress` sowie Prozess-Metriken (Speicher, CPU, Dateideskriptoren). Ein Mandant ist bewusst **kein** Label — das vervielfacht jede Zeitreihe mit der Mandantenzahl und legt die Mandantenliste jedem offen, der scrapen darf. Für die Sicht pro Mandant tragen die Logzeilen `tenant=ten_…`.
 
 Noch nicht enthalten: Metriken des Celery-Workers, Recording- und Alert-Regeln (`PrometheusRule`) aus NFR-007.
+
+## Skalierung (HPA und PDB) {#skalierung}
+
+Ohne weitere Einstellungen läuft jede Komponente mit einem Pod. Autoscaler (`HorizontalPodAutoscaler`) und Disruption-Budget (`PodDisruptionBudget`) schaltest du pro Controller dazu; das Chart rendert sie nur, wenn du sie setzt.
+
+```yaml title="values-production.yaml (Ausschnitt)"
+storage:
+  backend: s3                      # Voraussetzung für mehr als einen Backend-Pod
+  # ...
+
+controllers:
+  backend:
+    horizontalPodAutoscaler:
+      minReplicas: 2               # ersetzt replicas
+      maxReplicas: 6
+      metrics:
+        - type: Resource
+          resource:
+            name: cpu
+            target:
+              type: Utilization
+              averageUtilization: 70
+    podDisruptionBudget:
+      minAvailable: 1
+  frontend:
+    replicas: 2
+    podDisruptionBudget:
+      minAvailable: 1
+```
+
+- **Autoscaler:** Mit `horizontalPodAutoscaler` entfällt `replicas` aus dem Deployment; `minReplicas` übernimmt seine Rolle. So setzt ein `helm upgrade` oder ein ArgoCD-Sync die Pod-Zahl nicht auf den festen Wert zurück. Der Autoscaler braucht den metrics-server im Cluster.
+- **Ein neuer Backend-Pod hilft erst nach seinem Start** — bis zu einigen Minuten, siehe [Startdauer des Backends](kubernetes.md#startdauer-des-backends). Kurze Lastspitzen fängt der Autoscaler deshalb nicht ab.
+- **Celery-Worker:** CPU ist für den Worker das falsche Signal — er wartet meist auf externe Dienste. Ein Autoscaler nach Länge der Warteschlange braucht die Worker-Metriken, die noch fehlen. Mehr Worker-Pods setzt du bis dahin fest über `replicas`.
+
+Das Chart verweigert die Darstellung (`helm template`, `helm upgrade`, ArgoCD) mit einer Meldung, wenn eine Einstellung im Cluster still schiefgehen würde:
+
+| Einstellung | Warum abgelehnt |
+|-------------|-----------------|
+| Backend oder Celery-Worker mit mehr als einem Pod (`replicas` oder `maxReplicas`) auf dem Standard-Volume `ReadWriteOnce` | Ein zweiter Pod auf einem anderen Node startet nie (`Multi-Attach error`). Lösung: [S3](#storage-konfiguration-nfr-013) oder `ReadWriteMany`. |
+| Mehr als ein Pod oder ein Autoscaler für `celery-beat`, `arangodb` oder `vectordb` | Zwei Beat-Pods führen jede geplante Aufgabe doppelt aus, auch Lösch- und Aufbewahrungsläufe. Zwei ArangoDB- oder VectorDB-Pods sind zwei getrennte Datenbanken, kein Cluster. |
+| `podDisruptionBudget.minAvailable` gleich oder größer als die Pod-Zahl | Kubernetes darf dann keinen Pod verdrängen; jedes Leeren eines Nodes und jedes Cluster-Upgrade bleibt hängen. |
+
+Der Celery-Beat bleibt immer ein einzelner Pod mit der Strategie `Recreate`: Der alte Pod endet, bevor der neue startet.
+
+## Secrets aus einem Secret-Store {#secrets-aus-einem-secret-store}
+
+Statt `kamerplanter-secrets` von Hand anzulegen, kann der [External Secrets Operator](https://external-secrets.io/) es aus deinem Secret-Store (Vault, AWS Secrets Manager, …) schreiben. Das Chart bringt dafür ein `ExternalSecret` mit, das standardmäßig aus ist:
+
+```yaml title="values-production.yaml (Ausschnitt)"
+externalSecrets:
+  app:
+    enabled: true
+    secretStoreRef:
+      kind: ClusterSecretStore     # oder SecretStore im selben Namespace
+      name: mein-secret-store
+    dataFrom:
+      - extract:
+          key: kamerplanter/app    # Eintrag im Store mit denselben Schlüsseln wie kamerplanter-secrets
+```
+
+- Der Eintrag im Store braucht dieselben Schlüssel wie das von Hand angelegte Secret ([Pflicht-Secrets](kubernetes.md#2-pflicht-secrets-anlegen)); jeder Schlüssel wird ein Eintrag in `kamerplanter-secrets`.
+- Ohne `secretStoreRef.name` bricht die Darstellung mit einer Meldung ab.
+- Der Operator und seine CRDs (`external-secrets.io/v1`) müssen im Cluster installiert sein.
+- Fehlt der Eintrag später im Store, bleibt das letzte Secret erhalten (`deletionPolicy: Retain`) — Pods starten weiter.
+
+!!! warning "Umstieg von einem handgemachten Secret"
+    Mit `creationPolicy: Owner` (Standard) übernimmt der Operator ein bereits vorhandenes, von Hand angelegtes `kamerplanter-secrets` nicht ohne Weiteres. Lösche das alte Secret im selben Schritt (laufende Pods behalten ihre Werte bis zum nächsten Neustart), oder setze `externalSecrets.app.target.creationPolicy: Merge` — dann schreibt der Operator die Schlüssel in das vorhandene Secret.
+
+Weitere Secrets — die S3-Zugangsdaten (`storage.s3.credentialsRef`), das Backup (`backup.s3.credentialsRef`) und das Root-Passwort der Datenbank (`database.arangodb.rootPasswordSecret`) — legst du auf dieselbe Weise als weitere Einträge unter `externalSecrets` an.
+
+## Externe Datenbanken {#externe-datenbanken}
+
+!!! warning "Noch nicht unterstützt"
+    Das Chart betreibt ArangoDB und Valkey immer selbst im Cluster. Eine verwaltete Datenbank außerhalb des Clusters kannst du derzeit nicht sicher anbinden:
+
+    - **ArangoDB:** Das Backend verbindet sich nur unverschlüsselt per `http://`. Zugangsdaten und alle Daten gingen im Klartext über das Netz. Außerdem bricht `controllers.arangodb.enabled: false` die Darstellung ab, und die NetworkPolicies lassen nur den Datenbank-Pod im Cluster zu.
+    - **Valkey:** `valkey.enabled: false` schaltet den Cache ab, aber Backend, Worker und Beat sprechen weiter `kamerplanter-valkey` an, und ihre NetworkPolicies lassen nur den Valkey-Pod im Cluster zu.
 
 ## Siehe auch
 

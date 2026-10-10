@@ -272,6 +272,28 @@ valkey:
     size: 1Gi
 ```
 
+Valkey is both cache and Celery broker: the tasks wait in it for the worker. The chart sets neither a memory bound nor resource limits nor the append-only file (AOF) for it — Valkey writes only its default snapshots to the volume. For long-term operation we recommend adding this to your values:
+
+```yaml title="values-production.yaml (excerpt)"
+valkey:
+  valkeyConfig: |
+    maxmemory 256mb
+    maxmemory-policy noeviction
+    appendonly yes
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 384Mi
+```
+
+- `noeviction` rather than an eviction policy: when memory is full, Valkey refuses new writes instead of silently dropping waiting tasks. A full memory thus shows up as an error.
+- `appendonly yes` records every change; after a restart the tasks of the last seconds are back too.
+- Set the container's memory limit above `maxmemory`, otherwise Kubernetes kills Valkey before Valkey itself can refuse.
+
+The values take effect after the Valkey pod restarts. The chart default stays unchanged, so an upgrade does not switch existing installations over.
+
 ---
 
 ## Environment variables
@@ -652,6 +674,83 @@ The metrics are **not public**: they run on a port of their own, never as a rout
 Served are `http_request_duration_seconds` (histogram) and `http_requests_total` with the labels `method`, `handler` (route pattern, never the path; `unmatched` for a request no route matched) and `status`, `http_requests_in_progress`, and process metrics (memory, CPU, file descriptors). A tenant is deliberately **not** a label — it would multiply every series by the tenant count and disclose the tenant list to anyone allowed to scrape. For the per-tenant view, log lines carry `tenant=ten_…`.
 
 Not included yet: metrics of the Celery worker, and the recording and alerting rules (`PrometheusRule`) of NFR-007.
+
+## Scaling (HPA and PDB) {#scaling}
+
+Without further settings every component runs one pod. You switch on an autoscaler (`HorizontalPodAutoscaler`) and a disruption budget (`PodDisruptionBudget`) per controller; the chart renders them only when you set them.
+
+```yaml title="values-production.yaml (excerpt)"
+storage:
+  backend: s3                      # prerequisite for more than one backend pod
+  # ...
+
+controllers:
+  backend:
+    horizontalPodAutoscaler:
+      minReplicas: 2               # replaces replicas
+      maxReplicas: 6
+      metrics:
+        - type: Resource
+          resource:
+            name: cpu
+            target:
+              type: Utilization
+              averageUtilization: 70
+    podDisruptionBudget:
+      minAvailable: 1
+  frontend:
+    replicas: 2
+    podDisruptionBudget:
+      minAvailable: 1
+```
+
+- **Autoscaler:** with `horizontalPodAutoscaler` the Deployment carries no `replicas`; `minReplicas` takes its role. So a `helm upgrade` or an ArgoCD sync does not reset the pod count to the fixed value. The autoscaler needs the metrics-server in the cluster.
+- **A new backend pod only helps after its start** — up to a few minutes, see [Backend start-up time](kubernetes.md#backend-start-up-time). The autoscaler therefore does not absorb short load peaks.
+- **Celery worker:** CPU is the wrong signal for the worker — it mostly waits for external services. An autoscaler on queue length needs the worker metrics, which are still missing. Until then set more worker pods with a fixed `replicas`.
+
+The chart refuses to render (`helm template`, `helm upgrade`, ArgoCD) with a message when a setting would go wrong silently in the cluster:
+
+| Setting | Why refused |
+|---------|-------------|
+| Backend or Celery worker with more than one pod (`replicas` or `maxReplicas`) on the default `ReadWriteOnce` volume | A second pod on another node never starts (`Multi-Attach error`). Fix: [S3](#storage-configuration-nfr-013) or `ReadWriteMany`. |
+| More than one pod or an autoscaler for `celery-beat`, `arangodb` or `vectordb` | Two beat pods run every scheduled task twice, deletion and retention runs included. Two ArangoDB or VectorDB pods are two separate databases, not a cluster. |
+| `podDisruptionBudget.minAvailable` equal to or above the pod count | Kubernetes may then evict no pod; every node drain and every cluster upgrade hangs. |
+
+Celery beat always stays a single pod with the `Recreate` strategy: the old pod ends before the new one starts.
+
+## Secrets from a secret store {#secrets-from-a-secret-store}
+
+Instead of creating `kamerplanter-secrets` by hand, the [External Secrets Operator](https://external-secrets.io/) can write it from your secret store (Vault, AWS Secrets Manager, …). The chart ships an `ExternalSecret` for this, off by default:
+
+```yaml title="values-production.yaml (excerpt)"
+externalSecrets:
+  app:
+    enabled: true
+    secretStoreRef:
+      kind: ClusterSecretStore     # or a SecretStore in the same namespace
+      name: my-secret-store
+    dataFrom:
+      - extract:
+          key: kamerplanter/app    # store entry with the same keys as kamerplanter-secrets
+```
+
+- The store entry needs the same keys as the hand-made Secret ([mandatory secrets](kubernetes.md#2-create-the-mandatory-secrets)); every key becomes an entry of `kamerplanter-secrets`.
+- Without `secretStoreRef.name` the render stops with a message.
+- The operator and its CRDs (`external-secrets.io/v1`) must be installed in the cluster.
+- If the entry later disappears from the store, the last Secret is kept (`deletionPolicy: Retain`) — pods keep starting.
+
+!!! warning "Moving from a hand-made Secret"
+    With `creationPolicy: Owner` (the default) the operator does not simply adopt an existing, hand-made `kamerplanter-secrets`. Delete the old Secret in the same step (running pods keep their values until their next restart), or set `externalSecrets.app.target.creationPolicy: Merge` — the operator then writes the keys into the existing Secret.
+
+Further Secrets — the S3 credentials (`storage.s3.credentialsRef`), the backup (`backup.s3.credentialsRef`) and the database root password (`database.arangodb.rootPasswordSecret`) — are added the same way as further entries under `externalSecrets`.
+
+## External databases {#external-databases}
+
+!!! warning "Not supported yet"
+    The chart always runs ArangoDB and Valkey itself in the cluster. You cannot safely connect a managed database outside the cluster at the moment:
+
+    - **ArangoDB:** the backend connects only unencrypted over `http://`. Credentials and all data would cross the network in plain text. Besides, `controllers.arangodb.enabled: false` stops the render, and the NetworkPolicies admit only the in-cluster database pod.
+    - **Valkey:** `valkey.enabled: false` switches the cache off, but backend, worker and beat keep addressing `kamerplanter-valkey`, and their NetworkPolicies admit only the in-cluster Valkey pod.
 
 ## See also
 
