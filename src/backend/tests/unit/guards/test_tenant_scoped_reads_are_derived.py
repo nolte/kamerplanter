@@ -865,6 +865,11 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "read only by TenantService.email_invitation_pending_for, which answers one boolean to the registration "
         "gate of a first OIDC sign-in (#2132) for an address the identity provider proved; no row leaves the service",
     ),
+    ("ArangoInvitationRepository", "count_email_invitations_issued_since"): Exclusion(
+        "account",
+        "the daily mail budget of one inviting account across all its tenants (#2162 review W-1); the key is the "
+        "caller's own (TenantService passes the acting user), and only a count leaves the repository",
+    ),
     # ── account ────────────────────────────────────────────────────────────
     ("ArangoMembershipRepository", "list_by_user"): Exclusion(
         "account", "a user's memberships span their tenants by definition; the key is the caller's own"

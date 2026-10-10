@@ -102,13 +102,20 @@ export interface WorkflowExecutionEnriched {
   completed_at: string | null;
 }
 
+/**
+ * Every execution of a workflow template, newest first. The route returns one bounded page since MT-035 (#2131); every
+ * page is read so the execution list stays complete.
+ */
 export async function listWorkflowExecutions(
   key: string,
 ): Promise<WorkflowExecutionEnriched[]> {
-  const { data } = await client.get<WorkflowExecutionEnriched[]>(
-    `${BASE}/workflows/${key}/executions`,
-  );
-  return data;
+  return fetchAllPages(async (offset, limit) => {
+    const { data } = await client.get<WorkflowExecutionEnriched[]>(
+      `${BASE}/workflows/${key}/executions`,
+      { params: { offset, limit } },
+    );
+    return data;
+  });
 }
 
 export async function instantiateWorkflow(

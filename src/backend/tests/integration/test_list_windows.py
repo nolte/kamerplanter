@@ -268,3 +268,173 @@ def test_the_window_query_reads_the_keyset_index_and_does_not_sort(db, collectio
 
     assert col.TENANT_KEY_ORDER_INDEX_FIELDS in indexes, (indexes, node_types)
     assert "SortNode" not in node_types, node_types
+
+
+def test_members_assignments_references_executions_and_cultivar_stats_are_windowed(db) -> None:
+    """The second conversion round (#2131): each read cuts its window inside the query.
+
+    Every row shares one timestamp (or one sort value), so only the ``_key``
+    tie-break makes the windows a partition; the other tenant's rows sit between
+    tenant A's and must never appear on one of A's pages.
+    """
+    from app.data_access.arango.inventree_repository import ArangoInvenTreeRepository
+    from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
+    from app.data_access.arango.membership_repository import ArangoMembershipRepository
+    from app.data_access.arango.task_repository import ArangoTaskRepository
+    from app.data_access.repositories.propagation_repository import PropagationRepository
+
+    for collection in (
+        col.MEMBERSHIPS,
+        col.USERS,
+        col.LOCATION_ASSIGNMENTS,
+        col.INVENTREE_REFERENCES,
+        col.WORKFLOW_EXECUTIONS,
+        col.PLANT_INSTANCES,
+        col.PROPAGATION_EVENTS,
+    ):
+        db.collection(collection).truncate()
+
+    def tenant(i: int) -> str:
+        return _B if i % 3 == 0 else _A
+
+    db.collection(col.USERS).insert_many(
+        [{"_key": f"u{i}", "email": f"u{i}@example.org", "display_name": f"U{i}"} for i in range(9)]
+    )
+    db.collection(col.MEMBERSHIPS).insert_many(
+        [
+            {
+                "_key": f"m{i}",
+                "tenant_key": tenant(i),
+                "user_key": f"u{i}",
+                "role": "grower",
+                "is_active": True,
+                "joined_at": _SAME_SECOND,
+            }
+            for i in range(9)
+        ]
+    )
+    db.collection(col.LOCATION_ASSIGNMENTS).insert_many(
+        [
+            {
+                "_key": f"a{i}",
+                "tenant_key": tenant(i),
+                "membership_key": f"m{i}",
+                "location_key": "loc",
+                "created_at": _SAME_SECOND,
+            }
+            for i in range(9)
+        ]
+    )
+    db.collection(col.INVENTREE_REFERENCES).insert_many(
+        [
+            {
+                "_key": f"r{i}",
+                "tenant_key": tenant(i),
+                "entity_collection": "fertilizers",
+                "entity_key": f"f{i}",
+                "inventree_part_id": i,
+            }
+            for i in range(9)
+        ]
+    )
+    db.collection(col.PLANT_INSTANCES).insert_many(
+        [
+            {"_key": "plant_a", "tenant_key": _A, "species_key": "sp", "instance_id": "PA", "planted_on": "2026-01-01"},
+            {"_key": "plant_b", "tenant_key": _B, "species_key": "sp", "instance_id": "PB", "planted_on": "2026-01-01"},
+        ]
+    )
+    db.collection(col.WORKFLOW_EXECUTIONS).insert_many(
+        [
+            {
+                "_key": f"we{i}",
+                "workflow_template_key": "wf",
+                "entity_type": "plant_instance",
+                "entity_key": "plant_b" if tenant(i) == _B else "plant_a",
+                "created_at": _SAME_SECOND,
+            }
+            for i in range(9)
+        ]
+    )
+    db.collection(col.PROPAGATION_EVENTS).insert_many(
+        [
+            {
+                "_key": f"pe{i}",
+                "tenant_key": tenant(i),
+                "cultivar_key": f"cv{i}",
+                "quantity": 4,
+                "survived_count": 3,
+            }
+            for i in range(9)
+        ]
+    )
+    own = [i for i in range(9) if tenant(i) == _A]  # 1, 2, 4, 5, 7, 8
+
+    members = ArangoMembershipRepository(db)
+    assignments = ArangoLocationAssignmentRepository(db)
+    inventree = ArangoInvenTreeRepository(db)
+    tasks = ArangoTaskRepository(db)
+    propagation = PropagationRepository(db)
+
+    def keys(rows) -> list[str]:
+        return [r["key"] if isinstance(r, dict) else r.key for r in rows]
+
+    def walk(read) -> list[str]:
+        return [k for off in range(0, 8, 2) for k in keys(read(offset=off, limit=2))]
+
+    assert walk(lambda **w: members.list_by_tenant(_A, **w)) == [f"m{i}" for i in own]
+    assert walk(lambda **w: assignments.list_by_tenant(_A, **w)) == [f"a{i}" for i in own]
+    assert walk(lambda **w: inventree.list_references(_A, **w)) == [f"r{i}" for i in own]
+    # Executions list newest first: equal timestamps fall back to _key descending.
+    assert walk(lambda **w: tasks.get_executions_for_template("wf", tenant_key=_A, **w)) == [
+        f"we{i}" for i in reversed(own)
+    ]
+    assert walk(lambda **w: propagation.stats(_A, "cultivar", **w)) == [f"cv{i}" for i in own]
+
+    # Without a window the readers answer the whole tenant, as before; the execution
+    # read has no unwindowed caller and falls back to the first 50 rows.
+    assert sorted(keys(members.list_by_tenant(_A))) == [f"m{i}" for i in own]
+    assert len(assignments.list_by_tenant(_A)) == len(own)
+    assert len(inventree.list_references(_A)) == len(own)
+    assert len(tasks.get_executions_for_template("wf", tenant_key=_A)) == len(own)
+    assert sorted(keys(propagation.stats(_A, "cultivar"))) == [f"cv{i}" for i in own]
+
+
+def _read_assignments(db) -> None:
+    from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
+
+    ArangoLocationAssignmentRepository(db).list_by_tenant(_A, offset=0, limit=50)
+
+
+def _read_executions(db) -> None:
+    from app.data_access.arango.task_repository import ArangoTaskRepository
+
+    ArangoTaskRepository(db).get_executions_for_template("wf", tenant_key=_A, offset=0, limit=50)
+
+
+@pytest.mark.parametrize(
+    ("read", "fields"),
+    [
+        (_read_assignments, col.LOCATION_ASSIGNMENT_TENANT_INDEX_FIELDS),
+        (_read_executions, col.WORKFLOW_EXECUTION_TEMPLATE_INDEX_FIELDS),
+    ],
+    ids=["location_assignments", "workflow_executions"],
+)
+def test_the_second_round_windows_read_an_index_not_the_collection(db, read, fields: list[str]) -> None:
+    """Measured before the two indexes existed (20 000 rows): both windows scanned the whole collection."""
+    executed: list[tuple[str, dict]] = []
+    original = AQL.execute
+
+    def spy(self, query, *args, **kwargs):
+        executed.append((query, kwargs.get("bind_vars") or {}))
+        return original(self, query, *args, **kwargs)
+
+    with patch.object(AQL, "execute", spy):
+        read(db)
+    query, bind_vars = executed[-1]
+
+    plan = db.aql.explain(query, bind_vars=bind_vars)
+    node_types = [node["type"] for node in plan["nodes"]]
+    indexes = [index["fields"] for node in plan["nodes"] for index in node.get("indexes", [])]
+
+    assert fields in indexes, (indexes, node_types)
+    assert "EnumerateCollectionNode" not in node_types, node_types

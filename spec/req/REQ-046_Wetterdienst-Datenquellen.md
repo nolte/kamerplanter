@@ -7,7 +7,7 @@ Kategorie: Monitoring / Integration
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, httpx, ArangoDB, Celery, Home Assistant REST API, React 19, TypeScript 5.9, MUI 7, Redux Toolkit
 Status: Entwurf
-Version: 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1 (fremder Mandantenschlüssel → 404, #1871)
+Version: 1.3 (Quellenauswahl je Standort und Verbindungstest: Nur Leitung, REQ-049 §2.10; #2181); 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1 (fremder Mandantenschlüssel → 404, #1871)
 Abhängigkeit: REQ-005 (Hybrid-Sensorik/Wetter — Basis-Datenmodell), REQ-002 (Standort), REQ-018 (HA-Aktorik/REST — geteilter HA-Client), REQ-023 (Secret-Storage für API-Keys), REQ-024 (Mandanten-Scoping), REQ-037 (ET — Konsument), REQ-039 (Winterhärte — Konsument), REQ-041 (NASA POWER — registriert Adapter hier)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-005 (Hybrid-Sensorik/Wetter — Basis-Datenmodell), REQ-002 (
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.3 | 2026-10-09 | **#2181 (Entscheidung nach Spec-Hierarchie, keine Betreiberentscheidung — überstimmbar):** Die in v1.2 markierte Abweichung ist zugunsten von REQ-049 §2.10/§4.4 aufgelöst. `PUT /sites/{key}/weather-source` und `POST /sites/{key}/weather-sources/test` verlangen jetzt `lead` (`require_tenant_role(TenantRole.LEAD)`); Gärtner und Beobachter lesen die Auswahl weiter (`403` beim Schreiben). Der Verbindungstest folgt der Auswahl, weil er Teil des Auswählens ist und einen ausgehenden Abruf im Namen des Mandanten auslöst. Die Oberfläche zeigt Nicht-Leitungen die Liste schreibgeschützt. |
 | 1.2 | 2026-10-05 | **#2121 (MT-025):** Abschnitt „Autorisierung“ nach REQ-049 §3.3 ergänzt, gegen den Code gemessen. **Abweichung markiert:** die Quellenauswahl je Standort verlangt im Code `grower`, REQ-049 §2.10 sagt Leitung — Entscheidung offen (#2181). HA-Entitäten-Listen verlangen `technical` (#2112). |
 | 1.1 | 2026-10-03 | **#1871 B8 (Betreiberentscheidung):** Ein fremder Mandantenschlüssel bzw. eine fremde Site wird mit **404** beantwortet (AC-11), nicht mit 403. |
 | 1.0 | 2026-07-05 | Initialer Entwurf — konsolidiert die über REQ-005/039/041 verstreute Wetter-Datenquellen-Schicht in eine SSOT. Führt die nutzerseitige Datenquellen-Auswahl (öffentlicher Wetterdienst **vs.** Home-Assistant-Sensoren) samt Konfigurations-UI und den `HomeAssistantWeatherAdapter` (native `weather.*`-Entität **und** Einzel-Sensor-Mapping) ein. Etabliert `WeatherAdapter`-ABC, `WeatherAdapterRegistry` und `Site.weather_source_priority` als hier beheimatete, geteilte Infrastruktur. |
@@ -458,8 +459,8 @@ adressierten Mandanten, sofern nicht anders angegeben.
 
 | Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
 |-----------|-------|---------|--------|---------|----------------|
-| `:WeatherSourceConfig` je Standort (`GET`/`PUT /sites/{key}/weather-source`) | Alle Rollen | Ab Gärtner | Ab Gärtner | — | **Abweichung:** REQ-049 §2.10/§4.4 ordnet die Auswahl je Standort der **Leitung** zu, der Code verlangt `grower` (`require_tenant_role(TenantRole.GROWER)`). Offen, welche Seite angepasst wird (#2181) |
-| Verbindungstest (`POST /sites/{key}/weather-sources/test`) | — | Ab Gärtner | — | — | Wie oben; schreibt nichts |
+| `:WeatherSourceConfig` je Standort (`GET`/`PUT /sites/{key}/weather-source`) | Alle Rollen | Nur Leitung | Nur Leitung | — | REQ-049 §2.10/§4.4: die Auswahl je Standort trifft die **Leitung**; Gärtner sehen sie, ändern sie nicht (`require_tenant_role(TenantRole.LEAD)`, #2181) |
+| Verbindungstest (`POST /sites/{key}/weather-sources/test`) | — | Nur Leitung | — | — | Wie oben — Teil des Auswählens; schreibt nichts, löst aber einen ausgehenden Abruf aus (#2181) |
 | Verfügbare Quellen, Vorhersage, Klimanormale (`GET /weather-sources/available`, `/sites/{key}/weather-forecast`, `/sites/{key}/climate-normals`) | Alle Rollen | — | — | — | — |
 | HA-Entitäten-Listen (`GET /ha/weather-entities`, `GET /ha/sensor-entities`) | Technik | — | — | — | Single-Household-Modell A (#2112, REQ-005 §4c): die Liste zeigt nur, was der Plattform-Admin dem Mandanten freigegeben hat (`tenant_ha_entity_grants`) |
 | Globales Angebot externer Wetterdienste samt Zugangsschlüssel | Plattform-Admin | Plattform-Admin | Plattform-Admin | Plattform-Admin | REQ-049 §2.9/§2.10 |

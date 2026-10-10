@@ -28,6 +28,7 @@ vi.mock('@/api/client', () => ({
 
 import * as admin from '@/api/endpoints/adminPlatform';
 import * as ai from '@/api/endpoints/ai';
+import * as inventree from '@/api/endpoints/inventree';
 import * as postHarvest from '@/api/endpoints/postHarvest';
 import * as tasks from '@/api/endpoints/tasks';
 import * as tenants from '@/api/endpoints/tenants';
@@ -60,6 +61,26 @@ const cases: { name: string; url: string; load: () => Promise<unknown[]>; extra?
     name: 'getObservations',
     url: '/post-harvest/ph1/observations',
     load: () => postHarvest.getObservations('ph1'),
+  },
+  // Second conversion round (#2131).
+  { name: 'listMembers', url: '/tenants/org/members', load: () => tenants.listMembers('org') },
+  { name: 'listAssignments', url: '/tenants/org/assignments', load: () => tenants.listAssignments('org') },
+  {
+    name: 'fetchTenantMembers',
+    url: '/admin/platform/tenants/t1/members',
+    load: () => admin.fetchTenantMembers('t1'),
+  },
+  {
+    name: 'listWorkflowExecutions',
+    url: '/tasks/workflows/wf1/executions',
+    load: () => tasks.listWorkflowExecutions('wf1'),
+  },
+  { name: 'listReferences', url: '/inventree/references', load: () => inventree.listReferences() },
+  {
+    name: 'listReferences with entity collection',
+    url: '/inventree/references',
+    load: () => inventree.listReferences('fertilizers'),
+    extra: { entity_collection: 'fertilizers' },
   },
 ];
 

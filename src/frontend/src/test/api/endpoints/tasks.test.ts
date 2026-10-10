@@ -83,7 +83,9 @@ describe('tasks endpoints — workflow templates', () => {
   it('listWorkflowExecutions gets executions for workflow', async () => {
     client.get.mockResolvedValue({ data: [] });
     await tasks.listWorkflowExecutions('w1');
-    expect(client.get).toHaveBeenCalledWith('/tasks/workflows/w1/executions');
+    expect(client.get).toHaveBeenCalledWith('/tasks/workflows/w1/executions', {
+      params: { offset: 0, limit: 200 },
+    });
   });
 
   it('instantiateWorkflow posts instantiate request', async () => {

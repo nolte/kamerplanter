@@ -192,8 +192,16 @@ class InvenTreeService:
 
     # ── References ──────────────────────────────────────────────────────
 
-    def list_references(self, tenant_key: str, entity_collection: str | None = None) -> list[InvenTreeReference]:
-        return self._repo.list_references(tenant_key, entity_collection)
+    def list_references(
+        self,
+        tenant_key: str,
+        entity_collection: str | None = None,
+        *,
+        offset: int | None = None,
+        limit: int | None = None,
+    ) -> list[InvenTreeReference]:
+        """A tenant's entity references; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self._repo.list_references(tenant_key, entity_collection, offset=offset, limit=limit)
 
     async def link_entity(
         self,

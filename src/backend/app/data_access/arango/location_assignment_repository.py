@@ -76,8 +76,18 @@ class ArangoLocationAssignmentRepository(BaseArangoRepository[LocationAssignment
             self.delete_edges(edge_col, assignment_id)
         return super().delete(key)
 
-    def list_by_tenant(self, tenant_key: str) -> list[LocationAssignment]:
-        return self.find_by_field("tenant_key", tenant_key, sort="created_at")
+    def list_by_tenant(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[LocationAssignment]:
+        """A tenant's location assignments, oldest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self.find_by_field(
+            "tenant_key",
+            tenant_key,
+            sort="created_at",
+            offset=offset,
+            limit=limit,
+            tiebreak_key=True,
+        )
 
     def list_by_membership(self, membership_key: str) -> list[LocationAssignment]:
         return self.find_by_field("membership_key", membership_key, sort="created_at")

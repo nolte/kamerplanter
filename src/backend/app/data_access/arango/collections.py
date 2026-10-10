@@ -2032,6 +2032,21 @@ TENANT_KEY_ORDER_INDEX_FIELDS = ["tenant_key", "_key"]
 #: The collections whose list route pages by keyset (``get_cursor_pagination``).
 KEYSET_PAGED_COLLECTIONS = (PLANT_INSTANCES, WATERING_LOGS, WATERING_EVENTS, FEEDING_EVENTS)
 
+#: The window of ``GET /tenants/{slug}/assignments`` (MT-035, #2131) reads
+#: ``FILTER doc.tenant_key == @t SORT doc.created_at, doc._key LIMIT @o, @n``.
+#: ``location_assignments`` had only its ``(membership_key, location_key)``
+#: uniqueness index, so every page was a full collection scan (20 000 scanned
+#: for one tenant's first page, measured on ArangoDB 3.12). Non-unique, additive.
+LOCATION_ASSIGNMENT_TENANT_INDEX_FIELDS = ["tenant_key", "created_at"]
+
+#: The window of ``GET /t/{slug}/tasks/workflows/{key}/executions`` (MT-035,
+#: #2131) starts with ``FILTER we.workflow_template_key == @template_key``.
+#: ``workflow_executions`` carried no index at all, so every page scanned every
+#: execution of every template (20 000 scanned for one template's first page).
+#: An execution has no ``tenant_key`` of its own (its entity owns it), so the
+#: template key is the narrowest filter the query has. Non-unique, additive.
+WORKFLOW_EXECUTION_TEMPLATE_INDEX_FIELDS = ["workflow_template_key"]
+
 #: Fields of the slot id index (#2065): a ``slot_id`` is unique **per location**. A
 #: slot carries no tenant of its own (``Slot.tenant_key`` stays empty, #1397); its
 #: location is the parent that belongs to exactly one tenant, and the id itself names
@@ -2311,6 +2326,12 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     location_assignments_col = db.collection(LOCATION_ASSIGNMENTS)
     location_assignments_col.add_persistent_index(fields=["membership_key", "location_key"], unique=True)
+    location_assignments_col.add_persistent_index(
+        fields=LOCATION_ASSIGNMENT_TENANT_INDEX_FIELDS, unique=False, in_background=True
+    )
+    db.collection(WORKFLOW_EXECUTIONS).add_persistent_index(
+        fields=WORKFLOW_EXECUTION_TEMPLATE_INDEX_FIELDS, unique=False, in_background=True
+    )
 
     # REQ-022 Care Reminder indexes
     care_confirmations_col = db.collection(CARE_CONFIRMATIONS)
