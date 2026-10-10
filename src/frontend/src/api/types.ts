@@ -4261,6 +4261,15 @@ export interface Tenant {
 export interface TenantWithRole extends Tenant {
   role: TenantRole;
   admin_scopes: AdminScope[];
+  /** Whether the tenant resolves for its members (`status === 'active'`). */
+  is_active?: boolean;
+  /**
+   * Lifecycle state (#2166). Always `active` in the default listing; `pending_deletion` /
+   * `orphaned` only in the answer of `listMyTenantsWithScheduledDeletion` (`api/endpoints/tenants.ts`).
+   */
+  status?: TenantStatus;
+  /** End of the cancellable grace of a scheduled deletion; `null` otherwise. */
+  deletion_scheduled_at?: string | null;
 }
 
 export interface TenantCreate {

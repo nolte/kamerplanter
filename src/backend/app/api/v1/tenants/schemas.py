@@ -199,6 +199,11 @@ class TenantWithRoleResponse(BaseModel):
     # needs both axes to decide what to show; the rank alone no longer says.
     admin_scopes: list[AdminScope] = Field(default_factory=list)
     is_active: bool
+    #: Lifecycle state (#2166). Always ``active`` in the default listing;
+    #: ``pending_deletion`` / ``orphaned`` appear only with ``include_scheduled_deletion=true``.
+    status: TenantStatus = TenantStatus.ACTIVE
+    #: End of the cancellable grace of a scheduled deletion; ``None`` otherwise.
+    deletion_scheduled_at: datetime | None = None
 
 
 # ── Member schemas ───────────────────────────────────────────────────

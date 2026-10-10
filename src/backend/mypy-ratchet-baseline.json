@@ -1,0 +1,1868 @@
+{
+  "format": 1,
+  "comment": "mypy ratchet baseline for src/backend/app (#2169), written by scripts/check_mypy_ratchet.py. Do not raise a count by hand without saying why in the pull request.",
+  "mypy_version": "2.4.0",
+  "total": 3442,
+  "files": {
+    "app/api/v1/activities/router.py": {
+      "type-arg": 1
+    },
+    "app/api/v1/activity_plans/tenant_router.py": {
+      "no-untyped-def": 1
+    },
+    "app/api/v1/actuators/tenant_router.py": {
+      "no-untyped-def": 37
+    },
+    "app/api/v1/admin/oidc_providers/router.py": {
+      "arg-type": 1,
+      "no-untyped-def": 6,
+      "type-arg": 2
+    },
+    "app/api/v1/admin/pests/router.py": {
+      "arg-type": 2
+    },
+    "app/api/v1/admin/platform/router.py": {
+      "no-untyped-def": 18
+    },
+    "app/api/v1/admin/settings/router.py": {
+      "no-untyped-def": 11
+    },
+    "app/api/v1/admin/weather_providers/router.py": {
+      "no-untyped-def": 3
+    },
+    "app/api/v1/aquaponik/schemas.py": {
+      "type-arg": 2
+    },
+    "app/api/v1/aquaponik/tenant_router.py": {
+      "no-untyped-def": 28
+    },
+    "app/api/v1/attachments/response_headers.py": {
+      "union-attr": 1
+    },
+    "app/api/v1/attachments/tenant_router.py": {
+      "no-untyped-def": 2
+    },
+    "app/api/v1/attachments/token_router.py": {
+      "no-untyped-def": 1
+    },
+    "app/api/v1/auth/router.py": {
+      "no-untyped-def": 17,
+      "type-arg": 1
+    },
+    "app/api/v1/botanical_families/router.py": {
+      "no-untyped-def": 6
+    },
+    "app/api/v1/calculations/router.py": {
+      "no-untyped-def": 7
+    },
+    "app/api/v1/calendar/schemas.py": {
+      "type-arg": 1
+    },
+    "app/api/v1/care_reminders/router.py": {
+      "no-untyped-def": 8
+    },
+    "app/api/v1/care_reminders/tenant_router.py": {
+      "no-untyped-def": 1
+    },
+    "app/api/v1/companion_planting/router.py": {
+      "no-untyped-def": 5
+    },
+    "app/api/v1/crop_rotation/router.py": {
+      "no-untyped-def": 2
+    },
+    "app/api/v1/cultivars/router.py": {
+      "no-untyped-def": 8
+    },
+    "app/api/v1/enrichment/router.py": {
+      "no-untyped-def": 9
+    },
+    "app/api/v1/equipment/tenant_router.py": {
+      "no-untyped-def": 6
+    },
+    "app/api/v1/family_relationships/router.py": {
+      "no-untyped-def": 6
+    },
+    "app/api/v1/favorites/tenant_router.py": {
+      "no-untyped-def": 4,
+      "type-arg": 1
+    },
+    "app/api/v1/feeding_events/tenant_router.py": {
+      "no-untyped-def": 7
+    },
+    "app/api/v1/fertilizers/tenant_router.py": {
+      "no-untyped-def": 13,
+      "type-arg": 1
+    },
+    "app/api/v1/fish_species/router.py": {
+      "no-untyped-def": 4
+    },
+    "app/api/v1/growth_phases/router.py": {
+      "no-untyped-def": 5
+    },
+    "app/api/v1/ha_publish/tenant_router.py": {
+      "no-untyped-def": 5
+    },
+    "app/api/v1/hardiness_zones/router.py": {
+      "no-untyped-def": 2
+    },
+    "app/api/v1/harvest/schemas.py": {
+      "type-arg": 2
+    },
+    "app/api/v1/harvest/tenant_router.py": {
+      "no-untyped-def": 16
+    },
+    "app/api/v1/health/router.py": {
+      "no-untyped-def": 1
+    },
+    "app/api/v1/imports/router.py": {
+      "no-untyped-def": 6
+    },
+    "app/api/v1/imports/schemas.py": {
+      "type-arg": 1
+    },
+    "app/api/v1/inventree/tenant_router.py": {
+      "no-untyped-def": 14
+    },
+    "app/api/v1/ipm/pest_images_router.py": {
+      "arg-type": 1,
+      "attr-defined": 3,
+      "no-untyped-def": 2
+    },
+    "app/api/v1/ipm/router.py": {
+      "no-untyped-def": 17
+    },
+    "app/api/v1/ipm/schemas.py": {
+      "type-arg": 3
+    },
+    "app/api/v1/ipm/tenant_router.py": {
+      "no-untyped-def": 7
+    },
+    "app/api/v1/knowledge/schemas.py": {
+      "type-arg": 1
+    },
+    "app/api/v1/lifecycle_configs/router.py": {
+      "no-untyped-def": 3
+    },
+    "app/api/v1/location_types/router.py": {
+      "no-untyped-def": 5
+    },
+    "app/api/v1/locations/tenant_router.py": {
+      "no-untyped-def": 12
+    },
+    "app/api/v1/notifications/schemas.py": {
+      "type-arg": 1
+    },
+    "app/api/v1/notifications/tenant_router.py": {
+      "no-untyped-def": 1
+    },
+    "app/api/v1/nutrient_calculations/router.py": {
+      "no-untyped-def": 6
+    },
+    "app/api/v1/nutrient_calculations/schemas.py": {
+      "type-arg": 1
+    },
+    "app/api/v1/nutrient_plans/tenant_router.py": {
+      "no-untyped-def": 16,
+      "type-arg": 1
+    },
+    "app/api/v1/observations/tenant_router.py": {
+      "union-attr": 7,
+      "unused-ignore": 2
+    },
+    "app/api/v1/onboarding/tenant_router.py": {
+      "assignment": 3,
+      "no-untyped-def": 4
+    },
+    "app/api/v1/phase_sequences/router.py": {
+      "no-untyped-def": 20,
+      "type-arg": 1
+    },
+    "app/api/v1/phases/router.py": {
+      "no-untyped-def": 5
+    },
+    "app/api/v1/plant_instances/diary_router.py": {
+      "no-untyped-def": 7
+    },
+    "app/api/v1/plant_instances/environment_router.py": {
+      "no-untyped-def": 1
+    },
+    "app/api/v1/plant_instances/tenant_router.py": {
+      "no-untyped-def": 13
+    },
+    "app/api/v1/planting_runs/diary_schemas.py": {
+      "type-arg": 3
+    },
+    "app/api/v1/planting_runs/schemas.py": {
+      "type-arg": 2
+    },
+    "app/api/v1/planting_runs/tenant_router.py": {
+      "arg-type": 1,
+      "no-untyped-def": 30,
+      "type-arg": 1
+    },
+    "app/api/v1/post_harvest/tenant_router.py": {
+      "no-untyped-def": 10
+    },
+    "app/api/v1/privacy/router.py": {
+      "no-untyped-def": 16
+    },
+    "app/api/v1/profiles/router.py": {
+      "no-untyped-def": 6
+    },
+    "app/api/v1/propagation/tenant_router.py": {
+      "no-untyped-def": 31
+    },
+    "app/api/v1/router.py": {
+      "no-untyped-def": 1
+    },
+    "app/api/v1/sites/tenant_router.py": {
+      "no-untyped-def": 13
+    },
+    "app/api/v1/slots/tenant_router.py": {
+      "no-untyped-def": 5
+    },
+    "app/api/v1/species/router.py": {
+      "no-untyped-def": 9
+    },
+    "app/api/v1/starter_kits/router.py": {
+      "no-untyped-def": 2
+    },
+    "app/api/v1/starter_kits/tenant_router.py": {
+      "no-untyped-def": 2
+    },
+    "app/api/v1/substrates/router.py": {
+      "no-untyped-def": 15
+    },
+    "app/api/v1/succession_plans/tenant_router.py": {
+      "no-untyped-def": 7
+    },
+    "app/api/v1/tanks/schemas.py": {
+      "type-arg": 4
+    },
+    "app/api/v1/tanks/tenant_router.py": {
+      "no-untyped-def": 30
+    },
+    "app/api/v1/tasks/schemas.py": {
+      "type-arg": 1
+    },
+    "app/api/v1/tasks/tenant_router.py": {
+      "no-untyped-def": 45
+    },
+    "app/api/v1/tenant_scoped/weather/tenant_router.py": {
+      "no-untyped-def": 8
+    },
+    "app/api/v1/tenants/router.py": {
+      "arg-type": 1,
+      "no-untyped-def": 19
+    },
+    "app/api/v1/user_preferences/tenant_router.py": {
+      "no-untyped-def": 2
+    },
+    "app/api/v1/users/router.py": {
+      "no-untyped-def": 10
+    },
+    "app/api/v1/watering_events/schemas.py": {
+      "type-arg": 3
+    },
+    "app/api/v1/watering_events/tenant_router.py": {
+      "no-untyped-def": 9
+    },
+    "app/api/v1/watering_logs/schemas.py": {
+      "type-arg": 2
+    },
+    "app/api/v1/watering_logs/tenant_router.py": {
+      "no-untyped-def": 12
+    },
+    "app/common/auth.py": {
+      "no-any-return": 1,
+      "type-arg": 4
+    },
+    "app/common/dependencies.py": {
+      "arg-type": 1
+    },
+    "app/common/mdns.py": {
+      "union-attr": 1
+    },
+    "app/common/middleware.py": {
+      "no-untyped-def": 1,
+      "unused-ignore": 1
+    },
+    "app/common/url_safety.py": {
+      "attr-defined": 14,
+      "no-any-return": 2,
+      "union-attr": 1
+    },
+    "app/config/logging.py": {
+      "assignment": 1
+    },
+    "app/data_access/arango/activity_repository.py": {
+      "arg-type": 2,
+      "override": 2,
+      "type-arg": 1,
+      "union-attr": 12
+    },
+    "app/data_access/arango/actuator_repository.py": {
+      "misc": 2,
+      "union-attr": 6
+    },
+    "app/data_access/arango/ai_repository.py": {
+      "arg-type": 6,
+      "union-attr": 6
+    },
+    "app/data_access/arango/api_key_repository.py": {
+      "arg-type": 1,
+      "override": 1,
+      "union-attr": 3
+    },
+    "app/data_access/arango/aquaponik_repository.py": {
+      "arg-type": 1
+    },
+    "app/data_access/arango/attachment_repository.py": {
+      "arg-type": 26,
+      "override": 1,
+      "union-attr": 9
+    },
+    "app/data_access/arango/auth_provider_repository.py": {
+      "override": 1,
+      "union-attr": 3
+    },
+    "app/data_access/arango/base_repository.py": {
+      "arg-type": 5,
+      "index": 1,
+      "misc": 1,
+      "no-any-return": 5,
+      "union-attr": 12
+    },
+    "app/data_access/arango/botanical_family_repository.py": {
+      "arg-type": 1,
+      "union-attr": 6
+    },
+    "app/data_access/arango/calendar_feed_repository.py": {
+      "union-attr": 3
+    },
+    "app/data_access/arango/calendar_source_repository.py": {
+      "arg-type": 9,
+      "type-arg": 5
+    },
+    "app/data_access/arango/care_reminder_repository.py": {
+      "arg-type": 3,
+      "type-arg": 1
+    },
+    "app/data_access/arango/climate_normal_repository.py": {
+      "union-attr": 6
+    },
+    "app/data_access/arango/collections.py": {
+      "arg-type": 5,
+      "call-overload": 1,
+      "union-attr": 21
+    },
+    "app/data_access/arango/connection.py": {
+      "attr-defined": 1
+    },
+    "app/data_access/arango/consent_repository.py": {
+      "arg-type": 5,
+      "misc": 2,
+      "override": 1,
+      "union-attr": 15
+    },
+    "app/data_access/arango/data_export_repository.py": {
+      "arg-type": 5,
+      "override": 1,
+      "union-attr": 12
+    },
+    "app/data_access/arango/email_change_repository.py": {
+      "arg-type": 9,
+      "misc": 3,
+      "override": 1,
+      "union-attr": 18
+    },
+    "app/data_access/arango/enrichment_repository.py": {
+      "arg-type": 1,
+      "dict-item": 1,
+      "override": 1,
+      "union-attr": 9,
+      "unused-ignore": 1
+    },
+    "app/data_access/arango/erasure_executor.py": {
+      "dict-item": 5,
+      "union-attr": 6
+    },
+    "app/data_access/arango/erasure_repository.py": {
+      "arg-type": 5,
+      "override": 1,
+      "union-attr": 9
+    },
+    "app/data_access/arango/favorites_repository.py": {
+      "arg-type": 6,
+      "no-any-return": 2,
+      "return-value": 1,
+      "type-arg": 4,
+      "union-attr": 4
+    },
+    "app/data_access/arango/feeding_repository.py": {
+      "override": 1
+    },
+    "app/data_access/arango/fertilizer_repository.py": {
+      "arg-type": 3,
+      "override": 1,
+      "type-arg": 4,
+      "union-attr": 9
+    },
+    "app/data_access/arango/glossary_repository.py": {
+      "arg-type": 9,
+      "type-arg": 2,
+      "union-attr": 6
+    },
+    "app/data_access/arango/graph_repository.py": {
+      "arg-type": 8,
+      "type-arg": 1,
+      "union-attr": 27,
+      "var-annotated": 1
+    },
+    "app/data_access/arango/ha_publish_repository.py": {
+      "arg-type": 3,
+      "union-attr": 3
+    },
+    "app/data_access/arango/hardiness_zone_repository.py": {
+      "union-attr": 3
+    },
+    "app/data_access/arango/harvest_repository.py": {
+      "arg-type": 6,
+      "dict-item": 2,
+      "type-arg": 1,
+      "union-attr": 6
+    },
+    "app/data_access/arango/identification_repository.py": {
+      "arg-type": 5,
+      "union-attr": 3
+    },
+    "app/data_access/arango/inventree_repository.py": {
+      "union-attr": 3
+    },
+    "app/data_access/arango/invitation_repository.py": {
+      "arg-type": 4,
+      "misc": 1,
+      "override": 2,
+      "type-arg": 1,
+      "union-attr": 3
+    },
+    "app/data_access/arango/ipm_repository.py": {
+      "arg-type": 2,
+      "type-arg": 2,
+      "union-attr": 15
+    },
+    "app/data_access/arango/irrigation_demand_repository.py": {
+      "union-attr": 6
+    },
+    "app/data_access/arango/legal_retention_repository.py": {
+      "dict-item": 1,
+      "union-attr": 12
+    },
+    "app/data_access/arango/lifecycle_repository.py": {
+      "arg-type": 3
+    },
+    "app/data_access/arango/location_assignment_repository.py": {
+      "arg-type": 1,
+      "override": 2,
+      "type-arg": 1
+    },
+    "app/data_access/arango/location_type_repository.py": {
+      "override": 1,
+      "union-attr": 3
+    },
+    "app/data_access/arango/mcp_repository.py": {
+      "arg-type": 5,
+      "dict-item": 2,
+      "index": 1,
+      "union-attr": 6
+    },
+    "app/data_access/arango/membership_repository.py": {
+      "arg-type": 4,
+      "no-any-return": 1,
+      "override": 2,
+      "type-arg": 1,
+      "union-attr": 12
+    },
+    "app/data_access/arango/notification_preference_repository.py": {
+      "arg-type": 1,
+      "union-attr": 3
+    },
+    "app/data_access/arango/notification_repository.py": {
+      "arg-type": 4,
+      "dict-item": 2,
+      "type-arg": 3,
+      "union-attr": 15
+    },
+    "app/data_access/arango/nutrient_plan_repository.py": {
+      "arg-type": 4,
+      "dict-item": 1,
+      "override": 1,
+      "type-arg": 4,
+      "union-attr": 6
+    },
+    "app/data_access/arango/oidc_config_repository.py": {
+      "union-attr": 6
+    },
+    "app/data_access/arango/onboarding_state_repository.py": {
+      "type-arg": 1
+    },
+    "app/data_access/arango/overwintering_profile_template_repository.py": {
+      "no-any-return": 1,
+      "union-attr": 3
+    },
+    "app/data_access/arango/personal_data_repository.py": {
+      "union-attr": 9
+    },
+    "app/data_access/arango/pest_detection_repository.py": {
+      "index": 1,
+      "override": 1
+    },
+    "app/data_access/arango/pest_image_repository.py": {
+      "arg-type": 6,
+      "override": 1,
+      "union-attr": 15
+    },
+    "app/data_access/arango/phase_sequence_repository.py": {
+      "arg-type": 11,
+      "dict-item": 2,
+      "index": 7,
+      "type-arg": 4,
+      "union-attr": 12
+    },
+    "app/data_access/arango/plant_diagnosis_repository.py": {
+      "arg-type": 3,
+      "no-untyped-def": 1,
+      "override": 1,
+      "union-attr": 3
+    },
+    "app/data_access/arango/plant_diary_repository.py": {
+      "arg-type": 4,
+      "dict-item": 7,
+      "override": 1,
+      "type-arg": 1,
+      "union-attr": 12
+    },
+    "app/data_access/arango/plant_instance_repository.py": {
+      "arg-type": 16,
+      "override": 1,
+      "type-arg": 1,
+      "union-attr": 8
+    },
+    "app/data_access/arango/planting_run_repository.py": {
+      "arg-type": 10,
+      "index": 1,
+      "override": 2,
+      "type-arg": 6,
+      "union-attr": 23
+    },
+    "app/data_access/arango/processing_restriction_repository.py": {
+      "arg-type": 1,
+      "override": 1,
+      "union-attr": 6
+    },
+    "app/data_access/arango/reference_image_repository.py": {
+      "arg-type": 1
+    },
+    "app/data_access/arango/refresh_token_repository.py": {
+      "arg-type": 1,
+      "misc": 1,
+      "override": 1,
+      "union-attr": 9
+    },
+    "app/data_access/arango/sensor_repository.py": {
+      "override": 1,
+      "union-attr": 9
+    },
+    "app/data_access/arango/site_repository.py": {
+      "arg-type": 3,
+      "type-arg": 2,
+      "union-attr": 12
+    },
+    "app/data_access/arango/species_repository.py": {
+      "arg-type": 9,
+      "override": 1,
+      "union-attr": 18
+    },
+    "app/data_access/arango/starter_kit_repository.py": {
+      "type-arg": 1
+    },
+    "app/data_access/arango/substrate_repository.py": {
+      "arg-type": 2,
+      "dict-item": 4,
+      "type-arg": 1,
+      "union-attr": 12
+    },
+    "app/data_access/arango/succession_plan_repository.py": {
+      "union-attr": 3
+    },
+    "app/data_access/arango/system_settings_repository.py": {
+      "dict-item": 3
+    },
+    "app/data_access/arango/tank_repository.py": {
+      "arg-type": 6,
+      "override": 2,
+      "type-arg": 3,
+      "union-attr": 6
+    },
+    "app/data_access/arango/task_repository.py": {
+      "arg-type": 25,
+      "index": 11,
+      "override": 1,
+      "type-arg": 12,
+      "union-attr": 44
+    },
+    "app/data_access/arango/tenant_erasure_executor.py": {
+      "arg-type": 2,
+      "dict-item": 3,
+      "no-untyped-call": 1,
+      "union-attr": 15
+    },
+    "app/data_access/arango/tenant_erasure_repository.py": {
+      "arg-type": 5,
+      "dict-item": 1,
+      "union-attr": 3
+    },
+    "app/data_access/arango/tenant_ownership.py": {
+      "union-attr": 2
+    },
+    "app/data_access/arango/tenant_repository.py": {
+      "arg-type": 3,
+      "no-any-return": 1,
+      "override": 1,
+      "type-arg": 1
+    },
+    "app/data_access/arango/user_repository.py": {
+      "arg-type": 5,
+      "no-any-return": 1,
+      "override": 1,
+      "type-arg": 2,
+      "union-attr": 3
+    },
+    "app/data_access/arango/watering_log_repository.py": {
+      "arg-type": 3,
+      "dict-item": 4,
+      "index": 1,
+      "override": 1,
+      "type-arg": 3,
+      "union-attr": 12
+    },
+    "app/data_access/arango/watering_repository.py": {
+      "arg-type": 2,
+      "dict-item": 4,
+      "index": 1,
+      "override": 1,
+      "type-arg": 1,
+      "union-attr": 6
+    },
+    "app/data_access/arango/weather_forecast_repository.py": {
+      "union-attr": 6
+    },
+    "app/data_access/arango/weather_source_config_repository.py": {
+      "union-attr": 3
+    },
+    "app/data_access/external/apprise_notification_channel.py": {
+      "import-not-found": 1,
+      "no-any-return": 1,
+      "no-untyped-call": 3,
+      "no-untyped-def": 2,
+      "type-arg": 2
+    },
+    "app/data_access/external/cv_diagnosis_inference_client.py": {
+      "no-any-return": 2
+    },
+    "app/data_access/external/demo_pest_adapter.py": {
+      "union-attr": 4
+    },
+    "app/data_access/external/dwd_weather_adapter.py": {
+      "arg-type": 1,
+      "type-arg": 3
+    },
+    "app/data_access/external/email_notification_channel.py": {
+      "type-arg": 2
+    },
+    "app/data_access/external/gbif_adapter.py": {
+      "type-arg": 1
+    },
+    "app/data_access/external/ha_client.py": {
+      "no-any-return": 3,
+      "type-arg": 7
+    },
+    "app/data_access/external/ha_notification_channel.py": {
+      "assignment": 1,
+      "type-arg": 5
+    },
+    "app/data_access/external/home_assistant_weather_adapter.py": {
+      "arg-type": 3,
+      "union-attr": 1
+    },
+    "app/data_access/external/idigbio_media_client.py": {
+      "no-any-return": 1,
+      "type-arg": 2
+    },
+    "app/data_access/external/inapp_notification_channel.py": {
+      "type-arg": 1
+    },
+    "app/data_access/external/inaturalist_media_client.py": {
+      "no-any-return": 2,
+      "type-arg": 4
+    },
+    "app/data_access/external/inference_service_client.py": {
+      "no-any-return": 7
+    },
+    "app/data_access/external/inventree_adapter.py": {
+      "type-arg": 10,
+      "union-attr": 2
+    },
+    "app/data_access/external/knowledge_service_adapter.py": {
+      "no-untyped-def": 1,
+      "type-arg": 2
+    },
+    "app/data_access/external/knowledge_service_client.py": {
+      "no-any-return": 2,
+      "type-arg": 2
+    },
+    "app/data_access/external/local_cv_diagnosis_adapter.py": {
+      "type-arg": 1
+    },
+    "app/data_access/external/nasa_power_weather_adapter.py": {
+      "arg-type": 2,
+      "type-arg": 5
+    },
+    "app/data_access/external/open_meteo_weather_adapter.py": {
+      "arg-type": 1,
+      "type-arg": 2
+    },
+    "app/data_access/external/openweathermap_weather_adapter.py": {
+      "arg-type": 1,
+      "type-arg": 3
+    },
+    "app/data_access/external/perenual_adapter.py": {
+      "type-arg": 3
+    },
+    "app/data_access/external/pest_inference_client.py": {
+      "no-any-return": 6
+    },
+    "app/data_access/external/plantnet_adapter.py": {
+      "type-arg": 1
+    },
+    "app/data_access/external/pwa_notification_channel.py": {
+      "import-untyped": 1,
+      "no-untyped-call": 1,
+      "no-untyped-def": 1,
+      "type-arg": 1
+    },
+    "app/data_access/external/redis_oauth_state.py": {
+      "no-any-return": 1,
+      "type-arg": 2
+    },
+    "app/data_access/external/resend_email_adapter.py": {
+      "type-arg": 1
+    },
+    "app/data_access/repositories/propagation_repository.py": {
+      "arg-type": 12,
+      "index": 1,
+      "union-attr": 20
+    },
+    "app/data_access/storage/local_fs_adapter.py": {
+      "no-any-return": 2,
+      "no-untyped-call": 1
+    },
+    "app/data_access/storage/s3_adapter.py": {
+      "import-untyped": 3,
+      "no-any-return": 3
+    },
+    "app/data_access/timescale/observation_repository.py": {
+      "type-arg": 1
+    },
+    "app/data_access/timescale/schema.py": {
+      "arg-type": 1
+    },
+    "app/domain/calculators/drying_calculator.py": {
+      "type-arg": 3
+    },
+    "app/domain/calculators/evapotranspiration_calculator.py": {
+      "import-untyped": 1
+    },
+    "app/domain/calculators/photoperiod_calculator.py": {
+      "return-value": 1
+    },
+    "app/domain/calculators/sun_calculator.py": {
+      "type-arg": 2
+    },
+    "app/domain/engines/actuator_control_engine.py": {
+      "type-arg": 3
+    },
+    "app/domain/engines/ai_explain_engine.py": {
+      "import-untyped": 1,
+      "type-arg": 1
+    },
+    "app/domain/engines/ai_tip_engine.py": {
+      "type-arg": 1,
+      "unused-ignore": 4
+    },
+    "app/domain/engines/aquaponics_engine.py": {
+      "type-arg": 2
+    },
+    "app/domain/engines/calendar_aggregation_engine.py": {
+      "assignment": 3,
+      "operator": 1,
+      "type-arg": 20
+    },
+    "app/domain/engines/care_reminder_engine.py": {
+      "type-arg": 1
+    },
+    "app/domain/engines/companion_planting_engine.py": {
+      "type-arg": 1
+    },
+    "app/domain/engines/crop_rotation_validator.py": {
+      "arg-type": 1,
+      "type-arg": 2
+    },
+    "app/domain/engines/csv_parser.py": {
+      "type-arg": 2
+    },
+    "app/domain/engines/delivery_channel_engine.py": {
+      "type-arg": 2
+    },
+    "app/domain/engines/dependency_resolver.py": {
+      "type-arg": 6
+    },
+    "app/domain/engines/diagnosis_analysis_engine.py": {
+      "no-any-return": 2,
+      "type-arg": 1
+    },
+    "app/domain/engines/dormancy_trigger.py": {
+      "type-arg": 1
+    },
+    "app/domain/engines/dosage_calculation_engine.py": {
+      "type-arg": 1
+    },
+    "app/domain/engines/ec_budget_engine.py": {
+      "type-arg": 2
+    },
+    "app/domain/engines/encryption_engine.py": {
+      "assignment": 1
+    },
+    "app/domain/engines/frost_warning_engine.py": {
+      "operator": 1,
+      "type-arg": 3
+    },
+    "app/domain/engines/full_auth_provider.py": {
+      "union-attr": 1
+    },
+    "app/domain/engines/hst_validator.py": {
+      "type-arg": 8
+    },
+    "app/domain/engines/hydro_system_monitor.py": {
+      "type-arg": 1
+    },
+    "app/domain/engines/identification_engine.py": {
+      "type-arg": 2
+    },
+    "app/domain/engines/import_engine.py": {
+      "no-untyped-def": 1
+    },
+    "app/domain/engines/inspection_scheduler.py": {
+      "operator": 3,
+      "return-value": 1,
+      "type-arg": 1
+    },
+    "app/domain/engines/inventree_sync_engine.py": {
+      "no-untyped-def": 1,
+      "type-arg": 3
+    },
+    "app/domain/engines/notification_engine.py": {
+      "attr-defined": 2,
+      "type-arg": 4
+    },
+    "app/domain/engines/nutrient_engine.py": {
+      "type-arg": 7
+    },
+    "app/domain/engines/nutrient_plan_engine.py": {
+      "type-arg": 1
+    },
+    "app/domain/engines/oauth_engine.py": {
+      "import-untyped": 2,
+      "operator": 6,
+      "type-arg": 13
+    },
+    "app/domain/engines/onboarding_engine.py": {
+      "type-arg": 3
+    },
+    "app/domain/engines/photoperiod_manager.py": {
+      "type-arg": 1
+    },
+    "app/domain/engines/planting_run_engine.py": {
+      "type-arg": 1
+    },
+    "app/domain/engines/print_engine.py": {
+      "import-untyped": 3,
+      "no-any-return": 1,
+      "type-arg": 1
+    },
+    "app/domain/engines/readiness_engine.py": {
+      "type-arg": 2
+    },
+    "app/domain/engines/recurrence_engine.py": {
+      "import-untyped": 2,
+      "no-any-return": 2
+    },
+    "app/domain/engines/resistance_engine.py": {
+      "type-arg": 4
+    },
+    "app/domain/engines/resource_profile_generator.py": {
+      "type-arg": 5,
+      "unused-ignore": 1
+    },
+    "app/domain/engines/row_validator.py": {
+      "attr-defined": 1,
+      "type-arg": 1
+    },
+    "app/domain/engines/safety_interval_engine.py": {
+      "operator": 10,
+      "return-value": 1,
+      "type-arg": 3,
+      "union-attr": 1
+    },
+    "app/domain/engines/season_state_engine.py": {
+      "no-untyped-def": 1
+    },
+    "app/domain/engines/storage/thumbnail_generator.py": {
+      "attr-defined": 1
+    },
+    "app/domain/engines/substrate_mix_engine.py": {
+      "no-any-return": 1,
+      "type-arg": 1
+    },
+    "app/domain/engines/tank_engine.py": {
+      "type-arg": 14
+    },
+    "app/domain/engines/token_engine.py": {
+      "import-untyped": 2
+    },
+    "app/domain/engines/vision_engine.py": {
+      "type-arg": 1
+    },
+    "app/domain/engines/watering_engine.py": {
+      "type-arg": 2
+    },
+    "app/domain/engines/watering_schedule_engine.py": {
+      "type-arg": 3
+    },
+    "app/domain/engines/watering_volume_engine.py": {
+      "no-any-return": 1,
+      "type-arg": 2
+    },
+    "app/domain/guards/feature_guard.py": {
+      "type-arg": 2
+    },
+    "app/domain/interfaces/activity_repository.py": {
+      "type-arg": 1
+    },
+    "app/domain/interfaces/calendar_source_repository.py": {
+      "type-arg": 5
+    },
+    "app/domain/interfaces/cv_diagnosis_adapter.py": {
+      "type-arg": 1
+    },
+    "app/domain/interfaces/favorites_repository.py": {
+      "type-arg": 4
+    },
+    "app/domain/interfaces/fertilizer_repository.py": {
+      "type-arg": 4
+    },
+    "app/domain/interfaces/harvest_repository.py": {
+      "type-arg": 1
+    },
+    "app/domain/interfaces/inventree_adapter.py": {
+      "type-arg": 3
+    },
+    "app/domain/interfaces/invitation_repository.py": {
+      "type-arg": 1
+    },
+    "app/domain/interfaces/ipm_repository.py": {
+      "type-arg": 2
+    },
+    "app/domain/interfaces/knowledge_service.py": {
+      "type-arg": 3
+    },
+    "app/domain/interfaces/location_assignment_repository.py": {
+      "type-arg": 1
+    },
+    "app/domain/interfaces/membership_repository.py": {
+      "type-arg": 1
+    },
+    "app/domain/interfaces/notification_channel.py": {
+      "type-arg": 2
+    },
+    "app/domain/interfaces/nutrient_plan_repository.py": {
+      "type-arg": 4
+    },
+    "app/domain/interfaces/phase_sequence_repository.py": {
+      "type-arg": 2
+    },
+    "app/domain/interfaces/plant_diary_repository.py": {
+      "type-arg": 1
+    },
+    "app/domain/interfaces/plant_identification_adapter.py": {
+      "type-arg": 2
+    },
+    "app/domain/interfaces/planting_run_repository.py": {
+      "type-arg": 5
+    },
+    "app/domain/interfaces/site_repository.py": {
+      "type-arg": 1
+    },
+    "app/domain/interfaces/substrate_repository.py": {
+      "type-arg": 1
+    },
+    "app/domain/interfaces/tank_repository.py": {
+      "type-arg": 3
+    },
+    "app/domain/interfaces/task_repository.py": {
+      "type-arg": 6
+    },
+    "app/domain/interfaces/tenant_repository.py": {
+      "type-arg": 1
+    },
+    "app/domain/interfaces/user_repository.py": {
+      "type-arg": 2
+    },
+    "app/domain/interfaces/watering_log_repository.py": {
+      "type-arg": 2
+    },
+    "app/domain/interfaces/watering_repository.py": {
+      "type-arg": 1
+    },
+    "app/domain/models/calendar.py": {
+      "type-arg": 1
+    },
+    "app/domain/models/harvest.py": {
+      "type-arg": 1
+    },
+    "app/domain/models/import_job.py": {
+      "type-arg": 1
+    },
+    "app/domain/models/inventree.py": {
+      "type-arg": 1
+    },
+    "app/domain/models/ipm.py": {
+      "type-arg": 1
+    },
+    "app/domain/models/notification.py": {
+      "type-arg": 2
+    },
+    "app/domain/models/nutrient_plan.py": {
+      "no-untyped-def": 1
+    },
+    "app/domain/models/oidc_config.py": {
+      "type-arg": 1
+    },
+    "app/domain/models/overwintering_profile_template.py": {
+      "type-arg": 1
+    },
+    "app/domain/models/plant_diary_entry.py": {
+      "type-arg": 1
+    },
+    "app/domain/services/activity_plan_service.py": {
+      "no-untyped-def": 1,
+      "type-arg": 3
+    },
+    "app/domain/services/activity_service.py": {
+      "type-arg": 2
+    },
+    "app/domain/services/actuator_service.py": {
+      "func-returns-value": 2,
+      "return-value": 1
+    },
+    "app/domain/services/ai_assistant_service.py": {
+      "no-untyped-call": 2,
+      "no-untyped-def": 5,
+      "type-arg": 1,
+      "unused-ignore": 9
+    },
+    "app/domain/services/api_key_controls.py": {
+      "no-untyped-def": 1
+    },
+    "app/domain/services/auth_service.py": {
+      "arg-type": 1,
+      "no-untyped-call": 5,
+      "no-untyped-def": 1,
+      "type-arg": 6
+    },
+    "app/domain/services/calendar_service.py": {
+      "no-untyped-def": 2,
+      "type-arg": 1
+    },
+    "app/domain/services/care_reminder_service.py": {
+      "assignment": 1,
+      "no-untyped-def": 2,
+      "type-arg": 5,
+      "union-attr": 1
+    },
+    "app/domain/services/climate_normal_fetcher.py": {
+      "call-arg": 1
+    },
+    "app/domain/services/cv_diagnosis_service.py": {
+      "type-arg": 5
+    },
+    "app/domain/services/diagnose_service.py": {
+      "no-untyped-def": 2
+    },
+    "app/domain/services/environment_snapshot_service.py": {
+      "type-arg": 3
+    },
+    "app/domain/services/favorites_service.py": {
+      "type-arg": 6
+    },
+    "app/domain/services/feeding_service.py": {
+      "type-arg": 2
+    },
+    "app/domain/services/fertilizer_service.py": {
+      "attr-defined": 1,
+      "no-any-return": 1,
+      "type-arg": 6
+    },
+    "app/domain/services/glossary_service.py": {
+      "no-untyped-def": 1,
+      "unused-ignore": 6
+    },
+    "app/domain/services/harvest_service.py": {
+      "assignment": 1,
+      "type-arg": 4
+    },
+    "app/domain/services/identification_rate_limiter.py": {
+      "no-untyped-def": 1
+    },
+    "app/domain/services/identification_service.py": {
+      "assignment": 1,
+      "type-arg": 8
+    },
+    "app/domain/services/import_service.py": {
+      "attr-defined": 1,
+      "misc": 2,
+      "no-untyped-def": 11,
+      "type-arg": 10
+    },
+    "app/domain/services/inventree_service.py": {
+      "no-any-return": 1
+    },
+    "app/domain/services/ipm_service.py": {
+      "type-arg": 9
+    },
+    "app/domain/services/notification_propagation_service.py": {
+      "type-arg": 1
+    },
+    "app/domain/services/notification_service.py": {
+      "type-arg": 11
+    },
+    "app/domain/services/nutrient_plan_service.py": {
+      "arg-type": 1,
+      "no-any-return": 2,
+      "no-untyped-call": 1,
+      "no-untyped-def": 2,
+      "return-value": 1,
+      "type-arg": 14
+    },
+    "app/domain/services/onboarding_service.py": {
+      "no-untyped-def": 1,
+      "type-arg": 2
+    },
+    "app/domain/services/overwintering_materializer.py": {
+      "no-untyped-def": 1,
+      "type-arg": 1
+    },
+    "app/domain/services/overwintering_profile_service.py": {
+      "no-untyped-def": 2,
+      "type-arg": 3
+    },
+    "app/domain/services/pest_dataset_acquisition.py": {
+      "no-untyped-def": 1,
+      "type-arg": 4
+    },
+    "app/domain/services/pest_detection_service.py": {
+      "type-arg": 8
+    },
+    "app/domain/services/pest_image_service.py": {
+      "arg-type": 2
+    },
+    "app/domain/services/phase_sequence_service.py": {
+      "type-arg": 9
+    },
+    "app/domain/services/phase_service.py": {
+      "no-any-return": 3,
+      "no-untyped-def": 2,
+      "type-arg": 5
+    },
+    "app/domain/services/plant_diary_service.py": {
+      "type-arg": 2
+    },
+    "app/domain/services/plant_instance_service.py": {
+      "arg-type": 3,
+      "assignment": 2,
+      "type-arg": 2,
+      "union-attr": 1
+    },
+    "app/domain/services/planting_run_service.py": {
+      "arg-type": 3,
+      "assignment": 2,
+      "attr-defined": 7,
+      "index": 4,
+      "no-any-return": 1,
+      "no-untyped-def": 1,
+      "type-arg": 26,
+      "union-attr": 3
+    },
+    "app/domain/services/print_service.py": {
+      "type-arg": 9
+    },
+    "app/domain/services/privacy_service.py": {
+      "arg-type": 1,
+      "attr-defined": 1,
+      "operator": 1
+    },
+    "app/domain/services/quarter_climate_service.py": {
+      "no-untyped-def": 1
+    },
+    "app/domain/services/reference_image_service.py": {
+      "no-any-return": 2,
+      "no-untyped-def": 1,
+      "type-arg": 1
+    },
+    "app/domain/services/season_state_service.py": {
+      "attr-defined": 1,
+      "no-untyped-def": 1
+    },
+    "app/domain/services/sensor_service.py": {
+      "type-arg": 10
+    },
+    "app/domain/services/species_service.py": {
+      "type-arg": 5
+    },
+    "app/domain/services/starter_kit_service.py": {
+      "type-arg": 1
+    },
+    "app/domain/services/substrate_service.py": {
+      "type-arg": 3
+    },
+    "app/domain/services/succession_plan_service.py": {
+      "type-arg": 1
+    },
+    "app/domain/services/system_settings_service.py": {
+      "type-arg": 3
+    },
+    "app/domain/services/tank_service.py": {
+      "type-arg": 11
+    },
+    "app/domain/services/task_service.py": {
+      "arg-type": 1,
+      "assignment": 5,
+      "no-untyped-def": 2,
+      "type-arg": 19
+    },
+    "app/domain/services/tenant_service.py": {
+      "arg-type": 1,
+      "type-arg": 4
+    },
+    "app/domain/services/user_preference_service.py": {
+      "no-untyped-def": 1,
+      "type-arg": 3,
+      "var-annotated": 1
+    },
+    "app/domain/services/user_service.py": {
+      "type-arg": 1
+    },
+    "app/domain/services/watering_log_service.py": {
+      "attr-defined": 2,
+      "no-any-return": 1,
+      "type-arg": 7
+    },
+    "app/domain/services/watering_service.py": {
+      "no-any-return": 1,
+      "no-untyped-def": 3,
+      "type-arg": 6
+    },
+    "app/domain/services/weather_settings_service.py": {
+      "call-arg": 5
+    },
+    "app/domain/services/weather_source_resolver.py": {
+      "call-arg": 1,
+      "unused-ignore": 1
+    },
+    "app/domain/services/weather_source_service.py": {
+      "call-arg": 2,
+      "type-arg": 3
+    },
+    "app/main.py": {
+      "no-untyped-def": 2,
+      "type-arg": 3,
+      "unused-ignore": 3
+    },
+    "app/mcp_server/base.py": {
+      "no-untyped-def": 2,
+      "type-arg": 2
+    },
+    "app/mcp_server/idempotency.py": {
+      "no-untyped-def": 1
+    },
+    "app/mcp_server/session.py": {
+      "no-any-return": 1,
+      "no-untyped-def": 1
+    },
+    "app/mcp_server/tools/calendar.py": {
+      "override": 1
+    },
+    "app/mcp_server/tools/care.py": {
+      "arg-type": 1,
+      "override": 3
+    },
+    "app/mcp_server/tools/catalogs.py": {
+      "override": 6
+    },
+    "app/mcp_server/tools/diagnostics.py": {
+      "arg-type": 5,
+      "override": 1
+    },
+    "app/mcp_server/tools/diary.py": {
+      "arg-type": 1,
+      "no-any-return": 2,
+      "override": 10
+    },
+    "app/mcp_server/tools/feeding.py": {
+      "override": 2
+    },
+    "app/mcp_server/tools/harvest.py": {
+      "arg-type": 1,
+      "override": 1
+    },
+    "app/mcp_server/tools/ipm.py": {
+      "arg-type": 1,
+      "override": 8,
+      "type-arg": 1
+    },
+    "app/mcp_server/tools/knowledge.py": {
+      "override": 1
+    },
+    "app/mcp_server/tools/nutrient_calc.py": {
+      "override": 2
+    },
+    "app/mcp_server/tools/nutrition.py": {
+      "arg-type": 7,
+      "override": 10
+    },
+    "app/mcp_server/tools/phases.py": {
+      "arg-type": 4,
+      "override": 10
+    },
+    "app/mcp_server/tools/plant_reads.py": {
+      "arg-type": 3,
+      "override": 4
+    },
+    "app/mcp_server/tools/plants.py": {
+      "override": 4
+    },
+    "app/mcp_server/tools/privacy.py": {
+      "override": 1
+    },
+    "app/mcp_server/tools/runs.py": {
+      "override": 1
+    },
+    "app/mcp_server/tools/sites.py": {
+      "override": 3
+    },
+    "app/mcp_server/tools/species.py": {
+      "list-item": 1,
+      "no-untyped-call": 30,
+      "override": 4,
+      "union-attr": 1
+    },
+    "app/mcp_server/tools/substrates.py": {
+      "override": 9
+    },
+    "app/mcp_server/tools/tasks.py": {
+      "override": 1
+    },
+    "app/mcp_server/tools/tenants.py": {
+      "override": 1
+    },
+    "app/migrations/add_platform_admin.py": {
+      "arg-type": 3
+    },
+    "app/migrations/backfill_tenant_key.py": {
+      "arg-type": 1,
+      "misc": 4,
+      "union-attr": 12
+    },
+    "app/migrations/framework/runner.py": {
+      "type-arg": 1
+    },
+    "app/migrations/migrate_fertilizer_calmag_type.py": {
+      "union-attr": 3
+    },
+    "app/migrations/migrate_lifecycle_to_phase_sequence.py": {
+      "arg-type": 2
+    },
+    "app/migrations/migrate_nutrient_phase_harvest.py": {
+      "union-attr": 3
+    },
+    "app/migrations/seed_activities.py": {
+      "arg-type": 1
+    },
+    "app/migrations/seed_adventskalender.py": {
+      "arg-type": 2,
+      "assignment": 3,
+      "attr-defined": 2,
+      "no-any-return": 2
+    },
+    "app/migrations/seed_auth.py": {
+      "no-untyped-def": 1
+    },
+    "app/migrations/seed_cultivation_flexible.py": {
+      "type-arg": 1
+    },
+    "app/migrations/seed_data.py": {
+      "arg-type": 7,
+      "assignment": 9,
+      "no-any-return": 5,
+      "type-arg": 7
+    },
+    "app/migrations/seed_e2e_platform_admin.py": {
+      "no-untyped-def": 1
+    },
+    "app/migrations/seed_lifecycles_outdoor.py": {
+      "arg-type": 3,
+      "no-redef": 1,
+      "union-attr": 3
+    },
+    "app/migrations/seed_nutrient_plans_ro.py": {
+      "no-any-return": 1
+    },
+    "app/migrations/seed_phase_sequences.py": {
+      "assignment": 1
+    },
+    "app/migrations/seed_plant_info.py": {
+      "arg-type": 2,
+      "assignment": 5,
+      "attr-defined": 12,
+      "no-any-return": 1
+    },
+    "app/migrations/seed_plant_info_extended.py": {
+      "arg-type": 1,
+      "assignment": 5,
+      "attr-defined": 1
+    },
+    "app/migrations/seed_starter_kits.py": {
+      "union-attr": 3,
+      "var-annotated": 1
+    },
+    "app/migrations/seed_steckbrief_consistency.py": {
+      "import-untyped": 1
+    },
+    "app/migrations/seed_upsert_helpers.py": {
+      "union-attr": 3
+    },
+    "app/migrations/support/care_profile_recompute.py": {
+      "union-attr": 12
+    },
+    "app/migrations/versions/v0004_backfill_tenant_key.py": {
+      "arg-type": 2
+    },
+    "app/migrations/versions/v0006_backfill_data_origin.py": {
+      "import-untyped": 1,
+      "type-arg": 1,
+      "union-attr": 15
+    },
+    "app/migrations/versions/v0007_season_state_and_overwintering_backfill.py": {
+      "arg-type": 1,
+      "type-arg": 1
+    },
+    "app/migrations/versions/v0008_backfill_enrichment_origin.py": {
+      "union-attr": 6
+    },
+    "app/migrations/versions/v0010_backfill_scientific_name_normalized.py": {
+      "arg-type": 8,
+      "dict-item": 1,
+      "misc": 4,
+      "union-attr": 18
+    },
+    "app/migrations/versions/v0011_climate_normals_collection.py": {
+      "arg-type": 2,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0012_irrigation_demands_collection.py": {
+      "arg-type": 3,
+      "misc": 1,
+      "union-attr": 6
+    },
+    "app/migrations/versions/v0013_hardiness_zones_collection.py": {
+      "arg-type": 2,
+      "union-attr": 6
+    },
+    "app/migrations/versions/v0014_cv_diagnosis_collections.py": {
+      "arg-type": 2,
+      "misc": 2,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0015_inventree_collections.py": {
+      "arg-type": 2,
+      "misc": 2,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0019_actuator_collections.py": {
+      "arg-type": 3,
+      "assignment": 1,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0020_backfill_watering_log_tenant_key.py": {
+      "arg-type": 1,
+      "dict-item": 1,
+      "index": 1,
+      "no-any-return": 2,
+      "union-attr": 5
+    },
+    "app/migrations/versions/v0021_heal_dangling_phase_current_key.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0022_bind_perennials_to_cyclic_sequence.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0023_document_instance_cultivation_cycle.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0024_rebind_masterdata_sweep_sequences.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0025_dedup_auto_generated_task_templates.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0027_finetype_cam_monocarp_photoperiodic_sequences.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0028_rebind_dendrobium_nobile_cam_succulent_rest.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0029_repair_fragaria_runner_binding.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0030_sparse_unique_harvest_batch_id.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0031_dedup_user_singletons_unique_index.py": {
+      "arg-type": 1,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0032_two_axis_role_model.py": {
+      "arg-type": 3,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0034_backfill_watering_event_tenant_key.py": {
+      "arg-type": 1,
+      "dict-item": 1,
+      "index": 1,
+      "no-any-return": 2,
+      "union-attr": 7
+    },
+    "app/migrations/versions/v0035_backfill_task_template_tenant_key.py": {
+      "arg-type": 1,
+      "dict-item": 1,
+      "return-value": 1
+    },
+    "app/migrations/versions/v0036_cutover_species_tenant_key.py": {
+      "arg-type": 1,
+      "dict-item": 1
+    },
+    "app/migrations/versions/v0037_backfill_task_origin.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0038_cutover_cultivar_tenant_key.py": {
+      "arg-type": 1,
+      "dict-item": 1
+    },
+    "app/migrations/versions/v0039_rebind_short_day_geophytes.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0040_repair_phase_bindings_and_placements.py": {
+      "arg-type": 3,
+      "assignment": 2
+    },
+    "app/migrations/versions/v0041_tenant_scoped_species_dedup_index.py": {
+      "return-value": 1,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0042_stamp_planting_run_entry_tenant.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0043_attribute_substrate_batches.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0044_attribute_fertilizer_stocks.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0045_dedup_open_care_tasks_unique_index.py": {
+      "union-attr": 6
+    },
+    "app/migrations/versions/v0046_reconcile_photo_refs.py": {
+      "union-attr": 12
+    },
+    "app/migrations/versions/v0047_reapply_corrected_substrate_values.py": {
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0048_backfill_missing_care_profiles.py": {
+      "arg-type": 3,
+      "dict-item": 1,
+      "union-attr": 12
+    },
+    "app/migrations/versions/v0049_reapply_substrate_source_values.py": {
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0050_repair_care_profiles_family_and_guide.py": {
+      "union-attr": 12
+    },
+    "app/migrations/versions/v0051_rename_cec_key.py": {
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0052_drop_unowned_import_jobs.py": {
+      "arg-type": 2,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0054_strip_credentials_from_soft_deleted_accounts.py": {
+      "arg-type": 2,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0055_rename_account_type_user_to_human.py": {
+      "arg-type": 2,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0056_stamp_attribution_user_keys.py": {
+      "arg-type": 2,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0057_stamp_quality_assessor_user_key.py": {
+      "arg-type": 2,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0058_stamp_nutrient_plan_species_relation.py": {
+      "arg-type": 2,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0059_backfill_instantiated_task_tenant_key.py": {
+      "arg-type": 2,
+      "return-value": 1,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0060_mark_reference_contributions.py": {
+      "union-attr": 2
+    },
+    "app/migrations/versions/v0061_mark_pest_prototype_contributions.py": {
+      "arg-type": 2,
+      "union-attr": 2
+    },
+    "app/migrations/versions/v0062_split_shared_attachment_ownership.py": {
+      "arg-type": 3,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0063_canonicalise_api_key_tenant_scope.py": {
+      "arg-type": 2,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0064_bind_provider_links_to_configuration.py": {
+      "arg-type": 2,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0065_drop_free_text_email_recipients.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0066_reset_legacy_seed_tenant_stamps.py": {
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0067_clean_legacy_foreign_references.py": {
+      "arg-type": 1
+    },
+    "app/migrations/versions/v0068_dedupe_seed_rows_multiplied_per_boot.py": {
+      "arg-type": 4,
+      "union-attr": 9
+    },
+    "app/migrations/versions/v0069_tenant_scoped_fertilizer_identity_index.py": {
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0070_reset_harvest_indicator_stamps_and_guard_seed_identity.py": {
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0071_remove_orphaned_phase_profiles.py": {
+      "arg-type": 2
+    },
+    "app/migrations/versions/v0072_complete_fertilizer_identity_cutover.py": {
+      "arg-type": 2,
+      "union-attr": 3
+    },
+    "app/migrations/versions/v0078_clear_system_flag_on_tenant_catalogue_rows.py": {
+      "arg-type": 2
+    },
+    "app/migrations/versions/v0089_revoke_unchecked_platform_lead_invitations.py": {
+      "arg-type": 1
+    },
+    "app/migrations/yaml_loader.py": {
+      "import-untyped": 1
+    },
+    "app/observability/error_tracking.py": {
+      "arg-type": 2
+    },
+    "app/tasks/__init__.py": {
+      "import-untyped": 3
+    },
+    "app/tasks/actuator_tasks.py": {
+      "no-untyped-def": 4,
+      "type-arg": 3,
+      "untyped-decorator": 3
+    },
+    "app/tasks/ai_tasks.py": {
+      "no-any-return": 1,
+      "no-untyped-def": 1,
+      "type-arg": 1,
+      "untyped-decorator": 3
+    },
+    "app/tasks/auth_tasks.py": {
+      "arg-type": 1,
+      "type-arg": 6,
+      "untyped-decorator": 5
+    },
+    "app/tasks/care_tasks.py": {
+      "arg-type": 2,
+      "no-any-return": 1,
+      "no-untyped-def": 1,
+      "type-arg": 3,
+      "untyped-decorator": 1
+    },
+    "app/tasks/climate_tasks.py": {
+      "call-arg": 1,
+      "no-untyped-def": 1,
+      "type-arg": 2,
+      "union-attr": 3,
+      "untyped-decorator": 1
+    },
+    "app/tasks/dormancy_checks.py": {
+      "type-arg": 1,
+      "untyped-decorator": 1
+    },
+    "app/tasks/enrichment_tasks.py": {
+      "type-arg": 2,
+      "untyped-decorator": 2,
+      "unused-ignore": 3
+    },
+    "app/tasks/frost_forecast_tasks.py": {
+      "no-untyped-def": 1,
+      "type-arg": 2,
+      "union-attr": 3,
+      "untyped-decorator": 1
+    },
+    "app/tasks/glossary_tasks.py": {
+      "import-untyped": 1,
+      "type-arg": 1,
+      "untyped-decorator": 3
+    },
+    "app/tasks/hardiness_tasks.py": {
+      "no-untyped-def": 1,
+      "type-arg": 2,
+      "union-attr": 3,
+      "untyped-decorator": 1
+    },
+    "app/tasks/inventree_tasks.py": {
+      "no-untyped-call": 1,
+      "no-untyped-def": 3,
+      "type-arg": 3,
+      "union-attr": 3,
+      "untyped-decorator": 2
+    },
+    "app/tasks/irrigation_tasks.py": {
+      "no-untyped-call": 1,
+      "no-untyped-def": 6,
+      "type-arg": 3,
+      "untyped-decorator": 1
+    },
+    "app/tasks/mcp_tasks.py": {
+      "untyped-decorator": 2
+    },
+    "app/tasks/notification_tasks.py": {
+      "no-any-return": 1,
+      "no-untyped-def": 2,
+      "type-arg": 9,
+      "untyped-decorator": 4,
+      "unused-ignore": 1
+    },
+    "app/tasks/pest_dataset_tasks.py": {
+      "type-arg": 1,
+      "untyped-decorator": 1,
+      "unused-ignore": 1
+    },
+    "app/tasks/pest_image_tasks.py": {
+      "type-arg": 6,
+      "untyped-decorator": 4,
+      "unused-ignore": 4
+    },
+    "app/tasks/phase_transitions.py": {
+      "no-any-return": 1,
+      "no-untyped-def": 5,
+      "type-arg": 2,
+      "untyped-decorator": 1
+    },
+    "app/tasks/reference_contribution_tasks.py": {
+      "type-arg": 2,
+      "untyped-decorator": 1,
+      "unused-ignore": 1
+    },
+    "app/tasks/reference_image_tasks.py": {
+      "type-arg": 2,
+      "untyped-decorator": 2,
+      "unused-ignore": 2
+    },
+    "app/tasks/retention_tasks.py": {
+      "type-arg": 11,
+      "untyped-decorator": 11,
+      "unused-ignore": 11
+    },
+    "app/tasks/season_tasks.py": {
+      "no-untyped-def": 2,
+      "type-arg": 3,
+      "untyped-decorator": 2
+    },
+    "app/tasks/sensor_ingestion_tasks.py": {
+      "type-arg": 2,
+      "union-attr": 3,
+      "untyped-decorator": 1
+    },
+    "app/tasks/storage_tasks.py": {
+      "no-any-return": 1,
+      "type-arg": 7,
+      "untyped-decorator": 5,
+      "unused-ignore": 5
+    },
+    "app/tasks/tank_maintenance_tasks.py": {
+      "arg-type": 1,
+      "type-arg": 5,
+      "untyped-decorator": 4
+    },
+    "app/tasks/task_bridge.py": {
+      "no-untyped-def": 2,
+      "untyped-decorator": 1
+    },
+    "app/tasks/tenant_tasks.py": {
+      "type-arg": 3,
+      "untyped-decorator": 3
+    },
+    "app/tasks/vernalization_updates.py": {
+      "type-arg": 1,
+      "untyped-decorator": 1
+    },
+    "app/tasks/watering_tasks.py": {
+      "no-untyped-def": 2,
+      "type-arg": 1,
+      "untyped-decorator": 1
+    },
+    "app/tasks/weather_tasks.py": {
+      "no-untyped-def": 1,
+      "type-arg": 2,
+      "union-attr": 3,
+      "untyped-decorator": 1
+    }
+  }
+}

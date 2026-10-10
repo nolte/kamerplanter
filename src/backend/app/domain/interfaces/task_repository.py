@@ -23,6 +23,8 @@ class ITaskRepository(ABC):
         limit: int = 50,
         species_key: str | None = None,
         target_entity_type: str | None = None,
+        *,
+        tenant_key: str | None = None,
     ) -> tuple[list[WorkflowTemplate], int]: ...
 
     @abstractmethod
