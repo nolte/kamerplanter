@@ -68,7 +68,7 @@ class IMembershipRepository(ABC):
 
     @abstractmethod
     def count_managers(self, tenant_key: str, *, other_than_user_key: str | None = None) -> int:
-        """Active ``management`` memberships of live accounts, *other_than_user_key* left out (INV-1, #2166)."""
+        """Active ``management`` memberships of live person accounts, *other_than_user_key* left out (INV-1, #2166)."""
 
     @abstractmethod
     def count_active_members(self, *, tenant_key: str) -> int:

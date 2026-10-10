@@ -233,3 +233,61 @@ def test_a_closed_accounts_management_does_not_count_for_inv1(db) -> None:  # ty
     with pytest.raises(ValidationError, match="management"):
         service.leave_tenant(ORG, "u-manager")
     assert db.collection(col.MEMBERSHIPS).get("m-u-manager") is not None
+
+
+# ── #2166 re-review W-1 — a service account's management is no living administration ──
+
+
+def test_a_service_accounts_management_does_not_count_for_inv1(db) -> None:  # type: ignore[no-untyped-def]
+    """W-1: person A and service account S both hold ``management`` — A may not leave.
+
+    S passes no step-up, so it cannot administer the members; counted as a second manager
+    it let the last *person* holder leave and strand the organisation.
+    """
+    _org(db)
+    _user(db, "u-person")
+    _member(db, "u-person", "lead", ["management"], "2025-01-01T00:00:00+00:00")
+    _user(db, "u-robot", account_type="service")
+    _member(db, "u-robot", "lead", ["management"], "2023-01-01T00:00:00+00:00")
+    repo = ArangoMembershipRepository(db)
+    service, _mailer = _service(db)
+
+    assert repo.count_managers(ORG) == 1
+    assert repo.count_managers(ORG, other_than_user_key="u-person") == 0
+    with pytest.raises(ValidationError, match="management"):
+        service.leave_tenant(ORG, "u-person")
+    assert db.collection(col.MEMBERSHIPS).get("m-u-person") is not None
+
+
+def test_a_service_accounts_management_does_not_spare_the_handover_to_a_person_lead(db) -> None:  # type: ignore[no-untyped-def]
+    """W-1: the subject's erasure hands ``management`` to the person lead although S holds it too."""
+    _org(db)
+    _member(db, SUBJECT, "lead", ["management"], "2024-01-01T00:00:00+00:00")
+    _user(db, "u-robot", account_type="service")
+    _member(db, "u-robot", "lead", ["management"], "2023-01-01T00:00:00+00:00")
+    _user(db, "u-lead")
+    _member(db, "u-lead", "lead", [], "2026-02-01T00:00:00+00:00")
+    service, _mailer = _service(db)
+
+    outcomes = service.settle_organisations_of_erased_account(SUBJECT, now=NOW)
+
+    assert [(o.tenant_key, o.outcome) for o in outcomes] == [(ORG, "management_passes_to_lead")]
+    stored: dict[str, Any] = {doc["user_key"]: doc for doc in db.collection(col.MEMBERSHIPS).all()}
+    assert stored["u-lead"]["admin_scopes"] == [AdminScope.MANAGEMENT.value]
+
+
+def test_a_service_accounts_management_does_not_keep_a_personless_organisation_alive(db) -> None:  # type: ignore[no-untyped-def]
+    """W-1: without a person lead the organisation is orphaned, whatever S holds."""
+    _org(db)
+    _member(db, SUBJECT, "lead", ["management"], "2024-01-01T00:00:00+00:00")
+    _user(db, "u-robot", account_type="service")
+    _member(db, "u-robot", "lead", ["management"], "2023-01-01T00:00:00+00:00")
+    _user(db, "u-grower")
+    _member(db, "u-grower", "grower", [], "2025-01-01T00:00:00+00:00")
+    service, _mailer = _service(db)
+
+    outcomes = service.settle_organisations_of_erased_account(SUBJECT, now=NOW)
+
+    assert [(o.tenant_key, o.outcome) for o in outcomes] == [(ORG, "orphaned")]
+    tenant = ArangoTenantRepository(db).get_by_key(ORG)
+    assert tenant is not None and tenant.status == TenantStatus.ORPHANED

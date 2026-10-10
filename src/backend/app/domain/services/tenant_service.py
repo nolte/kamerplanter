@@ -3245,12 +3245,13 @@ class TenantService:
         )
 
     def _guard_last_manager(self, membership: Membership, message: str) -> None:
-        """Raise unless another live account keeps the ``MANAGEMENT`` scope in the tenant (INV-1).
+        """Raise unless another live person account keeps the ``MANAGEMENT`` scope in the tenant (INV-1).
 
         *membership* holds ``MANAGEMENT`` and is about to lose it (removal, leave, demotion).
         The others are counted among **live** accounts only (#2166): a holder whose account
         asked for its erasure or was deactivated cannot administer anything, so counting it
-        let the last live holder strand the tenant. *membership* itself is counted in by the
+        let the last live holder strand the tenant; a service account's ``MANAGEMENT`` does not
+        count either, it passes no step-up (re-review W-1). *membership* itself is counted in by the
         engine's contract ("the target included") whatever its account's state, so removing
         a closed account's membership is not blocked while one live holder remains.
         """

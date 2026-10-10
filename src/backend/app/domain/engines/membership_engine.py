@@ -181,7 +181,7 @@ class MembershipEngine:
           remaining ``lead`` (earliest ``joined_at``; an unrecorded start sorts last,
           the membership key breaks a tie) receives it: ``management_passes_to_lead``;
           without a remaining ``lead`` → ``orphaned``;
-        * otherwise → ``unaffected``.
+        * otherwise (another **person** holds ``management``) → ``unaffected``.
 
         Only a person's account inherits (#2166): *non_interactive_user_keys* are the
         service accounts among *others* (``allows_interactive_auth`` is false). A machine
@@ -189,14 +189,19 @@ class MembershipEngine:
         for, so ``management`` handed to it would leave the organisation as unadministrable
         as no heir at all — a ``lead`` service account (the platform-admin path allows one,
         REQ-023 §5b.3) is passed over, and without a person ``lead`` the organisation is
-        ``orphaned``. Keyword-only without a default, so a caller cannot forget the set.
+        ``orphaned``. For the same reason a service account's own ``management`` keeps
+        nothing administrable (re-review W-1): only a person's counts as the remaining
+        holder that leaves the organisation ``unaffected``. Keyword-only without a
+        default, so a caller cannot forget the set.
 
         Returns the outcome and, for a handover, the membership that receives
         ``management``.
         """
         if not others:
             return "orphaned", None
-        if not leaving.has_management or any(member.has_management for member in others):
+        if not leaving.has_management or any(
+            member.has_management and member.user_key not in non_interactive_user_keys for member in others
+        ):
             return "unaffected", None
         leads = [
             member

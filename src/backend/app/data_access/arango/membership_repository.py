@@ -296,6 +296,11 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         the tenant kept a ``management`` membership nobody could use. The account
         population is :meth:`active_memberships_of`'s.
 
+        Only a **person** counts (#2166 re-review W-1): a service account
+        (``account_type == "service"``, ``allows_interactive_auth`` false) holds no
+        session and passes no step-up, so its ``management`` administers nobody —
+        counted, it let the last person holder leave as well.
+
         Args:
             other_than_user_key: Leave this account's membership out — the holder
                 about to leave, be removed or lose the scope (``None`` counts all).
@@ -308,7 +313,7 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
             AND doc.user_key != null AND doc.user_key != ""
             AND doc.user_key != @other_than
           LET account = DOCUMENT(@@users, doc.user_key)
-          FILTER account != null AND account.is_active != false
+          FILTER account != null AND account.is_active != false AND account.account_type != "service"
           COLLECT WITH COUNT INTO cnt
           RETURN cnt
         """

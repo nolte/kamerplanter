@@ -144,6 +144,27 @@ class TestTheDecision:
             subject, others, non_interactive_user_keys=frozenset({"robot"})
         ) == ("orphaned", None)
 
+    def test_a_service_accounts_management_is_no_living_administration(self) -> None:
+        # #2166 re-review W-1 — a machine identity holding ``management`` cannot administer either.
+        subject = _m(SUBJECT, TenantRole.LEAD, [AdminScope.MANAGEMENT])
+        robot = _m("robot", TenantRole.LEAD, [AdminScope.MANAGEMENT], joined="2020-01-01T00:00:00+00:00")
+        person = _m("person", TenantRole.LEAD, joined="2026-01-01T00:00:00+00:00")
+
+        outcome, heir = MembershipEngine.departure_settlement(
+            subject, [robot, person], non_interactive_user_keys=frozenset({"robot"})
+        )
+
+        assert outcome == "management_passes_to_lead"
+        assert heir is not None and heir.user_key == "person"
+
+    def test_a_service_account_with_management_and_no_person_lead_orphans_the_organisation(self) -> None:
+        subject = _m(SUBJECT, TenantRole.LEAD, [AdminScope.MANAGEMENT])
+        others = [_m("robot", TenantRole.LEAD, [AdminScope.MANAGEMENT]), _m("grower-1", TenantRole.GROWER)]
+
+        assert MembershipEngine.departure_settlement(
+            subject, others, non_interactive_user_keys=frozenset({"robot"})
+        ) == ("orphaned", None)
+
     def test_the_last_member_orphans_the_organisation_whatever_its_scopes(self) -> None:
         assert MembershipEngine.departure_settlement(
             _m(SUBJECT, TenantRole.VIEWER), [], non_interactive_user_keys=frozenset()
