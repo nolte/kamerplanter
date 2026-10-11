@@ -139,6 +139,13 @@ jobs:
       max-parallel: 12
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
+      - name: Log in to Docker Hub
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The guards read git history (the migration-rename guard runs `git log`).
