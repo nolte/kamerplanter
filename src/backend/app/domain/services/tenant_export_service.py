@@ -65,6 +65,7 @@ from app.common.enums import (
 from app.common.exceptions import (
     ExportAlreadyRunningError,
     ForbiddenError,
+    MemberLimitReachedError,
     NotFoundError,
     PayloadTooLargeError,
     RateLimitError,
@@ -931,6 +932,9 @@ class TenantExportService:
             return self._fail_import(claimed, exc.code, cleanup_pending_tenant=exc.tenant_key)
         except TenantImportRefusedError as exc:
             return self._fail_import(claimed, exc.error_code, missing=_reasons(exc))
+        except MemberLimitReachedError:
+            # I3 of review round 3 — the target plan admits fewer members than the admin mapped.
+            return self._fail_import(claimed, "MEMBER_LIMIT_REACHED")
         except Exception as exc:  # noqa: BLE001 - recorded as failed; the rollback removed what the run wrote
             logger.error("tenant_import.failed", error_type=type(exc).__name__)
             return self._fail_import(claimed, "IMPORT_FAILED")
@@ -976,9 +980,14 @@ class TenantExportService:
     ) -> TenantImportRequest | None:
         """End the request ``failed`` — or ``cleanup_pending`` with the tenant's key when a rollback left rows.
 
-        Audited either way (``tenant_import_requested`` with the outcome and the archive's hash, I9).
+        The request never lets go of a tenant that is still ``importing`` (R3-01 of the PR #2267 review):
+        whatever path a failure took, a request whose recorded tenant still exists in that state ends
+        ``cleanup_pending`` with the key kept, so the hourly sweep erases it. Audited either way
+        (``tenant_import_requested`` with the outcome and the archive's hash, I9).
         """
         now = self._now()
+        if not cleanup_pending_tenant:
+            cleanup_pending_tenant = self._still_importing_target(request)
         pending = bool(cleanup_pending_tenant)
         if self._audit is not None:
             self._audit.record_tenant_change(
@@ -1002,6 +1011,15 @@ class TenantExportService:
                 "member_grants": {},
             },
         )
+
+    def _still_importing_target(self, request: TenantImportRequest) -> str | None:
+        """The request's recorded tenant when it still exists and is ``importing``, else ``None``."""
+        current = self._imports.get(request.key or "") if request.key else None
+        target = (current.target_tenant_key if current is not None else None) or request.target_tenant_key
+        if not target:
+            return None
+        tenant = self._tenants.get_by_key(target)
+        return target if tenant is not None and tenant.status == TenantStatus.IMPORTING else None
 
     async def import_archive(
         self,
@@ -1048,24 +1066,26 @@ class TenantExportService:
         tenant_key = new_document_key()
         if before_founding is not None:
             before_founding(tenant_key)
-        self._tenant_service.found_imported_tenant(
-            actor_user_key=actor_user_key,
-            name=str(source.get("name") or "Imported garden"),
-            slug_hint=str(source.get("slug") or source.get("name") or "imported-garden"),
-            description=description,
-            settings=tenant_settings,
-            plan_key=plan_key,
-            owner_user_key=owner,
-            members=members,
-            founder_scopes=list(owner_grant.admin_scopes) if owner_grant is not None else None,
-            tenant_key=tenant_key,
-        )
         account_keys = {old_key: grant.account_key for old_key, grant in member_grants.items()}
         engine = TenantImportEngine(archive, target_tenant_key=tenant_key, member_accounts=account_keys)
         written: dict[str, list[str]] = {}
         objects_written: list[str] = []
         beat = heartbeat or (lambda: None)
         try:
+            # R3-01 — inside the rollback: the founding writes the tenant first and the memberships one by
+            # one, so a failure part-way through it leaves an ``importing`` tenant that must be removed too.
+            self._tenant_service.found_imported_tenant(
+                actor_user_key=actor_user_key,
+                name=str(source.get("name") or "Imported garden"),
+                slug_hint=str(source.get("slug") or source.get("name") or "imported-garden"),
+                description=description,
+                settings=tenant_settings,
+                plan_key=plan_key,
+                owner_user_key=owner,
+                members=members,
+                founder_scopes=list(owner_grant.admin_scopes) if owner_grant is not None else None,
+                tenant_key=tenant_key,
+            )
             existing_global, missing = self._catalogue_rows(engine)
             if missing:
                 raise TenantImportRefusedError(
@@ -1138,19 +1158,21 @@ class TenantExportService:
         return types
 
     async def _rollback(self, tenant_key: str, written: dict[str, list[str]], objects: list[str]) -> bool:
-        """Remove every row, edge and object the failed run wrote, then the tenant itself; ``True`` when clean.
+        """Remove everything the failed run wrote, then the tenant; ``True`` when no ``importing`` tenant is left.
 
-        The tenant document and its memberships go only when everything else went (SEC-R2-03): a
-        tenant shell removed over rows that stayed would leave rows of no tenant that no sweep finds.
-        When anything is left, the tenant stays ``importing`` — unreachable — and the caller hands
-        it to the sweep, which erases it through the tenant-erasure inventory.
+        The lists of what the run wrote are removed first (exact and cheap), but they cannot know about a write
+        whose outcome was unclear — a transaction that committed although the client saw an error. So the
+        rollback does not stop there (I1 of review round 3): the whole object prefix ``t/<tenant>/`` is
+        deleted, and the tenant goes through the tenant-erasure inventory like an abandoned import
+        (:meth:`TenantService.erase_abandoned_import`: every row, edge, object and reading of the tenant,
+        then the tenant). When that cannot take the tenant (the erasure is not configured, the database is
+        unreachable), the tenant stays ``importing`` — unreachable — and the caller hands it to the hourly
+        sweep (SEC-R2-03); rows of no tenant are never left behind.
         """
-        clean = True
         for collection, keys in written.items():
             try:
                 self._store.remove_documents(collection, keys)
-            except Exception as exc:  # noqa: BLE001 - continue with the rest; the sweep erases what is left
-                clean = False
+            except Exception as exc:  # noqa: BLE001 - continue; the inventory erasure below takes the rest
                 logger.error("tenant_import.rollback_failed", collection=collection, error_type=type(exc).__name__)
         if self._storage is not None:
             for key in objects:
@@ -1158,18 +1180,21 @@ class TenantExportService:
                     await self._storage.delete_object(key)
                 except NotFoundError:
                     continue
-                except Exception as exc:  # noqa: BLE001 - continue with the rest; the sweep erases what is left
-                    clean = False
+                except Exception as exc:  # noqa: BLE001 - continue; the prefix delete below takes the rest
                     logger.error("tenant_import.rollback_object_failed", error_type=type(exc).__name__)
-        if not clean:
-            logger.error("tenant_import.rollback_incomplete", tenant=log_tenant(tenant_key))
-            return False
+            try:
+                await self._storage.delete_prefix(f"t/{tenant_key}/")
+            except Exception as exc:  # noqa: BLE001 - the inventory erasure purges the prefix again
+                logger.error("tenant_import.rollback_prefix_failed", error_type=type(exc).__name__)
         try:
-            self._store.remove_tenant_shell(tenant_key=tenant_key)
-        except Exception as exc:  # noqa: BLE001 - the tenant is still ``importing``; the sweep erases it
+            self._tenant_service.erase_abandoned_import(tenant_key, now=self._now())
+        except Exception as exc:  # noqa: BLE001 - judged by what is left below
             logger.error(
-                "tenant_import.rollback_shell_failed", tenant=log_tenant(tenant_key), error_type=type(exc).__name__
+                "tenant_import.rollback_erase_failed", tenant=log_tenant(tenant_key), error_type=type(exc).__name__
             )
+        left = self._tenants.get_by_key(tenant_key)
+        if left is not None and left.status == TenantStatus.IMPORTING:
+            logger.error("tenant_import.rollback_incomplete", tenant=log_tenant(tenant_key))
             return False
         logger.warning("tenant_import.rolled_back", tenant=log_tenant(tenant_key))
         return True

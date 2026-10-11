@@ -391,7 +391,14 @@ class TenantService:
 
         *tenant_key* is the key the tenant is written under: the import records it on its request before
         this call, so no moment exists in which the tenant exists and the request does not name it (a run
-        that dies right after the founding is still swept).
+        that dies right after the founding is still swept). The tenant and the owner's membership are one
+        transaction; every further membership is its own write, so a failure part-way leaves an
+        ``importing`` tenant — the caller calls this inside its rollback, and a request never lets go of a
+        tenant still ``importing`` (R3-01).
+
+        The target plan's member limit is checked once the tenant exists, against every mapped account
+        (``422 MEMBER_LIMIT_REACHED``): the memberships are written inactive, and the join-time check
+        counts active ones only, so it would admit any number of them (I3 of review round 3).
 
         The tenant is founded ``importing`` and every membership inactive (SEC-007): nobody reaches it
         until :meth:`activate_imported_tenant` runs after the last row is written.
@@ -424,6 +431,11 @@ class TenantService:
             tenant_key=tenant_key,
         )
         tenant_key = founded.key or ""
+        self._entitlements.require(
+            tenant_key,
+            EntitlementDimension.MEMBERS,
+            projected=len({member.user_key for member in members} | {owner_user_key}),
+        )
         for member in members:
             if member.user_key == owner_user_key:
                 continue

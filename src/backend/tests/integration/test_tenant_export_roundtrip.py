@@ -593,8 +593,9 @@ def test_a_failure_mid_import_leaves_no_tenant_behind(source, target, tmp_path) 
         info["name"]: target.collection(info["name"]).count() for info in target.collections() if not info["system"]
     }
     grown = {name: (counts_before[name], n) for name, n in counts_after.items() if n != counts_before[name]}
-    # The founding wrote one security-audit row (membership_added); that row is the proof and stays.
-    assert set(grown) <= {"security_audit_log"}, grown
+    # The founding wrote one security-audit row (membership_added) and the rollback's inventory erasure its
+    # record (I1 of round 3); both are the proof and stay. No row of the tenant is left.
+    assert set(grown) <= {"security_audit_log", "tenant_erasure_records"}, grown
 
 
 def _crafted(entries: dict[str, list[dict]], edges: dict[str, list[dict]] | None = None) -> bytes:
@@ -866,8 +867,16 @@ def test_a_rollback_that_leaves_rows_keeps_the_tenant_for_the_sweep(source, targ
 
     store.insert_documents = failing_insert  # type: ignore[method-assign]
     store.remove_documents = failing_remove  # type: ignore[method-assign]
+    # The database is unreachable for the inventory erasure of the rollback too (I1 of round 3).
+    real_erase = dst._tenant_service.erase_abandoned_import
+
+    def unreachable_erase(tenant_key: str, *, now: datetime) -> bool:
+        raise RuntimeError("connection lost")
+
+    dst._tenant_service.erase_abandoned_import = unreachable_erase  # type: ignore[method-assign]
 
     finished = _request_and_run(dst, archive, {})
+    dst._tenant_service.erase_abandoned_import = real_erase  # type: ignore[method-assign]
 
     assert finished.status == "cleanup_pending", finished
     assert finished.failure_reason == "IMPORT_FAILED"
@@ -949,3 +958,148 @@ def test_a_legacy_stamped_catalogue_row_counts_as_present(target, tmp_path) -> N
         target.aql.execute("FOR h IN harvest_observations FILTER h.indicator_key == 'hi-1' RETURN h", bind_vars={})
     )
     assert len(written) == 1
+
+
+# ── PR #2267 security review, round 3 ────────────────────────────────
+
+
+def _importing_tenants(db) -> list[str]:
+    return list(db.aql.execute("FOR t IN tenants FILTER t.status == 'importing' RETURN t._key"))
+
+
+def _two_members(target) -> dict[str, dict]:
+    for key in ("new-lead", "new-grower"):
+        target.collection("users").insert(
+            {"_key": key, "email": f"{key}@example.com", "display_name": key, "account_type": "human"}
+        )
+    return {
+        f"{A}-{LEAD}": _grant("new-lead@example.com"),
+        f"{A}-{GROWER}": _grant("new-grower@example.com", role="grower", scopes=()),
+    }
+
+
+def test_a_failure_while_founding_leaves_no_tenant_behind(source, target, tmp_path) -> None:
+    """R3-01 — the second membership fails after the tenant was written: the rollback takes the tenant too."""
+    _seed_tenant(source, A)
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    mapping = _two_members(target)
+    dst = _service(target, tmp_path / "dst")
+
+    def failing_membership(membership: Any) -> Any:
+        raise RuntimeError("connection lost")
+
+    dst._tenant_service._create_membership_unless_erasing = failing_membership  # type: ignore[method-assign]
+
+    finished = _request_and_run(dst, archive, mapping)
+
+    assert (finished.status, finished.failure_reason, finished.target_tenant_key) == ("failed", "IMPORT_FAILED", None)
+    assert _importing_tenants(target) == []
+
+
+def test_a_request_never_lets_go_of_a_tenant_that_is_still_importing(source, target, tmp_path) -> None:
+    """R3-01 — whatever path a failure took, an ``importing`` tenant stays named for the sweep."""
+    _seed_tenant(source, A)
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    dst = _service(target, tmp_path / "dst")
+    real_insert = dst._store.insert_documents
+
+    def failing_insert(collection: str, documents: list[dict[str, Any]]) -> list[str]:
+        raise RuntimeError("disk full")
+
+    async def broken_rollback(tenant_key: str, written: Any, objects: Any) -> bool:
+        raise RuntimeError("the rollback itself died")
+
+    dst._store.insert_documents = failing_insert  # type: ignore[method-assign]
+    dst._rollback = broken_rollback  # type: ignore[method-assign]
+
+    finished = _request_and_run(dst, archive, {})
+
+    half = finished.target_tenant_key or ""
+    assert (finished.status, bool(half)) == ("cleanup_pending", True), finished
+    assert _importing_tenants(target) == [half]
+
+    dst._store.insert_documents = real_insert  # type: ignore[method-assign]
+    run_async(dst.expire())
+    assert _importing_tenants(target) == []
+    ended = dst._imports.get(finished.key or "")
+    assert ended is not None and (ended.status, ended.target_tenant_key) == ("failed", None)
+
+
+def test_the_rollback_also_removes_what_its_lists_do_not_know(source, target, tmp_path) -> None:
+    """I1 of round 3 — a write whose outcome the run never learned is erased through the inventory and prefix."""
+    _seed_tenant(source, A)
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    dst = _service(target, tmp_path / "dst")
+    real_insert = dst._store.insert_documents
+    seen: dict[str, str] = {}
+
+    def committed_then_failed(collection: str, documents: list[dict[str, Any]]) -> list[str]:
+        if collection == "sites":
+            real_insert(collection, documents)  # committed, but the client sees an error
+            seen["tenant"] = str(documents[0]["tenant_key"])
+            run_async(_put(dst._storage, f"t/{seen['tenant']}/plant/orphan.jpg", b"JPEG"))
+            raise RuntimeError("connection reset after commit")
+        return real_insert(collection, documents)
+
+    dst._store.insert_documents = committed_then_failed  # type: ignore[method-assign]
+
+    finished = _request_and_run(dst, archive, {})
+
+    assert finished.status == "failed", finished
+    tenant = seen["tenant"]
+    assert list(target.aql.execute("FOR s IN sites FILTER s.tenant_key == @t RETURN s", bind_vars={"t": tenant})) == []
+    assert not (tmp_path / "dst" / "t" / tenant).exists() or not any((tmp_path / "dst" / "t" / tenant).rglob("*.jpg"))
+    assert target.collection("tenants").get(tenant) is None
+
+
+def test_the_target_plans_member_limit_counts_the_inactive_imported_members(source, target, tmp_path) -> None:
+    """I3 of round 3 — the memberships are written inactive; the join-time check counts active ones only."""
+    from app.data_access.arango.plan_repository import ArangoPlanRepository
+    from app.data_access.arango.tenant_repository import ArangoTenantRepository as _Tenants
+
+    _seed_tenant(source, A)
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    mapping = _two_members(target)
+    target.collection("plans").insert({"_key": "tiny", "name": "Tiny", "limits": {"members": 1}})
+    dst = _service(target, tmp_path / "dst")
+    entitlements = EntitlementService(plan_repo=ArangoPlanRepository(target), tenant_repo=_Tenants(target))
+    dst._entitlements = entitlements
+    dst._tenant_service._entitlements = entitlements
+
+    accepted = dst.request_import(
+        io.BytesIO(archive),
+        size_bytes=len(archive),
+        requester=_person(ADMIN),
+        authenticated_with_api_key=False,
+        member_mapping=mapping,
+        plan_key="tiny",
+        factors=StepUpFactors(password="pw"),
+        client_ip=None,
+    )
+    finished = run_async(dst.run_import(accepted.key or ""))
+
+    assert finished is not None and (finished.status, finished.failure_reason) == ("failed", "MEMBER_LIMIT_REACHED")
+    assert _importing_tenants(target) == []
+
+
+def test_the_sweep_takes_the_oldest_stale_imports_first(target) -> None:
+    """I2 of round 3 — with more than 100 stale requests, the ones longest without a heartbeat are not starved."""
+    imports = ArangoTenantImportRequestRepository(target)
+    recent, oldest = datetime(2026, 3, 1, tzinfo=UTC), datetime(2026, 1, 1, tzinfo=UTC)
+    rows = [
+        {
+            "requested_by_user_key": ADMIN,
+            "status": "running",
+            "source_format": "kamerplanter-tenant-export/1",
+            "requested_at": (oldest if i == 100 else recent).isoformat(),
+            "updated_at": (oldest if i == 100 else recent).isoformat(),
+            "_key": f"imp-{i:04d}",
+        }
+        for i in range(101)
+    ]
+    target.collection("tenant_import_requests").insert_many(rows)
+
+    stale = imports.list_stale_active(datetime(2026, 6, 1, tzinfo=UTC))
+
+    assert len(stale) == 100
+    assert "imp-0100" in {request.key for request in stale}

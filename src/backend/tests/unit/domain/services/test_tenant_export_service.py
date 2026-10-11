@@ -764,10 +764,10 @@ def no_row_is_parsed(monkeypatch):
 
     real = engine._loads
 
-    def guarded(data: bytes, part: str):
+    def guarded(data: bytes, part: str, *rest: Any):
         if part.startswith("collections/"):
             raise AssertionError(f"a row was parsed before the archive was bounded: {part}")
-        return real(data, part)
+        return real(data, part, *rest)
 
     monkeypatch.setattr(engine, "_loads", guarded)
 
@@ -866,6 +866,36 @@ class TestTheSmallerRoundTwoFindings:
         assert (kept.status, kept.target_tenant_key) == ("cleanup_pending", "t-half")
 
         world.tenant_service.erasable = True
+        del world.tenants.by_key["t-half"]  # what the erasure does to the tenant
         run_async(world.build().expire())
         ended = world.imports.rows["imp-y"]
         assert (ended.status, ended.target_tenant_key, ended.failure_reason) == ("failed", None, "IMPORT_FAILED")
+
+
+class TestOneLongLineIsNotOneCheapRow:
+    """R3-02 — the row bound counts lines; the bytes of a line and the values of the archive are bounded too."""
+
+    def test_a_25_mib_line_is_refused_before_it_is_parsed(self, world, no_row_is_parsed) -> None:
+        line = b'{"_key":"x","tenant_key":"t-src","a":[' + b"{}," * (25 * 1024 * 1024 // 3) + b"{}]}\n"
+        data = _archive_with_sites_part(line, compression=0)  # ZIP_STORED: no ratio to catch it
+
+        with pytest.raises(TenantImportRefusedError) as refused:
+            _import(world.build(), data)
+
+        assert "longer than 1048576 bytes" in str(refused.value)
+
+    def test_the_values_of_all_lines_together_are_bounded(self, world, monkeypatch) -> None:
+        import json
+
+        import app.domain.engines.tenant_export_engine as engine
+
+        monkeypatch.setattr(engine, "MAX_JSON_NODES", 1000)
+        rows = b"".join(
+            json.dumps({"_key": f"s{i}", "tenant_key": "t-src", "a": list(range(100))}).encode() + b"\n"
+            for i in range(20)
+        )
+
+        with pytest.raises(TenantImportRefusedError) as refused:
+            _import(world.build(), _archive_with_sites_part(rows, compression=0))
+
+        assert "too many JSON values" in str(refused.value)

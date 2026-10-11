@@ -355,6 +355,7 @@ class ArangoTenantExportRequestRepository(BaseArangoRepository[TenantExportReque
         FOR doc IN @@collection
           FILTER doc.status IN ["pending", "running"]
             AND DATE_TIMESTAMP(doc.updated_at || doc.requested_at) <= DATE_TIMESTAMP(@before)
+          SORT DATE_TIMESTAMP(doc.updated_at || doc.requested_at), doc._key
           LIMIT 500
           RETURN doc
         """
@@ -437,6 +438,7 @@ class ArangoTenantImportRequestRepository(BaseArangoRepository[TenantImportReque
           FILTER doc.status == "cleanup_pending"
             OR (doc.status IN ["pending", "validating", "running"]
                 AND DATE_TIMESTAMP(doc.updated_at || doc.requested_at) <= DATE_TIMESTAMP(@before))
+          SORT DATE_TIMESTAMP(doc.updated_at || doc.requested_at), doc._key
           LIMIT 100
           RETURN doc
         """

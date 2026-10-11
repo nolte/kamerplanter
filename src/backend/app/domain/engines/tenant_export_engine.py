@@ -840,6 +840,15 @@ MAX_ROWS = 1_000_000
 #: deflates about 1000x.
 MAX_COMPRESSION_RATIO = 100
 
+#: One JSONL line — one stored document. Checked on the bytes before the line is parsed (R3-02 of the
+#: PR #2267 review): the row bound counts lines, and a single 25 MiB line of ``[{},{},…]`` is one row
+#: and millions of dicts. A real document is a few KiB.
+MAX_LINE_BYTES = 1024 * 1024
+
+#: JSON values (objects, arrays, scalars) all parts of one archive may hold together, counted while the
+#: depth is checked. Bounds what many lines just under :data:`MAX_LINE_BYTES` can still allocate.
+MAX_JSON_NODES = 5_000_000
+
 #: Below this unpacked size the ratio is not checked: a small, repetitive part may compress well.
 _RATIO_FLOOR_BYTES = 1024 * 1024
 
@@ -855,11 +864,28 @@ class _ReadLimits:
     ratio: int
 
 
-def _check_depth(value: Any, part: str) -> None:
-    """Refuse a parsed value nested deeper than :data:`MAX_JSON_DEPTH` (iterative: no recursion to exhaust)."""
+class _NodeBudget:
+    """The JSON values one archive may still hold (:data:`MAX_JSON_NODES`), shared by all its parts."""
+
+    def __init__(self, nodes: int) -> None:
+        self.left = nodes
+
+    def take(self, part: str) -> None:
+        self.left -= 1
+        if self.left < 0:
+            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"{part}: the archive holds too many JSON values")
+
+
+def _check_depth(value: Any, part: str, budget: _NodeBudget | None = None) -> None:
+    """Refuse a parsed value nested deeper than :data:`MAX_JSON_DEPTH` (iterative: no recursion to exhaust).
+
+    With *budget*, every value is counted against the archive's node budget (R3-02).
+    """
     stack: list[tuple[Any, int]] = [(value, 0)]
     while stack:
         node, depth = stack.pop()
+        if budget is not None:
+            budget.take(part)
         if depth > MAX_JSON_DEPTH:
             raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"{part}: nested deeper than {MAX_JSON_DEPTH}")
         if isinstance(node, dict):
@@ -870,17 +896,21 @@ def _check_depth(value: Any, part: str) -> None:
             stack.extend((inner, depth + 1) for inner in items)
 
 
-def _loads(data: bytes, part: str) -> Any:
+def _loads(data: bytes, part: str, budget: _NodeBudget | None = None) -> Any:
     try:
         value = json.loads(data)
     except (ValueError, RecursionError) as exc:
         raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"{part} is not JSON") from exc
-    _check_depth(value, part)
+    _check_depth(value, part, budget)
     return value
 
 
-def _parse_lines(data: bytes, part: str, max_rows: int) -> list[dict[str, Any]]:
-    """The rows of one JSONL part; more than *max_rows* refuses before a line is split or parsed (SEC-R2-01)."""
+def _parse_lines(data: bytes, part: str, max_rows: int, budget: _NodeBudget | None = None) -> list[dict[str, Any]]:
+    """The rows of one JSONL part; more than *max_rows* refuses before a line is split or parsed (SEC-R2-01).
+
+    A line longer than :data:`MAX_LINE_BYTES` refuses before it is parsed, and every parsed value is
+    counted against the archive's *budget* (R3-02).
+    """
     # ``bytes.splitlines`` breaks at ``\n``, ``\r`` and ``\r\n``: their count bounds the line count.
     if data.count(b"\n") + data.count(b"\r") > max_rows:
         raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"{part}: more than {max_rows} rows")
@@ -890,7 +920,11 @@ def _parse_lines(data: bytes, part: str, max_rows: int) -> list[dict[str, Any]]:
         line: bytes = raw
         if not line.strip():
             continue
-        document = _loads(line, f"{part}: line {number}")
+        if len(line) > MAX_LINE_BYTES:
+            raise TenantArchiveError(
+                "IMPORT_FORMAT_UNSUPPORTED", f"{part}: line {number} is longer than {MAX_LINE_BYTES} bytes"
+            )
+        document = _loads(line, f"{part}: line {number}", budget)
         if not isinstance(document, dict):
             raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"{part}: line {number} is not an object")
         rows.append(document)
@@ -1041,10 +1075,11 @@ def _assemble(
     objects: dict[str, bytes] = {}
     members: list[TenantArchiveMember] = []
     rows_left = limits.rows
+    budget = _NodeBudget(MAX_JSON_NODES)
 
     def parsed_rows(data: bytes, part: str) -> list[dict[str, Any]]:
         nonlocal rows_left
-        rows = _parse_lines(data, part, min(limits.rows_per_part, rows_left))
+        rows = _parse_lines(data, part, min(limits.rows_per_part, rows_left), budget)
         rows_left -= len(rows)
         return rows
 
