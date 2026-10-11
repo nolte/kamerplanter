@@ -1153,6 +1153,14 @@ class Settings(BaseSettings):
     #: A ``Literal`` since #1887: an unknown backend stopped at first use only; now at start.
     storage_backend: Literal["local-fs", "s3"] = "local-fs"
     storage_max_file_size_mb: int = 25
+    #: #2254 — byte budget shared by concurrent multipart bodies in one process.
+    #: Starlette spools every file part above 1 MiB into ``/tmp`` before the route
+    #: runs; the chart mounts a memory-backed ``/tmp`` of 64 MiB, so the default
+    #: holds two bodies at the default ceiling (25 + 1 MiB each) with room left.
+    #: Keep it below the backend's ``/tmp`` size when you raise either value.
+    upload_spool_budget_mb: int = Field(default=52, ge=1)
+    #: #2254 — how long an upload waits for spool budget before it gets ``503``.
+    upload_spool_wait_seconds: int = Field(default=30, ge=0)
     storage_presign_ttl_seconds: int = 900
     storage_virus_scan_enabled: bool = False
     storage_virus_scan_endpoint: str = ""

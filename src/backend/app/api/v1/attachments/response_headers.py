@@ -19,6 +19,36 @@ involved — to stay safe it downgrades any non-image-confirmed ``inline`` to
 
 from __future__ import annotations
 
+#: Cache policy of the session-authorized download routes (#2254). The browser
+#: may keep the bytes but must ask the server before every reuse, so a logout,
+#: a removed membership or a deleted attachment takes effect on the next view;
+#: an unchanged object costs a ``304`` (``If-None-Match`` against the ETag).
+#: ``private, max-age=86400`` served the cached bytes for a day without asking.
+SESSION_DOWNLOAD_CACHE_CONTROL = "private, no-cache"
+
+#: Cache policy of the token download route (#2254). The token is a bearer
+#: credential with a short lifetime (``STORAGE_PRESIGN_TTL_SECONDS``, 15 min by
+#: default) and every presign issues a new URL, so a cached copy can only be
+#: reused under a URL whose authorization ends long before a ``max-age=86400``
+#: would. Nothing is stored: the copy cannot outlive the token or a deletion.
+TOKEN_DOWNLOAD_CACHE_CONTROL = "no-store"
+
+
+def if_none_match_hits(if_none_match: str | None, etag: str) -> bool:
+    """Whether an ``If-None-Match`` header matches ``etag`` (weak comparison, RFC 9110 §13.1.2)."""
+    if not if_none_match:
+        return False
+    if if_none_match.strip() == "*":
+        return True
+
+    wanted = _opaque_tag(etag)
+    return any(_opaque_tag(candidate) == wanted for candidate in if_none_match.split(","))
+
+
+def _opaque_tag(tag: str) -> str:
+    """An entity tag without surrounding space and without the weak ``W/`` marker."""
+    return tag.strip().removeprefix("W/")
+
 
 def _is_image(mime_type: str | None) -> bool:
     return bool(mime_type) and mime_type.lower().startswith("image/")
@@ -55,4 +85,9 @@ def harden_download_headers(
     return headers
 
 
-__all__ = ["harden_download_headers"]
+__all__ = [
+    "SESSION_DOWNLOAD_CACHE_CONTROL",
+    "TOKEN_DOWNLOAD_CACHE_CONTROL",
+    "harden_download_headers",
+    "if_none_match_hits",
+]

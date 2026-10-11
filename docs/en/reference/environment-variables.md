@@ -819,6 +819,8 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 | `STORAGE_BACKEND` | `local-fs` | No | Active backend: `local-fs` or `s3`. Any other value is rejected at startup. |
 | `STORAGE_MAX_FILE_SIZE_MB` | `25` | No | Maximum upload size in megabytes (applies to all categories, overridable per category) |
 | `STORAGE_PRESIGN_TTL_SECONDS` | `900` | No | Validity period of pre-signed URLs in seconds (max. 3600) |
+| `UPLOAD_SPOOL_BUDGET_MB` | `52` | No | How many MiB concurrent uploads may hold in `/tmp` together before the backend reads them. Each upload reserves its declared size (without one: `STORAGE_MAX_FILE_SIZE_MB` + 1 MiB). Keep it below the size of `/tmp` in the backend pod (64 MiB in the chart). |
+| `UPLOAD_SPOOL_WAIT_SECONDS` | `30` | No | How long an upload waits for free budget. After that the backend answers `503` (`UPLOAD_CAPACITY_EXHAUSTED`) with `Retry-After`. |
 | `STORAGE_ALLOWED_MIME_TYPES` | *(list)* | No | Comma-separated global whitelist of allowed MIME types |
 | `STORAGE_ALLOWED_MIME_TYPES_<CATEGORY>` | *(per category)* | No | Category-specific whitelist, e.g. `STORAGE_ALLOWED_MIME_TYPES_IMPORT=text/csv` |
 | `STORAGE_VIRUS_SCAN_ENABLED` | `false` | No | Enable virus scanning via ClamAV REST wrapper |

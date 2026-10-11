@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, Helm, Kubernetes 1.28+, S3-kompatibles Object Storage, ReadWriteMany-PVs
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.12 (O-03 beantwortet: Kontingente je Plan, REQ-056 §7 und NFR-012 §10.3; #2143); 1.11 (§7 Umsetzungsstand: kein Anhang-Backup im Chart; #2121); 1.10 (#2153: Backend und Worker per `podAffinity` auf dem Node des `ReadWriteOnce`-PVC); 1.9 (#2124: Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb — v1.7 #1834 Objekt-Rekonziliation); 1.8 (#2108/#2139: Pixelgrenze, HEIC/HEIF nicht mehr zulässig, Thumbnail-Auftrag je Fenster)
+Version: 1.13 (Request-Body-Grenze und Spool-Budget vor dem Multipart-Parsen, Download-Caching an Token-Ablauf und Widerruf gebunden; #2254); 1.12 (O-03 beantwortet: Kontingente je Plan, REQ-056 §7 und NFR-012 §10.3; #2143); 1.11 (§7 Umsetzungsstand: kein Anhang-Backup im Chart; #2121); 1.10 (#2153: Backend und Worker per `podAffinity` auf dem Node des `ReadWriteOnce`-PVC); 1.9 (#2124: Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb — v1.7 #1834 Objekt-Rekonziliation); 1.8 (#2108/#2139: Pixelgrenze, HEIC/HEIF nicht mehr zulässig, Thumbnail-Auftrag je Fenster)
 Autor: Business Analyst - Agrotech
 Datum: 2026-04-27
 Tags: [storage, object-storage, s3, minio, local-fs, adapter, photos, attachments, dsgvo, multi-tenant]
@@ -21,6 +21,7 @@ Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachmen
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.13 | 2026-10-11 | **#2254 Upload-Grenze vor dem Parsen, Download-Caching:** §5.1 Schritt 0 — FastAPI liest einen Multipart-Body vollständig (Dateiteile über 1 MiB nach `/tmp`), bevor Route oder Abhängigkeit laufen; die `Content-Length`-Prüfung der Upload-Routen kam erst danach (gemessen: 50 MiB Body bei 1 MiB Grenze bis zum letzten Byte gelesen, anonym ebenso). Jetzt begrenzt eine ASGI-Middleware (`app.common.body_limit`) jeden Body auf `STORAGE_MAX_FILE_SIZE_MB` + 1 MiB — dieselbe Grenze wie der Frontend-nginx (#2144): angegebene Länge darüber → 413 `REQUEST_BODY_TOO_LARGE` ohne ein gelesenes Byte, Chunked-Body → Abbruch an der Grenze. Gleichzeitige Multipart-Bodys teilen ein Spool-Budget (`UPLOAD_SPOOL_BUDGET_MB`, Standard 52); wer nach `UPLOAD_SPOOL_WAIT_SECONDS` (30) keinen Anteil bekommt, erhält 503 `UPLOAD_CAPACITY_EXHAUSTED` mit `Retry-After`. §8.3 — Token-Download `no-store`, Sitzungs-Downloads (Original, Thumbnails) `private, no-cache` mit `ETag` und 304; `private, max-age=86400` hielt eine Kopie 24 h ohne Rückfrage, ein Token gilt 15 min. |
 | 1.12 | 2026-10-11 | **#2143 (MT-050):** O-03 verwies auf eine Kontingent-Tabelle in NFR-012 §10, die es nicht gab. Beantwortet: Kontingente hängen nicht an der Skalierungsstufe, sondern am Plan eines Mandanten (REQ-056 §7); das Speicherkontingent (§5.1 Schritt 3) ist dort die Dimension `storage_mb` mit dem Instanzwert `STORAGE_TENANT_QUOTA_MB`, die Fotos je Pflanze `photos_per_instance`. Die Kapazitätswirkung je Stufe steht in NFR-012 §10.3. Verhalten unverändert; Pläne sind nicht implementiert (#2142). |
 | 1.11 | 2026-10-05 | **#2121 (MT-025):** §7 trägt einen Umsetzungsstand. Gemessen: Der Chart sichert Anhänge nicht (NFR-002 §8.0 nimmt sie ausdrücklich aus); PV-Snapshot, `rsync`-Job, Bucket-Versionierung, Replikation und `scripts/storage/migrate.py` (§7.3) liefert das Repository nicht — sie sind Betreiber-Aufgabe bzw. Zielbild. |
 | 1.10 | 2026-10-05 | **#2153 Rollout auf `ReadWriteOnce`:** Backend und Celery-Worker tragen das Label `kamerplanter.io/attachments-volume` und verlangen per `podAffinity` einen Pod mit diesem Label auf demselben Node, solange die Anhaenge auf einem `ReadWriteOnce`-PVC liegen; mit S3 oder `ReadWriteMany` keine Einschraenkung (`topologyKey` rendert auf `kubernetes.io/os`). Kein `Recreate`: das Rolling Update bleibt ohne Unterbrechung. |
@@ -322,6 +323,7 @@ Die Frontend-Anwendung kennt **nur** diese URI. Der Storage-Key ist eine impleme
 
 Pflicht-Reihenfolge fuer jeden Upload:
 
+0. **Body-Grenze vor dem Parsen** (v1.13, #2254) — FastAPI liest den Multipart-Body vollstaendig ein, bevor Authentifizierung oder Route laufen. Deshalb begrenzt die ASGI-Middleware `app.common.body_limit` jeden Request-Body vorher auf `STORAGE_MAX_FILE_SIZE_MB` + 1 MiB (gleiche Grenze wie Frontend-nginx und Ingress): angegebene `Content-Length` darueber → 413 `REQUEST_BODY_TOO_LARGE`, ohne ein Byte zu lesen; ein Body ohne Laengenangabe wird beim Lesen gezaehlt und an der Grenze abgebrochen. Gleichzeitige Multipart-Bodys reservieren ihre Laenge (ohne Angabe: die volle Grenze) aus dem Spool-Budget `UPLOAD_SPOOL_BUDGET_MB` (Standard 52, unter dem 64-MiB-`/tmp` des Backend-Pods); ohne Anteil nach `UPLOAD_SPOOL_WAIT_SECONDS` → 503 `UPLOAD_CAPACITY_EXHAUSTED` mit `Retry-After`. Die Pruefungen in Schritt 6 bleiben als zweite Linie und halten die Grenze je Route.
 1. **Authentifizierung** (REQ-023) — gueltiges Access-Token
 2. **Autorisierung** (REQ-024) — `require_permission("attachment:create", scope=tenant)`
 3. **Quota-Pruefung** — pro-Tenant- und pro-Mandant-Limit (wirksames Limit der Dimension `storage_mb` nach REQ-056 §7.3; heute `STORAGE_TENANT_QUOTA_MB`, Plaene nicht implementiert)
@@ -554,7 +556,9 @@ Migration laeuft als Celery-Task mit Wiederaufnahmen, Fortschrittsanzeige und Au
 
 ### 8.3 Caching
 
-- HTTP-Caching ueber `ETag` (= SHA-256) und `Cache-Control: private, max-age=86400` fuer Pre-Signed Downloads
+- **Sitzungs-Downloads** (`GET …/attachments/{id}`, `…/thumbnails/{size}`, Bearer-Token): `Cache-Control: private, no-cache` mit `ETag` (Original: SHA-256; Thumbnail: schwaches `W/"<sha256>-<size>"`). Der Browser darf die Bytes halten, fragt aber vor jeder Wiederverwendung; ein passendes `If-None-Match` antwortet 304 — **nach** der Berechtigungspruefung. Abmeldung, entzogene Mitgliedschaft oder geloeschter Anhang wirken so beim naechsten Abruf (v1.13, #2254; vorher `private, max-age=86400`: 24 h ohne Rueckfrage).
+- **Token-Download** (`GET /api/v1/attachments/token/{token}`, local-fs): `Cache-Control: no-store`. Das Token ist eine Inhaber-Berechtigung mit `STORAGE_PRESIGN_TTL_SECONDS` (Standard 900 s), jede Ausstellung erzeugt eine neue URL; eine gespeicherte Kopie wuerde Ablauf und Loeschung ueberdauern (v1.13, #2254).
+- S3-Pre-Signed-URLs: Caching-Header setzt der Object Store; die 307-Weiterleitung selbst traegt `no-store` (Standard aller `/api/v1/`-Antworten, MT-044).
 - CDN-Anbindung optional — wenn aktiviert, wird die Pre-Signed-URL ueber den CDN-Distributor signiert (CloudFront, Cloud CDN)
 
 ### 8.4 Bandbreite und Egress-Kosten

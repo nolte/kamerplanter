@@ -14,8 +14,11 @@ Security notes:
   Celery re-validation) — tracked as follow-up work. Until then proxy upload is
   the only path.
 * Uploads are read in bounded chunks with an early ``Content-Length`` reject so
-  an oversized body never gets fully buffered into RAM (SEC-005).
-* Download responses are hardened against MIME-sniffing / drive-by (SEC-009).
+  an oversized body never gets fully buffered into RAM (SEC-005). Both run only
+  after FastAPI has parsed the multipart body; the bound *before* the parse is
+  the ASGI body ceiling and spool budget in ``app.common.body_limit`` (#2254).
+* Download responses are hardened against MIME-sniffing / drive-by (SEC-009)
+  and revalidated on every reuse (``private, no-cache`` + ETag, #2254).
 """
 
 from __future__ import annotations
@@ -26,7 +29,11 @@ from fastapi import APIRouter, Depends, Form, Path, Query, Request, Response, Up
 from fastapi.responses import RedirectResponse, StreamingResponse
 
 from app.api.v1.attachments.permissions import require_attachment_permission
-from app.api.v1.attachments.response_headers import harden_download_headers
+from app.api.v1.attachments.response_headers import (
+    SESSION_DOWNLOAD_CACHE_CONTROL,
+    harden_download_headers,
+    if_none_match_hits,
+)
 from app.api.v1.attachments.schemas import (
     AttachmentListResponse,
     AttachmentResponse,
@@ -200,6 +207,7 @@ def list_attachments(
 
 @router.get("/{attachment_id}")
 async def download_attachment(
+    request: Request,
     attachment_id: Annotated[str, Path(description="Identifier of the attachment.")],
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     service: AttachmentService = Depends(get_attachment_service),
@@ -207,17 +215,23 @@ async def download_attachment(
     """Serve the original object.
 
     Presign-capable backends (S3) 307-redirect to a short-lived signed URL;
-    otherwise the object is proxy-streamed with a private cache header and an
-    ETag (= content SHA-256).
+    otherwise the object is proxy-streamed with an ETag (= content SHA-256) and
+    ``private, no-cache``: the browser revalidates every reuse, and a matching
+    ``If-None-Match`` answers 304 — after the permission check, so a revoked
+    access is never served from cache (#2254).
     """
     target = service.get_download(attachment_id, ctx.tenant_key)
     if target.redirect_url is not None:
         return RedirectResponse(url=target.redirect_url, status_code=307)
 
+    etag = f'"{target.attachment.sha256}"'
+    if if_none_match_hits(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers={"Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL, "ETag": etag})
+
     stream = await service.open_stream(target.attachment)
     headers = {
-        "Cache-Control": "private, max-age=86400",
-        "ETag": f'"{target.attachment.sha256}"',
+        "Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL,
+        "ETag": etag,
     }
     # SEC-009 — nosniff always; non-image MIME types are forced to download.
     headers = harden_download_headers(headers, mime_type=target.attachment.mime_type)
@@ -237,6 +251,7 @@ def presign_download(
 
 @router.get("/{attachment_id}/thumbnails/{size}")
 async def download_thumbnail(
+    request: Request,
     attachment_id: Annotated[str, Path(description="Identifier of the attachment.")],
     size: Annotated[int, Path(description="Thumbnail edge size in pixels.")],
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
@@ -247,6 +262,10 @@ async def download_thumbnail(
     A missing rendition answers 202 and queues its generation at most once per
     attachment and window; one that can never come (a type without renditions,
     or a generation that failed for good) answers 404 (#2108).
+
+    Cached like the original (``private, no-cache``, #2254) under a weak ETag
+    derived from the original's SHA-256 and the size: a re-rendered thumbnail is
+    equivalent, not byte-identical.
     """
     from app.common.exceptions import NotFoundError
 
@@ -256,6 +275,9 @@ async def download_thumbnail(
             details=[{"field": "size", "reason": "Unknown thumbnail size.", "code": "INVALID_THUMBNAIL_SIZE"}],
         )
     attachment = service.get_attachment(attachment_id, ctx.tenant_key)
+    etag = f'W/"{attachment.sha256}-{size}"'
+    if if_none_match_hits(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers={"Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL, "ETag": etag})
     try:
         stream = await service.open_thumbnail_stream(attachment, size)
     except NotFoundError:
@@ -263,7 +285,7 @@ async def download_thumbnail(
         if not service.request_thumbnails(attachment):
             raise NotFoundError("storage object", f"{attachment_id}/{size}") from None
         return Response(status_code=202)
-    headers = {"Cache-Control": "private, max-age=86400"}
+    headers = {"Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL, "ETag": etag}
     # Thumbnails are always image/webp — nosniff, inline allowed (SEC-009).
     headers = harden_download_headers(headers, mime_type="image/webp")
     return StreamingResponse(stream, media_type="image/webp", headers=headers)
