@@ -19,8 +19,10 @@ gallery photo (an attachment with ``category == plant``) and a plant instance:
 - deleting a whole plant instance cascades the hard-delete to every referenced
   attachment (no orphan storage bytes — REQ-034 §2.1 / AC-08).
 
-Authentication and RBAC happen in the API layer; this service assumes the
-caller is already authorised for ``tenant_key``.
+Authentication and RBAC happen in the API layer. Tenant ownership does not:
+every method loads the plant instance itself and verifies it against
+``tenant_key``, which is keyword-only without a default (#2107), so a caller
+can neither omit it nor transpose it with the neighbouring ``str`` keys.
 """
 
 from __future__ import annotations
@@ -84,12 +86,12 @@ class PlantPhotoService:
 
     # ── Internal helpers ──────────────────────────────────────────────
 
-    def _get_instance(self, key: str, tenant_key: str) -> PlantInstance:
+    def _get_instance(self, key: str, *, tenant_key: str) -> PlantInstance:
         plant = self._plants.get_or_raise(key)
         verify_tenant_ownership(plant, tenant_key, "PlantInstance")
         return plant
 
-    def _resolve_plant_attachment(self, attachment_id: str, tenant_key: str) -> Attachment:
+    def _resolve_plant_attachment(self, attachment_id: str, *, tenant_key: str) -> Attachment:
         """Return a tenant-owned ``category == plant`` attachment or raise.
 
         Enforces REQ-034 §2.1: an attachment may only be linked when it exists,
@@ -132,27 +134,27 @@ class PlantPhotoService:
 
     # ── Quota pre-check (called by the API before uploading) ──────────
 
-    def assert_can_add_photo(self, key: str, tenant_key: str) -> PlantInstance:
+    def assert_can_add_photo(self, key: str, *, tenant_key: str) -> PlantInstance:
         """Validate the instance exists and the gallery quota is not exhausted.
 
         Run *before* the upload so a rejected upload never writes orphan bytes
         (REQ-034 §3 / AC-15). Returns the resolved instance for reuse.
         """
-        plant = self._get_instance(key, tenant_key)
+        plant = self._get_instance(key, tenant_key=tenant_key)
         self._enforce_photo_quota(plant)
         return plant
 
     # ── Link ──────────────────────────────────────────────────────────
 
-    def link_photo(self, key: str, attachment_id: str, tenant_key: str) -> PlantInstance:
+    def link_photo(self, key: str, attachment_id: str, *, tenant_key: str) -> PlantInstance:
         """Append a freshly uploaded plant photo to the instance gallery.
 
         Enforces category/tenant consistency (REQ-034 §2.1) and the per-instance
         quota. Idempotent: re-linking an already-present attachment is a no-op.
         Newest photo is prepended (display order is newest-first, §2.1).
         """
-        plant = self._get_instance(key, tenant_key)
-        self._resolve_plant_attachment(attachment_id, tenant_key)
+        plant = self._get_instance(key, tenant_key=tenant_key)
+        self._resolve_plant_attachment(attachment_id, tenant_key=tenant_key)
 
         if attachment_id in plant.photo_refs:
             return plant
@@ -174,12 +176,12 @@ class PlantPhotoService:
 
     # ── Cover ─────────────────────────────────────────────────────────
 
-    def set_cover(self, key: str, attachment_id: str, tenant_key: str) -> PlantInstance:
+    def set_cover(self, key: str, attachment_id: str, *, tenant_key: str) -> PlantInstance:
         """Mark ``attachment_id`` as the gallery cover photo (REQ-034 §2.1).
 
         Raises 422 when the attachment is not part of ``photo_refs``.
         """
-        plant = self._get_instance(key, tenant_key)
+        plant = self._get_instance(key, tenant_key=tenant_key)
         if attachment_id not in plant.photo_refs:
             raise ValidationError(
                 "Cover photo must be one of the instance's gallery photos.",
@@ -207,8 +209,8 @@ class PlantPhotoService:
         self,
         key: str,
         attachment_id: str,
-        tenant_key: str,
         *,
+        tenant_key: str,
         caption: str | None | _Unset = UNSET,
         taken_on: date | None | _Unset = UNSET,
     ) -> Attachment:
@@ -226,7 +228,7 @@ class PlantPhotoService:
 
         Returns the updated attachment.
         """
-        plant = self._get_instance(key, tenant_key)
+        plant = self._get_instance(key, tenant_key=tenant_key)
         if attachment_id not in plant.photo_refs:
             raise NotFoundError("PlantPhoto", attachment_id)
 
@@ -313,10 +315,10 @@ class PlantPhotoService:
         self,
         key: str,
         attachment_id: str,
+        *,
         tenant_key: str,
         user_key: str,
         adapter_key: str,
-        *,
         force: bool = False,
     ) -> tuple[Attachment, QualityAssessment]:
         """REQ-034 §4a — assess a gallery photo's recognition quality and persist it.
@@ -344,7 +346,7 @@ class PlantPhotoService:
         if self._identification is None or self._species is None:  # pragma: no cover - DI wiring
             raise RuntimeError("PlantPhotoService is not wired for quality assessment.")
 
-        plant = self._get_instance(key, tenant_key)
+        plant = self._get_instance(key, tenant_key=tenant_key)
         if attachment_id not in plant.photo_refs:
             raise NotFoundError("PlantPhoto", attachment_id)
 
@@ -411,7 +413,7 @@ class PlantPhotoService:
 
     # ── List ──────────────────────────────────────────────────────────
 
-    def list_photos(self, key: str, tenant_key: str) -> tuple[PlantInstance, list[Attachment]]:
+    def list_photos(self, key: str, *, tenant_key: str) -> tuple[PlantInstance, list[Attachment]]:
         """Return the instance plus its gallery attachments in display order.
 
         Photos are returned newest-first by ``attachments.created_at``; the
@@ -419,7 +421,7 @@ class PlantPhotoService:
         attachment that no longer exists — are silently skipped (best-effort
         gallery; the data is reconciled on the next link/delete).
         """
-        plant = self._get_instance(key, tenant_key)
+        plant = self._get_instance(key, tenant_key=tenant_key)
         photos: list[Attachment] = []
         for attachment_id in plant.photo_refs:
             attachment = self._attachments.get(attachment_id, tenant_key)
@@ -430,7 +432,7 @@ class PlantPhotoService:
 
     # ── Delete a single photo ─────────────────────────────────────────
 
-    async def delete_photo(self, key: str, attachment_id: str, tenant_key: str) -> PlantInstance:
+    async def delete_photo(self, key: str, attachment_id: str, *, tenant_key: str) -> PlantInstance:
         """Hard-delete a gallery photo and unlink it (REQ-034 §5 / AC-07).
 
         Removes the attachment bytes + thumbnails + metadata via the attachment
@@ -438,7 +440,7 @@ class PlantPhotoService:
         when the deleted photo was the cover. Raises 404 when the photo is not
         linked to this instance.
         """
-        plant = self._get_instance(key, tenant_key)
+        plant = self._get_instance(key, tenant_key=tenant_key)
         if attachment_id not in plant.photo_refs:
             raise NotFoundError("PlantPhoto", attachment_id)
 
@@ -461,7 +463,7 @@ class PlantPhotoService:
 
     # ── Cascade on instance deletion ──────────────────────────────────
 
-    async def delete_all_photos(self, plant: PlantInstance, tenant_key: str) -> int:
+    async def delete_all_photos(self, plant: PlantInstance, *, tenant_key: str) -> int:
         """Hard-delete every gallery photo of an instance (REQ-034 §2.1 / AC-08).
 
         Called by the plant-instance removal path so no orphan storage bytes

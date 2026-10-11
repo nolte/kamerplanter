@@ -135,7 +135,7 @@ async def upload_plant_photo(
     orphan storage objects.
     """
     # AC-15 — quota + instance existence pre-check before reading/writing bytes.
-    plant = photo_service.assert_can_add_photo(key, ctx.tenant_key)
+    plant = photo_service.assert_can_add_photo(key, tenant_key=ctx.tenant_key)
 
     mime_type = (file.content_type or "").lower().strip()
     if not mime_type:
@@ -155,7 +155,7 @@ async def upload_plant_photo(
         original_filename=file.filename or "photo",
         category=AttachmentCategory.PLANT,
     )
-    photo_service.link_photo(key, attachment.key or "", ctx.tenant_key)
+    photo_service.link_photo(key, attachment.key or "", tenant_key=ctx.tenant_key)
 
     # REQ-034 §4 — best-effort DINOv2 reference contribution (no-op until the
     # inference service is enabled). Never blocks the upload or raises.
@@ -199,7 +199,7 @@ def list_plant_photos(
     photo_service: PlantPhotoService = Depends(get_plant_photo_service),
 ) -> PlantPhotoListResponse:
     """List a plant instance's gallery photos, newest first (REQ-034 §7)."""
-    plant, photos = photo_service.list_photos(key, ctx.tenant_key)
+    plant, photos = photo_service.list_photos(key, tenant_key=ctx.tenant_key)
     photo_ids = [p.key or "" for p in photos]
     cover = _resolved_cover(plant.cover_photo_ref, photo_ids)
     return PlantPhotoListResponse(
@@ -217,8 +217,8 @@ def set_cover_photo(
     photo_service: PlantPhotoService = Depends(get_plant_photo_service),
 ) -> PlantPhotoListResponse:
     """Mark a gallery photo as the instance cover (REQ-034 §7 / AC-06)."""
-    photo_service.set_cover(key, attachment_id, ctx.tenant_key)
-    plant, photos = photo_service.list_photos(key, ctx.tenant_key)
+    photo_service.set_cover(key, attachment_id, tenant_key=ctx.tenant_key)
+    plant, photos = photo_service.list_photos(key, tenant_key=ctx.tenant_key)
     photo_ids = [p.key or "" for p in photos]
     cover = _resolved_cover(plant.cover_photo_ref, photo_ids)
     return PlantPhotoListResponse(
@@ -275,13 +275,13 @@ async def assess_plant_photo(
     updated, _assessment = await photo_service.assess_photo(
         key,
         attachment_id,
-        ctx.tenant_key,
-        ctx.user_key,
-        body.adapter,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        adapter_key=body.adapter,
         force=body.force,
     )
     # Re-resolve the cover flag so the response stays consistent with the gallery.
-    _plant, photos = photo_service.list_photos(key, ctx.tenant_key)
+    _plant, photos = photo_service.list_photos(key, tenant_key=ctx.tenant_key)
     photo_ids = [p.key or "" for p in photos]
     cover = _resolved_cover(_plant.cover_photo_ref, photo_ids)
     return _photo_response(updated, ctx.tenant_slug, is_cover=(updated.key == cover))
@@ -307,12 +307,12 @@ def update_plant_photo_metadata(
     attachment = photo_service.update_photo_metadata(
         key,
         attachment_id,
-        ctx.tenant_key,
+        tenant_key=ctx.tenant_key,
         caption=caption,
         taken_on=taken_on,
     )
     # Re-resolve the cover flag so the response stays consistent with the gallery.
-    _plant, photos = photo_service.list_photos(key, ctx.tenant_key)
+    _plant, photos = photo_service.list_photos(key, tenant_key=ctx.tenant_key)
     photo_ids = [p.key or "" for p in photos]
     cover = _resolved_cover(_plant.cover_photo_ref, photo_ids)
     return _photo_response(attachment, ctx.tenant_slug, is_cover=(attachment.key == cover))
@@ -326,5 +326,5 @@ async def delete_plant_photo(
     photo_service: PlantPhotoService = Depends(get_plant_photo_service),
 ) -> Response:
     """Hard-delete a gallery photo and unlink it (REQ-034 §7 / AC-07)."""
-    await photo_service.delete_photo(key, attachment_id, ctx.tenant_key)
+    await photo_service.delete_photo(key, attachment_id, tenant_key=ctx.tenant_key)
     return Response(status_code=204)
