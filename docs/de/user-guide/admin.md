@@ -43,6 +43,8 @@ Jeder Mandant hat einen **Plan**. Ein Plan legt fest, wie viel ein Mandant nutze
 - Weitere Pläne legst nur du als Plattform-Admin an, und nur du ordnest einem Mandanten einen Plan zu. Die Verwaltung eines Mandanten kann ihren Plan nicht selbst wählen.
 - Ein niedrigeres Kontingent entfernt nichts: Ein Mandant über seiner neuen Grenze behält Mitglieder, Dateien und Fotos; erst die nächste Anlage wird abgelehnt. Ein Planwechsel wirkt ab der nächsten Prüfung.
 - Das Mitgliederkontingent bleibt durch `TENANT_MAX_MEMBERS_CEILING` gedeckelt; alle anderen Kontingente dürfen über der Server-Einstellung liegen.
+- **Vorsicht mit `0`:** Bei Speicher und Fotos je Pflanze heißt `0` „unbegrenzt“, bei den KI-Budgets „Budget aus“ — in beiden Fällen gibt es dann keine Grenze, nicht etwa „nichts erlaubt“.
+- Der Mandant `platform` folgt immer den Server-Einstellungen und bekommt keinen Plan zugeordnet, damit du jederzeit weitere Plattform-Admins hinzufügen kannst.
 - Zuordnen und Ändern brauchen keine Passwort-Bestätigung, landen aber im Sicherheitsprotokoll (`tenant_plan_changed`, `plan_created`, `plan_changed`, `plan_deleted`).
 - Jedes Mitglied sieht Plan und Verbrauch seines Mandanten über `GET /api/v1/tenants/{slug}/entitlements`; Service Accounts und Token-Verbrauch sieht nur, wer Leitung ist.
 

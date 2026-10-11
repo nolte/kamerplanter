@@ -43,12 +43,22 @@ class InMemoryPlanRepository(IPlanRepository):
         self.plans[plan.key] = plan
         return plan
 
-    def store_plan(self, plan: Plan) -> Plan | None:
-        stored = self.plans.get(plan.key)
+    def apply_plan_change(
+        self, key: str, *, fields: dict[str, Any], limit_changes: dict[str, int | None]
+    ) -> Plan | None:
+        stored = self.plans.get(key)
         if stored is None:
             return None
-        self.plans[plan.key] = plan.model_copy(update={"is_default": stored.is_default})
-        return self.plans[plan.key]
+        limits = stored.limits.model_copy(update=limit_changes)
+        named = {name: fields[name] for name in ("name", "description") if name in fields}
+        self.plans[key] = stored.model_copy(update={**named, "limits": limits})
+        return self.plans[key]
+
+    def assign_to_tenant(self, tenant_key: str, plan_key: str) -> bool:
+        if plan_key not in self.plans:
+            return False
+        self.tenant_plans[tenant_key] = plan_key
+        return True
 
     def make_default(self, key: str) -> Plan | None:
         if key not in self.plans:

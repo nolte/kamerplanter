@@ -156,3 +156,33 @@ def test_the_listing_counts_the_tenants_per_plan() -> None:
     )
 
     assert [(item.plan.key, item.tenant_count) for item in service.list_plans()] == [("club", 2), ("standard", 1)]
+
+
+def test_a_limit_change_is_audited_with_old_and_new_value_and_a_lift_is_flagged() -> None:
+    """#2142 review SEC-005 — the audit says what a limit was and became, and marks the lifts."""
+    service, _, audit = _service(Plan(_key="club", name="Club", limits=PlanLimits(storage_mb=100, members=10)))
+
+    service.update_plan(
+        "club", {"name": "Club+", "limits": {"storage_mb": 0, "members": None, "photos_per_instance": 5}}, actor=ADMIN
+    )
+
+    changes = audit.record_plan_change.call_args.kwargs["limit_changes"]
+    assert [(c.field, c.old, c.new, c.flag) for c in changes] == [
+        ("limits.members", 10, None, "to_instance_setting"),
+        ("limits.storage_mb", 100, 0, "to_unlimited"),
+        ("limits.photos_per_instance", None, 5, None),
+    ]
+    assert audit.record_plan_change.call_args.kwargs["changed_fields"] == [
+        "name",
+        "limits.members",
+        "limits.storage_mb",
+        "limits.photos_per_instance",
+    ]
+
+
+def test_a_name_change_carries_no_value_in_the_audit() -> None:
+    service, _, audit = _service(Plan(_key="club", name="Club"))
+
+    service.update_plan("club", {"name": "Club+"}, actor=ADMIN)
+
+    assert audit.record_plan_change.call_args.kwargs["limit_changes"] is None

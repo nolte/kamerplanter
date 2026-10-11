@@ -43,6 +43,8 @@ Every tenant has a **plan**. A plan sets how much a tenant may use: active membe
 - Only you as platform admin create further plans, and only you assign a plan to a tenant. A tenant's management cannot choose its own plan.
 - A lower quota removes nothing: a tenant above its new limit keeps its members, files and photos; only the next creation is refused. A plan change applies from the next check.
 - The member quota stays capped by `TENANT_MAX_MEMBERS_CEILING`; every other quota may lie above the server setting.
+- **Careful with `0`:** for storage and photos per plant `0` means "unlimited", for the AI budgets "budget off" — either way there is no limit then, not "nothing allowed".
+- The `platform` tenant always follows the server settings and is assigned no plan, so you can always add further platform admins.
 - Assigning and changing need no password confirmation, but they are written to the security audit (`tenant_plan_changed`, `plan_created`, `plan_changed`, `plan_deleted`).
 - Every member sees their tenant's plan and usage through `GET /api/v1/tenants/{slug}/entitlements`; service accounts and token usage are shown to a lead only.
 

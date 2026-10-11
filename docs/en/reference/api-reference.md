@@ -1472,7 +1472,10 @@ Every tenant points at exactly one plan with `plan_key`. A plan sets a limit per
 | `ai_calls_per_tenant_day` | `AI_BUDGET_TENANT_CALLS_PER_DAY` | budget off | `429 AI_BUDGET_EXCEEDED` |
 | `ai_tokens_per_tenant_day` | `AI_BUDGET_TENANT_TOKENS_PER_DAY` | budget off | `429 AI_BUDGET_EXCEEDED` |
 
-The effective member limit is `min(max_members, plan.members ?? ceiling, TENANT_MAX_MEMBERS_CEILING)`. A tenant whose plan document is missing falls back to the default plan, never to "unlimited".
+!!! warning "`0` means unlimited, not \"nothing allowed\""
+    For `storage_mb` and `photos_per_instance`, `0` lifts the limit entirely; for the three AI budgets, `0` switches the budget off — again no limit. A plan therefore cannot set these dimensions to "none at all". The plan response lists such dimensions in the field `unlimited`, and the security audit marks a change to `0` as `to_unlimited`.
+
+Every quota has an upper bound (e.g. `storage_mb` at most 10,000,000, `ai_tokens_per_tenant_day` at most 10¹²); above it the API answers `422`. The effective member limit is `min(max_members, plan.members ?? ceiling, TENANT_MAX_MEMBERS_CEILING)`. The platform tenant always follows the server settings and takes no plan (`422`). A tenant whose plan document is missing or corrupt falls back to the default plan, then to the server setting, never to "unlimited"; a corrupt plan is also left out of the plan listing.
 
 ### Read a tenant's plan and usage
 
@@ -1497,12 +1500,12 @@ The effective member limit is `min(max_members, plan.members ?? ceiling, TENANT_
 |---|---|---|
 | `GET` | `/api/v1/admin/platform/plans` | every plan with `tenant_count` |
 | `POST` | `/api/v1/admin/platform/plans` | create a plan (`201`; `409` for a taken `key`; `422` out of range or `members` above the ceiling) |
-| `PATCH` | `/api/v1/admin/platform/plans/{plan_key}` | change name, description, single quotas; `is_default: true` makes it the default of new tenants |
+| `PATCH` | `/api/v1/admin/platform/plans/{plan_key}` | change name, description, single quotas (`name: null` is `422`); `is_default: true` makes it the default of new tenants |
 | `DELETE` | `/api/v1/admin/platform/plans/{plan_key}` | delete (`204`); `409 RESOURCE_IN_USE` while a tenant uses it or it is the default |
-| `PATCH` | `/api/v1/admin/platform/tenants/{key}` with `plan_key` | assign a plan (`422` for an unknown plan or a tenant being erased) |
+| `PATCH` | `/api/v1/admin/platform/tenants/{key}` with `plan_key` | assign a plan (`422` for an unknown plan, a tenant being erased or the platform tenant; `409 WRITE_CONFLICT` when the plan is deleted at the same moment) |
 | `GET` | `/api/v1/admin/platform/tenants/{key}` | the tenant with `entitlements` over every quota |
 
-`key` matches `^[a-z][a-z0-9_-]{1,39}$` and is immutable. None of these actions asks for a password confirmation; each writes a security-audit entry (`plan_created`, `plan_changed` with `changed_fields`, `plan_deleted`, `tenant_plan_changed` with `old_plan_key` and `plan_key`). Light mode has none of these routes.
+`key` matches `^[a-z][a-z0-9_-]{1,39}$` and is immutable. None of these actions asks for a password confirmation; each writes a security-audit entry (`plan_created`, `plan_changed` with `changed_fields` and — for quotas — `limit_changes` with old and new value, `plan_deleted`, `tenant_plan_changed` with `old_plan_key` and `plan_key`). Light mode has none of these routes.
 
 ### Organizations per account
 

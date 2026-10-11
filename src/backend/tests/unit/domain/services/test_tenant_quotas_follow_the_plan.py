@@ -38,8 +38,11 @@ def _on_plan(
     service: Any, tenant: Tenant, *plans: Plan, instance: dict[EntitlementDimension, int] | None = None
 ) -> InMemoryPlanRepository:
     """Point the service's tenant at *tenant* and resolve its quotas through *plans* over *instance* values."""
-    service._tenant_repo.get_by_key.return_value = tenant
     repo = InMemoryPlanRepository([standard_plan(), *plans])
+    # The assignment writes through the plan store (one statement, SEC-004); the tenant read sees it.
+    service._tenant_repo.get_by_key.side_effect = lambda key: tenant.model_copy(
+        update={"plan_key": repo.tenant_plans.get(key, tenant.plan_key)}
+    )
     service._entitlements = EntitlementService(
         plan_repo=repo, tenant_repo=service._tenant_repo, instance_overrides=instance
     )

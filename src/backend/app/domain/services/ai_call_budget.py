@@ -154,12 +154,15 @@ class AiCallBudget:
         Raises:
             AiBudgetExceededError: one of the daily budgets is used up (429,
                 ``Retry-After`` until the UTC day ends).
-            AiBudgetUnavailableError: Valkey cannot be reached (503, fail-closed).
+            AiBudgetUnavailableError: Valkey cannot be reached, or the tenant's budget cannot be
+                resolved (503, fail-closed).
         """
         day, retry_after = self._day_and_retry_after()
         limits_of = self._limits_of
-        limits = limits_of(tenant_key)
         try:
+            # Inside the try (review I-1): a plan that cannot be resolved is the same outage as an
+            # unreachable Valkey - 503, fail-closed - not an unhandled 500.
+            limits = limits_of(tenant_key)
             if limits.tenant_tokens_per_day > 0:
                 spent = int(self._redis.get(self._tokens_key(day, tenant_key)) or 0)
                 if spent >= limits.tenant_tokens_per_day:

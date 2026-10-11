@@ -16,14 +16,14 @@ Source code is English only (NFR-003).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 
 from app.common.enums import SecurityAuditAction
 from app.common.exceptions import NotFoundError, ResourceInUseError, ValidationError
 from app.domain.interfaces.plan_repository import IPlanRepository
-from app.domain.models.plan import Plan, PlanLimits, PlanWithUsage
+from app.domain.models.plan import ZERO_IS_UNLIMITED_FIELDS, Plan, PlanLimitChange, PlanLimits, PlanWithUsage
 from app.domain.models.user import User
 from app.domain.services.entitlement_service import EntitlementService
 from app.domain.services.security_audit_service import SecurityAuditService
@@ -85,14 +85,25 @@ class PlanService:
                 updates[field] = changes[field]
                 changed.append(field)
         limits = stored.limits
+        limit_changes: dict[str, int | None] = {}
         if "limits" in changes and changes["limits"] is not None:
             merged = {**{name: getattr(stored.limits, name) for name in PlanLimits.model_fields}, **changes["limits"]}
             limits = PlanLimits(**merged)
-            changed.extend(
-                f"limits.{name}"
+            limit_changes = {
+                name: getattr(limits, name)
                 for name in PlanLimits.model_fields
                 if getattr(limits, name) != getattr(stored.limits, name)
+            }
+        limit_audit = [
+            PlanLimitChange(
+                field=f"limits.{name}",
+                old=getattr(stored.limits, name),
+                new=new,
+                flag=_relaxing_flag(name, new),
             )
+            for name, new in limit_changes.items()
+        ]
+        changed.extend(change.field for change in limit_audit)
         make_default = changes.get("is_default")
         if make_default is False and stored.is_default:
             raise ValidationError(
@@ -101,24 +112,15 @@ class PlanService:
                     {"field": "is_default", "reason": "Mark another plan as default.", "code": "default_required"}
                 ],
             )
-        if limits != stored.limits:
+        if limit_changes:
             self._entitlements.refuse_members_above_ceiling(limits)
         result = stored
-        if updates or limits != stored.limits:
-            replaced = self._plans.store_plan(
-                Plan(
-                    key=stored.key,
-                    name=updates.get("name", stored.name),
-                    description=updates.get("description", stored.description),
-                    limits=limits,
-                    is_default=stored.is_default,
-                    created_at=stored.created_at,
-                    updated_at=stored.updated_at,
-                )
-            )
-            if replaced is None:
+        if updates or limit_changes:
+            # SEC-003 — one UPDATE of the changed fields; is_default and created_at are never written here.
+            applied = self._plans.apply_plan_change(plan_key, fields=updates, limit_changes=limit_changes)
+            if applied is None:
                 raise NotFoundError("Plan", plan_key)
-            result = replaced
+            result = applied
         if make_default is True and not stored.is_default:
             defaulted = self._plans.make_default(plan_key)
             if defaulted is None:
@@ -126,8 +128,13 @@ class PlanService:
             result = defaulted
             changed.append("is_default")
         if changed:
-            self._audit(SecurityAuditAction.PLAN_CHANGED, actor, plan_key, changed)
-            logger.info("plan_changed", plan_key=plan_key, fields=changed)
+            self._audit(SecurityAuditAction.PLAN_CHANGED, actor, plan_key, changed, limit_audit or None)
+            logger.info(
+                "plan_changed",
+                plan_key=plan_key,
+                fields=changed,
+                lifted=[change.field for change in limit_audit if change.flag is not None],
+            )
         return PlanWithUsage(plan=result, tenant_count=self._plans.count_tenants_on(plan_key))
 
     def delete_plan(self, plan_key: str, *, actor: User) -> None:
@@ -142,9 +149,29 @@ class PlanService:
         self._audit(SecurityAuditAction.PLAN_DELETED, actor, plan_key, None)
         logger.info("plan_deleted", plan_key=plan_key)
 
-    def _audit(self, action: SecurityAuditAction, actor: User, plan_key: str, changed: list[str] | None) -> None:
+    def _audit(
+        self,
+        action: SecurityAuditAction,
+        actor: User,
+        plan_key: str,
+        changed: list[str] | None,
+        limit_changes: list[PlanLimitChange] | None = None,
+    ) -> None:
         if self._security_audit is None:
             return
         self._security_audit.record_plan_change(
-            action=action, actor_user_key=actor.key or "", plan_key=plan_key, changed_fields=changed
+            action=action,
+            actor_user_key=actor.key or "",
+            plan_key=plan_key,
+            changed_fields=changed,
+            limit_changes=limit_changes,
         )
+
+
+def _relaxing_flag(name: str, new: int | None) -> Literal["to_unlimited", "to_instance_setting"] | None:
+    """SEC-005 — mark a change that lifts a limit: to ``0`` where ``0`` is unlimited, or to ``null``."""
+    if new is None:
+        return "to_instance_setting"
+    if new == 0 and name in ZERO_IS_UNLIMITED_FIELDS:
+        return "to_unlimited"
+    return None

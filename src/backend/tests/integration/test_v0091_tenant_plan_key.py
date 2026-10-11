@@ -25,7 +25,7 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.collections import ensure_collections
 from app.data_access.arango.plan_repository import ArangoPlanRepository
 from app.data_access.arango.tenant_repository import ArangoTenantRepository
-from app.domain.models.plan import Plan, PlanLimits
+from app.domain.models.plan import Plan
 from app.migrations.seed_plans import seed_plans
 from app.migrations.versions.v0091_tenant_plan_key import migration
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
@@ -102,7 +102,7 @@ def test_the_dry_run_writes_nothing(db) -> None:  # type: ignore[no-untyped-def]
 def test_the_seed_keeps_a_changed_plan_and_never_makes_a_second_default(db) -> None:  # type: ignore[no-untyped-def]
     repo = ArangoPlanRepository(db)
     seed_plans(db)
-    repo.store_plan(Plan(_key="standard", name="Renamed", limits=PlanLimits(storage_mb=7)))
+    repo.apply_plan_change("standard", fields={"name": "Renamed"}, limit_changes={"storage_mb": 7})
     repo.create(Plan(_key="pro", name="Pro"))
     repo.make_default("pro")
     db.collection(col.PLANS).delete("standard")  # a data error the boot seed repairs
@@ -117,7 +117,7 @@ def test_the_seed_keeps_a_changed_plan_and_never_makes_a_second_default(db) -> N
 def test_a_renamed_standard_plan_survives_the_seed(db) -> None:  # type: ignore[no-untyped-def]
     repo = ArangoPlanRepository(db)
     seed_plans(db)
-    repo.store_plan(Plan(_key="standard", name="Renamed", limits=PlanLimits(storage_mb=7)))
+    repo.apply_plan_change("standard", fields={"name": "Renamed"}, limit_changes={"storage_mb": 7})
 
     seed_plans(db)
 

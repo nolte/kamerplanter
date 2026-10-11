@@ -254,7 +254,7 @@ def test_a_plan_change_applies_from_the_next_decision() -> None:
     service = EntitlementService(plan_repo=plans, tenant_repo=tenants, settings=_settings())
     assert service.limit(TENANT, EntitlementDimension.SERVICE_ACCOUNTS) == 5
 
-    plans.store_plan(_plan(service_accounts=2))
+    plans.apply_plan_change("small", fields={}, limit_changes={"service_accounts": 2})
 
     # A tenant at 4 keeps them (nothing here removes anything); the next creation is refused.
     with pytest.raises(ServiceAccountLimitReachedError):
@@ -357,3 +357,62 @@ def test_an_unreadable_ki_counter_leaves_the_usage_open_instead_of_failing_the_v
     used = {row.dimension: row.used for row in view.limits}
     assert used[EntitlementDimension.AI_CALLS_PER_TENANT_DAY] is None
     assert used[EntitlementDimension.AI_CALLS_PER_USER_DAY] is None
+
+
+# ── security review of #2142 ─────────────────────────────────────────
+
+
+def test_the_platform_tenant_is_held_to_the_instance_settings_whatever_its_plan(  # SEC-006
+) -> None:
+    tight = Plan(_key="tight", name="Tight", limits=PlanLimits(members=1), is_default=True)
+    platform = _tenant("tight", 50).model_copy(update={"is_platform": True})
+    service = _service(tight, tenant=platform)
+
+    assert service.limit(TENANT, EntitlementDimension.MEMBERS) == 50
+
+
+@pytest.mark.parametrize(
+    ("field", "too_big"),
+    [
+        ("members", 1_000_001),
+        ("service_accounts", 100_001),
+        ("storage_mb", 10_000_001),
+        ("photos_per_instance", 100_001),
+        ("ai_calls_per_user_day", 10_000_001),
+        ("ai_calls_per_tenant_day", 100_000_001),
+        ("ai_tokens_per_tenant_day", 10**12 + 1),
+    ],
+)
+def test_every_limit_has_an_upper_bound_far_above_the_defaults(field: str, too_big: int) -> None:  # SEC-006
+    from pydantic import ValidationError as PydanticValidationError
+
+    from app.domain.models.plan import LIMIT_MAXIMA
+
+    with pytest.raises(PydanticValidationError):
+        PlanLimits(**{field: too_big})
+    assert PlanLimits(**{field: too_big - 1}).of(EntitlementDimension(field)) == too_big - 1
+    instance_default = DEFAULTS[INSTANCE_SETTINGS[EntitlementDimension(field)]]
+    assert LIMIT_MAXIMA[field] >= 100 * instance_default
+
+
+def test_the_seed_schema_bounds_are_the_model_bounds() -> None:  # SEC-006: one bound, two spellings
+    from pathlib import Path
+
+    import yaml
+
+    import app.migrations
+    from app.domain.models.plan import LIMIT_MAXIMA
+
+    schema = yaml.safe_load(
+        (Path(app.migrations.__file__).parent / "seed_data" / "schemas" / "plans.schema.yaml").read_text()
+    )
+    fields = schema["$defs"]["plan"]["properties"]["limits"]["properties"]
+
+    assert {name: spec["maximum"] for name, spec in fields.items()} == LIMIT_MAXIMA
+    assert {name: spec["minimum"] for name, spec in fields.items()} == {
+        name: (PlanLimits.model_fields[name].metadata[0].ge) for name in fields
+    }
+
+
+def test_the_read_model_ignores_an_unknown_limit_field() -> None:  # SEC-001
+    assert PlanLimits.model_validate({"storage_mb": 7, "sensors": 3}).storage_mb == 7

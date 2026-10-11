@@ -537,7 +537,7 @@ class TenantService:
         changes_plan = wanted_plan is not None and wanted_plan != current.plan_key
         if changes_plan:
             self._refuse_plan_assignment(current, str(wanted_plan))
-        data = {k: v for k, v in data.items() if k != _PLAN_FIELD or changes_plan}
+        data = {k: v for k, v in data.items() if k != _PLAN_FIELD}
         wanted = data.get("is_active")
         changes_active = wanted is not None and bool(wanted) != bool(current.is_active)
         if changes_active and not wanted and current.is_platform:
@@ -566,19 +566,17 @@ class TenantService:
         if changes_active:
             # #2123 — the bool of the request is the admin's suspension switch on the status model.
             data["status"] = TenantStatus.ACTIVE if wanted else TenantStatus.SUSPENDED
-        if not data:
-            return current
-        updated = self._apply_tenant_update(tenant_key, data)
-        if changes_active:
-            # MT-014 (#2111) — a suspension locks every member out with one request; written after the store.
-            self._audit_tenant(
-                SecurityAuditAction.TENANT_REACTIVATED if wanted else SecurityAuditAction.TENANT_SUSPENDED,
-                via=SecurityAuditVia.PLATFORM_ADMIN,
-                actor_user_key=requester.key or "",
-                tenant_key=tenant_key,
+        if changes_plan and not self._entitlements.assign_plan(tenant_key, str(wanted_plan)):
+            # SEC-004 — one statement that writes only while the plan exists: a plan deleted after the
+            # check above (or a tenant whose erasure started meanwhile) is 422 and nothing is written.
+            raise ValidationError(
+                "The plan cannot be assigned: it no longer exists or the tenant is being erased.",
+                details=[{"field": _PLAN_FIELD, "reason": "Plan gone or tenant erased.", "code": "unknown_plan"}],
             )
         if changes_plan:
             # REQ-056 §7.6 / §11 (#2142) — what was booked when: the hook a future billing module reads.
+            # Written right after the assignment, so a later refusal of another field of the same request
+            # cannot leave a plan change without its row.
             self._audit_tenant(
                 SecurityAuditAction.TENANT_PLAN_CHANGED,
                 via=SecurityAuditVia.PLATFORM_ADMIN,
@@ -588,10 +586,32 @@ class TenantService:
                 plan_key=str(wanted_plan),
             )
             logger.info("tenant_plan_changed", tenant=log_tenant(tenant_key), plan_key=wanted_plan)
+        if not data and not changes_plan:
+            return current
+        updated = self._apply_tenant_update(tenant_key, data) if data else self._tenant_repo.get_by_key(tenant_key)
+        if updated is None:
+            raise NotFoundError("Tenant", tenant_key)
+        if changes_active:
+            # MT-014 (#2111) — a suspension locks every member out with one request; written after the store.
+            self._audit_tenant(
+                SecurityAuditAction.TENANT_REACTIVATED if wanted else SecurityAuditAction.TENANT_SUSPENDED,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=requester.key or "",
+                tenant_key=tenant_key,
+            )
         return updated
 
     def _refuse_plan_assignment(self, tenant: Tenant, plan_key: str) -> None:
-        """422 for a plan that does not exist or a tenant whose erasure is running (REQ-056 §7.6)."""
+        """422 for a plan that does not exist, a tenant whose erasure is running or the platform tenant.
+
+        The platform tenant stays on its plan (SEC-006): its quotas are the instance settings whatever plan
+        it names (``EntitlementService.plan_of``), so a plan on it would only be a stored value that lies.
+        """
+        if tenant.is_platform:
+            raise ValidationError(
+                "The platform tenant is held to the instance settings and takes no plan.",
+                details=[{"field": _PLAN_FIELD, "reason": "Platform tenant.", "code": "platform_tenant"}],
+            )
         if tenant.status == TenantStatus.DELETED:
             raise ValidationError(
                 "The plan of a tenant that is being erased cannot be changed.",

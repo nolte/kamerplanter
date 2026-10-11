@@ -48,7 +48,7 @@ from app.common.dependencies import (
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
 from app.common.request_ip import resolve_client_ip
-from app.domain.models.plan import PlanWithUsage
+from app.domain.models.plan import ZERO_IS_UNLIMITED_FIELDS, PlanWithUsage
 from app.domain.models.user import User
 from app.domain.services.entitlement_service import EntitlementService
 from app.domain.services.plan_service import PlanService
@@ -186,6 +186,7 @@ def _plan_response(item: PlanWithUsage) -> PlanResponse:
         name=plan.name,
         description=plan.description,
         limits=plan.limits,
+        unlimited=[name for name in ZERO_IS_UNLIMITED_FIELDS if getattr(plan.limits, name) == 0],
         is_default=plan.is_default,
         tenant_count=item.tenant_count,
         created_at=plan.created_at,
@@ -213,8 +214,11 @@ def create_plan(
 ) -> PlanResponse:
     """Create a plan. Platform admin only; 409 for a taken key, 422 for limits out of range.
 
-    A limit left out or ``null`` follows the instance setting. ``members`` above
-    ``TENANT_MAX_MEMBERS_CEILING`` is 422. Written to the security audit (``plan_created``); no step-up.
+    A limit left out or ``null`` follows the instance setting. **``0`` means unlimited** for
+    ``storage_mb`` / ``photos_per_instance`` and **budget off** for the KI budgets — it never means
+    "nothing allowed"; the response lists such dimensions in ``unlimited``. ``members`` above
+    ``TENANT_MAX_MEMBERS_CEILING`` is 422; every limit has an upper bound (422 above it).
+    Written to the security audit (``plan_created``); no step-up.
     """
     created = plan_service.create_plan(
         key=body.key, name=body.name, description=body.description, limits=body.limits, actor=admin
@@ -232,6 +236,7 @@ def update_plan(
     """Change a plan's name, description or single limits, or make it the default. Platform admin only.
 
     Applies to every tenant on the plan from its next check; a lower limit removes nothing (REQ-056 §7.5).
+    **``0`` means unlimited** (storage, photos) or **budget off** (KI); the audit row flags such a change.
     ``is_default: true`` moves the default mark here; ``false`` is 422. Written to the security audit
     (``plan_changed`` with the changed field names); no step-up.
     """

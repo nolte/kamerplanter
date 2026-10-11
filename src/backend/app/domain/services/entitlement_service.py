@@ -172,8 +172,13 @@ class EntitlementService:
     # ── plan resolution ──────────────────────────────────────────────
 
     def plan_of(self, tenant: Tenant | None) -> Plan:
-        """The plan whose limits apply to *tenant* (REQ-056 §7.3), never ``None``."""
-        if self._plans is None:
+        """The plan whose limits apply to *tenant* (REQ-056 §7.3), never ``None``.
+
+        **The platform tenant is held to the instance settings, whatever plan it names** (SEC-006 of the
+        #2142 review): its ``lead`` members are the platform admins, and a restrictive plan - an assigned
+        one or a default made restrictive - must not stop the operator from adding another admin.
+        """
+        if self._plans is None or (tenant is not None and tenant.is_platform):
             return _standard_plan()
         wanted = tenant.plan_key if tenant is not None else DEFAULT_PLAN_KEY
         plan = self._plans.get(wanted)
@@ -193,6 +198,18 @@ class EntitlementService:
             return DEFAULT_PLAN_KEY
         default = self._plans.get_default()
         return default.key if default is not None else DEFAULT_PLAN_KEY
+
+    def assign_plan(self, tenant_key: str, plan_key: str) -> bool:
+        """Point the tenant at *plan_key* in one write that happens only while the plan exists (SEC-004).
+
+        ``False`` when nothing was written - the plan is gone or the tenant is unknown or being erased.
+        Without a catalogue only ``standard`` can be assigned.
+        """
+        if self._plans is not None:
+            return self._plans.assign_to_tenant(tenant_key, plan_key)
+        if plan_key != DEFAULT_PLAN_KEY or self._tenants is None:
+            return False
+        return self._tenants.update_fields(tenant_key, {"plan_key": plan_key}) is not None
 
     def get_plan(self, plan_key: str) -> Plan | None:
         """The stored plan *plan_key*, ``None`` when there is none (or no catalogue is wired)."""

@@ -58,7 +58,11 @@ class _AiCounters:
 def world() -> SimpleNamespace:
     tenant = Tenant(_key=TENANT, name="Garden", slug="garden", owner_user_key="u-lead", max_members=40)
     tenants = MagicMock()
-    tenants.get_by_key.side_effect = lambda key: state.tenant if key == TENANT else None
+    tenants.get_by_key.side_effect = lambda key: (
+        state.tenant.model_copy(update={"plan_key": plans.tenant_plans.get(key, state.tenant.plan_key)})
+        if key == TENANT
+        else None
+    )
     tenants.update_fields.side_effect = lambda key, data: (
         setattr(  # type: ignore[func-returns-value]
             state, "tenant", state.tenant.model_copy(update=data)
@@ -211,7 +215,7 @@ def test_a_platform_admin_assigns_a_plan_without_a_step_up(world: SimpleNamespac
     assert response.status_code == 200
     assert response.json()["plan_key"] == "club"
     assert unknown.status_code == 422
-    assert world.tenant.plan_key == "club"
+    assert world.plans.tenant_plans[TENANT] == "club"
 
 
 def test_the_admin_tenant_view_carries_every_dimension(world: SimpleNamespace) -> None:
@@ -280,3 +284,46 @@ def test_founding_past_the_accounts_organisation_limit_is_422_with_its_own_code(
     assert response.status_code == 422
     assert response.json()["error_code"] == "ORGANIZATION_LIMIT_REACHED"
     service._tenant_repo.create_with_lead_membership.assert_not_called()
+
+
+def test_a_plan_name_cannot_be_cleared(world: SimpleNamespace) -> None:
+    """#2142 review I-3: an explicit ``null`` name is 422 and nothing changes - not a 500."""
+    response = world.client.patch("/api/v1/admin/platform/plans/club", json={"name": None})
+
+    assert response.status_code == 422
+    assert world.plans.get("club").name == "Club"
+
+
+def test_the_response_names_the_dimensions_a_zero_makes_unlimited(world: SimpleNamespace) -> None:
+    """#2142 review SEC-002 — ``0`` lifts the limit; the response says so instead of leaving it to the reader."""
+    created = world.client.post(
+        "/api/v1/admin/platform/plans",
+        json={"key": "open", "name": "Open", "limits": {"storage_mb": 0, "ai_calls_per_user_day": 0, "members": 5}},
+    )
+
+    assert created.status_code == 201
+    assert created.json()["unlimited"] == ["storage_mb", "ai_calls_per_user_day"]
+
+
+def test_the_platform_tenant_takes_no_plan(world: SimpleNamespace) -> None:
+    """#2142 review SEC-006 — its quotas are the instance settings; a plan on it would be a value that lies."""
+    world.tenant = world.tenant.model_copy(update={"is_platform": True})
+
+    response = world.client.patch(f"/api/v1/admin/platform/tenants/{TENANT}", json={"plan_key": "club"})
+
+    assert response.status_code == 422
+    assert TENANT not in world.plans.tenant_plans or world.plans.tenant_plans[TENANT] == "standard"
+
+
+def test_a_plan_deleted_between_the_check_and_the_write_is_422_and_unaudited(world: SimpleNamespace) -> None:
+    """#2142 review SEC-004 — the assignment itself writes only while the plan exists."""
+    original = world.plans.get
+
+    # The check sees the plan, the plan is gone by the time the single-statement assignment runs.
+    world.plans.get = lambda key: original(key)
+    world.plans.assign_to_tenant = lambda tenant_key, plan_key: False
+
+    response = world.client.patch(f"/api/v1/admin/platform/tenants/{TENANT}", json={"plan_key": "club"})
+
+    assert response.status_code == 422
+    world.audit.record_tenant_change.assert_not_called()

@@ -9,6 +9,7 @@ tenant.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.domain.models.plan import Plan
 
@@ -31,11 +32,23 @@ class IPlanRepository(ABC):
         """Insert *plan*; ``DuplicateError`` when its key is taken."""
 
     @abstractmethod
-    def store_plan(self, plan: Plan) -> Plan | None:
-        """Write *plan* whole (name, description, limits); ``None`` when no plan carries its key.
+    def apply_plan_change(
+        self, key: str, *, fields: dict[str, Any], limit_changes: dict[str, int | None]
+    ) -> Plan | None:
+        """Change ``name`` / ``description`` (those of *fields* only) and merge *limit_changes*, in one write.
 
-        ``is_default`` is **not** written here - it moves only through :meth:`make_default`, which keeps
-        exactly one default.
+        ``None`` when no plan carries *key*. ``is_default`` and ``created_at`` are never written here -
+        the default moves only through :meth:`make_default`, which keeps exactly one (SEC-003). A limit set
+        to ``None`` in *limit_changes* returns that dimension to the instance setting.
+        """
+
+    @abstractmethod
+    def assign_to_tenant(self, tenant_key: str, plan_key: str) -> bool:
+        """Point the tenant at *plan_key*, only while that plan exists; ``False`` when nothing was written.
+
+        One statement (SEC-004): a plan deleted a moment ago is not assigned, and an assignment that races a
+        deletion of the same plan fails with ``WriteConflictError`` instead of leaving a tenant on no plan.
+        A tenant in state ``deleted`` is not changed.
         """
 
     @abstractmethod

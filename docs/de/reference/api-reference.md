@@ -1472,7 +1472,10 @@ Jeder Mandant verweist mit `plan_key` auf genau einen Plan. Ein Plan setzt je Ko
 | `ai_calls_per_tenant_day` | `AI_BUDGET_TENANT_CALLS_PER_DAY` | Budget aus | `429 AI_BUDGET_EXCEEDED` |
 | `ai_tokens_per_tenant_day` | `AI_BUDGET_TENANT_TOKENS_PER_DAY` | Budget aus | `429 AI_BUDGET_EXCEEDED` |
 
-Wirksam für Mitglieder ist `min(max_members, plan.members ?? Obergrenze, TENANT_MAX_MEMBERS_CEILING)`. Fehlt das Plan-Dokument eines Mandanten, gilt der Standardplan, nie „unbegrenzt“.
+!!! warning "`0` heißt unbegrenzt, nicht „nichts erlaubt“"
+    Bei `storage_mb` und `photos_per_instance` hebt `0` die Grenze ganz auf, bei den drei KI-Budgets schaltet `0` das Budget ab — auch dann gibt es keine Grenze. Ein Plan kann diese Dimensionen also nicht auf „gar nichts“ setzen. Die Plan-Antwort listet solche Dimensionen im Feld `unlimited`, und das Sicherheitsprotokoll markiert eine Änderung auf `0` als `to_unlimited`.
+
+Jedes Kontingent hat eine Obergrenze (z. B. `storage_mb` höchstens 10 000 000, `ai_tokens_per_tenant_day` höchstens 10¹²); darüber antwortet die API mit `422`. Wirksam für Mitglieder ist `min(max_members, plan.members ?? Obergrenze, TENANT_MAX_MEMBERS_CEILING)`. Der Plattform-Mandant folgt immer den Server-Einstellungen und nimmt keinen Plan an (`422`). Fehlt das Plan-Dokument eines Mandanten oder ist es beschädigt, gilt der Standardplan und danach die Server-Einstellung, nie „unbegrenzt“; ein beschädigter Plan fehlt außerdem in der Plan-Liste.
 
 ### Plan und Verbrauch eines Mandanten lesen
 
@@ -1497,12 +1500,12 @@ Wirksam für Mitglieder ist `min(max_members, plan.members ?? Obergrenze, TENANT
 |---|---|---|
 | `GET` | `/api/v1/admin/platform/plans` | alle Pläne mit `tenant_count` |
 | `POST` | `/api/v1/admin/platform/plans` | Plan anlegen (`201`; `409` bei vergebenem `key`; `422` außerhalb der Wertebereiche oder `members` über der Obergrenze) |
-| `PATCH` | `/api/v1/admin/platform/plans/{plan_key}` | Name, Beschreibung, einzelne Kontingente ändern; `is_default: true` macht ihn zum Standard für neue Mandanten |
+| `PATCH` | `/api/v1/admin/platform/plans/{plan_key}` | Name, Beschreibung, einzelne Kontingente ändern (`name: null` ist `422`); `is_default: true` macht ihn zum Standard für neue Mandanten |
 | `DELETE` | `/api/v1/admin/platform/plans/{plan_key}` | löschen (`204`); `409 RESOURCE_IN_USE`, solange ein Mandant ihn nutzt oder er der Standard ist |
-| `PATCH` | `/api/v1/admin/platform/tenants/{key}` mit `plan_key` | Plan zuordnen (`422` bei unbekanntem Plan oder Mandant in Löschung) |
+| `PATCH` | `/api/v1/admin/platform/tenants/{key}` mit `plan_key` | Plan zuordnen (`422` bei unbekanntem Plan, Mandant in Löschung oder Plattform-Mandant; `409 WRITE_CONFLICT`, wenn der Plan im selben Moment gelöscht wird) |
 | `GET` | `/api/v1/admin/platform/tenants/{key}` | Mandant mit `entitlements` über alle Kontingente |
 
-`key` folgt `^[a-z][a-z0-9_-]{1,39}$` und ist unveränderlich. Keine der Aktionen verlangt eine Passwort-Bestätigung; jede schreibt einen Eintrag ins Sicherheitsprotokoll (`plan_created`, `plan_changed` mit `changed_fields`, `plan_deleted`, `tenant_plan_changed` mit `old_plan_key` und `plan_key`). Im Light-Modus gibt es diese Routen nicht.
+`key` folgt `^[a-z][a-z0-9_-]{1,39}$` und ist unveränderlich. Keine der Aktionen verlangt eine Passwort-Bestätigung; jede schreibt einen Eintrag ins Sicherheitsprotokoll (`plan_created`, `plan_changed` mit `changed_fields` und — für Kontingente — `limit_changes` mit altem und neuem Wert, `plan_deleted`, `tenant_plan_changed` mit `old_plan_key` und `plan_key`). Im Light-Modus gibt es diese Routen nicht.
 
 ### Organisationen je Konto
 
