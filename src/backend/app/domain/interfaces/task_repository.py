@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from typing import Any
 
 from app.common.enums import ReminderType
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
@@ -108,6 +109,19 @@ class ITaskRepository(ABC):
         ``pipeline``), and an empty sequence means "nothing matches" rather than
         "no filter".
         """
+        ...
+
+    @abstractmethod
+    def get_tasks_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
+        """The page of :meth:`get_all_tasks` without its count query (MT-035, #2131)."""
         ...
 
     @abstractmethod

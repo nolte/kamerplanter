@@ -104,6 +104,28 @@ class IPlantDiaryRepository(ABC):
         :meth:`get_by_plant`; see there.
         """
 
+    @abstractmethod
+    def get_by_plant_window(
+        self,
+        plant_key: str,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[PlantDiaryEntry]:
+        """The page of :meth:`get_by_plant` without its count query (MT-035, #2131)."""
+
+    @abstractmethod
+    def get_by_run_window(
+        self,
+        run_key: str,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """The page of :meth:`get_by_run` without its count query (MT-035, #2131)."""
+
     # ── REQ-050 AI analysis ──────────────────────────────────────────────────
 
     @abstractmethod

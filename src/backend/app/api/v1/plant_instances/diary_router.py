@@ -81,7 +81,7 @@ def list_plant_diary_entries(
     is why it is evaluated per entry and not once for the page.
     """
     plant_service.get_plant(key, tenant_key=ctx.tenant_key)
-    entries, _total = diary_service.list_entries_for_plant(
+    entries = diary_service.list_entries_for_plant_window(
         key,
         tenant_key=ctx.tenant_key,
         offset=pagination.offset,
