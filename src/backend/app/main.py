@@ -437,9 +437,9 @@ async def security_headers_middleware(request: Request, call_next) -> Response: 
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     # MT-044 (#2144): tenant-private JSON must not be kept by a shared proxy or the
     # browser cache after logout or a tenant switch. A default, not an override: a
-    # route that decided its own caching keeps it (attachment downloads answer
-    # ``private, no-cache`` with an ETag, token downloads ``no-store`` (#2254),
-    # pest reference images ``public``, the SSE stream ``no-cache``).
+    # route that decided its own caching keeps it (attachment and pest-image
+    # downloads answer ``private, no-cache`` with an ETag, token downloads
+    # ``no-store`` (#2254), the SSE stream ``no-cache``).
     if request.url.path.startswith(_NO_STORE_PREFIX) and "cache-control" not in response.headers:
         response.headers["Cache-Control"] = "no-store"
     return response

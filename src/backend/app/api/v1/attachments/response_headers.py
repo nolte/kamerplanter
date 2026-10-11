@@ -19,6 +19,8 @@ involved — to stay safe it downgrades any non-image-confirmed ``inline`` to
 
 from __future__ import annotations
 
+import hashlib
+
 #: Cache policy of the session-authorized download routes (#2254). The browser
 #: may keep the bytes but must ask the server before every reuse, so a logout,
 #: a removed membership or a deleted attachment takes effect on the next view;
@@ -32,6 +34,26 @@ SESSION_DOWNLOAD_CACHE_CONTROL = "private, no-cache"
 #: reused under a URL whose authorization ends long before a ``max-age=86400``
 #: would. Nothing is stored: the copy cannot outlive the token or a deletion.
 TOKEN_DOWNLOAD_CACHE_CONTROL = "no-store"
+
+
+def object_etag(storage_key: str, sha256: str) -> str:
+    """Strong ETag of a stored original (#2254).
+
+    Not the bare ``sha256``: that is the hash of the bytes as UPLOADED — before
+    the EXIF strip — so publishing it lets anyone holding a candidate file
+    (with its GPS tags) confirm it was this upload. Hashing it together with
+    the storage key, which no response exposes (NFR-013 AC-04) and which is a
+    fresh ULID per stored object, keeps the tag stable for one object and
+    useless for that comparison.
+    """
+    digest = hashlib.sha256(f"{storage_key}\0{sha256}".encode()).hexdigest()
+    return f'"{digest}"'
+
+
+def rendition_etag(storage_key: str, sha256: str, size: int) -> str:
+    """Weak ETag of a thumbnail rendition: a re-render is equivalent, not byte-identical."""
+    digest = hashlib.sha256(f"{storage_key}\0{sha256}\0{size}".encode()).hexdigest()
+    return f'W/"{digest}"'
 
 
 def if_none_match_hits(if_none_match: str | None, etag: str) -> bool:
@@ -90,4 +112,6 @@ __all__ = [
     "TOKEN_DOWNLOAD_CACHE_CONTROL",
     "harden_download_headers",
     "if_none_match_hits",
+    "object_etag",
+    "rendition_etag",
 ]

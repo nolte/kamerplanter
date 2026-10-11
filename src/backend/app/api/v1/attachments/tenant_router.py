@@ -33,6 +33,8 @@ from app.api.v1.attachments.response_headers import (
     SESSION_DOWNLOAD_CACHE_CONTROL,
     harden_download_headers,
     if_none_match_hits,
+    object_etag,
+    rendition_etag,
 )
 from app.api.v1.attachments.schemas import (
     AttachmentListResponse,
@@ -215,7 +217,7 @@ async def download_attachment(
     """Serve the original object.
 
     Presign-capable backends (S3) 307-redirect to a short-lived signed URL;
-    otherwise the object is proxy-streamed with an ETag (= content SHA-256) and
+    otherwise the object is proxy-streamed with an ETag (see ``object_etag``) and
     ``private, no-cache``: the browser revalidates every reuse, and a matching
     ``If-None-Match`` answers 304 — after the permission check, so a revoked
     access is never served from cache (#2254).
@@ -224,7 +226,7 @@ async def download_attachment(
     if target.redirect_url is not None:
         return RedirectResponse(url=target.redirect_url, status_code=307)
 
-    etag = f'"{target.attachment.sha256}"'
+    etag = object_etag(target.attachment.storage_key, target.attachment.sha256)
     if if_none_match_hits(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers={"Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL, "ETag": etag})
 
@@ -264,8 +266,7 @@ async def download_thumbnail(
     or a generation that failed for good) answers 404 (#2108).
 
     Cached like the original (``private, no-cache``, #2254) under a weak ETag
-    derived from the original's SHA-256 and the size: a re-rendered thumbnail is
-    equivalent, not byte-identical.
+    (``rendition_etag``): a re-rendered thumbnail is equivalent, not byte-identical.
     """
     from app.common.exceptions import NotFoundError
 
@@ -275,7 +276,7 @@ async def download_thumbnail(
             details=[{"field": "size", "reason": "Unknown thumbnail size.", "code": "INVALID_THUMBNAIL_SIZE"}],
         )
     attachment = service.get_attachment(attachment_id, ctx.tenant_key)
-    etag = f'W/"{attachment.sha256}-{size}"'
+    etag = rendition_etag(attachment.storage_key, attachment.sha256, size)
     if if_none_match_hits(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers={"Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL, "ETag": etag})
     try:

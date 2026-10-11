@@ -1,4 +1,4 @@
-"""Request-body ceiling and upload spool budget at the ASGI boundary (#2254).
+"""Request-body ceilings and upload spool budget at the ASGI boundary (#2254).
 
 FastAPI parses a ``multipart/form-data`` body completely before it calls the
 route handler or solves a single dependency: every ``UploadFile`` / ``Form``
@@ -11,22 +11,30 @@ body against a 1 MiB file limit was consumed to the last byte before the 413,
 with and without ``Content-Length``. The authentication dependency ran after
 the parse too, so an anonymous caller got the same treatment.
 
-This middleware sits in front of the router and enforces two bounds there:
+This middleware sits in front of the router and enforces, before the parse:
 
-* **Body ceiling.** A declared ``Content-Length`` above ``max_body_bytes`` is
-  refused with ``413`` before a byte is read. A body without one (chunked) is
-  counted while the application reads it and aborted with ``413`` the moment it
-  passes the ceiling, so nothing beyond the ceiling is ever spooled. The
-  ceiling equals the edge proxy's (``storage.maxFileSizeMb`` + 1 MiB, #2144):
-  behind the chart's nginx nothing changes, a request that reaches the
-  backend directly (port-forward, in-cluster caller, an ingress without a
-  body limit) meets the same bound.
-* **Spool budget.** Concurrent multipart bodies share a byte budget sized to
-  the temporary storage. A request reserves its declared length (the ceiling
-  when it declares none) before the parser starts; one that cannot get its
-  share within ``spool_wait_seconds`` is answered ``503`` with
-  ``Retry-After`` instead of filling ``/tmp`` until the parse fails with an
-  unexplained ``400``.
+* **Two body ceilings.** A body Starlette would parse as multipart — decided
+  with Starlette's own parser (:func:`is_multipart`), so a content type the
+  framework spools can never slip past as "not multipart" — may carry an upload:
+  its ceiling equals the edge proxy's (``storage.maxFileSizeMb`` + 1 MiB,
+  #2144). Every other body (JSON, form-urlencoded, unknown or missing type) is
+  held to :data:`NON_MULTIPART_MAX_BODY_BYTES` (1 MiB). A declared
+  ``Content-Length`` above the ceiling is refused with ``413`` before a byte is
+  read; otherwise the body is counted as the application reads it and aborted
+  with ``413`` the moment it passes the ceiling.
+* **Spool budget, counted in received bytes.** Concurrent multipart bodies
+  share a byte budget sized to the temporary storage. Each received chunk takes
+  its bytes from the budget before the parser sees it, so only bytes that
+  actually arrived are held — a client that announces 25 MiB and sends nothing
+  holds nothing. A chunk that cannot get its bytes within
+  ``spool_wait_seconds`` ends the request with ``503`` + ``Retry-After``
+  instead of filling ``/tmp`` until the parse fails with an unexplained
+  ``400``. Everything a request took is returned when it ends — answered,
+  refused, disconnected or cancelled.
+
+Non-multipart bodies take nothing from the budget: their 1 MiB ceiling keeps
+them in memory (Starlette spools file parts of multipart bodies only, and only
+above 1 MiB), so they cannot reach ``/tmp``.
 
 The route-level ``Content-Length`` check and bounded read stay as defence in
 depth: they hold the *per-route* file limit, which may be smaller than the
@@ -37,15 +45,16 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
 
 import structlog
+from python_multipart.multipart import parse_options_header
 from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.common.error_handlers import app_error_response
-from app.common.exceptions import RequestBodyTooLargeError, UploadCapacityExhaustedError
+from app.common.exceptions import KamerplanterError, RequestBodyTooLargeError, UploadCapacityExhaustedError
+from app.common.upload_bounds import parse_content_length
 
 logger = structlog.get_logger()
 
@@ -53,17 +62,42 @@ logger = structlog.get_logger()
 #: the same 1 MiB the edge proxy adds (``client_max_body_size``, #2144).
 BODY_HEADROOM_BYTES = 1024 * 1024
 
+#: Ceiling for every body that is not a multipart upload (JSON, form-urlencoded,
+#: unknown). The largest JSON request the API takes is far below it; it also
+#: keeps such a body under Starlette's 1 MiB spool threshold.
+NON_MULTIPART_MAX_BODY_BYTES = 1024 * 1024
+
 #: How often a request waiting for spool budget looks again.
 _BUDGET_POLL_SECONDS = 0.05
 
 
 def request_body_limit_bytes(max_file_size_mb: int) -> int:
-    """The body ceiling for a file limit of ``max_file_size_mb`` MiB (edge parity)."""
+    """The multipart body ceiling for a file limit of ``max_file_size_mb`` MiB (edge parity)."""
     return max_file_size_mb * 1024 * 1024 + BODY_HEADROOM_BYTES
 
 
-class _BodyTooLargeError(Exception):
-    """Raised from the counting ``receive`` once the body passes the ceiling."""
+def declared_length(headers: Headers) -> int | None:
+    """``Content-Length`` as an int, or ``None`` when absent or not a plain ASCII decimal."""
+    return parse_content_length(headers.get("content-length"))
+
+
+def is_multipart(headers: Headers) -> bool:
+    """Whether Starlette would parse this body as ``multipart/form-data``.
+
+    The same parser and the same comparison as ``starlette.requests.Request.form``
+    (``parse_options_header(ct)[0] == b"multipart/form-data"``). A home-grown
+    prefix check disagreed with it: ``"\\xa0multipart/form-data"`` is multipart to
+    Starlette (the parser strips the leading space) but not to ``startswith``.
+    """
+    raw = headers.get("content-type")
+    if not raw:
+        return False
+    content_type, _options = parse_options_header(raw)
+    return bool(content_type == b"multipart/form-data")
+
+
+class _AbortBodyError(Exception):
+    """Raised from the counting ``receive`` to stop the application's read."""
 
 
 class SpoolBudget:
@@ -71,45 +105,34 @@ class SpoolBudget:
 
     Loop-agnostic on purpose (a counter, no asyncio primitive): the check and
     the increment in :meth:`try_reserve` run without an ``await`` between them,
-    so two coroutines of one loop cannot both take the last share.
+    so two coroutines of one loop cannot both take the last bytes.
     """
 
     def __init__(self, capacity_bytes: int) -> None:
         self.capacity_bytes = capacity_bytes
         self.in_use_bytes = 0
 
-    def share_for(self, wanted_bytes: int) -> int:
-        """Clamp a reservation to the capacity so a single body always fits alone."""
-        return min(wanted_bytes, self.capacity_bytes)
-
-    def try_reserve(self, share: int) -> bool:
-        if self.in_use_bytes + share > self.capacity_bytes:
+    def try_reserve(self, size: int) -> bool:
+        if self.in_use_bytes + size > self.capacity_bytes:
             return False
-        self.in_use_bytes += share
+        self.in_use_bytes += size
         return True
 
-    async def reserve(self, share: int, wait_seconds: float) -> bool:
-        """Reserve ``share`` bytes, waiting up to ``wait_seconds`` for them to free."""
+    async def reserve(self, size: int, wait_seconds: float) -> bool:
+        """Reserve ``size`` bytes, waiting up to ``wait_seconds`` for them to free."""
         deadline = time.monotonic() + wait_seconds
-        while not self.try_reserve(share):
+        while not self.try_reserve(size):
             if time.monotonic() >= deadline:
                 return False
             await asyncio.sleep(_BUDGET_POLL_SECONDS)
         return True
 
-    def release(self, share: int) -> None:
-        self.in_use_bytes = max(0, self.in_use_bytes - share)
-
-
-def _declared_length(headers: Headers) -> int | None:
-    raw = headers.get("content-length")
-    if raw is None or not raw.strip().isdigit():
-        return None
-    return int(raw)
+    def release(self, size: int) -> None:
+        self.in_use_bytes = max(0, self.in_use_bytes - size)
 
 
 class RequestBodyLimitMiddleware:
-    """Pure ASGI middleware enforcing the body ceiling and the spool budget (#2254)."""
+    """Pure ASGI middleware enforcing the body ceilings and the spool budget (#2254)."""
 
     def __init__(
         self,
@@ -118,9 +141,17 @@ class RequestBodyLimitMiddleware:
         max_body_bytes: int,
         spool_budget_bytes: int,
         spool_wait_seconds: float,
+        non_multipart_max_body_bytes: int = NON_MULTIPART_MAX_BODY_BYTES,
     ) -> None:
+        if max_body_bytes > spool_budget_bytes:
+            msg = (
+                f"The multipart body ceiling ({max_body_bytes} bytes) exceeds the upload spool budget "
+                f"({spool_budget_bytes} bytes): a single full-size upload could never be accepted."
+            )
+            raise ValueError(msg)
         self.app: ASGIApp = app
         self.max_body_bytes = max_body_bytes
+        self.non_multipart_max_body_bytes = non_multipart_max_body_bytes
         self.budget = SpoolBudget(spool_budget_bytes)
         self.spool_wait_seconds = spool_wait_seconds
 
@@ -131,77 +162,98 @@ class RequestBodyLimitMiddleware:
             return
 
         headers = Headers(scope=scope)
-        declared = _declared_length(headers)
-        if declared is not None and declared > self.max_body_bytes:
-            await self._refuse_too_large(scope, send, declared=declared)
+        multipart = is_multipart(headers)
+        ceiling = self.max_body_bytes if multipart else self.non_multipart_max_body_bytes
+        declared = declared_length(headers)
+        if declared is not None and declared > ceiling:
+            await self._refuse_too_large(scope, send, ceiling, declared=declared)
             return
+        await self._run_counted(inner, scope, receive, send, ceiling=ceiling, accounted=multipart)
 
-        share = 0
-        if headers.get("content-type", "").lower().startswith("multipart/form-data"):
-            share = self.budget.share_for(declared if declared is not None else self.max_body_bytes)
-            if not await self.budget.reserve(share, self.spool_wait_seconds):
-                logger.warning("upload_spool_budget_exhausted", in_use_bytes=self.budget.in_use_bytes, share=share)
-                exc = UploadCapacityExhaustedError(retry_after=max(1, int(self.spool_wait_seconds)))
-                await self._reply(scope, send, exc, {"Retry-After": str(exc.retry_after)})
-                return
-        try:
-            await self._run_counted(inner, scope, receive, send)
-        finally:
-            if share:
-                self.budget.release(share)
-
-    async def _run_counted(self, inner: ASGIApp, scope: Scope, receive: Receive, send: Send) -> None:
+    async def _run_counted(
+        self,
+        inner: ASGIApp,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+        *,
+        ceiling: int,
+        accounted: bool,
+    ) -> None:
         received = 0
-        tripped = False
+        reserved = 0
+        abort: str | None = None
+        take_budget = self.budget.reserve
         response_started = False
 
         async def counting_receive() -> Message:
-            nonlocal received, tripped
-            if tripped:
-                raise _BodyTooLargeError
+            nonlocal received, reserved, abort
+            if abort is not None:
+                raise _AbortBodyError
             message: Message = await receive()
-            if message["type"] == "http.request":
-                received += len(message.get("body", b""))
-                if received > self.max_body_bytes:
-                    tripped = True
-                    raise _BodyTooLargeError
+            if message["type"] != "http.request":
+                return message
+            size = len(message.get("body", b""))
+            received += size
+            if received > ceiling:
+                abort = "too_large"
+                raise _AbortBodyError
+            if accounted and size:
+                if not await take_budget(size, self.spool_wait_seconds):
+                    abort = "capacity"
+                    raise _AbortBodyError
+                reserved += size
             return message
 
         async def guarded_send(message: Message) -> None:
             nonlocal response_started
             # Once the body was aborted the application's own answer to the
-            # broken read (FastAPI turns it into a 400) is dropped for the 413.
-            if tripped and not response_started:
+            # broken read (FastAPI turns it into a 400) is dropped for ours.
+            if abort is not None and not response_started:
                 return
             if message["type"] == "http.response.start":
                 response_started = True
             await send(message)
 
         try:
-            await inner(scope, counting_receive, guarded_send)
-        except Exception:
-            if not tripped:
-                raise
-        if tripped and not response_started:
-            await self._refuse_too_large(scope, send, declared=None, received=received)
+            try:
+                await inner(scope, counting_receive, guarded_send)
+            except Exception:
+                if abort is None:
+                    raise
+            if abort is not None and not response_started:
+                if abort == "too_large":
+                    await self._refuse_too_large(scope, send, ceiling, received=received)
+                else:
+                    await self._refuse_capacity(scope, send, received=received)
+        finally:
+            if reserved:
+                self.budget.release(reserved)
 
     async def _refuse_too_large(
-        self, scope: Scope, send: Send, *, declared: int | None, received: int | None = None
+        self, scope: Scope, send: Send, ceiling: int, *, declared: int | None = None, received: int | None = None
     ) -> None:
-        logger.info(
-            "request_body_too_large",
-            limit_bytes=self.max_body_bytes,
-            declared_bytes=declared,
+        logger.info("request_body_too_large", limit_bytes=ceiling, declared_bytes=declared, received_bytes=received)
+        await self._reply(scope, send, RequestBodyTooLargeError(ceiling), {})
+
+    async def _refuse_capacity(self, scope: Scope, send: Send, *, received: int) -> None:
+        logger.warning(
+            "upload_spool_budget_exhausted",
+            in_use_bytes=self.budget.in_use_bytes,
+            capacity_bytes=self.budget.capacity_bytes,
             received_bytes=received,
         )
-        # ``Connection: close``: the unread rest of the body is not drained.
-        await self._reply(scope, send, RequestBodyTooLargeError(self.max_body_bytes), {"Connection": "close"})
+        exc = UploadCapacityExhaustedError(retry_after=max(1, int(self.spool_wait_seconds)))
+        await self._reply(scope, send, exc, {"Retry-After": str(exc.retry_after)})
 
     @staticmethod
-    async def _reply(scope: Scope, send: Send, exc: Any, extra_headers: dict[str, str]) -> None:
+    async def _reply(scope: Scope, send: Send, exc: KamerplanterError, extra_headers: dict[str, str]) -> None:
         response = app_error_response(Request(scope), exc)
         for name, value in extra_headers.items():
             response.headers[name] = value
+        # ``Connection: close``: every answer from here leaves the rest of the
+        # body unread, and the server must not try to reuse the connection.
+        response.headers["Connection"] = "close"
 
         async def no_body() -> Message:
             return {"type": "http.disconnect"}
@@ -211,7 +263,10 @@ class RequestBodyLimitMiddleware:
 
 __all__ = [
     "BODY_HEADROOM_BYTES",
+    "NON_MULTIPART_MAX_BODY_BYTES",
     "RequestBodyLimitMiddleware",
     "SpoolBudget",
+    "declared_length",
+    "is_multipart",
     "request_body_limit_bytes",
 ]
