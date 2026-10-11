@@ -821,6 +821,8 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 | `STORAGE_BACKEND` | `local-fs` | Nein | Aktives Backend: `local-fs` oder `s3`. Ein anderer Wert wird beim Start abgelehnt. |
 | `STORAGE_MAX_FILE_SIZE_MB` | `25` | Nein | Maximale Upload-Größe in Megabyte (gilt für alle Kategorien, überschreibbar per Kategorie) |
 | `STORAGE_PRESIGN_TTL_SECONDS` | `900` | Nein | Gültigkeitsdauer von Pre-Signed URLs in Sekunden (max. 3600) |
+| `UPLOAD_SPOOL_BUDGET_MB` | `52` | Nein | Wie viele MiB gleichzeitige Uploads zusammen in `/tmp` zwischenspeichern dürfen. Gezählt werden die Bytes, die tatsächlich angekommen sind. Muss mindestens `STORAGE_MAX_FILE_SIZE_MB` + 1 sein, sonst startet das Backend nicht. Halte den Wert unter der Größe von `/tmp` im Backend-Pod (im Chart 64 MiB). Das Helm-Chart setzt ihn auf 52 oder, bei größerer Upload-Grenze, auf `storage.maxFileSizeMb` + 1. |
+| `UPLOAD_SPOOL_WAIT_SECONDS` | `30` | Nein | Wie lange ein Upload auf freies Budget wartet. Danach antwortet das Backend mit `503` (`UPLOAD_CAPACITY_EXHAUSTED`) und `Retry-After`. |
 | `STORAGE_ALLOWED_MIME_TYPES` | *(Liste)* | Nein | Kommagetrennte globale Whitelist erlaubter MIME-Types |
 | `STORAGE_ALLOWED_MIME_TYPES_<CATEGORY>` | *(pro Kategorie)* | Nein | Kategorie-spezifische Whitelist, z. B. `STORAGE_ALLOWED_MIME_TYPES_IMPORT=text/csv` |
 | `STORAGE_VIRUS_SCAN_ENABLED` | `false` | Nein | Virenscan via ClamAV-REST-Wrapper aktivieren |

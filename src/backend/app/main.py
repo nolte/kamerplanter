@@ -12,6 +12,7 @@ from slowapi.errors import RateLimitExceeded
 from app.api.v1.auth.router import limiter, process_memory_limiter
 from app.api.v1.openapi_tags import OPENAPI_TAGS
 from app.api.v1.router import api_router
+from app.common.body_limit import RequestBodyLimitMiddleware, request_body_limit_bytes
 from app.common.dependencies import close_connection, get_connection, get_ha_client, get_ha_entity_grant_service
 from app.common.error_handlers import (
     app_error_handler,
@@ -402,6 +403,17 @@ app.openapi = _openapi_postprocessed  # type: ignore[method-assign]
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_with_retry_after)
 
+# #2254 — body ceiling and upload spool budget, enforced before FastAPI parses a
+# multipart body (which it does before any route code or dependency runs).
+# Registered first, so it is the innermost user middleware: its 413/503 answers
+# still pass the security headers, the request ID, CORS and the metrics.
+app.add_middleware(
+    RequestBodyLimitMiddleware,
+    max_body_bytes=request_body_limit_bytes(settings.storage_max_file_size_mb),
+    spool_budget_bytes=settings.upload_spool_budget_mb * 1024 * 1024,
+    spool_wait_seconds=settings.upload_spool_wait_seconds,
+)
+
 
 #: Every versioned API answer is ``no-store`` unless its route chose otherwise (MT-044).
 _NO_STORE_PREFIX = "/api/v1/"
@@ -425,8 +437,9 @@ async def security_headers_middleware(request: Request, call_next) -> Response: 
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     # MT-044 (#2144): tenant-private JSON must not be kept by a shared proxy or the
     # browser cache after logout or a tenant switch. A default, not an override: a
-    # route that decided its own caching keeps it (attachment downloads answer
-    # ``private, max-age``, pest reference images ``public``, the SSE stream ``no-cache``).
+    # route that decided its own caching keeps it (attachment and pest-image
+    # downloads answer ``private, no-cache`` with an ETag, token downloads
+    # ``no-store`` (#2254), the SSE stream ``no-cache``).
     if request.url.path.startswith(_NO_STORE_PREFIX) and "cache-control" not in response.headers:
         response.headers["Cache-Control"] = "no-store"
     return response

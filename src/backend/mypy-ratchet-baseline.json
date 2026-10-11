@@ -2,7 +2,7 @@
   "format": 1,
   "comment": "mypy ratchet baseline for src/backend/app (#2169), written by scripts/check_mypy_ratchet.py. Do not raise a count by hand without saying why in the pull request.",
   "mypy_version": "2.4.0",
-  "total": 3440,
+  "total": 3434,
   "files": {
     "app/api/v1/activities/router.py": {
       "type-arg": 1
@@ -124,8 +124,6 @@
       "no-untyped-def": 14
     },
     "app/api/v1/ipm/pest_images_router.py": {
-      "arg-type": 1,
-      "attr-defined": 3,
       "no-untyped-def": 2
     },
     "app/api/v1/ipm/router.py": {
@@ -1182,9 +1180,6 @@
     },
     "app/domain/services/pest_detection_service.py": {
       "type-arg": 8
-    },
-    "app/domain/services/pest_image_service.py": {
-      "arg-type": 2
     },
     "app/domain/services/phase_sequence_service.py": {
       "type-arg": 9

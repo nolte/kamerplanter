@@ -146,7 +146,8 @@ async def identify_plant(
     if content_type not in _ALLOWED_CONTENT_TYPES:
         raise UnsupportedMediaTypeError(sorted(_ALLOWED_CONTENT_TYPES))
 
-    image_data = await image.read()
+    # #2254 — at most one byte past the limit is read; the engine refuses it.
+    image_data = await image.read(settings.identification_max_image_size_mb * 1024 * 1024 + 1)
     parsed_organ = _parse_organ(organ)
 
     result = service.identify_plant(

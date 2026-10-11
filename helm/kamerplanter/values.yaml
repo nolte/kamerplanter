@@ -633,6 +633,12 @@ controllers:
           MCP_IDEMPOTENCY_TTL_HOURS: "24"
           # mcp_audit_log retention; the floor is set by NFR-011, not by taste.
           MCP_AUDIT_RETENTION_DAYS: "90"
+          # #2254 — byte budget for concurrent multipart uploads spooled to /tmp
+          # (backend-tmp, 64Mi). 52 MiB holds two full uploads at the default limit;
+          # a larger storage.maxFileSizeMb raises it to one full upload, which the
+          # backend requires at start. bjw-s does not template emptyDir sizeLimit:
+          # raise persistence.backend-tmp.sizeLimit yourself above ~60 MiB uploads.
+          UPLOAD_SPOOL_BUDGET_MB: '{{ max 52 (add (int .Values.storage.maxFileSizeMb) 1) }}'
           # NFR-013 Object storage (§4.1) — rendered from the top-level
           # ``storage`` block (#2124); set the backend THERE, not here. The
           # celery-worker carries the same lines and must stay identical.

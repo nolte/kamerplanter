@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
+    from app.domain.models.attachment import Attachment
 
 logger = structlog.get_logger()
 
@@ -112,7 +113,7 @@ class PestImageContent:
     """The resolved bytes-source for serving a (promoted) contribution globally."""
 
     contribution: PestImageContribution
-    attachment: object  # app.domain.models.attachment.Attachment (avoid import cycle)
+    attachment: Attachment  # imported for type checking only (avoids an import cycle)
 
 
 class PestImageService:

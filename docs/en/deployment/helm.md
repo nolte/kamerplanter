@@ -289,6 +289,10 @@ The frontend nginx accepts request bodies up to `storage.maxFileSizeMb` + 1 MiB 
 
 The chart sets the same limit on the ingress `main` as the annotation `nginx.ingress.kubernetes.io/proxy-body-size`, because ingress-nginx would otherwise cut at 1 MiB too. Both follow `storage.maxFileSizeMb`: when you raise the upload limit, nginx and the ingress grow with it. Traefik and Contour/Envoy do not read the annotation and set no body limit of their own; there the frontend nginx's limit applies, as long as `/` and `/api` go through the frontend. If you use an ingress under another key than `main` or your own `HTTPProxy`, set the limit there yourself to the same value.
 
+The backend enforces the same limit again before it reads an upload. That matters when a request bypasses the frontend nginx — via `kubectl port-forward`, from inside the cluster or through an ingress without a body limit. An upload with a larger `Content-Length` gets `413` (`REQUEST_BODY_TOO_LARGE`) without the backend reading a byte; an upload without a declared length is cut off at the limit. Every other request (JSON, forms) may be at most 1 MiB.
+
+While reading, the backend keeps uploads above 1 MiB in `/tmp`, a memory volume of 64 MiB in the chart. So that concurrent uploads cannot fill it, they share a budget of 52 MiB (`UPLOAD_SPOOL_BUDGET_MB`). It counts the bytes that already arrived: at the default limit two full uploads run at the same time, a further one waits up to 30 seconds (`UPLOAD_SPOOL_WAIT_SECONDS`) and then gets `503` with `Retry-After`. If you raise `storage.maxFileSizeMb` above 51, the chart sets the budget to one full upload, so only one large upload runs at a time. The size of `/tmp` does not follow automatically: from an upload limit of about 60 MiB you must raise `persistence.backend-tmp.sizeLimit` yourself.
+
 ### Valkey (Redis-compatible cache)
 
 ```yaml

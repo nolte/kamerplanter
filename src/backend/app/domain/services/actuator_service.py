@@ -99,41 +99,42 @@ class ActuatorService:
 
     def list_for_tenant(
         self,
-        tenant_key: str,
         actuator_type: str | None = None,
         protocol: str | None = None,
         is_online: bool | None = None,
+        *,
+        tenant_key: str,
     ) -> list[Actuator]:
         return self._repo.list_for_tenant(tenant_key, actuator_type, protocol, is_online)
 
-    def list_for_location(self, location_key: str, tenant_key: str) -> list[Actuator]:
-        self._verify_location(location_key, tenant_key)
+    def list_for_location(self, location_key: str, *, tenant_key: str) -> list[Actuator]:
+        self._verify_location(location_key, tenant_key=tenant_key)
         return self._repo.list_for_location(location_key, tenant_key)
 
-    def get_actuator(self, key: str, tenant_key: str) -> Actuator:
+    def get_actuator(self, key: str, *, tenant_key: str) -> Actuator:
         actuator = self._repo.get_or_raise(key)
         verify_tenant_ownership(actuator, tenant_key, "Actuator")
         return actuator
 
-    def create_actuator(self, location_key: str, tenant_key: str, actuator: Actuator) -> Actuator:
-        self._verify_location(location_key, tenant_key)
+    def create_actuator(self, location_key: str, actuator: Actuator, *, tenant_key: str) -> Actuator:
+        self._verify_location(location_key, tenant_key=tenant_key)
         require_granted(self._ha_entity_gate, tenant_key, {"ha_entity_id": actuator.ha_entity_id})
         actuator.location_key = location_key
         actuator.tenant_key = tenant_key
         return self._repo.create_actuator(actuator)
 
-    def update_actuator(self, key: str, tenant_key: str, data: dict[str, Any]) -> Actuator:
-        actuator = self.get_actuator(key, tenant_key)
+    def update_actuator(self, key: str, data: dict[str, Any], *, tenant_key: str) -> Actuator:
+        actuator = self.get_actuator(key, tenant_key=tenant_key)
         if data.get("ha_entity_id") and data["ha_entity_id"] != actuator.ha_entity_id:
             require_granted(self._ha_entity_gate, tenant_key, {"ha_entity_id": data["ha_entity_id"]})
         updated = actuator.model_copy(update=data)
         return self._repo.update_actuator(key, updated)
 
-    def delete_actuator(self, key: str, tenant_key: str) -> None:
-        self.get_actuator(key, tenant_key)
+    def delete_actuator(self, key: str, *, tenant_key: str) -> None:
+        self.get_actuator(key, tenant_key=tenant_key)
         self._repo.delete_actuator(key)
 
-    def _verify_location(self, location_key: str, tenant_key: str) -> None:
+    def _verify_location(self, location_key: str, *, tenant_key: str) -> None:
         """Require ``location_key`` to belong to ``tenant_key``.
 
         Anchored on the parent site (#1397). Written as
@@ -157,15 +158,15 @@ class ActuatorService:
     def send_command(
         self,
         key: str,
-        tenant_key: str,
         command: str,
         value: float | None = None,
         *,
+        tenant_key: str,
         source: ControlEventSource = ControlEventSource.MANUAL,
         user: str | None = None,
     ) -> ControlEvent:
         """Send a direct command to an actuator and log the resulting event."""
-        actuator = self.get_actuator(key, tenant_key)
+        actuator = self.get_actuator(key, tenant_key=tenant_key)
         return self._dispatch(actuator, command, value, source, triggered_by_user=user)
 
     def _dispatch(
@@ -364,8 +365,8 @@ class ActuatorService:
 
     # ── Manual override ──────────────────────────────────────────────────
 
-    def set_override(self, key: str, tenant_key: str, override: ManualOverride, user: str) -> ManualOverride:
-        actuator = self.get_actuator(key, tenant_key)
+    def set_override(self, key: str, override: ManualOverride, user: str, *, tenant_key: str) -> ManualOverride:
+        actuator = self.get_actuator(key, tenant_key=tenant_key)
         # SEC (REQ-018): reject an override that is already expired. The model only
         # guarantees expires_at > started_at, so a caller can still submit a cap
         # whose window lies entirely in the past; applying it would drive the
@@ -394,12 +395,12 @@ class ActuatorService:
         )
         return created
 
-    def clear_override(self, key: str, tenant_key: str) -> None:
-        self.get_actuator(key, tenant_key)
+    def clear_override(self, key: str, *, tenant_key: str) -> None:
+        self.get_actuator(key, tenant_key=tenant_key)
         self._repo.deactivate_overrides_for_actuator(key)
 
-    def get_state(self, key: str, tenant_key: str) -> dict[str, Any]:
-        actuator = self.get_actuator(key, tenant_key)
+    def get_state(self, key: str, *, tenant_key: str) -> dict[str, Any]:
+        actuator = self.get_actuator(key, tenant_key=tenant_key)
         override = self._repo.get_active_override(key)
         return {
             "actuator_key": actuator.key,
@@ -412,34 +413,34 @@ class ActuatorService:
 
     # ── Schedules ────────────────────────────────────────────────────────
 
-    def create_schedule(self, actuator_key: str, tenant_key: str, schedule: ControlSchedule) -> ControlSchedule:
-        self.get_actuator(actuator_key, tenant_key)
+    def create_schedule(self, actuator_key: str, schedule: ControlSchedule, *, tenant_key: str) -> ControlSchedule:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
         schedule.actuator_key = actuator_key
         schedule.tenant_key = tenant_key
         return self._repo.create_schedule(schedule)
 
-    def list_schedules(self, actuator_key: str, tenant_key: str) -> list[ControlSchedule]:
-        self.get_actuator(actuator_key, tenant_key)
+    def list_schedules(self, actuator_key: str, *, tenant_key: str) -> list[ControlSchedule]:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
         return self._repo.list_schedules(actuator_key, tenant_key)
 
     def update_schedule(
-        self, actuator_key: str, schedule_key: str, tenant_key: str, data: dict[str, Any]
+        self, actuator_key: str, schedule_key: str, data: dict[str, Any], *, tenant_key: str
     ) -> ControlSchedule:
-        schedule = self._get_schedule(actuator_key, schedule_key, tenant_key)
+        schedule = self._get_schedule(actuator_key, schedule_key, tenant_key=tenant_key)
         updated = schedule.model_copy(update=data)
         return self._repo.update_schedule(schedule_key, updated)
 
-    def delete_schedule(self, actuator_key: str, schedule_key: str, tenant_key: str) -> None:
-        self._get_schedule(actuator_key, schedule_key, tenant_key)
+    def delete_schedule(self, actuator_key: str, schedule_key: str, *, tenant_key: str) -> None:
+        self._get_schedule(actuator_key, schedule_key, tenant_key=tenant_key)
         self._repo.delete_schedule(schedule_key)
 
-    def toggle_schedule(self, actuator_key: str, schedule_key: str, tenant_key: str) -> ControlSchedule:
-        schedule = self._get_schedule(actuator_key, schedule_key, tenant_key)
+    def toggle_schedule(self, actuator_key: str, schedule_key: str, *, tenant_key: str) -> ControlSchedule:
+        schedule = self._get_schedule(actuator_key, schedule_key, tenant_key=tenant_key)
         updated = schedule.model_copy(update={"is_active": not schedule.is_active})
         return self._repo.update_schedule(schedule_key, updated)
 
-    def _get_schedule(self, actuator_key: str, schedule_key: str, tenant_key: str) -> ControlSchedule:
-        self.get_actuator(actuator_key, tenant_key)
+    def _get_schedule(self, actuator_key: str, schedule_key: str, *, tenant_key: str) -> ControlSchedule:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
         schedule = self._repo.get_schedule_or_raise(schedule_key)
         verify_tenant_ownership(schedule, tenant_key, "ControlSchedule")
         if schedule.actuator_key != actuator_key:
@@ -448,55 +449,56 @@ class ActuatorService:
 
     # ── Rules ────────────────────────────────────────────────────────────
 
-    def create_rule(self, actuator_key: str, tenant_key: str, rule: ControlRule) -> ControlRule:
-        self.get_actuator(actuator_key, tenant_key)
+    def create_rule(self, actuator_key: str, rule: ControlRule, *, tenant_key: str) -> ControlRule:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
         # The location whose sensors drive the rule, under the tenant (#1872 C5):
         # it was stored as given.
         if rule.sensor_location_key:
-            self._verify_location(rule.sensor_location_key, tenant_key)
+            self._verify_location(rule.sensor_location_key, tenant_key=tenant_key)
         rule.actuator_key = actuator_key
         rule.tenant_key = tenant_key
         return self._repo.create_rule(rule)
 
-    def list_rules(self, actuator_key: str, tenant_key: str) -> list[ControlRule]:
-        self.get_actuator(actuator_key, tenant_key)
+    def list_rules(self, actuator_key: str, *, tenant_key: str) -> list[ControlRule]:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
         return self._repo.list_rules(actuator_key, tenant_key)
 
     def list_rules_for_tenant(
         self,
-        tenant_key: str,
         sensor_parameter: str | None = None,
         is_active: bool | None = None,
         is_safety: bool | None = None,
+        *,
+        tenant_key: str,
     ) -> list[ControlRule]:
         return self._repo.list_rules_for_tenant(tenant_key, sensor_parameter, is_active, is_safety)
 
-    def update_rule(self, actuator_key: str, rule_key: str, tenant_key: str, data: dict[str, Any]) -> ControlRule:
-        rule = self._get_rule(actuator_key, rule_key, tenant_key)
+    def update_rule(self, actuator_key: str, rule_key: str, data: dict[str, Any], *, tenant_key: str) -> ControlRule:
+        rule = self._get_rule(actuator_key, rule_key, tenant_key=tenant_key)
         new_location = data.get("sensor_location_key")
         if new_location and new_location != rule.sensor_location_key:
-            self._verify_location(new_location, tenant_key)
+            self._verify_location(new_location, tenant_key=tenant_key)
         updated = rule.model_copy(update=data)
         return self._repo.update_rule(rule_key, updated)
 
-    def delete_rule(self, actuator_key: str, rule_key: str, tenant_key: str) -> None:
-        self._get_rule(actuator_key, rule_key, tenant_key)
+    def delete_rule(self, actuator_key: str, rule_key: str, *, tenant_key: str) -> None:
+        self._get_rule(actuator_key, rule_key, tenant_key=tenant_key)
         self._repo.delete_rule(rule_key)
 
-    def toggle_rule(self, actuator_key: str, rule_key: str, tenant_key: str) -> ControlRule:
-        rule = self._get_rule(actuator_key, rule_key, tenant_key)
+    def toggle_rule(self, actuator_key: str, rule_key: str, *, tenant_key: str) -> ControlRule:
+        rule = self._get_rule(actuator_key, rule_key, tenant_key=tenant_key)
         updated = rule.model_copy(update={"is_active": not rule.is_active})
         return self._repo.update_rule(rule_key, updated)
 
-    def test_rule(self, rule_key: str, tenant_key: str, sensor_readings: dict[str, float]) -> dict[str, Any]:
+    def test_rule(self, rule_key: str, sensor_readings: dict[str, float], *, tenant_key: str) -> dict[str, Any]:
         """Dry-run a rule against supplied sensor readings — no side effects."""
         rule = self._repo.get_rule_or_raise(rule_key)
         verify_tenant_ownership(rule, tenant_key, "ControlRule")
-        actuator = self.get_actuator(rule.actuator_key, tenant_key)
+        actuator = self.get_actuator(rule.actuator_key, tenant_key=tenant_key)
         return self._engine.test_rule(rule, actuator, sensor_readings, self._now())
 
-    def _get_rule(self, actuator_key: str, rule_key: str, tenant_key: str) -> ControlRule:
-        self.get_actuator(actuator_key, tenant_key)
+    def _get_rule(self, actuator_key: str, rule_key: str, *, tenant_key: str) -> ControlRule:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
         rule = self._repo.get_rule_or_raise(rule_key)
         verify_tenant_ownership(rule, tenant_key, "ControlRule")
         if rule.actuator_key != actuator_key:
@@ -583,18 +585,20 @@ class ActuatorService:
 
     # ── Events & stats ───────────────────────────────────────────────────
 
-    def list_events(self, actuator_key: str, tenant_key: str, offset: int = 0, limit: int = 50) -> list[ControlEvent]:
-        self.get_actuator(actuator_key, tenant_key)
+    def list_events(
+        self, actuator_key: str, offset: int = 0, limit: int = 50, *, tenant_key: str
+    ) -> list[ControlEvent]:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
         return self._repo.list_events(actuator_key, tenant_key, offset, limit)
 
     def list_location_events(
-        self, location_key: str, tenant_key: str, offset: int = 0, limit: int = 50
+        self, location_key: str, offset: int = 0, limit: int = 50, *, tenant_key: str
     ) -> list[ControlEvent]:
-        self._verify_location(location_key, tenant_key)
+        self._verify_location(location_key, tenant_key=tenant_key)
         return self._repo.list_events_for_location(location_key, tenant_key, offset, limit)
 
-    def get_event_stats(self, actuator_key: str, tenant_key: str) -> dict[str, Any]:
-        actuator = self.get_actuator(actuator_key, tenant_key)
+    def get_event_stats(self, actuator_key: str, *, tenant_key: str) -> dict[str, Any]:
+        actuator = self.get_actuator(actuator_key, tenant_key=tenant_key)
         # Over the whole event history, not the newest 500 events (#2025).
         counts = self._repo.count_events(actuator_key, tenant_key=tenant_key)
         return {
@@ -605,9 +609,9 @@ class ActuatorService:
             "power_watts": actuator.power_watts,
         }
 
-    def get_location_energy(self, location_key: str, tenant_key: str, hours_per_day: float = 24.0) -> dict[str, Any]:
+    def get_location_energy(self, location_key: str, hours_per_day: float = 24.0, *, tenant_key: str) -> dict[str, Any]:
         """Rough kWh estimate from rated power and assumed daily on-time."""
-        self._verify_location(location_key, tenant_key)
+        self._verify_location(location_key, tenant_key=tenant_key)
         actuators = self._repo.list_for_location(location_key, tenant_key)
         breakdown: list[dict[str, Any]] = []
         total_kwh = 0.0
@@ -629,30 +633,30 @@ class ActuatorService:
 
     # ── Phase control profiles ───────────────────────────────────────────
 
-    def create_profile(self, tenant_key: str, profile: PhaseControlProfile) -> PhaseControlProfile:
+    def create_profile(self, profile: PhaseControlProfile, *, tenant_key: str) -> PhaseControlProfile:
         profile.tenant_key = tenant_key
         return self._repo.create_profile(profile)
 
-    def list_profiles(self, tenant_key: str, is_template: bool | None = None) -> list[PhaseControlProfile]:
+    def list_profiles(self, is_template: bool | None = None, *, tenant_key: str) -> list[PhaseControlProfile]:
         return self._repo.list_profiles(tenant_key, is_template)
 
-    def get_profile(self, key: str, tenant_key: str) -> PhaseControlProfile:
+    def get_profile(self, key: str, *, tenant_key: str) -> PhaseControlProfile:
         profile = self._repo.get_profile_or_raise(key)
         verify_tenant_ownership(profile, tenant_key, "PhaseControlProfile")
         return profile
 
-    def update_profile(self, key: str, tenant_key: str, data: dict[str, Any]) -> PhaseControlProfile:
-        profile = self.get_profile(key, tenant_key)
+    def update_profile(self, key: str, data: dict[str, Any], *, tenant_key: str) -> PhaseControlProfile:
+        profile = self.get_profile(key, tenant_key=tenant_key)
         updated = profile.model_copy(update=data)
         return self._repo.update_profile(key, updated)
 
-    def delete_profile(self, key: str, tenant_key: str) -> None:
-        self.get_profile(key, tenant_key)
+    def delete_profile(self, key: str, *, tenant_key: str) -> None:
+        self.get_profile(key, tenant_key=tenant_key)
         self._repo.delete_profile(key)
 
-    def apply_profile(self, key: str, tenant_key: str, location_key: str) -> dict[str, Any]:
-        self.get_profile(key, tenant_key)
-        self._verify_location(location_key, tenant_key)
+    def apply_profile(self, key: str, location_key: str, *, tenant_key: str) -> dict[str, Any]:
+        self.get_profile(key, tenant_key=tenant_key)
+        self._verify_location(location_key, tenant_key=tenant_key)
         self._repo.apply_profile_to_location(key, location_key)
         return {"profile_key": key, "location_key": location_key, "applied": True}
 
@@ -672,7 +676,7 @@ class ActuatorService:
             logger.warning("actuator_ha_status_failed", error=loggable_error(exc))
             return {"configured": True, "reachable": False, "reason": "unreachable"}
 
-    def ha_entities(self, tenant_key: str) -> list[dict[str, Any]]:
+    def ha_entities(self, *, tenant_key: str) -> list[dict[str, Any]]:
         """List the HA entities granted to ``tenant_key`` for actuator mapping (empty on outage).
 
         Filtered to the tenant's grants (MT-015, #2112): the instance is the
@@ -691,7 +695,7 @@ class ActuatorService:
 
     # ── Emergency stop ───────────────────────────────────────────────────
 
-    def emergency_stop(self, tenant_key: str, scenario: str, user: str) -> dict[str, Any]:
+    def emergency_stop(self, scenario: str, user: str, *, tenant_key: str) -> dict[str, Any]:
         """Switch off the actuators affected by a predefined emergency scenario."""
         affected_types = _EMERGENCY_SCENARIOS.get(scenario)
         if affected_types is None:
