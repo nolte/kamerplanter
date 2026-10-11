@@ -43,9 +43,11 @@ def _mock_dependencies(monkeypatch):
     mock_deps.get_feeding_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_plant_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_db = MagicMock()  # type: ignore[attr-defined]
-    # #2166 — every tenant here is active (a MagicMock tenant is truthy); the gate has its own test.
+    # #2166 — every tenant here is active; the gate has its own tests. Two routes ask it: the
+    # maintenance and runoff beats look a tenant up (``get_by_key`` — a MagicMock tenant reads as
+    # active), the state-sync and alert beats walk ``keys_in_status`` (MT-032, #2128), which names
+    # tenant_1 as the one active tenant.
     mock_deps.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]
-    # MT-032 (#2128) — the tank beats walk the active tenants; tenant_1 is the one here.
     mock_deps.get_tenant_repo.return_value.keys_in_status.return_value = {"tenant_1": TenantStatus.ACTIVE}
 
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)

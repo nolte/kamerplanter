@@ -16,8 +16,10 @@ fails the test instead of passing on a double that would have answered it.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Collection, Iterable, Iterator
 from typing import Any
+from unittest.mock import MagicMock
 
 from app.common.enums import TenantStatus
 
@@ -48,6 +50,8 @@ class TenantRows:
         self.rows = sorted(rows, key=row_key)
         #: Every call: (sorted tenant keys, filters).
         self.walks: list[tuple[list[str], list[tuple[str, str, Any]]]] = []
+        #: Every ``iter_without_tenant`` call: its filters.
+        self.tenantless_walks: list[list[tuple[str, str, Any]]] = []
         #: Rows handed out per page, in order.
         self.pages: list[int] = []
         for name, value in extra.items():
@@ -68,10 +72,24 @@ class TenantRows:
         self.walks.append((keys, list(filters or [])))
         if not keys:
             return
+        yield from self._walk(keys, filters, page_size)
+
+    def iter_without_tenant(
+        self,
+        *,
+        filters: list[tuple[str, str, Any]] | None = None,
+        page_size: int = 1000,
+        max_pages: int = 1000,  # noqa: ARG002 - the signature of the real method
+    ) -> Iterator[Any]:
+        """The rows whose ``tenant_key`` is empty or missing (``IN [null, ""]``)."""
+        self.tenantless_walks.append(list(filters or []))
+        yield from self._walk([None, ""], filters, page_size)
+
+    def _walk(self, scope: list[Any], filters: list[tuple[str, str, Any]] | None, page_size: int) -> Iterator[Any]:
         selected = [
             row
             for row in self.rows
-            if field_of(row, "tenant_key") in keys
+            if field_of(row, "tenant_key") in scope
             and all(_OPS[op](field_of(row, name), value) for name, op, value in filters or [])
         ]
         for start in range(0, len(selected), page_size):
@@ -101,3 +119,40 @@ class TenantStates:
 def active(*keys: str) -> TenantStates:
     """Tenant repository double whose tenants are all ``active``."""
     return TenantStates(dict.fromkeys(keys, TenantStatus.ACTIVE))
+
+
+AFTER_CURSOR = re.compile(r"doc\._key > @(v\d+)")
+
+
+class AqlRowsDb:
+    """A ``StandardDatabase`` stand-in that answers the walk's page queries the way ArangoDB would.
+
+    For driving a **real** repository's ``iter_for_tenants`` / ``iter_without_tenant``: the
+    scope is the ``doc.tenant_key IN @v0`` bind (a missing field reads as ``null``), the
+    keyset cursor the ``doc._key > @vN`` bind, the window ``LIMIT @__offset, @__limit``.
+    Other filters are not evaluated — the tests that use it pass none.
+    """
+
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self.rows = {row["_key"]: row for row in rows}
+        self.executed: list[tuple[str, dict[str, Any]]] = []
+        self.aql = MagicMock()
+        self.aql.execute.side_effect = self._execute
+
+    def collection(self, name: str) -> MagicMock:
+        return MagicMock(name=name)
+
+    def _execute(self, query: str, bind_vars: dict[str, Any] | None = None, **_: Any) -> Any:
+        bind_vars = dict(bind_vars or {})
+        self.executed.append((query, bind_vars))
+        assert "doc.tenant_key IN @v0" in query
+        scope = bind_vars["v0"]
+        after_match = AFTER_CURSOR.search(query)
+        after = bind_vars[after_match.group(1)] if after_match else None
+        selected = [
+            dict(row)
+            for key, row in sorted(self.rows.items())
+            if row.get("tenant_key") in scope and (after is None or key > after)
+        ]
+        offset, limit = bind_vars["__offset"], bind_vars["__limit"]
+        return iter(selected[offset : offset + limit])

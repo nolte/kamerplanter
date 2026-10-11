@@ -1113,26 +1113,74 @@ class BaseArangoRepository[TModel: BaseModel]:
         row without a tenant is never selected, so the method cannot widen into an
         unscoped read (SEC-B4).
 
-        Raises :class:`PagingCeilingError` (logged first) instead of reading past
-        ``max_pages`` pages.
+        A document that fails model validation is skipped and logged (its ``_key`` and
+        the failing field names, never a value) instead of ending the walk: one bad row
+        must not hide every row behind it — for the control loop, the safe state of every
+        later tenant's device (SEC-003).
+
+        Raises :class:`PagingCeilingError` (logged first) when more rows exist after
+        ``max_pages`` full pages; exactly ``max_pages * page_size`` rows is not an error.
         """
-        if page_size < 1:
-            raise ValueError("page_size must be >= 1")
         keys = sorted({key for key in tenant_keys if key})
         if not keys:
+            if page_size < 1:
+                raise ValueError("page_size must be >= 1")
             return
+        yield from self._keyset_walk(("tenant_key", "IN", keys), filters, page_size, max_pages)
+
+    def iter_without_tenant(
+        self,
+        *,
+        filters: list[FilterTriple] | None = None,
+        page_size: int = DEFAULT_PAGE_SIZE,
+        max_pages: int = MAX_PAGES,
+    ) -> Iterator[TModel]:
+        """The rows that carry no tenant (``tenant_key`` empty or missing), walked like :meth:`iter_for_tenants`.
+
+        The counterpart a beat asks deliberately when a row nobody owns still needs the
+        installation sweep — the control loop drives such a device to a safe state
+        (MT-032, #2128). It never selects a row that belongs to a tenant.
+        """
+        yield from self._keyset_walk(("tenant_key", "IN", [None, ""]), filters, page_size, max_pages)
+
+    def _keyset_walk(
+        self,
+        scope: FilterTriple,
+        filters: list[FilterTriple] | None,
+        page_size: int,
+        max_pages: int,
+    ) -> Iterator[TModel]:
+        if page_size < 1:
+            raise ValueError("page_size must be >= 1")
+        base: list[FilterTriple] = [scope, *(filters or [])]
         after: str | None = None
         for _ in range(max_pages):
-            page_filters: list[FilterTriple] = [("tenant_key", "IN", keys), *(filters or [])]
-            if after is not None:
-                page_filters.append(("_key", ">", after))
+            page_filters = base if after is None else [*base, ("_key", ">", after)]
             docs = self._page_docs(0, page_size, page_filters, "_key", "ASC")
-            yield from self._wrap_many(docs)
+            yield from self._wrap_each_or_skip(docs)
             if len(docs) < page_size:
                 return
             after = str(docs[-1]["_key"])
+        # ``max_pages`` full pages: the collection may end exactly here. One row more decides.
+        if not self._page_docs(0, 1, [*base, ("_key", ">", after)], "_key", "ASC"):
+            return
         logger.error("iter_for_tenants_ceiling", collection=self._collection_name, max_pages=max_pages)
         raise PagingCeilingError(f"tenant walk hit {max_pages} pages of {page_size} rows without reaching the end")
+
+    def _wrap_each_or_skip(self, docs: list[dict[str, Any]]) -> Iterator[TModel]:
+        """Wrap document by document; one that fails validation is logged and skipped."""
+        for doc in docs:
+            try:
+                row = self._wrap(doc)
+            except PydanticValidationError as exc:
+                logger.warning(
+                    "tenant_walk_skipped_invalid_document",
+                    collection=self._collection_name,
+                    key=doc.get("_key"),
+                    fields=sorted({".".join(str(part) for part in error["loc"]) for error in exc.errors()}),
+                )
+                continue
+            yield row
 
     def _page_builder(
         self,

@@ -157,3 +157,18 @@ def test_the_unit_test_double_answers_like_the_server(db, tenants, filters) -> N
     double = [r["_key"] for r in TenantRows(TANKS).iter_for_tenants(tenants, filters=filters, page_size=300)]
 
     assert double == server
+
+
+def test_the_walk_without_a_tenant_selects_empty_and_missing_tenant_keys_only(db) -> None:
+    """#2128 review W1: the control loop and the tank-alert sweep still reach a row nobody owns."""
+    keys = [r.key for r in _tank_repo(db).iter_without_tenant()]
+
+    assert keys == ["d-empty", "e-missing"]
+    assert [r["_key"] for r in TenantRows(TANKS).iter_without_tenant()] == keys
+
+
+def test_a_walk_ending_exactly_on_the_page_ceiling_is_no_error(db) -> None:
+    """#2128 review I1: 7 rows of t-other in 7 pages of 1 is the whole tenant, not a ceiling."""
+    rows = list(_tank_repo(db).iter_for_tenants(["t-other"], page_size=1, max_pages=7))
+
+    assert len(rows) == 7

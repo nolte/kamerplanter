@@ -1,3 +1,5 @@
+import itertools
+
 import structlog
 
 from app.tasks import celery_app
@@ -245,14 +247,15 @@ def check_tank_alerts() -> dict:
     engine = TankEngine()
     # REQ-056 §5.2 — a tenant that is not ``active`` is left alone: its tanks are not checked and
     # nothing about them is reported. MT-032 (#2128): the active tenants' tanks are selected in AQL and
-    # read one page at a time; a tenantless tank is not selected.
+    # read one page at a time. A tenantless tank keeps the installation sweep, as before #2128
+    # (review W1): the check only reads and logs, it writes into no tenant.
     active_tenants = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE})
 
     tanks_checked = 0
     total_alerts = 0
     critical_count = 0
 
-    for tank in tank_repo.iter_for_tenants(active_tenants):
+    for tank in itertools.chain(tank_repo.iter_for_tenants(active_tenants), tank_repo.iter_without_tenant()):
         if not tank.key:
             continue
 

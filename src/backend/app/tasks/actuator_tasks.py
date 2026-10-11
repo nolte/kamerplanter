@@ -12,11 +12,15 @@ fresh:
 
 All tasks are guarded by the ``actuator_control_loop_enabled`` kill-switch. The
 two that walk actuators select the rows of the tenants they may touch in AQL and
-read them one page at a time (MT-032, #2128). Each actuator is
-processed defensively so one bad document never aborts the run.
+read them one page at a time (MT-032, #2128). Each actuator is processed
+defensively so one bad document never aborts the run: a document that fails
+validation is skipped by the walk itself (logged with its key), and an error while
+processing one actuator is caught per actuator.
 """
 
 from __future__ import annotations
+
+import itertools
 
 import structlog
 
@@ -95,10 +99,19 @@ def evaluate_control_rules(self) -> dict:  # noqa: ANN001 — Celery bound-task 
     dispatched = 0
     errors = 0
     closed_tenant = 0
+    tenantless = 0
     safe_state = 0
     readings_cache: dict[tuple[str, str], dict[str, float]] = {}
-    for actuator in repo.iter_for_tenants(tenant_states):
-        closed = tenant_states.get(actuator.tenant_key) != TenantStatus.ACTIVE
+    # A device without a tenant (``tenant_key`` empty or missing) belongs to nobody who could open it —
+    # the situation of a closed tenant — but its hardware may still be on. It gets the same fail-safe
+    # treatment, deliberately (#2128 review W1): a firing safety rule still decides, otherwise a device
+    # that an emergency switches off is switched off once; no schedule, no override, no fallback task.
+    # Before #2128 it ran through ``evaluate_actuator`` like an active tenant's device, so a schedule or
+    # override could keep it on; silently dropping it from the walk would have latched it.
+    walk = itertools.chain(repo.iter_for_tenants(tenant_states), repo.iter_without_tenant())
+    for actuator in walk:
+        has_tenant = bool(actuator.tenant_key)
+        closed = not has_tenant or tenant_states.get(actuator.tenant_key) != TenantStatus.ACTIVE
         try:
             cache_key = (actuator.tenant_key, actuator.location_key)
             if cache_key not in readings_cache:
@@ -106,7 +119,10 @@ def evaluate_control_rules(self) -> dict:  # noqa: ANN001 — Celery bound-task 
                     sensor_repo, ha_client, actuator.location_key, tenant_key=actuator.tenant_key, grants=grants
                 )
             if closed:
-                closed_tenant += 1
+                if has_tenant:
+                    closed_tenant += 1
+                else:
+                    tenantless += 1
                 if service.drive_to_safe_state(actuator, readings_cache[cache_key]) is not None:
                     safe_state += 1
                 continue
@@ -118,12 +134,15 @@ def evaluate_control_rules(self) -> dict:  # noqa: ANN001 — Celery bound-task 
             errors += 1
             logger.warning("actuator_evaluation_failed", actuator=actuator.key, error=loggable_error(exc))
 
+    if tenantless:
+        logger.warning("actuator_control_tenantless_devices", count=tenantless)
     logger.info(
         "actuator_control_rules_evaluated",
         evaluated=evaluated,
         dispatched=dispatched,
         errors=errors,
         closed_tenant=closed_tenant,
+        tenantless=tenantless,
         safe_state_commands=safe_state,
     )
     return {"status": "ok", "evaluated": evaluated, "dispatched": dispatched, "errors": errors}
