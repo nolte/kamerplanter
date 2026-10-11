@@ -18,6 +18,7 @@ once) lives in ``tests/integration/test_list_windows.py``.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -308,6 +309,8 @@ def test_a_harvest_window_refuses_an_unscoped_read(read: Callable[[Any], Any]) -
         (ArangoTaskRepository, lambda r: r.get_tasks_window(tenant_key="")),
         (ArangoPlantingRunRepository, lambda r: r.get_runs_window(tenant_key="")),
         (ArangoImportJobRepository, lambda r: r.list_all_window(tenant_key="")),
+        # No ``None`` -> every-tenant arm on the window (review SEC-001 of #2272).
+        (ArangoImportJobRepository, lambda r: r.list_all_window(tenant_key=None)),
         (ArangoFertilizerRepository, lambda r: r.get_all_window(tenant_key="")),
         (ArangoNutrientPlanRepository, lambda r: r.get_all_window(tenant_key="")),
         (ArangoTankRepository, lambda r: r.get_all_window(tenant_key="")),
@@ -316,6 +319,8 @@ def test_a_harvest_window_refuses_an_unscoped_read(read: Callable[[Any], Any]) -
         (ArangoSiteRepository, lambda r: r.list_sites_window(tenant_key="")),
         (ArangoSuccessionPlanRepository, lambda r: r.list_plans_window(tenant_key="")),
         (ArangoTaskRepository, lambda r: r.list_workflow_templates_window(tenant_key="")),
+        (PropagationRepository, lambda r: r.list_events_window(tenant_key="")),
+        (PropagationRepository, lambda r: r.list_batches_window(tenant_key="")),
     ],
     ids=[
         "diary-plant",
@@ -324,6 +329,7 @@ def test_a_harvest_window_refuses_an_unscoped_read(read: Callable[[Any], Any]) -
         "tasks",
         "planting-runs",
         "import-jobs",
+        "import-jobs-none",
         "fertilizers",
         "nutrient-plans",
         "tanks",
@@ -332,6 +338,8 @@ def test_a_harvest_window_refuses_an_unscoped_read(read: Callable[[Any], Any]) -
         "sites",
         "succession-plans",
         "workflow-templates",
+        "propagation-events",
+        "propagation-batches",
     ],
 )
 def test_every_tenant_scoped_window_refuses_the_empty_tenant(repo: Any, read: Callable[[Any], Any]) -> None:
@@ -355,3 +363,60 @@ def test_the_window_pages_over_a_total_order(pair: _Pair) -> None:
     sort_clause = query[query.index("SORT ") : query.index("LIMIT ")]
 
     assert "_key" in sort_clause, sort_clause
+
+
+#: Pairs whose window reads no tenant predicate of its own, with the reason. Every
+#: other pair is tenant-scoped and must show it in the page query.
+_NOT_TENANT_SCOPED = {
+    "ipm-inspections": "plant-scoped; IpmService verifies the plant's tenant before the read",
+    "ipm-applications": "plant-scoped; IpmService verifies the plant's tenant before the read",
+    "harvest-indicators": "global seeded catalogue",
+    "ipm-pests": "global seeded catalogue",
+    "ipm-diseases": "global seeded catalogue",
+    "ipm-treatments": "global seeded catalogue",
+    "phase-definitions-filtered": "global catalogue",
+    "phase-definitions": "global catalogue",
+    "phase-sequences": "global catalogue",
+}
+_TENANT_PAIRS = [p for p in _PAIRS if p.id not in _NOT_TENANT_SCOPED]
+
+
+def test_the_tenant_classification_names_real_pairs() -> None:
+    assert set(_NOT_TENANT_SCOPED) <= {p.id for p in _PAIRS}
+    assert len(_TENANT_PAIRS) >= 20
+
+
+@pytest.mark.parametrize("pair", _TENANT_PAIRS, ids=[p.id for p in _TENANT_PAIRS])
+def test_a_tenant_window_binds_the_tenant_and_filters_on_it(pair: _Pair) -> None:
+    """The window carries the caller's tenant itself (review SEC-003 of #2272).
+
+    Window == counted page alone is tautological for a pair that delegates to one
+    shared reader: a reader that dropped the tenant would drop it from both. So the
+    page query must also bind the tenant value and compare ``<var>.tenant_key``.
+    """
+    ((query, bind_vars),) = _queries(pair, pair.window)
+
+    assert T in bind_vars.values(), bind_vars
+    assert re.search(r"\b\w+\.tenant_key\s*(?:==|IN)", query), query
+
+
+def test_the_protocol_page_and_count_read_one_selection() -> None:
+    """Page and count of ``list_protocols`` are built from one filter body (review SEC-005 of #2272).
+
+    Two copies of the tenant predicate can drift - a fix applied to the page and
+    not the count (or back) would answer rows the total does not describe, or the
+    reverse. Both executed queries must open with the module's single selection,
+    and that selection carries the tenant predicate.
+    """
+    from app.data_access.repositories import propagation_repository as module
+
+    selection = module._ROOTING_PROTOCOLS_SELECTION
+    db = _RecordingDb()
+    PropagationRepository(db).list_protocols(T, method="cutting", is_template=True, offset=4, limit=3)
+
+    (page, page_vars), (count, count_vars) = db.executed
+    assert page.startswith(selection)
+    assert count.startswith(selection)
+    assert _COUNT in count
+    assert "p.tenant_key == @tenant_key" in selection
+    assert page_vars["tenant_key"] == count_vars["tenant_key"] == T

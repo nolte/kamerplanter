@@ -274,8 +274,10 @@ _CATALOGUE_AND_CONFIG = [
         True,
     ),
 ]
+#: Every route of the third round reads one tenant's rows (review SEC-004 of #2272).
+_THIRD_ROUND = [c.route for c in _COUNT_FREE]
 _COUNT_FREE += [_CountFree(route, counted) for route, counted, _ in _CATALOGUE_AND_CONFIG]
-_TENANT_WINDOWS = [route for route, _, tenant_bound in _CATALOGUE_AND_CONFIG if tenant_bound]
+_TENANT_WINDOWS = _THIRD_ROUND + [route for route, _, tenant_bound in _CATALOGUE_AND_CONFIG if tenant_bound]
 
 _ALL = _OFFSET_ROUTES + _CURSOR_ROUTES + [c.route for c in _COUNT_FREE]
 

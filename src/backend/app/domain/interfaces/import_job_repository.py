@@ -30,8 +30,8 @@ class IImportJobRepository(ABC):
         """
 
     @abstractmethod
-    def list_all_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str | None) -> list[ImportJob]:
-        """The page of :meth:`list_all` without its count query (MT-035, #2131); same scope rules."""
+    def list_all_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[ImportJob]:
+        """The page of :meth:`list_all` without its count query (MT-035, #2131); one tenant only."""
         ...
 
     @abstractmethod

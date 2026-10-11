@@ -131,6 +131,7 @@ class _IpmService:
         self._pests = set(pests)
         self._diseases = set(diseases)
         self._inspections = list(inspections)
+        self.window_tenants: list[str] = []
         self._karenz = list(karenz)
         self._harvest_ok = harvest_ok
         self.created: list[Inspection] = []
@@ -160,6 +161,7 @@ class _IpmService:
         return list(self._inspections), len(self._inspections)
 
     def get_inspections_window(self, plant_key, offset=0, limit=50, *, tenant_key):
+        self.window_tenants.append(tenant_key)
         return self.get_inspections(plant_key, offset, limit, tenant_key=tenant_key)[0]
 
     def check_harvest_safety(self, plant_key, planned_date=None, *, tenant_key):
@@ -581,13 +583,14 @@ class TestGetPlantDiagnostics:
             pressure_level=PestPressureLevel.LOW,
             symptoms_observed=["webbing"],
         )
-        resp = await GetPlantDiagnostics().run(
-            self._diag_ctx(
-                ipm_service=_IpmService(inspections=[inspection]),
-                care_reminder_service=_CareService([_Confirmation(now - timedelta(days=1))]),
-            ),
-            GetPlantDiagnostics.Input(plant_key="p1"),
+        ipm = _IpmService(inspections=[inspection])
+        ctx = self._diag_ctx(
+            ipm_service=ipm,
+            care_reminder_service=_CareService([_Confirmation(now - timedelta(days=1))]),
         )
+        resp = await GetPlantDiagnostics().run(ctx, GetPlantDiagnostics.Input(plant_key="p1"))
+        # The count-free inspection window reads the membership's tenant (review SEC-004 of #2272).
+        assert ipm.window_tenants == [ctx.tenant_key] == [TENANT]
         assert resp.data["inspections"][0]["symptoms_observed"] == ["webbing"]
         assert resp.data["care_events"][0]["reminder_type"] == "watering"
         assert resp.data["feeding_events"]

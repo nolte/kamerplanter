@@ -27,6 +27,17 @@ from app.domain.models.propagation import (
     RootingProtocol,
 )
 
+#: The rooting protocols one tenant may read — the global templates
+#: (``tenant_key == ""``) plus its own, narrowed by the optional filters. The one
+#: filter body the page and the count of ``list_protocols`` share, so the two
+#: cannot drift apart (review SEC-005 of #2272, MT-035 #2131).
+_ROOTING_PROTOCOLS_SELECTION = """
+        FOR p IN @@col
+          FILTER p.tenant_key == "" OR p.tenant_key == @tenant_key
+          FILTER @method == null OR p.method == @method
+          FILTER @is_template == null OR p.is_template == @is_template
+"""
+
 
 class _PropagationEventRepository(BaseArangoRepository[PropagationEvent]):
     """The events collection, as a class rather than a configured instance.
@@ -111,7 +122,12 @@ class PropagationRepository:
         offset: int = 0,
         limit: int = 50,
     ) -> list[PropagationEvent]:
-        """The page of :meth:`list_events` without its count query (MT-035, #2131)."""
+        """The page of :meth:`list_events` without its count query (MT-035, #2131).
+
+        Refuses the empty tenant: ``tenant_key == ""`` would otherwise match every
+        row written without one instead of failing (review SEC-002 of #2272).
+        """
+        self._events._require_tenant_key(tenant_key, "list_events_window")
         filters: list[tuple[str, str, Any]] = [("tenant_key", "==", tenant_key)]
         if method:
             filters.append(("method", "==", method))
@@ -193,7 +209,11 @@ class PropagationRepository:
         offset: int = 0,
         limit: int = 50,
     ) -> list[PropagationBatch]:
-        """The page of :meth:`list_batches` without its count query (MT-035, #2131)."""
+        """The page of :meth:`list_batches` without its count query (MT-035, #2131).
+
+        Refuses the empty tenant, as :meth:`list_events_window` does (review SEC-002 of #2272).
+        """
+        self._batches._require_tenant_key(tenant_key, "list_batches_window")
         filters: list[tuple[str, str, Any]] = [("tenant_key", "==", tenant_key)]
         if status:
             filters.append(("status", "==", status))
@@ -268,15 +288,14 @@ class PropagationRepository:
         breaks the tie: offset paging over a partial order may show a row on two
         pages or none (BACKEND.md §6.4, MT-035 #2131).
         """
-        query = """
-        FOR p IN @@col
-          FILTER p.tenant_key == "" OR p.tenant_key == @tenant_key
-          FILTER @method == null OR p.method == @method
-          FILTER @is_template == null OR p.is_template == @is_template
+        query = (
+            _ROOTING_PROTOCOLS_SELECTION
+            + """
           SORT p.name ASC, p._key ASC
           LIMIT @offset, @limit
           RETURN p
         """
+        )
         bind_vars = {
             "@col": col.ROOTING_PROTOCOLS,
             "tenant_key": tenant_key,
@@ -290,14 +309,13 @@ class PropagationRepository:
         if not count:
             return items, None
 
-        count_query = """
-        FOR p IN @@col
-          FILTER p.tenant_key == "" OR p.tenant_key == @tenant_key
-          FILTER @method == null OR p.method == @method
-          FILTER @is_template == null OR p.is_template == @is_template
+        count_query = (
+            _ROOTING_PROTOCOLS_SELECTION
+            + """
           COLLECT WITH COUNT INTO total
           RETURN total
         """
+        )
         count_vars = {
             "@col": col.ROOTING_PROTOCOLS,
             "tenant_key": tenant_key,
