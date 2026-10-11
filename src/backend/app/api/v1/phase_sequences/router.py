@@ -128,7 +128,7 @@ def list_phase_definitions(
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
     """List phase definitions (paginated), optionally filtered by name."""
-    definitions, _ = service.list_definitions(pagination.offset, pagination.limit, name_filter=name)
+    definitions = service.list_definitions_window(pagination.offset, pagination.limit, name_filter=name)
     result = []
     for defn in definitions:
         usage = service._repo.get_definition_usage_count(defn.key or "")
@@ -241,7 +241,7 @@ def list_phase_sequences(
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
     """List phase sequences (paginated), each with its resolved entries."""
-    sequences, _ = service.list_sequences(pagination.offset, pagination.limit)
+    sequences = service.list_sequences_window(pagination.offset, pagination.limit)
     result = []
     for seq in sequences:
         full = service.get_full_sequence(seq.key or "")

@@ -19,8 +19,7 @@ class ArangoExternalSourceRepository(BaseArangoRepository[ExternalSource], IExte
     def get_all(self) -> list[ExternalSource]:
         # Bounded by construction (#2015): nothing in app/ writes external_sources; the
         # rows are the registered enrichment adapters, a handful per deployment.
-        items, _ = super().get_all(offset=0, limit=100)
-        return items
+        return super().list_window(offset=0, limit=100)
 
     def get_by_source_key(self, source_key: str) -> ExternalSource | None:
         return self.find_one_by_field("source_key", source_key)

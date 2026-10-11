@@ -282,10 +282,18 @@ async def test_get_harvest_readiness_aggregates():
             "estimated_days": 0,
         }
     )
-    plant_svc = SimpleNamespace(list_plants=lambda offset, limit, tenant_key: (plants, 2))
-    resp = await GetHarvestReadiness().run(
-        _ctx(plant_instance_service=plant_svc, harvest_service=harvest), GetHarvestReadiness.Input()
-    )
+    # The count-free window (MT-035, #2131): the tool never read the total.
+    seen_tenants: list[str] = []
+
+    def list_plants_window(*, offset, limit, tenant_key):  # noqa: ARG001
+        seen_tenants.append(tenant_key)
+        return plants
+
+    plant_svc = SimpleNamespace(list_plants_window=list_plants_window)
+    ctx = _ctx(plant_instance_service=plant_svc, harvest_service=harvest)
+    resp = await GetHarvestReadiness().run(ctx, GetHarvestReadiness.Input())
+    # The window reads the membership's tenant, nothing wider (review SEC-004 of #2272).
+    assert seen_tenants == [ctx.tenant_key] == ["home"]
     assert resp.data["assessed"] == 1
     assert resp.data["ready_count"] == 1
 

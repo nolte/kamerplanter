@@ -591,8 +591,11 @@ def list_plants(
   wirklich lesen. Das ist die Form von `include_total=false`: die Listen-Antwort
   traegt keine Gesamtzahl, also gibt es keinen Query-Parameter dafuer. Eine Route,
   die `rows, _ = service.list_x(...)` entpackt, faellt durch den Guard
-  `tests/unit/guards/test_list_routes_do_not_discard_a_paid_total.py`; Kataloge und
-  Konfigurationslisten stehen dort mit Grund in einer gezaehlten Tabelle.
+  `tests/unit/guards/test_list_routes_do_not_discard_a_paid_total.py` — ohne
+  Ausnahme, auch Kataloge und Konfigurationslisten lesen das Fenster. Ausserhalb der
+  Routen faellt dort jeder Aufruf einer gezaehlten Methode (Rueckgabe
+  `tuple[list[...], int]`) auf, der die Zahl verwirft; die wenigen Ausnahmen stehen
+  mit Grund in einer gezaehlten Tabelle.
 - Eine Collection mit Cursor-Route traegt den Index `(tenant_key, _key)`
   (`KEYSET_PAGED_COLLECTIONS`).
 - Ausnahmen (globale Kataloge, Kinder eines Elterndokuments, berechnete Listen fester

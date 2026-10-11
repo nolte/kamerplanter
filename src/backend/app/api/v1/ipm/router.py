@@ -134,7 +134,7 @@ def list_pests(
     service: IpmService = Depends(get_ipm_service),
 ):
     """List catalog pests (paginated)."""
-    pests, _ = service.list_pests(pagination.offset, pagination.limit)
+    pests = service.list_pests_window(pagination.offset, pagination.limit)
     ref_counts = _reference_image_counts()
     return [_pest_response(p, ref_counts) for p in pests]
 
@@ -207,7 +207,7 @@ def list_diseases(
     service: IpmService = Depends(get_ipm_service),
 ):
     """List catalog diseases (paginated)."""
-    diseases, _ = service.list_diseases(pagination.offset, pagination.limit)
+    diseases = service.list_diseases_window(pagination.offset, pagination.limit)
     return [_disease_response(d) for d in diseases]
 
 
@@ -270,7 +270,7 @@ def list_treatments(
     service: IpmService = Depends(get_ipm_service),
 ):
     """List catalog treatments (paginated)."""
-    treatments, _ = service.list_treatments(pagination.offset, pagination.limit)
+    treatments = service.list_treatments_window(pagination.offset, pagination.limit)
     return [_treatment_response(t) for t in treatments]
 
 

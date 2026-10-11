@@ -1,3 +1,5 @@
+from typing import Any
+
 from app.common.enums import IrrigationSystem
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
@@ -57,6 +59,17 @@ class TankService:
         tenant_key: str = "",
     ) -> tuple[list[Tank], int]:
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
+
+    def list_tanks_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Tank]:
+        """One page of :meth:`list_tanks` without the count query (MT-035, #2131)."""
+        return self._repo.get_all_window(offset, limit, filters, tenant_key=tenant_key)
 
     def get_tank(self, key: TankKey, tenant_key: str = "") -> Tank:
         tank = self._repo.get_or_raise(key)

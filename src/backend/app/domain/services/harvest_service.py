@@ -51,6 +51,10 @@ class HarvestService:
     def list_indicators(self, offset: int = 0, limit: int = 50) -> tuple[list[HarvestIndicator], int]:
         return self._repo.get_all_indicators(offset, limit)
 
+    def list_indicators_window(self, offset: int = 0, limit: int = 50) -> list[HarvestIndicator]:
+        """One ``_key``-ordered page of the indicator catalogue without the count query (MT-035, #2131)."""
+        return self._repo.list_indicators_window(offset, limit)
+
     def create_indicator(self, indicator: HarvestIndicator) -> HarvestIndicator:
         return self._repo.create_indicator(indicator)
 

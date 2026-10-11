@@ -257,8 +257,8 @@ def list_protocols(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """List the tenant's rooting protocols (paginated), optionally filtered."""
-    items, _total = service.list_protocols(
-        ctx.tenant_key,
+    items = service.list_protocols_window(
+        tenant_key=ctx.tenant_key,
         method=method,
         is_template=is_template,
         offset=pagination.offset,

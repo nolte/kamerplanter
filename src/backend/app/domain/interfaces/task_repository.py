@@ -30,6 +30,19 @@ class ITaskRepository(ABC):
     ) -> tuple[list[WorkflowTemplate], int]: ...
 
     @abstractmethod
+    def list_workflow_templates_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        species_key: str | None = None,
+        target_entity_type: str | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[WorkflowTemplate]:
+        """The page of :meth:`get_all_workflow_templates` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def get_workflow_template_by_key(self, key: WorkflowTemplateKey) -> WorkflowTemplate | None: ...
 
     @abstractmethod

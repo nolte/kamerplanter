@@ -59,6 +59,10 @@ class SuccessionPlanService:
     def list_plans(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[SuccessionPlan], int]:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
 
+    def list_plans_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[SuccessionPlan]:
+        """One ``_key``-ordered page of the tenant's plans without the count query (MT-035, #2131)."""
+        return self._repo.list_plans_window(offset, limit, tenant_key=tenant_key)
+
     def get_plan(self, key: SuccessionPlanKey, tenant_key: str = "") -> SuccessionPlan:
         plan = self._repo.get_or_raise(key)
         if tenant_key:

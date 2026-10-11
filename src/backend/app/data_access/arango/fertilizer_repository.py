@@ -83,6 +83,40 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
         # missing tenant_key must therefore be an explicit system-context opt-in
         # (all_tenants=True) rather than a silent all-tenant read (SEC-B4).
         self._enforce_tenant_scope(tenant_key, all_tenants)
+        items, total = self._read(offset, limit, filters, tenant_key, count=True)
+        return items, total or 0
+
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Fertilizer]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131).
+
+        Request reads only: ``tenant_key`` is required (no ``all_tenants`` escape),
+        the union with the global rows is the same as in :meth:`get_all`.
+        """
+        self._enforce_tenant_scope(tenant_key, False)
+        return self._read(offset, limit, filters, tenant_key, count=False)[0]
+
+    def _read(
+        self,
+        offset: int,
+        limit: int,
+        filters: dict[str, Any] | None,
+        tenant_key: str | None,
+        *,
+        count: bool,
+    ) -> tuple[list[Fertilizer], int | None]:
+        """One page and, with ``count``, the total of :meth:`get_all` — callers enforce the scope.
+
+        One body for the counted and the count-free read, so the window issues exactly
+        the page query the counted method pays a count for (MT-035, #2131); the query
+        text stays in the function that executes it, where the catalogue guard reads it.
+        """
         query = f"FOR doc IN {col.FERTILIZERS}"
         bind_vars: dict[str, Any] = {}
         filter_clauses = []
@@ -111,9 +145,10 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
         query += " SORT doc.product_name, doc._key LIMIT @offset, @limit RETURN doc"
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         items = [Fertilizer(**self._from_doc(doc)) for doc in cursor]
+        if not count:
+            return items, None
         count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
-        total = next(count_cursor, 0)
-        return items, total
+        return items, next(count_cursor, 0)
 
     def list_visible_keys(self, keys: list[str], *, tenant_key: str) -> set[str]:
         """The subset of ``keys`` naming fertilizers ``tenant_key`` may see (#1713).

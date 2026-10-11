@@ -18,6 +18,11 @@ class ISuccessionPlanRepository(ABC):
     ) -> tuple[list[SuccessionPlan], int]: ...
 
     @abstractmethod
+    def list_plans_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[SuccessionPlan]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def get_by_key(self, key: SuccessionPlanKey) -> SuccessionPlan | None: ...
 
     @abstractmethod

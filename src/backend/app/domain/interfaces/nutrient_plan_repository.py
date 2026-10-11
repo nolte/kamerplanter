@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
 from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
@@ -16,6 +17,18 @@ class INutrientPlanRepository(ABC):
         *,
         tenant_key: str | None = None,
     ) -> tuple[list[NutrientPlan], int]: ...
+
+    @abstractmethod
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[NutrientPlan]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        ...
 
     @abstractmethod
     def get_by_key(self, key: NutrientPlanKey) -> NutrientPlan | None: ...

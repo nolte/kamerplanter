@@ -54,7 +54,7 @@ def list_fertilizers(
         filters["is_organic"] = is_organic
     if tank_safe is not None:
         filters["tank_safe"] = tank_safe
-    items, _total = service.list_fertilizers(
+    items = service.list_fertilizers_window(
         pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key
     )
     return [_fert_response(f) for f in items]

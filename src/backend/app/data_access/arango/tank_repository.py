@@ -48,27 +48,55 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
     ) -> tuple[list[Tank], int]:
         self._enforce_tenant_scope(tenant_key, all_tenants)
         if filters:
-            query = f"FOR doc IN {col.TANKS}"
-            bind_vars: dict[str, Any] = {}
-            filter_clauses = []
-            if tenant_key:
-                bind_vars["tenant_key"] = tenant_key
-                filter_clauses.append("doc.tenant_key == @tenant_key")
-            for i, (field, value) in enumerate(filters.items()):
-                bind_vars[f"val{i}"] = value
-                filter_clauses.append(f"doc.{aql_field(field)} == @val{i}")
-            query += " FILTER " + " AND ".join(filter_clauses)
-            count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
-            count_vars = dict(bind_vars)
-            bind_vars["offset"] = offset
-            bind_vars["limit"] = limit
-            query += " SORT doc._key LIMIT @offset, @limit RETURN doc"
-            cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-            items = [Tank(**self._from_doc(doc)) for doc in cursor]
-            count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
-            total = next(count_cursor, 0)
-            return items, total
+            items, total = self._read_filtered(offset, limit, filters, tenant_key, count=True)
+            return items, total or 0
         return super().get_all(offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
+
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Tank]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        self._enforce_tenant_scope(tenant_key, False)
+        if filters:
+            return self._read_filtered(offset, limit, filters, tenant_key, count=False)[0]
+        return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key)
+
+    def _read_filtered(
+        self,
+        offset: int,
+        limit: int,
+        filters: dict[str, Any],
+        tenant_key: str | None,
+        *,
+        count: bool,
+    ) -> tuple[list[Tank], int | None]:
+        """The filtered page and, with ``count``, its total — callers enforce the scope (MT-035, #2131)."""
+        query = f"FOR doc IN {col.TANKS}"
+        bind_vars: dict[str, Any] = {}
+        filter_clauses = []
+        if tenant_key:
+            bind_vars["tenant_key"] = tenant_key
+            filter_clauses.append("doc.tenant_key == @tenant_key")
+        for i, (field, value) in enumerate(filters.items()):
+            bind_vars[f"val{i}"] = value
+            filter_clauses.append(f"doc.{aql_field(field)} == @val{i}")
+        query += " FILTER " + " AND ".join(filter_clauses)
+        count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
+        count_vars = dict(bind_vars)
+        bind_vars["offset"] = offset
+        bind_vars["limit"] = limit
+        query += " SORT doc._key LIMIT @offset, @limit RETURN doc"
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        items = [Tank(**self._from_doc(doc)) for doc in cursor]
+        if not count:
+            return items, None
+        count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
+        return items, next(count_cursor, 0)
 
     def create(self, tank: Tank) -> Tank:
         created = super().create(tank)
