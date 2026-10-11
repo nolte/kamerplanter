@@ -157,44 +157,52 @@ class TestCreateRun:
         This is not hypothetical here: refusing every location is exactly what
         five sibling sites did (#1352, #1397), for the same reason.
         """
-        created = _service(site_repo, run_repo).create_run(_run("loc_own"))
+        created = _service(site_repo, run_repo).create_run(_run("loc_own"), tenant_key=OWN)
         assert created.key in run_repo.store
         assert created.location_key == "loc_own"
 
     def test_a_run_at_a_foreign_location_is_refused(self, site_repo, run_repo):
         with pytest.raises(NotFoundError):
-            _service(site_repo, run_repo).create_run(_run("loc_foreign"))
+            _service(site_repo, run_repo).create_run(_run("loc_foreign"), tenant_key=OWN)
 
     def test_the_refused_run_is_not_written(self, site_repo, run_repo):
         """A refusal after the insert would still leave the row behind."""
         with pytest.raises(NotFoundError):
-            _service(site_repo, run_repo).create_run(_run("loc_foreign"))
+            _service(site_repo, run_repo).create_run(_run("loc_foreign"), tenant_key=OWN)
         assert run_repo.store == {}
 
     def test_the_refusal_reaches_no_slot_of_the_foreign_location(self, site_repo, run_repo):
         """Neither read nor write — the criterion #1372 states."""
         with pytest.raises(NotFoundError):
-            _service(site_repo, run_repo).create_run(_run("loc_foreign"))
+            _service(site_repo, run_repo).create_run(_run("loc_foreign"), tenant_key=OWN)
         assert site_repo.slot_reads == []
         assert site_repo.slot_writes == []
 
     def test_an_unknown_location_is_refused_like_a_foreign_one(self, site_repo, run_repo):
         """Same answer, so the message is not an existence oracle."""
         with pytest.raises(NotFoundError):
-            _service(site_repo, run_repo).create_run(_run("loc_nowhere"))
+            _service(site_repo, run_repo).create_run(_run("loc_nowhere"), tenant_key=OWN)
 
     def test_a_run_without_a_location_is_untouched(self, site_repo, run_repo):
         """`location_key` is optional; a run may be planned before it is placed."""
-        created = _service(site_repo, run_repo).create_run(_run(""))
+        created = _service(site_repo, run_repo).create_run(_run(""), tenant_key=OWN)
         assert created.key in run_repo.store
 
-    def test_a_tenantless_run_is_skipped(self, site_repo, run_repo):
-        """Seeds, migrations and light mode have no tenant to anchor against.
+    def test_the_run_takes_the_callers_tenant_not_its_own(self, site_repo, run_repo):
+        """#2107: the tenant is stamped by ``create_run``, so a run built without one is still checked.
 
-        Matches the `if not plant.tenant_key` gate on the single-plant path.
+        Before, a run whose own ``tenant_key`` was empty skipped the location check
+        and was stored pointing at a foreign location.
         """
-        created = _service(site_repo, run_repo).create_run(_run("loc_foreign", tenant_key=""))
-        assert created.key in run_repo.store
+        with pytest.raises(NotFoundError):
+            _service(site_repo, run_repo).create_run(_run("loc_foreign", tenant_key=""), tenant_key=OWN)
+        assert run_repo.store == {}
+
+    def test_an_empty_tenant_is_refused_not_read_as_skip_the_checks(self, site_repo, run_repo):
+        """#2107: an empty tenant means "no tenant", never "skip every reference check"."""
+        with pytest.raises(ValueError, match="tenant_key"):
+            _service(site_repo, run_repo).create_run(_run("loc_foreign", tenant_key=""), tenant_key="")
+        assert run_repo.store == {}
 
 
 class TestCloneConfig:
@@ -228,7 +236,7 @@ class TestCloneConfig:
         clone.clone_from_run_key = template_key
 
         with pytest.raises(NotFoundError):
-            _service(site_repo, run_repo).create_run(clone)
+            _service(site_repo, run_repo).create_run(clone, tenant_key=OWN)
 
     def test_the_refused_clone_reaches_no_slot_of_the_foreign_location(self, site_repo, run_repo):
         template_key = self._template(site_repo, run_repo, "loc_foreign")
@@ -236,7 +244,7 @@ class TestCloneConfig:
         clone.clone_from_run_key = template_key
 
         with pytest.raises(NotFoundError):
-            _service(site_repo, run_repo).create_run(clone)
+            _service(site_repo, run_repo).create_run(clone, tenant_key=OWN)
         assert site_repo.slot_reads == []
         assert site_repo.slot_writes == []
 
@@ -246,32 +254,32 @@ class TestCloneConfig:
         clone = _run(None)
         clone.clone_from_run_key = template_key
 
-        created = _service(site_repo, run_repo).create_run(clone)
+        created = _service(site_repo, run_repo).create_run(clone, tenant_key=OWN)
         assert created.location_key == "loc_own"
 
 
 class TestUpdateRun:
     def _planned_run(self, site_repo, run_repo) -> str:
-        created = _service(site_repo, run_repo).create_run(_run("loc_own"))
+        created = _service(site_repo, run_repo).create_run(_run("loc_own"), tenant_key=OWN)
         return created.key
 
     def test_repointing_to_the_tenants_own_location_is_allowed(self, site_repo, run_repo):
         service = _service(site_repo, run_repo)
         key = self._planned_run(site_repo, run_repo)
-        updated = service.update_run(key, {"location_key": "loc_own"})
+        updated = service.update_run(key, {"location_key": "loc_own"}, tenant_key=OWN)
         assert updated.location_key == "loc_own"
 
     def test_repointing_to_a_foreign_location_is_refused(self, site_repo, run_repo):
         service = _service(site_repo, run_repo)
         key = self._planned_run(site_repo, run_repo)
         with pytest.raises(NotFoundError):
-            service.update_run(key, {"location_key": "loc_foreign"})
+            service.update_run(key, {"location_key": "loc_foreign"}, tenant_key=OWN)
 
     def test_the_refused_update_does_not_persist_the_foreign_key(self, site_repo, run_repo):
         service = _service(site_repo, run_repo)
         key = self._planned_run(site_repo, run_repo)
         with pytest.raises(NotFoundError):
-            service.update_run(key, {"location_key": "loc_foreign"})
+            service.update_run(key, {"location_key": "loc_foreign"}, tenant_key=OWN)
         assert run_repo.store[key].location_key == "loc_own"
 
     def test_the_refused_update_never_reaches_slot_reassignment(self, site_repo, run_repo):
@@ -285,5 +293,5 @@ class TestUpdateRun:
         key = self._planned_run(site_repo, run_repo)
         run_repo.store[key] = run_repo.store[key].model_copy(update={"status": PlantingRunStatus.ACTIVE})
         with pytest.raises(NotFoundError):
-            service.update_run(key, {"location_key": "loc_foreign"})
+            service.update_run(key, {"location_key": "loc_foreign"}, tenant_key=OWN)
         assert site_repo.slot_writes == []

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.common.enums import PlantingRunStatus, PlantingRunType
-from app.common.exceptions import CompanionConflictError, RotationViolationError, ValidationError
+from app.common.exceptions import CompanionConflictError, NotFoundError, RotationViolationError
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.services.planting_run_service import PlantingRunService
 from tests.conftest import wire_get_or_raise
@@ -89,7 +89,7 @@ class TestCreatePlantsChecks:
         companion.check_or_raise.side_effect = CompanionConflictError(SPECIES_KEY, "neighbors")
 
         with pytest.raises(CompanionConflictError):
-            service.create_plants(RUN_KEY)
+            service.create_plants(RUN_KEY, tenant_key=TENANT_KEY)
 
         # Validated up-front — no partial batch is written on a conflict.
         plant_repo.create.assert_not_called()
@@ -102,7 +102,7 @@ class TestCreatePlantsChecks:
         rotation.validate_or_raise.side_effect = RotationViolationError("Solanaceae", "slot_a1", 3)
 
         with pytest.raises(RotationViolationError):
-            service.create_plants(RUN_KEY)
+            service.create_plants(RUN_KEY, tenant_key=TENANT_KEY)
 
         plant_repo.create.assert_not_called()
 
@@ -112,7 +112,7 @@ class TestCreatePlantsChecks:
             plant_specs=_specs(2),
         )
 
-        result = service.create_plants(RUN_KEY)
+        result = service.create_plants(RUN_KEY, tenant_key=TENANT_KEY)
 
         assert result["created_count"] == 2
         assert plant_repo.create.call_count == 2
@@ -130,7 +130,7 @@ class TestCreatePlantsChecks:
             plant_specs=_specs(2),
         )
 
-        result = service.create_plants(RUN_KEY)
+        result = service.create_plants(RUN_KEY, tenant_key=TENANT_KEY)
 
         assert result["created_count"] == 2
         assert plant_repo.create.call_count == 2
@@ -146,6 +146,10 @@ class TestCreatePlantsChecks:
         (``PlantInstanceService.create_plant``) has no such guard and raises out
         of ``_require_tenant_key`` on identical data. The two now agree that a
         tenantless run is a defect to surface, not a rule to drop silently.
+
+        Since #2107 the run is loaded under the caller's tenant first, so a
+        tenantless run is no tenant's: 404 before any check runs. The #952
+        branch in ``_validate_batch_planting`` stays as defence in depth.
         """
         service, plant_repo, rotation, companion = _build_service(
             slots=[_fake_slot("A1", "slot_a1")],
@@ -153,8 +157,8 @@ class TestCreatePlantsChecks:
             run=_planned_run(tenant_key=""),
         )
 
-        with pytest.raises(ValidationError):
-            service.create_plants(RUN_KEY)
+        with pytest.raises(NotFoundError):
+            service.create_plants(RUN_KEY, tenant_key=TENANT_KEY)
 
         # Neither validated nor written — no half-planted batch is left behind.
         rotation.validate_or_raise.assert_not_called()
@@ -187,5 +191,5 @@ class TestCreatePlantsChecks:
             species_resolver=lambda key, *, tenant_key: None,  # readable (#1963)
         )
 
-        result = service.create_plants(RUN_KEY)
+        result = service.create_plants(RUN_KEY, tenant_key=TENANT_KEY)
         assert result["created_count"] == 1

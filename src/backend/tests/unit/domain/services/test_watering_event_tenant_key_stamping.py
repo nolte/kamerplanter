@@ -183,7 +183,7 @@ class TestBatchCreatedPlantsCarryTheirRunsTenant:
     def test_every_created_instance_carries_the_runs_tenant(self):
         service, plant_repo = self._run_service()
 
-        service.create_plants(RUN_KEY)
+        service.create_plants(RUN_KEY, tenant_key=TENANT)
 
         created = [call.args[0] for call in plant_repo.create.call_args_list]
         assert created

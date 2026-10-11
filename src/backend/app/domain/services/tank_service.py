@@ -64,6 +64,19 @@ class TankService:
             verify_tenant_ownership(tank, tenant_key, "Tank")
         return tank
 
+    def _owned_tank(self, key: TankKey, *, tenant_key: str) -> Tank:
+        """The tank ``key`` of ``tenant_key``, or 404 — the load every write starts with (#2107).
+
+        The write methods used to reload the tank with :meth:`get_tank` and **no**
+        tenant, relying on the router having called ``get_tank(key, tenant_key=…)``
+        first (check-then-act, the #948 sibling-drift class). The predicate now
+        lives here, unconditionally: :func:`verify_tenant_ownership` answers a
+        foreign tank and an empty caller tenant alike with ``NotFoundError``.
+        """
+        tank = self._repo.get_or_raise(key)
+        verify_tenant_ownership(tank, tenant_key, "Tank")
+        return tank
+
     def create_tank(
         self,
         tank: Tank,
@@ -95,7 +108,7 @@ class TankService:
         return created
 
     def update_tank(self, key: TankKey, data: dict, *, tenant_key: str) -> Tank:
-        tank = self.get_tank(key, tenant_key)
+        tank = self._owned_tank(key, tenant_key=tenant_key)
         if "location_key" in data:
             self._require_owned_location(data["location_key"], tenant_key)
         allowed_fields = {
@@ -124,14 +137,14 @@ class TankService:
             self._repo.update_location(key, old_location, tank.location_key)
         return updated
 
-    def delete_tank(self, key: TankKey) -> bool:
-        self.get_tank(key)  # ensure exists
+    def delete_tank(self, key: TankKey, *, tenant_key: str) -> bool:
+        self._owned_tank(key, tenant_key=tenant_key)
         return self._repo.delete(key)
 
     # ── State management ───────────────────────────────────────────────
 
-    def record_state(self, tank_key: TankKey, state: TankState) -> TankState:
-        tank = self.get_tank(tank_key)
+    def record_state(self, tank_key: TankKey, state: TankState, *, tenant_key: str) -> TankState:
+        tank = self._owned_tank(tank_key, tenant_key=tenant_key)
         state.tank_key = tank_key
 
         # Validate and auto-calculate fill level
@@ -170,8 +183,8 @@ class TankService:
 
     # ── Maintenance logging ────────────────────────────────────────────
 
-    def log_maintenance(self, tank_key: TankKey, log: MaintenanceLog) -> MaintenanceLog:
-        self.get_tank(tank_key)
+    def log_maintenance(self, tank_key: TankKey, log: MaintenanceLog, *, tenant_key: str) -> MaintenanceLog:
+        self._owned_tank(tank_key, tenant_key=tenant_key)
         log.tank_key = tank_key
         return self._repo.create_maintenance_log(log)
 
@@ -216,8 +229,10 @@ class TankService:
 
     # ── Schedule CRUD ──────────────────────────────────────────────────
 
-    def create_schedule(self, tank_key: TankKey, schedule: MaintenanceSchedule) -> MaintenanceSchedule:
-        self.get_tank(tank_key)
+    def create_schedule(
+        self, tank_key: TankKey, schedule: MaintenanceSchedule, *, tenant_key: str
+    ) -> MaintenanceSchedule:
+        self._owned_tank(tank_key, tenant_key=tenant_key)
         schedule.tank_key = tank_key
         return self._repo.create_schedule(schedule)
 
@@ -234,7 +249,7 @@ class TankService:
         schedule loaded by its key alone let any tank owner change or delete any
         tenant's schedule. A foreign and an unknown schedule answer the same.
         """
-        self.get_tank(tank_key, tenant_key)
+        self._owned_tank(tank_key, tenant_key=tenant_key)
         schedule = self._repo.get_schedule_or_raise(key)
         if schedule.tank_key != tank_key:
             raise NotFoundError("MaintenanceSchedule", key)
@@ -277,9 +292,11 @@ class TankService:
         event: TankFillEvent,
         nutrient_plan: dict | None = None,
         site_water_config: dict | None = None,
+        *,
+        tenant_key: str,
     ) -> dict:
         """Record a fill event, auto-create TankState from measured values."""
-        tank = self.get_tank(tank_key)
+        tank = self._owned_tank(tank_key, tenant_key=tenant_key)
         event.tank_key = tank_key
         # A fill event carries no tenant; it is the tank's (#1713).
         assert_fertilizers_visible(
@@ -296,7 +313,7 @@ class TankService:
         for plan_key in dict.fromkeys(k for k in (event.nutrient_plan_key, event.mixing_result_key) if k):
             require_readable_nutrient_plan(self._nutrient_plan_repo, plan_key, tank.tenant_key)
         if event.source_tank_key:
-            self.get_tank(event.source_tank_key, tank.tenant_key)
+            self._owned_tank(event.source_tank_key, tenant_key=tenant_key)
 
         # Resolve water defaults via cascade
         event_data = event.model_dump(exclude_none=True)
@@ -377,12 +394,10 @@ class TankService:
     def link_feeds_from(self, tank_key: TankKey, source_tank_key: TankKey, *, tenant_key: str) -> None:
         # Both tanks under the tenant (#1871 B5): the source used to be resolved
         # unscoped — a FEEDS_FROM edge to a foreign tank, and 201 vs 404 told the
-        # caller whether that tank existed. ``get_tank`` skips the check for an
-        # empty tenant, so an empty one is refused here (review of #1876, SEC-005).
-        if not tenant_key:
-            raise NotFoundError("Tank", source_tank_key)
-        self.get_tank(tank_key, tenant_key)
-        self.get_tank(source_tank_key, tenant_key)
+        # caller whether that tank existed. ``_owned_tank`` refuses an empty
+        # tenant as well (review of #1876, SEC-005).
+        self._owned_tank(tank_key, tenant_key=tenant_key)
+        self._owned_tank(source_tank_key, tenant_key=tenant_key)
         if tank_key == source_tank_key:
             raise ValidationError("A tank cannot feed from itself.")
         self._repo.link_feeds_from(tank_key, source_tank_key)

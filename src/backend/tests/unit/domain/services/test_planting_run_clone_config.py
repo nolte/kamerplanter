@@ -84,7 +84,7 @@ class TestCloneConfig:
             run_type=PlantingRunType.MONOCULTURE,
             clone_from_run_key=TEMPLATE_KEY,
         )
-        created = service.create_run(new_run)
+        created = service.create_run(new_run, tenant_key=TENANT)
 
         persisted = captured["run"]
         assert persisted.location_key == "loc_beet_c"
@@ -102,7 +102,7 @@ class TestCloneConfig:
             run_type=PlantingRunType.MONOCULTURE,
             clone_from_run_key=TEMPLATE_KEY,
         )
-        service.create_run(new_run)
+        service.create_run(new_run, tenant_key=TENANT)
 
         # entry composition copied from the template ...
         assert repo.create_entry.call_count == 1
@@ -122,7 +122,7 @@ class TestCloneConfig:
             clone_from_run_key=TEMPLATE_KEY,
             location_key="loc_beet_d",
         )
-        service.create_run(new_run)
+        service.create_run(new_run, tenant_key=TENANT)
 
         assert captured["run"].location_key == "loc_beet_d"
 
@@ -136,7 +136,7 @@ class TestCloneConfig:
             clone_from_run_key=TEMPLATE_KEY,
         )
         own_entry = PlantingRunEntry(species_key="species_spinacia", quantity=8, id_prefix="SPI")
-        service.create_run(new_run, [own_entry])
+        service.create_run(new_run, [own_entry], tenant_key=TENANT)
 
         repo.get_entries.assert_not_called()
         created_entry = repo.create_entry.call_args.args[0]

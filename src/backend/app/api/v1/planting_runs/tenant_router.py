@@ -105,7 +105,7 @@ def create_run(
     entries = None
     if body.entries:
         entries = [PlantingRunEntry(**e.model_dump()) for e in body.entries]
-    created = service.create_run(run, entries)
+    created = service.create_run(run, entries, tenant_key=ctx.tenant_key)
     return _run_response(created)
 
 
@@ -129,9 +129,8 @@ def update_run(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Update a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_run(key, data)
+    updated = service.update_run(key, data, tenant_key=ctx.tenant_key)
     return _run_response(updated)
 
 
@@ -142,8 +141,7 @@ def delete_run(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Delete a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    service.delete_run(key)
+    service.delete_run(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}/entries", response_model=list[EntryResponse])
@@ -166,9 +164,8 @@ def add_entry(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Add an entry to a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
     entry = PlantingRunEntry(**body.model_dump())
-    created = service.add_entry(key, entry)
+    created = service.add_entry(key, entry, tenant_key=ctx.tenant_key)
     return _entry_response(created)
 
 
@@ -208,8 +205,7 @@ def batch_create_plants(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Create plant instances in bulk from a planting run's entries."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    result = service.create_plants(key)
+    result = service.create_plants(key, tenant_key=ctx.tenant_key)
     return BatchCreatePlantsResponse(**result)
 
 
@@ -221,7 +217,6 @@ def adopt_plants(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Attach existing plant instances to a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
     result = service.adopt_plants(key, body.plant_keys, tenant_key=ctx.tenant_key)
     return AdoptPlantsResponse(**result)
 
@@ -251,8 +246,7 @@ def transition_run(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Transition all plants of a planting run to a target phase."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    result = service.transition(key, body.target_phase_key, body.target_phase_name)
+    result = service.transition(key, body.target_phase_key, body.target_phase_name, tenant_key=ctx.tenant_key)
     return RunTransitionResponse(**result)
 
 
@@ -264,11 +258,12 @@ def batch_update_phase_dates(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Bulk-update the entered/exited dates for a phase across a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
     if body.entered_at is None and body.exited_at is None:
         raise HTTPException(status_code=422, detail="At least one of entered_at or exited_at must be provided")
     try:
-        result = service.batch_update_phase_dates(key, body.phase_key, body.entered_at, body.exited_at)
+        result = service.batch_update_phase_dates(
+            key, body.phase_key, body.entered_at, body.exited_at, tenant_key=ctx.tenant_key
+        )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     return BatchUpdatePhaseDatesResponse(**result)
@@ -282,8 +277,7 @@ def batch_remove(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Bulk-remove the plants of a planting run with a shared reason."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    result = service.batch_remove(key, body.reason, body.target_status)
+    result = service.batch_remove(key, body.reason, body.target_status, tenant_key=ctx.tenant_key)
     return BatchRemoveResponse(**result)
 
 
@@ -351,7 +345,6 @@ def detach_plant(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Detach a plant instance from a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
     result = service.detach_plant(key, plant_key, body.reason, tenant_key=ctx.tenant_key)
     return DetachPlantResponse(**result)
 
@@ -388,8 +381,7 @@ def remove_nutrient_plan(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Remove the nutrient plan assigned to a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    service.remove_nutrient_plan(key)
+    service.remove_nutrient_plan(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}/active-channels", response_model=list[ActiveChannelResponse])
