@@ -107,7 +107,7 @@ def list_observations(
     A ``plant_key`` belonging to another tenant yields an empty list — the
     tenant scope is enforced in the repository query (#927).
     """
-    observations, _ = service.get_observations(
+    observations = service.get_observations_window(
         plant_key,
         pagination.offset,
         pagination.limit,
@@ -136,7 +136,7 @@ def list_batches(
     service: HarvestService = Depends(get_harvest_service),
 ):
     """List the tenant's harvest batches (paginated)."""
-    batches, _ = service.list_batches(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
+    batches = service.list_batches_window(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_batch_response(b) for b in batches]
 
 

@@ -164,7 +164,7 @@ def test_viewer_may_read_batches():
     from unittest.mock import MagicMock
 
     service = MagicMock()
-    service.list_batches.return_value = ([], 0)
+    service.list_batches_window.return_value = []
     client = TestClient(_build_app(service, TenantRole.VIEWER))
 
     resp = client.get(f"{BASE}/post-harvest")

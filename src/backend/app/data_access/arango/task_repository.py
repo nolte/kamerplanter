@@ -459,8 +459,49 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         answer to every origin, the #324 direction of this class of bug.
         """
         self._require_tenant_key(tenant_key, "get_all_tasks")
+        items = self.get_tasks_window(offset, limit, filters, tenant_key=tenant_key, origins=origins)
         query = f"FOR doc IN {col.TASKS}"
-        bind_vars: dict = {"tenant_key": tenant_key}
+        selection, bind_vars = self._tasks_selection(filters, tenant_key=tenant_key, origins=origins)
+        query += selection
+        count_cursor = self._db.aql.execute(query + " COLLECT WITH COUNT INTO total RETURN total", bind_vars=bind_vars)
+        total = next(count_cursor, 0)
+        return items, total
+
+    def get_tasks_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
+        """The page of :meth:`get_all_tasks` without its count query (MT-035, #2131).
+
+        Same predicates, same ``due_date`` order, same ``LIMIT``. The list route
+        answers a bare array and never read the ``total`` the second scan of the
+        tenant's matching tasks produced on every page.
+        """
+        self._require_tenant_key(tenant_key, "get_tasks_window")
+        query = f"FOR doc IN {col.TASKS}"
+        selection, bind_vars = self._tasks_selection(filters, tenant_key=tenant_key, origins=origins)
+        query += selection
+        query += " SORT DATE_TIMESTAMP(doc.due_date) ASC, doc._key ASC LIMIT @offset, @limit RETURN doc"
+        page_vars: dict[str, Any] = {**bind_vars, "offset": offset, "limit": limit}
+        cursor = self._db.aql.execute(query, bind_vars=page_vars)
+        return [Task(**self._from_doc(doc)) for doc in cursor]
+
+    @staticmethod
+    def _tasks_selection(
+        filters: dict[str, Any] | None, *, tenant_key: str, origins: Sequence[str] | None
+    ) -> tuple[str, dict[str, Any]]:
+        """The ``FILTER`` clauses after ``FOR doc IN tasks``, shared by the count and the window.
+
+        The ``FOR`` head stays at the two call sites as a literal so the AQL guards
+        can read which collection each query walks.
+        """
+        query = ""
+        bind_vars: dict[str, Any] = {"tenant_key": tenant_key}
         filter_clauses: list[str] = ["doc.tenant_key == @tenant_key"]
 
         if filters:
@@ -487,18 +528,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             f" FILTER doc.entity_type != 'plant_instance'"
             f" OR (_plant != null AND _plant.removed_on == null)"
         )
-
-        count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
-        count_vars = dict(bind_vars)
-        bind_vars["offset"] = offset
-        bind_vars["limit"] = limit
-        query += " SORT DATE_TIMESTAMP(doc.due_date) ASC LIMIT @offset, @limit RETURN doc"
-
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        items = [Task(**self._from_doc(doc)) for doc in cursor]
-        count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
-        total = next(count_cursor, 0)
-        return items, total
+        return query, bind_vars
 
     def get_task_by_key(self, key: TaskKey) -> Task | None:
         return super().get_by_key(key)

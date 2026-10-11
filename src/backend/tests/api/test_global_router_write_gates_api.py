@@ -450,9 +450,9 @@ class _RecordingScopedImportService:
         self.calls.append(("get_job", {"tenant_key": tenant_key}))
         return ImportJob(_key=key, entity_type=EntityType.SPECIES, tenant_key=tenant_key or "")
 
-    def list_jobs(self, offset=0, limit=50, *, tenant_key=None):
-        self.calls.append(("list_jobs", {"tenant_key": tenant_key}))
-        return ([], 0)
+    def list_jobs_window(self, offset=0, limit=50, *, tenant_key=None):
+        self.calls.append(("list_jobs_window", {"tenant_key": tenant_key}))
+        return []
 
     def delete_job(self, key, *, tenant_key, caller_role, is_platform_admin):
         self.calls.append(
@@ -561,7 +561,7 @@ class TestImportJobsAreTenantScoped:
         client, service = _import_client(platform_admin_flag, role=TenantRole.VIEWER)
 
         assert client.get("/api/v1/import/jobs").status_code == 200
-        assert service.calls == [("list_jobs", {"tenant_key": _TENANT})]
+        assert service.calls == [("list_jobs_window", {"tenant_key": _TENANT})]
 
     def test_reading_a_foreign_job_by_key_answers_404_through_the_route(self, platform_admin_flag) -> None:
         """The route-level half of the ownership arm (review SCR-002).

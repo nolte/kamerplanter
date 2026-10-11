@@ -185,6 +185,18 @@ class FakeDiaryRepository:
             )
         return rows, len(matches)
 
+    def get_by_plant_window(
+        self, plant_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50
+    ) -> list[PlantDiaryEntry]:
+        """The page of :meth:`get_by_plant`; the double counts in memory, so it only drops the total."""
+        self._require_tenant_key(tenant_key, "get_by_plant_window")
+        return self.get_by_plant(plant_key, tenant_key=tenant_key, offset=offset, limit=limit)[0]
+
+    def get_by_run_window(self, run_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50) -> list[dict]:
+        """The page of :meth:`get_by_run` without the total."""
+        self._require_tenant_key(tenant_key, "get_by_run_window")
+        return self.get_by_run(run_key, tenant_key=tenant_key, offset=offset, limit=limit)[0]
+
     # ── REQ-050 analysis ────────────────────────────────────────────────
     def get_with_revision(self, key: str) -> tuple[PlantDiaryEntry, str] | None:
         doc = self.docs.get(key)
