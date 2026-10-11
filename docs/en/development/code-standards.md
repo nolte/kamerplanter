@@ -83,6 +83,14 @@ task typecheck:backend -- --tighten  # lower the baseline after fixing findings
 task typecheck:backend -- --list     # print every current finding
 ```
 
+The sibling packages are checked by pre-commit hooks in the required `static` gate (baseline config, not strict):
+
+```bash
+pre-commit run --all-files mypy-knowledge-service
+pre-commit run --all-files mypy-inference-service
+pre-commit run --all-files mypy-kp-vectordb
+```
+
 Mypy runs in `strict` mode. All public functions and methods must be fully typed.
 
 The existing code is not type-clean yet (measured 2026-10-10: 3442 findings). That is why `task typecheck:backend` checks as a **ratchet** (issue #2169): the findings are compared per file and error code with `src/backend/mypy-ratchet-baseline.json`.
