@@ -216,7 +216,7 @@ ingress:
 6. Dein gewünschter Hostname. Der Ingress-Controller muss darauf konfiguriert sein.
 
 !!! warning "Passwörter nie in der Values-Datei"
-    `values-production.yaml` referenziert Secrets ausschließlich über `envFrom`/`secretKeyRef` — nie über einen Klartext-Wert in `env:`. Für GitOps-Workflows eignet sich statt manuellem `kubectl create secret` ein Secret-Management-Tool wie Sealed Secrets oder External Secrets Operator (siehe [ArgoCD — Deklaratives Secret-Management](argocd.md#secret-vorbereiten)).
+    `values-production.yaml` referenziert Secrets ausschließlich über `envFrom`/`secretKeyRef` — nie über einen Klartext-Wert in `env:`. Für GitOps-Workflows eignet sich statt manuellem `kubectl create secret` ein Secret-Management-Tool wie Sealed Secrets oder External Secrets Operator (siehe [ArgoCD — Deklaratives Secret-Management](argocd.md#secret-vorbereiten)). Für den External Secrets Operator bringt das Chart ein abschaltbares `ExternalSecret` mit: [Secrets aus einem Secret-Store](helm.md#secrets-aus-einem-secret-store).
 
 ### 4. Helm-Chart installieren
 
@@ -274,7 +274,35 @@ helm upgrade kamerplanter \
 
 Die Backend- und Frontend-Deployments führen ein **Rolling Update** durch — es gibt keine Downtime, da die alten Pods erst beendet werden, wenn die neuen bereit sind.
 
-Ein neuer Backend-Pod führt vor dem ersten Request die offenen Datenbank-Migrationen und die Stammdaten-Seeds aus. Das dauert bei einer leeren Datenbank rund eine Minute, mit einer langen Migration oder wenn ein anderer Pod gerade migriert, auch mehrere Minuten. Ein `startupProbe` gibt dem Start bis zu 15 Minuten, bevor Kubernetes den Container neu startet; bis dahin bleibt der alte Pod im Dienst.
+### Startdauer des Backends {#startdauer-des-backends}
+
+Ein neuer Backend-Pod richtet vor dem ersten Request die Datenbank ein: Er legt fehlende Collections und Indizes an, führt die offenen Migrationen aus und spielt die Stammdaten-Seeds ein. Erst danach nimmt er Verbindungen an. Das passiert bewusst im Backend-Prozess selbst und nicht in einem eigenen Migrations-Job — ein Upgrade braucht also keinen zusätzlichen Schritt.
+
+Auf einer leeren Datenbank dauert das rund 40 Sekunden (gemessen auf einer Workstation; unter dem Chart-Limit von 1 CPU eher länger). Mit einer langen Migration, oder wenn ein anderer Pod gerade migriert und dieser hier wartet, dauert es mehrere Minuten. Damit Kubernetes den Pod in dieser Zeit nicht neu startet, prüft zuerst ein `startupProbe` den Start; Liveness- und Readiness-Probe beginnen erst, wenn er erfolgreich war. Bis dahin bleibt der alte Pod im Dienst.
+
+| Grenze | Wert |
+|--------|------|
+| Maximale Startdauer (`startupProbe`: 10 s × 90 Versuche) | 900 s (15 Minuten) |
+| Längste Wartezeit auf eine fremde Migration (`BARRIER_TIMEOUT_SECONDS`) | 600 s |
+| Ab wann ein Migrations-Lock als verwaist gilt (`LOCK_TTL_SECONDS`) | 300 s |
+
+Was das für dich bedeutet:
+
+- **Wartet ein Pod länger als 600 Sekunden** auf eine Migration, die ein anderer Pod hält, beendet er sich selbst mit `MigrationBarrierTimeoutError` — das Backend entscheidet über den Fehlschlag, nicht das Kubelet. Die maximale Startdauer liegt deshalb immer über dieser Wartezeit.
+- **Wird ein migrierender Pod abgebrochen**, bleibt sein Lock bis zu 300 Sekunden stehen; danach übernimmt ein anderer Pod. Ein Neustart in dieser Zeit wartet also, statt sofort zu migrieren.
+- **Braucht eine Migration länger als 15 Minuten**, erhöhe vor dem Upgrade `failureThreshold` des `startupProbe` (die übrigen Probe-Werte bleiben erhalten). Senke ihn nie unter 70: Ein Pod, der die vollen 600 Sekunden auf eine fremde Migration gewartet hat, braucht danach noch seinen eigenen Start (rund 40 Sekunden, unter 1 CPU länger). 10 s × 70 = 700 Sekunden lassen dafür 100 Sekunden Aufschlag; mit weniger bricht Kubernetes einen Pod ab, der rechtmäßig wartet oder gerade fertig startet.
+- **Beim Hochskalieren** (Replicas oder [Autoscaler](helm.md#skalierung)) hilft ein neuer Pod erst nach seinem Start. Plane die Skalierung mit Minuten, nicht Sekunden.
+
+```yaml title="values-production.yaml (Ausschnitt) — nur bei sehr langen Migrationen"
+controllers:
+  backend:
+    containers:
+      main:
+        probes:
+          startup:
+            spec:
+              failureThreshold: 180    # 10 s × 180 = 30 Minuten
+```
 
 ---
 

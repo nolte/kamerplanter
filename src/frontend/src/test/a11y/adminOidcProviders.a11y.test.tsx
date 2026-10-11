@@ -42,6 +42,7 @@ const KC: OidcProvider = {
   enabled: true,
   icon_url: null,
   auto_discover: true,
+  default_tenant_key: null,
   discovery_refreshed_at: null,
   created_at: null,
   updated_at: null,

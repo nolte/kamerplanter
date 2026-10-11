@@ -150,12 +150,30 @@ class FakeInvitationRepo:
         self.stored[key] = merged
         return merged
 
-    def mark_accepted_if_pending(self, key: str, fields: dict[str, Any]) -> Invitation | None:
-        """The real conditional write: only from ``pending``."""
+    def consume_use_if_pending(self, key: str, fields: dict[str, Any]) -> Invitation | None:
+        """The real conditional write: only from ``pending`` with a use left; the last use accepts."""
         current = self.stored.get(key)
-        if current is None or current.status != InvitationStatus.PENDING:
+        if current is None or current.status != InvitationStatus.PENDING or current.use_count >= current.max_uses:
             return None
-        return self.update_fields(key, {**fields, "status": InvitationStatus.ACCEPTED})
+        used = current.use_count + 1
+        status = InvitationStatus.ACCEPTED if used >= current.max_uses else InvitationStatus.PENDING
+        return self.update_fields(key, {**fields, "use_count": used, "status": status})
+
+    def release_use(self, key: str, user_key: str) -> Invitation | None:
+        """The real hand-back: one use fewer; ``accepted`` turns ``pending``, any other status stays."""
+        current = self.stored.get(key)
+        if current is None:
+            return None
+        mine = current.accepted_by_user_key == user_key
+        return self.update_fields(
+            key,
+            {
+                "use_count": max(current.use_count - 1, 0),
+                "status": InvitationStatus.PENDING if current.status == InvitationStatus.ACCEPTED else current.status,
+                "accepted_by_user_key": None if mine else current.accepted_by_user_key,
+                "accepted_at": None if mine else current.accepted_at,
+            },
+        )
 
     def revoke_pending_for_tenant(self, tenant_key: str) -> int:
         """The real statement: one UPDATE over the tenant's ``pending`` invitations."""
@@ -895,13 +913,13 @@ class TestARevocationRacingAnAcceptWins:
         """SEC-001: the request-time revocation lands while an accept is already past its status check."""
         tenants = Tenants()
         token = tenants.invite()
-        original = tenants.invitations.mark_accepted_if_pending
+        original = tenants.invitations.consume_use_if_pending
 
         def _revoked_meanwhile(key: str, fields: dict[str, Any]) -> Invitation | None:
             tenants.invitations.revoke_pending_for_tenant(PERSONAL)
             return original(key, fields)
 
-        tenants.invitations.mark_accepted_if_pending = _revoked_meanwhile  # type: ignore[method-assign]
+        tenants.invitations.consume_use_if_pending = _revoked_meanwhile  # type: ignore[method-assign]
 
         with pytest.raises(ValidationError, match="no longer pending"):
             tenants.service.accept_invitation(token, account(JOINER))
@@ -966,13 +984,13 @@ class TestNoTransientMemberIsCounted:
             return inner(membership)
 
         tenants.memberships.create = _create  # type: ignore[method-assign]
-        original = tenants.invitations.mark_accepted_if_pending
+        original = tenants.invitations.consume_use_if_pending
 
         def _revoked_first(key: str, fields: dict[str, Any]) -> Invitation | None:
             tenants.invitations.revoke_pending_for_tenant(PERSONAL)
             return original(key, fields)
 
-        tenants.invitations.mark_accepted_if_pending = _revoked_first  # type: ignore[method-assign]
+        tenants.invitations.consume_use_if_pending = _revoked_first  # type: ignore[method-assign]
 
         with pytest.raises(ValidationError, match="no longer pending"):
             tenants.service.accept_invitation(token, account(JOINER))
@@ -987,7 +1005,7 @@ class TestNoTransientMemberIsCounted:
         def _conflict(key: str, fields: dict[str, Any]) -> Invitation | None:
             raise RuntimeError("write-write conflict (1200)")
 
-        tenants.invitations.mark_accepted_if_pending = _conflict  # type: ignore[method-assign]
+        tenants.invitations.consume_use_if_pending = _conflict  # type: ignore[method-assign]
 
         with pytest.raises(RuntimeError):
             tenants.service.accept_invitation(token, account(JOINER))

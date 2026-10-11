@@ -79,7 +79,7 @@ from app.domain.models.auth import (
     api_key_control_errors,
     new_api_key_secret,
 )
-from app.domain.models.oidc_config import OidcProviderConfig
+from app.domain.models.oidc_config import OidcProviderConfig, admits_default_tenant
 from app.domain.models.user import User, UserProfile, allows_interactive_auth, is_tombstone_email
 from app.domain.services.api_key_controls import ApiKeyRateLimiter, enforce_api_key_controls
 from app.domain.services.step_up_service import (
@@ -2031,6 +2031,7 @@ class AuthService:
                 self._require_configuration_unchanged(config)
                 user = self._register_oauth_user(oauth_user)
                 self._create_oauth_provider(user.key or "", oauth_user, token_response, config=config)
+                self._join_provider_default_tenant(user, config, oauth_user)
 
         user.last_login_at = datetime.now(UTC)
         if user.key:
@@ -2187,6 +2188,43 @@ class AuthService:
                 raise
         logger.info("oauth_user_registered", email_sha256=email_digest(oauth_user.email), provider=oauth_user.provider)
         return created
+
+    def _join_provider_default_tenant(self, user: User, config: OidcProviderConfig, oauth_user: OAuthUserInfo) -> None:
+        """REQ-024 AK-09 (#2182): a **new** account of *config* joins its ``default_tenant_key``, if one is set.
+
+        Only on the account-creating branch of the callback - an existing account that signs in or is
+        linked to the provider never joins. The tenant service decides and refuses quietly (viewer
+        only; never ``platform`` or a personal tenant; member limit and erasure freeze apply), so a
+        misconfigured provider costs the new account the join, never the sign-in.
+
+        **Two refusals here, before the tenant service is asked (#2182 security review SEC-001):**
+
+        * the provider must have asserted the address as verified (``email_verified is True`` - absent
+          is not verified - and so the new account's ``address_proven``): the default tenant admits
+          "the organisation's people", and an identity provider that lets an account carry an
+          unproven address does not tell who that is;
+        * the provider must be a generic OIDC provider (:func:`admits_default_tenant`) - the admin
+          route refuses a default tenant on Google, GitHub or Apple, and a record stored before that
+          gate must not let everybody with such an account in.
+
+        Both refused quietly with a log line (no address, no account key) - the sign-in succeeds.
+        """
+        tenant_key = (config.default_tenant_key or "").strip()
+        if not tenant_key or self._tenant_service is None or not user.key:
+            return
+        reason: str | None = None
+        if not admits_default_tenant(config.provider_type):
+            reason = "open_registration_provider"
+        elif oauth_user.email_verified is not True or not user.address_proven:
+            # The provider's claim, and the proof _register_oauth_user wrote from it - the same
+            # answer for a new account, read both ways so neither can drift (#1948).
+            reason = "email_not_verified"
+        if reason is not None:
+            logger.warning("oidc_auto_join_refused", provider=config.slug, reason=reason)
+            return
+        self._tenant_service.join_provider_default_tenant(
+            user_key=user.key, tenant_key=tenant_key, provider_slug=config.slug
+        )
 
     def _create_oauth_provider(
         self,

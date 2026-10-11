@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n from 'i18next';
-import type { InvitationCreated } from '@/api/types';
+import type { Invitation, InvitationCreated } from '@/api/types';
+import { ApiError } from '@/api/errors';
 import { createStoreWithTenantRole, renderWithProviders } from '@/test/helpers';
 
 /**
@@ -31,13 +32,14 @@ const tenantApi = await import('@/api/endpoints/tenants');
 
 const ACCEPT_URL = 'https://garden.example.net/invitations/accept?token=tok-2162';
 
-function created(delivered: boolean | null): InvitationCreated {
+function created(delivered: boolean | null, maxUses = 1): InvitationCreated {
   return {
     invitation_key: 'i-1',
     token: 'tok-2162',
     expires_at: '2026-10-17T00:00:00Z',
     accept_url: ACCEPT_URL,
     delivered,
+    max_uses: maxUses,
   };
 }
 
@@ -181,5 +183,141 @@ describe('TenantSettingsPage — one invitation request at a time (#2162 review 
 
     finish(created(true));
     await waitFor(() => expect(screen.getByTestId('create-link-btn')).not.toBeDisabled());
+  });
+});
+
+
+describe('TenantSettingsPage — a link for several people (#2182, REQ-024 AK-07)', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+    vi.clearAllMocks();
+    (tenantApi.listMembers as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (tenantApi.listInvitations as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    });
+  });
+  afterEach(() => {
+    cleanup();
+  });
+
+  function maxUsesInput(): HTMLInputElement {
+    return screen.getByTestId('form-field-link-max-uses').querySelector('input') as HTMLInputElement;
+  }
+
+  it('creates a single-use link unless asked for more', async () => {
+    (tenantApi.createLinkInvitation as ReturnType<typeof vi.fn>).mockResolvedValue(created(null));
+    await renderInvitationsTab();
+
+    await userEvent.click(screen.getByTestId('create-link-btn'));
+
+    await waitFor(() =>
+      expect(tenantApi.createLinkInvitation).toHaveBeenCalledWith('testgarten', { role: 'viewer', max_uses: 1 }),
+    );
+    expect(await screen.findByTestId('invitation-link-created')).toHaveTextContent('danach ist er verbraucht');
+  });
+
+  it('sends the number of people typed and says how many the link admits', async () => {
+    (tenantApi.createLinkInvitation as ReturnType<typeof vi.fn>).mockResolvedValue(created(null, 20));
+    await renderInvitationsTab();
+
+    await userEvent.clear(maxUsesInput());
+    await userEvent.type(maxUsesInput(), '20');
+    // Review SCR-002 — the field holds what was typed (not "120" appended to the default "1").
+    expect(maxUsesInput()).toHaveValue(20);
+    expect(maxUsesInput()).not.toHaveAttribute('aria-invalid', 'true');
+    await userEvent.click(screen.getByTestId('create-link-btn'));
+
+    await waitFor(() =>
+      expect(tenantApi.createLinkInvitation).toHaveBeenCalledWith('testgarten', { role: 'viewer', max_uses: 20 }),
+    );
+    expect(await screen.findByTestId('invitation-link-created')).toHaveTextContent('Bis zu 20');
+  });
+
+  it.each(['0', '101', '2.5', ''])('refuses to create a link for %j people', async (typed) => {
+    await renderInvitationsTab();
+
+    await userEvent.clear(maxUsesInput());
+    if (typed) await userEvent.type(maxUsesInput(), typed);
+
+    expect(screen.getByTestId('create-link-btn')).toBeDisabled();
+    expect(maxUsesInput()).toHaveAttribute('aria-invalid', 'true');
+    expect(tenantApi.createLinkInvitation).not.toHaveBeenCalled();
+  });
+
+  function linkRow(): Invitation {
+    return {
+      key: 'i-7',
+      tenant_key: 't1',
+      email: null,
+      role: 'viewer',
+      invitation_type: 'link',
+      status: 'pending',
+      created_by: 'u-lead',
+      expires_at: '2026-10-17T00:00:00Z',
+      created_at: null,
+      max_uses: 20,
+      use_count: 3,
+    };
+  }
+
+  it('lists how often each invitation was used', async () => {
+    (tenantApi.listInvitations as ReturnType<typeof vi.fn>).mockResolvedValue([linkRow()]);
+    await renderInvitationsTab();
+
+    expect(await screen.findByTestId('invitation-uses-i-7')).toHaveTextContent('3 von 20');
+  });
+
+  it('lists the uses in English words too (review SCR-006)', async () => {
+    await i18n.changeLanguage('en');
+    (tenantApi.listInvitations as ReturnType<typeof vi.fn>).mockResolvedValue([linkRow()]);
+    await renderInvitationsTab();
+
+    expect(await screen.findByTestId('invitation-uses-i-7')).toHaveTextContent('3 of 20');
+  });
+
+  it('keeps the form and shows no link when the backend refuses the link (review SCR-003)', async () => {
+    // A 422 the link route really answers: a ``max_uses`` the backend bounds refuse (the page
+    // bounds the field to the same limit, an older backend may still be narrower). The link route
+    // does not answer MEMBER_LIMIT_REACHED - the member limit is met per use, at acceptance.
+    (tenantApi.createLinkInvitation as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new ApiError(
+        {
+          error_id: 'e-1',
+          error_code: 'VALIDATION_ERROR',
+          message: 'max_uses: Input should be less than or equal to 10',
+          details: [{ field: 'body.max_uses', reason: 'Input should be less than or equal to 10', code: 'less_than_equal' }],
+          timestamp: '',
+          path: '/api/v1/t/testgarten/invitations/link',
+          method: 'POST',
+        },
+        422,
+      ),
+    );
+    await renderInvitationsTab();
+    await userEvent.clear(maxUsesInput());
+    await userEvent.type(maxUsesInput(), '20');
+
+    await userEvent.click(screen.getByTestId('create-link-btn'));
+
+    expect(await screen.findByText('max_uses: Input should be less than or equal to 10')).toBeInTheDocument();
+    expect(screen.queryByTestId('invitation-link-created')).toBeNull();
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
+    expect(maxUsesInput()).toHaveValue(20);
+    await waitFor(() => expect(screen.getByTestId('create-link-btn')).not.toBeDisabled());
+  });
+
+  it.each([
+    [1, 'after that it is used up'],
+    [20, 'Up to 20 people'],
+  ])('says in English how many people a link for %i admits (review SCR-004)', async (maxUses, expected) => {
+    await i18n.changeLanguage('en');
+    (tenantApi.createLinkInvitation as ReturnType<typeof vi.fn>).mockResolvedValue(created(null, maxUses));
+    await renderInvitationsTab();
+
+    await userEvent.click(screen.getByTestId('create-link-btn'));
+
+    expect(await screen.findByTestId('invitation-link-created')).toHaveTextContent(expected);
   });
 });

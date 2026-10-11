@@ -48,6 +48,11 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "construction; a personal tenant or a new organisation is never the platform tenant (is_platform is "
         "seeded, not request-settable, REQ-024 AK-20), and there is no existing membership to raise"
     ),
+    ("tenant_service.py", "TenantService.join_provider_default_tenant"): (
+        "the OIDC auto-join (REQ-024 AK-09, #2182): the role is the constant viewer - the lowest, below every "
+        "ceiling - and never in the platform tenant (refused before the membership is built), so there is "
+        "nothing to escalate; the platform admin's step-up confirmed the configuration (#1883)"
+    ),
     ("tenant_service.py", "TenantService.admin_change_membership_role"): (
         "platform-admin path: both routes require require_platform_admin and a platform admin may change any "
         "role in any tenant; the acting admin's step-up is checked here (#2032)"
@@ -127,7 +132,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: signal to read, not to update blindly: a new member needs the gate or a classification, a
 #: vanished one may mean the predicate went blind.
 #: +1 with #2137: create_service_account (viewer/grower, checked).
-EXPECTED_MEMBERS = 8  # 8 until #2118 merged the two founding functions into ``_found_tenant``
+#: +1 with #2182: join_provider_default_tenant (constant viewer, classified).
+EXPECTED_MEMBERS = 9  # 8 until #2118 merged the two founding functions into ``_found_tenant``
 
 
 def test_every_role_grant_checks_for_escalation_or_is_classified() -> None:

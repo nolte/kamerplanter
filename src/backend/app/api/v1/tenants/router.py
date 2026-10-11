@@ -370,6 +370,8 @@ def list_invitations(
             status=inv.status,
             expires_at=inv.expires_at,
             created_at=inv.created_at,
+            max_uses=inv.max_uses,
+            use_count=inv.use_count,
         )
         for inv in invitations
     ]
@@ -438,6 +440,7 @@ def create_link_invitation(
         tenant_key=ctx.tenant_key,
         invited_by_user_key=ctx.user_key,
         role=body.role,
+        max_uses=body.max_uses,
     )
     return InvitationLinkResponse(
         invitation_key=link.invitation_key,
@@ -445,6 +448,7 @@ def create_link_invitation(
         expires_at=link.expires_at,
         accept_url=link.accept_url,
         delivered=link.delivered,
+        max_uses=link.max_uses,
     )
 
 

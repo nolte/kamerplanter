@@ -1825,6 +1825,9 @@ class SecurityAuditVia(StrEnum):
     #: The account erasure of a tenant's last ``management`` holder handed the scope to the
     #: longest-serving remaining ``lead`` (MT-038, #2134).
     ACCOUNT_ERASURE = "account_erasure"
+    #: A new account's first sign-in through an OIDC provider with ``default_tenant_key`` placed
+    #: it in that tenant (REQ-024 AK-09, #2182). The platform admin who configured it is the decision.
+    OIDC_AUTO_JOIN = "oidc_auto_join"
 
 
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {
