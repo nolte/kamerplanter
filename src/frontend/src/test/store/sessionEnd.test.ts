@@ -18,7 +18,15 @@ const ACTIVE_TENANT_KEY = 'kp_active_tenant_slug';
 
 vi.mock('@/api/endpoints/auth', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/endpoints/auth')>();
-  return { ...actual, logout: vi.fn().mockResolvedValue(undefined) };
+  return { ...actual, logout: vi.fn().mockResolvedValue(undefined), getProfile: vi.fn() };
+});
+vi.mock('@/api/endpoints/tenants', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/endpoints/tenants')>();
+  return { ...actual, listMyTenants: vi.fn() };
+});
+vi.mock('@/api/endpoints/sites', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/endpoints/sites')>();
+  return { ...actual, listSites: vi.fn() };
 });
 vi.mock('@/api/endpoints/notifications', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/endpoints/notifications')>();
@@ -69,7 +77,21 @@ async function freshStore() {
   const client = await import('@/api/client');
   const authApi = await import('@/api/endpoints/auth');
   const notificationsApi = await import('@/api/endpoints/notifications');
-  return { store: storeModule.store, auth, tenants, sites, prefs, ui, client, authApi, notificationsApi };
+  const tenantApi = await import('@/api/endpoints/tenants');
+  const sitesApi = await import('@/api/endpoints/sites');
+  return {
+    store: storeModule.store,
+    auth,
+    tenants,
+    sites,
+    prefs,
+    ui,
+    client,
+    authApi,
+    notificationsApi,
+    tenantApi,
+    sitesApi,
+  };
 }
 
 type World = Awaited<ReturnType<typeof freshStore>>;
@@ -193,6 +215,106 @@ describe('the end of a session (#2117)', () => {
 
     expect(w.store.getState().sites).toBe(before);
     expect(localStorage.getItem(ACTIVE_TENANT_KEY)).toBe('garten-von-a');
+  });
+});
+
+/** A promise the test settles by hand — a request still on the wire. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
+/**
+ * #2253 — a request of the previous session that answers after the session ended.
+ *
+ * Measured before the change: the reset in `rootReducer` runs once, on the
+ * session-end action; a thunk started before it and settling after it reduced
+ * its answer into the freshly reset slices. A slow list load at the moment of a
+ * logout put the previous account's rows back into the store, a `loadMyTenants`
+ * re-persisted its tenant slug (the very thing `sessionListener` had just
+ * removed), and a `fetchProfile` signed the tab back in as the account that
+ * had just left.
+ */
+describe('a request of an ended session settles after the end (#2253)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    removePush();
+    vi.clearAllMocks();
+  });
+
+  it('does not put the previous account rows back into a list slice', async () => {
+    const w = await freshStore();
+    fillAsAccountA(w);
+    const answer = deferred<unknown>();
+    vi.mocked(w.sitesApi.listSites).mockReturnValueOnce(answer.promise as never);
+
+    const inFlight = w.store.dispatch(w.sites.fetchSites({}));
+    await w.store.dispatch(w.auth.logoutUser());
+    const reset = w.store.getState().sites;
+    answer.resolve([{ key: 's-a', name: 'Balkon von A' }]);
+    await inFlight;
+
+    expect(w.store.getState().sites).toBe(reset);
+    expect(w.store.getState().sites.sites).toEqual([]);
+  });
+
+  it('does not restore the previous account tenant slug', async () => {
+    const w = await freshStore();
+    fillAsAccountA(w);
+    const answer = deferred<unknown>();
+    vi.mocked(w.tenantApi.listMyTenants).mockReturnValueOnce(answer.promise as never);
+
+    const inFlight = w.store.dispatch(w.tenants.loadMyTenants());
+    w.store.dispatch(w.auth.clearAuth());
+    answer.resolve([
+      {
+        key: 't-a',
+        slug: 'garten-von-a',
+        name: 'Garten von A',
+        role: 'lead',
+        tenant_type: 'personal',
+      },
+    ]);
+    await inFlight;
+
+    expect(w.store.getState().tenants.myTenants).toEqual([]);
+    expect(w.store.getState().tenants.activeTenant).toBeNull();
+    expect(w.client.getActiveTenantSlug()).toBeNull();
+    expect(localStorage.getItem(ACTIVE_TENANT_KEY)).toBeNull();
+  });
+
+  it('does not sign the tab back in as the account that left', async () => {
+    const w = await freshStore();
+    fillAsAccountA(w);
+    const answer = deferred<unknown>();
+    vi.mocked(w.authApi.getProfile).mockReturnValueOnce(answer.promise as never);
+
+    const inFlight = w.store.dispatch(w.auth.fetchProfile());
+    await w.store.dispatch(w.auth.logoutUser());
+    answer.resolve({ key: 'u-a', email: 'a@example.org', display_name: 'A' });
+    await inFlight;
+
+    expect(w.store.getState().auth.user).toBeNull();
+    expect(w.store.getState().auth.isAuthenticated).toBe(false);
+  });
+
+  it('still lets a request started in the next session through', async () => {
+    const w = await freshStore();
+    fillAsAccountA(w);
+    await w.store.dispatch(w.auth.logoutUser());
+    vi.mocked(w.sitesApi.listSites).mockResolvedValueOnce([
+      { key: 's-b', name: 'Beet von B' },
+    ] as never);
+
+    await w.store.dispatch(w.sites.fetchSites({}));
+
+    expect(w.store.getState().sites.sites).toEqual([{ key: 's-b', name: 'Beet von B' }]);
   });
 });
 
