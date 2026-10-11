@@ -63,7 +63,7 @@ def list_indicators(
     service: HarvestService = Depends(get_harvest_service),
 ):
     """List harvest-readiness indicators (paginated)."""
-    indicators, _ = service.list_indicators(pagination.offset, pagination.limit)
+    indicators = service.list_indicators_window(pagination.offset, pagination.limit)
     return [_indicator_response(i) for i in indicators]
 
 

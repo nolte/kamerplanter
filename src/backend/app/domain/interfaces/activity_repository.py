@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import ActivityKey
 from app.domain.models.activity import Activity
@@ -14,6 +15,18 @@ class IActivityRepository(ABC):
         *,
         tenant_key: str,
     ) -> tuple[list[Activity], int]: ...
+
+    @abstractmethod
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Activity]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        ...
 
     @abstractmethod
     def get_readable_or_raise(self, key: ActivityKey, *, tenant_key: str) -> Activity: ...

@@ -59,8 +59,7 @@ class ArangoAquaponikRepository(BaseArangoRepository[AquaponicSystem]):
         if not extra:
             # Bounded by construction (#2015): fish species come only from
             # fish_species.yaml (8 rows); create_species has no API or service caller.
-            items, _ = self._species.get_all(offset=0, limit=500, all_tenants=True)
-            return items
+            return self._species.list_window(offset=0, limit=500, all_tenants=True)
         first_field, first_op, first_value = extra[0]
         return self._species.find_by_field(first_field, first_value, extra_filters=extra[1:], sort="scientific_name")
 

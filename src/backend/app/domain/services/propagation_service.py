@@ -350,6 +350,20 @@ class PropagationService:
             tenant_key, method=method, is_template=is_template, offset=offset, limit=limit
         )
 
+    def list_protocols_window(
+        self,
+        *,
+        tenant_key: str,
+        method: str | None = None,
+        is_template: bool | None = None,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> list[RootingProtocol]:
+        """One page of :meth:`list_protocols` without the count query (MT-035, #2131)."""
+        return self._require_prop().list_protocols_window(
+            tenant_key=tenant_key, method=method, is_template=is_template, offset=offset, limit=limit
+        )
+
     def get_protocol(self, key: str, tenant_key: str) -> RootingProtocol:
         protocol = self._require_prop().get_protocol(key, tenant_key)
         if protocol is None:

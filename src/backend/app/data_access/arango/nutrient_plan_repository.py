@@ -60,6 +60,40 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
         # rows; a missing tenant_key must therefore be an explicit system-context
         # opt-in (all_tenants=True) rather than a silent all-tenant read (SEC-B4).
         self._enforce_tenant_scope(tenant_key, all_tenants)
+        items, total = self._read(offset, limit, filters, tenant_key, count=True)
+        return items, total or 0
+
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[NutrientPlan]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131).
+
+        Request reads only: ``tenant_key`` is required (no ``all_tenants`` escape),
+        the union with the global rows is the same as in :meth:`get_all`.
+        """
+        self._enforce_tenant_scope(tenant_key, False)
+        return self._read(offset, limit, filters, tenant_key, count=False)[0]
+
+    def _read(
+        self,
+        offset: int,
+        limit: int,
+        filters: dict[str, Any] | None,
+        tenant_key: str | None,
+        *,
+        count: bool,
+    ) -> tuple[list[NutrientPlan], int | None]:
+        """One page and, with ``count``, the total of :meth:`get_all` — callers enforce the scope.
+
+        One body for the counted and the count-free read, so the window issues exactly
+        the page query the counted method pays a count for (MT-035, #2131); the query
+        text stays in the function that executes it, where the catalogue guard reads it.
+        """
         query = f"FOR doc IN {col.NUTRIENT_PLANS}"
         bind_vars: dict[str, Any] = {}
         filter_clauses = []
@@ -79,12 +113,16 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
         count_vars = dict(bind_vars)
         bind_vars["offset"] = offset
         bind_vars["limit"] = limit
-        query += " SORT doc.name LIMIT @offset, @limit RETURN doc"
+        # ``name`` is not unique (a tenant's copy of a global plan), so ``_key``
+        # breaks the tie: offset paging over a partial order may show a row on two
+        # pages or none (BACKEND.md §6.4, MT-035 #2131).
+        query += " SORT doc.name, doc._key LIMIT @offset, @limit RETURN doc"
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         items = [NutrientPlan(**self._from_doc(doc)) for doc in cursor]
+        if not count:
+            return items, None
         count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
-        total = next(count_cursor, 0)
-        return items, total
+        return items, next(count_cursor, 0)
 
     def get_readable_or_raise(self, key: NutrientPlanKey, *, tenant_key: str) -> NutrientPlan:
         """The one hybrid-catalog read-access predicate for a single plan (#950).

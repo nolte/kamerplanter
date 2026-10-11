@@ -47,6 +47,11 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     def get_all_sites(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> tuple[list[Site], int]:
         return super().get_all(offset, limit, tenant_key=tenant_key)
 
+    def list_sites_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[Site]:
+        """The page of :meth:`get_all_sites` without its count query (MT-035, #2131)."""
+        self._require_tenant_key(tenant_key, "list_sites_window")
+        return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key)
+
     def find_site_docs_by_types(self, types: list[str]) -> list[dict]:
         """Return normalised site docs of the given ``type`` across all tenants.
 

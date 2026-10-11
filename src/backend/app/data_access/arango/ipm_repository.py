@@ -45,6 +45,10 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
     def get_all_pests(self, offset: int = 0, limit: int = 50) -> tuple[list[Pest], int]:
         return super().get_all(offset, limit)
 
+    def list_pests_window(self, offset: int = 0, limit: int = 50) -> list[Pest]:
+        """The page of :meth:`get_all_pests` without its count query (MT-035, #2131)."""
+        return super().list_window(offset=offset, limit=limit)
+
     def get_pest_by_key(self, key: PestKey) -> Pest | None:
         return super().get_by_key(key)
 
@@ -71,6 +75,10 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
     def get_all_diseases(self, offset: int = 0, limit: int = 50) -> tuple[list[Disease], int]:
         return self._diseases.get_all(offset, limit)
 
+    def list_diseases_window(self, offset: int = 0, limit: int = 50) -> list[Disease]:
+        """The page of :meth:`get_all_diseases` without its count query (MT-035, #2131)."""
+        return self._diseases.list_window(offset=offset, limit=limit)
+
     def get_disease_by_key(self, key: DiseaseKey) -> Disease | None:
         return self._diseases.get_by_key(key)
 
@@ -96,6 +104,10 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
 
     def get_all_treatments(self, offset: int = 0, limit: int = 50) -> tuple[list[Treatment], int]:
         return self._treatments.get_all(offset, limit)
+
+    def list_treatments_window(self, offset: int = 0, limit: int = 50) -> list[Treatment]:
+        """The page of :meth:`get_all_treatments` without its count query (MT-035, #2131)."""
+        return self._treatments.list_window(offset=offset, limit=limit)
 
     def get_treatment_by_key(self, key: TreatmentKey) -> Treatment | None:
         return self._treatments.get_by_key(key)

@@ -34,6 +34,9 @@ class _FakeSuccessionRepo:
         items = [p for p in self._store.values() if p.tenant_key == tenant_key]
         return items[offset : offset + limit], len(items)
 
+    def list_plans_window(self, offset=0, limit=50, *, tenant_key):
+        return self.get_all(offset, limit, tenant_key)[0]
+
     def get_by_key(self, key):
         return self._store.get(key)
 

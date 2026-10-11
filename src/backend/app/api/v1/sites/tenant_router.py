@@ -95,7 +95,7 @@ def list_sites(
     service: SiteService = Depends(get_site_service),
 ):
     """List the tenant's sites (paginated)."""
-    items, _total = service.list_sites(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
+    items = service.list_sites_window(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_site_response(s, service) for s in items]
 
 

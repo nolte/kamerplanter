@@ -366,3 +366,34 @@ def test_the_duplicate_preview_counts_only_rows_the_caller_can_see():
     )
 
     assert species_repo.get_all.call_args.kwargs.get("tenant_key") == _TENANT
+
+
+class TestTheJobWindowReadsOneTenant:
+    """``list_jobs_window`` has no system-context arm (review SEC-001 of #2272, MT-035 #2131).
+
+    The window is a request read. A ``tenant_key=None`` default would hand the
+    repository ``None``, which :meth:`ImportService.list_jobs` treats as the
+    every-tenant system read — every tenant's uploaded CSV rows on one page.
+    """
+
+    def test_the_tenant_is_a_required_argument(self):
+        svc, _, _ = _service()
+
+        with pytest.raises(TypeError, match="tenant_key"):
+            svc.list_jobs_window(0, 50)  # type: ignore[call-arg]
+
+        svc._repo.list_all_window.assert_not_called()
+
+    def test_a_none_tenant_answers_an_empty_page_and_never_reaches_the_repository(self):
+        svc, _, _ = _service()
+
+        assert svc.list_jobs_window(0, 50, tenant_key=None) == []  # type: ignore[arg-type]
+        svc._repo.list_all_window.assert_not_called()
+
+    def test_the_caller_s_tenant_reaches_the_repository(self):
+        svc, _, _ = _service()
+        svc._repo.list_all_window.return_value = []
+
+        svc.list_jobs_window(4, 3, tenant_key=_TENANT)
+
+        svc._repo.list_all_window.assert_called_once_with(4, 3, tenant_key=_TENANT)

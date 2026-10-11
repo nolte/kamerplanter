@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import Any
 
 from pydantic import ValidationError as PydanticValidationError
 
@@ -30,6 +31,17 @@ class FertilizerService:
         tenant_key: str = "",
     ) -> tuple[list[Fertilizer], int]:
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
+
+    def list_fertilizers_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Fertilizer]:
+        """One page of :meth:`list_fertilizers` without the count query (MT-035, #2131)."""
+        return self._repo.get_all_window(offset, limit, filters, tenant_key=tenant_key)
 
     def get_fertilizer(self, key: FertilizerKey, tenant_key: str = "") -> Fertilizer:
         fert = self._repo.get_or_raise(key)
