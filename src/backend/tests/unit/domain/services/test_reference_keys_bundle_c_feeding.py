@@ -262,7 +262,9 @@ def test_a_fill_event_names_only_the_tanks_tenants_plans_and_tanks(fields: dict)
     service = TankService(repo, TankEngine(), nutrient_plan_repo=_Plans())
 
     with pytest.raises(NotFoundError):
-        service.record_fill_event("tank_own", TankFillEvent(fill_type=FillType.FULL_CHANGE, volume_liters=10, **fields))
+        service.record_fill_event(
+            "tank_own", TankFillEvent(fill_type=FillType.FULL_CHANGE, volume_liters=10, **fields), tenant_key=OWN
+        )
 
     repo.create_fill_event.assert_not_called()
 

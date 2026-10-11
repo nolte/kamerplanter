@@ -60,7 +60,7 @@ def test_a_clone_run_cannot_name_another_tenants_mother_plant() -> None:
     for source in ("p_foreign", "no-such-plant"):
         run = PlantingRun(tenant_key="tenant_own", name="Klon", run_type=PlantingRunType.CLONE, source_plant_key=source)
         with pytest.raises(NotFoundError):
-            service.create_run(run, [])
+            service.create_run(run, [], tenant_key="tenant_own")
 
     assert repo.store == {}
 

@@ -231,14 +231,14 @@ def test_create_plants_refuses_a_legacy_entry_species_the_tenant_cannot_read(leg
     service, _, _ = _service(legacy)
 
     with pytest.raises(NotFoundError):
-        service.create_plants("runForeign")
+        service.create_plants("runForeign", tenant_key=TENANT)
 
     # Nothing was planted or activated for the refused run ...
     assert _plant_species(legacy) == []
     assert legacy.collection(col.PLANTING_RUNS).get("runForeign")["status"] == "planned"
     # ... while a global species and a granted one still plant.
-    service.create_plants("runGlobal")
-    service.create_plants("runGranted")
+    service.create_plants("runGlobal", tenant_key=TENANT)
+    service.create_plants("runGranted", tenant_key=TENANT)
     assert _plant_species(legacy) == ["spG", "spGr"]
 
 
