@@ -1,5 +1,9 @@
 """Every all-tenant beat task must visit every row, not the first page (#2012).
 
+Since MT-032 (#2128) the actuator, tank and plant beats walk the active tenants' rows
+(``iter_for_tenants``) instead of paging the whole collection; their tests drive the
+``TenantRows`` double from ``tests/support/tenant_walk.py``, whose ``get_all`` refuses.
+
 Nine reads in ``app/tasks`` called ``repo.get_all(offset=0, limit=<N>, all_tenants=True)``
 once and iterated the result as if it were the whole collection. Past ``N`` rows the
 rest were silently ignored — for ``notification_tasks`` that means a care task beyond
@@ -24,6 +28,7 @@ from app.domain.models.task import Task
 from app.domain.models.tenant import Tenant
 from tests.support.care_reminder_store import CareReminderStore
 from tests.support.ha_entity_grants import EverythingGrantedTo
+from tests.support.tenant_walk import TenantRows, active
 
 
 class PagingRepo:
@@ -86,6 +91,8 @@ def deps(monkeypatch):
     module.get_membership_repo.return_value = SimpleNamespace(
         get_by_user_and_tenant=lambda *_args: SimpleNamespace(is_active=True)
     )
+    # MT-032 (#2128): the actuator, tank and plant beats walk the active tenants; every row here is t1's.
+    module.get_tenant_repo.return_value = active("t1")
     monkeypatch.setitem(sys.modules, "app.common.dependencies", module)
     return module
 
@@ -99,6 +106,7 @@ def _repoint(monkeypatch, task_module, deps, **getters) -> None:
 
 
 def _plants(n: int, **extra):
+    extra.setdefault("tenant_key", "t1")
     return [
         SimpleNamespace(
             key=k, removed_on=None, current_phase_key="phase_veg", species_key="sp1", site_key=None, **extra
@@ -111,7 +119,7 @@ class TestPlantTasks:
     def test_dormancy_checks_visit_every_plant(self, monkeypatch, deps):
         import app.tasks.dormancy_checks as module
 
-        plant_repo = PagingRepo(_plants(1001), resolve_phase_name=lambda _key: "vegetative")
+        plant_repo = TenantRows(_plants(1001), resolve_phase_name=lambda _key: "vegetative")
         _repoint(
             monkeypatch,
             module,
@@ -120,6 +128,9 @@ class TestPlantTasks:
             get_species_repo=MagicMock(),
             get_lifecycle_repo=MagicMock(),
             get_phase_sequence_repo=MagicMock(),
+            # The task binds get_tenant_repo at import time; whichever test imported it first decides
+            # what an unpatched name points at (a real repository in CI's order).
+            get_tenant_repo=active("t1"),
         )
         trigger = MagicMock()
         trigger.should_trigger_dormancy.return_value = False
@@ -132,7 +143,7 @@ class TestPlantTasks:
     def test_phase_transitions_visit_every_plant(self, monkeypatch, deps):
         import app.tasks.phase_transitions as module
 
-        plant_repo = PagingRepo(_plants(1001))
+        plant_repo = TenantRows(_plants(1001))
         phase_service = MagicMock()
         phase_service.get_current_phase.return_value = {"days_in_phase": 1}
         phase_service.get_transition_rules.return_value = []
@@ -144,6 +155,7 @@ class TestPlantTasks:
             get_phase_service=phase_service,
             get_lifecycle_repo=MagicMock(),
             get_site_repo=MagicMock(),
+            get_tenant_repo=active("t1"),
         )
 
         module.check_auto_transitions()
@@ -160,7 +172,7 @@ class TestPlantTasks:
             monkeypatch,
             module,
             deps,
-            get_plant_repo=PagingRepo(_plants(1001, tenant_key="t1")),
+            get_plant_repo=TenantRows(_plants(1001)),
             get_quarter_climate_service=service,
         )
 
@@ -188,7 +200,7 @@ class TestActuatorTasks:
             monkeypatch,
             module,
             deps,
-            get_actuator_repo=PagingRepo(_actuators(5001)),
+            get_actuator_repo=TenantRows(_actuators(5001)),
             get_actuator_service=service,
             get_sensor_repo=MagicMock(),
             get_ha_client=MagicMock(),
@@ -206,7 +218,7 @@ class TestActuatorTasks:
         monkeypatch.setattr(module.settings, "actuator_control_loop_enabled", True, raising=False)
         ha_client = MagicMock()
         ha_client.get_state.return_value = {"state": "on"}
-        _repoint(monkeypatch, module, deps, get_actuator_repo=PagingRepo(_actuators(5001)), get_ha_client=ha_client)
+        _repoint(monkeypatch, module, deps, get_actuator_repo=TenantRows(_actuators(5001)), get_ha_client=ha_client)
 
         module.sync_actuator_states()
 
@@ -225,7 +237,7 @@ class TestTankTasks:
             monkeypatch,
             module,
             deps,
-            get_tank_repo=PagingRepo(tanks),
+            get_tank_repo=TenantRows(tanks),
             get_sensor_repo=sensor_repo,
             get_ha_client=MagicMock(),
         )
@@ -239,11 +251,75 @@ class TestTankTasks:
 
         latest_state = MagicMock(return_value=None)
         tanks = [SimpleNamespace(key=k, name=k, tenant_key="t1") for k in _keys(1001, "tank")]
-        _repoint(monkeypatch, module, deps, get_tank_repo=PagingRepo(tanks, get_latest_state=latest_state))
+        _repoint(monkeypatch, module, deps, get_tank_repo=TenantRows(tanks, get_latest_state=latest_state))
 
         module.check_tank_alerts()
 
         assert latest_state.call_count == 1001
+
+
+@pytest.mark.parametrize(
+    ("task", "getter", "rows"),
+    [
+        ("tank_maintenance_tasks.check_tank_alerts", "get_tank_repo", "tanks"),
+        ("tank_maintenance_tasks.sync_tank_states_from_ha", "get_tank_repo", "tanks"),
+        ("actuator_tasks.evaluate_control_rules", "get_actuator_repo", "actuators"),
+        ("actuator_tasks.sync_actuator_states", "get_actuator_repo", "actuators"),
+        ("season_tasks.evaluate_quarter_climate", "get_plant_repo", "plants"),
+    ],
+)
+def test_a_scheduled_beat_holds_one_page_not_the_installation(monkeypatch, deps, task, getter, rows):
+    """MT-032 (#2128): the first row is handled before the second page is read.
+
+    A beat that read every row into a list first (``get_all_pages``) held the whole
+    installation in the worker; one that walks page by page holds a page. The double
+    counts the rows it has handed out when the task touches the first row.
+    """
+    import importlib
+
+    from app.config.settings import settings
+
+    monkeypatch.setattr(settings, "actuator_control_loop_enabled", True, raising=False)
+    monkeypatch.setattr(settings, "season_state_eval_enabled", True, raising=False)
+    module_name, func_name = task.split(".")
+    module = importlib.import_module(f"app.tasks.{module_name}")
+
+    made = {
+        "tanks": [SimpleNamespace(key=k, name=k, tenant_key="t1") for k in _keys(1001, "tank")],
+        "actuators": _actuators(1001),
+        "plants": _plants(1001),
+    }[rows]
+    walk = TenantRows(made, update_fields=MagicMock())
+    handed_out: list[int] = []
+
+    def first_touch(*_args, **_kwargs):
+        if not handed_out:
+            handed_out.append(sum(walk.pages))
+
+    walk.get_latest_state = first_touch
+    sensor_repo = MagicMock()
+    sensor_repo.find_by_tank.side_effect = lambda *_a, **_k: first_touch() or []
+    service = MagicMock()
+    service.evaluate_actuator.side_effect = first_touch
+    service.evaluate_plant.side_effect = first_touch
+    ha_client = MagicMock()
+    ha_client.get_state.side_effect = first_touch
+    _repoint(
+        monkeypatch,
+        module,
+        deps,
+        **{getter: walk},
+        get_sensor_repo=sensor_repo,
+        get_actuator_service=service,
+        get_quarter_climate_service=service,
+        get_ha_client=ha_client,
+    )
+    monkeypatch.setattr(module, "_resolve_location_readings", lambda *_a, **_k: {}, raising=False)
+
+    getattr(module, func_name)()
+
+    assert handed_out == [1000], "the beat read past the first page before handling a row"
+    assert walk.pages == [1000, 1]
 
 
 def _care_tasks(n: int, *, user: str = "user1") -> list[Task]:
@@ -352,7 +428,7 @@ class TestVernalization:
 
         lifecycle_repo = MagicMock()
         lifecycle_repo.get_lifecycle_by_species.return_value = SimpleNamespace(vernalization_required=False)
-        plant_repo = PagingRepo(_plants(1001, chill_days_accumulated=0))
+        plant_repo = TenantRows(_plants(1001, chill_days_accumulated=0))
         _repoint(monkeypatch, module, deps, get_plant_repo=plant_repo, get_lifecycle_repo=lifecycle_repo)
 
         module.update_vernalization_progress(2.0)

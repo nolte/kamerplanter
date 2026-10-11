@@ -102,6 +102,16 @@ class ITenantRepository(ABC):
         """Number of tenant documents; ``active_only`` counts those in state ``active`` (#1019, #2123)."""
 
     @abstractmethod
+    def keys_in_status(self, statuses: Collection[TenantStatus]) -> dict[str, TenantStatus]:
+        """``{tenant_key: status}`` of every tenant whose state is one of *statuses*, filtered in the query.
+
+        The state is read exactly as :class:`~app.domain.models.tenant.Tenant` reads it: a
+        stored ``status`` wins; a document from before v0085 that carries only the retired
+        ``is_active == false`` is ``suspended``; neither is ``active``. Keys and states only,
+        so a beat walking the tenants never loads a tenant document (MT-032, #2128).
+        """
+
+    @abstractmethod
     def count_organizations_by_owner(self, owner_user_key: str) -> int: ...
 
     @abstractmethod

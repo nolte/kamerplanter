@@ -1,7 +1,7 @@
 import structlog
 
+from app.common.enums import TenantStatus
 from app.common.log_privacy import loggable_error
-from app.data_access.arango.base_repository import get_all_pages
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -16,7 +16,7 @@ def update_vernalization_progress(avg_temp_c: float) -> dict:
     ``tests/unit/guards/test_every_task_is_scheduled_or_dispatched.py``
     (``_NOT_STARTED_BY_THE_APP``), which fails the day something does start it.
     """
-    from app.common.dependencies import get_lifecycle_repo, get_plant_repo
+    from app.common.dependencies import get_lifecycle_repo, get_plant_repo, get_tenant_repo
     from app.domain.engines.vernalization_tracker import VernalizationTracker
 
     plant_repo = get_plant_repo()
@@ -25,10 +25,10 @@ def update_vernalization_progress(avg_temp_c: float) -> dict:
 
     updated = 0
     is_cold = tracker.is_cold_day(avg_temp_c)
-    for plant in get_all_pages(plant_repo, all_tenants=True):  # system task: all tenants
-        if plant.removed_on is not None:
-            continue
-
+    # REQ-056 §5.2 / MT-032 (#2128): only the plants of active tenants that are not removed, selected in
+    # AQL and read one page at a time.
+    active_tenants = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE})
+    for plant in plant_repo.iter_for_tenants(active_tenants, filters=[("removed_on", "==", None)]):
         try:
             lifecycle = phase_repo.get_lifecycle_by_species(plant.species_key)
             if lifecycle is None or not lifecycle.vernalization_required:

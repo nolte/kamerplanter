@@ -253,6 +253,33 @@ class ArangoTenantRepository(BaseArangoRepository[Tenant], ITenantRepository):
         cursor = self._db.aql.execute(query, bind_vars={"@collection": col.TENANTS})
         return next(cursor, 0)
 
+    def keys_in_status(self, statuses: Collection[TenantStatus]) -> dict[str, TenantStatus]:
+        """``{tenant_key: status}`` of every tenant in one of *statuses* (MT-032, #2128).
+
+        The ``LET`` mirrors ``Tenant._legacy_is_active`` and the field default: a stored
+        ``status`` wins, a pre-v0085 ``is_active == false`` reads as ``suspended``, and a
+        document with neither is ``active`` — so this selects exactly the tenants
+        :class:`~app.tasks.tenant_gate.ActiveTenants` would admit for the same states.
+        """
+        wanted = sorted({TenantStatus(status).value for status in statuses})
+        if not wanted:
+            return {}
+        query = """
+        FOR doc IN @@collection
+          LET state = doc.status != null ? doc.status : (doc.is_active == false ? @suspended : @active)
+          FILTER state IN @statuses
+          SORT doc._key
+          RETURN { key: doc._key, status: state }
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": col.TENANTS,
+            "statuses": wanted,
+            "suspended": TenantStatus.SUSPENDED.value,
+            "active": TenantStatus.ACTIVE.value,
+        }
+        rows = cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars))
+        return {row["key"]: TenantStatus(row["status"]) for row in rows}
+
     def count_organizations_by_owner(self, owner_user_key: str) -> int:
         query = """
         FOR doc IN @@collection
