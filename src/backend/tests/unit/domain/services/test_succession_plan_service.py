@@ -163,41 +163,41 @@ def _service():
 class TestCrud:
     def test_create_sets_defaults_and_total_batches(self):
         service, _repo, _rs = _service()
-        created = service.create_plan(_plan())
+        created = service.create_plan(_plan(), tenant_key=TENANT)
         assert created.status == SuccessionPlanStatus.PLANNED
         assert created.total_batches == 8
         assert created.completed_batches == 0
 
     def test_get_plan_enforces_tenant(self):
         service, _repo, _rs = _service()
-        created = service.create_plan(_plan())
+        created = service.create_plan(_plan(), tenant_key=TENANT)
         with pytest.raises(NotFoundError):
             service.get_plan(created.key, tenant_key="other")
 
     def test_update_recomputes_total_batches(self):
         service, _repo, _rs = _service()
-        created = service.create_plan(_plan())
+        created = service.create_plan(_plan(), tenant_key=TENANT)
         updated = service.update_plan(created.key, {"interval_days": 42}, tenant_key=TENANT)
         # 152-day window / 42 → 3 + 1 = 4 batches.
         assert updated.total_batches == 4
 
     def test_update_ignores_unknown_fields(self):
         service, _repo, _rs = _service()
-        created = service.create_plan(_plan())
+        created = service.create_plan(_plan(), tenant_key=TENANT)
         updated = service.update_plan(created.key, {"tenant_key": "hijack", "notes": "spring"}, tenant_key=TENANT)
         assert updated.tenant_key == TENANT
         assert updated.notes == "spring"
 
     def test_delete_plan(self):
         service, _repo, _rs = _service()
-        created = service.create_plan(_plan())
+        created = service.create_plan(_plan(), tenant_key=TENANT)
         assert service.delete_plan(created.key, tenant_key=TENANT) is True
 
 
 class TestGenerateRuns:
     def test_generate_creates_eight_runs_and_edges(self):
         service, repo, run_service = _service()
-        created = service.create_plan(_plan())
+        created = service.create_plan(_plan(), tenant_key=TENANT)
 
         plan, runs = service.generate_runs(created.key, tenant_key=TENANT)
 
@@ -213,7 +213,7 @@ class TestGenerateRuns:
 
     def test_generated_runs_carry_sequence_and_entry(self):
         service, _repo, run_service = _service()
-        created = service.create_plan(_plan())
+        created = service.create_plan(_plan(), tenant_key=TENANT)
 
         _plan_out, runs = service.generate_runs(created.key, tenant_key=TENANT)
 
@@ -231,7 +231,7 @@ class TestGenerateRuns:
 class TestGenerateNextRun:
     def test_generate_next_advances_one_batch(self):
         service, repo, run_service = _service()
-        created = service.create_plan(_plan())
+        created = service.create_plan(_plan(), tenant_key=TENANT)
 
         plan1, run1 = service.generate_next_run(created.key, tenant_key=TENANT)
         assert run1 is not None
@@ -247,7 +247,7 @@ class TestGenerateNextRun:
 
     def test_generate_next_returns_none_when_complete(self):
         service, _repo, _rs = _service()
-        created = service.create_plan(_plan(end_date=date(2026, 4, 1)))  # single batch
+        created = service.create_plan(_plan(end_date=date(2026, 4, 1)), tenant_key=TENANT)  # single batch
 
         _p1, run1 = service.generate_next_run(created.key, tenant_key=TENANT)
         assert run1 is not None
@@ -262,7 +262,7 @@ class TestGenerateIdempotency:
 
     def test_generate_twice_still_eight_runs(self):
         service, repo, run_service = _service()
-        created = service.create_plan(_plan())
+        created = service.create_plan(_plan(), tenant_key=TENANT)
 
         _p1, first = service.generate_runs(created.key, tenant_key=TENANT)
         plan2, second = service.generate_runs(created.key, tenant_key=TENANT)
@@ -276,7 +276,7 @@ class TestGenerateIdempotency:
 
     def test_generate_next_then_generate_no_duplicates(self):
         service, repo, run_service = _service()
-        created = service.create_plan(_plan())
+        created = service.create_plan(_plan(), tenant_key=TENANT)
 
         service.generate_next_run(created.key, tenant_key=TENANT)  # batch 1
         service.generate_next_run(created.key, tenant_key=TENANT)  # batch 2
@@ -294,13 +294,13 @@ class TestUpdateDateValidation:
 
     def test_update_start_after_stored_end_raises_validation_error(self):
         service, _repo, _rs = _service()
-        created = service.create_plan(_plan())  # end_date 2026-08-31
+        created = service.create_plan(_plan(), tenant_key=TENANT)  # end_date 2026-08-31
         with pytest.raises(ValidationError):
             service.update_plan(created.key, {"start_date": date(2026, 12, 1)}, tenant_key=TENANT)
 
     def test_update_end_before_stored_start_raises_validation_error(self):
         service, _repo, _rs = _service()
-        created = service.create_plan(_plan())  # start_date 2026-04-01
+        created = service.create_plan(_plan(), tenant_key=TENANT)  # start_date 2026-04-01
         with pytest.raises(ValidationError):
             service.update_plan(created.key, {"end_date": date(2026, 1, 1)}, tenant_key=TENANT)
 
@@ -318,12 +318,12 @@ class TestLocationOwnership:
         site_repo = _FakeSiteRepo({"loc_foreign": _location("loc_foreign", "tenant_other")})
         service, _repo, _rs = self._service_with_site(site_repo)
         with pytest.raises(NotFoundError):
-            service.create_plan(_plan(location_key="loc_foreign"))
+            service.create_plan(_plan(location_key="loc_foreign"), tenant_key=TENANT)
 
     def test_create_with_own_location_accepted(self):
         site_repo = _FakeSiteRepo({"loc_beet_c": _location("loc_beet_c", TENANT)})
         service, _repo, _rs = self._service_with_site(site_repo)
-        created = service.create_plan(_plan(location_key="loc_beet_c"))
+        created = service.create_plan(_plan(location_key="loc_beet_c"), tenant_key=TENANT)
         assert created.location_key == "loc_beet_c"
 
     def test_update_to_foreign_location_rejected(self):
@@ -334,7 +334,7 @@ class TestLocationOwnership:
             }
         )
         service, _repo, _rs = self._service_with_site(site_repo)
-        created = service.create_plan(_plan(location_key="loc_beet_c"))
+        created = service.create_plan(_plan(location_key="loc_beet_c"), tenant_key=TENANT)
         with pytest.raises(NotFoundError):
             service.update_plan(created.key, {"location_key": "loc_foreign"}, tenant_key=TENANT)
 
@@ -343,7 +343,7 @@ class TestLocationOwnership:
         # re-check before writing runs into another tenant's location.
         site_repo = _FakeSiteRepo({"loc_beet_c": _location("loc_beet_c", TENANT)})
         service, _repo, _rs = self._service_with_site(site_repo)
-        created = service.create_plan(_plan(location_key="loc_beet_c"))
+        created = service.create_plan(_plan(location_key="loc_beet_c"), tenant_key=TENANT)
         site_repo._locations["loc_beet_c"] = _location("loc_beet_c", "tenant_other")
         with pytest.raises(NotFoundError):
             service.generate_runs(created.key, tenant_key=TENANT)

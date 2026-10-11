@@ -170,7 +170,7 @@ def test_create_log_completes_open_task_and_schedules_next() -> None:
     """
     service, task_repo, care_repo, care_tasks = _build(tasks=[_open_watering_task()])
 
-    result = service.create_log(_log())
+    result = service.create_log(_log(), tenant_key=TENANT)
 
     assert result["log"].key == "log-1"
     care_repo.create_confirmation.assert_called_once()
@@ -203,8 +203,8 @@ def test_create_log_is_idempotent_when_already_watered_today() -> None:
     """
     service, _, _, care_tasks = _build(tasks=[_open_watering_task()])
 
-    service.create_log(_log())
-    service.create_log(_log())
+    service.create_log(_log(), tenant_key=TENANT)
+    service.create_log(_log(), tenant_key=TENANT)
 
     pending = care_tasks.open_care_tasks(ReminderType.WATERING)
     completed = care_tasks.completed_care_tasks(ReminderType.WATERING)
@@ -224,7 +224,7 @@ def test_create_log_after_another_path_closed_the_task_today_is_a_no_op() -> Non
     """
     service, task_repo, _, _ = _build(tasks=[_watering_task_completed_today()])
 
-    service.create_log(_log())
+    service.create_log(_log(), tenant_key=TENANT)
 
     task_repo.update_task.assert_not_called()  # nothing open to complete
     task_repo.create_task.assert_not_called()  # completed-today blocks re-scheduling
@@ -242,7 +242,7 @@ def test_create_log_does_not_touch_foreign_tenant_plant() -> None:
     service, task_repo, care_repo, _ = _build(tasks=[_open_watering_task()], plant_tenant="tenant-B")
     _forbid_lookup(task_repo, "find_open_care_task must not run for a foreign-tenant plant")
 
-    service.create_log(_log())
+    service.create_log(_log(), tenant_key=TENANT)
 
     # No cross-tenant care-state write at all (SEC-001 closed).
     care_repo.get_profile_by_plant_key.assert_not_called()
@@ -264,7 +264,7 @@ def test_create_log_missing_plant_writes_no_confirmation() -> None:
     _forbid_lookup(task_repo, "find_open_care_task must not run for a missing plant")
     service._plant_repo.get_by_key.return_value = None  # type: ignore[union-attr]
 
-    result = service.create_log(_log())
+    result = service.create_log(_log(), tenant_key=TENANT)
 
     assert result["log"].key == "log-1"  # the log itself is still recorded
     care_repo.create_confirmation.assert_not_called()
@@ -276,7 +276,7 @@ def test_create_log_without_auto_create_still_closes_open_task() -> None:
     """With auto-scheduling disabled the open task is closed but no next one is made."""
     service, task_repo, _, care_tasks = _build(tasks=[_open_watering_task()], auto_create=False)
 
-    service.create_log(_log())
+    service.create_log(_log(), tenant_key=TENANT)
 
     task_repo.update_task.assert_called_once()
     task_repo.create_task.assert_not_called()
@@ -293,7 +293,7 @@ def test_create_log_does_not_close_a_task_due_later() -> None:
     """
     service, _, _, care_tasks = _build(tasks=[_open_watering_task(due_offset_days=3)])
 
-    service.create_log(_log())
+    service.create_log(_log(), tenant_key=TENANT)
 
     assert care_tasks.completed_care_tasks(ReminderType.WATERING) == []
     assert [task.key for task in care_tasks.open_care_tasks(ReminderType.WATERING)] == ["task-open"]
@@ -320,7 +320,7 @@ def test_create_log_without_real_plants_skips_advancement(plant_keys) -> None:
         slot_keys=["slot-x"],
     )
 
-    result = service.create_log(log)
+    result = service.create_log(log, tenant_key=TENANT)
 
     assert result["log"].key == "log-1"
     care_repo.create_confirmation.assert_not_called()

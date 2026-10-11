@@ -46,7 +46,7 @@ class TestUpdateLogMergedStateValidation:
         service, repo = _service(_stored(application_method=ApplicationMethod.FERTIGATION))
 
         with pytest.raises(ValidationError) as exc_info:
-            service.update_log("log_1", {"is_supplemental": True})
+            service.update_log("log_1", {"is_supplemental": True}, tenant_key="tenant_lisa")
 
         assert exc_info.value.status_code == 422
         assert exc_info.value.error_code == "VALIDATION_ERROR"
@@ -56,7 +56,7 @@ class TestUpdateLogMergedStateValidation:
         service, repo = _service(_stored(is_supplemental=True))
 
         with pytest.raises(ValidationError):
-            service.update_log("log_1", {"application_method": ApplicationMethod.FERTIGATION})
+            service.update_log("log_1", {"application_method": ApplicationMethod.FERTIGATION}, tenant_key="tenant_lisa")
 
         repo.update_fields.assert_not_called()
 
@@ -67,6 +67,7 @@ class TestUpdateLogMergedStateValidation:
             service.update_log(
                 "log_1",
                 {"application_method": ApplicationMethod.FERTIGATION, "is_supplemental": True},
+                tenant_key="tenant_lisa",
             )
 
         repo.update_fields.assert_not_called()
@@ -75,7 +76,7 @@ class TestUpdateLogMergedStateValidation:
         service, _repo = _service(_stored(application_method=ApplicationMethod.FERTIGATION))
 
         with pytest.raises(ValidationError) as exc_info:
-            service.update_log("log_1", {"is_supplemental": True})
+            service.update_log("log_1", {"is_supplemental": True}, tenant_key="tenant_lisa")
 
         assert {d["field"] for d in exc_info.value.details} == {"is_supplemental", "application_method"}
         assert {d["code"] for d in exc_info.value.details} == {"supplemental_cannot_fertigate"}
@@ -87,6 +88,7 @@ class TestUpdateLogMergedStateValidation:
         updated = service.update_log(
             "log_1",
             {"application_method": ApplicationMethod.FOLIAR, "is_supplemental": True},
+            tenant_key="tenant_lisa",
         )
 
         assert updated.application_method is ApplicationMethod.FOLIAR
@@ -95,7 +97,7 @@ class TestUpdateLogMergedStateValidation:
     def test_an_unrelated_patch_still_goes_through(self):
         service, repo = _service(_stored())
 
-        updated = service.update_log("log_1", {"notes": "Nachgegossen"})
+        updated = service.update_log("log_1", {"notes": "Nachgegossen"}, tenant_key="tenant_lisa")
 
         assert updated.notes == "Nachgegossen"
         assert repo.update_fields.call_args.args[1] == {"notes": "Nachgegossen"}
@@ -103,7 +105,7 @@ class TestUpdateLogMergedStateValidation:
     def test_an_empty_patch_touches_nothing(self):
         service, repo = _service(_stored())
 
-        updated = service.update_log("log_1", {"unknown_field": "x", "notes": None})
+        updated = service.update_log("log_1", {"unknown_field": "x", "notes": None}, tenant_key="tenant_lisa")
 
         assert updated.notes is None
         repo.update_fields.assert_not_called()

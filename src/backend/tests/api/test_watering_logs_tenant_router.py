@@ -71,12 +71,12 @@ def _build() -> tuple[TestClient, MagicMock]:
         plant_keys=["plant_tomate_1"],
     )
     service = MagicMock()
-    service.create_log.side_effect = lambda log: {
+    service.create_log.side_effect = lambda log, *, tenant_key: {
         "log": log.model_copy(update={"key": "log_1"}),
         "warnings": [],
     }
     service.get_log.return_value = stored
-    service.update_log.side_effect = lambda key, data: stored.model_copy(update=data)
+    service.update_log.side_effect = lambda key, data, *, tenant_key: stored.model_copy(update=data)
     service.resolve_plant_names.return_value = {}
     service.resolve_fertilizer_names.return_value = {}
 

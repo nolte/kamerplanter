@@ -171,7 +171,7 @@ class ImportService:
         self,
         key: str,
         *,
-        tenant_key: str | None = None,
+        tenant_key: str | None,
         caller_role: TenantRole | None = None,
         is_platform_admin: bool = False,
     ) -> ImportJob:
@@ -182,10 +182,11 @@ class ImportService:
         same triple the interactive catalogue routes carry, and they arrive from
         the same resolver — :func:`~app.common.auth.get_active_tenant_context` —
         so an imported row and a hand-created one land in the same tenant with the
-        same permission answer. They default to the **system context**
-        (``caller_role is None``, no gate, global stamp), which is what keeps the
-        seeders, migrations and existing tests importing without an HTTP caller;
-        every HTTP call passes a real role.
+        same permission answer. ``tenant_key`` has **no default** (#2107): the
+        **system context** (``tenant_key=None``, ``caller_role`` left ``None``, no
+        gate, global stamp) has to be named, the way :meth:`delete_job` names it, so
+        a new caller cannot reach the unscoped load by omission; every HTTP call
+        passes the resolved tenant and a real role.
 
         Before #1110 there was no such context at all: ``ImportService`` built
         entities with the model default ``tenant_key = ''`` — *global* — and wrote

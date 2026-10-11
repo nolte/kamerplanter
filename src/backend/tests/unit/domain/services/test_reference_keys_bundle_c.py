@@ -353,7 +353,7 @@ def test_a_succession_plan_names_only_a_readable_species() -> None:
     service, repo = _succession()
 
     with pytest.raises(NotFoundError):
-        service.create_plan(_plan(species_key="sp_foreign"))
+        service.create_plan(_plan(species_key="sp_foreign"), tenant_key=OWN)
 
     repo.create.assert_not_called()
 
@@ -363,7 +363,7 @@ def test_a_succession_plan_location_is_refused_without_the_anchor() -> None:
     service, repo = _succession(site_repo=None)
 
     with pytest.raises(NotFoundError):
-        service.create_plan(_plan(location_key="loc_any"))
+        service.create_plan(_plan(location_key="loc_any"), tenant_key=OWN)
 
     repo.create.assert_not_called()
 

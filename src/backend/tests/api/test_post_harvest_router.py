@@ -119,7 +119,7 @@ def _real_service_with_batch() -> tuple[PostHarvestService, str]:
     """Wire a real service on fake repos and seed one drying batch (start 450 g)."""
     harvest = HarvestBatch(_key="hb_1", tenant_key=TENANT_KEY, plant_key="plant_1", wet_weight_g=450.0)
     service = PostHarvestService(_FakePostHarvestRepo(), harvest_repo=_FakeHarvestRepo({"hb_1": harvest}))
-    batch = service.start_drying(TENANT_KEY, "hb_1")
+    batch = service.start_drying("hb_1", tenant_key=TENANT_KEY)
     return service, batch.key
 
 

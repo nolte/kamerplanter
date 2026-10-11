@@ -2,7 +2,7 @@
   "format": 1,
   "comment": "mypy ratchet baseline for src/backend/app (#2169), written by scripts/check_mypy_ratchet.py. Do not raise a count by hand without saying why in the pull request.",
   "mypy_version": "2.4.0",
-  "total": 3442,
+  "total": 3440,
   "files": {
     "app/api/v1/activities/router.py": {
       "type-arg": 1
@@ -1206,7 +1206,7 @@
     "app/domain/services/planting_run_service.py": {
       "arg-type": 3,
       "assignment": 2,
-      "attr-defined": 7,
+      "attr-defined": 5,
       "index": 4,
       "no-any-return": 1,
       "no-untyped-def": 1,

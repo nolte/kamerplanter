@@ -51,14 +51,16 @@ class _HarvestService:
         self.created: list[HarvestBatch] = []
         self.assessments: list[QualityAssessment] = []
 
-    def create_harvest_batch(self, plant_key: str, batch: HarvestBatch) -> HarvestBatch:
+    def create_harvest_batch(self, plant_key: str, batch: HarvestBatch, *, tenant_key: str) -> HarvestBatch:
         self.created.append(batch)
         return batch.model_copy(update={"key": "hb-1", "plant_key": plant_key})
 
     def get_batch(self, key: str, tenant_key: str | None = None) -> HarvestBatch:
         return HarvestBatch(_key=key, tenant_key=tenant_key or "")
 
-    def create_quality_assessment(self, batch_key: str, assessment: QualityAssessment) -> QualityAssessment:
+    def create_quality_assessment(
+        self, batch_key: str, assessment: QualityAssessment, *, tenant_key: str
+    ) -> QualityAssessment:
         self.assessments.append(assessment)
         return assessment.model_copy(update={"key": "qa-1", "batch_key": batch_key})
 

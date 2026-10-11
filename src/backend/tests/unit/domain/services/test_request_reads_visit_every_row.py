@@ -244,7 +244,7 @@ def test_generated_plan_is_offered_every_catalogue_activity() -> None:
         species_repo=MagicMock(get_by_key=MagicMock(return_value=None)),
     )
 
-    service.generate_plan("sp1")
+    service.generate_plan("sp1", tenant_key="")
 
     offered = engine.generate_plan.call_args.kwargs["activities"]
     assert [a.key for a in offered] == [a.key for a in activities]
