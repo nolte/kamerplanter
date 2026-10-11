@@ -506,7 +506,7 @@ def _cascade_plant_photo_cleanup(plant) -> None:  # type: ignore[no-untyped-def]
     from app.common.async_bridge import run_async
 
     service = get_plant_photo_service()
-    run_async(service.delete_all_photos(plant, plant.tenant_key))
+    run_async(service.delete_all_photos(plant, tenant_key=plant.tenant_key))
 
 
 def get_plant_photo_service() -> PlantPhotoService:
