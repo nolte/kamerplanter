@@ -95,7 +95,7 @@ describe('AdminPlansPage (REQ-056 AK-45)', () => {
     expect(defaultDelete).toHaveAccessibleName(/Standard-Plan lässt sich nicht löschen/);
     const inUseDelete = screen.getByTestId('plan-delete-community');
     expect(inUseDelete).toBeDisabled();
-    expect(inUseDelete).toHaveAccessibleName(/2 Gärten nutzen diesen Plan/);
+    expect(inUseDelete).toHaveAccessibleName(/2 Organisationen nutzen diesen Plan/);
     expect(screen.getByTestId('plan-delete-trial')).toBeEnabled();
   });
 

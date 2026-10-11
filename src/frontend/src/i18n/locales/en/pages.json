@@ -4994,21 +4994,21 @@
     },
     "plans": {
       "title": "Plans",
-      "intro": "A plan sets a garden's quotas: how many members and service accounts, how much storage, how many photos per plant and how many AI calls a day. Every garden has exactly one plan; new gardens get the default plan. Gardens cannot choose their plan themselves – you assign it on the garden's page.",
+      "intro": "A plan sets an organization's quotas: how many members and service accounts, how much storage, how many photos per plant and how many AI calls a day. Every organization has exactly one plan; new organizations get the default plan. Organizations cannot choose their plan themselves – you assign it on the organization's page.",
       "valueLegend": "How to read the values: an empty value (“same as instance setting”) follows the installation's environment variable. “Unlimited” and “budget off” stand for the value 0 – it lifts the limit and never means “nothing allowed”. A lower limit removes nothing; only the next creation is refused.",
       "add": "Create plan",
       "back": "Back to the platform settings",
       "emptyTitle": "No plans yet",
-      "emptyDescription": "Create a plan to give gardens other quotas than the instance settings.",
+      "emptyDescription": "Create a plan to give organizations other quotas than the instance settings.",
       "navCardTitle": "Plans and quotas",
-      "navCardDescription": "Create plans with their own limits for members, storage, photos and AI calls, and choose the default plan of new gardens.",
+      "navCardDescription": "Create plans with their own limits for members, storage, photos and AI calls, and choose the default plan of new organizations.",
       "navCardOpen": "Manage plans",
       "list": {
         "name": "Plan",
         "default": "Default",
-        "tenants": "Gardens",
-        "tenantsChip_one": "{{count}} garden",
-        "tenantsChip_other": "{{count}} gardens",
+        "tenants": "Organizations",
+        "tenantsChip_one": "{{count}} organization",
+        "tenantsChip_other": "{{count}} organizations",
         "actions": "Actions"
       },
       "actions": {
@@ -5017,16 +5017,16 @@
       },
       "delete": {
         "title": "Delete plan?",
-        "message": "The plan “{{name}}” ({{key}}) is deleted for good. No garden uses it right now.",
+        "message": "The plan “{{name}}” ({{key}}) is deleted for good. This cannot be undone. No organization uses it right now.",
         "confirm": "Delete plan",
-        "conflict": "The plan cannot be deleted: a garden uses it by now, or it is the default plan. The list was reloaded.",
+        "conflict": "The plan cannot be deleted: an organization uses it by now, or it is the default plan. The list was reloaded.",
         "blockedDefault": "The default plan cannot be deleted. Make another plan the default first.",
-        "blockedInUse_one": "{{count}} garden uses this plan. Assign it another plan first.",
-        "blockedInUse_other": "{{count}} gardens use this plan. Assign them another plan first."
+        "blockedInUse_one": "{{count}} organization uses this plan. Assign it another plan first.",
+        "blockedInUse_other": "{{count}} organizations use this plan. Assign them another plan first."
       },
       "snack": {
         "created": "Plan “{{name}}” created.",
-        "saved": "Plan “{{name}}” saved. The limits apply to every garden on this plan from its next check.",
+        "saved": "Plan “{{name}}” saved. The limits apply to every organization on this plan from its next check.",
         "deleted": "Plan “{{name}}” deleted."
       },
       "value": {
@@ -5052,20 +5052,20 @@
         "unreadableUnlimited": "usage not readable right now – unlimited",
         "ownAiCalls": {
           "member": "Your AI calls today",
-          "admin": "AI calls per account and day (usage: your own in this garden)"
+          "admin": "AI calls per account and day (usage: your own in this organization)"
         }
       },
       "form": {
         "createTitle": "Create plan",
         "editTitle": "Edit plan “{{name}}”",
-        "intro": "Give the plan a name and set only the limits that should differ from the instance. Changes apply at once to every garden on this plan.",
+        "intro": "Give the plan a name and set only the limits that should differ from the instance. Changes apply from the next check to every organization on this plan.",
         "key": "Key",
         "keyHelper": "Lower-case letters, digits, “_” or “-”, 2–40 characters, starting with a letter. Cannot be changed later.",
         "keyLocked": "The key cannot be changed.",
         "keyInvalid": "Lower-case letters, digits, “_” or “-”, 2–40 characters, starting with a letter.",
         "keyTaken": "Another plan already has this key.",
         "name": "Name",
-        "nameHelper": "How the plan appears in the plan selector and in the gardens' quotas.",
+        "nameHelper": "How the plan appears in the plan selector and in the organizations' quotas.",
         "nameTooLong": "At most 100 characters.",
         "description": "Description",
         "descriptionHelper": "Optional: what the plan is meant for (visible to platform admins only).",
@@ -5074,11 +5074,11 @@
         "groups": {
           "people": {
             "title": "People",
-            "description": "How many active memberships (service accounts included) and service accounts a garden may have."
+            "description": "How many active memberships (service accounts included) and service accounts an organization may have."
           },
           "storage": {
             "title": "Storage and photos",
-            "description": "How much space a garden's attachments may take and how many photos a plant may have."
+            "description": "How much space an organization's attachments may take and how many photos a plant may have."
           },
           "ai": {
             "title": "AI budgets",
@@ -5099,20 +5099,24 @@
         "min": "At least {{min}}.",
         "max": "At most {{max}}.",
         "membersAboveCeiling": "More members than the platform ceiling (TENANT_MAX_MEMBERS_CEILING) allows.",
-        "isDefaultInfo": "This is the default plan: new gardens get it. To change that, make another plan the default.",
+        "isDefaultInfo": "This is the default plan: new organizations get it. To change that, make another plan the default.",
         "makeDefault": "Make this the default plan",
-        "makeDefaultHelper": "New gardens then get this plan. Existing gardens keep their plan; the previous default loses the mark.",
+        "makeDefaultHelper": "New organizations then get this plan. Existing organizations keep their plan; the previous default loses the mark. You can only undo this by making another plan the default.",
         "createDefaultHint": "A new plan is never the default right away. You set that afterwards when editing it.",
-        "submitCreate": "Create plan"
+        "submitCreate": "Create plan",
+        "inUseWarning_one": "This change affects {{count}} organization on this plan – its limits change as soon as you save.",
+        "inUseWarning_other": "This change affects {{count}} organizations on this plan – their limits change as soon as you save.",
+        "emptyPlaceholder": "same as instance",
+        "resetToInstance": "Clear “{{field}}”: same as instance setting"
       },
       "tenant": {
         "title": "Plan and usage",
-        "intro": "The plan sets this garden's limits. A lower limit removes nothing – only the next creation is refused. The assignment applies from the next check and is recorded in the security audit.",
+        "intro": "The plan sets this organization's limits. A lower limit removes nothing – only the next creation is refused. The assignment applies from the next check and is recorded in the security audit.",
         "loadFailed": "Plan and usage could not be loaded.",
-        "platformInfo": "The platform garden always follows the instance settings and takes no plan. The values below are the instance settings.",
-        "deletedInfo": "This garden is being deleted; its plan can no longer be changed.",
+        "platformInfo": "The platform organization always follows the instance settings and takes no plan. The values below are the instance settings.",
+        "deletedInfo": "This organization is being deleted; its plan can no longer be changed.",
         "plan": "Plan",
-        "planHelper": "Choose the plan and confirm with “Assign plan”. A suspended garden can be given another plan too.",
+        "planHelper": "Choose the plan and confirm with “Assign plan”. A suspended organization can be given another plan too.",
         "catalogueFailed": "The plans could not be loaded; reload the page.",
         "optionDefault": "{{name}} (default)",
         "assign": "Assign plan",
@@ -5120,8 +5124,8 @@
         "currentPlan": "Plan: {{name}}",
         "usageTitle": "Usage per quota",
         "owner": "Owner",
-        "ownerHelper": "The account that owns the garden.",
-        "ownerNotMember": "Not an active member of this garden"
+        "ownerHelper": "The account that owns the organization.",
+        "ownerNotMember": "Not an active member of this organization"
       }
     }
   }

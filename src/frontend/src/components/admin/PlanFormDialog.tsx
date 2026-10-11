@@ -12,6 +12,9 @@ import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import ClearIcon from '@mui/icons-material/Clear';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import Form from '@/components/form/Form';
 import FormActions from '@/components/form/FormActions';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -135,6 +138,7 @@ export default function PlanFormDialog({ open, plan, onClose, onSaved }: PlanFor
     handleSubmit,
     reset,
     setError,
+    setValue,
     formState: { isDirty },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -236,6 +240,12 @@ export default function PlanFormDialog({ open, plan, onClose, onSaved }: PlanFor
             helperText={t('pages.plans.form.descriptionHelper')}
           />
 
+          {isEdit && plan.tenant_count > 0 && (
+            <Alert severity="warning" sx={{ mt: 2 }} data-testid="plan-form-in-use-warning">
+              {t('pages.plans.form.inUseWarning', { count: plan.tenant_count })}
+            </Alert>
+          )}
+
           <Alert severity="info" sx={{ my: 2 }} data-testid="plan-form-limit-rules">
             {t('pages.plans.form.limitRules')}
           </Alert>
@@ -266,7 +276,25 @@ export default function PlanFormDialog({ open, plan, onClose, onSaved }: PlanFor
                     max={LIMIT_MAXIMA[d]}
                     step={1}
                     inputMode="numeric"
-                    suffix={t(`pages.plans.unit.${d}`)}
+                    placeholder={t('pages.plans.form.emptyPlaceholder')}
+                    endAdornment={
+                      <InputAdornment position="end">
+                        {limits?.[d] != null && (
+                          <IconButton
+                            size="small"
+                            edge="end"
+                            onClick={() => setValue(`limits.${d}`, null, { shouldDirty: true, shouldValidate: true })}
+                            disabled={saving}
+                            aria-label={t('pages.plans.form.resetToInstance', { field: t(`enums.entitlementDimension.${d}`) })}
+                            sx={{ width: { xs: 40, md: 32 }, height: { xs: 40, md: 32 } }}
+                            data-testid={`plan-form-reset-${d}`}
+                          >
+                            <ClearIcon fontSize="small" />
+                          </IconButton>
+                        )}
+                        {t(`pages.plans.unit.${d}`)}
+                      </InputAdornment>
+                    }
                     disabled={saving}
                     helperText={`${t(`pages.plans.form.fieldHelp.${d}`)} ${t('pages.plans.form.appliesAs', {
                       value: formatPlanLimit(d, limits?.[d] ?? null, t),

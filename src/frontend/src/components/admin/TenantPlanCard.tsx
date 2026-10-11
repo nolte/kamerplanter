@@ -168,7 +168,7 @@ export default function TenantPlanCard({ tenantKey, isPlatform, status, onAssign
                   onClick={handleAssign}
                   disabled={assigning || catalogue.status !== 'ready' || !selected || selected === currentPlanKey}
                   startIcon={assigning ? <CircularProgress size={16} /> : undefined}
-                  sx={{ mt: { sm: 1 }, flexShrink: 0 }}
+                  sx={{ mt: { sm: 1 }, minHeight: { xs: 48, sm: 36 }, flexShrink: 0 }}
                   data-testid="tenant-plan-assign"
                 >
                   {t('pages.plans.tenant.assign')}

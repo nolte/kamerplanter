@@ -29,6 +29,9 @@ import ErrorPage from '@/pages/ErrorPage';
 import { formatPlanLimit } from '@/utils/entitlements';
 
 /** The columns shown in the table; the AI budgets are summarised to keep it readable on a laptop. */
+/** 48 px touch target on phones (UI-NFR-001 R-011), compact on desktop (R-013). */
+const TOUCH_SX = { width: { xs: 48, md: 40 }, height: { xs: 48, md: 40 } } as const;
+
 const TABLE_DIMENSIONS: readonly EntitlementDimension[] = ['members', 'storage_mb', 'ai_calls_per_tenant_day'];
 
 /** Why a plan cannot be deleted right now, or `null` when it can (REQ-056 §7.6: 409 otherwise). */
@@ -131,6 +134,7 @@ export default function AdminPlansPage() {
           <Typography
             variant="body2"
             color={p.limits[d] == null ? 'text.secondary' : 'text.primary'}
+            sx={{ fontStyle: p.limits[d] == null ? 'italic' : 'normal' }}
             data-testid={`plan-limit-${p.key}-${d}`}
           >
             {formatPlanLimit(d, p.limits[d], t)}
@@ -172,7 +176,7 @@ export default function AdminPlansPage() {
   return (
     <Box sx={{ mt: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <IconButton onClick={() => navigate('/settings#platform')} aria-label={t('pages.plans.back')} data-testid="plans-back">
+        <IconButton onClick={() => navigate('/settings#platform')} sx={TOUCH_SX} aria-label={t('pages.plans.back')} data-testid="plans-back">
           <ArrowBackIcon />
         </IconButton>
         <Box sx={{ flex: 1 }}>
@@ -267,9 +271,10 @@ function PlanRowActions({ plan, onEdit, onDelete }: PlanRowActionsProps) {
         : null;
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
       <IconButton
         onClick={onEdit}
+        sx={TOUCH_SX}
         aria-label={t('pages.plans.actions.edit', { name: plan.name })}
         data-testid={`plan-edit-${plan.key}`}
       >
@@ -279,6 +284,7 @@ function PlanRowActions({ plan, onEdit, onDelete }: PlanRowActionsProps) {
         <span>
           <IconButton
             color="error"
+            sx={TOUCH_SX}
             onClick={onDelete}
             disabled={blocker !== null}
             aria-label={blockedReason ? `${deleteLabel} – ${blockedReason}` : deleteLabel}

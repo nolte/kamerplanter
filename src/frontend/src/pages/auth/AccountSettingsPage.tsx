@@ -1864,6 +1864,7 @@ export default function AccountSettingsPage() {
                   <Button
                     variant="outlined"
                     onClick={() => navigate('/admin/plans')}
+                    sx={{ minHeight: { xs: 48, sm: 36 } }}
                     data-testid="admin-plans-open"
                   >
                     {t('pages.plans.navCardOpen')}

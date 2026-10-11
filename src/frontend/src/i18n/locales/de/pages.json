@@ -4995,21 +4995,21 @@
     },
     "plans": {
       "title": "Pläne",
-      "intro": "Ein Plan legt die Kontingente eines Gartens fest: wie viele Mitglieder und Dienstkonten, wie viel Speicher, wie viele Fotos je Pflanze und wie viele KI-Aufrufe am Tag. Jeder Garten hat genau einen Plan; neue Gärten bekommen den Standard-Plan. Gärten selbst können ihren Plan nicht wählen – du ordnest ihn auf der Seite des Gartens zu.",
+      "intro": "Ein Plan legt die Kontingente einer Organisation fest: wie viele Mitglieder und Dienstkonten, wie viel Speicher, wie viele Fotos je Pflanze und wie viele KI-Aufrufe am Tag. Jede Organisation hat genau einen Plan; neue Organisationen bekommen den Standard-Plan. Organisationen selbst können ihren Plan nicht wählen – du ordnest ihn auf der Seite der Organisation zu.",
       "valueLegend": "So liest du die Werte: Ein leerer Wert („wie Instanz-Einstellung“) folgt der Umgebungsvariable der Installation. „Unbegrenzt“ und „Budget aus“ stehen für den Wert 0 – er hebt die Grenze auf und bedeutet nie „nichts erlaubt“. Ein niedrigeres Limit entfernt nichts; abgelehnt wird erst die nächste Anlage.",
       "add": "Plan anlegen",
       "back": "Zurück zu den Plattform-Einstellungen",
       "emptyTitle": "Noch keine Pläne",
-      "emptyDescription": "Lege einen Plan an, um Gärten andere Kontingente zu geben als die Instanz-Einstellungen.",
+      "emptyDescription": "Lege einen Plan an, um Organisationen andere Kontingente zu geben als die Instanz-Einstellungen.",
       "navCardTitle": "Pläne und Kontingente",
-      "navCardDescription": "Lege Pläne mit eigenen Grenzen für Mitglieder, Speicher, Fotos und KI-Aufrufe an und bestimme den Standard-Plan neuer Gärten.",
+      "navCardDescription": "Lege Pläne mit eigenen Grenzen für Mitglieder, Speicher, Fotos und KI-Aufrufe an und bestimme den Standard-Plan neuer Organisationen.",
       "navCardOpen": "Pläne verwalten",
       "list": {
         "name": "Plan",
         "default": "Standard",
-        "tenants": "Gärten",
-        "tenantsChip_one": "{{count}} Garten",
-        "tenantsChip_other": "{{count}} Gärten",
+        "tenants": "Organisationen",
+        "tenantsChip_one": "{{count}} Organisation",
+        "tenantsChip_other": "{{count}} Organisationen",
         "actions": "Aktionen"
       },
       "actions": {
@@ -5018,16 +5018,16 @@
       },
       "delete": {
         "title": "Plan löschen?",
-        "message": "Der Plan „{{name}}“ ({{key}}) wird endgültig gelöscht. Kein Garten nutzt ihn gerade.",
+        "message": "Der Plan „{{name}}“ ({{key}}) wird endgültig gelöscht. Das lässt sich nicht rückgängig machen. Keine Organisation nutzt ihn gerade.",
         "confirm": "Plan löschen",
-        "conflict": "Der Plan lässt sich nicht löschen: Inzwischen nutzt ihn ein Garten, oder er ist der Standard-Plan. Die Liste wurde neu geladen.",
+        "conflict": "Der Plan lässt sich nicht löschen: Inzwischen nutzt ihn eine Organisation, oder er ist der Standard-Plan. Die Liste wurde neu geladen.",
         "blockedDefault": "Der Standard-Plan lässt sich nicht löschen. Lege zuerst einen anderen Plan als Standard fest.",
-        "blockedInUse_one": "{{count}} Garten nutzt diesen Plan. Ordne ihm zuerst einen anderen Plan zu.",
-        "blockedInUse_other": "{{count}} Gärten nutzen diesen Plan. Ordne ihnen zuerst einen anderen Plan zu."
+        "blockedInUse_one": "{{count}} Organisation nutzt diesen Plan. Ordne ihr zuerst einen anderen Plan zu.",
+        "blockedInUse_other": "{{count}} Organisationen nutzen diesen Plan. Ordne ihnen zuerst einen anderen Plan zu."
       },
       "snack": {
         "created": "Plan „{{name}}“ angelegt.",
-        "saved": "Plan „{{name}}“ gespeichert. Die Grenzen gelten ab der nächsten Prüfung für alle Gärten mit diesem Plan.",
+        "saved": "Plan „{{name}}“ gespeichert. Die Grenzen gelten ab der nächsten Prüfung für alle Organisationen mit diesem Plan.",
         "deleted": "Plan „{{name}}“ gelöscht."
       },
       "value": {
@@ -5053,20 +5053,20 @@
         "unreadableUnlimited": "Verbrauch gerade nicht lesbar – unbegrenzt",
         "ownAiCalls": {
           "member": "Deine KI-Aufrufe heute",
-          "admin": "KI-Aufrufe je Konto und Tag (Verbrauch: dein eigener in diesem Garten)"
+          "admin": "KI-Aufrufe je Konto und Tag (Verbrauch: dein eigener in dieser Organisation)"
         }
       },
       "form": {
         "createTitle": "Plan anlegen",
         "editTitle": "Plan „{{name}}“ bearbeiten",
-        "intro": "Gib dem Plan einen Namen und setze nur die Grenzen, die von der Instanz abweichen sollen. Änderungen gelten sofort für alle Gärten mit diesem Plan.",
+        "intro": "Gib dem Plan einen Namen und setze nur die Grenzen, die von der Instanz abweichen sollen. Änderungen gelten ab der nächsten Prüfung für alle Organisationen mit diesem Plan.",
         "key": "Schlüssel",
         "keyHelper": "Kleinbuchstaben, Ziffern, „_“ oder „-“, 2–40 Zeichen, beginnt mit einem Buchstaben. Lässt sich später nicht ändern.",
         "keyLocked": "Der Schlüssel lässt sich nicht ändern.",
         "keyInvalid": "Kleinbuchstaben, Ziffern, „_“ oder „-“, 2–40 Zeichen, beginnend mit einem Buchstaben.",
         "keyTaken": "Diesen Schlüssel hat schon ein anderer Plan.",
         "name": "Name",
-        "nameHelper": "So erscheint der Plan in der Garten-Auswahl und in den Kontingenten der Gärten.",
+        "nameHelper": "So erscheint der Plan in der Plan-Auswahl und in den Kontingenten der Organisationen.",
         "nameTooLong": "Höchstens 100 Zeichen.",
         "description": "Beschreibung",
         "descriptionHelper": "Optional: wofür der Plan gedacht ist (nur für Plattform-Admins sichtbar).",
@@ -5075,11 +5075,11 @@
         "groups": {
           "people": {
             "title": "Personen",
-            "description": "Wie viele aktive Mitgliedschaften (Dienstkonten eingeschlossen) und Dienstkonten ein Garten haben darf."
+            "description": "Wie viele aktive Mitgliedschaften (Dienstkonten eingeschlossen) und Dienstkonten eine Organisation haben darf."
           },
           "storage": {
             "title": "Speicher und Fotos",
-            "description": "Wie viel Platz Anhänge eines Gartens belegen dürfen und wie viele Fotos eine Pflanze haben darf."
+            "description": "Wie viel Platz Anhänge einer Organisation belegen dürfen und wie viele Fotos eine Pflanze haben darf."
           },
           "ai": {
             "title": "KI-Budgets",
@@ -5100,20 +5100,24 @@
         "min": "Mindestens {{min}}.",
         "max": "Höchstens {{max}}.",
         "membersAboveCeiling": "Mehr Mitglieder, als die Plattform-Obergrenze (TENANT_MAX_MEMBERS_CEILING) erlaubt.",
-        "isDefaultInfo": "Dies ist der Standard-Plan: Neue Gärten bekommen ihn. Um das zu ändern, lege einen anderen Plan als Standard fest.",
+        "isDefaultInfo": "Dies ist der Standard-Plan: Neue Organisationen bekommen ihn. Um das zu ändern, lege einen anderen Plan als Standard fest.",
         "makeDefault": "Als Standard-Plan festlegen",
-        "makeDefaultHelper": "Neue Gärten bekommen dann diesen Plan. Bestehende Gärten behalten ihren Plan; der bisherige Standard verliert die Markierung.",
+        "makeDefaultHelper": "Neue Organisationen bekommen dann diesen Plan. Bestehende Organisationen behalten ihren Plan; der bisherige Standard verliert die Markierung. Zurücknehmen lässt sich das nur, indem du einen anderen Plan zum Standard machst.",
         "createDefaultHint": "Ein neuer Plan ist nie sofort der Standard. Das legst du danach beim Bearbeiten fest.",
-        "submitCreate": "Plan anlegen"
+        "submitCreate": "Plan anlegen",
+        "inUseWarning_one": "Diese Änderung betrifft {{count}} Organisation, die diesen Plan nutzt – ihre Grenzen ändern sich sofort mit dem Speichern.",
+        "inUseWarning_other": "Diese Änderung betrifft {{count}} Organisationen, die diesen Plan nutzen – ihre Grenzen ändern sich sofort mit dem Speichern.",
+        "emptyPlaceholder": "wie Instanz",
+        "resetToInstance": "„{{field}}“ leeren: wie Instanz-Einstellung"
       },
       "tenant": {
         "title": "Plan und Verbrauch",
-        "intro": "Der Plan bestimmt die Grenzen dieses Gartens. Ein niedrigeres Limit entfernt nichts – abgelehnt wird erst die nächste Anlage. Die Zuordnung gilt ab der nächsten Prüfung und wird im Sicherheitsprotokoll vermerkt.",
+        "intro": "Der Plan bestimmt die Grenzen dieser Organisation. Ein niedrigeres Limit entfernt nichts – abgelehnt wird erst die nächste Anlage. Die Zuordnung gilt ab der nächsten Prüfung und wird im Sicherheitsprotokoll vermerkt.",
         "loadFailed": "Plan und Verbrauch konnten nicht geladen werden.",
-        "platformInfo": "Der Plattform-Garten folgt immer den Instanz-Einstellungen und nimmt keinen Plan an. Die Werte unten sind die Instanz-Einstellungen.",
-        "deletedInfo": "Dieser Garten wird gerade gelöscht; sein Plan lässt sich nicht mehr ändern.",
+        "platformInfo": "Die Plattform-Organisation folgt immer den Instanz-Einstellungen und nimmt keinen Plan an. Die Werte unten sind die Instanz-Einstellungen.",
+        "deletedInfo": "Diese Organisation wird gerade gelöscht; ihr Plan lässt sich nicht mehr ändern.",
         "plan": "Plan",
-        "planHelper": "Wähle den Plan und bestätige mit „Plan zuordnen“. Auch ein gesperrter Garten kann einen anderen Plan bekommen.",
+        "planHelper": "Wähle den Plan und bestätige mit „Plan zuordnen“. Auch eine gesperrte Organisation kann einen anderen Plan bekommen.",
         "catalogueFailed": "Die Pläne konnten nicht geladen werden; lade die Seite neu.",
         "optionDefault": "{{name}} (Standard)",
         "assign": "Plan zuordnen",
@@ -5121,8 +5125,8 @@
         "currentPlan": "Plan: {{name}}",
         "usageTitle": "Verbrauch je Kontingent",
         "owner": "Eigentümer",
-        "ownerHelper": "Das Konto, das den Garten besitzt.",
-        "ownerNotMember": "Kein aktives Mitglied dieses Gartens"
+        "ownerHelper": "Das Konto, das die Organisation besitzt.",
+        "ownerNotMember": "Kein aktives Mitglied dieser Organisation"
       }
     }
   }
