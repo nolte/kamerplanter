@@ -137,7 +137,31 @@ The worker processes three queues (issue #2128):
 
 The chart starts the worker with `-Q critical,celery,bulk`. **A queue no worker reads keeps its tasks in Valkey forever** — without any error. If you override the worker `args` in your values, carry the queue list over completely or drop `-Q` altogether (the worker then reads every queue the application declares).
 
-To run `bulk` in a worker of its own, give that worker `-Q bulk` and the existing one `-Q critical,celery` — never leave a queue out of both. An additional worker needs the same environment, Secrets and NetworkPolicy as `celery-worker`.
+##### One worker per queue {#celery-worker-pro-queue}
+
+One switch gives every queue a worker of its own:
+
+```yaml
+celeryWorkers:
+  dedicatedQueues: true
+```
+
+| Deployment | Queue |
+|---|---|
+| `celery-worker` | `critical` |
+| `celery-worker-default` | `celery` |
+| `celery-worker-bulk` | `bulk` |
+
+Without the switch (the default) the one `celery-worker` reads all three queues. A long run in `bulk` then occupies one of its two processes; the second keeps working. With the switch, a dataset or image acquisition can no longer hold up a reminder, an erasure or a frost warning at all.
+
+The two additional workers are copies of `celery-worker`: the same image, environment, probes, resources, the attachments volume and a NetworkPolicy of their own with the same rules. Only the queue differs. They read the image from `controllers.celery-worker` at render time — if you override its tag or digest there (GitOps overlay, Skaffold, release pin), it applies to all three.
+
+!!! warning "Two more pods on the backend's node"
+    Each additional worker requests 100m CPU and 512 Mi memory like `celery-worker` (limit 2 Gi). With the default `ReadWriteOnce` volume, every pod that mounts the attachments runs on **one** node — the backend's. Plan that node's memory for it, or switch to [S3](#storage-konfiguration-nfr-013); the workers then spread freely.
+
+If a profile switches `celery-worker` off (the `ki` and `recognition` overlays), no copies are created either. If you override the worker `args` yourself, the rule still holds: every queue needs at least one worker that reads it.
+
+**Acknowledged after the run.** Clean-up runs whose second pass finds nothing left (expired tokens, consents, audit entries, erasure records, IP anonymisation, expired overrides) acknowledge their message only once they are done. If a worker pod disappears mid-run, Valkey hands the message out again after the visibility timeout (just over four hours) instead of losing the run until the next day. Notifications, the actuator control loop and erasure runs still acknowledge on start — a second run there would notify or switch twice.
 
 **Readiness (issue #2154).** The worker counts as ready only once it takes tasks: with `WORKER_READY_FILE` it checks its ArangoDB login at start (for up to 60 seconds), writes the file as soon as its consumer runs, and the startup and readiness probes test it (`test -f`, which costs next to nothing). If a new worker cannot log in after an upgrade — wrong password, application account not provisioned — it exits, never becomes ready, and the rollout keeps the old worker. The liveness probe asks its own worker with `inspect ping -d "celery@${HOSTNAME}"`; an `inspect ping` without a destination succeeds as long as any worker answers.
 

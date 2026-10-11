@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from datetime import datetime
 
 from app.common.enums import ReminderType
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
@@ -208,6 +209,21 @@ class ITaskRepository(ABC):
         The idempotency question of the generators whose task names are
         deterministic keys, answered in the store: tenant-scoped and with no page
         cap for the match to fall off. See the ArangoDB implementation.
+        """
+        ...
+
+    @abstractmethod
+    def list_open_care_reminders_due(
+        self,
+        *,
+        tenant_key: str,
+        due_until: datetime,
+        due_from: datetime | None = None,
+    ) -> list[Task]:
+        """Open care reminders of one tenant due in ``[due_from, due_until]`` (MT-032, #2128).
+
+        Filtered in the store, so a notification beat never loads the tenant's
+        other tasks; ``due_from=None`` includes everything overdue.
         """
         ...
 

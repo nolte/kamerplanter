@@ -106,6 +106,33 @@ storage:
       accessKeyIdKey: STORAGE_S3_ACCESS_KEY_ID
       secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
 
+# -- Celery workers per queue (MT-032, #2128).
+#
+# The application routes every task to one of three queues
+# (src/backend/app/tasks/routing.py): ``critical`` (retention and erasure,
+# notifications, frost warnings, the actuator control loop), ``celery`` (the
+# default) and ``bulk`` (dataset and reference-image acquisition, enrichment
+# syncs, storage migrations).
+#
+#   * ``dedicatedQueues: false`` (default): ONE worker, ``controllers.celery-worker``,
+#     consumes all three. A long bulk job occupies one of its processes; the
+#     other keeps serving (``--concurrency=2``, prefetch 1).
+#   * ``dedicatedQueues: true``: one Deployment per queue. ``celery-worker``
+#     consumes only ``critical``; ``celery-worker-default`` consumes ``celery``;
+#     ``celery-worker-bulk`` consumes ``bulk``. A dataset or image job can then
+#     no longer delay a reminder, an erasure or a frost warning at all.
+#
+# The two extra workers are copies of ``celery-worker`` (same image — read from
+# ``controllers.celery-worker`` so a tag or digest override there reaches them —,
+# env, probes, resources, storage mount and NetworkPolicy); only the queue
+# differs. Cost: two more pods with the worker's requests (100m CPU / 512Mi each).
+# They mount the attachments claim like the worker and therefore follow the
+# same node rule (#2153): with a ReadWriteOnce local-fs claim all three land on
+# the backend's node — plan the node's memory for it, or use
+# ``storage.backend: s3``. Docs: docs/de/deployment/helm.md#celery-worker-pro-queue.
+celeryWorkers:
+  dedicatedQueues: false
+
 # -- Render-time checks (#2124). bjw-s renders every string in these values as a
 # template, and ``fail`` aborts ``helm template`` / ``helm upgrade`` / the ArgoCD
 # render with the message — before anything reaches the cluster. The checks
@@ -117,7 +144,7 @@ renderChecks:
     {{- fail (printf "storage.backend must be local-fs or s3, got %q" (toString $storage.backend)) -}}
     {{- end -}}
     {{- if and (eq $storage.backend "local-fs") (ne $storage.localFs.pvc.accessMode "ReadWriteMany") (not $storage.localFs.singleNode) -}}
-    {{- range $name := list "backend" "celery-worker" -}}
+    {{- range $name := list "backend" "celery-worker" "celery-worker-default" "celery-worker-bulk" -}}
     {{- $controller := index $.Values.controllers $name | default dict -}}
     {{- /* #2127: an autoscaler scales up to maxReplicas, so it is held to the same volume rule as replicas. */ -}}
     {{- $replicas := int (default 1 $controller.replicas) -}}
@@ -1103,7 +1130,7 @@ controllers:
     rollingUpdate:
       surge: 1
       unavailable: 0
-    pod:
+    pod: &celery-worker-pod
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -1119,19 +1146,27 @@ controllers:
       labels: *attachments-volume-label
       affinity: *attachments-volume-affinity
     containers:
-      main:
+      main: &celery-worker-main
         image:
           repository: ghcr.io/nolte/kamerplanter-backend
           tag: latest
           pullPolicy: IfNotPresent
         command: ["celery"]
         # MT-032 (#2128): consume every queue the application declares
-        # (app/tasks/routing.py). A queue no worker consumes keeps its tasks in
-        # Valkey forever, silently — tests/unit/guards/test_every_task_has_a_queue.py
-        # and scripts/ci/assert_chart_contracts.sh hold this list to the code.
-        # To run `bulk` in a worker of its own, give that worker `-Q bulk` and
-        # this one `-Q critical,celery` — never drop a queue from both.
-        args: ["-A", "app.tasks", "worker", "--loglevel=info", "--concurrency=2", "-Q", "critical,celery,bulk"]
+        # (app/tasks/routing.py) — all three, or only `critical` while
+        # `celeryWorkers.dedicatedQueues` runs `celery` and `bulk` in workers of
+        # their own (celery-worker-default / celery-worker-bulk below). A queue no
+        # worker consumes keeps its tasks in Valkey forever, silently —
+        # tests/unit/guards/test_every_task_has_a_queue.py and
+        # scripts/ci/assert_chart_contracts.sh hold both states to the code.
+        args:
+          - "-A"
+          - "app.tasks"
+          - "worker"
+          - "--loglevel=info"
+          - "--concurrency=2"
+          - "-Q"
+          - '{{ if .Values.celeryWorkers.dedicatedQueues }}critical{{ else }}critical,celery,bulk{{ end }}'
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -1256,6 +1291,49 @@ controllers:
           limits:
             cpu: 500m
             memory: 2Gi
+
+  # -- MT-032 (#2128): the workers of `celery` and `bulk` while
+  # `celeryWorkers.dedicatedQueues` is true. Copies of celery-worker — the pod
+  # and the main container are the YAML anchors above, so an env line, probe or
+  # resource added there reaches them —, with their own queue. The image is read
+  # from controllers.celery-worker at render time: a `--set` / GitOps override
+  # of its tag or digest (skaffold, the release pin) applies to all three.
+  # `enabled` renders to "true" or to "" (bjw-s tests it for truth, see
+  # persistence.backend-attachments); off with dedicatedQueues false and in a
+  # profile that switches celery-worker itself off.
+  celery-worker-default:
+    enabled: &celery-worker-dedicated-enabled >-
+      {{- if and .Values.celeryWorkers.dedicatedQueues (ne (toString (index .Values.controllers "celery-worker" "enabled")) "false") }}true{{ end -}}
+    type: deployment
+    replicas: 1
+    strategy: RollingUpdate
+    rollingUpdate:
+      surge: 1
+      unavailable: 0
+    pod: *celery-worker-pod
+    containers:
+      main:
+        <<: *celery-worker-main
+        image: &celery-worker-image
+          repository: '{{ index .Values.controllers "celery-worker" "containers" "main" "image" "repository" }}'
+          tag: '{{ index .Values.controllers "celery-worker" "containers" "main" "image" "tag" }}'
+          pullPolicy: '{{ index .Values.controllers "celery-worker" "containers" "main" "image" "pullPolicy" }}'
+        args: ["-A", "app.tasks", "worker", "--loglevel=info", "--concurrency=2", "-Q", "celery"]
+
+  celery-worker-bulk:
+    enabled: *celery-worker-dedicated-enabled
+    type: deployment
+    replicas: 1
+    strategy: RollingUpdate
+    rollingUpdate:
+      surge: 1
+      unavailable: 0
+    pod: *celery-worker-pod
+    containers:
+      main:
+        <<: *celery-worker-main
+        image: *celery-worker-image
+        args: ["-A", "app.tasks", "worker", "--loglevel=info", "--concurrency=2", "-Q", "bulk"]
 
   celery-beat:
     type: deployment
@@ -1978,6 +2056,41 @@ persistence:
         main:
           - path: /tmp
 
+  # -- MT-032 (#2128): the two volumes above for the dedicated queue workers
+  # (celeryWorkers.dedicatedQueues). Separate items because bjw-s refuses a mount
+  # for a controller that is switched off, and these two exist only while the
+  # workers do. `worker-attachments` mounts the SAME claim as backend-attachments
+  # (`existingClaim` = the name bjw-s gives that claim, the release fullname; it
+  # creates no claim of its own) — scripts/ci/assert_chart_contracts.sh holds the
+  # two names equal.
+  worker-attachments:
+    enabled: >-
+      {{- if and .Values.celeryWorkers.dedicatedQueues (ne (toString (index .Values.controllers "celery-worker" "enabled")) "false") (eq .Values.storage.backend "local-fs") }}true{{ end -}}
+    type: persistentVolumeClaim
+    existingClaim: '{{ include "bjw-s.common.lib.chart.names.fullname" . }}'
+    advancedMounts:
+      celery-worker-default:
+        main:
+          - path: '{{ .Values.storage.localFs.root }}'
+      celery-worker-bulk:
+        main:
+          - path: '{{ .Values.storage.localFs.root }}'
+
+  # One emptyDir per pod; it holds each worker's WORKER_READY_FILE (#2154).
+  worker-dedicated-tmp:
+    enabled: >-
+      {{- if and .Values.celeryWorkers.dedicatedQueues (ne (toString (index .Values.controllers "celery-worker" "enabled")) "false") (ne (toString (index .Values.persistence "celery-worker-tmp" "enabled")) "false") }}true{{ end -}}
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      celery-worker-default:
+        main:
+          - path: /tmp
+      celery-worker-bulk:
+        main:
+          - path: /tmp
+
   # -- ArangoDB apps directory (required at startup, not persisted)
   arangodb-apps:
     enabled: true
@@ -2330,10 +2443,10 @@ networkpolicies:
   # Celery worker: no ingress needed, same egress as backend
   celery-worker:
     controller: celery-worker
-    policyTypes:
+    policyTypes: &celery-worker-netpol-types
       - Ingress
       - Egress
-    rules:
+    rules: &celery-worker-netpol-rules
       ingress: []
       egress:
         # ArangoDB
@@ -2420,6 +2533,19 @@ networkpolicies:
             - protocol: TCP
               port: 465
 
+  # MT-032 (#2128) — the dedicated queue workers (celeryWorkers.dedicatedQueues)
+  # get the worker's own policy, one per controller; on and off with them.
+  celery-worker-default:
+    enabled: *celery-worker-dedicated-enabled
+    controller: celery-worker-default
+    policyTypes: *celery-worker-netpol-types
+    rules: *celery-worker-netpol-rules
+  celery-worker-bulk:
+    enabled: *celery-worker-dedicated-enabled
+    controller: celery-worker-bulk
+    policyTypes: *celery-worker-netpol-types
+    rules: *celery-worker-netpol-rules
+
   # Celery beat: no ingress needed, only Redis + DNS
   celery-beat:
     controller: celery-beat
@@ -2465,6 +2591,13 @@ networkpolicies:
             - podSelector:
                 matchLabels:
                   app.kubernetes.io/controller: celery-worker
+            # MT-032 (#2128) — the dedicated queue workers (celeryWorkers.dedicatedQueues).
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker-default
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker-bulk
             - podSelector:
                 matchLabels:
                   app.kubernetes.io/controller: arangodb-backup
@@ -2548,6 +2681,13 @@ networkpolicies:
             - podSelector:
                 matchLabels:
                   app.kubernetes.io/controller: celery-worker
+            # MT-032 (#2128) — the dedicated queue workers (celeryWorkers.dedicatedQueues).
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker-default
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker-bulk
             - podSelector:
                 matchLabels:
                   app.kubernetes.io/controller: celery-beat
@@ -2585,6 +2725,13 @@ networkpolicies:
             - podSelector:
                 matchLabels:
                   app.kubernetes.io/controller: celery-worker
+            # MT-032 (#2128) — the dedicated queue workers (celeryWorkers.dedicatedQueues).
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker-default
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker-bulk
           ports:
             - protocol: TCP
               port: 8000

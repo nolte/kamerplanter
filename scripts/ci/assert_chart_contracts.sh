@@ -326,6 +326,61 @@ expect storage-default "the worker excludes no queue" \
   "$(main_of celery-worker) | .args[] | select(test(\"^(-X|--exclude-queues)\"))" '[]'
 
 # ---------------------------------------------------------------------------
+# #2128 (MT-032) — `celeryWorkers.dedicatedQueues`: one worker Deployment per queue.
+#
+# On, celery-worker consumes `critical` only and two copies of it consume
+# `celery` and `bulk`. Every queue must still have exactly one consumer, and the
+# copies must be the worker in every respect but the queue: the same image (an
+# override of celery-worker's tag or digest — skaffold, the release pin — must
+# reach them, or a copy runs another release's code), the same attachment
+# claim (a new name would be a new, empty claim), the same egress, and a peer
+# entry on every policy that admits the worker. Off — the default — nothing of
+# it renders. In a profile that switches celery-worker off, the switch turns no
+# copy on.
+# ---------------------------------------------------------------------------
+queues_of() { printf '%s | .args | join(" ") | capture("(^| )(-Q|--queues)[ =](?P<q>[^ ]+)") | .q | split(",") | .[]' "$(main_of "$1")"; }
+worker_deploys='select(.kind == "Deployment" and (.metadata.name | test("^kamerplanter-celery-worker")))'
+render workers-dedicated --set celeryWorkers.dedicatedQueues=true
+expect workers-dedicated "celery-worker consumes critical only" "$(queues_of celery-worker)" '["critical"]'
+expect workers-dedicated "celery-worker-default consumes celery" "$(queues_of celery-worker-default)" '["celery"]'
+expect workers-dedicated "celery-worker-bulk consumes bulk" "$(queues_of celery-worker-bulk)" '["bulk"]'
+expect_set workers-dedicated "every queue has exactly one consumer" \
+  "${worker_deploys} | .spec.template.spec.containers[] | select(.name == \"main\") | .args | join(\" \") | capture(\"(^| )(-Q|--queues)[ =](?P<q>[^ ]+)\") | .q | split(\",\") | .[]" \
+  '["bulk","celery","critical"]'
+expect storage-default "no dedicated worker renders by default" \
+  "select(.metadata.name | test(\"^kamerplanter-celery-worker-(default|bulk)$\")) | .kind" '[]'
+expect workers-dedicated "the copies mount the worker's attachment claim, and no second claim exists" \
+  "${worker_deploys} | .spec.template.spec.volumes[] | select(.persistentVolumeClaim) | .persistentVolumeClaim.claimName" \
+  '["kamerplanter","kamerplanter","kamerplanter"]'
+expect workers-dedicated "one attachment claim" 'select(.kind == "PersistentVolumeClaim") | .metadata.name' '["kamerplanter"]'
+expect workers-dedicated "every worker writes and probes its readiness file on its own /tmp" \
+  "${worker_deploys} | .spec.template.spec.containers[] | select(.name == \"main\") | [(.env[] | select(.name == \"WORKER_READY_FILE\") | .value), (.volumeMounts[] | select(.mountPath == \"/tmp\") | .mountPath), (.readinessProbe.exec.command | join(\" \"))] | join(\"|\")" \
+  '["/tmp/worker-ready|/tmp|test -f /tmp/worker-ready","/tmp/worker-ready|/tmp|test -f /tmp/worker-ready","/tmp/worker-ready|/tmp|test -f /tmp/worker-ready"]'
+render workers-dedicated-pinned --set celeryWorkers.dedicatedQueues=true \
+  --set controllers.celery-worker.containers.main.image.tag=9.9.9-render
+expect workers-dedicated-pinned "an override of celery-worker's image reaches every worker" \
+  "${worker_deploys} | .spec.template.spec.containers[] | select(.name == \"main\") | .image" \
+  '["ghcr.io/nolte/kamerplanter-backend:9.9.9-render","ghcr.io/nolte/kamerplanter-backend:9.9.9-render","ghcr.io/nolte/kamerplanter-backend:9.9.9-render"]'
+egress_count="$(yq e '[.[] | select(.kind == "NetworkPolicy" and (.metadata.name | test("^kamerplanter-celery-worker"))) | .spec.egress | to_json(0)] | {"policies": length, "distinct": (unique | length)} | to_json(0)' "${work}/workers-dedicated.yaml")"
+if [[ "${egress_count}" != '{"policies":3,"distinct":1}' ]]; then
+  fail "workers-dedicated: every worker needs its own NetworkPolicy with the worker's egress — rendered ${egress_count}"
+fi
+for peer in arangodb valkey; do
+  expect_set workers-dedicated "the ${peer} policy admits every worker" \
+    "$(netpol "${peer}") | .spec.ingress[] | .from[] | .podSelector.matchLabels.\"app.kubernetes.io/controller\" | select(. != null and test(\"^celery-worker\"))" \
+    '["celery-worker","celery-worker-bulk","celery-worker-default"]'
+done
+render workers-dedicated-s3 --set celeryWorkers.dedicatedQueues=true --set storage.backend=s3 --set storage.s3.bucket=kp-attachments-render
+expect workers-dedicated-s3 "with s3 no worker mounts a claim" \
+  "${worker_deploys} | .spec.template.spec.volumes[] | select(.persistentVolumeClaim) | .persistentVolumeClaim.claimName" '[]'
+for profile in values-dev-ki values-dev-recognition; do
+  render "workers-dedicated-${profile}" -f "${CHART}/${profile}.yaml" --set celeryWorkers.dedicatedQueues=true
+  expect "workers-dedicated-${profile}" "a profile without the worker gets no copy of it" "${worker_deploys} | .metadata.name" '[]'
+done
+expect_refusal workers-dedicated-bulk-two-rwo "controllers.celery-worker-bulk scales to 2" \
+  --set celeryWorkers.dedicatedQueues=true --set controllers.celery-worker-bulk.replicas=2
+
+# ---------------------------------------------------------------------------
 # #2154 — the worker is ready when its consumer runs, and only then.
 #
 # No readiness probe meant a worker counted ready at container start: an
