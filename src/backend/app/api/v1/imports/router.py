@@ -119,7 +119,8 @@ async def upload_csv(
     if content_type not in ALLOWED_MIME_TYPES:
         raise UnsupportedMediaTypeError(sorted(ALLOWED_MIME_TYPES))
 
-    content = await file.read()
+    # #2254 — at most one byte past the limit is read; the check below refuses it.
+    content = await file.read(MAX_UPLOAD_SIZE_BYTES + 1)
 
     # SEC-M-008: Validate file size
     if len(content) > MAX_UPLOAD_SIZE_BYTES:

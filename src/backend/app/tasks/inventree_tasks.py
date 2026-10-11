@@ -67,7 +67,7 @@ def _run_per_connection(operation: str) -> dict:
             continue
         totals["connections"] += 1
         try:
-            engine = service._sync_engine_for(connection, tenant_key)  # noqa: SLF001
+            engine = service._sync_engine_for(connection, tenant_key=tenant_key)  # noqa: SLF001
             if operation == "sync":
                 asyncio.run(engine.sync_stock_levels())
             else:

@@ -13,7 +13,9 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.responses import StreamingResponse
+from starlette.requests import Request
 
+from app.api.v1.attachments.response_headers import object_etag, rendition_etag
 from app.api.v1.ipm import pest_images_router
 from app.common.enums import PestImageStatus
 from app.common.exceptions import NotFoundError, ValidationError
@@ -21,6 +23,11 @@ from app.data_access.external.rendition_dispatch_claims import MemoryRenditionDi
 from app.domain.models.attachment import Attachment
 from app.domain.models.pest_image import PestImageContribution
 from app.domain.services.pest_image_service import PestImageContent
+
+
+def _request(if_none_match: str | None = None) -> Request:
+    headers = [(b"if-none-match", if_none_match.encode())] if if_none_match else []
+    return Request({"type": "http", "method": "GET", "path": "/", "headers": headers, "query_string": b""})
 
 
 def _attachment(key: str = "att1", mime: str = "image/jpeg") -> Attachment:
@@ -81,11 +88,33 @@ class TestGlobalContentSecurity:
     async def test_promoted_image_streams_200(self):
         service = _FakeService(content=_content())
 
-        resp = await pest_images_router.get_promoted_pest_image("pic1", _user=None, service=service)
+        resp = await pest_images_router.get_promoted_pest_image("pic1", request=_request(), _user=None, service=service)
 
         assert isinstance(resp, StreamingResponse)
         assert resp.media_type == "image/jpeg"
-        assert resp.headers.get("ETag") == '"' + "a" * 64 + '"'
+        # #2254 — not the bare upload hash (pre-EXIF-strip), and revalidated on reuse.
+        assert resp.headers.get("ETag") == object_etag("t1/att1", "a" * 64)
+        assert "a" * 64 not in resp.headers["ETag"]
+        assert resp.headers["Cache-Control"] == "private, no-cache"
+
+    @pytest.mark.asyncio
+    async def test_a_matching_etag_answers_304_after_the_promotion_check(self):
+        etag = object_etag("t1/att1", "a" * 64)
+        resp = await pest_images_router.get_promoted_pest_image(
+            "pic1", request=_request(etag), _user=None, service=_FakeService(content=_content())
+        )
+        assert resp.status_code == 304
+        assert resp.headers["ETag"] == etag
+
+    @pytest.mark.asyncio
+    async def test_a_withdrawn_promotion_is_not_revalidated_from_cache(self):
+        with pytest.raises(NotFoundError):
+            await pest_images_router.get_promoted_pest_image(
+                "pic1",
+                request=_request(object_etag("t1/att1", "a" * 64)),
+                _user=None,
+                service=_FakeService(content=None),
+            )
 
     @pytest.mark.asyncio
     async def test_private_image_is_404(self):
@@ -93,14 +122,16 @@ class TestGlobalContentSecurity:
         service = _FakeService(content=None)
 
         with pytest.raises(NotFoundError):
-            await pest_images_router.get_promoted_pest_image("pic-private", _user=None, service=service)
+            await pest_images_router.get_promoted_pest_image(
+                "pic-private", request=_request(), _user=None, service=service
+            )
 
     @pytest.mark.asyncio
     async def test_unknown_image_is_404(self):
         service = _FakeService(content=None)
 
         with pytest.raises(NotFoundError):
-            await pest_images_router.get_promoted_pest_image("missing", _user=None, service=service)
+            await pest_images_router.get_promoted_pest_image("missing", request=_request(), _user=None, service=service)
 
 
 class TestGlobalThumbnail:
@@ -108,24 +139,32 @@ class TestGlobalThumbnail:
     async def test_promoted_thumbnail_streams_200(self):
         service = _FakeService(content=_content())
 
-        resp = await pest_images_router.get_promoted_pest_image_thumbnail("pic1", 512, _user=None, service=service)
+        resp = await pest_images_router.get_promoted_pest_image_thumbnail(
+            "pic1", 512, request=_request(), _user=None, service=service
+        )
 
         assert isinstance(resp, StreamingResponse)
         assert resp.media_type == "image/webp"
+        assert resp.headers["Cache-Control"] == "private, no-cache"
+        assert resp.headers["ETag"] == rendition_etag("t1/att1", "a" * 64, 512)
 
     @pytest.mark.asyncio
     async def test_private_thumbnail_is_404(self):
         service = _FakeService(content=None)
 
         with pytest.raises(NotFoundError):
-            await pest_images_router.get_promoted_pest_image_thumbnail("pic1", 512, _user=None, service=service)
+            await pest_images_router.get_promoted_pest_image_thumbnail(
+                "pic1", 512, request=_request(), _user=None, service=service
+            )
 
     @pytest.mark.asyncio
     async def test_invalid_size_is_validation_error(self):
         service = _FakeService(content=_content())
 
         with pytest.raises(ValidationError):
-            await pest_images_router.get_promoted_pest_image_thumbnail("pic1", 999, _user=None, service=service)
+            await pest_images_router.get_promoted_pest_image_thumbnail(
+                "pic1", 999, request=_request(), _user=None, service=service
+            )
 
     @pytest.mark.asyncio
     async def test_missing_rendition_returns_202(self):
@@ -133,7 +172,7 @@ class TestGlobalThumbnail:
 
         with patch("app.tasks.storage_tasks.generate_thumbnails.delay") as delay:
             resp = await pest_images_router.get_promoted_pest_image_thumbnail(
-                "pic1", 512, _user=None, service=service, claims=MemoryRenditionDispatchClaims()
+                "pic1", 512, request=_request(), _user=None, service=service, claims=MemoryRenditionDispatchClaims()
             )
 
         assert resp.status_code == 202

@@ -762,6 +762,39 @@ class FileTooLargeError(KamerplanterError):
         )
 
 
+class RequestBodyTooLargeError(KamerplanterError):
+    """#2254 — the request body passes the ASGI body ceiling (HTTP 413).
+
+    Raised by ``RequestBodyLimitMiddleware`` before routing, for any route: the
+    ceiling bounds what the multipart parser spools, not one route's file limit.
+    """
+
+    def __init__(self, max_bytes: int) -> None:
+        max_mb = max_bytes / (1024 * 1024)
+        super().__init__(
+            message=f"Request body exceeds the maximum allowed size of {max_mb:.0f} MB.",
+            error_code="REQUEST_BODY_TOO_LARGE",
+            status_code=413,
+        )
+
+
+class UploadCapacityExhaustedError(KamerplanterError):
+    """#2254 — the upload spool budget stayed taken for the whole wait (HTTP 503).
+
+    Concurrent multipart bodies share a byte budget sized to the backend's
+    temporary storage; a request that cannot get its share in time is told to
+    retry instead of filling ``/tmp`` until its parse fails.
+    """
+
+    def __init__(self, retry_after: int) -> None:
+        super().__init__(
+            message="Too many uploads are in progress. Try again shortly.",
+            error_code="UPLOAD_CAPACITY_EXHAUSTED",
+            status_code=503,
+        )
+        self.retry_after = retry_after
+
+
 class ImagePixelLimitError(KamerplanterError):
     """#2108 — an image whose header declares more pixels than the decode ceiling.
 

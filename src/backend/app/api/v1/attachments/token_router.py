@@ -22,7 +22,7 @@ import structlog
 from fastapi import APIRouter, Depends, Path
 from fastapi.responses import StreamingResponse
 
-from app.api.v1.attachments.response_headers import harden_download_headers
+from app.api.v1.attachments.response_headers import TOKEN_DOWNLOAD_CACHE_CONTROL, harden_download_headers
 from app.common.dependencies import get_object_storage
 from app.common.exceptions import InvalidTokenError, NotFoundError
 from app.common.log_privacy import log_tenant
@@ -68,7 +68,9 @@ async def redeem_token(
     # Audit the redemption with the tenant binding — never log the token itself.
     logger.info("attachment_token_download", tenant=log_tenant(tenant_key), attachment_id=payload.get("aid"))
 
-    headers = {"Cache-Control": "private, max-age=86400"}
+    # #2254 — nothing is stored: a cached copy would outlive the token's expiry
+    # and a deletion of the attachment.
+    headers = {"Cache-Control": TOKEN_DOWNLOAD_CACHE_CONTROL}
     disposition = payload.get("disposition")
     # Harden against content-sniffing / drive-by: force ``attachment`` for
     # non-image MIME types, always set ``X-Content-Type-Options: nosniff``

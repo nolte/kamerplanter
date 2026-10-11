@@ -155,37 +155,14 @@ def _not_strict() -> set[str]:
 #: nutrient plan): 150 entries. Re-measured 2026-10-11 after the planting-run and
 #: tank slices: 136. Re-measured 2026-10-11 after the harvest, feeding,
 #: watering, succession, import, post-harvest, activity-plan and
-#: overwintering slice: 106. Each line is a keyed write that can still be called
-#: without a tenant, or with a defaulted / positional one. Convert the method to
-#: ``*, tenant_key: str`` (and drop the router's pre-check), then delete the line.
+#: overwintering slice: 106. Re-measured 2026-10-11 after the actuator,
+#: aquaponics and InvenTree slice (positional tenant → keyword-only, every
+#: method of the class, see :data:`_WHOLE_CLASS_KEYWORD_ONLY`): 73. Each line is
+#: a keyed write that can still be called without a tenant, or with a defaulted /
+#: positional one. Convert the method to ``*, tenant_key: str`` (and drop the
+#: router's pre-check), then delete the line.
 _REMAINING: frozenset[str] = frozenset(
     {
-        "ActuatorService.apply_profile",
-        "ActuatorService.clear_override",
-        "ActuatorService.create_rule",
-        "ActuatorService.create_schedule",
-        "ActuatorService.delete_actuator",
-        "ActuatorService.delete_profile",
-        "ActuatorService.delete_rule",
-        "ActuatorService.delete_schedule",
-        "ActuatorService.send_command",
-        "ActuatorService.set_override",
-        "ActuatorService.toggle_rule",
-        "ActuatorService.toggle_schedule",
-        "ActuatorService.update_actuator",
-        "ActuatorService.update_profile",
-        "ActuatorService.update_rule",
-        "ActuatorService.update_schedule",
-        "AquaponikService.create_stock",
-        "AquaponikService.delete_stock",
-        "AquaponikService.delete_system",
-        "AquaponikService.record_feeding",
-        "AquaponikService.record_mortality",
-        "AquaponikService.record_supplementation",
-        "AquaponikService.record_water_test",
-        "AquaponikService.set_cycling_status",
-        "AquaponikService.update_stock",
-        "AquaponikService.update_system",
         "CareReminderService.advance_watering_task_after_log",
         "CareReminderService.complete_care_task_with_log",
         "CareReminderService.confirm_reminder",
@@ -202,13 +179,6 @@ _REMAINING: frozenset[str] = frozenset(
         "HaPublishService.bulk_set_published",
         "HaPublishService.set_published",
         "HardinessZoneService.resolve_for_site",
-        "InvenTreeService.delete_connection",
-        "InvenTreeService.delete_equipment",
-        "InvenTreeService.health_check",
-        "InvenTreeService.sync_reference",
-        "InvenTreeService.unlink_entity",
-        "InvenTreeService.update_connection",
-        "InvenTreeService.update_equipment",
         "IpmService.create_treatment_application",
         "IpmService.delete_disease",
         "IpmService.delete_pest",
@@ -302,6 +272,82 @@ def test_the_inventory_is_not_vacuous() -> None:
     } <= names
 
 
+# ── Whole classes: no method takes the tenant positionally ───────────────────────────────────────────
+#
+# The rule above sees only keyed writes. In a service whose every signature read
+# ``(key, tenant_key, data)`` the reads, lists and creates carried the same
+# transposable shape: ``create_actuator(location_key, tenant_key, actuator)`` and
+# ``list_schedules(actuator_key, tenant_key)`` put two ``str`` keys side by side, and
+# a swapped pair is caught by no type checker. A class converted in full is listed
+# here and held to it: every method, public or private, that takes ``tenant_key``
+# takes it keyword-only without a default. The set may only grow.
+
+_WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
+    "ActuatorService": "actuator_service.py",
+    "AquaponikService": "aquaponik_service.py",
+    "InvenTreeService": "inventree_service.py",
+}
+
+
+def _tenant_taking_methods(
+    services: Path, klass: str, filename: str
+) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
+    tree = ast.parse((services / filename).read_text(encoding="utf-8"))
+    (cls,) = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == klass]
+    found: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+    for fn in cls.body:
+        if not isinstance(fn, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        args = fn.args
+        if "tenant_key" in {a.arg for a in [*args.posonlyargs, *args.args, *args.kwonlyargs]}:
+            found[fn.name] = fn
+    return found
+
+
+def _loose_in_whole_classes(services: Path) -> list[str]:
+    return sorted(
+        f"{klass}.{name}"
+        for klass, filename in _WHOLE_CLASS_KEYWORD_ONLY.items()
+        for name, fn in _tenant_taking_methods(services, klass, filename).items()
+        if not _takes_tenant_strictly(fn)
+    )
+
+
+def test_a_converted_class_takes_the_tenant_keyword_only_in_every_method() -> None:
+    loose = _loose_in_whole_classes(_SERVICES)
+    assert loose == [], (
+        "These methods of a fully converted service take `tenant_key` positionally or with a default, "
+        f"where a swapped key is invisible to the type checker. Take `*, tenant_key: str` (#2107): {loose}"
+    )
+
+
+def test_the_whole_class_rule_is_not_vacuous() -> None:
+    """Every listed class exists and takes a tenant in many methods, so an empty match cannot pass."""
+    counts = {
+        klass: len(_tenant_taking_methods(_SERVICES, klass, filename))
+        for klass, filename in _WHOLE_CLASS_KEYWORD_ONLY.items()
+    }
+    assert all(count >= 20 for count in counts.values()), counts
+
+
+def test_the_whole_class_rule_finds_a_planted_positional_tenant(tmp_path: Path) -> None:
+    """End to end on a copy: one method put back to ``(key, tenant_key, data)`` is reported by name."""
+    import shutil
+
+    services = tmp_path / "services"
+    shutil.copytree(_SERVICES, services, ignore=shutil.ignore_patterns("__pycache__"))
+    assert _loose_in_whole_classes(services) == []  # the copy starts strict; a missed replace stays []
+    target = services / "aquaponik_service.py"
+    target.write_text(
+        target.read_text(encoding="utf-8").replace(
+            "def update_system(self, key: str, data: dict[str, Any], *, tenant_key: str)",
+            "def update_system(self, key: str, tenant_key: str, data: dict[str, Any])",
+        ),
+        encoding="utf-8",
+    )
+    assert _loose_in_whole_classes(services) == ["AquaponikService.update_system"]
+
+
 class TestTheRuleSeesTheShapes:
     """Self-tests on :func:`_shape` and :func:`_loads_by_key`, the expressions the rule evaluates."""
 
@@ -378,7 +424,7 @@ def _service_account_methods() -> dict[str, ast.FunctionDef]:
     }
 
 
-def _takes_tenant_strictly(function: ast.FunctionDef) -> bool:
+def _takes_tenant_strictly(function: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     args = function.args
     positional = [a.arg for a in args.posonlyargs + args.args]
     for arg, default in zip(args.kwonlyargs, args.kw_defaults, strict=True):

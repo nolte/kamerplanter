@@ -107,32 +107,32 @@ class InvenTreeService:
             redis_client=self._redis,
         )
 
-    def _load_owned_connection(self, key: str, tenant_key: str) -> InvenTreeConnection:
+    def _load_owned_connection(self, key: str, *, tenant_key: str) -> InvenTreeConnection:
         connection = self._repo.get_connection_or_raise(key)
         verify_tenant_ownership(connection, tenant_key, "InvenTreeConnection")
         return connection
 
-    def _sync_engine_for(self, connection: InvenTreeConnection, tenant_key: str) -> InvenTreeSyncEngine:
+    def _sync_engine_for(self, connection: InvenTreeConnection, *, tenant_key: str) -> InvenTreeSyncEngine:
         adapter = self._adapter_factory(connection)
         return InvenTreeSyncEngine(adapter, self._repo, tenant_key)
 
-    def _active_engine(self, tenant_key: str) -> InvenTreeSyncEngine:
+    def _active_engine(self, *, tenant_key: str) -> InvenTreeSyncEngine:
         self._require_enabled()
         connection = self._repo.get_active_connection(tenant_key)
         if connection is None:
             raise FeatureDisabledError("InvenTree integration", "no active connection configured for this tenant")
-        return self._sync_engine_for(connection, tenant_key)
+        return self._sync_engine_for(connection, tenant_key=tenant_key)
 
     # ── Connections ─────────────────────────────────────────────────────
 
-    def list_connections(self, tenant_key: str) -> list[InvenTreeConnection]:
+    def list_connections(self, *, tenant_key: str) -> list[InvenTreeConnection]:
         return self._repo.list_connections(tenant_key)
 
-    def get_connection(self, key: str, tenant_key: str) -> InvenTreeConnection:
-        return self._load_owned_connection(key, tenant_key)
+    def get_connection(self, key: str, *, tenant_key: str) -> InvenTreeConnection:
+        return self._load_owned_connection(key, tenant_key=tenant_key)
 
     def create_connection(
-        self, tenant_key: str, name: str, base_url: str, api_token: str, *, verify_ssl: bool = True, **extra: Any
+        self, name: str, base_url: str, api_token: str, *, tenant_key: str, verify_ssl: bool = True, **extra: Any
     ) -> InvenTreeConnection:
         self._require_enabled()
         # SSRF gate at write time — never persist a URL that dials an internal
@@ -150,9 +150,9 @@ class InvenTreeService:
         )
         return self._repo.create_connection(connection)
 
-    def update_connection(self, key: str, tenant_key: str, data: dict[str, Any]) -> InvenTreeConnection:
+    def update_connection(self, key: str, data: dict[str, Any], *, tenant_key: str) -> InvenTreeConnection:
         self._require_enabled()
-        connection = self._load_owned_connection(key, tenant_key)
+        connection = self._load_owned_connection(key, tenant_key=tenant_key)
         payload = dict(data)
         # Token rotation (IT-004): a new plaintext token is re-encrypted; an empty
         # or masked value preserves the stored ciphertext.
@@ -166,18 +166,18 @@ class InvenTreeService:
         updated = connection.model_copy(update=payload)
         return self._repo.update_connection(key, updated)
 
-    def delete_connection(self, key: str, tenant_key: str) -> None:
-        self._load_owned_connection(key, tenant_key)
+    def delete_connection(self, key: str, *, tenant_key: str) -> None:
+        self._load_owned_connection(key, tenant_key=tenant_key)
         self._repo.delete_connection(key)
 
-    async def health_check(self, key: str, tenant_key: str) -> dict[str, Any]:
+    async def health_check(self, key: str, *, tenant_key: str) -> dict[str, Any]:
         """Probe the connection. Never a 500 — a generic ``{"healthy": bool}``.
 
         IT-006: does not disclose whether the URL is a valid InvenTree instance
         when auth fails — a failed probe simply reports ``healthy: false``.
         """
         self._require_enabled()
-        connection = self._load_owned_connection(key, tenant_key)
+        connection = self._load_owned_connection(key, tenant_key=tenant_key)
         try:
             adapter = self._adapter_factory(connection)
             ok = await adapter.health_check()
@@ -195,9 +195,9 @@ class InvenTreeService:
 
     def list_references(
         self,
-        tenant_key: str,
         entity_collection: str | None = None,
         *,
+        tenant_key: str,
         offset: int | None = None,
         limit: int | None = None,
     ) -> list[InvenTreeReference]:
@@ -206,15 +206,15 @@ class InvenTreeService:
 
     async def link_entity(
         self,
-        tenant_key: str,
         entity_collection: str,
         entity_key: str,
         inventree_part_id: int,
         *,
+        tenant_key: str,
         auto_deduct: bool = False,
         deduct_unit: str | None = None,
     ) -> InvenTreeReference:
-        engine = self._active_engine(tenant_key)
+        engine = self._active_engine(tenant_key=tenant_key)
         return await engine.link_entity(
             entity_collection,
             entity_key,
@@ -223,18 +223,18 @@ class InvenTreeService:
             deduct_unit=deduct_unit,
         )
 
-    def _load_owned_reference(self, key: str, tenant_key: str) -> InvenTreeReference:
+    def _load_owned_reference(self, key: str, *, tenant_key: str) -> InvenTreeReference:
         reference = self._repo.get_reference_or_raise(key)
         verify_tenant_ownership(reference, tenant_key, "InvenTreeReference")
         return reference
 
-    def unlink_entity(self, key: str, tenant_key: str) -> None:
-        self._load_owned_reference(key, tenant_key)
+    def unlink_entity(self, key: str, *, tenant_key: str) -> None:
+        self._load_owned_reference(key, tenant_key=tenant_key)
         self._repo.delete_reference(key)
 
-    async def sync_reference(self, key: str, tenant_key: str) -> dict[str, Any]:
-        engine = self._active_engine(tenant_key)
-        reference = self._load_owned_reference(key, tenant_key)
+    async def sync_reference(self, key: str, *, tenant_key: str) -> dict[str, Any]:
+        engine = self._active_engine(tenant_key=tenant_key)
+        reference = self._load_owned_reference(key, tenant_key=tenant_key)
         part = await engine._adapter.get_part(reference.inventree_part_id)  # noqa: SLF001
         if part is None:
             raise NotFoundError("InvenTreePart", str(reference.inventree_part_id))
@@ -250,38 +250,38 @@ class InvenTreeService:
     # ── Browse ──────────────────────────────────────────────────────────
 
     async def browse_parts(
-        self, tenant_key: str, query: str, *, category_id: int | None = None, limit: int = 25
+        self, query: str, *, tenant_key: str, category_id: int | None = None, limit: int = 25
     ) -> list[dict[str, Any]]:
-        engine = self._active_engine(tenant_key)
+        engine = self._active_engine(tenant_key=tenant_key)
         parts = await engine._adapter.search_parts(query, category_id=category_id, limit=limit)  # noqa: SLF001
         return [p.model_dump() for p in parts]
 
-    async def browse_categories(self, tenant_key: str, *, parent_id: int | None = None) -> list[dict[str, Any]]:
-        engine = self._active_engine(tenant_key)
+    async def browse_categories(self, *, tenant_key: str, parent_id: int | None = None) -> list[dict[str, Any]]:
+        engine = self._active_engine(tenant_key=tenant_key)
         categories = await engine._adapter.get_categories(parent_id=parent_id)  # noqa: SLF001
         return [c.model_dump() for c in categories]
 
     # ── Sync + transactions ─────────────────────────────────────────────
 
-    async def sync_stock_levels(self, tenant_key: str) -> dict[str, Any]:
-        return await self._active_engine(tenant_key).sync_stock_levels()
+    async def sync_stock_levels(self, *, tenant_key: str) -> dict[str, Any]:
+        return await self._active_engine(tenant_key=tenant_key).sync_stock_levels()
 
-    async def push_pending_transactions(self, tenant_key: str) -> dict[str, Any]:
-        return await self._active_engine(tenant_key).push_pending_transactions()
+    async def push_pending_transactions(self, *, tenant_key: str) -> dict[str, Any]:
+        return await self._active_engine(tenant_key=tenant_key).push_pending_transactions()
 
     def list_transactions(
-        self, tenant_key: str, *, status: str | None = None, offset: int = 0, limit: int = 50
+        self, *, tenant_key: str, status: str | None = None, offset: int = 0, limit: int = 50
     ) -> list[StockTransaction]:
         return self._repo.find_transactions(tenant_key, status=status, offset=offset, limit=limit)
 
     # ── Equipment ───────────────────────────────────────────────────────
 
     def list_equipment(
-        self, tenant_key: str, *, equipment_type: str | None = None, status: str | None = None
+        self, *, tenant_key: str, equipment_type: str | None = None, status: str | None = None
     ) -> list[Equipment]:
         return self._repo.list_equipment(tenant_key, equipment_type=equipment_type, status=status)
 
-    def _require_owned_location(self, location_key: str | None, tenant_key: str) -> None:
+    def _require_owned_location(self, location_key: str | None, *, tenant_key: str) -> None:
         """Refuse an equipment location that is not the tenant's (#1871 B2).
 
         It was stored as given with an ``EQUIPMENT_AT`` edge to any tenant's
@@ -293,27 +293,27 @@ class InvenTreeService:
             raise NotFoundError("Location", location_key)
         resolve_owned_location(self._site_anchors, location_key, tenant_key)
 
-    def create_equipment(self, tenant_key: str, equipment: Equipment) -> Equipment:
+    def create_equipment(self, equipment: Equipment, *, tenant_key: str) -> Equipment:
         equipment.tenant_key = tenant_key
-        self._require_owned_location(equipment.location_key, tenant_key)
+        self._require_owned_location(equipment.location_key, tenant_key=tenant_key)
         return self._repo.create_equipment(equipment)
 
-    def get_equipment(self, key: str, tenant_key: str) -> Equipment:
+    def get_equipment(self, key: str, *, tenant_key: str) -> Equipment:
         equipment = self._repo.get_equipment_or_raise(key)
         verify_tenant_ownership(equipment, tenant_key, "Equipment")
         return equipment
 
-    def update_equipment(self, key: str, tenant_key: str, data: dict[str, Any]) -> Equipment:
-        equipment = self.get_equipment(key, tenant_key)
+    def update_equipment(self, key: str, data: dict[str, Any], *, tenant_key: str) -> Equipment:
+        equipment = self.get_equipment(key, tenant_key=tenant_key)
         location_changed = "location_key" in data and data["location_key"] != equipment.location_key
         if location_changed:
-            self._require_owned_location(data["location_key"], tenant_key)
+            self._require_owned_location(data["location_key"], tenant_key=tenant_key)
         updated = equipment.model_copy(update=data)
         return self._repo.update_equipment(key, updated, location_changed=location_changed)
 
-    def delete_equipment(self, key: str, tenant_key: str) -> None:
-        self.get_equipment(key, tenant_key)
+    def delete_equipment(self, key: str, *, tenant_key: str) -> None:
+        self.get_equipment(key, tenant_key=tenant_key)
         self._repo.delete_equipment(key)
 
-    def find_equipment_by_location(self, tenant_key: str, location_key: str) -> list[Equipment]:
+    def find_equipment_by_location(self, location_key: str, *, tenant_key: str) -> list[Equipment]:
         return self._repo.find_equipment_by_location(tenant_key, location_key)
