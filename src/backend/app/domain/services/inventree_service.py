@@ -88,7 +88,8 @@ class InvenTreeService:
 
     def _build_adapter(self, connection: InvenTreeConnection) -> InvenTreeAdapter:
         # Re-validate the stored URL before dialing — defense against a URL that
-        # became unsafe after storage or a DNS rebind (IT-003).
+        # became unsafe after storage (IT-003). A DNS rebind between this check and
+        # the connection is closed by the adapter's pinned transport (#2249).
         validate_inventree_url(
             connection.base_url,
             allow_private=settings.inventree_allow_private_endpoint,
