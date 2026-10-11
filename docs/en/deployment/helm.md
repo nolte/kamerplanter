@@ -614,6 +614,13 @@ The chart therefore already restricts egress for `backend` and `celery-worker` (
 !!! warning "A LAN Gotify or ntfy needs two opt-ins"
     Kamerplanter refuses a Gotify or ntfy on your home network (`192.168.x.x`) in `full` mode, and the chart's default egress blocks it as well. Set `APPRISE_ALLOW_PRIVATE_TARGETS=true` in the environment of `backend` and `celery-worker`, and add an egress rule for exactly that address and port to `networkpolicies.backend.rules.egress` and `networkpolicies.celery-worker.rules.egress` in your `valuesObject`. The opt-in applies to every user and every private address, pod IPs in the cluster included; the egress rule is then the actual barrier. Without a cluster NetworkPolicy (Docker Compose) no egress limit applies; only the backend check remains.
 
+### Outbound connections to Home Assistant and InvenTree
+
+Kamerplanter does not only check the Home Assistant and InvenTree URL when it is saved: every connection checks the addresses it opens to and connects only to one of them. A DNS answer that changes between the check and the connection (DNS rebinding) therefore does not lead to an internal address. Cloud metadata and link-local stay refused in every case, private addresses only with `HA_ALLOW_PRIVATE_ENDPOINT` or `INVENTREE_ALLOW_PRIVATE_ENDPOINT`. None of these connections follows a redirect, and neither does Web Push.
+
+!!! note "No HTTP proxy for these connections"
+    `HTTP_PROXY` and `HTTPS_PROXY` do not apply to Home Assistant and InvenTree: a proxy would resolve the name itself, which is exactly what the connection must not hand over. If your cluster needs a proxy for outbound traffic, allow Home Assistant and InvenTree directly through an egress rule.
+
 ### Virus Scanning (optional)
 
 ```yaml

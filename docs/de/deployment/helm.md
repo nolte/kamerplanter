@@ -615,6 +615,13 @@ Das Chart schränkt den Egress von `backend` und `celery-worker` deshalb bereits
 !!! warning "LAN-Gotify oder -ntfy braucht zwei Freigaben"
     Ein Gotify oder ntfy im Heimnetz (`192.168.x.x`) lehnt Kamerplanter im `full`-Modus ab, und der Standard-Egress des Charts blockiert es zusätzlich. Setze `APPRISE_ALLOW_PRIVATE_TARGETS=true` in der Umgebung von `backend` und `celery-worker` und ergänze in deinem `valuesObject` eine Egress-Regel für genau diese Adresse und diesen Port in `networkpolicies.backend.rules.egress` und `networkpolicies.celery-worker.rules.egress`. Die Freigabe gilt für alle Nutzer und alle privaten Adressen, also auch für Pod-IPs im Cluster; die Egress-Regel ist dann die eigentliche Schranke. Ohne Cluster-NetworkPolicy (Docker Compose) gilt keine Egress-Schranke; dann bleibt nur die Prüfung im Backend.
 
+### Ausgehende Verbindungen zu Home Assistant und InvenTree
+
+Kamerplanter prüft die URL von Home Assistant und InvenTree nicht nur beim Speichern: Jede Verbindung prüft die Adressen, zu denen sie aufgebaut wird, und verbindet sich nur mit einer davon. Eine DNS-Antwort, die sich zwischen Prüfung und Verbindung ändert (DNS-Rebinding), führt deshalb nicht an eine interne Adresse. Cloud-Metadaten und Link-Local bleiben immer gesperrt, private Adressen nur mit `HA_ALLOW_PRIVATE_ENDPOINT` bzw. `INVENTREE_ALLOW_PRIVATE_ENDPOINT`. Weiterleitungen folgt keine dieser Verbindungen, Web-Push ebenfalls nicht.
+
+!!! note "Kein HTTP-Proxy für diese Verbindungen"
+    Für Home Assistant und InvenTree gelten `HTTP_PROXY` und `HTTPS_PROXY` nicht: Ein Proxy würde den Namen selbst auflösen, und genau das soll die Verbindung nicht aus der Hand geben. Braucht dein Cluster für ausgehenden Verkehr einen Proxy, gib Home Assistant und InvenTree über eine Egress-Regel direkt frei.
+
 ### Virenscan (optional)
 
 ```yaml

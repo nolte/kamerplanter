@@ -24,13 +24,18 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import ssl
 import threading
 import time
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
-from urllib.parse import unquote_plus, urlsplit
+from functools import partial
+from urllib.parse import SplitResult, unquote_plus, urlsplit
 
+import anyio.to_thread
+import httpcore
+import httpx
 import structlog
 
 from app.common.exceptions import ValidationError
@@ -84,6 +89,21 @@ def _host_matches_allowlist(host: str, allowed_hosts: list[str]) -> bool:
     return any(host == entry or host.endswith(f".{entry}") for entry in allowed_hosts)
 
 
+def _split_url(url: str, *, field: str, code: str = "INVALID_URL") -> SplitResult:
+    """``urlsplit`` that refuses a malformed URL with a ``ValidationError`` (#2249).
+
+    ``urlsplit`` raises a bare ``ValueError`` for an unclosed IPv6 bracket
+    (``http://[::1``); before this, the validators let it escape as a 500.
+    """
+    try:
+        return urlsplit(url)
+    except ValueError:
+        raise ValidationError(
+            "Invalid URL.",
+            details=[{"field": field, "reason": "URL is malformed.", "code": code}],
+        ) from None
+
+
 def is_safe_push_endpoint(endpoint: str) -> bool:
     """Return True if ``endpoint`` is a safe, dial-able Web Push endpoint.
 
@@ -131,7 +151,7 @@ def validate_server_side_url(url: str, *, field: str = "url") -> str:
             details=[{"field": field, "reason": "URL is empty or too long.", "code": "INVALID_URL"}],
         )
 
-    parts = urlsplit(url)
+    parts = _split_url(url, field=field)
     if parts.scheme != "https":
         raise ValidationError(
             "URL must use https.",
@@ -235,9 +255,10 @@ def validate_oidc_fetch_url(
       (an explicitly configured ``jwks_url``), which is the same trust the admin already
       has over ``issuer_url``;
     * *trusted_host* — the host the provider itself is configured at (the name is compared; the
-      address is not pinned, so a name that changes its answer between this check and the
-      connection is the residual DNS-rebinding risk every validator in this module has — TLS
-      with a valid certificate for that name is what bounds it). A self-hosted IdP
+      address is not pinned — the OIDC fetches do not connect through :func:`pinned_transport`
+      (#2249) — so a name that changes its answer between this check and the connection is a
+      residual DNS-rebinding risk; TLS with a valid certificate for that name is what bounds
+      it). A self-hosted IdP
       on the LAN publishes a key set on its own host, and that is the one case where the
       provider-supplied ``jwks_uri`` of a discovery document is allowed a private address;
       a key endpoint on *another* private host is exactly the SSRF this exists to stop;
@@ -332,7 +353,7 @@ def validate_storage_endpoint_url(url: str, *, field: str = "s3_endpoint_url", a
             details=[{"field": field, "reason": "URL is empty or too long.", "code": "INVALID_URL"}],
         )
 
-    parts = urlsplit(url)
+    parts = _split_url(url, field=field)
     if parts.scheme not in ("http", "https"):
         raise ValidationError(
             "Storage endpoint must use http or https.",
@@ -425,7 +446,7 @@ def validate_ha_url(url: str, *, allow_private: bool = False, field: str = "ha_u
             details=[{"field": field, "reason": "URL is empty or too long.", "code": "INVALID_URL"}],
         )
 
-    parts = urlsplit(url)
+    parts = _split_url(url, field=field)
     if parts.scheme not in ("http", "https"):
         raise ValidationError(
             "Home Assistant URL must use http or https.",
@@ -447,6 +468,21 @@ def validate_ha_url(url: str, *, allow_private: bool = False, field: str = "ha_u
             details=[{"field": field, "reason": "Host does not resolve.", "code": "URL_UNRESOLVABLE"}],
         ) from None
 
+    _judge_ha_addresses(host, addresses, allow_private=allow_private, field=field)
+    return url
+
+
+def _judge_ha_addresses(
+    host: str, addresses: Sequence[ipaddress._BaseAddress], *, allow_private: bool, field: str = "ha_url"
+) -> None:
+    """The address rule of :func:`validate_ha_url`, for one resolver answer.
+
+    Shared by the validator and by the pinned connection (:func:`pinned_transport`,
+    #2249), so the address a request is sent to is judged by the very same rule.
+
+    Raises:
+        ValidationError: an address is link-local/metadata, or private without the opt-in.
+    """
     for address in addresses:
         # Link-local / metadata / reserved / multicast / unspecified — ALWAYS blocked.
         if _is_metadata_or_link_local(address):
@@ -477,8 +513,6 @@ def validate_ha_url(url: str, *, allow_private: bool = False, field: str = "ha_u
                     }
                 ],
             )
-
-    return url
 
 
 def validate_inventree_url(url: str, *, allow_private: bool = False, field: str = "base_url") -> str:
@@ -517,7 +551,7 @@ def validate_inventree_url(url: str, *, allow_private: bool = False, field: str 
             details=[{"field": field, "reason": "URL is empty or too long.", "code": "INVALID_URL"}],
         )
 
-    parts = urlsplit(url)
+    parts = _split_url(url, field=field)
     if parts.scheme not in ("http", "https"):
         raise ValidationError(
             "InvenTree URL must use http or https.",
@@ -539,6 +573,21 @@ def validate_inventree_url(url: str, *, allow_private: bool = False, field: str 
             details=[{"field": field, "reason": "Host does not resolve.", "code": "URL_UNRESOLVABLE"}],
         ) from None
 
+    _judge_inventree_addresses(host, addresses, allow_private=allow_private, field=field)
+    return url
+
+
+def _judge_inventree_addresses(
+    host: str, addresses: Sequence[ipaddress._BaseAddress], *, allow_private: bool, field: str = "base_url"
+) -> None:
+    """The address rule of :func:`validate_inventree_url`, for one resolver answer.
+
+    Shared by the validator and by the pinned connection (:func:`pinned_async_transport`,
+    #2249), so the address a request is sent to is judged by the very same rule.
+
+    Raises:
+        ValidationError: an address is link-local/metadata, or private without the opt-in.
+    """
     for address in addresses:
         # Link-local / metadata / reserved / multicast / unspecified — ALWAYS blocked.
         if _is_metadata_or_link_local(address):
@@ -570,7 +619,191 @@ def validate_inventree_url(url: str, *, allow_private: bool = False, field: str 
                 ],
             )
 
-    return url
+
+# ── Pinned connections (#2249) ──────────────────────────────────────
+#
+# Every validator above resolves the host and judges the answer — and then the
+# HTTP client resolves the name *again* when it connects. A name whose answer
+# changes in between (a TTL-0 record that says 93.184.216.34 once and 127.0.0.1
+# the next time: DNS rebinding) passes the check and is dialed at an address
+# nobody judged. Re-validating "immediately before every request" narrows the
+# window, it does not close it.
+#
+# A pinned transport closes it: its network backend is the place the connection
+# is opened, so it resolves the host there, judges *that* answer with the
+# caller's rule and dials only the judged addresses. The request itself is not
+# rewritten: the URL keeps its host name, so the ``Host`` header, TLS SNI,
+# certificate verification and the connection pool key are those of the name.
+# A redirect, should a caller ever follow one, opens its connection through the
+# same backend and is judged the same way.
+
+#: Judges one resolver answer for one host; raises ``ValidationError`` to refuse.
+AddressPolicy = Callable[[str, Sequence[ipaddress._BaseAddress]], None]
+
+#: The connection limits httpx gives a client of its own (``httpx.Limits`` defaults).
+_PINNED_LIMITS = httpx.Limits(max_connections=100, max_keepalive_connections=20, keepalive_expiry=5.0)
+
+
+class PinnedConnectRefusedError(httpcore.ConnectError):
+    """The host resolved, at connect time, to an address the caller's rule refuses (#2249).
+
+    A ``httpcore.ConnectError``, so httpx surfaces it as ``httpx.ConnectError`` and
+    every caller's existing "cannot connect" handling applies unchanged.
+    """
+
+
+def ha_address_policy(*, allow_private: bool, field: str = "ha_url") -> AddressPolicy:
+    """The Home Assistant address rule (:func:`validate_ha_url`) as a connect-time policy."""
+    return partial(_judge_ha_addresses, allow_private=allow_private, field=field)
+
+
+def inventree_address_policy(*, allow_private: bool, field: str = "base_url") -> AddressPolicy:
+    """The InvenTree address rule (:func:`validate_inventree_url`) as a connect-time policy."""
+    return partial(_judge_inventree_addresses, allow_private=allow_private, field=field)
+
+
+def _pinned_addresses(host: str, policy: AddressPolicy) -> list[str]:
+    """Resolve *host* once and return the addresses *policy* accepts, in resolver order.
+
+    Raises:
+        PinnedConnectRefusedError: an address of the answer is refused — the whole
+            answer is refused, as the validators do (a mixed public/private answer
+            is not "the public half").
+        httpcore.ConnectError: the host does not resolve.
+    """
+    try:
+        addresses = _resolved_addresses(host)
+    except OSError as exc:
+        raise httpcore.ConnectError("host does not resolve") from exc
+    if not addresses:
+        raise httpcore.ConnectError("host resolves to no address")
+    try:
+        policy(host, addresses)
+    except ValidationError as exc:
+        raise PinnedConnectRefusedError("connection refused: the host resolves to a blocked address") from exc
+    return list(dict.fromkeys(address.compressed for address in addresses))
+
+
+class _PinnedSyncBackend(httpcore.NetworkBackend):
+    """Opens TCP connections only to addresses judged at connect time."""
+
+    def __init__(self, policy: AddressPolicy) -> None:
+        self._policy = policy
+        self._inner = httpcore.SyncBackend()
+
+    def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.NetworkStream:
+        last_error: httpcore.ConnectError | None = None
+        for address in _pinned_addresses(host, self._policy):
+            try:
+                return self._inner.connect_tcp(
+                    address, port, timeout=timeout, local_address=local_address, socket_options=socket_options
+                )
+            except httpcore.ConnectError as exc:
+                last_error = exc
+        raise last_error or httpcore.ConnectError("no address to connect to")
+
+    def connect_unix_socket(
+        self,
+        path: str,
+        timeout: float | None = None,
+        socket_options: Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.NetworkStream:
+        raise httpcore.ConnectError("a pinned transport dials TCP only")
+
+    def sleep(self, seconds: float) -> None:
+        self._inner.sleep(seconds)
+
+
+class _PinnedAsyncBackend(httpcore.AsyncNetworkBackend):
+    """Async twin of :class:`_PinnedSyncBackend`; the resolver runs off the event loop."""
+
+    def __init__(self, policy: AddressPolicy) -> None:
+        self._policy = policy
+        self._inner = httpcore.AnyIOBackend()
+
+    async def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.AsyncNetworkStream:
+        last_error: httpcore.ConnectError | None = None
+        for address in await anyio.to_thread.run_sync(_pinned_addresses, host, self._policy):
+            try:
+                return await self._inner.connect_tcp(
+                    address, port, timeout=timeout, local_address=local_address, socket_options=socket_options
+                )
+            except httpcore.ConnectError as exc:
+                last_error = exc
+        raise last_error or httpcore.ConnectError("no address to connect to")
+
+    async def connect_unix_socket(
+        self,
+        path: str,
+        timeout: float | None = None,
+        socket_options: Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.AsyncNetworkStream:
+        raise httpcore.ConnectError("a pinned transport dials TCP only")
+
+    async def sleep(self, seconds: float) -> None:
+        await self._inner.sleep(seconds)
+
+
+class _PinnedTransport(httpx.HTTPTransport):
+    """``httpx.HTTPTransport`` whose connection pool dials through a pinned backend.
+
+    httpx does not take a network backend; its transport is otherwise exactly
+    this pool, so the pool is replaced with one that has the backend. No proxy:
+    a proxy would resolve the name itself, which is the gap being closed.
+    """
+
+    def __init__(self, policy: AddressPolicy, *, verify: bool | ssl.SSLContext = True) -> None:
+        super().__init__(verify=verify)
+        self._pool = httpcore.ConnectionPool(
+            ssl_context=httpx.create_ssl_context(verify=verify),
+            max_connections=_PINNED_LIMITS.max_connections,
+            max_keepalive_connections=_PINNED_LIMITS.max_keepalive_connections,
+            keepalive_expiry=_PINNED_LIMITS.keepalive_expiry,
+            network_backend=_PinnedSyncBackend(policy),
+        )
+
+
+class _PinnedAsyncTransport(httpx.AsyncHTTPTransport):
+    """Async twin of :class:`_PinnedTransport`."""
+
+    def __init__(self, policy: AddressPolicy, *, verify: bool | ssl.SSLContext = True) -> None:
+        super().__init__(verify=verify)
+        self._pool = httpcore.AsyncConnectionPool(
+            ssl_context=httpx.create_ssl_context(verify=verify),
+            max_connections=_PINNED_LIMITS.max_connections,
+            max_keepalive_connections=_PINNED_LIMITS.max_keepalive_connections,
+            keepalive_expiry=_PINNED_LIMITS.keepalive_expiry,
+            network_backend=_PinnedAsyncBackend(policy),
+        )
+
+
+def pinned_transport(policy: AddressPolicy, *, verify: bool | ssl.SSLContext = True) -> httpx.HTTPTransport:
+    """A sync httpx transport that connects only to addresses *policy* accepts at connect time (#2249).
+
+    Pass it as ``httpx.Client(transport=...)``. The validator still runs first (it
+    gives the caller a 422 with a reason); this closes the window between that
+    check and the connection.
+    """
+    return _PinnedTransport(policy, verify=verify)
+
+
+def pinned_async_transport(policy: AddressPolicy, *, verify: bool | ssl.SSLContext = True) -> httpx.AsyncHTTPTransport:
+    """Async twin of :func:`pinned_transport`, for ``httpx.AsyncClient(transport=...)``."""
+    return _PinnedAsyncTransport(policy, verify=verify)
 
 
 def validate_push_endpoint(endpoint: str) -> str:
@@ -593,7 +826,7 @@ def validate_push_endpoint(endpoint: str) -> str:
             details=[{"field": "endpoint", "reason": "Endpoint is empty or too long.", "code": "INVALID_ENDPOINT"}],
         )
 
-    parts = urlsplit(endpoint)
+    parts = _split_url(endpoint, field="endpoint", code="INVALID_ENDPOINT")
     if parts.scheme != "https":
         raise ValidationError(
             "Push endpoint must use https.",
