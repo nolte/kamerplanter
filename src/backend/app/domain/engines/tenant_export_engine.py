@@ -43,6 +43,7 @@ import re
 import zipfile
 import zlib
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import IO, Any, Literal
 
@@ -820,6 +821,39 @@ MAX_TENANT_JSON_BYTES = 1024 * 1024
 #: The deepest nesting a stored document reaches is single digits; anything deeper is crafted.
 MAX_JSON_DEPTH = 32
 
+#: Everything an archive may unpack to, documents and objects together (SEC-R2-01 of the PR #2267
+#: review). Fixed, not derived from the upload limit: the archive is held in memory while it is
+#: verified, and an upload limit an operator raises must not raise what one request may allocate.
+MAX_UNCOMPRESSED_BYTES = 1024 * 1024 * 1024
+
+#: Every part but ``objects/`` — the JSON that is parsed into Python objects, several times its
+#: size in memory. A real tenant's documents are a few MiB; 128 MiB is a very large garden.
+MAX_DOCUMENT_BYTES = 128 * 1024 * 1024
+
+#: Rows one JSONL part may hold, and all parts together. Counted on the bytes before a line is
+#: split or parsed: a part of empty objects (``{}\n``) is three bytes a row and a Python dict each.
+MAX_ROWS_PER_PART = 250_000
+MAX_ROWS = 1_000_000
+
+#: Unpacked size over packed size above which an entry is a decompression bomb, not a document.
+#: Deflated JSONL of real rows stays far below it (repeated keys reach 10-20x); a run of ``{}\n``
+#: deflates about 1000x.
+MAX_COMPRESSION_RATIO = 100
+
+#: Below this unpacked size the ratio is not checked: a small, repetitive part may compress well.
+_RATIO_FLOOR_BYTES = 1024 * 1024
+
+
+@dataclass(frozen=True)
+class _ReadLimits:
+    total: int
+    entry: int
+    entries: int
+    documents: int
+    rows_per_part: int
+    rows: int
+    ratio: int
+
 
 def _check_depth(value: Any, part: str) -> None:
     """Refuse a parsed value nested deeper than :data:`MAX_JSON_DEPTH` (iterative: no recursion to exhaust)."""
@@ -845,7 +879,11 @@ def _loads(data: bytes, part: str) -> Any:
     return value
 
 
-def _parse_lines(data: bytes, part: str) -> list[dict[str, Any]]:
+def _parse_lines(data: bytes, part: str, max_rows: int) -> list[dict[str, Any]]:
+    """The rows of one JSONL part; more than *max_rows* refuses before a line is split or parsed (SEC-R2-01)."""
+    # ``bytes.splitlines`` breaks at ``\n``, ``\r`` and ``\r\n``: their count bounds the line count.
+    if data.count(b"\n") + data.count(b"\r") > max_rows:
+        raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"{part}: more than {max_rows} rows")
     rows: list[dict[str, Any]] = []
     lines: list[bytes] = data.splitlines()
     for number, raw in enumerate(lines, start=1):
@@ -856,31 +894,48 @@ def _parse_lines(data: bytes, part: str) -> list[dict[str, Any]]:
         if not isinstance(document, dict):
             raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"{part}: line {number} is not an object")
         rows.append(document)
+    if len(rows) > max_rows:
+        raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"{part}: more than {max_rows} rows")
     return rows
 
 
 def read_tenant_archive(
     source: IO[bytes],
     *,
-    max_uncompressed_bytes: int,
+    max_uncompressed_bytes: int = MAX_UNCOMPRESSED_BYTES,
     max_entry_bytes: int | None = None,
     max_entries: int = MAX_ARCHIVE_ENTRIES,
     signing_key: bytes | None = None,
+    max_document_bytes: int = MAX_DOCUMENT_BYTES,
+    max_rows_per_part: int = MAX_ROWS_PER_PART,
+    max_rows: int = MAX_ROWS,
+    max_compression_ratio: int = MAX_COMPRESSION_RATIO,
 ) -> TenantArchive:
     """Verify and parse an archive: directory bounds, format, every checksum, every part listed.
 
     Everything the ZIP directory can tell — entry count, each entry's and the total
-    uncompressed size, the size of ``tenant.json`` — is checked **before** any entry is
-    decompressed (SEC-008). Every failure of the ZIP or JSON reader is a refusal
+    uncompressed size, the size of all document parts together, each entry's compression
+    ratio, the size of ``tenant.json`` — is checked **before** any entry is decompressed
+    (SEC-008, SEC-R2-01). The total is never more than :data:`MAX_UNCOMPRESSED_BYTES`,
+    whatever the caller asks for. The rows of a JSONL part are counted before the part is
+    split into lines. Every failure of the ZIP or JSON reader is a refusal
     (:class:`TenantArchiveError`: ``IMPORT_FORMAT_UNSUPPORTED`` / ``IMPORT_CHECKSUM_MISMATCH``),
     never an unhandled exception. With *signing_key* the manifest signature is checked:
     ``TenantArchive.verified`` says whether this installation wrote the archive unchanged
     (SEC-003); an unsigned or foreign archive reads as unverified, it is not refused.
     """
+    total = min(max_uncompressed_bytes, MAX_UNCOMPRESSED_BYTES)
+    limits = _ReadLimits(
+        total=total,
+        entry=min(max_entry_bytes or total, total),
+        entries=max_entries,
+        documents=min(max_document_bytes, total),
+        rows_per_part=max_rows_per_part,
+        rows=max_rows,
+        ratio=max_compression_ratio,
+    )
     try:
-        return _read(
-            source, max_uncompressed_bytes, max_entry_bytes or max_uncompressed_bytes, max_entries, signing_key
-        )
+        return _read(source, limits, signing_key)
     except TenantArchiveError:
         raise
     except (zipfile.BadZipFile, zipfile.LargeZipFile, RuntimeError, NotImplementedError, EOFError, OSError) as exc:
@@ -889,32 +944,45 @@ def read_tenant_archive(
         raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive's content has the wrong shape") from exc
 
 
-def _read(
-    source: IO[bytes], max_total: int, max_entry: int, max_entries: int, signing_key: bytes | None
-) -> TenantArchive:
+def _check_directory(infos: dict[str, zipfile.ZipInfo], limits: _ReadLimits) -> None:
+    """The bounds the ZIP directory alone can prove, before one entry is decompressed (SEC-008, SEC-R2-01)."""
+    if sum(info.file_size for info in infos.values()) > limits.total:
+        raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive unpacks beyond the import limit")
+    documents = sum(info.file_size for name, info in infos.items() if name[: len(OBJECTS_DIR)] != OBJECTS_DIR)
+    if documents > limits.documents:
+        raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive's documents unpack beyond the import limit")
+    for name, info in infos.items():
+        if info.file_size > _RATIO_FLOOR_BYTES and info.file_size > limits.ratio * max(info.compress_size, 1):
+            raise TenantArchiveError(
+                "IMPORT_FORMAT_UNSUPPORTED", f"an entry exceeds the compression ratio limit of {limits.ratio}: {name}"
+            )
+    if MANIFEST_NAME not in infos or infos[MANIFEST_NAME].file_size > MAX_TENANT_JSON_BYTES:
+        raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive has no readable manifest.json")
+    if TENANT_NAME in infos and infos[TENANT_NAME].file_size > MAX_TENANT_JSON_BYTES:
+        raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "tenant.json is larger than a tenant document")
+
+
+def _read(source: IO[bytes], limits: _ReadLimits, signing_key: bytes | None) -> TenantArchive:
     archive = zipfile.ZipFile(source)
     with archive:
         listed_infos: list[zipfile.ZipInfo] = archive.infolist()
-        if len(listed_infos) > max_entries:
-            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"the archive holds more than {max_entries} entries")
+        if len(listed_infos) > limits.entries:
+            raise TenantArchiveError(
+                "IMPORT_FORMAT_UNSUPPORTED", f"the archive holds more than {limits.entries} entries"
+            )
         infos: dict[str, zipfile.ZipInfo] = {}
         for listed in listed_infos:
             info: zipfile.ZipInfo = listed
             if info.is_dir():
                 continue
-            if info.file_size > max_entry:
+            if info.file_size > limits.entry:
                 raise TenantArchiveError(
                     "IMPORT_FORMAT_UNSUPPORTED", f"an entry unpacks beyond the limit: {info.filename}"
                 )
             if info.filename in infos:
                 raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"a duplicate entry: {info.filename}")
             infos[info.filename] = info
-        if sum(info.file_size for info in infos.values()) > max_total:
-            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive unpacks beyond the import limit")
-        if MANIFEST_NAME not in infos or infos[MANIFEST_NAME].file_size > MAX_TENANT_JSON_BYTES:
-            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive has no readable manifest.json")
-        if TENANT_NAME in infos and infos[TENANT_NAME].file_size > MAX_TENANT_JSON_BYTES:
-            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "tenant.json is larger than a tenant document")
+        _check_directory(infos, limits)
         parsed = _loads(archive.read(MANIFEST_NAME), MANIFEST_NAME)
         manifest: dict[str, Any] = parsed if isinstance(parsed, dict) else {}
         if manifest.get("format") != ARCHIVE_FORMAT:
@@ -946,7 +1014,7 @@ def _read(
             raise TenantArchiveError(
                 "IMPORT_CHECKSUM_MISMATCH", "a part of the archive does not match its checksum", entries=mismatched
             )
-    return _assemble(manifest, contents, verified=_signature_valid(manifest, signing_key))
+    return _assemble(manifest, contents, limits, verified=_signature_valid(manifest, signing_key))
 
 
 def _signature_valid(manifest: dict[str, Any], signing_key: bytes | None) -> bool:
@@ -959,7 +1027,9 @@ def _signature_valid(manifest: dict[str, Any], signing_key: bytes | None) -> boo
     return hmac.compare_digest(value, manifest_signature(manifest, signing_key))
 
 
-def _assemble(manifest: dict[str, Any], contents: dict[str, bytes], *, verified: bool) -> TenantArchive:
+def _assemble(
+    manifest: dict[str, Any], contents: dict[str, bytes], limits: _ReadLimits, *, verified: bool
+) -> TenantArchive:
     if TENANT_NAME not in contents:
         raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive has no tenant.json")
     tenant = _loads(contents[TENANT_NAME], TENANT_NAME)
@@ -970,22 +1040,30 @@ def _assemble(manifest: dict[str, Any], contents: dict[str, bytes], *, verified:
     edges: dict[str, list[dict[str, Any]]] = {}
     objects: dict[str, bytes] = {}
     members: list[TenantArchiveMember] = []
+    rows_left = limits.rows
+
+    def parsed_rows(data: bytes, part: str) -> list[dict[str, Any]]:
+        nonlocal rows_left
+        rows = _parse_lines(data, part, min(limits.rows_per_part, rows_left))
+        rows_left -= len(rows)
+        return rows
+
     for name, data in contents.items():
         if name in (TENANT_NAME,):
             continue
         if name == MEMBERS_NAME:
             try:
-                members = [TenantArchiveMember(**row) for row in _parse_lines(data, name)]
+                members = [TenantArchiveMember(**row) for row in parsed_rows(data, name)]
             except PydanticValidationError as exc:
                 raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "members.jsonl has the wrong shape") from exc
         elif name.startswith(COLLECTIONS_DIR) and name.endswith(".jsonl"):
             collection = name[len(COLLECTIONS_DIR) : -len(".jsonl")]
             _require_name(collection, name)
-            collections[collection] = _parse_lines(data, name)
+            collections[collection] = parsed_rows(data, name)
         elif name.startswith(EDGES_DIR) and name.endswith(".jsonl"):
             collection = name[len(EDGES_DIR) : -len(".jsonl")]
             _require_name(collection, name)
-            edges[collection] = _parse_lines(data, name)
+            edges[collection] = parsed_rows(data, name)
         elif name.startswith(OBJECTS_DIR):
             path = name[len(OBJECTS_DIR) :]
             if not _OBJECT_PATH.match(path) or ".." in path.split("/"):

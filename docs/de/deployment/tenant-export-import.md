@@ -84,8 +84,8 @@ Ein Import legt **immer einen neuen Garten** an. Er führt nie in einen bestehen
 
 ### Vorbereiten
 
-- **Mitglieder zuordnen:** Das Archiv kennt die Mitglieder nur über ihre alte interne Kennung (`user_key` in `members.jsonl`). Für jedes Mitglied, das im neuen Garten wieder dabei sein soll, nennst du die E-Mail-Adresse eines **bestehenden** Kontos in der Zielinstallation **und die Rolle und Zusatzberechtigungen**, die diese Person bekommt. Die Rollen im Archiv sind nur ein Hinweis; der Import übernimmt deine Angabe. Nicht zugeordnete Mitglieder entfallen; Einträge, die sie verfasst haben, tragen danach das Pseudonym `_anonymized`.
-- **Eigentümer:** Der neue Garten gehört dem dienstältesten zugeordneten Mitglied, dem du Leitung und Verwaltung gibst. Ordnest du keines zu, gehört er dir, bis du ihn übergibst.
+- **Mitglieder zuordnen:** Das Archiv kennt die Mitglieder nur über ihre alte interne Kennung (`user_key` in `members.jsonl`). Für jedes Mitglied, das im neuen Garten wieder dabei sein soll, nennst du die E-Mail-Adresse eines **bestehenden** Kontos in der Zielinstallation (es muss **aktiv** sein — ein deaktiviertes Konto lehnt der Import ab) **und die Rolle und Zusatzberechtigungen**, die diese Person bekommt. Die Rollen im Archiv sind nur ein Hinweis; der Import übernimmt deine Angabe. Nicht zugeordnete Mitglieder entfallen; Einträge, die sie verfasst haben, tragen danach das Pseudonym `_anonymized`.
+- **Eigentümer:** Der neue Garten gehört dem dienstältesten zugeordneten Mitglied, dem du Leitung und Verwaltung gibst — mit genau den Zusatzberechtigungen, die du ihm gibst (gibst du nur `management`, bekommt es nicht zusätzlich `technical`). Ordnest du keines zu, gehört er dir mit beiden Zusatzberechtigungen, bis du ihn übergibst; so hat jeder importierte Garten jemanden, der ihn verwalten kann. Im Sicherheitsprotokoll stehst in beiden Fällen du als Handelnde:r jeder angelegten Mitgliedschaft.
 - **Katalog:** Die Zielinstallation braucht alle globalen Katalogeinträge, auf die das Archiv verweist (Arten, Familien, Schädlinge …). Fehlt einer, lehnt der Import mit der Liste ab, und nichts wird geschrieben.
 
 ### Ablauf
@@ -107,20 +107,22 @@ curl https://<deine-instanz>/api/v1/admin/platform/tenant-imports/<import-key> \
   -H "Authorization: Bearer <access-token>"
 ```
 
-`completed` nennt in `target_tenant_key` den neuen Garten. Das Sicherheitsprotokoll vermerkt `tenant_import_requested` und `tenant_imported` sowie jede angelegte Mitgliedschaft.
+Den Stand liest du wie den Import selbst nur angemeldet als Person, nicht mit einem API-Schlüssel (`403`).
+
+`completed` nennt in `target_tenant_key` den neuen Garten. Das Sicherheitsprotokoll vermerkt `tenant_import_requested` und `tenant_imported` sowie jede angelegte Mitgliedschaft. Auch ein abgelehnter oder gescheiterter Import steht dort als `tenant_import_requested` — mit dem Ergebnis (`refused:<Code>`, `failed:<Code>`, `cleanup_pending:<Code>`) und dem SHA-256 des Archivs, sodass du nachvollziehen kannst, wer welches Archiv versucht hat.
 
 ### Wenn der Import ablehnt
 
 | Antwort | Bedeutung | Was du tust |
 |---|---|---|
-| `422 IMPORT_FORMAT_UNSUPPORTED` | keine ZIP-Datei, unbekanntes Format, zu viele oder zu große Dateien, ein Datensatz, der nicht zum archivierten Garten gehört, eine Datei eines Typs, den diese Installation nicht annimmt (zum Beispiel SVG), oder das Archiv stammt aus einer neueren Installation | ein von Kamerplanter geschriebenes Archiv verwenden; Zielinstallation aktualisieren |
+| `422 IMPORT_FORMAT_UNSUPPORTED` | keine ZIP-Datei, unbekanntes Format, zu viele oder zu große Dateien, ein Archiv, das entpackt zu groß würde (eine Datei mehr als 100-fach komprimiert, mehr als 250 000 Datensätze in einer Datei oder 1 000 000 insgesamt, mehr als 128 MiB Datensätze oder 1 GiB insgesamt), ein Datensatz, der nicht zum archivierten Garten gehört, eine Datei eines Typs, den diese Installation nicht annimmt (zum Beispiel SVG), oder das Archiv stammt aus einer neueren Installation | ein von Kamerplanter geschriebenes Archiv verwenden; Zielinstallation aktualisieren |
 | `422 IMPORT_CHECKSUM_MISMATCH` | eine Datei im Archiv passt nicht zur Prüfsumme in `manifest.json` oder fehlt — das Archiv ist beschädigt | eine unbeschädigte Kopie verwenden |
 | `422 IMPORT_UNDECLARED_REFERENCE` | das Archiv enthält ein Verweisfeld, das diese Installation nicht kennt | beide Installationen auf denselben Stand bringen |
 | `422 IMPORT_MISSING_CATALOG_ENTRIES` | Katalogeinträge fehlen; die Liste steht in `details` | Katalog der Zielinstallation ergänzen (Seed-Stand prüfen) |
-| `422 IMPORT_MEMBER_NOT_FOUND` | eine Zuordnung nennt kein Mitglied des Archivs oder kein bestehendes Konto | Zuordnung korrigieren |
-| `413` | größer als `TENANT_IMPORT_MAX_UPLOAD_MB` | Grenze anheben oder Garten verkleinern |
+| `422 IMPORT_MEMBER_NOT_FOUND` | eine Zuordnung nennt kein Mitglied des Archivs oder kein bestehendes, aktives Konto | Zuordnung korrigieren |
+| `413` | größer als `TENANT_IMPORT_MAX_UPLOAD_MB` — oder als die allgemeine Upload-Grenze (siehe unten) | Grenze anheben oder Garten verkleinern |
 
-Scheitert der Import erst während des Schreibens, entfernt er alles, was er bis dahin angelegt hat, und meldet `failed`. Bricht sein Lauf ab (zum Beispiel bei einem Neustart des Workers), löscht der stündliche Aufbewahrungsjob den halben Garten nach sechs Stunden ohne Fortschritt über die reguläre Gartenlöschung und meldet `failed` mit `IMPORT_ABANDONED`. Ein halber Garten bleibt nicht stehen; nur die Protokolleinträge der angelegten Mitgliedschaften bleiben als Nachweis.
+Scheitert der Import erst während des Schreibens, entfernt er alles, was er bis dahin angelegt hat, und meldet `failed`. Gelingt dieses Entfernen nicht vollständig (zum Beispiel weil die Datenbank gerade nicht erreichbar ist), meldet er `cleanup_pending`: Der halbe Garten bleibt im Zustand **Wird importiert** und damit unerreichbar, `target_tenant_key` nennt ihn, und der nächste stündliche Aufbewahrungsjob löscht ihn über die reguläre Gartenlöschung; danach steht der Import auf `failed`. Bricht sein Lauf ab (zum Beispiel bei einem Neustart des Workers), löscht der stündliche Aufbewahrungsjob den halben Garten nach sechs Stunden ohne Fortschritt über die reguläre Gartenlöschung und meldet `failed` mit `IMPORT_ABANDONED`. Ein halber Garten bleibt nicht stehen; nur die Protokolleinträge der angelegten Mitgliedschaften bleiben als Nachweis.
 
 !!! info "Die Prüfsummen sind kein Herkunftsnachweis"
     Die Prüfsummen in `manifest.json` zeigen nur ein beschädigtes Archiv an: Wer eine Datei ändert, kann sie neu berechnen. Ob ein Archiv unverändert aus deiner Installation stammt, sagt allein `verified`.
@@ -135,9 +137,15 @@ Scheitert der Import erst während des Schreibens, entfernt er alles, was er bis
 | Variable | Standard | Wirkung |
 |---|---|---|
 | `TENANT_EXPORTS_PER_DAY` | `3` | Exporte je Garten in 24 Stunden |
-| `TENANT_IMPORT_MAX_UPLOAD_MB` | `512` | größtes Archiv, das ein Import annimmt (entpackt höchstens das Vierfache) |
+| `TENANT_IMPORT_MAX_UPLOAD_MB` | `512` | größtes Archiv, das ein Import annimmt; entpackt darf es unabhängig davon höchstens 1 GiB groß werden |
 | `RATE_LIMIT_TENANT_IMPORT` | `10/hour` | Import-Anfragen je Konto |
 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` | `72` | wie lange ein Archiv ladbar bleibt (gilt auch für den persönlichen Datenexport) |
+
+!!! warning "Die allgemeine Upload-Grenze gilt auch für den Import"
+    Jeder Upload an das Backend ist auf `STORAGE_MAX_FILE_SIZE_MB` plus 1 MiB begrenzt (Standard: 26 MiB) — vor jeder Route, also auch vor dem Import. Ein größeres Archiv lehnt das Backend mit `413` ab, auch wenn `TENANT_IMPORT_MAX_UPLOAD_MB` höher steht. Für größere Archive musst du `STORAGE_MAX_FILE_SIZE_MB`, `UPLOAD_SPOOL_BUDGET_MB` und die Upload-Grenze deines Ingress gemeinsam anheben — das gilt dann für jeden Upload.
+
+!!! info "Signaturschlüssel"
+    Die Signatur der Archive wird aus `JWT_SECRET_KEY` abgeleitet. Wechselst du dieses Geheimnis, gelten ältere Archive beim Import als nicht verifiziert (`verified: false`); sie lassen sich weiter importieren.
 
 ---
 

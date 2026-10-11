@@ -39,6 +39,7 @@ class ArangoTenantRepository(BaseArangoRepository[Tenant], ITenantRepository):
         membership: Membership,
         *,
         audit: Callable[[Tenant, Membership], SecurityAuditEntry] | None = None,
+        tenant_key: str | None = None,
     ) -> tuple[Tenant, Membership]:
         """Found a tenant atomically: tenant, founder's membership, both edges and the audit row (#2118).
 
@@ -59,6 +60,8 @@ class ArangoTenantRepository(BaseArangoRepository[Tenant], ITenantRepository):
 
         memberships = ArangoMembershipRepository(self._db)
         tenant_data = self.insert_payload(tenant)
+        if tenant_key:
+            tenant_data["_key"] = tenant_key  # a tenant import names the key before the founding (#2138)
         transaction = self._db.begin_transaction(
             write=[col.TENANTS, col.MEMBERSHIPS, col.HAS_MEMBERSHIP, col.MEMBERSHIP_IN, col.SECURITY_AUDIT_LOG]
         )

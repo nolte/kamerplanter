@@ -39,6 +39,7 @@ Locally::
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import zipfile
@@ -84,6 +85,8 @@ SOURCE_DB = run_database_name("tenant_export_source")
 TARGET_DB = run_database_name("tenant_export_target")
 
 A, B = "ten-a", "ten-b"
+#: The bytes of the seeded photo; the attachment row states their true size and hash (the import recomputes both).
+PHOTO = b"JPEG"
 LEAD, GROWER, ADMIN = "u-lead", "u-grower", "u-admin"
 SECRETS = {
     "email": "lead-secret@example.com",
@@ -207,8 +210,8 @@ def _seed_tenant(db, tenant: str, *, marker: str = "") -> dict[str, str]:
             "storage_key": f"t/{tenant}/plant/2026/10/{k['att']}.jpg",
             "created_by": f"{tenant}-{LEAD}",
             "mime_type": "image/jpeg",
-            "byte_size": 4,
-            "sha256": "00",
+            "byte_size": len(PHOTO),
+            "sha256": hashlib.sha256(PHOTO).hexdigest(),
             "original_filename": "p.jpg",
             "category": "plant",
         }
@@ -648,7 +651,15 @@ def test_a_crafted_archive_is_refused_before_anything_is_written(target, tmp_pat
             client_ip=None,
         )
     assert refused.value.error_code == "IMPORT_FORMAT_UNSUPPORTED"
-    assert counts() == before
+    after = counts()
+    # The refusal itself is audited (I9): one security-audit row, nothing else.
+    assert {name: n for name, n in after.items() if n != before[name]} == {
+        "security_audit_log": before["security_audit_log"] + 1
+    }
+    row = next(iter(target.aql.execute("FOR r IN security_audit_log SORT r.created_at DESC LIMIT 1 RETURN r")))
+    assert row["action"] == "tenant_import_requested"
+    assert row["outcome"] == "refused:IMPORT_FORMAT_UNSUPPORTED"
+    assert row["archive_sha256"] == hashlib.sha256(data).hexdigest()
 
 
 def test_a_foreign_archive_imports_unverified(source, target, tmp_path) -> None:
@@ -731,3 +742,210 @@ def test_the_tenant_is_unreachable_while_importing_and_a_dead_import_is_swept(so
     assert result["abandoned_imports"] == 1
     assert target.collection("sites").get("half-site") is None
     assert target.collection("tenants").get(half_key) is None
+
+
+# ── PR #2267 security review, round 2 ────────────────────────────────
+
+
+def _request_and_run(dst: TenantExportService, archive: bytes, mapping: dict[str, dict]) -> TenantImportRequest:
+    accepted = dst.request_import(
+        io.BytesIO(archive),
+        size_bytes=len(archive),
+        requester=_person(ADMIN),
+        authenticated_with_api_key=False,
+        member_mapping=mapping,
+        plan_key=None,
+        factors=StepUpFactors(password="pw"),
+        client_ip=None,
+    )
+    finished = run_async(dst.run_import(accepted.key or ""))
+    assert finished is not None
+    return finished
+
+
+def test_the_owner_gets_the_scopes_the_admin_confirmed_and_the_admin_is_the_actor(source, target, tmp_path) -> None:
+    """SEC-R2-02 — the founder's membership carries the confirmed scopes, not a fixed management + technical."""
+    _seed_tenant(source, A)
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    target.collection("users").insert(
+        {"_key": "new-lead", "email": "new-lead@example.com", "display_name": "L", "account_type": "human"}
+    )
+    dst = _service(target, tmp_path / "dst")
+
+    finished = _request_and_run(dst, archive, {f"{A}-{LEAD}": _grant("new-lead@example.com", scopes=("management",))})
+
+    assert finished.status == "completed", finished
+    tenant = finished.target_tenant_key
+    owner = next(
+        iter(
+            target.aql.execute(
+                "FOR m IN memberships FILTER m.tenant_key == @t AND m.user_key == 'new-lead' RETURN m",
+                bind_vars={"t": tenant},
+            )
+        )
+    )
+    assert owner["role"] == "lead" and owner["admin_scopes"] == ["management"]
+    founding = list(
+        target.aql.execute(
+            "FOR r IN security_audit_log FILTER r.tenant_key == @t AND r.action == 'membership_added' RETURN r",
+            bind_vars={"t": tenant},
+        )
+    )
+    assert [(r["actor_user_key"], r["target_user_key"], r["new_scopes"]) for r in founding] == [
+        (ADMIN, "new-lead", ["management"])
+    ]
+
+
+def test_without_a_confirmed_lead_the_admin_owns_the_import_with_both_scopes(source, target, tmp_path) -> None:
+    """The documented fallback of SEC-R2-02: a tenant is never founded without a member who can manage it."""
+    _seed_tenant(source, A)
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    dst = _service(target, tmp_path / "dst")
+
+    finished = _request_and_run(dst, archive, {})
+
+    assert finished.status == "completed", finished
+    owner = next(
+        iter(
+            target.aql.execute(
+                "FOR m IN memberships FILTER m.tenant_key == @t RETURN m", bind_vars={"t": finished.target_tenant_key}
+            )
+        )
+    )
+    assert (owner["user_key"], owner["role"], sorted(owner["admin_scopes"])) == (
+        ADMIN,
+        "lead",
+        ["management", "technical"],
+    )
+
+
+def test_the_request_names_the_tenant_before_it_exists(source, target, tmp_path) -> None:
+    """I3 — no moment in which a founded tenant is named by no request the sweep reads."""
+    _seed_tenant(source, A)
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    dst = _service(target, tmp_path / "dst")
+    seen: dict[str, Any] = {}
+    real_found = dst._tenant_service.found_imported_tenant
+
+    def observing_found(**kwargs: Any):
+        recorded = list(target.aql.execute("FOR r IN tenant_import_requests RETURN r.target_tenant_key"))
+        seen["recorded"] = recorded
+        seen["tenant_exists"] = bool(recorded[0]) and target.collection("tenants").has(recorded[0])
+        return real_found(**kwargs)
+
+    dst._tenant_service.found_imported_tenant = observing_found  # type: ignore[method-assign]
+    finished = _request_and_run(dst, archive, {})
+
+    assert finished.status == "completed", finished
+    assert seen == {"recorded": [finished.target_tenant_key], "tenant_exists": False}
+
+
+def test_a_rollback_that_leaves_rows_keeps_the_tenant_for_the_sweep(source, target, tmp_path) -> None:
+    """SEC-R2-03 — rows the rollback could not remove stay findable: tenant ``importing``, request names it."""
+    _seed_tenant(source, A)
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    dst = _service(target, tmp_path / "dst")
+    store = dst._store
+    real_insert = store.insert_documents
+    calls = {"n": 0}
+
+    def failing_insert(collection: str, documents: list[dict[str, Any]]) -> list[str]:
+        calls["n"] += 1
+        if calls["n"] == 4:
+            raise RuntimeError("disk full")
+        return real_insert(collection, documents)
+
+    real_remove = store.remove_documents
+
+    def failing_remove(collection: str, keys: list[str]) -> int:
+        # Only the rows the run wrote: the tenant shell itself (memberships, tenant) would still be removable,
+        # so the test measures the decision not to remove it, not a second failure.
+        if collection == "sites":
+            raise RuntimeError("connection lost")
+        return real_remove(collection, keys)
+
+    store.insert_documents = failing_insert  # type: ignore[method-assign]
+    store.remove_documents = failing_remove  # type: ignore[method-assign]
+
+    finished = _request_and_run(dst, archive, {})
+
+    assert finished.status == "cleanup_pending", finished
+    assert finished.failure_reason == "IMPORT_FAILED"
+    half = finished.target_tenant_key or ""
+    assert half and target.collection("tenants").get(half)["status"] == "importing"
+    left = list(target.aql.execute("FOR s IN sites FILTER s.tenant_key == @t RETURN s._key", bind_vars={"t": half}))
+    assert left, "the rows the rollback could not remove are still there"
+    audited = list(
+        target.aql.execute("FOR r IN security_audit_log FILTER r.outcome != null SORT r.created_at RETURN r.outcome")
+    )
+    assert audited[-1] == "cleanup_pending:IMPORT_FAILED"
+
+    # The next hourly sweep erases the half tenant through the tenant-erasure inventory, whatever its age.
+    store.remove_documents = real_remove  # type: ignore[method-assign]
+    result = run_async(dst.expire())
+
+    assert result["abandoned_imports"] == 1
+    assert list(target.aql.execute("FOR s IN sites FILTER s.tenant_key == @t RETURN s", bind_vars={"t": half})) == []
+    assert target.collection("tenants").get(half) is None
+    ended = dst._imports.get(finished.key or "")
+    assert ended is not None and (ended.status, ended.target_tenant_key, ended.failure_reason) == (
+        "failed",
+        None,
+        "IMPORT_FAILED",
+    )
+
+
+def test_an_attachments_size_and_hash_come_from_its_object(target, tmp_path) -> None:
+    """I7 — the quota counts ``byte_size``, a re-upload deduplicates on ``sha256``: neither is the archive's word."""
+    from app.domain.models.tenant_export import TenantArchive
+
+    photo = b"\xff\xd8 the real photo bytes"
+    archive = TenantArchive(
+        format="kamerplanter-tenant-export/1",
+        source_tenant_key="ten-src",
+        tenant={"name": "Liar", "slug": "liar"},
+        collections={
+            "attachments": [
+                {
+                    "_key": "a1",
+                    "tenant_key": "ten-src",
+                    "storage_key": "t/ten-src/plant/2026/10/a1.jpg",
+                    "mime_type": "image/jpeg",
+                    "byte_size": 1,
+                    "sha256": "0" * 64,
+                    "original_filename": "a1.jpg",
+                    "created_by": "_anonymized",
+                    "category": "plant",
+                }
+            ]
+        },
+        objects={"plant/2026/10/a1.jpg": photo},
+    )
+    dst = _service(target, tmp_path / "dst")
+
+    outcome = run_async(dst.import_archive(archive, actor_user_key=ADMIN, member_grants={}, plan_key="standard"))
+
+    row = target.collection("attachments").get(outcome.key_mapping["attachments"]["a1"])
+    assert (row["byte_size"], row["sha256"]) == (len(photo), hashlib.sha256(photo).hexdigest())
+
+
+def test_a_legacy_stamped_catalogue_row_counts_as_present(target, tmp_path) -> None:
+    """I10 — a harvest indicator still carrying the v0004 stamp is a catalogue row, not a missing one."""
+    target.collection("harvest_indicators").insert(
+        {"_key": "hi-1", "indicator_type": "trichome", "measurement_unit": "%", "tenant_key": "default"}
+    )
+    data = _crafted(
+        {
+            "plant_instances": [{"_key": "p1", "tenant_key": "ten-src", "instance_id": "P-1"}],
+            "harvest_observations": [{"_key": "h1", "plant_key": "p1", "indicator_key": "hi-1"}],
+        }
+    )
+    dst = _service(target, tmp_path / "dst")
+
+    finished = _request_and_run(dst, data, {})
+
+    assert finished.status == "completed", finished
+    written = list(
+        target.aql.execute("FOR h IN harvest_observations FILTER h.indicator_key == 'hi-1' RETURN h", bind_vars={})
+    )
+    assert len(written) == 1

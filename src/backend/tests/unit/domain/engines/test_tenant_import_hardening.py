@@ -230,3 +230,41 @@ class TestTheDirectoryIsCheckedFirst:
                 start = index + 4
         with pytest.raises(TenantArchiveError):
             read_tenant_archive(io.BytesIO(bytes(data)), max_uncompressed_bytes=10**6)
+
+
+# ── SEC-R2-01 (review round 2) ──────────────────────────────────────
+
+
+def _archive_with_part(name: str, data: bytes, *, compression: int) -> bytes:
+    """A well-formed archive (manifest lists every part with its true hash) carrying *data* as *name*."""
+    import hashlib
+
+    tenant = json.dumps({"name": "Garden", "slug": "garden"}).encode()
+    files = {
+        "tenant.json": {"rows": 1, "sha256": hashlib.sha256(tenant).hexdigest()},
+        name: {"rows": 0, "sha256": hashlib.sha256(data).hexdigest()},
+    }
+    manifest = json.dumps({"format": "kamerplanter-tenant-export/1", "source_tenant_key": SOURCE, "files": files})
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as out:
+        out.writestr("manifest.json", manifest, compress_type=zipfile.ZIP_DEFLATED)
+        out.writestr("tenant.json", tenant, compress_type=zipfile.ZIP_DEFLATED)
+        out.writestr(name, data, compress_type=compression)
+    return buffer.getvalue()
+
+
+class TestTheDocumentsAreBoundedBeforeTheyAreParsed:
+    def test_the_documents_together_are_bounded_apart_from_the_objects(self) -> None:
+        data = _archive_with_part("collections/sites.jsonl", b"{}\n" * 1000, compression=zipfile.ZIP_STORED)
+        with pytest.raises(TenantArchiveError) as refused:
+            read_tenant_archive(io.BytesIO(data), max_uncompressed_bytes=10**8, max_document_bytes=2000)
+        assert "documents unpack beyond" in str(refused.value)
+
+    def test_the_caller_cannot_raise_the_total_past_the_fixed_ceiling(self, monkeypatch) -> None:
+        import app.domain.engines.tenant_export_engine as engine
+
+        monkeypatch.setattr(engine, "MAX_UNCOMPRESSED_BYTES", 2000)
+        data = _archive_with_part("objects/plant/a.bin", b"0" * 4000, compression=zipfile.ZIP_STORED)
+        with pytest.raises(TenantArchiveError) as refused:
+            read_tenant_archive(io.BytesIO(data), max_uncompressed_bytes=10**12)
+        assert "unpacks beyond" in str(refused.value)

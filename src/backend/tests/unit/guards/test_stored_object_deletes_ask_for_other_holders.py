@@ -41,6 +41,10 @@ NOT_SHARED: dict[tuple[str, str], str] = {
         "#2138 — a tenant archive (t/{tenant}/tenant_export/{export_key}.zip) is held by its one export "
         "request and by no attachment record; the key embeds the request key"
     ),
+    ("domain/services/tenant_export_service.py", "_delete_partial_archive"): (
+        "#2138 I4 — the archive of a dead export run (t/{tenant}/tenant_export/{export_key}.zip), held by its one "
+        "export request and by no attachment record; the key embeds the request key"
+    ),
     ("domain/services/tenant_export_service.py", "run_import"): (
         "#2138 — the uploaded import archive (tenant-imports/{import_key}.zip) is held by its one import request"
     ),

@@ -20,9 +20,13 @@ references, object keys and types, catalogue entries, member mapping) **before**
 is written — a refusal is ``422`` with the code and the entries — then stored and imported
 by a ``bulk`` task into a **new** tenant with new keys for every document
 (:class:`TenantImportEngine`). The tenant is founded ``importing`` (it resolves for nobody)
-with inactive memberships, and only becomes ``active`` once every row is written. A failure
-part-way removes everything the run wrote; a run that died is swept by the hourly beat,
-which erases the half tenant through the tenant-erasure inventory.
+with inactive memberships, and only becomes ``active`` once every row is written. Its key is
+recorded on the request *before* the founding, so a run that dies at any point leaves a
+request that names its tenant. A failure part-way removes everything the run wrote; when
+that removal itself fails, the tenant stays ``importing`` and the request ``cleanup_pending``
+with the tenant's key, and the hourly beat erases it through the tenant-erasure inventory —
+as it does for a run that died. Every refused or failed import is audited
+(``tenant_import_requested`` with the outcome and the archive's SHA-256).
 
 **Trust** (SEC-003 of the PR #2267 review): the per-part SHA-256 in the manifest only detects
 corruption — anyone can recompute it. An archive is *verified* when its manifest carries this
@@ -73,6 +77,7 @@ from app.domain.engines.tenant_export_engine import (
     ARCHIVE_FORMAT,
     ARCHIVE_STORAGE_CATEGORY,
     EDGES_DIR,
+    MAX_UNCOMPRESSED_BYTES,
     MEMBERS_NAME,
     TENANT_NAME,
     ArchiveTooLargeError,
@@ -82,7 +87,7 @@ from app.domain.engines.tenant_export_engine import (
     archive_document,
     read_tenant_archive,
 )
-from app.domain.engines.tenant_import_engine import TenantImportEngine
+from app.domain.engines.tenant_import_engine import TenantImportEngine, new_document_key
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
@@ -151,6 +156,19 @@ _NEVER_IMPORTED_TYPES = frozenset({"image/svg+xml", "text/html", "application/xh
 _IMPORT_ACTIVE_STATES = ("pending", "validating", "running")
 
 _CHUNK = 1024 * 1024
+
+
+@dataclass
+class ImportCleanupPendingError(Exception):
+    """An import failed and its rollback could not remove everything (SEC-R2-03 of the PR #2267 review).
+
+    The tenant stays ``importing`` (nobody reaches it) and keeps its key on the request; the
+    hourly sweep erases what is left through the tenant-erasure inventory. ``code`` is the
+    failure's ``IMPORT_*`` code, never an exception text.
+    """
+
+    tenant_key: str
+    code: str
 
 
 @dataclass(frozen=True)
@@ -667,10 +685,11 @@ class TenantExportService:
             raise ForbiddenError("Platform admin role required.")
         if size_bytes > self._max_upload:
             raise PayloadTooLargeError(self._max_upload)
+        digest = upload_sha256(upload)
         self._step_up.verify(
             requester,
             action="tenant_import",
-            target=import_step_up_target(upload),
+            target=f"{IMPORT_TARGET_PREFIX}{digest[:_IMPORT_TARGET_DIGITS]}",
             echo_ok=None,
             password=factors.password,
             code=factors.code,
@@ -679,13 +698,19 @@ class TenantExportService:
             client_ip=client_ip,
         )
         upload.seek(0)
-        archive = self._verified_archive(upload)
-        member_grants = self._resolve_member_mapping(archive, member_mapping)
-        chosen_plan = plan_key or self._entitlements.default_plan_key()
-        if self._entitlements.get_plan(chosen_plan) is None:
-            raise ValidationError(f"Plan '{chosen_plan}' does not exist.")
-        if self._storage is None:
-            raise ValidationError("This installation has no object storage to hold the upload.")
+        try:
+            archive = self._verified_archive(upload)
+            member_grants = self._resolve_member_mapping(archive, member_mapping)
+            chosen_plan = plan_key or self._entitlements.default_plan_key()
+            if self._entitlements.get_plan(chosen_plan) is None:
+                raise ValidationError(f"Plan '{chosen_plan}' does not exist.")
+            if self._storage is None:
+                raise ValidationError("This installation has no object storage to hold the upload.")
+        except (TenantImportRefusedError, ValidationError) as exc:
+            # I9 — a refused archive leaves a trace: who tried which archive, and why it was refused.
+            code = exc.error_code if isinstance(exc, TenantImportRefusedError) else "VALIDATION_ERROR"
+            self._audit_import_refused(requester, digest, code)
+            raise
         now = self._now()
         created = self._imports.create(
             TenantImportRequest(
@@ -695,6 +720,7 @@ class TenantExportService:
                 member_grants=member_grants,
                 verified=archive.verified,
                 plan_key=chosen_plan,
+                archive_sha256=digest,
                 requested_at=now,
                 updated_at=now,
             )
@@ -709,6 +735,8 @@ class TenantExportService:
                 via=SecurityAuditVia.PLATFORM_ADMIN,
                 actor_user_key=requester.key or "",
                 tenant_key="",
+                archive_sha256=digest,
+                outcome="accepted",
             )
         logger.info("tenant_import.requested", subject=log_subject(requester.key), verified=archive.verified)
         if self._dispatch_import is not None and created.key:
@@ -719,7 +747,23 @@ class TenantExportService:
                 logger.error("tenant_import.dispatch_failed", error_type=type(exc).__name__)
         return stored or created
 
-    def get_import(self, import_key: str, *, requester: User) -> TenantImportRequest:
+    def _audit_import_refused(self, requester: User, digest: str, code: str) -> None:
+        if self._audit is not None:
+            self._audit.record_tenant_change(
+                action=SecurityAuditAction.TENANT_IMPORT_REQUESTED,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=requester.key or "",
+                tenant_key="",
+                archive_sha256=digest,
+                outcome=f"refused:{code}",
+            )
+        logger.info("tenant_import.refused", subject=log_subject(requester.key), code=code)
+
+    def get_import(
+        self, import_key: str, *, requester: User, authenticated_with_api_key: bool = False
+    ) -> TenantImportRequest:
+        """The import's state and report — a platform admin in person, never an API key (I6)."""
+        self._require_person(requester, authenticated_with_api_key)
         if not self._is_platform_admin(requester.key or ""):
             raise ForbiddenError("Platform admin role required.")
         request = self._imports.get(import_key)
@@ -730,9 +774,10 @@ class TenantExportService:
     def _verified_archive(self, upload: IO[bytes]) -> TenantArchive:
         """Directory bounds, format, checksums, signature, ownership, references, objects, catalogue (§8.4 step 1)."""
         try:
+            # SEC-R2-01 — a fixed ceiling, not a multiple of the upload limit; ratio and row bounds inside.
             archive = read_tenant_archive(
                 upload,
-                max_uncompressed_bytes=self._max_upload * 4,
+                max_uncompressed_bytes=MAX_UNCOMPRESSED_BYTES,
                 max_entry_bytes=self._max_object_bytes or self._max_upload,
                 signing_key=self._signing_key,
             )
@@ -792,10 +837,13 @@ class TenantExportService:
         """``(existing "<collection>/<key>", missing "<collection>/<key>")`` of every catalogue row referenced."""
         existing: set[str] = set()
         missing: list[str] = []
+        catalogues = TenantExportEngine.global_catalogues()
         for targets, keys in engine.catalogue_requirements().items():
             found: set[str] = set()
             for collection in targets.split("|"):
-                hits = self._store.existing_global_keys(collection, sorted(keys))
+                # I10 — no row of a pure catalogue is a tenant's: a legacy ``tenant_key`` stamp on one
+                # (v0004, kept on operator-created harvest indicators by v0070) is not ownership.
+                hits = self._store.existing_global_keys(collection, sorted(keys), any_row=collection in catalogues)
                 existing.update(f"{collection}/{key}" for key in hits)
                 found |= hits
             missing.extend(f"{targets.split('|')[0]}/{key}" for key in sorted(keys - found))
@@ -828,7 +876,8 @@ class TenantExportService:
             except ValueError:
                 refused.append(old_key)
                 continue
-            if account is None or not account.key or not allows_interactive_auth(account):
+            if account is None or not account.key or not account.is_active or not allows_interactive_auth(account):
+                # I8 — a deactivated account is no member to hand a garden to.
                 refused.append(old_key)
                 continue
             resolved[old_key] = TenantImportMemberGrant(account_key=account.key, role=role, admin_scopes=scopes)
@@ -838,8 +887,8 @@ class TenantExportService:
         if refused:
             raise TenantImportRefusedError(
                 "IMPORT_MEMBER_NOT_FOUND",
-                "Each mapped member must be a member of the archive, the address an existing account (each once), "
-                "and the role and scopes valid ones.",
+                "Each mapped member must be a member of the archive, the address an existing, active account "
+                "(each once), and the role and scopes valid ones.",
                 sorted(set(refused)),
             )
         return resolved
@@ -860,26 +909,29 @@ class TenantExportService:
                 async for chunk in stream:
                     buffer.write(chunk)
                 buffer.seek(0)
+                self._touch_import(import_key)
                 try:
                     archive = self._verified_archive(buffer)
                 except TenantImportRefusedError as exc:
-                    return self._fail_import(
-                        claimed, exc.error_code, missing=[d["reason"] for d in exc.details if "reason" in d]
-                    )
+                    return self._fail_import(claimed, exc.error_code, missing=_reasons(exc))
+            self._touch_import(import_key)
             outcome = await self.import_archive(
                 archive,
                 actor_user_key=claimed.requested_by_user_key,
                 member_grants=claimed.member_grants,
                 plan_key=claimed.plan_key or self._entitlements.default_plan_key(),
-                on_founded=lambda key: self._imports.update_fields(
+                # I3 — the key is on the request before the tenant exists: no window in which a founded
+                # tenant is named by nothing the sweep reads.
+                before_founding=lambda key: self._imports.update_fields(
                     import_key, {"status": "running", "target_tenant_key": key, "updated_at": self._now()}
                 ),
-                # The stale sweep (SEC-007) only takes a run whose heartbeat stopped.
-                heartbeat=lambda: self._imports.update_fields(import_key, {"updated_at": self._now()}),
+                heartbeat=lambda: self._touch_import(import_key),
             )
+        except ImportCleanupPendingError as exc:
+            return self._fail_import(claimed, exc.code, cleanup_pending_tenant=exc.tenant_key)
         except TenantImportRefusedError as exc:
-            return self._fail_import(claimed, exc.error_code, missing=[d["reason"] for d in exc.details])
-        except Exception as exc:  # noqa: BLE001 - recorded as failed; the import wrote nothing that stays
+            return self._fail_import(claimed, exc.error_code, missing=_reasons(exc))
+        except Exception as exc:  # noqa: BLE001 - recorded as failed; the rollback removed what the run wrote
             logger.error("tenant_import.failed", error_type=type(exc).__name__)
             return self._fail_import(claimed, "IMPORT_FAILED")
         finally:
@@ -895,6 +947,7 @@ class TenantExportService:
                 via=SecurityAuditVia.PLATFORM_ADMIN,
                 actor_user_key=claimed.requested_by_user_key,
                 tenant_key=outcome.tenant_key,
+                archive_sha256=claimed.archive_sha256,
             )
         return self._imports.update_fields(
             import_key,
@@ -909,18 +962,41 @@ class TenantExportService:
             },
         )
 
+    def _touch_import(self, import_key: str) -> None:
+        """The run's heartbeat: the stale sweep (SEC-007) only takes a run whose heartbeat stopped."""
+        self._imports.update_fields(import_key, {"updated_at": self._now()})
+
     def _fail_import(
-        self, request: TenantImportRequest, code: str, *, missing: list[str] | None = None
+        self,
+        request: TenantImportRequest,
+        code: str,
+        *,
+        missing: list[str] | None = None,
+        cleanup_pending_tenant: str | None = None,
     ) -> TenantImportRequest | None:
+        """End the request ``failed`` — or ``cleanup_pending`` with the tenant's key when a rollback left rows.
+
+        Audited either way (``tenant_import_requested`` with the outcome and the archive's hash, I9).
+        """
         now = self._now()
+        pending = bool(cleanup_pending_tenant)
+        if self._audit is not None:
+            self._audit.record_tenant_change(
+                action=SecurityAuditAction.TENANT_IMPORT_REQUESTED,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=request.requested_by_user_key,
+                tenant_key=cleanup_pending_tenant or request.target_tenant_key or "",
+                archive_sha256=request.archive_sha256,
+                outcome=f"{'cleanup_pending' if pending else 'failed'}:{code}",
+            )
         return self._imports.update_fields(
             request.key or "",
             {
-                "status": "failed",
+                "status": "cleanup_pending" if pending else "failed",
                 "failure_reason": code,
                 "missing_catalog_entries": (missing or [])[:200] if code == "IMPORT_MISSING_CATALOG_ENTRIES" else [],
-                "target_tenant_key": None,
-                "completed_at": now,
+                "target_tenant_key": cleanup_pending_tenant if pending else None,
+                "completed_at": None if pending else now,
                 "updated_at": now,
                 "upload_storage_key": None,
                 "member_grants": {},
@@ -934,16 +1010,24 @@ class TenantExportService:
         actor_user_key: str,
         member_grants: dict[str, TenantImportMemberGrant],
         plan_key: str,
-        on_founded: Callable[[str], object] | None = None,
+        before_founding: Callable[[str], object] | None = None,
         heartbeat: Callable[[], object] | None = None,
     ) -> TenantImportOutcome:
         """Found the new tenant (``importing``), write the archive into it, then activate it; roll back on failure.
 
         The tenant and its memberships stay unreachable until the last row is written (SEC-007): a
         member never sees a half-imported garden, and a run that dies leaves a tenant the stale sweep
-        erases rather than one somebody works in.
+        erases rather than one somebody works in. The tenant's key is chosen here and handed to
+        *before_founding* first (the run records it on its request). A rollback that cannot remove
+        everything raises :class:`ImportCleanupPendingError` and leaves the tenant ``importing``.
+
+        The owner is the longest-serving mapped member the admin confirmed as lead + management, with
+        the scopes the admin confirmed (SEC-R2-02). Without one, the acting admin becomes the owner of
+        the new tenant with both scopes — the documented fallback, so the tenant is never stranded
+        without a member who can manage it.
         """
-        owner = self._owner_of(archive, member_grants) or actor_user_key
+        owner_grant = self._owner_of(archive, member_grants)
+        owner = owner_grant.account_key if owner_grant is not None else actor_user_key
         joined = {member.user_key: member.joined_at for member in archive.members}
         members = [
             Membership(
@@ -961,7 +1045,10 @@ class TenantExportService:
         raw_settings = source.get("settings")
         description: str | None = raw_description if isinstance(raw_description, str) else None
         tenant_settings: dict[str, Any] = raw_settings if isinstance(raw_settings, dict) else {}
-        tenant = self._tenant_service.found_imported_tenant(
+        tenant_key = new_document_key()
+        if before_founding is not None:
+            before_founding(tenant_key)
+        self._tenant_service.found_imported_tenant(
             actor_user_key=actor_user_key,
             name=str(source.get("name") or "Imported garden"),
             slug_hint=str(source.get("slug") or source.get("name") or "imported-garden"),
@@ -970,21 +1057,21 @@ class TenantExportService:
             plan_key=plan_key,
             owner_user_key=owner,
             members=members,
+            founder_scopes=list(owner_grant.admin_scopes) if owner_grant is not None else None,
+            tenant_key=tenant_key,
         )
-        tenant_key = tenant.key or ""
         account_keys = {old_key: grant.account_key for old_key, grant in member_grants.items()}
         engine = TenantImportEngine(archive, target_tenant_key=tenant_key, member_accounts=account_keys)
         written: dict[str, list[str]] = {}
         objects_written: list[str] = []
         beat = heartbeat or (lambda: None)
         try:
-            if on_founded is not None:
-                on_founded(tenant_key)
             existing_global, missing = self._catalogue_rows(engine)
             if missing:
                 raise TenantImportRefusedError(
                     "IMPORT_MISSING_CATALOG_ENTRIES", "catalogue entries vanished during the import", missing
                 )
+            beat()
             report: dict[str, int] = {}
             for collection in TenantExportEngine.exported_collections():
                 documents = archive.collections.get(collection, [])
@@ -993,6 +1080,8 @@ class TenantExportService:
                         engine.remap_document(collection, document, existing_global=existing_global)
                         for document in documents[start : start + PAGE_SIZE]
                     ]
+                    if collection == "attachments":
+                        batch = [_object_facts(row, archive.objects, tenant_key) for row in batch]
                     written.setdefault(collection, []).extend(self._store.insert_documents(collection, batch))
                     beat()
                 if documents:
@@ -1010,6 +1099,7 @@ class TenantExportService:
                 for start in range(0, len(remapped), PAGE_SIZE):
                     keys = self._store.insert_documents(name, remapped[start : start + PAGE_SIZE])
                     written.setdefault(name, []).extend(keys)
+                    beat()
                 if remapped:
                     report[f"edges:{name}"] = len(remapped)
             if archive.objects and self._storage is not None:
@@ -1018,11 +1108,15 @@ class TenantExportService:
                     target = f"t/{tenant_key}/{path}"
                     await self._storage.put_object(target, _single(data), types.get(path) or "application/octet-stream")
                     objects_written.append(target)
+                    beat()
                 report["objects"] = len(objects_written)
             report["members"] = len({m.user_key for m in members} | {owner})
             self._tenant_service.activate_imported_tenant(tenant_key)
-        except BaseException:
-            await self._rollback(tenant_key, written, objects_written)
+        except BaseException as exc:
+            clean = await self._rollback(tenant_key, written, objects_written)
+            if not clean and isinstance(exc, Exception):
+                code = exc.error_code if isinstance(exc, TenantImportRefusedError) else "IMPORT_FAILED"
+                raise ImportCleanupPendingError(tenant_key, code) from exc
             raise
         logger.info("tenant_import.completed", tenant=log_tenant(tenant_key), nulled=engine.nulled_references)
         return TenantImportOutcome(
@@ -1043,34 +1137,58 @@ class TenantExportService:
                 types[key[len(prefix) :]] = str(document.get("mime_type") or "")
         return types
 
-    async def _rollback(self, tenant_key: str, written: dict[str, list[str]], objects: list[str]) -> None:
-        """Remove every row, edge and object the failed run wrote, then the tenant itself (no half tenant)."""
+    async def _rollback(self, tenant_key: str, written: dict[str, list[str]], objects: list[str]) -> bool:
+        """Remove every row, edge and object the failed run wrote, then the tenant itself; ``True`` when clean.
+
+        The tenant document and its memberships go only when everything else went (SEC-R2-03): a
+        tenant shell removed over rows that stayed would leave rows of no tenant that no sweep finds.
+        When anything is left, the tenant stays ``importing`` — unreachable — and the caller hands
+        it to the sweep, which erases it through the tenant-erasure inventory.
+        """
+        clean = True
         for collection, keys in written.items():
             try:
                 self._store.remove_documents(collection, keys)
-            except Exception as exc:  # noqa: BLE001 - continue; the stale sweep erases what is left
+            except Exception as exc:  # noqa: BLE001 - continue with the rest; the sweep erases what is left
+                clean = False
                 logger.error("tenant_import.rollback_failed", collection=collection, error_type=type(exc).__name__)
         if self._storage is not None:
             for key in objects:
                 try:
                     await self._storage.delete_object(key)
-                except Exception as exc:  # noqa: BLE001
+                except NotFoundError:
+                    continue
+                except Exception as exc:  # noqa: BLE001 - continue with the rest; the sweep erases what is left
+                    clean = False
                     logger.error("tenant_import.rollback_object_failed", error_type=type(exc).__name__)
-        self._store.remove_tenant_shell(tenant_key=tenant_key)
+        if not clean:
+            logger.error("tenant_import.rollback_incomplete", tenant=log_tenant(tenant_key))
+            return False
+        try:
+            self._store.remove_tenant_shell(tenant_key=tenant_key)
+        except Exception as exc:  # noqa: BLE001 - the tenant is still ``importing``; the sweep erases it
+            logger.error(
+                "tenant_import.rollback_shell_failed", tenant=log_tenant(tenant_key), error_type=type(exc).__name__
+            )
+            return False
         logger.warning("tenant_import.rolled_back", tenant=log_tenant(tenant_key))
+        return True
 
     @staticmethod
-    def _owner_of(archive: TenantArchive, member_grants: dict[str, TenantImportMemberGrant]) -> str | None:
+    def _owner_of(
+        archive: TenantArchive, member_grants: dict[str, TenantImportMemberGrant]
+    ) -> TenantImportMemberGrant | None:
         """The longest-serving mapped member the admin confirmed as lead + management, else ``None`` (the admin)."""
         joined = {member.user_key: member.joined_at or "" for member in archive.members}
         candidates = sorted(
             (
-                (joined.get(old_key, ""), grant.account_key)
+                (joined.get(old_key, ""), grant.account_key, grant)
                 for old_key, grant in member_grants.items()
                 if MembershipEngine.can_delete_tenant(grant.role, list(grant.admin_scopes))
             ),
+            key=lambda candidate: (candidate[0], candidate[1]),
         )
-        return candidates[0][1] if candidates else None
+        return candidates[0][2] if candidates else None
 
     # ── retention (hourly, with ``retention.expire_data_exports``) ─────
 
@@ -1093,12 +1211,13 @@ class TenantExportService:
             expired += 1
         stale = 0
         for request in self._exports.list_stale_active(now - STALE_AFTER):
+            await self._delete_partial_archive(request)
             self._fail_export(request, "internal_error")
             stale += 1
         abandoned = 0
         for stale_import in self._imports.list_stale_active(now - STALE_AFTER):
-            await self._sweep_abandoned_import(stale_import, now)
-            abandoned += 1
+            if await self._sweep_abandoned_import(stale_import, now):
+                abandoned += 1
         purged = self._exports.delete_finished_before(now - REQUEST_RETENTION)
         purged += self._imports.delete_finished_before(now - REQUEST_RETENTION)
         if expired or stale or purged or abandoned:
@@ -1107,27 +1226,70 @@ class TenantExportService:
             )
         return {"expired": expired, "stale": stale, "purged": purged, "abandoned_imports": abandoned}
 
-    async def _sweep_abandoned_import(self, request: TenantImportRequest, now: datetime) -> None:
-        """An import whose run died (SEC-007): erase its half tenant, delete its upload, end the request.
+    async def _delete_partial_archive(self, request: TenantExportRequest) -> None:
+        """A run that died between storing the archive and completing the request leaves the object behind."""
+        if self._storage is None or not request.key:
+            return
+        try:
+            await self._storage.delete_object(self.storage_key_of(request))
+        except NotFoundError:
+            return
+        except Exception as exc:  # noqa: BLE001 - best effort; the request ends failed either way
+            logger.warning("tenant_export.stale_archive_delete_failed", error_type=type(exc).__name__)
+
+    async def _sweep_abandoned_import(self, request: TenantImportRequest, now: datetime) -> bool:
+        """An import whose run died, or whose rollback was incomplete: erase its half tenant, end the request.
 
         The tenant is still ``importing`` — nobody ever reached it — and goes through the
-        tenant-erasure inventory like any deleted tenant (rows, edges, objects, readings).
+        tenant-erasure inventory like any deleted tenant (rows, edges, objects, readings; SEC-007,
+        SEC-R2-03). The request keeps the tenant's key until the erasure has taken the tenant: when
+        it cannot (yet), the request stays as it is and the next sweep tries again — ending it
+        would leave rows no sweep can find. ``True`` when the request was ended.
         """
         target = request.target_tenant_key
         if target:
             try:
-                self._tenant_service.erase_abandoned_import(target, now=now)
-            except Exception as exc:  # noqa: BLE001 - the erasure record's own retry takes over
+                erased = self._tenant_service.erase_abandoned_import(target, now=now)
+            except Exception as exc:  # noqa: BLE001 - kept; the next sweep retries
                 logger.error(
                     "tenant_import.sweep_erase_failed", tenant=log_tenant(target), error_type=type(exc).__name__
                 )
+                return False
+            if not erased:
+                left = self._tenants.get_by_key(target)
+                if left is not None and left.status == TenantStatus.IMPORTING:
+                    logger.error("tenant_import.sweep_erase_deferred", tenant=log_tenant(target))
+                    return False
         if request.upload_storage_key and self._storage is not None:
             try:
                 await self._storage.delete_object(request.upload_storage_key)
             except Exception as exc:  # noqa: BLE001 - an orphaned upload is logged
                 logger.warning("tenant_import.sweep_upload_delete_failed", error_type=type(exc).__name__)
-        self._fail_import(request, "IMPORT_ABANDONED")
+        pending_code = request.failure_reason if request.status == "cleanup_pending" else None
+        self._fail_import(request, pending_code or "IMPORT_ABANDONED")
         logger.warning("tenant_import.abandoned", tenant=log_tenant(target or ""))
+        return True
+
+
+def _reasons(exc: TenantImportRefusedError) -> list[str]:
+    return [str(detail["reason"]) for detail in exc.details if "reason" in detail]
+
+
+def _object_facts(row: dict[str, Any], objects: dict[str, bytes], tenant_key: str) -> dict[str, Any]:
+    """An imported attachment's ``sha256``/``byte_size`` from the object it names, never the archive's word (I7).
+
+    The quota counts ``byte_size`` and a re-upload deduplicates on ``sha256``: both are facts of the
+    bytes, and the bytes are in the archive. A row whose object the archive does not carry keeps its values
+    (nothing is stored for it to contradict).
+    """
+    key = row.get("storage_key")
+    prefix = f"t/{tenant_key}/"
+    if not isinstance(key, str) or key[: len(prefix)] != prefix:
+        return row
+    data = objects.get(key[len(prefix) :])
+    if data is None:
+        return row
+    return {**row, "sha256": hashlib.sha256(data).hexdigest(), "byte_size": len(data)}
 
 
 def _split_id(document_id: str) -> tuple[str, str, str]:
@@ -1187,14 +1349,16 @@ def export_signing_key(secret: str) -> bytes | None:
     return hmac.new(secret.encode("utf-8"), b"kamerplanter-tenant-export-signature/1", hashlib.sha256).digest()
 
 
-def import_step_up_target(upload: IO[bytes]) -> str:
-    """``archive:<first 32 hex of the upload's SHA-256>`` — the step-up names the archive by content (SEC-009).
-
-    Read in chunks, nothing parsed: the hash is the one thing computed before the step-up.
-    """
+def upload_sha256(upload: IO[bytes]) -> str:
+    """The upload's SHA-256 (hex), read in chunks, nothing parsed: the one thing computed before the step-up."""
     upload.seek(0)
     digest = hashlib.sha256()
     while chunk := upload.read(_CHUNK):
         digest.update(chunk)
     upload.seek(0)
-    return f"{IMPORT_TARGET_PREFIX}{digest.hexdigest()[:_IMPORT_TARGET_DIGITS]}"
+    return digest.hexdigest()
+
+
+def import_step_up_target(upload: IO[bytes]) -> str:
+    """``archive:<first 32 hex of the upload's SHA-256>`` — the step-up names the archive by content (SEC-009)."""
+    return f"{IMPORT_TARGET_PREFIX}{upload_sha256(upload)[:_IMPORT_TARGET_DIGITS]}"

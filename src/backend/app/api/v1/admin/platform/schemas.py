@@ -301,5 +301,8 @@ class SecurityAuditEntryResponse(BaseModel):
     changed_fields: list[str] | None = None
     #: SEC-005 — the old and new value of each changed limit, flagged when it lifts the limit.
     limit_changes: list[PlanLimitChange] | None = None
+    #: #2138 — tenant-import rows: the archive's SHA-256 and the outcome (``accepted``, ``refused:<code>`` …).
+    archive_sha256: str | None = None
+    outcome: str | None = None
     request_id: str | None = None
     created_at: datetime | None = None

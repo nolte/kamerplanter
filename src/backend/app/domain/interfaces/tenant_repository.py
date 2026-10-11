@@ -26,6 +26,7 @@ class ITenantRepository(ABC):
         membership: Membership,
         *,
         audit: Callable[[Tenant, Membership], SecurityAuditEntry] | None = None,
+        tenant_key: str | None = None,
     ) -> tuple[Tenant, Membership]:
         """Found a tenant: tenant, founder membership, both edges and the audit row, atomically (#2118).
 
@@ -36,6 +37,8 @@ class ITenantRepository(ABC):
         reach or delete (its slug taken, no member), or a membership without edges.
 
         Raises the same domain conflicts :meth:`create` does (``DuplicateError`` for a taken slug).
+        *tenant_key*, when given, is the new tenant's ``_key`` (a tenant import records it first, #2138);
+        otherwise the database generates one.
         """
 
     @abstractmethod

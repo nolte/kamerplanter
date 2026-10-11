@@ -84,8 +84,8 @@ An import **always creates a new garden**. It never merges into an existing one,
 
 ### Preparation
 
-- **Map the members:** the archive knows the members only by their old internal id (`user_key` in `members.jsonl`). For every member who should be part of the new garden, you name the e-mail address of an **existing** account in the target installation **and the role and permissions** that person gets. The roles recorded in the archive are only a hint; the import takes yours. Unmapped members are dropped; entries they wrote then carry the pseudonym `_anonymized`.
-- **Owner:** the new garden belongs to the longest-serving mapped member you gave lead and management. If there is none, it belongs to you until you hand it over.
+- **Map the members:** the archive knows the members only by their old internal id (`user_key` in `members.jsonl`). For every member who should be part of the new garden, you name the e-mail address of an **existing** account in the target installation (it must be **active** — the import refuses a deactivated account) **and the role and permissions** that person gets. The roles recorded in the archive are only a hint; the import takes yours. Unmapped members are dropped; entries they wrote then carry the pseudonym `_anonymized`.
+- **Owner:** the new garden belongs to the longest-serving mapped member you gave lead and management — with exactly the permissions you give them (give only `management` and they do not also get `technical`). If there is none, it belongs to you with both permissions until you hand it over; this way every imported garden has someone who can manage it. In both cases the security log names you as the one who created every membership.
 - **Catalogue:** the target installation needs every global catalogue entry the archive points at (species, families, pests …). If one is missing, the import refuses with the list and writes nothing.
 
 ### Steps
@@ -107,20 +107,22 @@ curl https://<your-instance>/api/v1/admin/platform/tenant-imports/<import-key> \
   -H "Authorization: Bearer <access-token>"
 ```
 
-`completed` names the new garden in `target_tenant_key`. The security log records `tenant_import_requested` and `tenant_imported` as well as every membership created.
+Like the import itself, you read its state only signed in as a person, not with an API key (`403`).
+
+`completed` names the new garden in `target_tenant_key`. The security log records `tenant_import_requested` and `tenant_imported` as well as every membership created. A refused or failed import is in it too, as `tenant_import_requested` with its outcome (`refused:<code>`, `failed:<code>`, `cleanup_pending:<code>`) and the archive's SHA-256, so you can trace who tried which archive.
 
 ### When the import refuses
 
 | Answer | Meaning | What you do |
 |---|---|---|
-| `422 IMPORT_FORMAT_UNSUPPORTED` | no ZIP file, an unknown format, too many or too large files, a record that does not belong to the archived garden, a file of a type this installation does not accept (SVG for example), or the archive comes from a newer installation | use an archive Kamerplanter wrote; update the target installation |
+| `422 IMPORT_FORMAT_UNSUPPORTED` | no ZIP file, an unknown format, too many or too large files, an archive that would unpack too large (a file compressed more than 100-fold, more than 250,000 records in one file or 1,000,000 in all, more than 128 MiB of records or 1 GiB in all), a record that does not belong to the archived garden, a file of a type this installation does not accept (SVG for example), or the archive comes from a newer installation | use an archive Kamerplanter wrote; update the target installation |
 | `422 IMPORT_CHECKSUM_MISMATCH` | a file in the archive does not match the checksum in `manifest.json` or is missing — the archive is damaged | use an undamaged copy |
 | `422 IMPORT_UNDECLARED_REFERENCE` | the archive holds a reference field this installation does not know | bring both installations to the same version |
 | `422 IMPORT_MISSING_CATALOG_ENTRIES` | catalogue entries are missing; `details` lists them | complete the target's catalogue (check the seed level) |
-| `422 IMPORT_MEMBER_NOT_FOUND` | a mapping names no member of the archive or no existing account | correct the mapping |
-| `413` | larger than `TENANT_IMPORT_MAX_UPLOAD_MB` | raise the limit or reduce the garden |
+| `422 IMPORT_MEMBER_NOT_FOUND` | a mapping names no member of the archive or no existing, active account | correct the mapping |
+| `413` | larger than `TENANT_IMPORT_MAX_UPLOAD_MB` — or than the general upload limit (see below) | raise the limit or reduce the garden |
 
-If the import fails only while writing, it removes everything it created so far and reports `failed`. If its run dies (a worker restart, for example), the hourly retention job deletes the half garden through the regular garden deletion after six hours without progress and reports `failed` with `IMPORT_ABANDONED`. No half garden is left behind; only the log entries of the memberships it created stay as proof.
+If the import fails only while writing, it removes everything it created so far and reports `failed`. If that removal does not fully succeed (the database is unreachable for a moment, for example), it reports `cleanup_pending`: the half garden stays in the state **importing** and so unreachable, `target_tenant_key` names it, and the next hourly retention job deletes it through the regular garden deletion; the import then reads `failed`. If its run dies (a worker restart, for example), the hourly retention job deletes the half garden through the regular garden deletion after six hours without progress and reports `failed` with `IMPORT_ABANDONED`. No half garden is left behind; only the log entries of the memberships it created stay as proof.
 
 !!! info "The checksums are no proof of origin"
     The checksums in `manifest.json` only reveal a damaged archive: whoever changes a file can recompute them. Whether an archive comes unchanged from your installation is told only by `verified`.
@@ -135,9 +137,15 @@ If the import fails only while writing, it removes everything it created so far 
 | Variable | Default | Effect |
 |---|---|---|
 | `TENANT_EXPORTS_PER_DAY` | `3` | exports per garden in 24 hours |
-| `TENANT_IMPORT_MAX_UPLOAD_MB` | `512` | largest archive an import accepts (unpacks to at most four times that) |
+| `TENANT_IMPORT_MAX_UPLOAD_MB` | `512` | largest archive an import accepts; whatever it is set to, an archive may unpack to at most 1 GiB |
 | `RATE_LIMIT_TENANT_IMPORT` | `10/hour` | import requests per account |
 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` | `72` | how long an archive stays downloadable (also applies to the personal data export) |
+
+!!! warning "The general upload limit applies to the import too"
+    Every upload to the backend is limited to `STORAGE_MAX_FILE_SIZE_MB` plus 1 MiB (default: 26 MiB) — in front of every route, the import included. The backend refuses a larger archive with `413` even when `TENANT_IMPORT_MAX_UPLOAD_MB` is higher. For larger archives, raise `STORAGE_MAX_FILE_SIZE_MB`, `UPLOAD_SPOOL_BUDGET_MB` and your ingress's upload limit together — which then applies to every upload.
+
+!!! info "Signing key"
+    The archive signature is derived from `JWT_SECRET_KEY`. If you rotate that secret, older archives import as unverified (`verified: false`); they can still be imported.
 
 ---
 

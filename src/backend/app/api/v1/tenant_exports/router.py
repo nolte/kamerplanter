@@ -258,7 +258,10 @@ def admin_import_tenant(
 def admin_get_tenant_import(
     import_key: str = Path(description="Key of the import request."),
     admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
     service: TenantExportService = Depends(get_tenant_export_service),
 ) -> TenantImportResponse:
-    """The import's state and report (counts per collection, no contents)."""
-    return TenantImportResponse.from_request(service.get_import(import_key, requester=admin))
+    """The import's state and report (counts per collection, no contents); never an API key."""
+    return TenantImportResponse.from_request(
+        service.get_import(import_key, requester=admin, authenticated_with_api_key=via_api_key)
+    )

@@ -152,7 +152,8 @@ class _Imports:
         return [
             r
             for r in self.rows.values()
-            if r.status in ("pending", "validating", "running") and (r.updated_at or r.requested_at) <= before
+            if r.status == "cleanup_pending"
+            or (r.status in ("pending", "validating", "running") and (r.updated_at or r.requested_at) <= before)
         ]
 
     def delete_finished_before(self, before: datetime) -> int:
@@ -162,10 +163,11 @@ class _Imports:
 class _TenantService:
     def __init__(self) -> None:
         self.erased: list[str] = []
+        self.erasable = True
 
     def erase_abandoned_import(self, tenant_key: str, *, now: datetime) -> bool:
         self.erased.append(tenant_key)
-        return True
+        return self.erasable
 
 
 class _Store:
@@ -195,7 +197,7 @@ class _Store:
     def edges_touching(self, edge_collection: str, ids: list[str]) -> list[dict[str, Any]]:
         return []
 
-    def existing_global_keys(self, collection: str, keys: list[str]) -> set[str]:
+    def existing_global_keys(self, collection: str, keys: list[str], *, any_row: bool = False) -> set[str]:
         return set()
 
 
@@ -352,6 +354,7 @@ def world():
         entitlements=entitlements,
         imports=imports,
         tenant_service=tenant_service,
+        tenants=tenants,
     )
 
 
@@ -729,3 +732,140 @@ class TestADeadImportIsSwept:
         assert "tenant-imports/imp-x.zip" not in world.storage.objects
         assert world.imports.rows["imp-x"].status == "failed"
         assert world.imports.rows["imp-x"].failure_reason == "IMPORT_ABANDONED"
+
+
+# ── PR #2267 security review, round 2 ────────────────────────────────
+
+
+def _archive_with_sites_part(data: bytes, *, compression: int) -> bytes:
+    """A well-formed, unsigned archive whose ``collections/sites.jsonl`` is *data* (true hashes in the manifest)."""
+    import hashlib
+    import json
+    import zipfile
+
+    tenant = json.dumps({"name": "Garden", "slug": "garden"}).encode()
+    files = {
+        "tenant.json": {"rows": 1, "sha256": hashlib.sha256(tenant).hexdigest()},
+        "collections/sites.jsonl": {"rows": 0, "sha256": hashlib.sha256(data).hexdigest()},
+    }
+    manifest = json.dumps({"format": "kamerplanter-tenant-export/1", "source_tenant_key": "t-src", "files": files})
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as out:
+        out.writestr("manifest.json", manifest, compress_type=zipfile.ZIP_DEFLATED)
+        out.writestr("tenant.json", tenant, compress_type=zipfile.ZIP_DEFLATED)
+        out.writestr("collections/sites.jsonl", data, compress_type=compression)
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def no_row_is_parsed(monkeypatch):
+    """Fails the test the moment a row of a collection part reaches the JSON parser."""
+    import app.domain.engines.tenant_export_engine as engine
+
+    real = engine._loads
+
+    def guarded(data: bytes, part: str):
+        if part.startswith("collections/"):
+            raise AssertionError(f"a row was parsed before the archive was bounded: {part}")
+        return real(data, part)
+
+    monkeypatch.setattr(engine, "_loads", guarded)
+
+
+class TestADecompressionBombIsRefusedBeforeItIsParsed:
+    """SEC-R2-01 — the upload is small; what it unpacks to is bounded before a row is parsed."""
+
+    def test_25_mib_of_empty_objects_deflated_is_refused_by_its_ratio(self, world, no_row_is_parsed) -> None:
+        bomb = _archive_with_sites_part(b"{}\n" * (25 * 1024 * 1024 // 3), compression=8)  # ZIP_DEFLATED
+        assert len(bomb) < 200 * 1024  # what the admin uploads: well under every upload limit
+
+        with pytest.raises(TenantImportRefusedError) as refused:
+            _import(world.build(), bomb)
+
+        assert refused.value.error_code == "IMPORT_FORMAT_UNSUPPORTED"
+        assert "compression ratio" in str(refused.value)
+        assert world.imports.rows == {}
+
+    def test_a_part_of_too_many_rows_is_refused_before_it_is_split(self, world, no_row_is_parsed) -> None:
+        # Stored, not deflated: no ratio to catch, under 1 MiB, and still 300 001 dicts once parsed.
+        flood = _archive_with_sites_part(b"{}\n" * 300_001, compression=0)  # ZIP_STORED
+
+        with pytest.raises(TenantImportRefusedError) as refused:
+            _import(world.build(), flood)
+
+        assert refused.value.error_code == "IMPORT_FORMAT_UNSUPPORTED"
+        assert "more than 250000 rows" in str(refused.value)
+
+
+class TestTheSmallerRoundTwoFindings:
+    def test_a_stale_export_takes_its_stored_archive_with_it(self, world) -> None:
+        """I4 — a run that died after storing the archive leaves no object behind the failed request."""
+        service = world.build()
+        created = _request(service)
+        stale = world.exports.update_fields(created.key or "", {"status": "running", "updated_at": NOW})
+        assert stale is not None
+        world.storage.objects[service.storage_key_of(stale)] = b"PK partial"
+        world.clock.now = NOW + timedelta(hours=7)
+
+        run_async(service.expire())
+
+        assert service.storage_key_of(stale) not in world.storage.objects
+        assert world.exports.rows[created.key or ""].status == "failed"
+
+    def test_the_import_state_is_never_read_with_an_api_key(self, world) -> None:
+        """I6 — like every other route of the export and import, the import's state is for a person."""
+        created = _import(world.build(), _archive_bytes())
+        with pytest.raises(ForbiddenError):
+            world.build().get_import(created.key or "", requester=ADMIN, authenticated_with_api_key=True)
+        assert world.build().get_import(created.key or "", requester=ADMIN).key == created.key
+
+    def test_a_deactivated_account_is_no_member_to_map(self, world) -> None:
+        """I8 — the mapping refuses an account that can no longer sign in."""
+        inactive = LEAD.model_copy(update={"is_active": False})
+        service = world.build()
+        service._users = _Users(inactive, ADMIN)
+        with pytest.raises(TenantImportRefusedError) as refused:
+            _import(service, _archive_bytes(), {"old-lead": {"email": "lead@example.com", "role": "lead"}})
+        assert refused.value.error_code == "IMPORT_MEMBER_NOT_FOUND"
+
+    def test_a_refused_import_is_audited_with_the_archives_hash(self, world) -> None:
+        """I9 — who tried which archive, and why it was refused."""
+        import hashlib
+
+        data = _archive_bytes()
+        with pytest.raises(TenantImportRefusedError):
+            _import(world.build(), data, {"old-lead": {"email": "nobody@example.com", "role": "lead"}})
+        row = world.audit.rows[-1]
+        assert row["action"] == SecurityAuditAction.TENANT_IMPORT_REQUESTED
+        assert row["outcome"] == "refused:IMPORT_MEMBER_NOT_FOUND"
+        assert row["archive_sha256"] == hashlib.sha256(data).hexdigest()
+
+    def test_a_half_tenant_the_sweep_cannot_erase_yet_keeps_its_request(self, world) -> None:
+        """SEC-R2-03 — ending the request before its tenant is gone would leave rows no sweep finds."""
+        world.tenants.by_key["t-half"] = Tenant(
+            _key="t-half", name="Half", slug="half", owner_user_key="u-admin", status=TenantStatus.IMPORTING
+        )
+        world.tenant_service.erasable = False  # e.g. the tenant erasure is not configured on this replica
+        world.imports.rows["imp-y"] = TenantImportRequest.model_validate(
+            {
+                "_key": "imp-y",
+                "requested_by_user_key": "u-admin",
+                "status": "cleanup_pending",
+                "failure_reason": "IMPORT_FAILED",
+                "source_format": "kamerplanter-tenant-export/1",
+                "target_tenant_key": "t-half",
+                "requested_at": NOW,
+                "updated_at": NOW,
+            }
+        )
+
+        result = run_async(world.build().expire())
+
+        assert result["abandoned_imports"] == 0
+        kept = world.imports.rows["imp-y"]
+        assert (kept.status, kept.target_tenant_key) == ("cleanup_pending", "t-half")
+
+        world.tenant_service.erasable = True
+        run_async(world.build().expire())
+        ended = world.imports.rows["imp-y"]
+        assert (ended.status, ended.target_tenant_key, ended.failure_reason) == ("failed", None, "IMPORT_FAILED")

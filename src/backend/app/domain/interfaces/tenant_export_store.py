@@ -46,8 +46,12 @@ class ITenantDataStore(ABC):
         """Every edge of *edge_collection* whose ``_from`` or ``_to`` is one of *ids*."""
 
     @abstractmethod
-    def existing_global_keys(self, collection: str, keys: list[str]) -> set[str]:
-        """Which of *keys* name a **global** row of *collection* (no tenant's key on it)."""
+    def existing_global_keys(self, collection: str, keys: list[str], *, any_row: bool = False) -> set[str]:
+        """Which of *keys* name a **global** row of *collection* (no tenant's key on it).
+
+        *any_row* for a pure catalogue, whose rows are all global: a ``tenant_key`` there is a legacy
+        stamp, not ownership, and does not hide the row.
+        """
 
     @abstractmethod
     def insert_documents(self, collection: str, documents: list[dict[str, Any]]) -> list[str]:
@@ -130,4 +134,5 @@ class ITenantImportRequestRepository(ABC):
 
     @abstractmethod
     def list_stale_active(self, before: datetime) -> list[TenantImportRequest]:
-        """``pending``/``validating``/``running`` requests not touched since *before* (a run that died, SEC-007)."""
+        """``pending``/``validating``/``running`` requests not touched since *before* (a run that died, SEC-007),
+        and every ``cleanup_pending`` one (a rollback that left rows, SEC-R2-03), whatever its age."""

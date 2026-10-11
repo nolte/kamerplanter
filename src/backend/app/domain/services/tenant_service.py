@@ -372,6 +372,8 @@ class TenantService:
         plan_key: str,
         owner_user_key: str,
         members: list[Membership],
+        founder_scopes: list[AdminScope] | None = None,
+        tenant_key: str | None = None,
     ) -> Tenant:
         """Found the new tenant of an import (REQ-056 §8.4 step 2 and 4, #2138) — always a new one.
 
@@ -379,10 +381,17 @@ class TenantService:
         the platform admin's step-up. An import never merges into an existing tenant: the slug of the
         archive is taken when free, otherwise suffixed. The tenant is always an **organisation** — a
         personal tenant belongs to exactly one account, which already has its own in the target
-        installation. The owner gets the founder's lead membership with both scopes; every other mapped
-        member gets the role and scopes **the admin confirmed** (never the archive's, SEC-003). Each
-        membership is audited (``membership_added`` via ``platform_admin``) like a membership a platform
-        admin adds by hand.
+        installation. The owner gets the founder's lead membership with *founder_scopes* — the scopes the
+        admin confirmed for that member (SEC-R2-02); ``None`` (the fallback where the acting admin becomes
+        the owner because no mapped member was confirmed as lead + management) gives both scopes, like
+        every founding. Every other mapped member gets the role and scopes **the admin confirmed** (never
+        the archive's, SEC-003). Each membership, the founder's included, is audited
+        (``membership_added`` via ``platform_admin``) with the acting admin as the actor, like a membership
+        a platform admin adds by hand.
+
+        *tenant_key* is the key the tenant is written under: the import records it on its request before
+        this call, so no moment exists in which the tenant exists and the request does not name it (a run
+        that dies right after the founding is still swept).
 
         The tenant is founded ``importing`` and every membership inactive (SEC-007): nobody reaches it
         until :meth:`activate_imported_tenant` runs after the last row is written.
@@ -405,7 +414,15 @@ class TenantService:
             settings=settings,
             status=TenantStatus.IMPORTING,
         )
-        founded = self._found_tenant(tenant, owner_user_key, via=SecurityAuditVia.PLATFORM_ADMIN, founder_active=False)
+        founded = self._found_tenant(
+            tenant,
+            owner_user_key,
+            via=SecurityAuditVia.PLATFORM_ADMIN,
+            founder_active=False,
+            founder_scopes=founder_scopes,
+            actor_user_key=actor_user_key,
+            tenant_key=tenant_key,
+        )
         tenant_key = founded.key or ""
         for member in members:
             if member.user_key == owner_user_key:
@@ -505,7 +522,15 @@ class TenantService:
             raise ForbiddenError(message)
 
     def _found_tenant(
-        self, tenant: Tenant, user_key: str, *, via: SecurityAuditVia, founder_active: bool = True
+        self,
+        tenant: Tenant,
+        user_key: str,
+        *,
+        via: SecurityAuditVia,
+        founder_active: bool = True,
+        founder_scopes: list[AdminScope] | None = None,
+        actor_user_key: str | None = None,
+        tenant_key: str | None = None,
     ) -> Tenant:
         """Write a new tenant, its founder's lead membership, both edges and the audit row atomically (#2118).
 
@@ -516,12 +541,18 @@ class TenantService:
         slug taken. The one gate of the audit for a founding (the class guard
         ``test_membership_mutations_write_the_security_audit`` holds that every membership-creating method
         reaches it).
+
+        An import (#2138) passes the scopes the admin confirmed for the owner (*founder_scopes*), the acting
+        admin as the audit's actor (*actor_user_key*; otherwise the founder founds their own tenant) and the
+        key it already recorded (*tenant_key*).
         """
         membership = Membership(
             user_key=user_key,
             tenant_key="",  # the tenant's own key, set by the repository once the tenant exists
             role=TenantRole.LEAD,
-            admin_scopes=[AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
+            admin_scopes=list(founder_scopes)
+            if founder_scopes is not None
+            else [AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
             is_active=founder_active,
             joined_at=datetime.now(UTC).isoformat(),
         )
@@ -533,7 +564,7 @@ class TenantService:
             entry = audit.membership_entry(
                 action=SecurityAuditAction.MEMBERSHIP_ADDED,
                 via=via,
-                actor_user_key=user_key,
+                actor_user_key=actor_user_key or user_key,
                 target_user_key=user_key,
                 tenant_key=stored_tenant.key or "",
                 membership_key=stored_membership.key,
@@ -543,8 +574,10 @@ class TenantService:
             written.append(entry)
             return entry
 
+        # Only an import names the key; every other founding leaves it to the database.
+        preset: dict[str, str] = {"tenant_key": tenant_key} if tenant_key else {}
         stored_tenant, _founder = self._tenant_repo.create_with_lead_membership(
-            tenant, membership, audit=build_audit_row if audit is not None else None
+            tenant, membership, audit=build_audit_row if audit is not None else None, **preset
         )
         for entry in written:
             audit.announce(entry)  # type: ignore[union-attr]  # ``written`` is only filled when audit is wired

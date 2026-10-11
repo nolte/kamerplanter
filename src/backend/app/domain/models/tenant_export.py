@@ -29,9 +29,12 @@ type TenantExportOrigin = Literal["tenant_management", "platform_admin"]
 #: (the archive is gone after NFR-011 R-05).
 type TenantExportStatus = Literal["pending", "running", "completed", "failed", "expired"]
 
-#: ``validating`` (checksums, format, catalogue references) → ``running`` (the new tenant
-#: exists and documents are being written) → ``completed`` / ``failed``.
-type TenantImportStatus = Literal["pending", "validating", "running", "completed", "failed"]
+#: ``validating`` (checksums, format, catalogue references) → ``running`` (the new tenant's key is
+#: recorded, the tenant exists and documents are being written) → ``completed`` / ``failed``.
+#: ``cleanup_pending``: the run failed and its rollback could not remove everything; the tenant is
+#: still ``importing`` (unreachable) and ``target_tenant_key`` names it until the hourly sweep has
+#: erased it through the tenant-erasure inventory, then the request ends ``failed`` (SEC-R2-03).
+type TenantImportStatus = Literal["pending", "validating", "running", "completed", "failed", "cleanup_pending"]
 
 #: The only failure reasons a requester reads on the record (never an exception text).
 type TenantExportFailureReason = Literal["too_large", "tenant_not_exportable", "storage_unavailable", "internal_error"]
@@ -89,6 +92,8 @@ class TenantImportRequest(BaseModel):
     #: The archive carried this installation's valid signature (SEC-003); ``False`` = unverified.
     verified: bool = False
     plan_key: str | None = None
+    #: The uploaded archive's SHA-256 (hex): the audit names the archive by it (I9).
+    archive_sha256: str | None = None
     target_tenant_key: str | None = None
     #: Rows written per collection; no contents.
     report: dict[str, int] = Field(default_factory=dict)

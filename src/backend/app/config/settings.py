@@ -397,7 +397,10 @@ class Settings(BaseSettings):
     tenant_exports_per_day: int = Field(default=3, ge=1)
 
     #: REQ-056 §8.4 (#2138) — the largest tenant archive a platform admin may upload for an import, in MB
-    #: (compressed upload; the unpacked size is bounded at four times this). Above it ``413``.
+    #: (compressed upload). Above it ``413``. The unpacked size is bounded independently of this — 1 GiB, of which
+    #: at most 128 MiB documents, plus a compression-ratio and row bound (``tenant_export_engine``, SEC-R2-01).
+    #: Effective only up to the general multipart body ceiling (``storage_max_file_size_mb`` + 1 MiB,
+    #: ``RequestBodyLimitMiddleware``), which runs before any route.
     tenant_import_max_upload_mb: int = Field(default=512, ge=1)
 
     #: E2E only (#1155) — email of a second, platform-admin account to seed.

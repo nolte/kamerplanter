@@ -50,6 +50,13 @@ FOR doc IN @@collection
   RETURN doc._key
 """
 
+#: A pure catalogue's row exists or not — a legacy ``tenant_key`` stamp on it is not ownership.
+_EXISTING_KEYS = """
+FOR doc IN @@collection
+  FILTER doc._key IN @keys
+  RETURN doc._key
+"""
+
 _INSERT = "FOR doc IN @docs INSERT doc INTO @@collection RETURN NEW._key"
 
 _REMOVE_KEYS = """
@@ -143,18 +150,17 @@ class ArangoTenantDataStore(ITenantDataStore):
                 found[str(edge["_key"])] = dict(edge)
         return [found[key] for key in sorted(found)]
 
-    def existing_global_keys(self, collection: str, keys: list[str]) -> set[str]:
+    def existing_global_keys(self, collection: str, keys: list[str], *, any_row: bool = False) -> set[str]:
         if not keys or not self._db.has_collection(collection):
             return set()
         existing: set[str] = set()
         for start in range(0, len(keys), self.ID_CHUNK):
-            chunk = keys[start : start + self.ID_CHUNK]
-            existing.update(
-                str(key)
-                for key in cast(
-                    Cursor, self._db.aql.execute(_GLOBAL_KEYS, bind_vars={"@collection": collection, "keys": chunk})
-                )
-            )
+            bind_vars: dict[str, Any] = {"@collection": collection, "keys": keys[start : start + self.ID_CHUNK]}
+            if any_row:
+                cursor = cast(Cursor, self._db.aql.execute(_EXISTING_KEYS, bind_vars=bind_vars))
+            else:
+                cursor = cast(Cursor, self._db.aql.execute(_GLOBAL_KEYS, bind_vars=bind_vars))
+            existing.update(str(key) for key in cursor)
         return existing
 
     def insert_documents(self, collection: str, documents: list[dict[str, Any]]) -> list[str]:
@@ -425,10 +431,12 @@ class ArangoTenantImportRequestRepository(BaseArangoRepository[TenantImportReque
         return TenantImportRequest(**self._from_doc(docs[0])) if docs else None
 
     def list_stale_active(self, before: datetime) -> list[TenantImportRequest]:
+        # ``cleanup_pending`` at any age: its tenant is known to hold rows the next sweep must erase.
         query = """
         FOR doc IN @@collection
-          FILTER doc.status IN ["pending", "validating", "running"]
-            AND DATE_TIMESTAMP(doc.updated_at || doc.requested_at) <= DATE_TIMESTAMP(@before)
+          FILTER doc.status == "cleanup_pending"
+            OR (doc.status IN ["pending", "validating", "running"]
+                AND DATE_TIMESTAMP(doc.updated_at || doc.requested_at) <= DATE_TIMESTAMP(@before))
           LIMIT 100
           RETURN doc
         """

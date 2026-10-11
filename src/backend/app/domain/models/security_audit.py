@@ -51,6 +51,11 @@ class SecurityAuditEntry(BaseModel):
     #: SEC-005 — of a ``plan_changed`` row: each changed limit with its old and new value, flagged when the
     #: change lifts the limit (to ``0`` = unlimited, or to ``null`` = the instance setting).
     limit_changes: list[PlanLimitChange] | None = None
+    #: #2138 — of a ``tenant_import_requested`` / ``tenant_imported`` row: the archive's SHA-256 (hex).
+    archive_sha256: str | None = None
+    #: #2138 — of a ``tenant_import_requested`` row: ``accepted``, ``refused:<code>``, ``failed:<code>`` or
+    #: ``cleanup_pending:<code>`` (a code, never an exception text).
+    outcome: str | None = None
     #: The ``X-Request-ID`` of the request (structlog context), when there is one.
     request_id: str | None = None
     created_at: datetime | None = None
