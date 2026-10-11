@@ -120,7 +120,7 @@ class OverwinteringProfileService:
         verify_tenant_ownership(profile, tenant_key, _ENTITY)
         return profile
 
-    def create_profile(self, profile: OverwinteringProfile, tenant_key: str) -> OverwinteringProfile:
+    def create_profile(self, profile: OverwinteringProfile, *, tenant_key: str) -> OverwinteringProfile:
         self._require_single_subject(profile)
         profile.tenant_key = tenant_key
         self._validate_d5(profile)
@@ -138,7 +138,7 @@ class OverwinteringProfileService:
         self._wire_edges_or_rollback(created)
         return created
 
-    def update_profile(self, key: OverwinteringProfileKey, tenant_key: str, updates: dict) -> OverwinteringProfile:
+    def update_profile(self, key: OverwinteringProfileKey, updates: dict, *, tenant_key: str) -> OverwinteringProfile:
         existing = self.get_profile(key, tenant_key=tenant_key)
         data = existing.model_dump()
         data.update(updates)
@@ -166,7 +166,7 @@ class OverwinteringProfileService:
         self._verify_winter_quarter_ownership(merged, tenant_key)
         return self._repo.update_profile(key, merged)
 
-    def delete_profile(self, key: OverwinteringProfileKey, tenant_key: str) -> bool:
+    def delete_profile(self, key: OverwinteringProfileKey, *, tenant_key: str) -> bool:
         self.get_profile(key, tenant_key=tenant_key)
         return self._repo.delete_profile(key)
 
@@ -188,7 +188,7 @@ class OverwinteringProfileService:
             return False
         if not profile.auto_generated or profile.user_overridden:
             return False
-        return self.delete_profile(profile.key or "", tenant_key)
+        return self.delete_profile(profile.key or "", tenant_key=tenant_key)
 
     # ── REQ-047 per-plant profile access / override ─────────────────────
 
@@ -457,8 +457,8 @@ class OverwinteringProfileService:
 
     def auto_generate_profile(
         self,
-        tenant_key: str,
         *,
+        tenant_key: str,
         plant_key: str | None = None,
         planting_run_key: str | None = None,
         frost_sensitivity: FrostTolerance | None = None,
@@ -596,8 +596,8 @@ class OverwinteringProfileService:
 
     def link_shared_template(
         self,
-        tenant_key: str,
         *,
+        tenant_key: str,
         plant_key: str | None = None,
         planting_run_key: str | None = None,
         template_key: str | None = None,
@@ -644,8 +644,8 @@ class OverwinteringProfileService:
 
     def unlink_shared_template(
         self,
-        tenant_key: str,
         *,
+        tenant_key: str,
         plant_key: str | None = None,
         planting_run_key: str | None = None,
     ) -> bool:

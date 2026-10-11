@@ -456,7 +456,12 @@ class PlantDiaryService:
         """
         if run_key and self._run_repo:
             plants = self._run_repo.get_run_plants(run_key, include_detached=False)
-            plant_keys = {p.get("_key", "") for p in plants}
+            # A row is the plant document behind the ``run_contains`` edge: a legacy
+            # edge to another tenant's plant is not this tenant's run member, and
+            # answers like a plant that is not in the run (#2107 review SEC-001 sweep).
+            plant_keys = {
+                p.get("_key", "") for p in plants if entry.tenant_key and p.get("tenant_key") == entry.tenant_key
+            }
             if plant_key not in plant_keys:
                 raise NotFoundError("PlantingRunEntry", plant_key)
 

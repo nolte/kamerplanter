@@ -68,9 +68,9 @@ class PostHarvestService:
 
     def start_drying(
         self,
-        tenant_key: str,
         harvest_batch_key: str,
         *,
+        tenant_key: str,
         species_type: PostHarvestSpeciesType = PostHarvestSpeciesType.FLOWER,
         drying_method: DryingMethod = DryingMethod.HANG_DRY,
         start_weight_g: float | None = None,
@@ -110,8 +110,9 @@ class PostHarvestService:
     def advance_stage(
         self,
         key: str,
-        tenant_key: str,
         target_stage: PostHarvestStage,
+        *,
+        tenant_key: str,
     ) -> PostHarvestBatch:
         """Advance a batch to the next stage (forward-only state machine).
 
@@ -146,9 +147,9 @@ class PostHarvestService:
     def record_drying_progress(
         self,
         key: str,
-        tenant_key: str,
         current_weight_g: float,
         *,
+        tenant_key: str,
         water_activity: float | None = None,
         co2_ppm: int | None = None,
         snap_test_passed: bool | None = None,
@@ -220,8 +221,9 @@ class PostHarvestService:
     def record_observation(
         self,
         key: str,
-        tenant_key: str,
         observation: StorageObservation,
+        *,
+        tenant_key: str,
     ) -> StorageObservation:
         """Persist a storage observation, auto-raising a MoldAlert on risk."""
         batch = self.get_batch(key, tenant_key=tenant_key)
@@ -259,6 +261,6 @@ class PostHarvestService:
 
     # ── Admin ──
 
-    def delete_batch(self, key: str, tenant_key: str) -> None:
+    def delete_batch(self, key: str, *, tenant_key: str) -> None:
         self.get_batch(key, tenant_key=tenant_key)
         self._repo.delete_batch(key)

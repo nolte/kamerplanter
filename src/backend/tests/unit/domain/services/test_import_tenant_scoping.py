@@ -262,7 +262,7 @@ def test_system_context_import_stays_global_and_ungated():
     svc, species_repo, _ = _service()
     _confirming(svc, _staged_job(EntityType.SPECIES))
 
-    svc.confirm("job1")  # no tenant, no role — must not raise
+    svc.confirm("job1", tenant_key=None)  # system context, no role — must not raise
 
     svc._get_create_fn(EntityType.SPECIES)(_SPECIES_ROW)
     species: Species = species_repo.upsert_by_normalized_scientific_name.call_args[0][0]

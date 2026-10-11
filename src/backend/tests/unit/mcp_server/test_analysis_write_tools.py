@@ -113,7 +113,7 @@ class _FeedingService:
         """Every fill event here is the tenant's own; the real check is in ``FeedingService`` (#1872 C6)."""
         self.checked_fill_events = [*getattr(self, "checked_fill_events", []), (key, tenant_key)]
 
-    def create_event(self, event: FeedingEvent) -> FeedingEvent:
+    def create_event(self, event: FeedingEvent, *, tenant_key: str) -> FeedingEvent:
         stored = event.model_copy(update={"key": f"fe-{len(self.created) + 1}"})
         if stored.timestamp is None:
             stored.timestamp = datetime.now(UTC)

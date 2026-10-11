@@ -57,7 +57,7 @@ def create_succession_plan(
 ):
     """Create a succession plan for the tenant."""
     plan = SuccessionPlan(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_plan(plan)
+    created = service.create_plan(plan, tenant_key=ctx.tenant_key)
     return _plan_response(created)
 
 
