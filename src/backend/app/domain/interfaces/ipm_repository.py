@@ -112,6 +112,11 @@ class IIpmRepository(ABC):
     ) -> tuple[list[Inspection], int]: ...
 
     @abstractmethod
+    def get_inspections_for_plant_window(self, plant_key: str, offset: int = 0, limit: int = 50) -> list[Inspection]:
+        """The page of :meth:`get_inspections_for_plant` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def get_inspection_photo_refs_for_pest(self, tenant_key: str, pest_key: PestKey) -> list[str]:
         """Return the deduplicated photo attachment ids of a tenant's inspections.
 
@@ -134,6 +139,13 @@ class IIpmRepository(ABC):
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[TreatmentApplication], int]: ...
+
+    @abstractmethod
+    def get_applications_for_plant_window(
+        self, plant_key: str, offset: int = 0, limit: int = 50
+    ) -> list[TreatmentApplication]:
+        """The page of :meth:`get_applications_for_plant` without its count query (MT-035, #2131)."""
+        ...
 
     # ── Edges ──
     @abstractmethod

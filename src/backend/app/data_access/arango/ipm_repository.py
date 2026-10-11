@@ -154,6 +154,15 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
             sort_direction="DESC",
         )
 
+    def get_inspections_for_plant_window(self, plant_key: str, offset: int = 0, limit: int = 50) -> list[Inspection]:
+        return self._inspections.get_page_window(
+            offset=offset,
+            limit=limit,
+            filters=[("plant_key", "==", plant_key)],
+            sort="inspected_at",
+            sort_direction="DESC",
+        )
+
     def get_inspection_photo_refs_for_pest(self, tenant_key: str, pest_key: PestKey) -> list[str]:
         # Strict tenant isolation: only the calling tenant's inspections are
         # scanned. ``pest_key in detected_pest_keys`` selects the inspections
@@ -204,6 +213,17 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
         limit: int = 50,
     ) -> tuple[list[TreatmentApplication], int]:
         return self._applications.get_page(
+            offset=offset,
+            limit=limit,
+            filters=[("plant_key", "==", plant_key)],
+            sort="applied_at",
+            sort_direction="DESC",
+        )
+
+    def get_applications_for_plant_window(
+        self, plant_key: str, offset: int = 0, limit: int = 50
+    ) -> list[TreatmentApplication]:
+        return self._applications.get_page_window(
             offset=offset,
             limit=limit,
             filters=[("plant_key", "==", plant_key)],

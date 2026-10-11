@@ -66,27 +66,60 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
     ) -> tuple[list[PlantingRun], int]:
         self._enforce_tenant_scope(tenant_key, all_tenants)
         if filters:
+            items = self.get_runs_window(offset, limit, filters, tenant_key=tenant_key, all_tenants=all_tenants)
             query = f"FOR doc IN {col.PLANTING_RUNS}"
-            bind_vars: dict[str, Any] = {}
-            filter_clauses = []
-            if tenant_key:
-                bind_vars["tenant_key"] = tenant_key
-                filter_clauses.append("doc.tenant_key == @tenant_key")
-            for i, (field, value) in enumerate(filters.items()):
-                bind_vars[f"val{i}"] = value
-                filter_clauses.append(f"doc.{aql_field(field)} == @val{i}")
-            query += " FILTER " + " AND ".join(filter_clauses)
-            count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
-            count_vars = dict(bind_vars)
-            bind_vars["offset"] = offset
-            bind_vars["limit"] = limit
-            query += " SORT doc._key LIMIT @offset, @limit RETURN doc"
-            cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-            items = [PlantingRun(**self._from_doc(doc)) for doc in cursor]
-            count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
+            selection, count_vars = self._filtered_runs(filters, tenant_key)
+            query += selection
+            count_cursor = self._db.aql.execute(
+                query + " COLLECT WITH COUNT INTO total RETURN total", bind_vars=count_vars
+            )
             total = next(count_cursor, 0)
             return items, total
         return super().get_all(offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
+
+    def get_runs_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str | None,
+        all_tenants: bool = False,
+    ) -> list[PlantingRun]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131).
+
+        Same tenant scope (``_enforce_tenant_scope``), same predicates, same
+        ``_key`` order and ``LIMIT``; the list route answers a bare array.
+        """
+        self._enforce_tenant_scope(tenant_key, all_tenants)
+        if not filters:
+            return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key, all_tenants=all_tenants)
+        query = f"FOR doc IN {col.PLANTING_RUNS}"
+        selection, bind_vars = self._filtered_runs(filters, tenant_key)
+        query += selection
+        query += " SORT doc._key LIMIT @offset, @limit RETURN doc"
+        page_vars: dict[str, Any] = {**bind_vars, "offset": offset, "limit": limit}
+        cursor = self._db.aql.execute(query, bind_vars=page_vars)
+        return [PlantingRun(**self._from_doc(doc)) for doc in cursor]
+
+    @staticmethod
+    def _filtered_runs(filters: dict[str, Any], tenant_key: str | None) -> tuple[str, dict[str, Any]]:
+        """The ``FILTER`` clause (after ``FOR doc IN planting_runs``) the filtered count and window share.
+
+        The ``FOR`` head stays at the call sites as a literal so the AQL guards can
+        read which collection each query walks.
+        """
+        query = ""
+        bind_vars: dict[str, Any] = {}
+        filter_clauses = []
+        if tenant_key:
+            bind_vars["tenant_key"] = tenant_key
+            filter_clauses.append("doc.tenant_key == @tenant_key")
+        for i, (field, value) in enumerate(filters.items()):
+            bind_vars[f"val{i}"] = value
+            filter_clauses.append(f"doc.{aql_field(field)} == @val{i}")
+        query += " FILTER " + " AND ".join(filter_clauses)
+        return query, bind_vars
 
     def create(self, run: PlantingRun) -> PlantingRun:
         created = super().create(run)
