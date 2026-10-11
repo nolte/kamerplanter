@@ -128,6 +128,9 @@ class TestPlantTasks:
             get_species_repo=MagicMock(),
             get_lifecycle_repo=MagicMock(),
             get_phase_sequence_repo=MagicMock(),
+            # The task binds get_tenant_repo at import time; whichever test imported it first decides
+            # what an unpatched name points at (a real repository in CI's order).
+            get_tenant_repo=active("t1"),
         )
         trigger = MagicMock()
         trigger.should_trigger_dormancy.return_value = False
