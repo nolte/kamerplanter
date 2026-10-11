@@ -309,12 +309,17 @@ PREDICATE_BUILDERS: frozenset[str] = frozenset(
 #: Methods of ``BaseArangoRepository`` that read the class's OWN collection. A
 #: call ``self.<name>(...)`` in a repository body means "this reads my
 #: collection". Attribute reads (``self.collection``, ``self._collection_name``)
-#: count the same way.
+#: count the same way. The count-free window primitives of MT-035 (#2131) read the
+#: same window as their counted siblings and are listed with them (SEC-001: missing
+#: them left every read that pages only through a window out of the inventory).
 _OWN_COLLECTION_ACCESS = frozenset(
     {
         "collection",
         "_collection_name",
         "_list_docs",
+        "_window_docs",
+        "list_window",
+        "get_page_window",
         "_find_docs",
         "_get_doc",
         "get_by_key",
@@ -687,8 +692,13 @@ def build_inventory(app_root: Path) -> Inventory:
                     keyword_annotations=tuple(_annotation_name(a.annotation) for a in args.kwonlyargs),
                     tenant_shape=_tenant_shape(fn),
                     all_tenants_flag="all_tenants" in {a.arg for a in args.kwonlyargs},
-                    enforces_tenant_scope=bool(callees & {"_enforce_tenant_scope", "_list_docs"})
-                    or ("get_all" in callees and "all_tenants" in {a.arg for a in args.kwonlyargs}),
+                    # ``_list_docs``/``_window_docs`` reach ``_enforce_tenant_scope`` through
+                    # ``_list_builder``; ``get_all``/``list_window`` do too, but they take
+                    # ``all_tenants`` themselves, so they count only when the caller forwards one.
+                    enforces_tenant_scope=bool(callees & {"_enforce_tenant_scope", "_list_docs", "_window_docs"})
+                    or (
+                        bool(callees & {"get_all", "list_window"}) and "all_tenants" in {a.arg for a in args.kwonlyargs}
+                    ),
                     builds_union_predicate=bool(callees & PREDICATE_BUILDERS),
                     dereferenced=frozenset(dereferenced(name, frozenset({name}))),
                 )
@@ -1310,6 +1320,52 @@ class TestTheRuleFires:
         target.write_text(target.read_text(encoding="utf-8") + planted, encoding="utf-8")
         hits = [v for v in _verdicts(build_inventory(root)) if v.method.name == "species_of"]
         assert [(v.passed, v.category) for v in hits] == [(True, "strict")]
+
+    #: SEC-001 (#2131): the count-free window primitives read the class's own
+    #: collection exactly as ``get_all``/``get_page``/``_list_docs`` do. A read that
+    #: reaches its collection only through one of them used to touch *no*
+    #: collection in the derivation — the guard did not see it at all.
+    _WINDOW_SPELLINGS = (
+        "self.list_window(limit=limit)",
+        "self.get_page_window(limit=limit)",
+        "self._wrap_many(self._window_docs(0, limit, None, all_tenants=True))",
+    )
+
+    @pytest.mark.parametrize("spelling", _WINDOW_SPELLINGS, ids=["list_window", "get_page_window", "_window_docs"])
+    def test_a_tenant_less_window_read_is_a_finding(self, tmp_path: Path, spelling: str) -> None:
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "watering_log_repository.py"
+        planted = f"\n    def recent_window(self, limit: int = 50) -> list[WateringLog]:\n        return {spelling}\n"
+        target.write_text(target.read_text(encoding="utf-8") + planted, encoding="utf-8")
+        hits = [v for v in findings(build_inventory(root), EXCLUSIONS) if v.method.name == "recent_window"]
+        assert [(v.category, v.method.collections) for v in hits] == [("unscoped", frozenset({col.WATERING_LOGS}))]
+
+    def test_an_optional_tenant_window_read_with_the_flag_is_runtime_enforced(self, tmp_path: Path) -> None:
+        """The counterpart: ``list_window`` enforces the scope as ``get_all`` does (``_list_builder``)."""
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "watering_log_repository.py"
+        planted = (
+            "\n    def recent_window(\n"
+            "        self, limit: int = 50, tenant_key: str | None = None, *, all_tenants: bool = False\n"
+            "    ) -> list[WateringLog]:\n"
+            "        return self.list_window(limit=limit, tenant_key=tenant_key, all_tenants=all_tenants)\n"
+        )
+        target.write_text(target.read_text(encoding="utf-8") + planted, encoding="utf-8")
+        verdicts = [v for v in _verdicts(build_inventory(root)) if v.method.name == "recent_window"]
+        assert [(v.passed, v.category) for v in verdicts] == [(True, "runtime-enforced")]
+
+    def test_the_window_reads_of_2131_are_inventoried(self) -> None:
+        """Anti-vacuity on the real tree: the three window reads SEC-001 named are subject reads."""
+        verdicts = {(v.method.owner, v.method.name): v for v in _verdicts(_real_inventory())}
+        for owner, name, collection in (
+            ("ArangoHarvestRepository", "list_batches_window", col.HARVEST_BATCHES),
+            ("ArangoPostHarvestRepository", "list_batches_window", col.POST_HARVEST_BATCHES),
+            ("ArangoImportJobRepository", "list_all_window", col.IMPORT_JOBS),
+        ):
+            verdict = verdicts.get((owner, name))
+            assert verdict is not None, f"{owner}.{name} is not a subject read"
+            assert collection in verdict.method.collections
+            assert (verdict.passed, verdict.category) == (True, "strict")
 
     def test_a_hybrid_catalogue_key_does_not_anchor(self) -> None:
         inventory = _real_inventory()

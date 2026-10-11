@@ -107,6 +107,21 @@ class PlantingRunService:
     ) -> tuple[list[PlantingRun], int]:
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
+    def list_runs_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[PlantingRun]:
+        """One page of the tenant's runs without the count query (MT-035, #2131).
+
+        ``tenant_key`` is required here: an empty value is refused by the
+        repository's tenant-scope guard instead of widening the page.
+        """
+        return self._repo.get_runs_window(offset, limit, filters, tenant_key=tenant_key)
+
     def get_run(self, key: PlantingRunKey, tenant_key: str = "") -> PlantingRun:
         run = self._repo.get_or_raise(key)
         if tenant_key:

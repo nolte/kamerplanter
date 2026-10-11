@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import LocationKey, PlantID, PlantingRunEntryKey, PlantingRunKey
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
@@ -16,6 +17,18 @@ class IPlantingRunRepository(ABC):
         *,
         tenant_key: str | None = None,
     ) -> tuple[list[PlantingRun], int]: ...
+
+    @abstractmethod
+    def get_runs_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str | None,
+    ) -> list[PlantingRun]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        ...
 
     @abstractmethod
     def get_by_key(self, key: PlantingRunKey) -> PlantingRun | None: ...

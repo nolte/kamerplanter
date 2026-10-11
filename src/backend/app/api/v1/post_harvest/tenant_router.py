@@ -84,7 +84,9 @@ def list_batches(
     if harvest_batch:
         batches = service.list_for_batch(harvest_batch, ctx.tenant_key)
     else:
-        batches, _ = service.list_batches(ctx.tenant_key, pagination.offset, pagination.limit)
+        batches = service.list_batches_window(
+            tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit
+        )
     return [_batch_response(b) for b in batches]
 
 
