@@ -147,7 +147,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: vanished one may mean the predicate went blind.
 #: +2 with #2137: create_service_account (joins) and remove_service_account (removes).
 #: +1 with #2182: join_provider_default_tenant (audited, via oidc_auto_join).
-EXPECTED_MEMBERS = 16  # +1 with #2134: _hand_management_to (the account erasure's INV-1 handover); +1 with #2133
+#: +1 with #2138: found_imported_tenant (audited, via platform_admin).
+EXPECTED_MEMBERS = 17  # +1 with #2134: _hand_management_to (the account erasure's INV-1 handover); +1 with #2133
 
 
 def test_every_membership_mutation_writes_the_audit_or_is_classified() -> None:
@@ -516,6 +517,8 @@ def test_the_creation_predicate_sees_the_class() -> None:
         ("tenant_service.py", "TenantService.create_service_account"): "helper",
         # #2182 - the OIDC auto-join takes a seat through the same limited door.
         ("tenant_service.py", "TenantService.join_provider_default_tenant"): "helper",
+        # #2138 - the mapped members of an imported tenant take their seats through the same door.
+        ("tenant_service.py", "TenantService.found_imported_tenant"): "helper",
     }
 
 

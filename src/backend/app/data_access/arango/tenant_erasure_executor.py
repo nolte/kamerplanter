@@ -147,6 +147,18 @@ def _match(
     return match, binds
 
 
+def tenant_row_filter(
+    entry: TenantErasureEntry, parent_keys: dict[str, list[str]], tenant_collection: str
+) -> tuple[str, dict[str, Any]]:
+    """The predicate that selects the tenant's rows of *entry* — the one the erasure deletes by.
+
+    The tenant export (REQ-056 §8.3, #2138) reads with the same predicate, so what an archive
+    holds is exactly what the deletion would reach. ``keep_if_granted_via`` is dropped: a row
+    another tenant was granted access to is still this tenant's row to export.
+    """
+    return _match(entry.model_copy(update={"keep_if_granted_via": None}), parent_keys, tenant_collection)
+
+
 class ArangoTenantErasureExecutor(ITenantErasureExecutor):
     """Erases one tenant in bounded ArangoDB transactions, then counts the residue.
 

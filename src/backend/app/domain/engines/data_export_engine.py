@@ -430,6 +430,20 @@ class DataExportEngine:
             fields=["pest_key", "status", "promoted_at"],
         ),
         DataSourceDefinition(
+            # REQ-056 §12.3 (#2138) — the tenant exports the subject requested (no archive content).
+            collection="tenant_export_requests",
+            filter_field="requested_by_user_key",
+            label="Garden exports you requested",
+            fields=["tenant_key", "origin", "status", "size_bytes", "requested_at", "completed_at", "expires_at"],
+        ),
+        DataSourceDefinition(
+            # REQ-056 §12.3 (#2138) — the tenant imports the subject (a platform admin) ran.
+            collection="tenant_import_requests",
+            filter_field="requested_by_user_key",
+            label="Garden imports you ran",
+            fields=["status", "target_tenant_key", "report", "requested_at", "completed_at"],
+        ),
+        DataSourceDefinition(
             collection="import_jobs",
             filter_field="uploaded_by",
             label="Imports",

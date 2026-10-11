@@ -275,6 +275,9 @@ class _World:
         ("admin_membership_removal", "m-1"),
         ("admin_membership_role_change", "m-1"),
         ("admin_membership_add", "t-1|u-2"),
+        # #2138 — a platform admin exports any tenant and imports into a new one.
+        ("tenant_export", "t-1"),
+        ("tenant_import", "new:garden"),
     ],
 )
 def test_a_platform_admin_obtains_a_factor_for_an_existing_target(action: str, target: str) -> None:
@@ -299,6 +302,8 @@ def test_a_platform_admin_obtains_a_factor_for_an_existing_target(action: str, t
         ("admin_membership_role_change", "m-404"),
         ("admin_membership_add", "t-1|u-2"),
         ("admin_membership_add", "t-404|u-404"),
+        ("tenant_export", "t-404"),
+        ("tenant_import", "new:garden"),
     ],
 )
 def test_who_is_no_platform_admin_is_refused_before_existence_is_told(action: str, target: str) -> None:
@@ -326,6 +331,8 @@ def test_who_is_no_platform_admin_is_refused_before_existence_is_told(action: st
         ("admin_membership_add", "t-404|u-2", NotFoundError),
         ("admin_membership_add", "t-1|u-404", NotFoundError),
         ("admin_membership_add", "t-1", ValidationError),
+        ("tenant_export", "t-404", NotFoundError),
+        ("tenant_import", "garden", ValidationError),
         ("admin_membership_add", "t-1|", ValidationError),
         ("admin_membership_add", "|u-2", ValidationError),
         ("admin_membership_add", "t-1|u-2|extra", ValidationError),

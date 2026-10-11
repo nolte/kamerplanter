@@ -163,6 +163,21 @@ _SLUG_ROUTES_WITHOUT_THE_RESOLVER: dict[str, str] = {
         "#2123 — the tenant is pending_deletion and resolves for nobody (#2105); the service resolves the "
         "slug, refuses any API key and proves lead + management from the stored membership"
     ),
+    "POST /api/v1/tenants/{tenant_slug}/exports": (
+        "#2138 (REQ-056 §8.2) — a pending_deletion tenant may still be exported by its management but resolves "
+        "for nobody (#2105); TenantExportService resolves the slug, refuses any API key and proves lead + "
+        "management from the stored membership (unknown slug = the same 403)"
+    ),
+    "GET /api/v1/tenants/{tenant_slug}/exports": (
+        "#2138 (REQ-056 §8.2) — a pending_deletion tenant may still be exported by its management but resolves "
+        "for nobody (#2105); TenantExportService resolves the slug, refuses any API key and proves lead + "
+        "management from the stored membership (unknown slug = the same 403)"
+    ),
+    "GET /api/v1/tenants/{tenant_slug}/exports/{export_key}/download": (
+        "#2138 (REQ-056 §8.2) — a pending_deletion tenant may still be exported by its management but resolves "
+        "for nobody (#2105); TenantExportService resolves the slug, refuses any API key and proves lead + "
+        "management from the stored membership (unknown slug = the same 403)"
+    ),
 }
 
 

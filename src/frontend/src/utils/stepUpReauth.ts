@@ -54,6 +54,8 @@ const STEP_UP_ACTION_SET: Readonly<Record<StepUpAction, true>> = {
   admin_membership_add: true,
   tenant_erasure_cancel: true,
   service_account_change: true,
+  tenant_export: true,
+  tenant_import: true,
 };
 
 /**
@@ -81,6 +83,8 @@ const TARGETED_STEP_UP_ACTIONS: Readonly<Record<StepUpAction, boolean>> = {
   admin_membership_add: true,
   tenant_erasure_cancel: true,
   service_account_change: true,
+  tenant_export: true,
+  tenant_import: true,
 };
 
 export function isTargetedStepUpAction(action: StepUpAction): boolean {

@@ -37,6 +37,9 @@ on a kind of target learns nothing about which targets of that kind exist (403 b
   (a rotation or removal); for the pair, the account is a service account with an active membership in
   that tenant. Authorization on the tenant first, so a requester who may not manage the tenant's service
   accounts learns nothing about which exist;
+* ``tenant_export`` (#2138, REQ-056 §8.2) — the rule of ``tenant_deletion``: the lead role and the management
+  scope in the tenant, or a platform admin; the tenant exists;
+* ``tenant_import`` (#2138) — a platform admin; the target is ``new:<slug>`` with the archive's slug;
 * ``tenant_member_removal`` / ``tenant_member_role_change`` (#2032) — the requester holds
   the ``management`` scope in the tenant the membership belongs to
   (``MembershipEngine.can_manage_members``, the predicate the routes' scope gate
@@ -141,6 +144,14 @@ class StepUpTargetAuthorizer:
             self._authorize_tenant_member_act(user_key, target)
         elif action == "service_account_change":
             self._authorize_service_account_act(user_key, target)
+        elif action == "tenant_export":
+            self._authorize_tenant_export(user_key, target)
+        elif action == "tenant_import":
+            self._require_platform_admin(user_key)
+            if not target.startswith(NEW_OIDC_PROVIDER_TARGET_PREFIX) or not target.removeprefix(
+                NEW_OIDC_PROVIDER_TARGET_PREFIX
+            ):
+                raise ValidationError("A tenant_import target is new:<slug> with the archive's slug.")
         else:  # pragma: no cover - a new targeted act must be given its rule here
             raise ForbiddenError("This act cannot be confirmed here.")
 
@@ -175,6 +186,18 @@ class StepUpTargetAuthorizer:
         actor = self._memberships.get_by_user_and_tenant(user_key, membership.tenant_key) if membership else None
         if not (actor and actor.is_active and MembershipEngine.can_manage_members(actor.admin_scopes)):
             raise ForbiddenError("Managing members requires the management scope in the membership's tenant.")
+
+    def _authorize_tenant_export(self, user_key: str, tenant_key: str) -> None:
+        membership = self._memberships.get_by_user_and_tenant(user_key, tenant_key)
+        may_export = bool(
+            membership
+            and membership.is_active
+            and MembershipEngine.can_delete_tenant(membership.role, membership.admin_scopes)
+        )
+        if not (may_export or self._is_platform_admin(user_key)):
+            raise ForbiddenError("Exporting a tenant requires the lead role and the management scope.")
+        if self._tenants.get_by_key(tenant_key) is None:
+            raise NotFoundError("Tenant", tenant_key)
 
     def _authorize_tenant_deletion(self, user_key: str, tenant_key: str) -> None:
         membership = self._memberships.get_by_user_and_tenant(user_key, tenant_key)

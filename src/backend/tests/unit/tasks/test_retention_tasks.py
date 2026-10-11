@@ -18,6 +18,7 @@ def _mock_dependencies(monkeypatch):
     mock_deps = ModuleType("app.common.dependencies")
     mock_deps.get_privacy_service = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_data_export_repo = MagicMock()  # type: ignore[attr-defined]
+    mock_deps.get_tenant_export_service = MagicMock()  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     yield mock_deps
@@ -201,12 +202,17 @@ class TestExpireDataExports:
         service = MagicMock()
         service.expire_data_exports = AsyncMock(return_value=1)
         _mock_dependencies.get_privacy_service.return_value = service
+        # #2138 — the same beat expires the tenant archives (NFR-011 R-05).
+        tenant_exports = MagicMock()
+        tenant_exports.expire = AsyncMock(return_value={"expired": 2, "stale": 0, "purged": 0})
+        _mock_dependencies.get_tenant_export_service.return_value = tenant_exports
 
         from app.tasks.retention_tasks import expire_data_exports
 
         result = expire_data_exports()
 
-        assert result == {"expired": 1}
+        assert result == {"expired": 1, "tenant_exports": {"expired": 2, "stale": 0, "purged": 0}}
+        tenant_exports.expire.assert_awaited_once()
 
 
 class TestRedispatchStalePendingExports:

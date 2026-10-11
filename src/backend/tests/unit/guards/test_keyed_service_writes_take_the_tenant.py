@@ -65,6 +65,11 @@ _NOT_TENANT_DATA: dict[str, str] = {
     ),
     "ActivityService": "global activity catalogue, written only behind require_platform_admin (#2119 owns tenant rows)",
     "LocationTypeService": "global location-type catalogue, written only behind require_platform_admin",
+    "TenantExportService": (
+        "keys address tenants and their export/import requests; authorised from the stored membership "
+        "(lead + management) or the platform-admin membership plus the requester's step-up (REQ-056 §8.2, #2138), "
+        "and every export row is read through the tenant-erasure predicate of that tenant"
+    ),
     "CompanionEdgeService": (
         "global companion edges (REQ-028), written only behind require_platform_admin and only between global "
         "species (MT-054, #2144) — the keyed load is the global-species check itself"

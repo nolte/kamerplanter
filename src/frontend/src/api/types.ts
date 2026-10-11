@@ -5136,7 +5136,11 @@ export type StepUpAction =
   | 'tenant_erasure_cancel'
   // #2137 — a tenant's lead (technical scope) creating, re-keying or removing a service account
   // (bound to the tenant's key, or to `<tenant_key>|<service_account_key>`).
-  | 'service_account_change';
+  | 'service_account_change'
+  // #2138 — a tenant's management (or a platform admin) exporting a tenant (bound to the tenant's key).
+  | 'tenant_export'
+  // #2138 — a platform admin importing a tenant archive as a new tenant (bound to `new:<slug>`).
+  | 'tenant_import';
 
 /**
  * The step-up a credential change carries in its body (#1847, #1857, REQ-023

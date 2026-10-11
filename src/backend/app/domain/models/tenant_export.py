@@ -1,0 +1,126 @@
+"""Domain models of the tenant export and import (REQ-056 §8, §13.3, §13.5, #2138).
+
+A tenant export is an archive of every row a tenant owns — the collections of the
+tenant-erasure inventory minus declared exclusions, the edges between them (or onto a
+global catalogue row), and the memberships as ``members.jsonl`` without any e-mail
+address. An import always founds a **new** tenant and gives every document a new
+key: ``_key`` is global per collection, so an archive cannot be written back into a
+shared database without a key-mapping table (§8.4).
+
+The request records live in ``tenant_export_requests`` (tenant-scoped, part of the
+tenant-erasure inventory) and ``tenant_import_requests`` (global: the target tenant
+only comes into being during the run).
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+#: Who asked for the export (REQ-056 §8.2).
+type TenantExportOrigin = Literal["tenant_management", "platform_admin"]
+
+#: ``pending`` (recorded, task dispatched) → ``running`` (a worker claimed it) →
+#: ``completed`` (archive stored) / ``failed`` (``failure_reason``) → ``expired``
+#: (the archive is gone after NFR-011 R-05).
+type TenantExportStatus = Literal["pending", "running", "completed", "failed", "expired"]
+
+#: ``validating`` (checksums, format, catalogue references) → ``running`` (the new tenant
+#: exists and documents are being written) → ``completed`` / ``failed``.
+type TenantImportStatus = Literal["pending", "validating", "running", "completed", "failed"]
+
+#: The only failure reasons a requester reads on the record (never an exception text).
+type TenantExportFailureReason = Literal["too_large", "tenant_not_exportable", "storage_unavailable", "internal_error"]
+
+
+class TenantExportRequest(BaseModel):
+    """One requested tenant export (REQ-056 §13.3)."""
+
+    key: str | None = Field(default=None, alias="_key")
+    tenant_key: str
+    requested_by_user_key: str
+    origin: TenantExportOrigin
+    status: TenantExportStatus = "pending"
+    failure_reason: TenantExportFailureReason | None = None
+    #: The archive's object-storage key (``t/<tenant>/tenant_export/<export_key>.zip``). The spec
+    #: draft named an attachment key; the archive has no attachment record (it must not count
+    #: against the storage quota, nor be exported itself), so the request holds the object key.
+    storage_key: str | None = None
+    size_bytes: int | None = Field(default=None, ge=0)
+    #: Rows per archive part (``collections/<name>.jsonl``, ``edges/<name>.jsonl``, ``members.jsonl``).
+    counts: dict[str, int] = Field(default_factory=dict)
+    requested_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    #: ``completed_at`` + NFR-011 R-05 (``RETENTION_EXPORT_FILE_RETENTION_HOURS``).
+    expires_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class TenantImportRequest(BaseModel):
+    """One import of a tenant archive by a platform admin (REQ-056 §13.5)."""
+
+    key: str | None = Field(default=None, alias="_key")
+    requested_by_user_key: str
+    status: TenantImportStatus = "pending"
+    source_format: str
+    #: The uploaded archive until the run ends (deleted on completion and on failure).
+    upload_storage_key: str | None = None
+    #: ``member_mapping`` resolved to account keys at request time: archive user key → account key.
+    member_accounts: dict[str, str] = Field(default_factory=dict)
+    plan_key: str | None = None
+    target_tenant_key: str | None = None
+    #: Rows written per collection; no contents.
+    report: dict[str, int] = Field(default_factory=dict)
+    #: A code (``IMPORT_*``), never an exception text.
+    failure_reason: str | None = None
+    missing_catalog_entries: list[str] = Field(default_factory=list)
+    requested_at: datetime
+    completed_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class TenantArchiveMember(BaseModel):
+    """One line of ``members.jsonl`` — no e-mail address, no account document (REQ-056 E-09)."""
+
+    user_key: str
+    display_name: str | None = None
+    role: str
+    admin_scopes: list[str] = Field(default_factory=list)
+    is_active: bool = True
+    joined_at: str | None = None
+
+
+class TenantArchive(BaseModel):
+    """A verified, parsed archive (checksums and format checked before this exists).
+
+    ``collections`` and ``edges`` hold the documents as stored in the source — with
+    their *source* keys; nothing of it may reach a database before the key mapping
+    rewrote it (:class:`~app.domain.engines.tenant_import_engine.TenantImportEngine`).
+    """
+
+    format: str
+    source_tenant_key: str
+    source_migration: str | None = None
+    tenant: dict[str, object]
+    collections: dict[str, list[dict[str, object]]] = Field(default_factory=dict)
+    edges: dict[str, list[dict[str, object]]] = Field(default_factory=dict)
+    members: list[TenantArchiveMember] = Field(default_factory=list)
+    objects: dict[str, bytes] = Field(default_factory=dict)
+
+
+class TenantImportOutcome(BaseModel):
+    """What one import run wrote (returned to the caller; only ``report`` is persisted)."""
+
+    tenant_key: str
+    report: dict[str, int] = Field(default_factory=dict)
+    #: ``collection -> {source key: new key}``. Held in memory only, for the caller (and the
+    #: roundtrip test); never stored — it would map the source installation's keys.
+    key_mapping: dict[str, dict[str, str]] = Field(default_factory=dict)
+    nulled_references: int = 0

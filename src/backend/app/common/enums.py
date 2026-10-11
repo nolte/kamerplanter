@@ -1846,6 +1846,11 @@ class SecurityAuditAction(StrEnum):
     PLAN_CREATED = "plan_created"
     PLAN_CHANGED = "plan_changed"
     PLAN_DELETED = "plan_deleted"
+    # REQ-056 §8 / §12.4 (#2138) — a tenant export was requested (by its management or a platform admin)
+    # and a platform admin imported an archive as a new tenant. The rows name the tenant, no target account.
+    TENANT_EXPORT_REQUESTED = "tenant_export_requested"
+    TENANT_IMPORT_REQUESTED = "tenant_import_requested"
+    TENANT_IMPORTED = "tenant_imported"
 
 
 class SecurityAuditVia(StrEnum):

@@ -53,6 +53,20 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "ceiling - and never in the platform tenant (refused before the membership is built), so there is "
         "nothing to escalate; the platform admin's step-up confirmed the configuration (#1883)"
     ),
+    ("tenant_export_service.py", "TenantExportService._members_of"): (
+        "#2138 — writes the role into an archive line (members.jsonl), a description of a stored membership; "
+        "nothing is granted"
+    ),
+    ("tenant_export_service.py", "TenantExportService.import_archive"): (
+        "#2138 (REQ-056 §8.4) — platform-admin path behind require_platform_admin and the admin's tenant_import "
+        "step-up: the memberships of a NEW tenant, as the archive recorded them, only for accounts the admin "
+        "mapped; never the platform tenant and no existing membership to raise"
+    ),
+    ("tenant_service.py", "TenantService.found_imported_tenant"): (
+        "#2138 (REQ-056 §8.4) — called only by TenantExportService.import_archive behind require_platform_admin "
+        "and the admin's tenant_import step-up: founds a NEW organisation (never the platform tenant) and writes "
+        "the roles the archive recorded for accounts the admin mapped; there is no existing membership to raise"
+    ),
     ("tenant_service.py", "TenantService.admin_change_membership_role"): (
         "platform-admin path: both routes require require_platform_admin and a platform admin may change any "
         "role in any tenant; the acting admin's step-up is checked here (#2032)"
@@ -133,7 +147,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: vanished one may mean the predicate went blind.
 #: +1 with #2137: create_service_account (viewer/grower, checked).
 #: +1 with #2182: join_provider_default_tenant (constant viewer, classified).
-EXPECTED_MEMBERS = 9  # 8 until #2118 merged the two founding functions into ``_found_tenant``
+#: +3 with #2138 (the archive line, the import of a new tenant, the founding of that tenant).
+EXPECTED_MEMBERS = 12  # 8 until #2118 merged the two founding functions into ``_found_tenant``
 
 
 def test_every_role_grant_checks_for_escalation_or_is_classified() -> None:

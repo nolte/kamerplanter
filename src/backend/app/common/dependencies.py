@@ -239,6 +239,7 @@ if TYPE_CHECKING:
     from app.domain.services.step_up_service import StepUpVerifier
     from app.domain.services.system_settings_service import SystemSettingsService
     from app.domain.services.task_entity_guard import TaskEntityGuard
+    from app.domain.services.tenant_export_service import TenantExportService
     from app.domain.services.user_preference_service import UserPreferenceService
     from app.domain.services.weather_settings_service import EffectiveWeatherSettings, WeatherSettingsService
     from app.domain.services.weather_source_service import WeatherSourceService
@@ -1347,6 +1348,51 @@ def get_plan_service() -> PlanService:
         plan_repo=get_plan_repo(),
         entitlements=get_entitlement_service(),
         security_audit=get_security_audit_service(),
+    )
+
+
+def get_tenant_export_service() -> TenantExportService:
+    """REQ-056 §8 (#2138) — tenant export (management or platform admin) and import (platform admin)."""
+    from app.data_access.arango.tenant_export_store import (
+        ArangoTenantDataStore,
+        ArangoTenantExportRequestRepository,
+        ArangoTenantImportRequestRepository,
+    )
+    from app.domain.services.tenant_export_service import TenantExportService
+
+    def dispatch_export(export_key: str) -> None:
+        from app.tasks.tenant_export_tasks import run_tenant_export
+
+        run_tenant_export.apply_async(
+            (export_key,), retry=True, retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1}
+        )
+
+    def dispatch_import(import_key: str) -> None:
+        from app.tasks.tenant_export_tasks import run_tenant_import
+
+        run_tenant_import.apply_async(
+            (import_key,), retry=True, retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1}
+        )
+
+    db = get_db()
+    return TenantExportService(
+        store=ArangoTenantDataStore(db),
+        export_repo=ArangoTenantExportRequestRepository(db),
+        import_repo=ArangoTenantImportRequestRepository(db),
+        tenant_repo=get_tenant_repo(),
+        membership_repo=get_membership_repo(),
+        user_repo=get_user_repo(),
+        tenant_service=get_tenant_service(),
+        storage=get_object_storage(),
+        step_up_verifier=get_step_up_verifier(),
+        security_audit=get_security_audit_service(),
+        entitlements=get_entitlement_service(),
+        email_service=get_email_service(),
+        exports_per_day=settings.tenant_exports_per_day,
+        export_retention_hours=settings.retention_export_file_retention_hours,
+        import_max_upload_bytes=settings.tenant_import_max_upload_mb * 1024 * 1024,
+        dispatch_export=dispatch_export,
+        dispatch_import=dispatch_import,
     )
 
 

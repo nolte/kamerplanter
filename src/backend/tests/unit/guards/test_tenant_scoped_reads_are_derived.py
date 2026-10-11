@@ -246,6 +246,11 @@ ANCHOR_TARGETS: dict[str, str | None] = {
     "owner_user_key": None,
     "plan_key": None,  # REQ-056 §7 (#2142): the global plan catalogue; tenants point at a plan, no plan names a tenant
     "old_plan_key": None,  # the plan a tenant left, on a security-audit row (#2142)
+    # REQ-056 §13.5 (#2138) — a platform admin's import request: the admin account, the tenant the run
+    # founds (a tenant id, not a document of one) and the uploaded archive's object key.
+    "requested_by_user_key": None,
+    "target_tenant_key": None,
+    "upload_storage_key": None,
     "default_tenant_key": None,  # a tenant id, not a document of one
     "personal_tenant_keys": None,  # tenant ids an account erasure recorded (#1788), not documents of one
     "gbif_taxon_key": None,  # external taxonomy id
@@ -1009,6 +1014,12 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "system",
         "the nutrient-plan seed loaders match a seed to a GLOBAL row only (tenant_key empty, never a tenant's "
         "own plan), over the whole catalogue (#1957); no request handler reaches it",
+    ),
+    ("ArangoTenantExportRequestRepository", "list_expiry_due"): Exclusion(
+        "system", "the hourly NFR-011 R-05 beat expires every tenant's completed export archives (#2138)"
+    ),
+    ("ArangoTenantExportRequestRepository", "list_stale_active"): Exclusion(
+        "system", "the hourly beat ends export runs of every tenant whose heartbeat is stale (#2138)"
     ),
     ("ArangoTenantErasureRepository", "list_due"): Exclusion(
         "system", "the daily tenant-erasure retry beat walks every open deletion record (#1769)"

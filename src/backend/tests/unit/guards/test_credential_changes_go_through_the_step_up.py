@@ -155,6 +155,11 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
 }
 
 _MEMBERSHIP_CLASSIFIED: dict[tuple[str, str], str] = {
+    ("tenant_service.py", "TenantService.found_imported_tenant"): (
+        "#2138 (REQ-056 §8.4) — the memberships of a NEW tenant an import founds; its only caller is "
+        "TenantExportService.import_archive, run for an import request the platform admin confirmed with the "
+        "tenant_import step-up (TenantExportService.request_import passes the verifier)"
+    ),
     ("tenant_service.py", "TenantService.leave_tenant"): (
         "a person leaving on their own: the act is the member's own, nobody is locked out by someone else, "
         "and INV-1 refuses the last management holder; the session that leaves is the person's"
@@ -353,7 +358,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
 EXPECTED_MEMBERS = (
-    41  # +1 with #2182: join_provider_default_tenant (classified, the OIDC auto-join via the insert helper);
+    42  # +1 with #2138: found_imported_tenant (classified, the import's founding);
+    # +1 with #2182: join_provider_default_tenant (classified, the OIDC auto-join via the insert helper);
     # unchanged by MT-045.2 (#2144): change_member_scopes stays a member, it moved from classified to gated;
     # +3 with #2137: create_service_account (constructs a User, joins it, mints its key),
     # rotate_service_account_key (mints a key) and remove_service_account (deletes a membership) - all gated

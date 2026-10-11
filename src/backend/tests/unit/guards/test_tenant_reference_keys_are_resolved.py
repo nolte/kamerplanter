@@ -285,6 +285,10 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "aquaponik.SupplementationEvent.system_key": _V,
     "aquaponik.WaterTest.system_key": _V,
     "attachment.Attachment.storage_key": _I,
+    # REQ-056 §13.3 (#2138) — the requester of a tenant export and the archive's object key, both set by
+    # TenantExportService (the requester is the authenticated caller, the key is derived from the request).
+    "tenant_export.TenantExportRequest.requested_by_user_key": _A,
+    "tenant_export.TenantExportRequest.storage_key": _I,
     "calendar.CalendarFeed.user_key": _A,
     "feeding_event.FeedingEvent.plant_key": _V,
     "feeding_event.FeedingEvent.tank_fill_event_key": _V,  # through the tank (#1872 C6)

@@ -33,6 +33,10 @@ const NO_DIALOG: Readonly<Record<string, string>> = {
   // #2137 — the service-account routes (`/t/{slug}/service-accounts`) have no page yet; REQ-023 §5b.0
   // records the frontend (§5b.10) as open. Measured 2026-10-05: no endpoint module calls them.
   service_account_change: 'service accounts are API-only today (REQ-023 §5b.0, frontend §5b.10 open)',
+  // #2138 — the tenant export/import routes ship backend-first; REQ-056 §15 (garden settings "export",
+  // Admin › Imports) is the open frontend slice. Measured 2026-10-11: no endpoint module calls them.
+  tenant_export: 'tenant export is API-only today (REQ-056 §15 frontend open, #2138)',
+  tenant_import: 'tenant import is API-only today (REQ-056 §15 frontend open, #2138)',
 };
 
 function surfacesOf(action: string): string[] {

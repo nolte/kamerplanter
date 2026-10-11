@@ -375,6 +375,7 @@ celery_app.conf.update(
         "app.tasks.sensor_ingestion_tasks",
         "app.tasks.storage_tasks",
         "app.tasks.tank_maintenance_tasks",
+        "app.tasks.tenant_export_tasks",
         "app.tasks.tenant_tasks",
         "app.tasks.vernalization_updates",
         "app.tasks.watering_tasks",

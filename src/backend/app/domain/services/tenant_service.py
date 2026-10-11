@@ -360,6 +360,71 @@ class TenantService:
         logger.info("organization_created", subject=log_subject(user_key), tenant=log_tenant(tenant.key))
         return tenant
 
+    def found_imported_tenant(
+        self,
+        *,
+        actor_user_key: str,
+        name: str,
+        slug_hint: str,
+        description: str | None,
+        settings: dict[str, Any],
+        plan_key: str,
+        owner_user_key: str,
+        members: list[Membership],
+    ) -> Tenant:
+        """Found the new tenant of an import (REQ-056 §8.4 step 2 and 4, #2138) — always a new one.
+
+        Called by :class:`~app.domain.services.tenant_export_service.TenantExportService` only, behind
+        the platform admin's step-up. An import never merges into an existing tenant: the slug of the
+        archive is taken when free, otherwise suffixed. The tenant is always an **organisation** — a
+        personal tenant belongs to exactly one account, which already has its own in the target
+        installation. The owner gets the founder's lead membership with both scopes; every other mapped
+        member gets the role and scopes the archive recorded. Each membership is audited
+        (``membership_added`` via ``platform_admin``) like a membership a platform admin adds by hand.
+        """
+        ceiling = self._entitlements.members_ceiling()
+        if len({member.user_key for member in members} | {owner_user_key}) > ceiling:
+            raise MemberLimitReachedError(ceiling)
+        errors = self._tenant_engine.validate_tenant_name(name)
+        if errors:
+            raise ValidationError(errors[0])
+        slug = self._ensure_unique_slug(self._tenant_engine.generate_slug(slug_hint or name))
+        tenant = Tenant(
+            name=name,
+            slug=slug,
+            tenant_type=TenantType.ORGANIZATION,
+            description=description,
+            owner_user_key=owner_user_key,
+            max_members=ceiling,
+            plan_key=plan_key,
+            settings=settings,
+        )
+        founded = self._found_tenant(tenant, owner_user_key, via=SecurityAuditVia.PLATFORM_ADMIN)
+        tenant_key = founded.key or ""
+        for member in members:
+            if member.user_key == owner_user_key:
+                continue
+            created = self._create_membership_unless_erasing(
+                Membership(
+                    user_key=member.user_key,
+                    tenant_key=tenant_key,
+                    role=member.role,
+                    admin_scopes=member.admin_scopes,
+                    is_active=True,
+                    joined_at=member.joined_at,
+                )
+            )
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_ADDED,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=actor_user_key,
+                target_user_key=member.user_key,
+                tenant_key=tenant_key,
+                membership=created,
+            )
+        logger.info("tenant_import.tenant_founded", tenant=log_tenant(tenant_key), members=len(members))
+        return founded
+
     @staticmethod
     def _refuse_service_account(account: User, message: str) -> None:
         """403 for a service account on a door meant for a person (#2137, REQ-023 §5b).

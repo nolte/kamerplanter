@@ -732,6 +732,43 @@ class OrganizationLimitReachedError(KamerplanterError):
         )
 
 
+class ExportAlreadyRunningError(KamerplanterError):
+    """REQ-056 §8.2 (#2138) — a tenant has at most one export pending or running (409)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="An export of this tenant is already running.",
+            error_code="EXPORT_ALREADY_RUNNING",
+            status_code=409,
+            details=[
+                {
+                    "field": "tenant",
+                    "reason": "Wait until the running export has finished.",
+                    "code": "EXPORT_ALREADY_RUNNING",
+                }
+            ],
+        )
+
+
+class TenantImportRefusedError(KamerplanterError):
+    """REQ-056 §8.4 (#2138) — the archive cannot be imported; nothing was written (422).
+
+    ``error_code`` is the import code (``IMPORT_FORMAT_UNSUPPORTED``, ``IMPORT_CHECKSUM_MISMATCH``,
+    ``IMPORT_UNDECLARED_REFERENCE``, ``IMPORT_MISSING_CATALOG_ENTRIES``, ``IMPORT_MEMBER_NOT_FOUND``); the
+    details list the offending entries (collection/key, part name, archive user key), never a stack trace.
+    """
+
+    def __init__(self, code: str, message: str, entries: list[str] | None = None) -> None:
+        listed = (entries or [])[:200]
+        super().__init__(
+            message=message,
+            error_code=code,
+            status_code=422,
+            details=[{"field": "archive", "reason": entry, "code": code} for entry in listed]
+            or [{"field": "archive", "reason": message, "code": code}],
+        )
+
+
 class InvalidFileTypeError(KamerplanterError):
     """NFR-013 §5.1 steps 2 & 3 — type not allowed, or content/MIME mismatch."""
 

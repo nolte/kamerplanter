@@ -161,11 +161,16 @@ if settings.kamerplanter_mode == "full":
     from app.api.v1.admin.platform.router import router as platform_admin_router
     from app.api.v1.auth.router import router as auth_router
     from app.api.v1.privacy.router import router as privacy_router
+    from app.api.v1.tenant_exports.router import admin_router as tenant_export_admin_router
+    from app.api.v1.tenant_exports.router import tenant_router as tenant_export_router
 
     api_router.include_router(auth_router)
     api_router.include_router(oidc_providers_router)
     api_router.include_router(platform_admin_router)
     api_router.include_router(privacy_router)
+    # REQ-056 §8 (#2138) — tenant export and import; full mode only (§14, AK-43).
+    api_router.include_router(tenant_export_router)
+    api_router.include_router(tenant_export_admin_router)
 
 api_router.include_router(users_router)
 api_router.include_router(health_router)

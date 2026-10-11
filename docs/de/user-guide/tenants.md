@@ -265,6 +265,9 @@ Du kannst einen Tenant verlassen, solange du nicht das einzige Mitglied mit der 
 
     Konnte beim Löschen nicht sofort alles vollständig entfernt werden, bleibt der Vorgang vorgemerkt und wird automatisch täglich wiederholt, bis er abgeschlossen ist. Dein persönlicher Tenant und deine Mitgliedschaften in anderen Tenants sind von einer solchen Löschung nicht betroffen.
 
+??? question "Können wir unseren ganzen Garten sichern oder umziehen?"
+    Ja. Ein Mitglied mit Leitung und Verwaltung kann den ganzen Garten als Archiv exportieren — auch noch, während er zur Löschung vorgemerkt ist. Alle Mitglieder mit Verwaltung erhalten dabei eine E-Mail. Das Archiv enthält keine E-Mail-Adressen und keine Zugangsdaten. Einspielen kann es nur ein Plattform-Admin, und zwar immer als neuen Garten; wer dort wieder Mitglied wird, legt der Admin über die E-Mail-Adressen fest. Eine Schaltfläche dafür gibt es in den Garten-Einstellungen noch nicht; den Weg über die API beschreibt [Mandanten exportieren und importieren](../deployment/tenant-export-import.md). <!-- REQ-056 §8 / Issue #2138 -->
+
 ??? question "Sieht die Leitung eines Gemeinschaftsgartens meine persönlichen Zimmerpflanzen?"
     Nein. Dein persönlicher Tenant ist vollständig von allen anderen Tenants isoliert. Selbst wenn jemand im Gemeinschaftsgarten Leitung ist oder Zusatzberechtigungen hat, kann er niemals Daten in deinem persönlichen Tenant sehen.
 
