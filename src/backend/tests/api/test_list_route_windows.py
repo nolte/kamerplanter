@@ -28,7 +28,13 @@ from fastapi.testclient import TestClient
 
 from app.api.v1.ki_assistent.deps import require_ai_tenant_enabled
 from app.common import dependencies as deps
-from app.common.auth import get_active_tenant_context, get_current_tenant, get_current_user, require_platform_admin
+from app.common.auth import (
+    get_active_tenant_context,
+    get_active_tenant_key,
+    get_current_tenant,
+    get_current_user,
+    require_platform_admin,
+)
 from app.common.enums import AdminScope, TenantRole
 from app.domain.models.tenant_context import TenantContext
 
@@ -198,6 +204,81 @@ _COUNT_FREE = [
     ),
 ]
 
+#: The fourth conversion round (#2131): the fifteen routes the discard guard had
+#: classified as catalogue / tenant configuration. Cheap counts are still counts —
+#: and the classification was the only thing keeping a new sibling from joining.
+#: ``(route, counted sibling, the window reads the caller's tenant)``.
+_CATALOGUE_AND_CONFIG = [
+    (
+        _Route("/api/v1/activities", deps.get_activity_service, "list_activities_window", _args(0)),
+        "list_activities",
+        True,
+    ),
+    (
+        _Route(f"/api/v1/t/{SLUG}/fertilizers", deps.get_fertilizer_service, "list_fertilizers_window", _args(0)),
+        "list_fertilizers",
+        True,
+    ),
+    (
+        _Route(f"/api/v1/t/{SLUG}/harvest/indicators", deps.get_harvest_service, "list_indicators_window", _args(0)),
+        "list_indicators",
+        False,
+    ),
+    (_Route("/api/v1/ipm/pests", deps.get_ipm_service, "list_pests_window", _args(0)), "list_pests", False),
+    (_Route("/api/v1/ipm/diseases", deps.get_ipm_service, "list_diseases_window", _args(0)), "list_diseases", False),
+    (
+        _Route("/api/v1/ipm/treatments", deps.get_ipm_service, "list_treatments_window", _args(0)),
+        "list_treatments",
+        False,
+    ),
+    (
+        _Route(f"/api/v1/t/{SLUG}/nutrient-plans", deps.get_nutrient_plan_service, "list_plans_window", _args(0)),
+        "list_plans",
+        True,
+    ),
+    (
+        _Route(
+            f"/api/v1/t/{SLUG}/overwintering-profiles",
+            deps.get_overwintering_profile_service,
+            "list_profiles_window",
+            _args(0),
+        ),
+        "list_profiles",
+        True,
+    ),
+    (
+        _Route("/api/v1/phase-definitions", deps.get_phase_sequence_service, "list_definitions_window", _args(0)),
+        "list_definitions",
+        False,
+    ),
+    (
+        _Route("/api/v1/phase-sequences", deps.get_phase_sequence_service, "list_sequences_window", _args(0)),
+        "list_sequences",
+        False,
+    ),
+    (
+        _Route(f"/api/v1/t/{SLUG}/propagation/protocols", deps.get_propagation_service, "list_protocols_window", _kw),
+        "list_protocols",
+        True,
+    ),
+    (_Route(f"/api/v1/t/{SLUG}/sites", deps.get_site_service, "list_sites_window", _args(0)), "list_sites", True),
+    (
+        _Route(f"/api/v1/t/{SLUG}/succession-plans", deps.get_succession_plan_service, "list_plans_window", _args(0)),
+        "list_plans",
+        True,
+    ),
+    (_Route(f"/api/v1/t/{SLUG}/tanks", deps.get_tank_service, "list_tanks_window", _args(0)), "list_tanks", True),
+    (
+        _Route(f"/api/v1/t/{SLUG}/tasks/workflows", deps.get_task_service, "list_workflow_templates_window", _args(0)),
+        "list_workflow_templates",
+        True,
+    ),
+]
+#: Every route of the third round reads one tenant's rows (review SEC-004 of #2272).
+_THIRD_ROUND = [c.route for c in _COUNT_FREE]
+_COUNT_FREE += [_CountFree(route, counted) for route, counted, _ in _CATALOGUE_AND_CONFIG]
+_TENANT_WINDOWS = _THIRD_ROUND + [route for route, _, tenant_bound in _CATALOGUE_AND_CONFIG if tenant_bound]
+
 _ALL = _OFFSET_ROUTES + _CURSOR_ROUTES + [c.route for c in _COUNT_FREE]
 
 
@@ -222,6 +303,7 @@ def client() -> Iterator[tuple[TestClient, dict[Any, MagicMock]]]:
         app.dependency_overrides[route.provider] = _returning(service)
     app.dependency_overrides[get_current_tenant] = _ctx
     app.dependency_overrides[get_active_tenant_context] = _ctx
+    app.dependency_overrides[get_active_tenant_key] = lambda: TENANT_KEY
     # The import router authenticates at router level before the tenant context.
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key="user_lisa")
     # The diary routes resolve the plant / run against the tenant first; a mock answers.
@@ -303,3 +385,13 @@ def test_a_count_free_route_never_calls_its_counted_sibling(client, entry: _Coun
     service = services[entry.route.provider]
     assert entry.route.window(getattr(service, entry.route.method).call_args) == (2, 5)
     getattr(service, entry.counted).assert_not_called()
+
+
+@pytest.mark.parametrize("route", _TENANT_WINDOWS, ids=_ids(_TENANT_WINDOWS))
+def test_a_tenant_window_reads_the_callers_tenant(client, route: _Route) -> None:
+    """The count-free window is a new read path: it must carry the tenant the counted one did."""
+    test_client, services = client
+    response = test_client.get(route.url)
+
+    assert response.status_code == 200, response.text
+    assert getattr(services[route.provider], route.method).call_args.kwargs["tenant_key"] == TENANT_KEY

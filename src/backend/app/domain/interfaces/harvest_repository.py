@@ -15,6 +15,11 @@ class IHarvestRepository(ABC):
     def get_all_indicators(self, offset: int = 0, limit: int = 50) -> tuple[list[HarvestIndicator], int]: ...
 
     @abstractmethod
+    def list_indicators_window(self, offset: int = 0, limit: int = 50) -> list[HarvestIndicator]:
+        """The page of :meth:`get_all_indicators` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def create_indicator(self, indicator: HarvestIndicator) -> HarvestIndicator: ...
 
     @abstractmethod

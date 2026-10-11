@@ -66,7 +66,7 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
     ) -> tuple[list[PlantingRun], int]:
         self._enforce_tenant_scope(tenant_key, all_tenants)
         if filters:
-            items = self.get_runs_window(offset, limit, filters, tenant_key=tenant_key, all_tenants=all_tenants)
+            items = self._runs_page(offset, limit, filters, tenant_key=tenant_key, all_tenants=all_tenants)
             query = f"FOR doc IN {col.PLANTING_RUNS}"
             selection, count_vars = self._filtered_runs(filters, tenant_key)
             query += selection
@@ -83,14 +83,27 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
         limit: int = 50,
         filters: dict[str, Any] | None = None,
         *,
-        tenant_key: str | None,
-        all_tenants: bool = False,
+        tenant_key: str,
     ) -> list[PlantingRun]:
         """The page of :meth:`get_all` without its count query (MT-035, #2131).
 
-        Same tenant scope (``_enforce_tenant_scope``), same predicates, same
-        ``_key`` order and ``LIMIT``; the list route answers a bare array.
+        A request read: ``tenant_key`` is required and the empty sentinel refused;
+        no ``all_tenants`` escape (review INFO-1 of #2272 — no caller needs one).
+        Same predicates, ``_key`` order and ``LIMIT`` as :meth:`get_all`.
         """
+        self._require_tenant_key(tenant_key, "get_runs_window")
+        return self._runs_page(offset, limit, filters, tenant_key=tenant_key, all_tenants=False)
+
+    def _runs_page(
+        self,
+        offset: int,
+        limit: int,
+        filters: dict[str, Any] | None,
+        *,
+        tenant_key: str | None,
+        all_tenants: bool,
+    ) -> list[PlantingRun]:
+        """The page :meth:`get_all` counts and :meth:`get_runs_window` reads alone."""
         self._enforce_tenant_scope(tenant_key, all_tenants)
         if not filters:
             return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key, all_tenants=all_tenants)

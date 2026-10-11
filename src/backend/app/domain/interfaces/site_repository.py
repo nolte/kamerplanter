@@ -17,6 +17,11 @@ class ISiteRepository(ABC):
         ...
 
     @abstractmethod
+    def list_sites_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[Site]:
+        """The page of :meth:`get_all_sites` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def find_site_docs_by_keys(self, keys: list[str]) -> list[dict]: ...
 
     @abstractmethod

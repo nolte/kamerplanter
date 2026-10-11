@@ -1,3 +1,5 @@
+from typing import Any
+
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
@@ -53,6 +55,17 @@ class NutrientPlanService:
         tenant_key: str = "",
     ) -> tuple[list[NutrientPlan], int]:
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
+
+    def list_plans_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[NutrientPlan]:
+        """One page of :meth:`list_plans` without the count query (MT-035, #2131)."""
+        return self._repo.get_all_window(offset, limit, filters, tenant_key=tenant_key)
 
     def get_plan(self, key: NutrientPlanKey, *, tenant_key: str, for_write: bool = False) -> NutrientPlan:
         """A plan ``tenant_key`` may read — or, with ``for_write``, may change (#2107).

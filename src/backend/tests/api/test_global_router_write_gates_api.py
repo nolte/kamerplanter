@@ -167,8 +167,8 @@ class _RecordingPhaseSequenceService:
     def get_definition(self, key):
         return PhaseDefinition(_key=key, name="vegetative")
 
-    def list_definitions(self, offset, limit, name_filter=None):
-        return ([], 0)
+    def list_definitions_window(self, offset, limit, name_filter=None):
+        return []
 
     @property
     def _repo(self):  # the list route reads a usage count straight off it

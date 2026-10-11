@@ -57,7 +57,7 @@ def list_overwintering_profiles(
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> list[OverwinteringProfileResponse]:
     """List the tenant's overwintering profiles (paginated)."""
-    items, _total = service.list_profiles(ctx.tenant_key, pagination.offset, pagination.limit)
+    items = service.list_profiles_window(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_profile_response(p) for p in items]
 
 

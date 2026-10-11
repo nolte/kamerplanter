@@ -75,9 +75,9 @@ class _RecordingSiteService:
     def __init__(self) -> None:
         self.calls: list[str] = []
 
-    def list_sites(self, offset: int, limit: int, *, tenant_key: str) -> tuple[list[Site], int]:
+    def list_sites_window(self, offset: int, limit: int, *, tenant_key: str) -> list[Site]:
         self.calls.append(f"list_sites:{tenant_key}")
-        return [], 0
+        return []
 
     def get_water_warnings(self, site: Site) -> list[Any]:  # pragma: no cover - no sites are returned
         return []
