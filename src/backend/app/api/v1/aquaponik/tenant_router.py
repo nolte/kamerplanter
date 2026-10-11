@@ -65,7 +65,7 @@ def list_systems(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """List the tenant's aquaponic systems."""
-    systems = service.list_systems(ctx.tenant_key)
+    systems = service.list_systems(tenant_key=ctx.tenant_key)
     return [to_response(s, AquaponicSystemResponse) for s in systems]
 
 
@@ -88,7 +88,7 @@ def get_system(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Return a single aquaponic system by key."""
-    system = service.get_system(system_key, ctx.tenant_key)
+    system = service.get_system(system_key, tenant_key=ctx.tenant_key)
     return to_response(system, AquaponicSystemResponse)
 
 
@@ -100,7 +100,7 @@ def update_system(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Update an aquaponic system."""
-    updated = service.update_system(system_key, ctx.tenant_key, body.model_dump(exclude_none=True))
+    updated = service.update_system(system_key, body.model_dump(exclude_none=True), tenant_key=ctx.tenant_key)
     return to_response(updated, AquaponicSystemResponse)
 
 
@@ -111,7 +111,7 @@ def delete_system(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Delete an aquaponic system."""
-    service.delete_system(system_key, ctx.tenant_key)
+    service.delete_system(system_key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/systems/{system_key}/cycling-status", response_model=AquaponicSystemResponse)
@@ -122,7 +122,7 @@ def set_cycling_status(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Set the nitrogen-cycling status of an aquaponic system."""
-    updated = service.set_cycling_status(system_key, ctx.tenant_key, body.cycling_status)
+    updated = service.set_cycling_status(system_key, body.cycling_status, tenant_key=ctx.tenant_key)
     return to_response(updated, AquaponicSystemResponse)
 
 
@@ -138,7 +138,7 @@ def create_stock(
 ):
     """Add a fish stock to an aquaponic system."""
     stock = FishStock(**body.model_dump(), initial_count=body.count)
-    created = service.create_stock(system_key, ctx.tenant_key, stock)
+    created = service.create_stock(system_key, stock, tenant_key=ctx.tenant_key)
     return to_response(created, FishStockResponse)
 
 
@@ -149,7 +149,7 @@ def list_stocks(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """List the fish stocks of an aquaponic system."""
-    stocks = service.list_stocks(system_key, ctx.tenant_key)
+    stocks = service.list_stocks(system_key, tenant_key=ctx.tenant_key)
     return [to_response(s, FishStockResponse) for s in stocks]
 
 
@@ -162,7 +162,7 @@ def update_stock(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Update a fish stock."""
-    updated = service.update_stock(system_key, stock_key, ctx.tenant_key, body.model_dump(exclude_none=True))
+    updated = service.update_stock(system_key, stock_key, body.model_dump(exclude_none=True), tenant_key=ctx.tenant_key)
     return to_response(updated, FishStockResponse)
 
 
@@ -174,7 +174,7 @@ def delete_stock(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Delete a fish stock."""
-    service.delete_stock(system_key, stock_key, ctx.tenant_key)
+    service.delete_stock(system_key, stock_key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/systems/{system_key}/fish-stocks/{stock_key}/mortality", response_model=FishStockResponse)
@@ -186,7 +186,7 @@ def record_mortality(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Record fish deaths against a stock."""
-    updated = service.record_mortality(system_key, stock_key, ctx.tenant_key, body.deaths)
+    updated = service.record_mortality(system_key, stock_key, body.deaths, tenant_key=ctx.tenant_key)
     return to_response(updated, FishStockResponse)
 
 
@@ -198,7 +198,7 @@ def get_biomass_history(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Return the current biomass snapshot for a fish stock."""
-    return service.get_biomass_history(system_key, stock_key, ctx.tenant_key)
+    return service.get_biomass_history(system_key, stock_key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/systems/{system_key}/fish-stocks/{stock_key}/mortality-rate", response_model=MortalityRateResponse)
@@ -209,7 +209,7 @@ def get_mortality_rate(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Return the cumulative mortality rate for a fish stock."""
-    return service.get_mortality_rate(system_key, stock_key, ctx.tenant_key)
+    return service.get_mortality_rate(system_key, stock_key, tenant_key=ctx.tenant_key)
 
 
 # ── Water tests ─────────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ def record_water_test(
 ):
     """Record a water-quality measurement for an aquaponic system."""
     water_test = WaterTest(**body.model_dump())
-    created = service.record_water_test(system_key, ctx.tenant_key, water_test)
+    created = service.record_water_test(system_key, water_test, tenant_key=ctx.tenant_key)
     return to_response(created, WaterTestResponse)
 
 
@@ -236,7 +236,7 @@ def list_water_tests(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """List an aquaponic system's water tests (paginated, newest first)."""
-    tests = service.list_water_tests(system_key, ctx.tenant_key, pagination.offset, pagination.limit)
+    tests = service.list_water_tests(system_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [to_response(t, WaterTestResponse) for t in tests]
 
 
@@ -250,7 +250,7 @@ def get_water_quality_status(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Evaluate the latest water test against species-specific thresholds."""
-    evaluations = service.get_water_quality_status(system_key, ctx.tenant_key)
+    evaluations = service.get_water_quality_status(system_key, tenant_key=ctx.tenant_key)
     return [WaterQualityEvaluationResponse(**e.model_dump()) for e in evaluations]
 
 
@@ -261,7 +261,7 @@ def get_nitrogen_cycle_chart(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Return the nitrogen-cycle water-parameter time series for charting."""
-    return service.get_nitrogen_cycle_chart(system_key, ctx.tenant_key)
+    return service.get_nitrogen_cycle_chart(system_key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/systems/{system_key}/cycling-progress", response_model=CyclingProgressResponse)
@@ -271,7 +271,7 @@ def get_cycling_progress(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Return the estimated nitrogen-cycling progress of a system."""
-    progress = service.get_cycling_progress(system_key, ctx.tenant_key)
+    progress = service.get_cycling_progress(system_key, tenant_key=ctx.tenant_key)
     return CyclingProgressResponse(**progress.model_dump())
 
 
@@ -292,7 +292,7 @@ def record_feeding(
 ):
     """Record a feeding event for a fish stock."""
     feeding = FishFeedingEvent(**body.model_dump())
-    created = service.record_feeding(system_key, stock_key, ctx.tenant_key, feeding)
+    created = service.record_feeding(system_key, stock_key, feeding, tenant_key=ctx.tenant_key)
     return to_response(created, FishFeedingEventResponse)
 
 
@@ -304,7 +304,7 @@ def list_feedings(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """List an aquaponic system's feeding events (paginated, newest first)."""
-    feedings = service.list_feedings(system_key, ctx.tenant_key, pagination.offset, pagination.limit)
+    feedings = service.list_feedings(system_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [to_response(f, FishFeedingEventResponse) for f in feedings]
 
 
@@ -315,7 +315,7 @@ def get_feeding_recommendation(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Return a daily feed recommendation based on biomass and water temperature."""
-    recommendation = service.get_feeding_recommendation(system_key, ctx.tenant_key)
+    recommendation = service.get_feeding_recommendation(system_key, tenant_key=ctx.tenant_key)
     return FeedingRecommendationResponse(**recommendation.model_dump())
 
 
@@ -326,7 +326,7 @@ def get_fcr_analysis(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Return the feed-conversion-ratio analysis for an aquaponic system."""
-    return service.get_fcr_analysis(system_key, ctx.tenant_key)
+    return service.get_fcr_analysis(system_key, tenant_key=ctx.tenant_key)
 
 
 # ── Supplementation ─────────────────────────────────────────────────────
@@ -345,7 +345,7 @@ def record_supplementation(
 ):
     """Record a nutrient-supplementation event for an aquaponic system."""
     event = SupplementationEvent(**body.model_dump())
-    created = service.record_supplementation(system_key, ctx.tenant_key, event)
+    created = service.record_supplementation(system_key, event, tenant_key=ctx.tenant_key)
     return to_response(created, SupplementationEventResponse)
 
 
@@ -360,7 +360,7 @@ def list_supplementations(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """List an aquaponic system's supplementation events (paginated, newest first)."""
-    events = service.list_supplementations(system_key, ctx.tenant_key, pagination.offset, pagination.limit)
+    events = service.list_supplementations(system_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [to_response(e, SupplementationEventResponse) for e in events]
 
 
@@ -371,7 +371,7 @@ def get_deficiency_check(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Return a nutrient-deficiency report derived from the latest water test."""
-    report = service.get_deficiency_check(system_key, ctx.tenant_key)
+    report = service.get_deficiency_check(system_key, tenant_key=ctx.tenant_key)
     return DeficiencyReportResponse(**report.model_dump())
 
 
@@ -385,7 +385,7 @@ def get_safety_status(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """Return the aggregated safety status (water quality + stocking validation)."""
-    return service.get_safety_status(system_key, ctx.tenant_key)
+    return service.get_safety_status(system_key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/systems/{system_key}/alerts", response_model=list[WaterQualityEvaluationResponse])
@@ -395,7 +395,7 @@ def get_alerts(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """List actionable water-quality alerts for an aquaponic system."""
-    alerts = service.get_alerts(system_key, ctx.tenant_key)
+    alerts = service.get_alerts(system_key, tenant_key=ctx.tenant_key)
     return [WaterQualityEvaluationResponse(**a.model_dump()) for a in alerts]
 
 
@@ -406,5 +406,5 @@ def get_fish_health(
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     """List fish-health alerts derived from feeding, water and mortality trends."""
-    alerts = service.get_fish_health(system_key, ctx.tenant_key)
+    alerts = service.get_fish_health(system_key, tenant_key=ctx.tenant_key)
     return [HealthAlertResponse(**a.model_dump()) for a in alerts]
