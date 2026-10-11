@@ -222,5 +222,7 @@ class SearchGlossary(ToolBase):
                 "language": args.language,
                 "items": [{"slug": t.slug, "label": t.label, "category": t.category} for t in page],
             },
-            links=[{"type": "api", "url": "/api/v1/glossary/terms"}],
+            # A global tool, so no tenant-bound link: the tenant-independent term list is
+            # /public/glossary/terms (both modes); /api/v1/glossary/terms never existed (#2226 sweep).
+            links=[ctx.global_link("/public/glossary/terms")],
         )

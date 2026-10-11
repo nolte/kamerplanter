@@ -541,7 +541,7 @@ version: "1.5 (REQ-015) / 1.2 (REQ-015-A)"
 
 **Erwartetes Ergebnis:**
 - Der Einmal-Dialog zeigt die neue Abo-URL (neues Token); nach dem Schliessen ist sie nirgends mehr sichtbar
-- Die alte URL ist ab sofort ungueltig — wenn Nutzer die alte URL im Browser oeffnet, erscheint ein Fehler (Feed nicht gefunden oder 401/403)
+- Die alte URL ist ab sofort ungueltig — wenn Nutzer die alte URL im Browser oeffnet, erscheint ein Fehler: `404` (Feed nicht gefunden) — dieselbe Antwort wie für einen unbekannten Token (REQ-015 v1.9, #2226)
 
 ---
 
