@@ -697,6 +697,33 @@ class PlantDiaryService:
         """List the diary entries of a run's plants inside ``tenant_key`` (SEC-002)."""
         return self._repo.get_by_run(run_key, tenant_key=tenant_key, offset=offset, limit=limit)
 
+    def list_entries_for_plant_window(
+        self,
+        plant_key: str,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[PlantDiaryEntry]:
+        """One page of a plant's diary entries without the count query (MT-035, #2131).
+
+        The list routes answer a bare array, so the ``total`` of
+        :meth:`list_entries_for_plant` (a second scan of the plant's entries on
+        every page) was paid for and dropped.
+        """
+        return self._repo.get_by_plant_window(plant_key, tenant_key=tenant_key, offset=offset, limit=limit)
+
+    def list_entries_for_run_window(
+        self,
+        run_key: str,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """One page of a run's diary entries without the count query (MT-035, #2131)."""
+        return self._repo.get_by_run_window(run_key, tenant_key=tenant_key, offset=offset, limit=limit)
+
     # ── REQ-050 analysis: reading ────────────────────────────────────────────
 
     def get_entry_for_tenant(self, key: str, tenant_key: str) -> PlantDiaryEntry:

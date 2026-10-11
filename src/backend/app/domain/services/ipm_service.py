@@ -297,6 +297,22 @@ class IpmService:
         self._require_own_plant(plant_key, tenant_key)
         return self._repo.get_inspections_for_plant(plant_key, offset, limit)
 
+    def get_inspections_window(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[Inspection]:
+        """One page of a plant's inspections without the count query (MT-035, #2131).
+
+        The list route answers a bare array, so the ``total`` :meth:`get_inspections`
+        pays a second scan for is never read.
+        """
+        self._require_own_plant(plant_key, tenant_key)
+        return self._repo.get_inspections_for_plant_window(plant_key, offset, limit)
+
     # ── Treatment Application ──
 
     def create_treatment_application(
@@ -337,6 +353,18 @@ class IpmService:
     ) -> tuple[list[TreatmentApplication], int]:
         self._require_own_plant(plant_key, tenant_key)
         return self._repo.get_applications_for_plant(plant_key, offset, limit)
+
+    def get_applications_window(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[TreatmentApplication]:
+        """One page of a plant's treatment applications without the count query (MT-035, #2131)."""
+        self._require_own_plant(plant_key, tenant_key)
+        return self._repo.get_applications_for_plant_window(plant_key, offset, limit)
 
     # ── Karenz-Gate API ──
 

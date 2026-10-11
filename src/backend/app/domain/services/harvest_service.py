@@ -87,6 +87,21 @@ class HarvestService:
         """A plant's harvest observations, scoped to ``tenant_key`` (#927)."""
         return self._repo.get_observations_for_plant(plant_key, offset, limit, tenant_key=tenant_key)
 
+    def get_observations_window(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[HarvestObservation]:
+        """One page of a plant's observations without the count query (MT-035, #2131).
+
+        The list route answers a bare array; the ``total`` :meth:`get_observations`
+        pays a second scan for was never read there.
+        """
+        return self._repo.get_observations_for_plant_window(plant_key, offset, limit, tenant_key=tenant_key)
+
     # ── Readiness Assessment ──
 
     def assess_readiness(self, plant_key: str, *, tenant_key: str) -> dict:
@@ -135,6 +150,10 @@ class HarvestService:
 
     def list_batches(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[HarvestBatch], int]:
         return self._repo.get_all_batches(offset, limit, tenant_key=tenant_key)
+
+    def list_batches_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[HarvestBatch]:
+        """One ``_key``-ordered page of the tenant's harvest batches without the count query (MT-035, #2131)."""
+        return self._repo.list_batches_window(offset, limit, tenant_key=tenant_key)
 
     def get_batch(self, key: str, tenant_key: str = "") -> HarvestBatch:
         batch = self._repo.get_batch_or_raise(key)

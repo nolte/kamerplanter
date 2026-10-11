@@ -53,6 +53,10 @@ class PostHarvestService:
     ) -> tuple[list[PostHarvestBatch], int]:
         return self._repo.list_batches(tenant_key, offset, limit)
 
+    def list_batches_window(self, *, tenant_key: str, offset: int = 0, limit: int = 50) -> list[PostHarvestBatch]:
+        """One ``_key``-ordered page of the tenant's post-harvest batches without the count query (MT-035, #2131)."""
+        return self._repo.list_batches_window(tenant_key=tenant_key, offset=offset, limit=limit)
+
     def list_for_batch(self, harvest_batch_key: str, tenant_key: str) -> list[PostHarvestBatch]:
         """Return all post-harvest batches tracked for a HarvestBatch."""
         return self._repo.list_for_harvest_batch(harvest_batch_key, tenant_key)

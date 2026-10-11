@@ -65,6 +65,10 @@ class ArangoPostHarvestRepository(BaseArangoRepository[PostHarvestBatch], IPostH
         self._require_tenant_key(tenant_key, "list_batches")
         return super().get_all(offset, limit, tenant_key=tenant_key)
 
+    def list_batches_window(self, *, tenant_key: str, offset: int = 0, limit: int = 50) -> list[PostHarvestBatch]:
+        self._require_tenant_key(tenant_key, "list_batches_window")
+        return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key)
+
     def list_for_harvest_batch(
         self,
         harvest_batch_key: str,

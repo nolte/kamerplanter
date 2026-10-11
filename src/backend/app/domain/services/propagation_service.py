@@ -139,6 +139,20 @@ class PropagationService:
     ) -> tuple[list[PropagationEvent], int]:
         return self._require_prop().list_events(tenant_key, method=method, status=status, offset=offset, limit=limit)
 
+    def list_events_window(
+        self,
+        *,
+        tenant_key: str,
+        method: str | None = None,
+        status: str | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[PropagationEvent]:
+        """One page of the tenant's propagation events without the count query (MT-035, #2131)."""
+        return self._require_prop().list_events_window(
+            tenant_key=tenant_key, method=method, status=status, offset=offset, limit=limit
+        )
+
     def get_event(self, key: str, tenant_key: str) -> PropagationEvent:
         return self._get_event_or_404(key, tenant_key)
 
@@ -245,6 +259,20 @@ class PropagationService:
         limit: int = 50,
     ) -> tuple[list[PropagationBatch], int]:
         return self._require_prop().list_batches(tenant_key, status=status, method=method, offset=offset, limit=limit)
+
+    def list_batches_window(
+        self,
+        *,
+        tenant_key: str,
+        status: str | None = None,
+        method: str | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[PropagationBatch]:
+        """One page of the tenant's propagation batches without the count query (MT-035, #2131)."""
+        return self._require_prop().list_batches_window(
+            tenant_key=tenant_key, status=status, method=method, offset=offset, limit=limit
+        )
 
     def get_batch(self, key: str, tenant_key: str) -> PropagationBatch:
         batch = self._require_prop().get_batch(key, tenant_key)

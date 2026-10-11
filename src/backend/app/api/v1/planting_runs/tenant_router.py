@@ -88,7 +88,7 @@ def list_runs(
         filters["run_type"] = run_type
     if location_key:
         filters["location_key"] = location_key
-    items, _total = service.list_runs(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
+    items = service.list_runs_window(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
     active_keys = [r.key for r in items if r.key and r.status != PlantingRunStatus.PLANNED]
     summaries = service.get_batch_phase_summaries(active_keys) if active_keys else {}
     return [_run_response(r, summaries.get(r.key)) for r in items]
@@ -531,7 +531,7 @@ def list_plant_diary_entries(
     """
     service.get_run(key, tenant_key=ctx.tenant_key)
     plant_service.get_plant(plant_key, tenant_key=ctx.tenant_key)
-    entries, _total = diary_service.list_entries_for_plant(
+    entries = diary_service.list_entries_for_plant_window(
         plant_key,
         tenant_key=ctx.tenant_key,
         offset=pagination.offset,
@@ -740,7 +740,7 @@ def list_run_diary_entries(
     round-trip of the model, not a raw ArangoDB document.
     """
     service.get_run(key, tenant_key=ctx.tenant_key)
-    entries, _total = diary_service.list_entries_for_run(
+    entries = diary_service.list_entries_for_run_window(
         key,
         tenant_key=ctx.tenant_key,
         offset=pagination.offset,

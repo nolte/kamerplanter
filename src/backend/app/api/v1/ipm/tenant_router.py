@@ -185,7 +185,9 @@ def list_inspections(
     service: IpmService = Depends(get_ipm_service),
 ):
     """List a plant's IPM inspections (paginated)."""
-    inspections, _ = service.get_inspections(plant_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
+    inspections = service.get_inspections_window(
+        plant_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key
+    )
     return [_inspection_response(i) for i in inspections]
 
 
@@ -221,7 +223,7 @@ def list_treatment_applications(
     service: IpmService = Depends(get_ipm_service),
 ):
     """List a plant's treatment applications (paginated)."""
-    apps, _ = service.get_applications(plant_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
+    apps = service.get_applications_window(plant_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_application_response(a) for a in apps]
 
 
