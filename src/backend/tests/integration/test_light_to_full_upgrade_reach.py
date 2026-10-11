@@ -24,13 +24,16 @@ import pytest
 from arango import ArangoClient
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from slowapi.errors import RateLimitExceeded
 
+from app.api.v1.auth.router import limiter
 from app.api.v1.system.router import router as system_router
 from app.common.auth import get_authenticated_with_api_key, require_account_principal
 from app.common.dependencies import get_mode_switch_service
 from app.common.enums import AdminScope, SecurityAuditAction, SecurityAuditVia, TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError
+from app.common.rate_limit import rate_limit_exceeded_with_retry_after
 from app.data_access.arango import collections as col
 from app.data_access.arango.api_key_repository import ArangoApiKeyRepository
 from app.data_access.arango.calendar_feed_repository import ArangoCalendarFeedRepository
@@ -116,6 +119,7 @@ class _Installation:
             invitation_engine=InvitationEngine(),
             security_audit=self.audit,
             user_repo=self.users,
+            takeover_repo=ArangoModeSwitchRepository(db),
         )
         self.service = ModeSwitchService(
             repo=self.repo_for(db),
@@ -198,6 +202,8 @@ class _Installation:
         app = FastAPI()
         app.include_router(system_router, prefix="/api/v1")
         app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
+        app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_with_retry_after)  # type: ignore[arg-type]
+        app.state.limiter = limiter
         app.dependency_overrides[require_account_principal] = lambda: user
         app.dependency_overrides[get_authenticated_with_api_key] = lambda: api_key
         app.dependency_overrides[get_mode_switch_service] = lambda: self.service
@@ -212,6 +218,7 @@ class _Installation:
 
 @pytest.fixture
 def installation(database, monkeypatch) -> _Installation:
+    limiter.reset()  # the take-over routes are rate-limited per account (R3 W-5); every test starts afresh
     stage = _Installation(database, monkeypatch)
     stage.registered = []
     return stage
@@ -524,7 +531,7 @@ def test_an_undo_that_failed_is_stored_and_undone_before_the_next_decision(
     def fail_grant(_account, *, receipt):
         raise RuntimeError("platform store down")
 
-    def fail_undo(_receipt):
+    def fail_undo(_receipt, **_kwargs):
         raise RuntimeError("store still down")
 
     monkeypatch.setattr(installation.tenants, "grant_first_platform_admin", fail_grant)
@@ -575,9 +582,127 @@ def test_the_attention_queries_hold_to_the_claimant(installation: _Installation)
     assert repo.mark_takeover_needs_attention(claimant="b", receipt=receipt) is False
     assert repo.mark_takeover_needs_attention(claimant="a", receipt=receipt) is True
     stored = repo.get_pending_takeover()
-    assert stored is not None and stored.needs_attention is True and stored.receipt == receipt
+    assert stored is not None and stored.needs_attention is True
+    # R3 W-3: the deciding account is never stored - the rest of the receipt is, unchanged.
+    assert stored.receipt == receipt.model_copy(update={"new_owner_key": None})
+    raw = installation.db.collection(col.SYSTEM_META).get("pending_takeover")["receipt"]
+    assert "new_owner_key" not in raw and "anna" not in str(raw)
     assert repo.resolve_takeover_attention(claimant="b") is False
     assert repo.resolve_takeover_attention(claimant="a") is True
     resolved = repo.get_pending_takeover()
     assert resolved is not None and resolved.needs_attention is False and resolved.receipt is None
     assert resolved.claim_id == "a"
+
+
+def _fail_grant(_account, *, receipt):
+    raise RuntimeError("platform store down")
+
+
+def test_a_lead_membership_whose_key_never_came_back_is_undone(installation: _Installation, monkeypatch) -> None:
+    """#1855 R3 W-1 — the insert stood, the check after it failed: the intent finds the membership."""
+    installation.service.reconcile("full")
+    anna = installation.register("anna")
+
+    def count_fails(_created, _limit):
+        raise RuntimeError("count unavailable")
+
+    monkeypatch.setattr(installation.tenants, "_settle_join_against_member_limit", count_fails)
+
+    assert installation.decide(anna, accept=True).status_code == 500
+
+    _assert_restored(installation, owner="anna")
+    assert installation.repo.get_pending_takeover().claim_id is None
+
+
+def test_a_platform_membership_whose_key_never_came_back_is_undone(installation: _Installation, monkeypatch) -> None:
+    """#1855 R3 W-1 — the same for the first-admin grant's ``platform`` membership."""
+    installation.service.reconcile("full")
+    anna = installation.register("anna")
+    real_create = installation.memberships.create
+
+    def create(membership):
+        created = real_create(membership)
+        if membership.tenant_key == "platform":
+            raise RuntimeError("edge store down")
+        return created
+
+    monkeypatch.setattr(installation.memberships, "create", create)
+
+    assert installation.decide(anna, accept=True).status_code == 500
+
+    _assert_restored(installation, owner="anna")
+
+
+def test_an_undo_stops_when_the_claim_is_lost_midway(installation: _Installation, monkeypatch) -> None:
+    """#1855 R3 W-2 — the claim is checked before every undo step, not once; the rest is reported, not written."""
+    installation.service.reconcile("full")
+    anna = installation.register("anna")
+    monkeypatch.setattr(installation.tenants, "grant_first_platform_admin", _fail_grant)
+    answers = iter([True])  # the claim holds for the first undo step, then another decision owns it
+    monkeypatch.setattr(installation.repo, "holds_claim", lambda **_: next(answers, False))
+    installation.service._repo = installation.repo
+
+    assert installation.decide(anna, accept=True).status_code == 500
+
+    # The first step (removing anna's lead membership) ran; the later ones did not write over the new holder.
+    assert installation.membership("anna", SYSTEM_TENANT_KEY) is None
+    system = installation.membership(SYSTEM_USER_KEY, SYSTEM_TENANT_KEY)
+    assert system is not None and system.is_active is False
+    reasons = [
+        r.get("reason") for r in installation.audit_rows() if r["action"] == SecurityAuditAction.TAKEOVER_UNDO_FAILED
+    ]
+    assert reasons == ["undo_failed_receipt_not_stored"]
+
+
+def test_a_tenant_gone_meanwhile_leaves_nothing_to_undo(installation: _Installation, monkeypatch) -> None:
+    """#1855 R3 W-4 — the undo does not get stuck on a tenant that no longer exists."""
+    installation.service.reconcile("full")
+    anna = installation.register("anna")
+
+    def drop_tenant_and_fail(_account, *, receipt):
+        installation.db.collection(col.TENANTS).delete(SYSTEM_TENANT_KEY)
+        raise RuntimeError("platform store down")
+
+    monkeypatch.setattr(installation.tenants, "grant_first_platform_admin", drop_tenant_and_fail)
+
+    assert installation.decide(anna, accept=True).status_code == 500
+
+    pending = installation.repo.get_pending_takeover()
+    assert pending is not None and pending.claim_id is None and pending.needs_attention is False
+
+
+def test_an_account_erasure_does_not_take_the_light_mode_garden_with_it(
+    installation: _Installation, monkeypatch
+) -> None:
+    """#1855 R3 W-4 — a failed take-over left anna as owner: not her personal garden while the receipt stands."""
+    installation.service.reconcile("full")
+    anna = installation.register("anna")
+    monkeypatch.setattr(installation.tenants, "grant_first_platform_admin", _fail_grant)
+
+    def fail_undo(_receipt, **_kwargs):
+        raise RuntimeError("store still down")
+
+    monkeypatch.setattr(installation.tenants, "undo_light_mode_takeover", fail_undo)
+    assert installation.decide(anna, accept=True).status_code == 500
+    assert installation.db.collection(col.TENANTS).get(SYSTEM_TENANT_KEY)["owner_user_key"] == "anna"
+
+    keys = installation.tenants.personal_tenant_keys_of("anna")
+
+    assert SYSTEM_TENANT_KEY not in keys
+    assert len(keys) == 1  # her own garden from registration stays in the erasure
+
+
+def test_the_take_over_routes_are_rate_limited(installation: _Installation) -> None:
+    """#1855 R3 W-5 — refused decisions write audit rows: the route is bounded per caller."""
+    installation.service.reconcile("full")
+    installation.register("anna")
+    max_ = installation.register("max")
+    client = installation.client(max_)
+
+    codes = [
+        client.post("/api/v1/system/takeover", json={"accept": True, "current_password": PASSWORD}).status_code
+        for _ in range(11)
+    ]
+
+    assert codes[:10] == [403] * 10
+    assert codes[10] == 429

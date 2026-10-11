@@ -25,6 +25,7 @@ from app.domain.models.mode_switch import (
     SYSTEM_USER_KEY,
     DeploymentMode,
     PendingTakeover,
+    TakeoverClaimLostError,
     TakeoverReceipt,
     TakeoverResourceCounts,
 )
@@ -121,10 +122,13 @@ def _take_over(**kwargs) -> TakeoverReceipt:
     return receipt
 
 
-def _undone(receipt: TakeoverReceipt) -> None:
-    """The tenant service's undo, as the double: it clears what it took back."""
+def _undone(receipt: TakeoverReceipt, *, actor_user_key: str, still_holds=None) -> None:
+    """The tenant service's undo, as the double: it asks for the claim first (R3 W-2), clears what it took back."""
+    if still_holds is not None and not still_holds():
+        raise TakeoverClaimLostError
     receipt.ended_system_membership_key = receipt.created_membership_key = None
     receipt.platform_created_membership_key = None
+    receipt.lead_membership_intended = receipt.platform_membership_intended = False
     receipt.tenant_changed = False
 
 
@@ -536,8 +540,38 @@ def test_no_undo_without_the_claim() -> None:
     with pytest.raises(RuntimeError):
         _decide(stage, "anna", accept=True)
 
-    stage.tenants.undo_light_mode_takeover.assert_not_called()
-    assert _audited(stage)[-1] == (SecurityAuditAction.TAKEOVER_UNDO_FAILED, "claim_lost_before_undo")
+    # The undo was asked to run under the claim and refused before writing (R3 W-2): nothing stored either.
+    still_holds = stage.tenants.undo_light_mode_takeover.call_args.kwargs["still_holds"]
+    assert still_holds() is False
+    assert _audited(stage)[-1] == (SecurityAuditAction.TAKEOVER_UNDO_FAILED, "undo_failed_receipt_not_stored")
+
+
+def test_an_undo_failure_that_cannot_be_stored_is_reported() -> None:
+    """#1855 R3 W-2 — the store finds the claim gone: no ``undo_failed`` claim of a kept receipt, a critical line."""
+    stage = _Stage(earliest="anna")
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
+    stage.tenants.grant_first_platform_admin.side_effect = RuntimeError("store down")
+    stage.tenants.undo_light_mode_takeover.side_effect = RuntimeError("still down")
+    stage.repo.mark_takeover_needs_attention = lambda **_: False
+
+    with structlog.testing.capture_logs() as logs, pytest.raises(RuntimeError, match="store down"):
+        _decide(stage, "anna", accept=True)
+
+    assert _audited(stage)[-1] == (SecurityAuditAction.TAKEOVER_UNDO_FAILED, "undo_failed_receipt_not_stored")
+    line = next(entry for entry in logs if entry["event"] == "light_mode_takeover_receipt_not_stored")
+    assert line["log_level"] == "critical"
+    assert "new_owner_key" not in line["remaining"]  # the deciding account never travels in the stored form (W-3)
+    assert line["remaining"]["created_membership_key"] == "m-anna"
+
+
+def test_none_open_is_not_audited() -> None:
+    """#1855 R3 W-5 — the everyday 404 outside an upgrade writes no audit row."""
+    stage = _Stage(earliest="anna")
+
+    with pytest.raises(NotFoundError):
+        _decide(stage, "anna", accept=True)
+
+    stage.audit.record_takeover_decision.assert_not_called()
 
 
 def test_a_decision_past_its_deadline_is_undone() -> None:

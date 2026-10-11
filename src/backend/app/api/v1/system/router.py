@@ -1,7 +1,8 @@
 """The light-to-full take-over (REQ-027 §7a.2/§7a.4, #1855). Mounted in full mode only."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.system.schemas import (
     TakeoverDecisionRequest,
     TakeoverResourceCountsResponse,
@@ -12,6 +13,7 @@ from app.common.auth import get_authenticated_with_api_key, require_account_prin
 from app.common.dependencies import get_mode_switch_service
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
 from app.common.request_ip import resolve_client_ip
+from app.config.settings import settings
 from app.domain.models.user import User
 from app.domain.services.mode_switch_service import ModeSwitchService, TakeoverConfirmation
 
@@ -19,7 +21,9 @@ router = APIRouter(prefix="/system", tags=["system"], responses=AUTH_CRUD_RESPON
 
 
 @router.get("/takeover-status", response_model=TakeoverStatusResponse)
+@limiter.limit(settings.rate_limit_takeover, key_func=user_rate_limit_key)
 def get_takeover_status(
+    request: Request,
     user: User = Depends(require_account_principal),
     service: ModeSwitchService = Depends(get_mode_switch_service),
 ) -> TakeoverStatusResponse:
@@ -50,7 +54,9 @@ def get_takeover_status(
 
 
 @router.post("/takeover", response_model=TakeoverResultResponse, responses=STEP_UP_RESPONSES)
+@limiter.limit(settings.rate_limit_takeover, key_func=user_rate_limit_key)
 def decide_takeover(
+    request: Request,
     body: TakeoverDecisionRequest,
     user: User = Depends(require_account_principal),
     authenticated_with_api_key: bool = Depends(get_authenticated_with_api_key),

@@ -1315,6 +1315,9 @@ def get_tenant_service() -> TenantService:
         entitlements=get_entitlement_service(),
         # REQ-056 §6.2 (#2142) — organisations one account may own; an account limit, not a plan dimension.
         max_organizations_per_user=settings.tenant_max_organizations_per_user,
+        # #1855 R3 W-4 — the light-mode garden stays out of an account erasure while a failed take-over's
+        # receipt still names it.
+        takeover_repo=get_mode_switch_repo(),
     )
 
 

@@ -54,8 +54,11 @@ class TakeoverReceipt(BaseModel):
     """
 
     tenant_key: str
-    new_owner_key: str
     system_user_key: str
+    #: The deciding account - in memory only, never stored (``exclude``, #1855 R3 W-3): it resolves a
+    #: membership whose insert was intended but not confirmed (W-1). The undo's audit rows name the actor
+    #: of the decision that runs the undo, not this field.
+    new_owner_key: str | None = Field(default=None, exclude=True)
     #: The tenant's slug, owner and name before the take-over (read before any write).
     tenant_slug: str | None = None
     previous_owner_key: str | None = None
@@ -64,6 +67,9 @@ class TakeoverReceipt(BaseModel):
     tenant_changed: bool = False
     #: The system account's membership the take-over ends (recorded before the write).
     ended_system_membership_key: str | None = None
+    #: Set *before* the insert of the new owner's ``lead`` membership (#1855 R3 W-1): a check after the insert
+    #: may fail before its key is known; the undo then looks the membership up by account and tenant.
+    lead_membership_intended: bool = False
     #: The new owner's membership the take-over created (``None``: none, or an existing one was raised).
     created_membership_key: str | None = None
     #: An existing membership of the new owner the take-over raised, with its previous values.
@@ -74,6 +80,8 @@ class TakeoverReceipt(BaseModel):
     #: The ``platform`` membership the first-admin grant created, or an existing one it raised (with its
     #: previous values). The platform tenant the grant may create is not undone: the grant finds it by
     #: slug next time, and without a membership it makes nobody an administrator.
+    #: Set before the insert of the ``platform`` membership (W-1), like ``lead_membership_intended``.
+    platform_membership_intended: bool = False
     platform_created_membership_key: str | None = None
     platform_raised_membership_key: str | None = None
     platform_raised_previous_role: str | None = None
@@ -84,12 +92,22 @@ class TakeoverReceipt(BaseModel):
         """Whether anything is left to undo."""
         return bool(
             self.tenant_changed
+            or self.lead_membership_intended
+            or self.platform_membership_intended
             or self.ended_system_membership_key
             or self.created_membership_key
             or self.raised_membership_key
             or self.platform_created_membership_key
             or self.platform_raised_membership_key
         )
+
+
+class TakeoverClaimLostError(Exception):
+    """An undo found its decision's claim on the take-over gone before a step (#1855 R3 W-2).
+
+    Raised by ``TenantService.undo_light_mode_takeover`` instead of writing: another decision may own the
+    tenant now. The receipt then holds what was not undone.
+    """
 
 
 class PendingTakeover(BaseModel):

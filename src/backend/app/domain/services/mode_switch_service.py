@@ -38,10 +38,11 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import structlog
+from pydantic_core import to_jsonable_python
 
 from app.common.enums import SecurityAuditAction, SecurityAuditVia, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, WriteConflictError
-from app.common.log_privacy import log_subject
+from app.common.log_privacy import log_subject, log_tenant
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.interfaces.calendar_feed_repository import ICalendarFeedRepository
 from app.domain.interfaces.mode_switch_repository import IModeSwitchRepository
@@ -56,6 +57,7 @@ from app.domain.models.mode_switch import (
     ModeSwitchOutcome,
     PendingTakeover,
     SystemAccountSealing,
+    TakeoverClaimLostError,
     TakeoverReceipt,
     TakeoverResult,
     TakeoverStatus,
@@ -158,7 +160,7 @@ class ModeSwitchService:
         if pending is None or not pending.needs_attention or pending.receipt is None:
             return True
         try:
-            self._tenant_service.undo_light_mode_takeover(pending.receipt)
+            self._tenant_service.undo_light_mode_takeover(pending.receipt, actor_user_key=SYSTEM_USER_KEY)
         except Exception as exc:  # noqa: BLE001 - a start must not fail on it; the receipt stays for the next try
             logger.critical(
                 "light_mode_takeover_recovery_failed",
@@ -355,7 +357,7 @@ class ModeSwitchService:
             raise ForbiddenError("The light-mode take-over is decided in a signed-in session, not with an API key.")
         pending = self._repo.get_pending_takeover()
         if pending is None:
-            self._refuse(account_key, None, "none_open")
+            # Not audited (R3 W-5): the usual answer outside an upgrade, and the route is rate-limited.
             raise NotFoundError("PendingTakeover", "pending_takeover")
         if not self.may_decide_takeover(account, pending):
             self._refuse(account_key, pending.system_tenant_key, "not_eligible")
@@ -443,68 +445,83 @@ class ModeSwitchService:
     def _recover_stored_receipt(self, claimant: str, stored: TakeoverReceipt, *, actor_user_key: str) -> None:
         """Undo what an earlier, failed decision left (``needs_attention``, #1855 R2-002) before deciding anew.
 
-        On success the stored receipt is dropped; on failure what is still left is stored again, the claim
-        kept (it lapses after the TTL) and the decision refused with 409.
+        On success the stored receipt is dropped; otherwise the decision is refused with 409 - what is still
+        left stays stored when the claim still holds (R3 W-2), and is logged as critical when it does not.
         """
-        try:
-            self._tenant_service.undo_light_mode_takeover(stored)
-        except Exception as exc:
-            self._repo.mark_takeover_needs_attention(claimant=claimant, receipt=stored)
-            self._record_takeover(
-                SecurityAuditAction.TAKEOVER_UNDO_FAILED,
-                actor_user_key=actor_user_key,
-                tenant_key=stored.tenant_key,
-                reason="stored_receipt_undo_failed",
-            )
-            logger.critical("light_mode_takeover_recovery_failed", error_type=type(exc).__name__)
-            raise WriteConflictError(
-                "PendingTakeover", "an earlier decision is still being undone; try again later"
-            ) from exc
+        if self._undo_under_claim(claimant, stored, actor_user_key=actor_user_key) != "undone":
+            raise WriteConflictError("PendingTakeover", "an earlier decision is still being undone; try again later")
         self._repo.resolve_takeover_attention(claimant=claimant)
-        logger.warning("light_mode_takeover_recovered", subject=log_subject(stored.new_owner_key))
+        logger.warning("light_mode_takeover_recovered", subject=log_subject(actor_user_key))
 
     def _settle_failed_decision(self, claimant: str, receipt: TakeoverReceipt) -> None:
-        """Undo a failed decision's writes; reopen the take-over only on a consistent state (SEC-004, R2-001..003).
+        """Undo a failed decision's writes; reopen the take-over only on a consistent state (SEC-004, R2, R3).
 
-        Nothing written: the claim is released. Something written: undone only while this decision still
-        holds its claim (another decision may otherwise be writing the same tenant) - released after a
-        complete undo; an undo that fails stores what is left on the take-over (``needs_attention``) and
-        keeps the claim, so the next decision undoes it first instead of deciding on top of it.
+        Nothing written: the claim is released. Something written: undone under the claim
+        (:meth:`_undo_under_claim`) and released only after a complete undo.
         """
         if not receipt.has_writes():
             self._repo.release_pending_takeover(claimant=claimant)
             return
-        if not self._repo.holds_claim(claimant=claimant):
-            logger.critical(
-                "light_mode_takeover_undo_skipped",
-                subject=log_subject(receipt.new_owner_key),
-                detail="the claim was lost; another decision may own the tenant now - check its members",
-            )
-            self._record_takeover(
-                SecurityAuditAction.TAKEOVER_UNDO_FAILED,
-                actor_user_key=receipt.new_owner_key,
-                tenant_key=receipt.tenant_key,
-                reason="claim_lost_before_undo",
-            )
-            return
+        if (
+            self._undo_under_claim(claimant, receipt, actor_user_key=receipt.new_owner_key or SYSTEM_USER_KEY)
+            == "undone"
+        ):
+            self._repo.release_pending_takeover(claimant=claimant)
+
+    def _undo_under_claim(self, claimant: str, receipt: TakeoverReceipt, *, actor_user_key: str) -> str:
+        """Undo *receipt* while *claimant* holds the take-over; ``undone``, ``stored`` or ``not_stored``.
+
+        The claim is checked before every undo step (R3 W-2: an undo that outlives the TTL must not write
+        over a later decision). An undo that fails stores what is left on the take-over (``needs_attention``,
+        R2-002) - ``stored``. When the claim is gone, before or during the undo, or the store finds it gone,
+        nothing can be stored: audited as ``undo_failed_receipt_not_stored`` and the remaining receipt logged
+        as critical, keys pseudonymised - ``not_stored``.
+        """
         try:
-            self._tenant_service.undo_light_mode_takeover(receipt)
-        except Exception as exc:  # noqa: BLE001 - the original failure is re-raised by the caller
-            self._repo.mark_takeover_needs_attention(claimant=claimant, receipt=receipt)
+            self._tenant_service.undo_light_mode_takeover(
+                receipt,
+                actor_user_key=actor_user_key,
+                still_holds=lambda: self._repo.holds_claim(claimant=claimant),
+            )
+        except TakeoverClaimLostError:
+            self._report_receipt_not_stored(receipt, actor_user_key=actor_user_key, cause="claim_lost")
+            return "not_stored"
+        except Exception as exc:  # noqa: BLE001 - the decision's own failure is re-raised by its caller
+            if not self._repo.mark_takeover_needs_attention(claimant=claimant, receipt=receipt):
+                self._report_receipt_not_stored(receipt, actor_user_key=actor_user_key, cause=type(exc).__name__)
+                return "not_stored"
             self._record_takeover(
                 SecurityAuditAction.TAKEOVER_UNDO_FAILED,
-                actor_user_key=receipt.new_owner_key,
+                actor_user_key=actor_user_key,
                 tenant_key=receipt.tenant_key,
                 reason="undo_failed",
             )
             logger.critical(
                 "light_mode_takeover_undo_failed",
-                subject=log_subject(receipt.new_owner_key),
+                subject=log_subject(actor_user_key),
                 error_type=type(exc).__name__,
                 detail="the take-over stays claimed with needs_attention; the next decision undoes it first",
             )
-            return
-        self._repo.release_pending_takeover(claimant=claimant)
+            return "stored"
+        return "undone"
+
+    def _report_receipt_not_stored(self, receipt: TakeoverReceipt, *, actor_user_key: str, cause: str) -> None:
+        """The writes left that nobody holds a record of any more (#1855 R3 W-2): audit + critical log."""
+        self._record_takeover(
+            SecurityAuditAction.TAKEOVER_UNDO_FAILED,
+            actor_user_key=actor_user_key,
+            tenant_key=receipt.tenant_key,
+            reason="undo_failed_receipt_not_stored",
+        )
+        logger.critical(
+            "light_mode_takeover_receipt_not_stored",
+            subject=log_subject(actor_user_key),
+            tenant=log_tenant(receipt.tenant_key),
+            cause=cause,
+            # Membership keys and flags only: the stored form never carries the deciding account (W-3).
+            remaining=to_jsonable_python(receipt),
+            detail="the claim is gone; check the light-mode tenant's members and owner by hand",
+        )
 
     def _refuse(self, actor_user_key: str, tenant_key: str | None, reason: str) -> None:
         """Audit a refused take-over decision (``takeover_refused``, #1855 R2 review)."""

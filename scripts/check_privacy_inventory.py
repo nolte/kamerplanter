@@ -225,7 +225,8 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
     "MemberInfo": "read projection of memberships joined with users (tenant_service.list_members)",
     "TakeoverReceipt": (
         "no collection of its own: kept in memory for one take-over decision, and only when its undo failed "
-        "embedded as 'receipt' in the one system_meta/pending_takeover document until a decision undoes it (#1855)"
+        "embedded as 'receipt' in the one system_meta/pending_takeover document until a decision undoes it; "
+        "the stored form excludes the deciding account (new_owner_key, Field(exclude=True), #1855 R3 W-3)"
     ),
 }
 

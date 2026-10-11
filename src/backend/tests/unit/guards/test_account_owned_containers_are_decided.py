@@ -41,18 +41,17 @@ DECIDED_OWNERSHIP: dict[tuple[str, str], str] = {
         "is kept and loses the owner reference (ErasureEngine tenants rule); who takes over a "
         "shared personal tenant is open (#1824)."
     ),
-    # #1855 R2-001/002 — not a container: the take-over receipt names whose take-over it undoes. It lives
-    # in memory for one decision; only after a failed undo is it embedded in system_meta/pending_takeover,
-    # until the next decision (or a light start) undoes it and drops it. The account erasure does not reach
-    # it: an account erased in that window leaves its key in the stored receipt until then (open, reported
-    # on PR #2269). previous_owner_key is the light-mode system account, never a person.
+    # #1855 R2/R3 — not a container: the take-over receipt names whose take-over it undoes. It lives in
+    # memory for one decision; only after a failed undo is it embedded in system_meta/pending_takeover, until
+    # the next decision (or a light start) undoes it and drops it.
     ("TakeoverReceipt", "new_owner_key"): (
-        "Not erased: kept only while a failed take-over undo is pending (system_meta/pending_takeover), "
-        "removed by the next decision's undo; gap for an account erased in that window (PR #2269)."
+        "Never stored (Field(exclude=True), R3 W-3): the deciding account lives in memory for one decision only."
     ),
     ("TakeoverReceipt", "previous_owner_key"): (
-        "Not erased: the tenant's owner before the take-over - the light-mode system account - kept only "
-        "while a failed take-over undo is pending (system_meta/pending_takeover)."
+        "Not erased: the tenant's owner before the take-over, needed to give it back. The light-mode system "
+        "account, except after a light/full roundtrip (REQ-027 Szenario 8), where it can be the person who took "
+        "the garden over the first time - kept only while a failed undo is pending; the account erasure does "
+        "not reach it (open, REQ-027 §7a, PR #2269)."
     ),
 }
 
