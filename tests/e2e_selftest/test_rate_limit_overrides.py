@@ -81,6 +81,13 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "is a mail-flood defence per address and client; raising it here would test "
         "nothing the suite uses."
     ),
+    "rate_limit_tenant_import": (
+        "No E2E test imports a tenant archive (grep over tests/e2e finds no call to "
+        "/admin/platform/tenant-imports, #2138), and the import has no UI yet (REQ-056 §15). A "
+        "platform admin imports a handful of archives at most; the hourly per-account budget "
+        "bounds a route that reads, verifies and stores a whole upload, so raising it here would "
+        "test nothing the suite uses."
+    ),
     "rate_limit_notification_test": (
         "Reachable only by an explicit click on the notification-settings tab — one "
         "deliberate send per channel a user is configuring. It is not on any bootstrap "
