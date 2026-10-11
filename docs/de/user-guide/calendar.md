@@ -139,9 +139,6 @@ Du kannst deinen Kamerplanter-Kalender in externe Kalender-Apps abonnieren. So e
 !!! note "Nur lesen — keine bidirektionale Synchronisation"
     Der iCal-Feed ist nur lesbar. Änderungen in Google Calendar oder Apple Calendar werden nicht an Kamerplanter zurückgespiegelt. Neue Aufgaben erstellst du weiterhin in Kamerplanter.
 
-!!! warning "Noch nicht implementiert"
-    Feeds kannst du bereits anlegen, erneuern und löschen. Den Abruf der Abo-URL durch deine Kalender-App wird Kamerplanter erst mit einer kommenden Version beantworten — bis dahin wird die App beim Abonnieren einen Fehler melden. Die Schritte unten beschreiben, wie das Abonnieren funktionieren wird. <!-- REQ-015 -->
-
 ### Schritt 1: Kalender-Feed einrichten
 
 1. Öffne den Bereich **iCal-Feeds** unten im Kalender.
@@ -191,14 +188,19 @@ Jeder Feed hat eine geheime, in der URL enthaltene Token-Kennung. Über **Token 
 
 Das ist auch der Weg, wenn du die URL eines Feeds verloren hast: In der Feed-Liste steht keine URL mehr, weil Kamerplanter sie nicht speichert.
 
-Die Feed-Liste zeigt dir nur deine eigenen Feeds, und nur sie kannst du ändern oder erneuern — den Feed eines anderen Mitglieds kann außer ihm nur die Leitung des Gartens anfassen.
+Die Feed-Liste zeigt dir nur deine eigenen Feeds, und nur sie kannst du abrufen, ändern oder erneuern — den Feed eines anderen Mitglieds kann außer ihm nur die Leitung des Gartens anfassen. Als Leitung siehst du alle Feeds des Gartens über die technische API (`GET …/calendar/feeds?scope=all`); in der Oberfläche gibt es diese Gesamtliste noch nicht.
+
+Ein Feed liest den Garten mit den Rechten seines Mitglieds. Verlässt das Mitglied den Garten oder wird es entfernt, löscht Kamerplanter seine Feeds in diesem Garten, und die Abo-URLs funktionieren ab sofort nicht mehr. Dasselbe gilt, solange sein Konto oder der Garten deaktiviert ist.
 
 !!! warning "Alter Link wird sofort ungültig"
-    Sobald du den Token erneuerst, funktioniert die bisherige Abo-URL nicht mehr — die externe App zeigt einen Fehler statt neuer Ereignisse. Trage die neue URL in jeder App nach, in der du den Feed abonniert hast. Nutze diese Funktion, wenn du einen Feed-Link verloren oder versehentlich geteilt hast oder den Zugriff eines ehemaligen Mitglieds beenden willst.
+    Sobald du den Token erneuerst, funktioniert die bisherige Abo-URL nicht mehr — die externe App zeigt einen Fehler statt neuer Ereignisse. Trage die neue URL in jeder App nach, in der du den Feed abonniert hast. Nutze diese Funktion, wenn du einen Feed-Link verloren oder versehentlich geteilt hast. Den Zugriff eines ehemaligen Mitglieds musst du nicht selbst beenden — seine Feeds enden mit seiner Mitgliedschaft.
 
 ### Feed löschen
 
 Feeds können jederzeit unter **iCal-Feeds** gelöscht werden. Beim Löschen wird der Feed-Link ungültig — er muss in der externen App ebenfalls entfernt werden.
+
+!!! warning "Hinweis für Betreiber: Die Abo-URL kann in Ingress-Logs landen"
+    Kamerplanter schreibt den Token der Abo-URL in keine eigene Log-Zeile. Ein vorgelagerter Ingress oder Reverse-Proxy (z.B. Traefik) protokolliert aber die volle URL samt `?token=…`, wenn sein Access-Log aktiv ist. Wer diese Logs lesen kann, kann damit die Feeds abrufen. Schalte das Access-Log für den Pfad `/api/v1/calendar/feeds/` ab, maskiere den Query-String oder behandle die Logs wie Zugangsdaten. Die Abo-URL baut Kamerplanter aus `APP_BASE_URL` — setze den Wert in Produktion auf die öffentliche `https://`-Adresse.
 
 !!! info "Ablaufdatum nur über die API"
     Kamerplanter unterstützt intern ein optionales Ablaufdatum für Feeds — nach Ablauf liefert der Feed-Endpunkt einen Fehler (HTTP 410 „Gone") statt Ereignissen. Ein Ablaufdatum lässt sich aktuell nicht über die Oberfläche setzen, nur über die technische API.

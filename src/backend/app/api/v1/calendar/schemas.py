@@ -63,8 +63,14 @@ class CalendarEventsResponse(BaseModel):
 
 
 class CalendarFeedFiltersSchema(BaseModel):
+    """A feed's filter: event categories only.
+
+    ``site_key`` was removed (#2226 review SEC-003): it was stored but never
+    applied. A request that still sends it is accepted and the value ignored, so
+    older clients keep working.
+    """
+
     categories: list[CalendarEventCategory] = Field(default_factory=list)
-    site_key: str | None = None
 
 
 class CalendarFeedCreateRequest(BaseModel):

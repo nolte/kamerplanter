@@ -233,7 +233,7 @@ def test_the_running_application_wires_the_audit() -> None:
 # ── #2114: a membership that ends takes the task assignments with it ──────────
 
 _ENDS = {"delete", "delete_while_tenant_frozen"}
-_CLEAR = "_end_task_assignments"
+_CLEAR = "_end_membership"
 
 _ENDING_CLASSIFIED: dict[tuple[str, str], str] = {
     ("tenant_service.py", "TenantService._settle_join_against_freeze"): (
@@ -274,7 +274,7 @@ def _ends_a_membership(function: ast.FunctionDef | ast.AsyncFunctionDef) -> bool
 
 
 def membership_endings(root: Path = SERVICES) -> dict[tuple[str, str], bool]:
-    """Every service function that deletes a membership: (file, qualname) -> calls ``self._end_task_assignments``."""
+    """Every service function that deletes a membership: (file, qualname) -> calls ``self._end_membership``."""
     found: dict[tuple[str, str], bool] = {}
     for path in sorted(root.rglob("*.py")):
         rel = path.relative_to(root).as_posix()
@@ -331,19 +331,26 @@ def test_the_running_application_wires_the_task_store() -> None:
     ]
 
     assert any(kw.arg == "task_repo" for kw in call.keywords)
+    # #2226 review SEC-001 — and the feed store the ending deletes the member's iCal feeds from.
+    assert any(kw.arg == "calendar_feed_repo" for kw in call.keywords)
 
 
-def test_the_clear_helper_asks_the_task_store() -> None:
-    """A helper that stopped calling the store would leave every ending 'clearing' over nothing."""
+def _attribute_calls(helper_name: str) -> set[str]:
     tree = ast.parse((SERVICES / "tenant_service.py").read_text(encoding="utf-8"))
-    (helper,) = [fn for name, fn in _functions(tree) if name == f"TenantService.{_CLEAR}"]
-    calls = {
+    (helper,) = [fn for name, fn in _functions(tree) if name == f"TenantService.{helper_name}"]
+    return {
         node.func.attr
         for node in _own_nodes(helper)
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
     }
 
-    assert "clear_assignee" in calls
+
+def test_the_clear_helper_asks_the_task_store() -> None:
+    """A helper that stopped calling the store would leave every ending 'clearing' over nothing."""
+    assert {"_end_task_assignments", "_end_calendar_feeds"} <= _attribute_calls(_CLEAR)
+    assert "clear_assignee" in _attribute_calls("_end_task_assignments")
+    # #2226 review SEC-001 — the member's iCal feeds in the tenant go with the membership.
+    assert "delete_by_user" in _attribute_calls("_end_calendar_feeds")
 
 
 def test_the_ending_predicate_recognises_each_spelling() -> None:

@@ -83,7 +83,7 @@ function makeFeed(overrides: Partial<CalendarFeed> = {}): CalendarFeed {
     key: 'feed-1',
     name: 'My Feed',
     user_key: 'user-1',
-    filters: { categories: [], site_key: null },
+    filters: { categories: [] },
     is_active: true,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: null,

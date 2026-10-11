@@ -23,7 +23,11 @@ class ICalendarFeedRepository(ABC):
 
     @abstractmethod
     def update_fields(self, key: CalendarFeedKey, fields: dict[str, Any]) -> CalendarFeed:
-        """Merge only ``fields`` into the stored feed; every other attribute stays as stored."""
+        """Write only ``fields`` into the stored feed; every other attribute stays as stored.
+
+        An object in ``fields`` (``filters``) replaces the stored one whole, it is
+        not merged into it: a filter key the new value lacks is gone afterwards.
+        """
 
     @abstractmethod
     def list_by_user(
@@ -32,6 +36,14 @@ class ICalendarFeedRepository(ABC):
         *,
         tenant_key: str,
     ) -> list[CalendarFeed]: ...
+
+    @abstractmethod
+    def list_by_tenant(self, *, tenant_key: str) -> list[CalendarFeed]:
+        """Every feed of ``tenant_key``; an empty key lists nothing."""
+
+    @abstractmethod
+    def delete_by_user(self, user_key: str, *, tenant_key: str) -> int:
+        """Delete every feed ``user_key`` owns in ``tenant_key``; empty keys delete nothing."""
 
     @abstractmethod
     def delete(self, key: CalendarFeedKey) -> bool: ...

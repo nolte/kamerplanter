@@ -208,9 +208,14 @@ class TestTheRouteOperand:
         −2: ``POST /public/ai/ask`` and ``GET /public/ai/health`` are mounted in
         light mode only since PR #2208 (REQ-031 §5.3); the full-mode app this
         inventory imports no longer carries them.
+
+        +1: ``GET /calendar/feeds/{key}/feed.ics`` (#2226) — the public iCal fetch, mounted
+        again after it had been deleted in March 2026 while ``ical_url`` kept pointing at it.
+        Its consumers are calendar apps holding the subscription URL, not the frontend
+        (a reported candidate).
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 815
+        assert len(checker.collect_operations(app)) == 816
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

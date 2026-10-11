@@ -32,7 +32,7 @@ from arango import ArangoClient
 
 import tests.integration.test_account_erasure_reach as reach
 from app.common.enums import TenantRole
-from app.common.exceptions import ValidationError
+from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.calendar_feed_repository import ArangoCalendarFeedRepository
 from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
@@ -142,7 +142,7 @@ class TestCalendarFeedTokenStopsServing:
         _erase(database, "feed-owner")
 
         assert repo.get_by_token_hash(token_hash) is None
-        with pytest.raises(ValidationError, match="Invalid feed token"):
+        with pytest.raises(NotFoundError):
             service.generate_ical_for_feed(feed.key, token)
 
 
