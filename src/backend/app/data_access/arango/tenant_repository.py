@@ -1,11 +1,15 @@
-from collections.abc import Callable
-from typing import Any, cast
+from collections.abc import Callable, Collection
+from datetime import datetime
+from typing import Any, Literal, cast
 
 import structlog
+from arango.cursor import Cursor
 from arango.database import StandardDatabase, TransactionDatabase
-from arango.exceptions import DocumentInsertError, TransactionCommitError
+from arango.exceptions import DocumentInsertError, DocumentUpdateError, TransactionCommitError
+from pydantic import TypeAdapter
 
 from app.common.enums import TenantStatus, TenantType
+from app.common.exceptions import WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.tenant_repository import ITenantRepository
@@ -14,6 +18,10 @@ from app.domain.models.security_audit import SecurityAuditEntry
 from app.domain.models.tenant import Tenant
 
 logger = structlog.get_logger()
+
+#: The only tenant fields :meth:`ArangoTenantRepository.update_fields` clears on an explicit ``None``
+#: (REQ-056 SEC-005); ``None`` for any other field is refused.
+CLEARABLE_FIELDS = frozenset({"deletion_scheduled_at", "status_before_deletion", "description"})
 
 
 class ArangoTenantRepository(BaseArangoRepository[Tenant], ITenantRepository):
@@ -105,40 +113,115 @@ class ArangoTenantRepository(BaseArangoRepository[Tenant], ITenantRepository):
             logger.warning("tenant_founding_transaction_abort_failed", exc_info=True)
 
     def update_fields(self, key: str, fields: dict) -> Tenant | None:
-        """Merge ``fields`` into the stored tenant and rewrite it (#968 §2).
+        """Merge ``fields`` into the stored tenant in **one** write, validated first (#968 §2, REQ-056).
 
         **Renamed from ``update``.** The old name shadowed
         :meth:`BaseArangoRepository.update`, whose signature takes a full
-        *model*, with one that takes an arbitrary ``dict``. That reads like
-        the checked full-model path while accepting whatever keys it is
-        handed, so a caller who forwarded request data would have performed
-        mass assignment under a reassuring name. The name now says what the
-        payload is, and the inherited full-model :meth:`update` is reachable
-        again on this repository instead of being shadowed.
+        *model*, with one that takes an arbitrary ``dict``; a caller who
+        forwarded request data would have performed mass assignment under a
+        reassuring name.
 
-        **Caller obligation.** ``fields`` is applied key-by-key, so it must be
-        built from named fields or a validated schema's ``model_dump()`` —
-        never from a raw request body. ``model_copy(update=...)`` does not
-        validate, so an unknown or ill-typed key survives this step; what
-        catches an ill-typed *declared* field is the re-validation the
-        inherited :meth:`update` performs on the merged model (#968).
+        **Caller obligation.** ``fields`` must be built from named fields or a
+        validated schema's ``model_dump()`` — never from a raw request body.
 
-        **Not the base class's merge.** This deliberately keeps its
-        read-modify-write shape rather than delegating to
-        :meth:`BaseArangoRepository.update_fields`: that method writes the
-        dict straight through and is documented as unchecked, whereas this
-        one materialises a full Tenant and therefore gets validated. The
-        price is the base method's lost-update commutativity — two concurrent
-        calls touching *disjoint* fields can clobber each other here. Swapping
-        that trade is a decision of its own, not a side effect of a rename.
+        **Validated, then one write.** The stored tenant merged with ``fields``
+        is re-validated as a whole :class:`Tenant` (an ill-typed declared field
+        raises before anything is written); then only the keys ``fields`` names
+        are written, serialised the way the full-document path serialises them,
+        in a single ``UPDATE``. Until REQ-056 this rewrote the whole document
+        from the merged model, and an explicit ``None`` was dropped by that
+        dump (``exclude_none``): measured on ArangoDB, a cancelled deletion left
+        ``deletion_scheduled_at`` on the reopened tenant.
+
+        **``None`` clears — only an allowlisted field** (:data:`CLEARABLE_FIELDS`:
+        ``deletion_scheduled_at``, ``status_before_deletion``, ``description``);
+        the attribute is removed (``keepNull: false``) and reads as the model's
+        ``None`` default. ``None`` for any other field raises ``ValueError``: a
+        reset nobody declared is a bug, not a write. The lifecycle state itself
+        moves through :meth:`transition_status`, which compares and sets.
 
         Returns ``None`` when no tenant carries ``key``.
         """
+        cleared = {name for name, value in fields.items() if value is None}
+        refused = cleared - CLEARABLE_FIELDS
+        if refused:
+            raise ValueError(f"tenant fields cannot be cleared: {sorted(refused)}")
         existing = self.get_by_key(key)
         if not existing:
             return None
-        merged = existing.model_copy(update=fields)
-        return super().update(key, merged)
+        # ``_to_doc`` re-validates the merged model (#968) and raises the domain ValidationError (422).
+        doc = self._to_doc(existing.model_copy(update=fields))
+        payload: dict[str, Any] = {name: doc[name] for name in fields if name not in cleared and name in doc}
+        payload.update(dict.fromkeys(cleared))
+        payload = {name: value for name, value in payload.items() if not name.startswith("_")}
+        payload["updated_at"] = self._now()
+        try:
+            result = self.collection.update({**payload, "_key": key}, return_new=True, keep_none=False, merge=False)
+        except DocumentUpdateError as exc:
+            if exc.error_code == 1202:  # removed between the read and the write
+                return None
+            if exc.error_code == 1200:
+                raise WriteConflictError(self._collection_name) from exc
+            raise
+        return cast(Tenant, self._wrap(self._from_doc(result["new"])))
+
+    def transition_status(
+        self,
+        key: str,
+        *,
+        expected: Collection[TenantStatus],
+        status: TenantStatus | None,
+        deletion_scheduled_at: datetime | None | Literal["keep"],
+        previous: Literal["remember", "clear", "keep"],
+        restore_fallback: TenantStatus | None = None,
+    ) -> Tenant | None:
+        """Compare-and-set of the lifecycle state in one AQL ``UPDATE`` (REQ-056 §4.3, SEC-002).
+
+        ``FILTER current IN @expected`` is the compare (``current`` reads a document that still
+        carries the retired ``is_active`` bool the way ``Tenant`` does — ``false`` is ``suspended``
+        — and the write drops that bool): a caller whose snapshot is stale
+        (a concurrent suspension, cancellation, claim or settlement moved the tenant) matches
+        nothing and gets ``None``. ``status_before_deletion`` is taken from ``OLD.status``
+        inside the same statement, never from the caller's read. ``OPTIONS { keepNull: false }``
+        removes an attribute set to ``null`` (the clears).
+        """
+        rememberable = [TenantStatus.ACTIVE.value, TenantStatus.SUSPENDED.value]
+        query = """
+            FOR t IN @@col
+              FILTER t._key == @key
+              LET current = t.status != null ? t.status : (t.is_active == false ? "suspended" : "active")
+              FILTER current IN @expected
+              LET restored = POSITION(@rememberable, t.status_before_deletion) ? t.status_before_deletion : @fallback
+              LET target = @restore ? restored : @status
+              FILTER target != null
+              LET remembered = POSITION(@rememberable, current) ? current : t.status_before_deletion
+              UPDATE t WITH MERGE(
+                { status: target, is_active: null, updated_at: @now },
+                @set_at ? { deletion_scheduled_at: @at } : {},
+                @previous == "remember" ? { status_before_deletion: remembered } : {},
+                @previous == "clear" ? { status_before_deletion: null } : {}
+              ) IN @@col OPTIONS { keepNull: false }
+              RETURN NEW
+        """
+        bind_vars: dict[str, Any] = {
+            "@col": self._collection_name,
+            "key": key,
+            "expected": sorted(TenantStatus(item).value for item in expected),
+            "rememberable": rememberable,
+            "fallback": restore_fallback.value if restore_fallback is not None else None,
+            "restore": status is None,
+            "status": status.value if status is not None else None,
+            "now": self._now(),
+            "set_at": deletion_scheduled_at != "keep",
+            "at": TypeAdapter(datetime).dump_python(deletion_scheduled_at, mode="json")
+            if isinstance(deletion_scheduled_at, datetime)
+            else None,
+            "previous": previous,
+        }
+        rows = list(cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars)))
+        if not rows:
+            return None
+        return cast(Tenant, self._wrap(self._from_doc(rows[0])))
 
     def list_by_owner(self, owner_user_key: str) -> list[Tenant]:
         return self.find_by_field("owner_user_key", owner_user_key, sort="created_at")

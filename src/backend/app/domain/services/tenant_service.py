@@ -5,9 +5,9 @@ import hmac
 import html
 import re
 import secrets
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 
@@ -134,7 +134,7 @@ _SCHEDULED_DELETION_STATUSES = frozenset({TenantStatus.PENDING_DELETION, TenantS
 
 #: Fields of the tenant document no partial update may write: the lifecycle state
 #: moves only through the step-up paths that own it (#2009, #2123).
-_LIFECYCLE_FIELDS = frozenset({"is_active", "status", "deletion_scheduled_at"})
+_LIFECYCLE_FIELDS = frozenset({"is_active", "status", "deletion_scheduled_at", "status_before_deletion"})
 
 #: REQ-056 §7.6 (#2142) — the tenant's plan; assigned only on the platform-admin path, never by its management.
 _PLAN_FIELD = "plan_key"
@@ -563,9 +563,10 @@ class TenantService:
                 client_ip=client_ip,
             )
         data = {k: v for k, v in data.items() if k != "is_active"}
-        if changes_active:
-            # #2123 — the bool of the request is the admin's suspension switch on the status model.
-            data["status"] = TenantStatus.ACTIVE if wanted else TenantStatus.SUSPENDED
+        if not data and not changes_active and not changes_plan:
+            return current
+        # Validate the other fields before anything is written, so a refused rename moves nothing.
+        data = self._validated_tenant_update(tenant_key, data) if data else {}
         if changes_plan and not self._entitlements.assign_plan(tenant_key, str(wanted_plan)):
             # SEC-004 — one statement that writes only while the plan exists: a plan deleted after the
             # check above (or a tenant whose erasure started meanwhile) is 422 and nothing is written.
@@ -576,7 +577,7 @@ class TenantService:
         if changes_plan:
             # REQ-056 §7.6 / §11 (#2142) — what was booked when: the hook a future billing module reads.
             # Written right after the assignment, so a later refusal of another field of the same request
-            # cannot leave a plan change without its row.
+            # (a 409 of the state switch below included) cannot leave a plan change without its row.
             self._audit_tenant(
                 SecurityAuditAction.TENANT_PLAN_CHANGED,
                 via=SecurityAuditVia.PLATFORM_ADMIN,
@@ -586,9 +587,22 @@ class TenantService:
                 plan_key=str(wanted_plan),
             )
             logger.info("tenant_plan_changed", tenant=log_tenant(tenant_key), plan_key=wanted_plan)
-        if not data and not changes_plan:
-            return current
-        updated = self._apply_tenant_update(tenant_key, data) if data else self._tenant_repo.get_by_key(tenant_key)
+        updated: Tenant | None = current
+        if changes_active:
+            # #2123 — the bool of the request is the admin's suspension switch on the status model.
+            # REQ-056 SEC-002 — compare-and-set from the state this request read: a concurrent
+            # deletion, cancellation or second switch moved it, and this write is refused (409).
+            updated = self._transition_tenant_status(
+                tenant_key,
+                expected={current.status},
+                status=TenantStatus.ACTIVE if wanted else TenantStatus.SUSPENDED,
+                deletion_scheduled_at="keep",
+                previous="keep",
+            )
+        if data:
+            updated = self._write_tenant_update(tenant_key, data)
+        elif changes_plan and not changes_active:
+            updated = self._tenant_repo.get_by_key(tenant_key)
         if updated is None:
             raise NotFoundError("Tenant", tenant_key)
         if changes_active:
@@ -624,23 +638,18 @@ class TenantService:
             )
 
     def _apply_tenant_update(self, tenant_key: str, data: dict) -> Tenant:
-        """The write both update paths share: the #1021 guard, the slug on rename, the store.
+        """The non-lifecycle write of the tenant update path: the checks, the slug on rename, the store.
 
-        **The platform tenant cannot be deactivated (#1021).** ``delete_tenant``
-        refuses the platform tenant (``is_platform`` → 403); deactivating it via
-        ``{"is_active": False}`` (since #2123 ``{"status": "suspended"}``) slipped through because this path had no such
-        guard. It stays here, under both entry points, with the same
-        :class:`ForbiddenError` (403) shape ``delete_tenant`` uses, scoped to
-        deactivation only — renaming or re-describing the platform tenant still
-        works.
+        The lifecycle state never passes here (``update_tenant`` refuses every
+        :data:`_LIFECYCLE_FIELDS` key). **The platform tenant cannot be deactivated
+        (#1021)**: ``admin_update_tenant`` refuses it (403) before its compare-and-set
+        of the state, as ``delete_tenant`` refuses deleting it.
         """
-        if data.get("status", TenantStatus.ACTIVE) != TenantStatus.ACTIVE:
-            tenant = self._tenant_repo.get_by_key(tenant_key)
-            if not tenant:
-                raise NotFoundError("Tenant", tenant_key)
-            if tenant.is_platform:
-                raise ForbiddenError("The platform tenant cannot be deactivated.")
+        return self._write_tenant_update(tenant_key, self._validated_tenant_update(tenant_key, data))
 
+    def _validated_tenant_update(self, tenant_key: str, data: dict[str, Any]) -> dict[str, Any]:
+        """Check a non-lifecycle tenant update and derive the slug of a rename; writes nothing."""
+        data = dict(data)
         if "max_members" in data:
             # REQ-024 AK-64 (#2133): set to at most the ceiling, by a tenant manager and a platform admin
             # alike. Lowering it below the current member count removes nobody; it stops the next join.
@@ -652,7 +661,10 @@ class TenantService:
                 raise ValidationError(errors[0])
             data["slug"] = self._tenant_engine.generate_slug(data["name"])
             data["slug"] = self._ensure_unique_slug(data["slug"], exclude_key=tenant_key)
+        return data
 
+    def _write_tenant_update(self, tenant_key: str, data: dict[str, Any]) -> Tenant:
+        """Store a validated non-lifecycle tenant update (the state moves through ``transition_status``)."""
         tenant = self._tenant_repo.update_fields(tenant_key, data)
         if not tenant:
             raise NotFoundError("Tenant", tenant_key)
@@ -754,6 +766,11 @@ class TenantService:
             # #1769 review SEC-002 — in light mode the single system tenant IS the
             # installation, and the light-mode seed does not re-create it.
             raise ForbiddenError("The tenant of a light-mode installation cannot be deleted.")
+        if tenant is not None and tenant.status == TenantStatus.SUSPENDED and origin != "platform_admin":
+            # REQ-056 §5.5 — only a platform admin schedules the deletion of a suspended tenant. The
+            # management's route sits behind the resolver, which refuses a suspended tenant already;
+            # this holds the rule for every entry point, with the message of any other refusal.
+            raise ForbiddenError("Deleting a tenant requires the lead role and the management scope.")
         # A tenant whose document an earlier attempt already removed has no slug
         # left to read. The open record keeps a salted digest of it, so the slug
         # the caller saw still confirms; the key does too (a record written
@@ -806,7 +823,17 @@ class TenantService:
             except (DuplicateError, WriteConflictError) as exc:
                 raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
             if scheduled_for is not None and tenant is not None:
-                self._schedule_tenant_erasure(tenant, scheduled_for, requester_key=requester.key)
+                if not self._schedule_tenant_erasure(
+                    tenant,
+                    scheduled_for,
+                    requester_key=requester.key,
+                    expected=self._schedulable_states(origin),
+                ):
+                    # REQ-056 SEC-002 — the tenant left the state this request read (a concurrent
+                    # suspension of a tenant its management deletes, a claim, a settlement): withdraw
+                    # the record this request just wrote and refuse (409).
+                    self._require_tenant_erasure_repo().delete_scheduled(record_key)
+                    raise WriteConflictError("Tenant", "the tenant's state changed concurrently")
                 self._audit_tenant(
                     SecurityAuditAction.TENANT_DELETION_REQUESTED,
                     via=self._audit_via_of(origin),
@@ -819,9 +846,21 @@ class TenantService:
         elif record.status == "scheduled":
             # #2123 — a repeated request inside the grace changes nothing but re-asserts the
             # freeze (a first request whose status write failed left the record only); the
-            # date stays the one the members were told.
+            # date stays the one the members were told. Only a tenant still in the state the
+            # first request found is frozen again: re-writing an already frozen one would
+            # overwrite the remembered state with ``pending_deletion`` (REQ-056 §4.3), and an
+            # ``orphaned`` organisation would become cancellable (#2134).
             if tenant is not None and record.scheduled_for is not None:
-                self._set_tenant_status(tenant_key, TenantStatus.PENDING_DELETION, record.scheduled_for)
+                # Compare-and-set: matches nothing when the tenant is already frozen, which is the
+                # common case and changes nothing.
+                self._transition_tenant_status(
+                    tenant_key,
+                    expected=self._schedulable_states(origin),
+                    status=TenantStatus.PENDING_DELETION,
+                    deletion_scheduled_at=record.scheduled_for,
+                    previous="remember",
+                    conflict_ok=True,
+                )
             return record
 
         elif self._is_held_by_a_live_run(record, now):
@@ -883,9 +922,49 @@ class TenantService:
 
     # --- Tenant lifecycle: grace and cancellation (REQ-024 AK-52, MT-027 #2123) ---
 
-    def _set_tenant_status(self, tenant_key: str, status: TenantStatus, scheduled_at: datetime | None) -> None:
-        """Write the lifecycle state; a tenant document an earlier attempt already removed is left alone."""
-        self._tenant_repo.update_fields(tenant_key, {"status": status, "deletion_scheduled_at": scheduled_at})
+    @staticmethod
+    def _schedulable_states(origin: TenantErasureOrigin) -> frozenset[TenantStatus]:
+        """The states a deletion of *origin* may freeze: a suspended tenant only by a platform admin (REQ-056 §5.5)."""
+        if origin == "platform_admin":
+            return _TOGGLEABLE_STATUSES
+        return frozenset({TenantStatus.ACTIVE})
+
+    def _transition_tenant_status(
+        self,
+        tenant_key: str,
+        *,
+        expected: Collection[TenantStatus],
+        status: TenantStatus | None,
+        deletion_scheduled_at: datetime | None | Literal["keep"],
+        previous: Literal["remember", "clear", "keep"],
+        restore_fallback: TenantStatus | None = None,
+        conflict_ok: bool = False,
+    ) -> Tenant | None:
+        """Compare-and-set the lifecycle state (REQ-056 SEC-002); 409 when it left *expected*.
+
+        The one write path of ``status``, ``deletion_scheduled_at`` and
+        ``status_before_deletion``: :meth:`ITenantRepository.transition_status` changes all
+        three in one conditional statement. ``conflict_ok`` turns the 409 into ``None``
+        for the callers whose no-match is the normal case (a re-assertion, the move to
+        ``deleted`` of a tenant already there).
+        """
+        moved = self._tenant_repo.transition_status(
+            tenant_key,
+            expected=expected,
+            status=status,
+            deletion_scheduled_at=deletion_scheduled_at,
+            previous=previous,
+            restore_fallback=restore_fallback,
+        )
+        if moved is None and not conflict_ok:
+            logger.warning(
+                "tenant_lifecycle.transition_conflict",
+                tenant=log_tenant(tenant_key),
+                expected=sorted(str(state) for state in expected),
+                target=str(status) if status is not None else "restore",
+            )
+            raise WriteConflictError("Tenant", "the tenant's state changed concurrently")
+        return moved
 
     def _mark_tenant_erasing(self, tenant_key: str) -> None:
         """The grace is over and a run holds the deletion: the tenant is ``deleted``, no longer cancellable.
@@ -894,14 +973,24 @@ class TenantService:
         already resolved for nobody while ``pending_deletion``; the state now tells the
         admin panel and :meth:`cancel_tenant_erasure` that nothing can be taken back.
         """
-        tenant = self._tenant_repo.get_by_key(tenant_key)
-        if tenant is None or tenant.status == TenantStatus.DELETED:
-            return
-        self._set_tenant_status(tenant_key, TenantStatus.DELETED, tenant.deletion_scheduled_at)
+        self._transition_tenant_status(
+            tenant_key,
+            expected=_TOGGLEABLE_STATUSES | _SCHEDULED_DELETION_STATUSES,
+            status=TenantStatus.DELETED,
+            deletion_scheduled_at="keep",
+            previous="keep",
+            conflict_ok=True,  # already ``deleted``, or the document is gone
+        )
 
     def _schedule_tenant_erasure(
-        self, tenant: Tenant, scheduled_for: datetime, *, requester_key: str | None, orphaned: bool = False
-    ) -> None:
+        self,
+        tenant: Tenant,
+        scheduled_for: datetime,
+        *,
+        requester_key: str | None,
+        expected: frozenset[TenantStatus],
+        orphaned: bool = False,
+    ) -> bool:
         """Freeze *tenant* for the grace and tell its members the date (#2123).
 
         The freeze is the state, not the memberships: a ``pending_deletion`` (or
@@ -913,7 +1002,22 @@ class TenantService:
         """
         tenant_key = tenant.key or ""
         status = TenantStatus.ORPHANED if orphaned else TenantStatus.PENDING_DELETION
-        self._set_tenant_status(tenant_key, status, scheduled_for)
+        # REQ-056 §4.3 — remember what the deletion froze, so a cancellation restores it (a
+        # suspended tenant stays suspended). Compare-and-set (SEC-002): the remembered state is
+        # the stored one at the moment of the write, not this request's read; a tenant already
+        # frozen keeps what it remembered. ``False`` when the tenant left *expected*.
+        if (
+            self._transition_tenant_status(
+                tenant_key,
+                expected=expected,
+                status=status,
+                deletion_scheduled_at=scheduled_for,
+                previous="remember",
+                conflict_ok=True,
+            )
+            is None
+        ):
+            return False
         logger.info(
             "tenant_erasure.scheduled",
             tenant=log_tenant(tenant_key),
@@ -921,6 +1025,7 @@ class TenantService:
             scheduled_for=scheduled_for.isoformat(),
         )
         self._notify_members_of_scheduled_erasure(tenant, scheduled_for, skip_user_key=requester_key, orphaned=orphaned)
+        return True
 
     def _notify_members_of_scheduled_erasure(
         self, tenant: Tenant, scheduled_for: datetime, *, skip_user_key: str | None, orphaned: bool = False
@@ -1006,7 +1111,7 @@ class TenantService:
         origin: TenantErasureOrigin,
         client_ip: str | None,
     ) -> Tenant:
-        """Withdraw a scheduled tenant deletion inside its grace and reopen the tenant (#2123, REQ-024 AK-52).
+        """Withdraw a scheduled tenant deletion inside its grace and restore the prior state (#2123, REQ-056 §4.3).
 
         **Who may** is the rule of :meth:`delete_tenant`, proven from the stored
         membership: ``tenant_management`` — the requester's active membership holds the
@@ -1018,8 +1123,14 @@ class TenantService:
         The record is removed only while it is still ``scheduled``
         (:meth:`ITenantErasureRepository.delete_scheduled`): of a cancellation and the
         beat's claim exactly one wins, and a deletion a run already holds cannot be
-        taken back (422, ``deleted``). The tenant returns to ``active`` with every
-        membership as it was — the grace never touched them. An ``orphaned``
+        taken back (422, ``deleted``). The tenant returns to the state the deletion
+        froze (``status_before_deletion``, REQ-056 §4.3): ``active``, or ``suspended``
+        when a platform admin scheduled the deletion of a suspended tenant — the
+        management may withdraw the deletion (and so prevent the data loss) but never
+        lift a suspension that way. A pending document stored before the field existed
+        cannot tell; only a platform admin cancels it (to ``active``), the management is
+        refused (403, SEC-001). Every membership is as it was — the grace never touched
+        them. An ``orphaned``
         organisation (#2134) is not cancellable (422): nobody is left who could
         administer it, so it runs out its grace and is erased (REQ-024 AK-65).
 
@@ -1028,6 +1139,7 @@ class TenantService:
             NotFoundError: no such tenant.
             InvalidStatusTransitionError: nothing is scheduled (HTTP 422).
             UnauthorizedError / StepUpLockedError: the step-up failed (401 / 429).
+            WriteConflictError: the state moved between this request's read and its write (409).
         """
         self._authorize_tenant_deletion(
             tenant_key, requester=requester, authenticated_with_api_key=authenticated_with_api_key, origin=origin
@@ -1039,6 +1151,12 @@ class TenantService:
             # #2134 — an ``orphaned`` organisation has nobody left who could administer it; handing it
             # back would recreate the stranded tenant the settlement exists to end (REQ-023 §5a.5 dropped).
             raise InvalidStatusTransitionError(str(tenant.status), str(TenantStatus.ACTIVE))
+        if tenant.status_before_deletion not in _TOGGLEABLE_STATUSES and origin != "platform_admin":
+            # REQ-056 SEC-001 — fail closed: a deletion scheduled before the state it froze was recorded
+            # cannot tell whether it froze a suspension. Only a platform admin cancels it (it returns to
+            # ``active``, the platform admin's own call). The requester already proved the management of
+            # this tenant, so naming the reason is no existence oracle.
+            raise ForbiddenError("Only a platform admin can cancel this deletion.")
         self._step_up_verifier.verify(
             requester,
             action="tenant_erasure_cancel",
@@ -1051,11 +1169,34 @@ class TenantService:
             authenticated_with_api_key=authenticated_with_api_key,
             client_ip=client_ip,
         )
+        # REQ-056 §4.3 (E-02) — the state before the deletion, not ``active``: a suspended tenant whose
+        # deletion a platform admin scheduled stays suspended; only a platform admin lifts a suspension
+        # (``admin_update_tenant``). SEC-002 — one compare-and-set from ``pending_deletion``: the restored
+        # state is read from the stored document inside the write; a document without it returns to
+        # ``active`` for a platform admin only (SEC-001), so a management cancel matches nothing.
+        restored = self._transition_tenant_status(
+            tenant_key,
+            expected={TenantStatus.PENDING_DELETION},
+            status=None,
+            deletion_scheduled_at=None,
+            previous="clear",
+            restore_fallback=TenantStatus.ACTIVE if origin == "platform_admin" else None,
+        )
+        if restored is None:  # pragma: no cover - _transition_tenant_status raises instead
+            raise WriteConflictError("Tenant", "the tenant's state changed concurrently")
         record_key = TenantErasureEngine.record_key(tenant_key)
         if not self._require_tenant_erasure_repo().delete_scheduled(record_key):
-            # A run claimed it between the read above and now (or nothing was recorded).
+            # A run claimed it between the read above and now (or nothing was recorded): freeze the tenant
+            # again (compare-and-set from the state just restored) — the run marks it ``deleted`` next.
+            self._transition_tenant_status(
+                tenant_key,
+                expected={restored.status},
+                status=TenantStatus.PENDING_DELETION,
+                deletion_scheduled_at=tenant.deletion_scheduled_at,
+                previous="remember",
+                conflict_ok=True,
+            )
             raise InvalidStatusTransitionError(str(TenantStatus.DELETED), str(TenantStatus.ACTIVE))
-        self._set_tenant_status(tenant_key, TenantStatus.ACTIVE, None)
         # MT-014 (#2111) — the withdrawal removed the erasure record, so this row is what is left of the request.
         self._audit_tenant(
             SecurityAuditAction.TENANT_DELETION_CANCELLED,
@@ -1066,9 +1207,6 @@ class TenantService:
         logger.info(
             "tenant_erasure.cancelled", tenant=log_tenant(tenant_key), origin=origin, subject=log_subject(requester.key)
         )
-        restored = self._tenant_repo.get_by_key(tenant_key)
-        if restored is None:  # pragma: no cover - the tenant was read above and nothing deletes it in between
-            raise NotFoundError("Tenant", tenant_key)
         return restored
 
     def cancel_tenant_erasure_by_slug(self, slug: str, **kwargs: Any) -> Tenant:
@@ -1435,7 +1573,16 @@ class TenantService:
                 )
             except (DuplicateError, WriteConflictError) as exc:
                 raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
-        self._schedule_tenant_erasure(tenant, scheduled_for, requester_key=subject_user_key, orphaned=True)
+        if not self._schedule_tenant_erasure(
+            tenant,
+            scheduled_for,
+            requester_key=subject_user_key,
+            # Every state but ``deleted``: a settlement repeated after a failed one re-asserts it (#2166).
+            expected=_TOGGLEABLE_STATUSES | _SCHEDULED_DELETION_STATUSES,
+            orphaned=True,
+        ):
+            logger.warning("account_erasure.orphan_state_moved", tenant=log_tenant(tenant_key))
+            return
         due = html.escape(scheduled_for.strftime("%Y-%m-%d"))
         name = html.escape(tenant.name)
         body = (

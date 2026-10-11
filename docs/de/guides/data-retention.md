@@ -623,7 +623,8 @@ eines Gartens betroffen ist, nicht nur die Datensätze eines einzelnen Kontos. <
    eigentliche Löschung beginnt erst nach `RETENTION_TENANT_ERASURE_GRACE_DAYS` Tagen
    (Standard 90). Bis dahin kann ein Mitglied mit Leitung **und** Verwaltung — oder ein
    Platform-Admin im Admin-Bereich — die Löschung mit dem eigenen Passwort abbrechen; der
-   Mandant ist danach wieder aktiv, alle Mitgliedschaften sind unverändert. Nach Ablauf
+   Mandant ist danach wieder in dem Zustand wie vor der Löschung (ein gesperrter bleibt
+   gesperrt), alle Mitgliedschaften sind unverändert. Nach Ablauf
    der Frist werden die Mitgliedschaften deaktiviert und der Zustand wechselt auf
    „Wird gelöscht“ — ab dann lässt sich nichts mehr zurücknehmen. <!-- Issue #2123 -->
 3. **Externe Bereinigung:** Beigetragene Erkennungsvektoren und Schädlingsbild-Prototypen

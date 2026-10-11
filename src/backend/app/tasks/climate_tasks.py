@@ -35,10 +35,11 @@ def fetch_climate_normals(self) -> dict:  # noqa: ANN001 — Celery bound-task s
     if not settings.weather_enabled or not settings.nasa_power_climate_enabled:
         return {"status": "skipped", "reason": "climate_normals_disabled"}
 
-    from app.common.dependencies import get_climate_normal_repo, get_db, get_site_repo
+    from app.common.dependencies import get_climate_normal_repo, get_db, get_site_repo, get_tenant_repo
     from app.data_access.arango import collections as col
     from app.domain.models.site import Site
     from app.domain.services.weather_adapter_registry import WeatherAdapterRegistry
+    from app.tasks.tenant_gate import ActiveTenants
 
     adapter_cls = WeatherAdapterRegistry.get("nasa-power")
     if adapter_cls is None:
@@ -49,6 +50,8 @@ def fetch_climate_normals(self) -> dict:  # noqa: ANN001 — Celery bound-task s
     normal_repo = get_climate_normal_repo()
     site_repo = get_site_repo()
     db = get_db()
+    # REQ-056 §5.2 — a site whose tenant is not ``active`` costs no NASA POWER call and gets no write.
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     cursor = db.aql.execute(
         "FOR s IN @@col FILTER s.type IN @types AND s.gps_coordinates != null RETURN s",
@@ -64,6 +67,9 @@ def fetch_climate_normals(self) -> dict:  # noqa: ANN001 — Celery bound-task s
     for doc in cursor:
         site = Site(**site_repo._from_doc(doc))  # noqa: SLF001 — cross-tenant iteration
         if not site.key or site.gps_coordinates is None:
+            skipped += 1
+            continue
+        if site.tenant_key and not tenant_is_active(site.tenant_key):
             skipped += 1
             continue
 

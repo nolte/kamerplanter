@@ -24,6 +24,7 @@ def task_module(monkeypatch):
         "get_planting_run_repo",
         "get_site_repo",
         "get_species_repo",
+        "get_tenant_repo",  # REQ-056 §5.2: a MagicMock tenant reads ``is_active``
         "get_weather_forecast_repo",
     ):
         setattr(mock_deps, name, MagicMock())

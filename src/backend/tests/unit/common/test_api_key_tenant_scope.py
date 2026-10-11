@@ -167,3 +167,46 @@ def test_a_stored_account_document_cannot_carry_a_scope_in():
         {"_key": "owner", "email": "owner@example.org", "display_name": "Owner", "api_key_tenant_scope": "club-a"}
     )
     assert loaded.api_key_tenant_scope is None
+
+
+# ── REQ-024 AK-56 / REQ-056 AK-04: the scoped tenant itself is suspended ─────
+
+
+class _SuspendableTenantService(_TenantService):
+    """:class:`_TenantService` with the scoped tenant's state switchable, as the stored ``Tenant.is_active``."""
+
+    def __init__(self, *, scoped_active: bool) -> None:
+        self._by_slug = {
+            **_TenantService._by_slug,
+            "club-a": SimpleNamespace(**{**vars(_SCOPED), "is_active": scoped_active}),
+        }
+
+
+def _scoped_path(service: _TenantService) -> Any:
+    return auth_mod.get_current_tenant(tenant_slug="club-a", user=_owner("tenant_a"), tenant_service=service)
+
+
+def _scoped_header(service: _TenantService) -> str:
+    return auth_mod.get_active_tenant_key(user=_owner("tenant_a"), tenant_service=service, active_tenant_slug="club-a")
+
+
+@pytest.mark.parametrize("resolver", [_scoped_path, _scoped_header], ids=["path", "header"])
+def test_a_key_scoped_to_a_suspended_tenant_is_refused_like_an_unknown_one(resolver: Any):
+    """The key's own tenant, suspended: same status, code and message as a slug nobody knows (no oracle)."""
+    suspended = _error(lambda: resolver(_SuspendableTenantService(scoped_active=False)))
+    unknown = _error(lambda: _path("no-such-club", _owner(None)))
+
+    assert isinstance(suspended, ForbiddenError)
+    assert (suspended.status_code, suspended.error_code, suspended.message, suspended.details) == (
+        unknown.status_code,
+        unknown.error_code,
+        unknown.message,
+        unknown.details,
+    )
+
+
+def test_the_same_key_resolves_again_once_the_tenant_is_reactivated():
+    service = _SuspendableTenantService(scoped_active=True)
+
+    assert _scoped_path(service).tenant_key == "tenant_a"
+    assert _scoped_header(service) == "tenant_a"

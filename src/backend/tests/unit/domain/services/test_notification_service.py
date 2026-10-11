@@ -546,6 +546,39 @@ class TestSendEmailDigest:
         fake_channel.send_batch.assert_awaited_once_with(notifs, {"email": "a@x"})
 
     @pytest.mark.asyncio
+    async def test_notifications_about_a_tenant_that_is_not_active_are_not_delivered(
+        self, service, mock_engine, mock_notification_repo
+    ):
+        """REQ-056 §5.2 — what was notified about a suspended tenant before its suspension is not mailed."""
+        from app.domain.models.notification import ChannelResult
+
+        open_one = self._notification("n-open")
+        closed_one = self._notification("n-closed").model_copy(update={"tenant_key": "t-closed"})
+        account_level = self._notification("n-account").model_copy(update={"tenant_key": ""})
+        mock_notification_repo.list_for_user_since.return_value = [open_one, closed_one, account_level]
+        fake_channel = MagicMock()
+        fake_channel.send_batch = AsyncMock(return_value=ChannelResult(channel_key="email", success=True))
+        mock_engine._channel_registry.get.return_value = fake_channel
+
+        result = await service.send_email_digest(
+            "user_1", datetime.now(UTC) - timedelta(hours=24), tenant_is_active=lambda key: key != "t-closed"
+        )
+
+        assert result == {"status": "sent", "count": 2}
+        fake_channel.send_batch.assert_awaited_once_with([open_one, account_level], {"email": "a@x"})
+
+    @pytest.mark.asyncio
+    async def test_a_window_only_about_closed_tenants_sends_no_mail(self, service, mock_engine, mock_notification_repo):
+        mock_notification_repo.list_for_user_since.return_value = [self._notification("n1")]
+
+        result = await service.send_email_digest(
+            "user_1", datetime.now(UTC) - timedelta(hours=24), tenant_is_active=lambda _key: False
+        )
+
+        assert result == {"status": "empty", "count": 0}
+        mock_engine._channel_registry.get.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_empty_window(self, service, mock_engine, mock_notification_repo):
         mock_notification_repo.list_for_user_since.return_value = []
 

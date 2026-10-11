@@ -56,6 +56,7 @@ from app.domain.services.step_up_service import default_step_up_verifier
 from app.domain.services.step_up_targets import StepUpTargetAuthorizer
 from app.domain.services.tenant_service import TenantService
 from app.domain.services.user_service import UserService
+from tests.support.tenant_transitions import apply_transition
 
 # Assembled at runtime: a literal shaped like a credential trips the secret scanner (#1838).
 PASSWORD = " ".join(["correct", "horse", "battery", "staple"])
@@ -127,6 +128,14 @@ class _Tenants:
 
     def get_by_slug(self, slug: str) -> Tenant | None:
         return next((t for t in self.rows.values() if t.slug == slug), None)
+
+    def transition_status(self, key: str, **kwargs: Any) -> Tenant | None:
+        """The compare-and-set of the lifecycle state (REQ-056); recorded as a write of ``status``."""
+        moved = apply_transition(self.rows.get(key), **kwargs)
+        if moved is not None:
+            self.writes.append((key, {"status": moved.status}))
+            self.rows[key] = moved
+        return moved
 
     def update_fields(self, key: str, fields: dict[str, Any]) -> Tenant | None:
         if key not in self.rows:

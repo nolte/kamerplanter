@@ -53,6 +53,7 @@ from app.data_access.arango.ha_entity_grant_repository import ArangoHaEntityGran
 from app.data_access.arango.sensor_repository import ArangoSensorRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.tank_repository import ArangoTankRepository
+from app.data_access.arango.tenant_repository import ArangoTenantRepository
 from app.data_access.timescale.observation_repository import TimescaleObservationRepository
 from app.data_access.timescale.schema import ensure_timescale_schema
 from app.domain.models.sensor import Sensor
@@ -112,6 +113,19 @@ class World:
         n = next(TENANT_COUNTER)
         self.tenant = f"tenant-{n}"
         self.site = f"{SITE}-{n}"
+        # REQ-056 §5.2 — the Home Assistant poll asks the stored tenant (``ActiveTenants``): an ``active``
+        # tenant document on this database, as every tenant that owns a sensor has in production.
+        arango.collection(col.TENANTS).insert(
+            {
+                "_key": self.tenant,
+                "name": self.tenant,
+                "slug": self.tenant,
+                "tenant_type": "organization",
+                "owner_user_key": "owner-1",
+                "status": "active",
+            }
+        )
+        self.tenant_repo = ArangoTenantRepository(arango)
         arango.collection(col.SITES).insert({"_key": self.site, "tenant_key": self.tenant, "name": "Site"})
         self.sensor_repo = ArangoSensorRepository(arango)
         # The repository keys the document itself; the key it chose is the sensor's.
@@ -207,6 +221,7 @@ def world(arango, timescale):
     yield world
     arango.collection(col.SENSORS).delete(world.sensor, ignore_missing=True)
     arango.collection(col.SITES).delete(world.site, ignore_missing=True)
+    arango.collection(col.TENANTS).delete(world.tenant, ignore_missing=True)
 
 
 def _hook(target: Any, name: str, before: Callable[[], None]) -> None:
@@ -317,6 +332,8 @@ def ha_poll(world: World, monkeypatch):
         monkeypatch.setattr(dependencies, "get_observation_repo", lambda: world.obs_repo)
         monkeypatch.setattr(dependencies, "get_observation_service", lambda: world.observation_service, raising=False)
         monkeypatch.setattr(dependencies, "get_ha_entity_grant_service", lambda: world.grants)
+        # REQ-056 §5.2 — the tenant gate reads this database's tenant, not the configured default one.
+        monkeypatch.setattr(dependencies, "get_tenant_repo", lambda: world.tenant_repo)
         return task.ingest_ha_readings()
 
     return run
@@ -331,6 +348,17 @@ def test_the_home_assistant_poll_stores_a_reading_under_the_tenant_that_owns_the
     assert world.residue(sensor=True)["sensor_readings"] == 1
 
     world.erase_tenant()
+    _nothing_left(world.residue(sensor=True))
+
+
+@pytest.mark.parametrize("closed", ["suspended", "pending_deletion"])
+def test_the_home_assistant_poll_stores_nothing_for_a_tenant_that_is_not_active(world: World, ha_poll, closed: str):
+    """REQ-056 §5.2 — the gate reads the stored tenant on the real database: closed, nothing is read or written."""
+    world.arango.collection(col.TENANTS).update({"_key": world.tenant, "status": closed})
+
+    result = ha_poll()
+
+    assert result["status"] == "ok" and result["inserted"] == 0
     _nothing_left(world.residue(sensor=True))
 
 

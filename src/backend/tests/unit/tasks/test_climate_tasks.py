@@ -22,6 +22,8 @@ def task_module(monkeypatch):
     mock_deps.get_climate_normal_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_site_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_db = MagicMock()  # type: ignore[attr-defined]
+    # REQ-056 §5.2: every tenant here is active (a MagicMock tenant reads ``is_active``).
+    mock_deps.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     import app.tasks.climate_tasks as module

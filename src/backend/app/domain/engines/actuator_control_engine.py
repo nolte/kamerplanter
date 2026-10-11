@@ -160,6 +160,56 @@ class ControlEngine:
             return None
         return winner
 
+    def winning_safety_state(
+        self,
+        actuator: Actuator,
+        active_rules: list[ControlRule],
+        sensor_readings: dict[str, float],
+        now: datetime,
+    ) -> DesiredState | None:
+        """The highest-priority *firing* safety rule, without the same-state filter (REQ-056 SEC-003).
+
+        For the safe-state path of a closed tenant: a safety rule that holds its device in
+        the state it already is in still *fires*, and the caller must not then switch the
+        device off. :meth:`is_same_state` tells whether a dispatch is needed at all.
+        """
+        candidates: list[DesiredState] = []
+        for rule in active_rules:
+            if not rule.is_active or not rule.is_safety_rule:
+                continue
+            result = self._evaluate_rule(rule, sensor_readings, actuator, now)
+            if result is not None:
+                result.priority = PRIORITY_SAFETY_RULE + rule.priority
+                candidates.append(result)
+        if not candidates:
+            return None
+        return max(candidates, key=lambda c: c.priority)
+
+    def a_safety_rule_holds(
+        self, actuator: Actuator, active_rules: list[ControlRule], sensor_readings: dict[str, float]
+    ) -> bool:
+        """Whether an active safety rule keeps *actuator* on right now (REQ-056 SEC-003).
+
+        Rules are edge-triggered with hysteresis: once a safety rule switched its device on,
+        :meth:`winning_safety_state` returns nothing while the reading stays inside the band.
+        The device is then *held* by the rule — the safe-state path must not switch it off.
+        """
+        if (actuator.current_state or "off") == "off":
+            return False
+        for rule in active_rules:
+            if not rule.is_active or not rule.is_safety_rule:
+                continue
+            if rule.action.command == ActionCommand.TURN_OFF or rule.action.value == 0:
+                continue
+            reading = sensor_readings.get(rule.sensor_parameter)
+            if reading is not None and self._check_condition(rule.condition, reading, rule.hysteresis.off_threshold):
+                return True
+        return False
+
+    def is_same_state(self, actuator: Actuator, desired: DesiredState) -> bool:
+        """Whether *actuator* already is in *desired* (no dispatch needed)."""
+        return self._is_same_state(actuator, desired)
+
     # ── Override ─────────────────────────────────────────────────────────
 
     def _evaluate_override(self, override: ManualOverride | None, now: datetime) -> DesiredState | None:

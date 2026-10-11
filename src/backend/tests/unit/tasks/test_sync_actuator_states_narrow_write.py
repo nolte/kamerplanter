@@ -40,6 +40,8 @@ def deps(monkeypatch):
     module = ModuleType("app.common.dependencies")
     module.get_actuator_repo = MagicMock()  # type: ignore[attr-defined]
     module.get_ha_client = MagicMock()  # type: ignore[attr-defined]
+    # REQ-056 §5.2: t1 is active (a MagicMock tenant reads ``is_active``).
+    module.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]
     # MT-015 (#2112): every actuator here is t1's and its entity granted to t1.
     module.get_ha_entity_grant_service = lambda: SimpleNamespace(snapshot=lambda: EverythingGrantedTo("t1"))  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", module)

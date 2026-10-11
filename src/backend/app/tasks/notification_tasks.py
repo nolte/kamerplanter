@@ -429,10 +429,13 @@ def send_email_digests(self) -> dict:
     from app.common.dependencies import (
         get_notification_preference_repo,
         get_notification_service,
+        get_tenant_repo,
     )
 
     preference_repo = get_notification_preference_repo()
     service = get_notification_service()
+    # REQ-056 §5.2 — what was notified about a tenant that is no longer active is not delivered.
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     since = datetime.now(UTC) - timedelta(hours=24)
     candidates = preference_repo.list_users_with_digest_enabled()
@@ -448,7 +451,7 @@ def send_email_digests(self) -> dict:
             continue
 
         try:
-            result = asyncio.run(service.send_email_digest(user_key, since))
+            result = asyncio.run(service.send_email_digest(user_key, since, tenant_is_active=tenant_is_active))
         except Exception:
             logger.exception("email_digest_user_failed", subject=log_subject(user_key))
             digests_failed += 1

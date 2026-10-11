@@ -585,7 +585,8 @@ of a single account. <!-- Issue #1769 -->
    The actual deletion starts only after `RETENTION_TENANT_ERASURE_GRACE_DAYS` days
    (default 90). Until then a member with the Lead role **and** Management — or a
    platform admin in the admin area — can cancel the deletion with their own password;
-   the tenant is active again afterwards, with every membership unchanged. Once the grace
+   the tenant is back in the state it had before the deletion afterwards (a suspended one
+   stays suspended), with every membership unchanged. Once the grace
    period has ended, the memberships are deactivated and the state changes to
    "Being deleted" — from then on nothing can be taken back. <!-- Issue #2123 -->
 3. **External cleanup:** Contributed recognition vectors and pest prototypes are
