@@ -110,7 +110,15 @@ flowchart TD
 
 **Decide later:** The dialog closes. It appears again the next time you sign in.
 
-Who sees the dialog: the **first registered account** — or, if a platform admin exists already, only that admin. Other accounts do not see it. If there is no platform admin yet, your decision makes you one, whether you take over or decline. <!-- REQ-027 Szenario 5/6, Issue #1855 -->
+You confirm taking over and declining with your password. If you have no password, you sign in once more at your sign-in provider or enter a code from an e-mail.
+
+Who sees the dialog: the platform admin, if one exists already. Otherwise the **first account registered after the switch** whose e-mail address is confirmed and that has its own garden. Accounts from before the switch, deactivated accounts and service accounts do not count. Other accounts do not see the dialog. If there is no platform admin yet, your decision makes you one, whether you take over or decline. <!-- REQ-027 Szenario 5/6, Issue #1855 -->
+
+!!! danger "Register first, before anybody else can reach the instance"
+    The first account after the switch becomes platform admin, the administrator of the whole installation. If registration is open and somebody else reaches the instance before you, that person can be the one. So start in Full Mode for yourself only first (for example without exposing it, or with `REGISTRATION_ALLOWED_DOMAINS` limited to your own e-mail domain), register and decide the take-over. Or create a platform admin beforehand (`python -m app.migrations.add_platform_admin <email>`): then only that admin decides. If accounts existed before the switch, this is even required, because such accounts do not count as "the first account". <!-- REQ-027 §7a SEC-001, Issue #1855 -->
+
+!!! warning "Switch all instances at once"
+    Switch backend, worker, and frontend to `full` in one step. If light and full instances run side by side against the same database, the light instance keeps serving everybody without sign-in. In Full Mode, Kamerplanter never signs the system account in, whatever the database says. <!-- Issue #1855 SEC-006 -->
 
 !!! warning "Set up external access again"
     Home Assistant, an MCP client, or any other program that used an API key of the system account in Light Mode gets `401` after the upgrade. Create a new key in Full Mode, for example for a service account, and enter it there. Create a calendar subscription again in the calendar settings.
@@ -125,7 +133,7 @@ Want to switch back from Full Mode to Light Mode?
 !!! warning "Attention: Only the System Garden is Visible"
     In Light Mode only the system garden is accessible. If you created multiple gardens or user accounts in Full Mode, they are not visible in Light Mode. The data is **not lost** — it is fully accessible again when you next upgrade to Full.
 
-Change both environment variables to `light` and restart the services. Kamerplanter unlocks the system account and gives it its garden back. You land directly on the dashboard without login. If you took the garden over in Full Mode, it keeps its new name.
+Change both environment variables to `light` and restart the services. Kamerplanter unlocks the system account and gives it its garden back. If other accounts exist at that point, the start writes a `critical` log line (`light_mode_start_with_person_accounts`): in Light Mode everybody reaches the system garden's data without sign-in. You land directly on the dashboard without login. If you took the garden over in Full Mode, it keeps its new name.
 
 !!! warning "Not yet implemented"
     Kamerplanter will reactivate or recreate a system garden that an admin suspended or deleted in Full Mode on the downgrade, and assign all master data to it. Until then, reactivate a suspended garden yourself in the admin area before the downgrade. <!-- REQ-027 AK-23, AK-24, Issue #1855 -->

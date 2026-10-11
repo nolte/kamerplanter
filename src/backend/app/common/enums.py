@@ -1849,6 +1849,14 @@ class SecurityAuditAction(StrEnum):
     # REQ-027 §7a.2 (#1855) — after the switch from light to full mode an account took the light-mode
     # system tenant over: the row names the tenant and the account that now owns it.
     TENANT_TAKEN_OVER = "tenant_taken_over"
+    # #1855 SEC-005 — the decision itself: who accepted or declined the take-over of which tenant and whether
+    # it made them the first platform admin (``platform_admin_granted``); a decision undone after a failure.
+    TAKEOVER_ACCEPTED = "takeover_accepted"
+    TAKEOVER_DECLINED = "takeover_declined"
+    TAKEOVER_REVERTED = "takeover_reverted"
+    # #1855 SEC-005 — one aggregate row per start that sealed the light-mode system account in full mode:
+    # how many API keys, sessions and calendar feeds it revoked (``revoked_counts``).
+    SYSTEM_ACCOUNT_SEALED = "system_account_sealed"
 
 
 class SecurityAuditVia(StrEnum):

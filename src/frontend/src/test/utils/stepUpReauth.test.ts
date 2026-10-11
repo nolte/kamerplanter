@@ -77,6 +77,7 @@ describe('stepUpReauth storage (#1815)', () => {
       'admin_membership_removal',
       'admin_membership_role_change',
       'admin_tenant_update',
+      'light_mode_takeover',
       'oidc_provider_change',
       'provider_unlink',
       'service_account_change',

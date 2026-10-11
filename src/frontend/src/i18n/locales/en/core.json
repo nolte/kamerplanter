@@ -635,7 +635,19 @@
       "declineExplanation": "If you decline, you start with your own empty garden. The old garden is kept and can be found in the admin area.",
       "accept": "Yes, take it over",
       "decline": "No, start fresh",
-      "later": "Decide later"
+      "later": "Decide later",
+      "confirm": {
+        "accept": {
+          "title": "Confirm the take-over",
+          "description": "The garden “{{name}}” becomes yours: you become its lead and – as long as there is none yet – platform admin. Confirm this with your password.",
+          "label": "Take the garden over"
+        },
+        "decline": {
+          "title": "Confirm declining",
+          "description": "The garden “{{name}}” is kept and can be found in the admin area. As long as there is none yet, you become platform admin. Confirm this with your password.",
+          "label": "Decline"
+        }
+      }
     }
   },
   "tankAlerts": {

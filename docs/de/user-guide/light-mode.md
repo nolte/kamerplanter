@@ -110,7 +110,15 @@ flowchart TD
 
 **Später entscheiden:** Der Dialog schließt sich. Er erscheint bei deiner nächsten Anmeldung wieder.
 
-Wer den Dialog sieht: das **erste registrierte Konto** — oder, falls es schon einen Plattform-Admin gibt, nur dieser. Andere Konten sehen ihn nicht. Gibt es noch keinen Plattform-Admin, wirst du es mit deiner Entscheidung, egal ob du übernimmst oder ablehnst. <!-- REQ-027 Szenario 5/6, Issue #1855 -->
+Übernehmen und Ablehnen bestätigst du mit deinem Passwort. Hast du kein Passwort, meldest du dich dafür noch einmal bei deinem Anmeldeanbieter an oder gibst einen Code aus einer E-Mail ein.
+
+Wer den Dialog sieht: der Plattform-Admin, falls es schon einen gibt. Sonst das **erste Konto, das nach dem Umstieg registriert wurde**, dessen E-Mail-Adresse bestätigt ist und das seinen eigenen Garten hat. Konten von vor dem Umstieg, deaktivierte Konten und Service-Konten zählen nicht. Andere Konten sehen den Dialog nicht. Gibt es noch keinen Plattform-Admin, wirst du es mit deiner Entscheidung, egal ob du übernimmst oder ablehnst. <!-- REQ-027 Szenario 5/6, Issue #1855 -->
+
+!!! danger "Registriere dich zuerst, bevor andere die Instanz erreichen"
+    Das erste Konto nach dem Umstieg wird Plattform-Admin, also Verwalter der ganzen Installation. Ist die Registrierung offen und erreicht jemand anderes die Instanz vor dir, kann diese Person das sein. Starte deshalb im Full-Modus zuerst nur für dich (zum Beispiel ohne Freigabe nach außen oder mit `REGISTRATION_ALLOWED_DOMAINS` auf deine eigene E-Mail-Domain beschränkt), registriere dich und entscheide über die Übernahme. Oder lege vorher einen Plattform-Admin an (`python -m app.migrations.add_platform_admin <E-Mail>`): Dann entscheidet nur er. Gab es schon vor dem Umstieg Konten, ist das sogar nötig, denn solche Konten zählen nicht als „erstes Konto“. <!-- REQ-027 §7a SEC-001, Issue #1855 -->
+
+!!! warning "Alle Instanzen gleichzeitig umstellen"
+    Stelle Backend, Worker und Frontend in einem Schritt auf `full` um. Laufen Light- und Full-Instanzen gegen dieselbe Datenbank nebeneinander, bedient die Light-Instanz weiter jeden ohne Anmeldung. Im Full-Modus meldet Kamerplanter das System-Konto unabhängig von der Datenbank nie an. <!-- Issue #1855 SEC-006 -->
 
 !!! warning "Externe Zugriffe neu einrichten"
     Home Assistant, ein MCP-Client oder andere Programme, die im Light-Modus einen API-Schlüssel des System-Kontos benutzt haben, bekommen nach dem Upgrade `401`. Lege im Full-Modus einen neuen Schlüssel an, zum Beispiel für ein Service-Konto, und trage ihn dort ein. Ein Kalender-Abo legst du in den Kalender-Einstellungen neu an.
@@ -125,7 +133,7 @@ Du möchtest vom Full-Modus zurück zum Light-Modus wechseln?
 !!! warning "Achtung: Nur System-Garten sichtbar"
     Im Light-Modus ist ausschließlich der System-Garten zugänglich. Wenn du im Full-Modus mehrere Gärten oder Nutzerkonten angelegt hast, sind diese im Light-Modus nicht sichtbar. Die Daten gehen **nicht verloren** — sie sind bei einem erneuten Upgrade auf Full wieder vollständig zugänglich.
 
-Ändere beide Umgebungsvariablen auf `light` und starte die Dienste neu. Kamerplanter entsperrt das System-Konto und gibt ihm seinen Garten zurück. Du landest direkt auf dem Dashboard ohne Login. Hast du den Garten im Full-Modus übernommen, behält er seinen neuen Namen.
+Ändere beide Umgebungsvariablen auf `light` und starte die Dienste neu. Kamerplanter entsperrt das System-Konto und gibt ihm seinen Garten zurück. Gibt es zu diesem Zeitpunkt andere Konten, schreibt der Start eine Warnung der Stufe `critical` ins Protokoll (`light_mode_start_with_person_accounts`): Im Light-Modus kommt jeder ohne Anmeldung an die Daten des System-Gartens. Du landest direkt auf dem Dashboard ohne Login. Hast du den Garten im Full-Modus übernommen, behält er seinen neuen Namen.
 
 !!! warning "Noch nicht implementiert"
     Künftig wird Kamerplanter einen System-Garten, den ein Admin im Full-Modus gesperrt oder gelöscht hat, beim Downgrade wieder aktivieren oder neu anlegen und ihm alle Stammdaten zuordnen. Bis dahin entsperrst du einen gesperrten Garten vor dem Downgrade selbst im Admin-Bereich. <!-- REQ-027 AK-23, AK-24, Issue #1855 -->

@@ -204,6 +204,44 @@ class SecurityAuditService:
             )
         )
 
+    def record_takeover_decision(
+        self,
+        *,
+        action: SecurityAuditAction,
+        actor_user_key: str,
+        tenant_key: str,
+        platform_admin_granted: bool,
+    ) -> SecurityAuditEntry:
+        """Append the row of one light-to-full take-over decision or its undoing (REQ-027 §7a, #1855 SEC-005)."""
+        return self._write(
+            SecurityAuditEntry(
+                action=action,
+                via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                actor_user_key=actor_user_key,
+                target_user_key=actor_user_key,
+                tenant_key=tenant_key,
+                platform_admin_granted=platform_admin_granted,
+                request_id=_current_request_id(),
+                created_at=datetime.now(UTC),
+            )
+        )
+
+    def record_system_account_sealed(
+        self, *, system_user_key: str, revoked_counts: dict[str, int]
+    ) -> SecurityAuditEntry:
+        """Append the aggregate row of a full-mode start sealing the light-mode system account (#1855 SEC-005)."""
+        return self._write(
+            SecurityAuditEntry(
+                action=SecurityAuditAction.SYSTEM_ACCOUNT_SEALED,
+                via=SecurityAuditVia.MODE_SWITCH,
+                actor_user_key=system_user_key,
+                target_user_key=system_user_key,
+                revoked_counts=revoked_counts,
+                request_id=_current_request_id(),
+                created_at=datetime.now(UTC),
+            )
+        )
+
     def _write(self, entry: SecurityAuditEntry) -> SecurityAuditEntry:
         entry.key = self._repo.record(entry)
         self.announce(entry)

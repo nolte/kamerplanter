@@ -10,10 +10,10 @@ from app.api.v1.system.schemas import (
 )
 from app.common.auth import get_authenticated_with_api_key, require_account_principal
 from app.common.dependencies import get_mode_switch_service
-from app.common.exceptions import ForbiddenError
-from app.common.openapi_responses import AUTH_CRUD_RESPONSES
+from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
+from app.common.request_ip import resolve_client_ip
 from app.domain.models.user import User
-from app.domain.services.mode_switch_service import ModeSwitchService
+from app.domain.services.mode_switch_service import ModeSwitchService, TakeoverConfirmation
 
 router = APIRouter(prefix="/system", tags=["system"], responses=AUTH_CRUD_RESPONSES)
 
@@ -34,6 +34,7 @@ def get_takeover_status(
     return TakeoverStatusResponse(
         pending=status.pending,
         eligible=status.eligible,
+        tenant_key=status.tenant_key,
         tenant_name=status.tenant_name,
         tenant_slug=status.tenant_slug,
         resource_counts=None
@@ -48,11 +49,12 @@ def get_takeover_status(
     )
 
 
-@router.post("/takeover", response_model=TakeoverResultResponse)
+@router.post("/takeover", response_model=TakeoverResultResponse, responses=STEP_UP_RESPONSES)
 def decide_takeover(
     body: TakeoverDecisionRequest,
     user: User = Depends(require_account_principal),
     authenticated_with_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     service: ModeSwitchService = Depends(get_mode_switch_service),
 ) -> TakeoverResultResponse:
     """Accept (``accept: true``) or decline the take-over of the light-mode data.
@@ -60,12 +62,19 @@ def decide_takeover(
     Accepting makes the caller ``lead`` of the light-mode tenant (with both administrative scopes);
     the data stay where they are. Declining leaves the tenant without owner for a platform
     administrator. Either decision makes an instance without a platform administrator hand that role
-    to the caller. 403 for anyone else and for an API key (a person decides this in a session); 404
-    when no take-over is open.
+    to the caller. Passes the caller's step-up (``light_mode_takeover``, target ``system-tenant``).
+    403 for anyone else and for an API key (a person decides this in a session); 404 when no
+    take-over is open or another decision is running.
     """
-    if authenticated_with_api_key:
-        raise ForbiddenError("The light-mode take-over is decided in a signed-in session, not with an API key.")
-    result = service.decide_takeover(user, accept=body.accept)
+    result = service.decide_takeover(
+        user,
+        accept=body.accept,
+        confirmation=TakeoverConfirmation(
+            password=body.current_password, step_up_code=body.step_up_code, step_up_token=body.step_up_token
+        ),
+        authenticated_with_api_key=authenticated_with_api_key,
+        client_ip=client_ip,
+    )
     return TakeoverResultResponse(
         accepted=result.accepted,
         tenant_slug=result.tenant_slug,

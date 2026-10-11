@@ -51,6 +51,12 @@ class SecurityAuditEntry(BaseModel):
     #: SEC-005 — of a ``plan_changed`` row: each changed limit with its old and new value, flagged when the
     #: change lifts the limit (to ``0`` = unlimited, or to ``null`` = the instance setting).
     limit_changes: list[PlanLimitChange] | None = None
+    #: #1855 SEC-005 — of a ``takeover_accepted`` / ``takeover_declined`` row: whether the decision made the
+    #: actor the instance's first platform admin.
+    platform_admin_granted: bool | None = None
+    #: #1855 SEC-005 — of a ``system_account_sealed`` row: what the start revoked (``api_keys``,
+    #: ``sessions``, ``calendar_feeds``) - counts only, no key or token.
+    revoked_counts: dict[str, int] | None = None
     #: The ``X-Request-ID`` of the request (structlog context), when there is one.
     request_id: str | None = None
     created_at: datetime | None = None

@@ -1500,6 +1500,8 @@ def get_mode_switch_service() -> ModeSwitchService:
         refresh_token_repo=get_refresh_token_repo(),
         calendar_feed_repo=get_calendar_feed_repo(),
         security_audit=get_security_audit_service(),
+        # #1855 SEC-003 — the take-over decision passes the account's own step-up (``light_mode_takeover``).
+        step_up_verifier=get_step_up_verifier(),
         onboarding_service=get_onboarding_service(),
     )
 

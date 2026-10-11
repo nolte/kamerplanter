@@ -64,6 +64,11 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "rule 'only a holder hands out lead in platform' has no holder to ask; refused as soon as one active "
         "platform admin exists, reached only from the take-over decision"
     ),
+    ("tenant_service.py", "TenantService.undo_light_mode_takeover"): (
+        "the undoing of a failed take-over decision (#1855 SEC-004): it only writes back the role the same account "
+        "held in the light-mode tenant before the take-over raised it (read from the take-over's receipt) - never "
+        "a role nobody held, never in the platform tenant"
+    ),
     ("tenant_service.py", "TenantService.restore_light_mode_membership"): (
         "the light-mode start (REQ-027 Szenario 7, #1855): restores the system account's own lead membership in its "
         "own light-mode tenant; no request, no person, never the platform tenant"
@@ -149,7 +154,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: +1 with #2137: create_service_account (viewer/grower, checked).
 #: +1 with #2182: join_provider_default_tenant (constant viewer, classified).
 #: +3 with #1855: take_over_light_mode_tenant, grant_first_platform_admin, restore_light_mode_membership (classified).
-EXPECTED_MEMBERS = 12  # 8 until #2118 merged the two founding functions into ``_found_tenant``
+#: +1 with #1855 SEC-004: undo_light_mode_takeover (classified).
+EXPECTED_MEMBERS = 13  # 8 until #2118 merged the two founding functions into ``_found_tenant``
 
 
 def test_every_role_grant_checks_for_escalation_or_is_classified() -> None:

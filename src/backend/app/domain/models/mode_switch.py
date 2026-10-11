@@ -12,6 +12,7 @@ Source code is English only (NFR-003).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
@@ -24,12 +25,58 @@ SYSTEM_TENANT_KEY = "system-tenant"
 
 DeploymentMode = Literal["light", "full"]
 
+#: How long a claim on the pending take-over holds before another decision may take it over (#1855
+#: SEC-004). A decision runs a handful of writes; a claim this old belongs to a process that died.
+TAKEOVER_CLAIM_TTL_SECONDS = 600
+
+
+def system_account_refused(user_key: str | None, *, mode: str) -> bool:
+    """Whether an authentication resolving to *user_key* must be refused in *mode* (#1855 SEC-006).
+
+    In ``full`` mode the light-mode system account never authenticates - whatever the database says
+    about it. The start seals it (``ModeSwitchService.seal_system_account``); this is the second gate,
+    independent of the stored state, for a replica that served before the seal, a restored backup or
+    a mixed light/full rollout.
+    """
+    return mode == "full" and user_key == SYSTEM_USER_KEY
+
 
 class PendingTakeover(BaseModel):
-    """An open take-over of the light-mode tenant, written when the start detected light → full."""
+    """An open take-over of the light-mode tenant, written when the start detected light → full.
+
+    ``claim_id`` / ``claimed_at`` mark a decision in progress (#1855 SEC-004): the document is
+    removed only after the decision succeeded; a claim older than :data:`TAKEOVER_CLAIM_TTL_SECONDS`
+    may be taken over.
+    """
 
     system_tenant_key: str = SYSTEM_TENANT_KEY
     created_at: datetime
+    claim_id: str | None = None
+    claimed_at: datetime | None = None
+
+
+@dataclass
+class TakeoverReceipt:
+    """What one accepted take-over wrote, so a failing decision can undo exactly that (#1855 SEC-004).
+
+    In memory only - built and read within one decision, never stored.
+    """
+
+    tenant_key: str
+    tenant_slug: str
+    new_owner_key: str
+    system_user_key: str
+    previous_owner_key: str
+    previous_name: str
+    #: The system account's membership the take-over ended (``None``: it was not active).
+    ended_system_membership_key: str | None = None
+    #: The new owner's membership the take-over created (``None``: an existing one was raised).
+    created_membership_key: str | None = None
+    #: An existing membership of the new owner the take-over raised, with its previous values.
+    raised_membership_key: str | None = None
+    raised_previous_role: str | None = None
+    raised_previous_scopes: list[str] | None = None
+    raised_previous_active: bool | None = None
 
 
 class SystemAccountSealing(BaseModel):
@@ -69,6 +116,8 @@ class TakeoverStatus(BaseModel):
     pending: bool
     #: Only an eligible account sees the tenant and its counts; the others only learn that one is open.
     eligible: bool = False
+    #: The key a step-up factor for the decision is bound to (``light_mode_takeover``, #1855 SEC-003).
+    tenant_key: str | None = None
     tenant_name: str | None = None
     tenant_slug: str | None = None
     resource_counts: TakeoverResourceCounts | None = None

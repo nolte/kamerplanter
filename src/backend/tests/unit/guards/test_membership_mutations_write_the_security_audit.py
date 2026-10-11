@@ -149,7 +149,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: +1 with #2182: join_provider_default_tenant (audited, via oidc_auto_join).
 #: +3 with #1855 (REQ-027 light-to-full): take_over_light_mode_tenant, grant_first_platform_admin and
 #: restore_light_mode_membership - all audited (via light_mode_takeover / mode_switch).
-EXPECTED_MEMBERS = 19  # +1 with #2134: _hand_management_to (the account erasure's INV-1 handover); +1 with #2133
+#: +1 with #1855 SEC-004: undo_light_mode_takeover (audited, via light_mode_takeover).
+EXPECTED_MEMBERS = 20  # +1 with #2134: _hand_management_to (the account erasure's INV-1 handover); +1 with #2133
 
 
 def test_every_membership_mutation_writes_the_audit_or_is_classified() -> None:
@@ -312,6 +313,8 @@ def test_the_ending_predicate_sees_the_class() -> None:
         ("tenant_service.py", "TenantService._settle_join_against_member_limit"),
         # +1 with #2182 review I-1: the take-back of an unaudited OIDC auto-join (classified).
         ("tenant_service.py", "TenantService.join_provider_default_tenant"),
+        # +1 with #1855 SEC-004: undoing a failed light-to-full take-over removes the membership it created.
+        ("tenant_service.py", "TenantService.undo_light_mode_takeover"),
     }
     assert [name for (_, name), clears in found.items() if clears] != []
 

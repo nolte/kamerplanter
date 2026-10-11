@@ -37,6 +37,8 @@ on a kind of target learns nothing about which targets of that kind exist (403 b
   (a rotation or removal); for the pair, the account is a service account with an active membership in
   that tenant. Authorization on the tenant first, so a requester who may not manage the tenant's service
   accounts learns nothing about which exist;
+* ``light_mode_takeover`` (#1855 SEC-003) — the target is the light-mode garden (``system-tenant``),
+  which exists; never the system account itself. Whether the requester may decide is the act's check;
 * ``tenant_member_removal`` / ``tenant_member_role_change`` (#2032) — the requester holds
   the ``management`` scope in the tenant the membership belongs to
   (``MembershipEngine.can_manage_members``, the predicate the routes' scope gate
@@ -57,6 +59,7 @@ from app.domain.interfaces.oidc_config_repository import IOidcConfigRepository
 from app.domain.interfaces.tenant_erasure_repository import ITenantErasureRepository
 from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.domain.interfaces.user_repository import IUserRepository
+from app.domain.models.mode_switch import SYSTEM_TENANT_KEY, SYSTEM_USER_KEY
 from app.domain.models.oidc_config import is_valid_oidc_slug
 from app.domain.models.user import User
 from app.domain.services.step_up_service import NEW_OIDC_PROVIDER_TARGET_PREFIX, TARGETED_ACTIONS
@@ -141,8 +144,21 @@ class StepUpTargetAuthorizer:
             self._authorize_tenant_member_act(user_key, target)
         elif action == "service_account_change":
             self._authorize_service_account_act(user_key, target)
+        elif action == "light_mode_takeover":
+            self._authorize_light_mode_takeover(user_key, target)
         else:  # pragma: no cover - a new targeted act must be given its rule here
             raise ForbiddenError("This act cannot be confirmed here.")
+
+    def _authorize_light_mode_takeover(self, user_key: str, target: str) -> None:
+        """The garden of the former light-mode installation, never for the system account itself (#1855).
+
+        Who may decide (the platform admin or the earliest eligible account) is re-checked by the act
+        (``ModeSwitchService.decide_takeover``); a factor for any other account is useless there.
+        """
+        if user_key == SYSTEM_USER_KEY:
+            raise ForbiddenError("The light-mode system account cannot decide the take-over.")
+        if target != SYSTEM_TENANT_KEY or self._tenants.get_by_key(target) is None:
+            raise NotFoundError("Tenant", target)
 
     def _is_platform_admin(self, user_key: str) -> bool:
         membership = self._memberships.get_by_user_and_tenant(user_key, _PLATFORM_TENANT_KEY)

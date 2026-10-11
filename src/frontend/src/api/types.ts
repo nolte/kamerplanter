@@ -4111,6 +4111,8 @@ export interface TakeoverResourceCounts {
 export interface TakeoverStatus {
   pending: boolean;
   eligible: boolean;
+  /** The key the decision's step-up factor is bound to (`light_mode_takeover`). */
+  tenant_key: string | null;
   tenant_name: string | null;
   tenant_slug: string | null;
   resource_counts: TakeoverResourceCounts | null;
@@ -5164,7 +5166,9 @@ export type StepUpAction =
   | 'tenant_erasure_cancel'
   // #2137 — a tenant's lead (technical scope) creating, re-keying or removing a service account
   // (bound to the tenant's key, or to `<tenant_key>|<service_account_key>`).
-  | 'service_account_change';
+  | 'service_account_change'
+  // #1855 — deciding the take-over of the former light-mode garden (bound to its key).
+  | 'light_mode_takeover';
 
 /**
  * The step-up a credential change carries in its body (#1847, #1857, REQ-023

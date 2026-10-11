@@ -9,13 +9,14 @@ data were reachable only as that account. The real-database proof of the same be
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
+import structlog
 
 from app.common.enums import SecurityAuditAction, SecurityAuditVia, TenantRole
-from app.common.exceptions import ForbiddenError, NotFoundError
+from app.common.exceptions import ForbiddenError, NotFoundError, UnauthorizedError
 from app.domain.interfaces.mode_switch_repository import IModeSwitchRepository
 from app.domain.models.auth import ApiKey
 from app.domain.models.membership import Membership
@@ -24,19 +25,24 @@ from app.domain.models.mode_switch import (
     SYSTEM_USER_KEY,
     DeploymentMode,
     PendingTakeover,
+    TakeoverReceipt,
     TakeoverResourceCounts,
 )
 from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
-from app.domain.services.mode_switch_service import ModeSwitchService
+from app.domain.services.mode_switch_service import ModeSwitchService, TakeoverConfirmation
 from app.domain.services.tenant_service import TenantService
 
 
 class _MemoryModeSwitchRepo(IModeSwitchRepository):
+    """In memory; the claim follows the Arango repository's rule (one live claim, TTL), the eligibility
+    query is the integration test's (``test_light_to_full_upgrade_reach.py``)."""
+
     def __init__(self, *, mode: DeploymentMode | None = None, earliest: str | None = None) -> None:
         self.mode = mode
         self.pending: PendingTakeover | None = None
         self.earliest = earliest
+        self.persons = 0
 
     def get_deployment_mode(self) -> DeploymentMode | None:
         return self.mode
@@ -53,18 +59,61 @@ class _MemoryModeSwitchRepo(IModeSwitchRepository):
         self.pending = takeover
         return True
 
-    def claim_pending_takeover(self) -> PendingTakeover | None:
-        claimed, self.pending = self.pending, None
-        return claimed
+    def claim_pending_takeover(self, *, claimant: str, now: datetime, stale_before: datetime) -> PendingTakeover | None:
+        if self.pending is None:
+            return None
+        held = self.pending.claim_id is not None and (self.pending.claimed_at or now) >= stale_before
+        if held:
+            return None
+        self.pending = self.pending.model_copy(update={"claim_id": claimant, "claimed_at": now})
+        return self.pending
+
+    def complete_pending_takeover(self, *, claimant: str) -> bool:
+        if self.pending is not None and self.pending.claim_id == claimant:
+            self.pending = None
+            return True
+        return False
+
+    def release_pending_takeover(self, *, claimant: str) -> bool:
+        if self.pending is not None and self.pending.claim_id == claimant:
+            self.pending = self.pending.model_copy(update={"claim_id": None, "claimed_at": None})
+            return True
+        return False
 
     def clear_pending_takeover(self) -> bool:
-        return self.claim_pending_takeover() is not None
+        had, self.pending = self.pending is not None, None
+        return had
 
     def count_tenant_resources(self, *, tenant_key: str) -> TakeoverResourceCounts:
         return TakeoverResourceCounts(plants=30, sites=3)
 
-    def earliest_active_person_key(self, *, excluding: str) -> str | None:
+    def earliest_eligible_person_key(self, *, excluding: str, created_since: datetime) -> str | None:
         return self.earliest
+
+    def count_active_person_accounts(self, *, excluding: str) -> int:
+        return self.persons
+
+
+RECEIPT = TakeoverReceipt(
+    tenant_key=SYSTEM_TENANT_KEY,
+    tenant_slug="mein-garten",
+    new_owner_key="anna",
+    system_user_key=SYSTEM_USER_KEY,
+    previous_owner_key=SYSTEM_USER_KEY,
+    previous_name="Mein Garten",
+    ended_system_membership_key="m-system",
+    created_membership_key="m-anna",
+)
+
+
+def _decide(stage, who: str, *, accept: bool, api_key: bool = False):
+    return stage.service.decide_takeover(
+        _user(who),
+        accept=accept,
+        confirmation=TakeoverConfirmation(password="pw"),
+        authenticated_with_api_key=api_key,
+        client_ip=None,
+    )
 
 
 def _user(key: str, *, active: bool = True, account_type: str = "human") -> User:
@@ -127,11 +176,10 @@ class _Stage:
         self.tenants.get_tenant.return_value = Tenant(
             _key=SYSTEM_TENANT_KEY, name="Mein Garten", slug="mein-garten", owner_user_key=SYSTEM_USER_KEY
         )
-        self.tenants.take_over_light_mode_tenant.return_value = Tenant(
-            _key=SYSTEM_TENANT_KEY, name="Anna", slug="mein-garten", owner_user_key="anna"
-        )
+        self.tenants.take_over_light_mode_tenant.return_value = RECEIPT
         self.tenants.grant_first_platform_admin.return_value = not platform_admins
         self.onboarding = MagicMock()
+        self.step_up = MagicMock()
         self.service = ModeSwitchService(
             repo=self.repo,
             user_repo=self.user_repo,
@@ -140,6 +188,7 @@ class _Stage:
             refresh_token_repo=self.sessions,
             calendar_feed_repo=self.feeds,
             security_audit=self.audit,
+            step_up_verifier=self.step_up,
             onboarding_service=self.onboarding,
         )
 
@@ -248,12 +297,14 @@ def test_a_light_start_restores_the_system_account_and_drops_an_open_takeover() 
 )
 def test_who_may_decide_the_takeover(caller, platform_admins, earliest, expected) -> None:
     stage = _Stage(platform_admins=platform_admins, earliest=earliest)
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
 
     assert stage.service.may_decide_takeover(_user(caller)) is expected
 
 
 def test_a_service_account_may_not_decide() -> None:
     stage = _Stage(earliest="bot")
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
 
     assert stage.service.may_decide_takeover(_user("bot", account_type="service")) is False
 
@@ -282,7 +333,7 @@ def test_accepting_hands_over_the_tenant_and_the_platform_role() -> None:
     stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
     anna = _user("anna")
 
-    result = stage.service.decide_takeover(anna, accept=True)
+    result = _decide(stage, "anna", accept=True)
 
     stage.tenants.take_over_light_mode_tenant.assert_called_once_with(
         tenant_key=SYSTEM_TENANT_KEY, system_user_key=SYSTEM_USER_KEY, new_owner=anna
@@ -299,7 +350,7 @@ def test_declining_keeps_the_tenant_and_still_hands_over_the_platform_role() -> 
     stage = _Stage(earliest="anna")
     stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
 
-    result = stage.service.decide_takeover(_user("anna"), accept=False)
+    result = _decide(stage, "anna", accept=False)
 
     stage.tenants.take_over_light_mode_tenant.assert_not_called()
     assert (result.accepted, result.tenant_slug, result.platform_admin_granted) == (False, None, True)
@@ -312,7 +363,7 @@ def test_an_account_that_may_not_decide_is_refused_and_the_takeover_stays_open()
     stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
 
     with pytest.raises(ForbiddenError):
-        stage.service.decide_takeover(_user("max"), accept=True)
+        _decide(stage, "max", accept=True)
 
     assert stage.repo.pending is not None
     stage.tenants.take_over_light_mode_tenant.assert_not_called()
@@ -322,16 +373,133 @@ def test_a_second_decision_finds_nothing_open() -> None:
     stage = _Stage(earliest="anna")
 
     with pytest.raises(NotFoundError):
-        stage.service.decide_takeover(_user("anna"), accept=True)
+        _decide(stage, "anna", accept=True)
 
 
-def test_a_failed_decision_reopens_the_takeover() -> None:
+def test_a_decision_refused_before_writing_reopens_the_takeover() -> None:
     stage = _Stage(earliest="anna")
     pending = PendingTakeover(created_at=datetime.now(UTC))
     stage.repo.pending = pending
     stage.tenants.take_over_light_mode_tenant.side_effect = ForbiddenError("frozen")
 
     with pytest.raises(ForbiddenError):
-        stage.service.decide_takeover(_user("anna"), accept=True)
+        _decide(stage, "anna", accept=True)
 
+    assert stage.repo.pending == pending  # released: open again, unclaimed
+    stage.tenants.undo_light_mode_takeover.assert_not_called()
+
+
+def test_grant_raises_after_a_successful_take_over() -> None:
+    """#1855 SEC-004 — the take-over stood, the platform grant failed: undone, then reopened."""
+    stage = _Stage(earliest="anna")
+    pending = PendingTakeover(created_at=datetime.now(UTC))
+    stage.repo.pending = pending
+    stage.tenants.grant_first_platform_admin.side_effect = RuntimeError("store down")
+
+    with pytest.raises(RuntimeError):
+        _decide(stage, "anna", accept=True)
+
+    stage.tenants.undo_light_mode_takeover.assert_called_once_with(RECEIPT)
     assert stage.repo.pending == pending
+    stage.audit.record_takeover_decision.assert_not_called()
+
+
+def test_an_undo_that_fails_keeps_the_takeover_claimed() -> None:
+    """Reopened only on a consistent state: an undo that failed leaves the claim until its TTL lapses."""
+    stage = _Stage(earliest="anna")
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
+    stage.tenants.grant_first_platform_admin.side_effect = RuntimeError("store down")
+    stage.tenants.undo_light_mode_takeover.side_effect = RuntimeError("still down")
+
+    with pytest.raises(RuntimeError, match="store down"):
+        _decide(stage, "anna", accept=True)
+
+    assert stage.repo.pending is not None and stage.repo.pending.claim_id is not None
+    with pytest.raises(NotFoundError):  # a second decision cannot claim it meanwhile
+        _decide(stage, "anna", accept=True)
+
+
+def test_a_claim_that_lapsed_may_be_taken_over() -> None:
+    stage = _Stage(earliest="anna")
+    stage.repo.pending = PendingTakeover(
+        created_at=datetime.now(UTC), claim_id="dead:1", claimed_at=datetime.now(UTC) - timedelta(hours=1)
+    )
+
+    assert _decide(stage, "anna", accept=False).accepted is False
+    assert stage.repo.pending is None
+
+
+def test_an_api_key_is_refused_before_anything() -> None:
+    stage = _Stage(earliest="anna")
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
+
+    with pytest.raises(ForbiddenError):
+        _decide(stage, "anna", accept=True, api_key=True)
+
+    stage.step_up.verify.assert_not_called()
+    assert stage.repo.pending.claim_id is None
+
+
+def test_the_decision_passes_the_step_up_bound_to_the_tenant() -> None:
+    """#1855 SEC-003 — the act ``light_mode_takeover``, target the light-mode tenant; a refusal writes nothing."""
+    stage = _Stage(earliest="anna")
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
+    stage.step_up.verify.side_effect = UnauthorizedError("wrong password")
+
+    with pytest.raises(UnauthorizedError):
+        _decide(stage, "anna", accept=True)
+
+    kwargs = stage.step_up.verify.call_args.kwargs
+    assert (kwargs["action"], kwargs["target"], kwargs["password"]) == ("light_mode_takeover", SYSTEM_TENANT_KEY, "pw")
+    stage.tenants.take_over_light_mode_tenant.assert_not_called()
+    assert stage.repo.pending.claim_id is None
+
+
+def test_the_right_to_decide_is_rechecked_after_the_claim() -> None:
+    """TOCTOU: a platform admin appearing between the check and the claim — released, 403."""
+    stage = _Stage(earliest="anna")
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
+    stage.tenants.has_platform_admin.side_effect = [False, True]
+
+    with pytest.raises(ForbiddenError):
+        _decide(stage, "anna", accept=True)
+
+    assert stage.repo.pending is not None and stage.repo.pending.claim_id is None
+    stage.tenants.take_over_light_mode_tenant.assert_not_called()
+
+
+def test_the_decision_is_audited() -> None:
+    stage = _Stage(earliest="anna")
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
+
+    _decide(stage, "anna", accept=False)
+
+    stage.audit.record_takeover_decision.assert_called_once_with(
+        action=SecurityAuditAction.TAKEOVER_DECLINED,
+        actor_user_key="anna",
+        tenant_key=SYSTEM_TENANT_KEY,
+        platform_admin_granted=True,
+    )
+
+
+def test_the_seal_writes_one_aggregate_audit_row() -> None:
+    stage = _Stage(mode="light", system_user=_user(SYSTEM_USER_KEY))
+
+    stage.service.reconcile("full")
+
+    stage.audit.record_system_account_sealed.assert_called_once_with(
+        system_user_key=SYSTEM_USER_KEY, revoked_counts={"api_keys": 1, "sessions": 2, "calendar_feeds": 1}
+    )
+
+
+def test_a_light_start_with_person_accounts_is_reported_as_critical() -> None:
+    """#1855 SEC-007 — critical, not fatal: the documented downgrade (REQ-027 Szenario 7/8) stays possible."""
+    stage = _Stage(mode="full", system_user=_user(SYSTEM_USER_KEY, active=False))
+    stage.repo.persons = 2
+
+    with structlog.testing.capture_logs() as logs:
+        stage.service.reconcile("light")
+
+    critical = [line for line in logs if line["event"] == "light_mode_start_with_person_accounts"]
+    assert critical and critical[0]["log_level"] == "critical" and critical[0]["person_accounts"] == 2
+    assert stage.repo.mode == "light"
