@@ -38,7 +38,7 @@ every audited call carries its token counts (``ai_audit_log``).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
@@ -108,12 +108,20 @@ class AiCallBudget:
     def __init__(
         self,
         redis_client: AiBudgetStore,
-        limits: AiBudgetLimits,
+        limits: AiBudgetLimits | Callable[[str], AiBudgetLimits],
         *,
         clock: AiBudgetClock | None = None,
     ) -> None:
+        """``limits`` is one fixed set or - in production - the tenant's plan resolution.
+
+        REQ-056 §7.4 (#2142): ``get_ai_call_budget`` passes ``EntitlementService.ai_budget_limits``, so a
+        tenant's plan decides its budgets (``null`` in the plan = the ``AI_BUDGET_*`` setting). It is read
+        per charge: a plan change applies from the next call, today's counters are not reset (§7.5).
+        """
         self._redis = redis_client
-        self._limits = limits
+        self._limits_of: Callable[[str], AiBudgetLimits] = (
+            (lambda _tenant_key: limits) if isinstance(limits, AiBudgetLimits) else limits
+        )
         self._clock: AiBudgetClock = clock if clock is not None else UtcClock()
 
     # ── keys ───────────────────────────────────────────────────────────
@@ -149,18 +157,20 @@ class AiCallBudget:
             AiBudgetUnavailableError: Valkey cannot be reached (503, fail-closed).
         """
         day, retry_after = self._day_and_retry_after()
+        limits_of = self._limits_of
+        limits = limits_of(tenant_key)
         try:
-            if self._limits.tenant_tokens_per_day > 0:
+            if limits.tenant_tokens_per_day > 0:
                 spent = int(self._redis.get(self._tokens_key(day, tenant_key)) or 0)
-                if spent >= self._limits.tenant_tokens_per_day:
+                if spent >= limits.tenant_tokens_per_day:
                     raise self._refuse(TENANT_TOKENS, retry_after, tenant_key)
-            if self._limits.user_calls_per_day > 0:
+            if limits.user_calls_per_day > 0:
                 calls = self._increment(self._user_key(day, tenant_key, user_key))
-                if calls > self._limits.user_calls_per_day:
+                if calls > limits.user_calls_per_day:
                     raise self._refuse(USER_CALLS, retry_after, tenant_key)
-            if self._limits.tenant_calls_per_day > 0:
+            if limits.tenant_calls_per_day > 0:
                 calls = self._increment(self._tenant_key(day, tenant_key))
-                if calls > self._limits.tenant_calls_per_day:
+                if calls > limits.tenant_calls_per_day:
                     raise self._refuse(TENANT_CALLS, retry_after, tenant_key)
         except AiBudgetExceededError:
             raise
@@ -192,6 +202,16 @@ class AiCallBudget:
         calls = int(self._redis.get(self._tenant_key(day, tenant_key)) or 0)
         tokens = int(self._redis.get(self._tokens_key(day, tenant_key)) or 0)
         return AiTenantUsage(day=day, calls=calls, tokens=tokens)
+
+    def tenant_calls_and_tokens(self, tenant_key: str) -> tuple[int, int]:
+        """Today's calls and tokens of the tenant - the read the usage view makes (REQ-056 §7.7)."""
+        spent = self.usage(tenant_key)
+        return spent.calls, spent.tokens
+
+    def user_calls(self, *, tenant_key: str, user_key: str) -> int:
+        """Today's calls *user_key* started in the tenant (REQ-056 §7.7: only the asking account's own)."""
+        day, _ = self._day_and_retry_after()
+        return int(self._redis.get(self._user_key(day, tenant_key, user_key)) or 0)
 
     # ── internals ──────────────────────────────────────────────────────
 

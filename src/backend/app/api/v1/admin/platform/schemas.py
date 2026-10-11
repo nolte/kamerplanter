@@ -3,8 +3,10 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.auth.schemas import CredentialStepUp
+from app.api.v1.tenants.schemas import TenantEntitlementsResponse
 from app.common.enums import TenantRole, TenantStatus, TenantType
 from app.common.validators import DisplayName
+from app.domain.models.plan import PLAN_KEY_PATTERN, PlanLimits
 
 
 class AdminTenantResponse(BaseModel):
@@ -24,6 +26,61 @@ class AdminTenantResponse(BaseModel):
     is_platform: bool
     max_members: int
     member_count: int
+    created_at: datetime | None
+    updated_at: datetime | None
+    #: REQ-056 §7.1 (#2142) — the plan whose quotas apply; assigned with ``PATCH .../tenants/{key}``.
+    plan_key: str = "standard"
+
+
+class AdminTenantDetailResponse(AdminTenantResponse):
+    """One tenant for the platform admin, with its plan's limits and the usage of every dimension (#2142)."""
+
+    entitlements: TenantEntitlementsResponse
+
+
+class PlanCreateRequest(BaseModel):
+    """A new plan (REQ-056 §7.6). It is never created as the default; mark it with ``PATCH`` afterwards."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {"key": "community", "name": "Community garden", "limits": {"members": 30, "storage_mb": 5120}}
+            ]
+        },
+    )
+
+    key: str = Field(pattern=PLAN_KEY_PATTERN, description="Immutable key: a-z, 0-9, '_' or '-', 2-40 characters.")
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    #: A limit left out or ``null`` follows the instance setting (REQ-056 §7.2).
+    limits: PlanLimits = Field(default_factory=PlanLimits)
+
+
+class PlanUpdateRequest(BaseModel):
+    """A partial change of a plan; only the fields sent change (inside ``limits`` too, ``null`` = instance setting)."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"examples": [{"limits": {"storage_mb": 10240}}, {"is_default": True}]},
+    )
+
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    limits: PlanLimits | None = None
+    is_default: bool | None = Field(
+        default=None, description="true makes this the one default plan of new tenants; false is refused."
+    )
+
+
+class PlanResponse(BaseModel):
+    key: str
+    name: str
+    description: str | None
+    limits: PlanLimits
+    is_default: bool
+    #: How many tenants point at the plan.
+    tenant_count: int
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -66,11 +123,14 @@ class AdminTenantUpdate(CredentialStepUp):
     description: str | None = None
     max_members: int | None = Field(default=None, ge=1)
     is_active: bool | None = None
+    #: REQ-056 §7.6 (#2142) — assign another plan (422 when unknown). No step-up; written to the audit.
+    plan_key: str | None = Field(default=None, pattern=PLAN_KEY_PATTERN)
 
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
                 {"name": "Community garden"},
+                {"plan_key": "community"},
                 {"is_active": False, "current_password": "<the admin's own current password>"},
             ]
         },
@@ -209,5 +269,9 @@ class SecurityAuditEntryResponse(BaseModel):
     new_role: str | None = None
     old_scopes: list[str] | None = None
     new_scopes: list[str] | None = None
+    #: REQ-056 §7.6 (#2142) — plan rows: the plan concerned, the tenant's previous plan, the changed fields.
+    plan_key: str | None = None
+    old_plan_key: str | None = None
+    changed_fields: list[str] | None = None
     request_id: str | None = None
     created_at: datetime | None = None

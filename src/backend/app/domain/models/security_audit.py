@@ -40,6 +40,13 @@ class SecurityAuditEntry(BaseModel):
     new_role: str | None = None
     old_scopes: list[str] | None = None
     new_scopes: list[str] | None = None
+    #: REQ-056 §7.6 (#2142) — the plan a ``tenant_plan_changed`` row moved the tenant to, or the plan a
+    #: ``plan_created`` / ``plan_changed`` / ``plan_deleted`` row is about.
+    plan_key: str | None = None
+    #: The plan a ``tenant_plan_changed`` row moved the tenant away from.
+    old_plan_key: str | None = None
+    #: The fields a ``plan_changed`` row changed (``name``, ``limits.storage_mb``, ``is_default`` ...), no values.
+    changed_fields: list[str] | None = None
     #: The ``X-Request-ID`` of the request (structlog context), when there is one.
     request_id: str | None = None
     created_at: datetime | None = None

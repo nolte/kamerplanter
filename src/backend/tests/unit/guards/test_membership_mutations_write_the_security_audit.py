@@ -495,7 +495,12 @@ def test_the_limit_gate_counts_the_active_members_and_refuses_with_its_own_error
         }
 
         assert "count_active_members" in attrs, name
-        assert "MemberLimitReachedError" in names, name
+        if name == _LIMIT_GATE:
+            # #2142 (REQ-056 §7.4) - the gate refuses through the entitlement service, which raises
+            # MemberLimitReachedError for the member dimension (``test_quota_checks_reach_the_entitlement_service``).
+            assert "require" in attrs, name
+        else:
+            assert "MemberLimitReachedError" in names, name
 
 
 def test_the_creation_predicate_sees_the_class() -> None:
@@ -521,7 +526,12 @@ def test_no_creation_classification_is_stale() -> None:
 
 
 def test_the_running_application_wires_the_member_limit_ceiling() -> None:
-    """The service takes the ceiling with a default; the wiring is where the setting must reach it."""
+    """The service resolves the ceiling through the plan resolution; the wiring must hand it over.
+
+    Since #2142 (REQ-056 §7.4) the ceiling ``TENANT_MAX_MEMBERS_CEILING`` is read by the entitlement
+    service only (``test_quota_settings_are_read_by_the_entitlement_service``); a ``TenantService`` built
+    without one would fall back to the instance settings and ignore every plan.
+    """
     tree = ast.parse((APP / "common" / "dependencies.py").read_text(encoding="utf-8"))
     (factory,) = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "get_tenant_service"]
     (call,) = [
@@ -529,9 +539,11 @@ def test_the_running_application_wires_the_member_limit_ceiling() -> None:
         for n in ast.walk(factory)
         if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "TenantService"
     ]
-    (ceiling,) = [kw for kw in call.keywords if kw.arg == "max_members_ceiling"]
+    (entitlements,) = [kw for kw in call.keywords if kw.arg == "entitlements"]
 
-    assert _dotted(ceiling.value) == "settings.tenant_max_members_ceiling"
+    assert isinstance(entitlements.value, ast.Call)
+    assert _dotted(entitlements.value.func) == "get_entitlement_service"
+    assert not [kw for kw in call.keywords if kw.arg == "max_members_ceiling"]
 
 
 def test_the_creation_predicate_recognises_each_spelling() -> None:
@@ -553,7 +565,11 @@ def test_the_creation_predicate_recognises_each_spelling() -> None:
 
 
 def test_the_running_application_wires_the_service_account_stores() -> None:
-    """#2137 - the service takes the key store and the quota with defaults; the wiring must hand both over."""
+    """#2137 - the service takes the key store with a default; the wiring must hand it over.
+
+    The quota itself is a plan dimension since #2142: it reaches the service through ``entitlements``
+    (asserted in ``test_the_running_application_wires_the_member_limit_ceiling``), not as a setting.
+    """
     tree = ast.parse((APP / "common" / "dependencies.py").read_text(encoding="utf-8"))
     (factory,) = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "get_tenant_service"]
     (call,) = [
@@ -563,6 +579,6 @@ def test_the_running_application_wires_the_service_account_stores() -> None:
     ]
     keywords = {kw.arg: kw.value for kw in call.keywords}
 
-    assert _dotted(keywords["max_service_accounts"]) == "settings.tenant_max_service_accounts"
+    assert "max_service_accounts" not in keywords
     assert isinstance(keywords["api_key_repo"], ast.Call)
     assert _dotted(keywords["api_key_repo"].func) == "get_api_key_repo"

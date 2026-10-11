@@ -1,0 +1,59 @@
+# JSON Schema for plans.yaml (REQ-056 §13.2, #2142)
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "plans.schema.yaml"
+title: "Plan Catalogue Seed Data"
+description: "Seeded plans; a null limit means the instance setting"
+type: object
+
+properties:
+  plans:
+    type: array
+    minItems: 1
+    items:
+      $ref: "#/$defs/plan"
+
+required: [plans]
+additionalProperties: false
+
+$defs:
+  nullable_count:
+    type: ["integer", "null"]
+    minimum: 0
+  nullable_positive_count:
+    type: ["integer", "null"]
+    minimum: 1
+  plan:
+    type: object
+    properties:
+      key:
+        type: string
+        pattern: "^[a-z][a-z0-9_-]{1,39}$"
+      name:
+        type: string
+        minLength: 1
+        maxLength: 100
+      description:
+        type: ["string", "null"]
+        maxLength: 500
+      is_default:
+        type: boolean
+      limits:
+        type: object
+        properties:
+          members:
+            $ref: "#/$defs/nullable_positive_count"
+          service_accounts:
+            $ref: "#/$defs/nullable_positive_count"
+          storage_mb:
+            $ref: "#/$defs/nullable_count"
+          photos_per_instance:
+            $ref: "#/$defs/nullable_count"
+          ai_calls_per_user_day:
+            $ref: "#/$defs/nullable_count"
+          ai_calls_per_tenant_day:
+            $ref: "#/$defs/nullable_count"
+          ai_tokens_per_tenant_day:
+            $ref: "#/$defs/nullable_count"
+        additionalProperties: false
+    required: [key, name, description, is_default, limits]
+    additionalProperties: false

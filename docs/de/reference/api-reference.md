@@ -1455,3 +1455,55 @@ Erfordert ein gültiges JWT-Token und eine aktive Mandanten-Mitgliedschaft; jede
 - [Wachstumsphasen — Benutzerhandbuch: Detailansicht einer Phasendefinition](../user-guide/growth-phases.md#phasendefinition-detailansicht)
 - [Stammdaten: Pflanzenarten — Benutzerhandbuch](../user-guide/plant-management.md)
 - [Fehlerbehandlung](../api/error-handling.md)
+
+---
+
+## Pläne und Kontingente eines Mandanten <!-- REQ-056 §7 / Issue #2142 --> {#plaene-und-kontingente}
+
+Jeder Mandant verweist mit `plan_key` auf genau einen Plan. Ein Plan setzt je Kontingent eine Grenze oder lässt sie leer (`null` = die Server-Einstellung). Der geseedete Plan `standard` lässt alles leer und ist der Plan jedes Mandanten, dem nichts anderes zugeordnet ist. Die Antworten `GET /api/v1/tenants/{slug}` und `GET /api/v1/admin/platform/tenants` tragen zusätzlich das Feld `plan_key`.
+
+| Kontingent (`dimension`) | Server-Einstellung bei `null` | `0` bedeutet | Ablehnung |
+|---|---|---|---|
+| `members` | `TENANT_MAX_MEMBERS_CEILING` (nie darüber) | — (mindestens `1`) | `422 MEMBER_LIMIT_REACHED` |
+| `service_accounts` | `TENANT_MAX_SERVICE_ACCOUNTS` | — (mindestens `1`) | `422 SERVICE_ACCOUNT_LIMIT_REACHED` |
+| `storage_mb` | `STORAGE_TENANT_QUOTA_MB` | unbegrenzt | `409 STORAGE_QUOTA_EXCEEDED` |
+| `photos_per_instance` | `STORAGE_MAX_PHOTOS_PER_INSTANCE` | unbegrenzt | `409 PHOTO_QUOTA_EXCEEDED` |
+| `ai_calls_per_user_day` | `AI_BUDGET_USER_CALLS_PER_DAY` | Budget aus | `429 AI_BUDGET_EXCEEDED` |
+| `ai_calls_per_tenant_day` | `AI_BUDGET_TENANT_CALLS_PER_DAY` | Budget aus | `429 AI_BUDGET_EXCEEDED` |
+| `ai_tokens_per_tenant_day` | `AI_BUDGET_TENANT_TOKENS_PER_DAY` | Budget aus | `429 AI_BUDGET_EXCEEDED` |
+
+Wirksam für Mitglieder ist `min(max_members, plan.members ?? Obergrenze, TENANT_MAX_MEMBERS_CEILING)`. Fehlt das Plan-Dokument eines Mandanten, gilt der Standardplan, nie „unbegrenzt“.
+
+### Plan und Verbrauch eines Mandanten lesen
+
+`GET /api/v1/tenants/{slug}/entitlements` — jedes Mitglied. `ai_calls_per_user_day.used` ist der eigene Verbrauch; `service_accounts` und `ai_tokens_per_tenant_day` erscheinen nur für Leitung. `limit: null` = unbegrenzt, `used: null` = je Pflanze gezählt oder gerade nicht lesbar.
+
+```json
+{
+  "plan": {"key": "standard", "name": "Standard"},
+  "limits": [
+    {"dimension": "members", "limit": 50, "used": 12},
+    {"dimension": "storage_mb", "limit": 2048, "used": 731},
+    {"dimension": "photos_per_instance", "limit": 50, "used": null},
+    {"dimension": "ai_calls_per_user_day", "limit": 50, "used": 3},
+    {"dimension": "ai_calls_per_tenant_day", "limit": 500, "used": 41}
+  ]
+}
+```
+
+### Pläne verwalten (Plattform-Admin)
+
+| Methode | Pfad | Wirkung |
+|---|---|---|
+| `GET` | `/api/v1/admin/platform/plans` | alle Pläne mit `tenant_count` |
+| `POST` | `/api/v1/admin/platform/plans` | Plan anlegen (`201`; `409` bei vergebenem `key`; `422` außerhalb der Wertebereiche oder `members` über der Obergrenze) |
+| `PATCH` | `/api/v1/admin/platform/plans/{plan_key}` | Name, Beschreibung, einzelne Kontingente ändern; `is_default: true` macht ihn zum Standard für neue Mandanten |
+| `DELETE` | `/api/v1/admin/platform/plans/{plan_key}` | löschen (`204`); `409 RESOURCE_IN_USE`, solange ein Mandant ihn nutzt oder er der Standard ist |
+| `PATCH` | `/api/v1/admin/platform/tenants/{key}` mit `plan_key` | Plan zuordnen (`422` bei unbekanntem Plan oder Mandant in Löschung) |
+| `GET` | `/api/v1/admin/platform/tenants/{key}` | Mandant mit `entitlements` über alle Kontingente |
+
+`key` folgt `^[a-z][a-z0-9_-]{1,39}$` und ist unveränderlich. Keine der Aktionen verlangt eine Passwort-Bestätigung; jede schreibt einen Eintrag ins Sicherheitsprotokoll (`plan_created`, `plan_changed` mit `changed_fields`, `plan_deleted`, `tenant_plan_changed` mit `old_plan_key` und `plan_key`). Im Light-Modus gibt es diese Routen nicht.
+
+### Organisationen je Konto
+
+`POST /api/v1/tenants` lehnt ab, sobald das Konto `TENANT_MAX_ORGANIZATIONS_PER_USER` Organisationen besitzt (gezählt in jedem Zustand außer `deleted`): `422 ORGANIZATION_LIMIT_REACHED` (bisher `422 VALIDATION_ERROR`). Das ist eine Grenze des Kontos, kein Plan-Kontingent.

@@ -710,6 +710,28 @@ class ServiceAccountLimitReachedError(KamerplanterError):
         )
 
 
+class OrganizationLimitReachedError(KamerplanterError):
+    """REQ-056 §6.2 (#2142) — the account already owns as many organisations as it may found.
+
+    422 as before (the refusal used to be a generic ``VALIDATION_ERROR``); only the code is new. The limit
+    is the instance setting ``TENANT_MAX_ORGANIZATIONS_PER_USER`` — it belongs to the account, not to a
+    tenant's plan (REQ-056 E-04). ``0`` means no account founds an organisation itself.
+    """
+
+    def __init__(self, limit: int) -> None:
+        reason = (
+            "Organisations are created by the platform operator on this installation."
+            if limit == 0
+            else f"An account may own at most {limit} organisations."
+        )
+        super().__init__(
+            message="Maximum number of organizations reached",
+            error_code="ORGANIZATION_LIMIT_REACHED",
+            status_code=422,
+            details=[{"field": "tenant", "reason": reason, "code": "ORGANIZATION_LIMIT_REACHED"}],
+        )
+
+
 class InvalidFileTypeError(KamerplanterError):
     """NFR-013 §5.1 steps 2 & 3 — type not allowed, or content/MIME mismatch."""
 

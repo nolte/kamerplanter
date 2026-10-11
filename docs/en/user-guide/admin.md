@@ -35,8 +35,21 @@ In the **Admin > Tenants** section you can:
 - Deactivate or delete individual tenants
 - Manage a tenant's members on their behalf
 
+### Plans and quotas
+
+Every tenant has a **plan**. A plan sets how much a tenant may use: active members, service accounts, storage in MB, photos per plant and the three daily AI budgets (requests per account, requests of the whole tenant, tokens of the tenant). An empty quota means "as the server setting" — the value the operator sets through an environment variable applies.
+
+- Every tenant starts on the plan **Standard**. All its quotas are empty, so it behaves exactly like an installation without plans. You can rename and change it, but not delete it.
+- Only you as platform admin create further plans, and only you assign a plan to a tenant. A tenant's management cannot choose its own plan.
+- A lower quota removes nothing: a tenant above its new limit keeps its members, files and photos; only the next creation is refused. A plan change applies from the next check.
+- The member quota stays capped by `TENANT_MAX_MEMBERS_CEILING`; every other quota may lie above the server setting.
+- Assigning and changing need no password confirmation, but they are written to the security audit (`tenant_plan_changed`, `plan_created`, `plan_changed`, `plan_deleted`).
+- Every member sees their tenant's plan and usage through `GET /api/v1/tenants/{slug}/entitlements`; service accounts and token usage are shown to a lead only.
+
+How many organizations an account may found itself is not a plan quota but the server setting `TENANT_MAX_ORGANIZATIONS_PER_USER` (default `10`; `0` means only the operator creates organizations).
+
 !!! warning "Not yet implemented"
-    The admin area does not show a tenant's quotas and usage yet. You will be able to create plans with their own quotas — members, storage, photos per plant, AI requests per day — and assign a plan to each tenant; a tenant's page will then show its plan and the usage of each quota. Until then every tenant has the same limits, set by the operator on the server. <!-- REQ-056, Issue #2142 -->
+    So far you maintain plans through the API only (`/api/v1/admin/platform/plans`, assignment with `PATCH /api/v1/admin/platform/tenants/{key}` and `plan_key`); the admin area has no page for it yet, and the tenant page does not show plan and usage yet (internal reference: REQ-056 §15). The [API reference](../reference/api-reference.md#plaene-und-kontingente) describes the fields and codes. <!-- REQ-056 AK-45, Issue #2142 -->
 
 !!! info "A deactivated tenant locks every member out"
     When you deactivate a tenant, no member can reach it any more — not in the app, not with an API key, not from an MCP client. To its members it then looks like a tenant that does not exist. If it was their personal garden, they only see the shared plant catalogue. The memberships and all data are kept: when you reactivate the tenant, every member immediately has their previous access with the same role again. You yourself keep administering a deactivated tenant here in the admin area. Care reminders, watering and maintenance tasks are no longer created for it; some automatic jobs do still run for now, though — tank alerts, fetching Home Assistant readings and weather data, the InvenTree sync and the daily notification digest. <!-- Issue #2105, #2166, REQ-056 -->

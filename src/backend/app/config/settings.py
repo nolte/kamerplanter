@@ -377,6 +377,12 @@ class Settings(BaseSettings):
     #: value removes nobody; only the next creation is refused (422 ``SERVICE_ACCOUNT_LIMIT_REACHED``).
     tenant_max_service_accounts: int = Field(default=20, ge=1)
 
+    #: REQ-056 §6.2 (#2142) — how many organisations one account may own (``owner_user_key``), counted in
+    #: every state but ``deleted``. ``0`` = no account founds an organisation through ``POST /tenants``;
+    #: organisations are then created by the platform operator only. Refused with
+    #: ``422 ORGANIZATION_LIMIT_REACHED``. An account limit, not a plan dimension (REQ-056 E-04).
+    tenant_max_organizations_per_user: int = Field(default=10, ge=0)
+
     #: #2162 review W-1 — how many e-mail invitations one account may issue in 24 hours, across all its
     #: tenants. Every e-mail invitation mails an address the inviter names and does not have to own, and
     #: any account holds ``management`` in the tenants it founds (``POST /tenants``): without a ceiling the
