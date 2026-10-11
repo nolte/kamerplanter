@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.common.enums import TransitionTrigger
+from tests.support.tenant_walk import TenantRows, active
 
 
 @pytest.fixture(autouse=True)
@@ -29,6 +30,8 @@ def _task_module(monkeypatch):
     mock_deps.get_lifecycle_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_phase_sequence_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_phase_service = MagicMock()  # type: ignore[attr-defined]
+    # MT-032 (#2128): the task walks the active tenants' plants; every plant here is tenant_1's.
+    mock_deps.get_tenant_repo = MagicMock(return_value=active("tenant_1"))  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     import app.tasks.dormancy_checks as module
@@ -37,13 +40,22 @@ def _task_module(monkeypatch):
     monkeypatch.setattr(module, "get_species_repo", mock_deps.get_species_repo)
     monkeypatch.setattr(module, "get_lifecycle_repo", mock_deps.get_lifecycle_repo)
     monkeypatch.setattr(module, "get_phase_sequence_repo", mock_deps.get_phase_sequence_repo)
+    monkeypatch.setattr(module, "get_tenant_repo", mock_deps.get_tenant_repo)
 
     yield module, mock_deps
+
+
+def _serve(plant_repo, plants) -> None:
+    """The plant repository answers the tenant walk (MT-032, #2128) over *plants*; ``get_all`` refuses."""
+    walk = TenantRows(plants)
+    plant_repo.get_all.side_effect = walk.get_all
+    plant_repo.iter_for_tenants.side_effect = walk.iter_for_tenants
 
 
 def _plant(**overrides):
     data = {
         "key": "plant_1",
+        "tenant_key": "tenant_1",
         "removed_on": None,
         "current_phase_key": "phase_veg",
         "species_key": "species_1",
@@ -55,7 +67,7 @@ def _plant(**overrides):
 class TestCheckDormancyTriggers:
     def test_no_plants(self, _task_module):
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([], 0)
+        _serve(deps.get_plant_repo.return_value, [])
 
         with patch.object(module, "DormancyTrigger"):
             result = module.check_dormancy_triggers(current_temp_c=5.0, day_length_hours=9.0)
@@ -65,7 +77,7 @@ class TestCheckDormancyTriggers:
     def test_skips_plant_already_dormant(self, _task_module):
         module, deps = _task_module
         plant_repo = deps.get_plant_repo.return_value
-        plant_repo.get_all.return_value = ([_plant()], 1)
+        _serve(plant_repo, [_plant()])
         plant_repo.resolve_phase_name.return_value = "dormancy"
 
         with patch.object(module, "DormancyTrigger") as trigger_cls:
@@ -77,7 +89,7 @@ class TestCheckDormancyTriggers:
     def test_triggers_dormancy_when_conditions_met(self, _task_module):
         module, deps = _task_module
         plant_repo = deps.get_plant_repo.return_value
-        plant_repo.get_all.return_value = ([_plant()], 1)
+        _serve(plant_repo, [_plant()])
         plant_repo.resolve_phase_name.return_value = "vegetative"
 
         phase_service = MagicMock()
@@ -98,7 +110,7 @@ class TestCheckDormancyTriggers:
     def test_no_trigger_when_conditions_not_met(self, _task_module):
         module, deps = _task_module
         plant_repo = deps.get_plant_repo.return_value
-        plant_repo.get_all.return_value = ([_plant()], 1)
+        _serve(plant_repo, [_plant()])
         plant_repo.resolve_phase_name.return_value = "vegetative"
 
         with patch.object(module, "DormancyTrigger") as trigger_cls:
@@ -111,7 +123,7 @@ class TestCheckDormancyTriggers:
     def test_swallows_per_plant_error(self, _task_module):
         module, deps = _task_module
         plant_repo = deps.get_plant_repo.return_value
-        plant_repo.get_all.return_value = ([_plant()], 1)
+        _serve(plant_repo, [_plant()])
         plant_repo.resolve_phase_name.return_value = "vegetative"
 
         with patch.object(module, "DormancyTrigger") as trigger_cls:
@@ -120,3 +132,19 @@ class TestCheckDormancyTriggers:
             result = module.check_dormancy_triggers(current_temp_c=2.0, day_length_hours=8.0)
 
         assert result == {"triggered": 0}
+
+
+def test_only_the_active_tenants_live_plants_are_walked(_task_module):
+    """REQ-056 §5.2 / MT-032 (#2128): the walk asks for the active tenants and the live plants only."""
+    module, deps = _task_module
+    plant_repo = deps.get_plant_repo.return_value
+    walk = TenantRows([_plant(key="p-open"), _plant(key="p-closed", tenant_key="tenant_closed")])
+    plant_repo.iter_for_tenants.side_effect = walk.iter_for_tenants
+    plant_repo.resolve_phase_name.return_value = "vegetative"
+
+    with patch.object(module, "DormancyTrigger") as trigger_cls:
+        trigger_cls.return_value.should_trigger_dormancy.return_value = False
+        module.check_dormancy_triggers(current_temp_c=2.0, day_length_hours=8.0)
+
+    assert walk.walks == [(["tenant_1"], [("removed_on", "==", None)])]
+    assert [c.args[0] for c in trigger_cls.return_value.should_trigger_dormancy.call_args_list] == ["species_1"]

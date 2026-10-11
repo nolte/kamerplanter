@@ -44,21 +44,21 @@ _DISPATCH = {"delay", "apply_async", "s", "si", "signature"}
 #: why the task is not scheduled *and* what would have to change for it to be.
 _NOT_STARTED_BY_THE_APP: dict[str, str] = {
     "check_auto_transitions": (
-        "inert since it was written (MT-051). Not scheduled on purpose: it reads every plant of every "
-        "tenant (get_all_pages(all_tenants=True)) and runs several queries per plant — the unchunked "
-        "all-tenant beat read #2128 is reworking. Schedule it (daily) once that chunking lands; until then "
-        "phase transitions are manual, as they have been in production all along."
+        "inert since it was written (MT-051). Not scheduled on purpose: since #2128 it walks the active "
+        "tenants' live plants one page at a time, but it still runs several queries per plant (current "
+        "phase, lifecycle, transition rules — the N+1 #2128 names). Schedule it (daily) once those reads "
+        "are batched; until then phase transitions are manual, as they have been in production all along."
     ),
     "check_dormancy_triggers": (
         "inert since it was written (MT-051). Not schedulable as it stands: its signature takes ONE "
         "installation-wide temperature and day length (current_temp_c, day_length_hours), while dormancy "
         "depends on each plant's site weather — a beat entry has no value to pass. Needs a per-site input "
-        "(REQ-046 weather) and the #2128 chunking before it can run."
+        "(REQ-046 weather) before it can run (the all-tenant read was chunked in #2128)."
     ),
     "update_vernalization_progress": (
         "inert since it was written (MT-051). Not schedulable as it stands: one installation-wide "
         "avg_temp_c for every plant; chill days are per site. Same prerequisite as "
-        "check_dormancy_triggers (per-site weather input + #2128 chunking)."
+        "check_dormancy_triggers (a per-site weather input)."
     ),
     "app.tasks.storage_tasks.migrate_storage": (
         "operator-invoked one-off (NFR-013 §7.3 AC-07): moves object storage between backends with "

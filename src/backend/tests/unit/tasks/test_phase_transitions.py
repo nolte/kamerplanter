@@ -22,6 +22,7 @@ from app.common.enums import (
 )
 from app.domain.models.site import Location, Site
 from app.domain.services.phase_service import SequenceAutoTarget
+from tests.support.tenant_walk import TenantRows, active
 
 
 @pytest.fixture(autouse=True)
@@ -36,6 +37,8 @@ def _task_module(monkeypatch):
     mock_deps.get_plant_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_lifecycle_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_site_repo = MagicMock()  # type: ignore[attr-defined]
+    # MT-032 (#2128): the task walks the active tenants' plants; every plant here is tenant_1's.
+    mock_deps.get_tenant_repo = MagicMock(return_value=active("tenant_1"))  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     import app.tasks.phase_transitions as module
@@ -44,14 +47,23 @@ def _task_module(monkeypatch):
     monkeypatch.setattr(module, "get_plant_repo", mock_deps.get_plant_repo)
     monkeypatch.setattr(module, "get_lifecycle_repo", mock_deps.get_lifecycle_repo)
     monkeypatch.setattr(module, "get_site_repo", mock_deps.get_site_repo)
+    monkeypatch.setattr(module, "get_tenant_repo", mock_deps.get_tenant_repo)
 
     deps = SimpleNamespace(
         get_phase_service=mock_deps.get_phase_service,
         get_plant_repo=mock_deps.get_plant_repo,
         get_lifecycle_repo=mock_deps.get_lifecycle_repo,
         get_site_repo=mock_deps.get_site_repo,
+        get_tenant_repo=mock_deps.get_tenant_repo,
     )
     yield module, deps
+
+
+def _serve_plants(deps, plants) -> TenantRows:
+    """The plant repository answers the tenant walk (MT-032, #2128) over *plants*; ``get_all`` refuses."""
+    rows = TenantRows(plants)
+    deps.get_plant_repo.return_value = rows
+    return rows
 
 
 def _plant(**overrides):
@@ -121,7 +133,7 @@ def _photoperiod_phase_service(days_in_phase: int = 5):
 class TestCheckAutoTransitions:
     def test_no_plants(self, _task_module):
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([], 0)
+        _serve_plants(deps, [])
         deps.get_phase_service.return_value = MagicMock()
 
         result = module.check_auto_transitions()
@@ -131,18 +143,19 @@ class TestCheckAutoTransitions:
     def test_skips_removed_and_phaseless_plants(self, _task_module):
         module, deps = _task_module
         plants = [_plant(removed_on="2026-01-01"), _plant(current_phase_key=None)]
-        deps.get_plant_repo.return_value.get_all.return_value = (plants, 2)
+        _serve_plants(deps, plants)
         phase_service = MagicMock()
         deps.get_phase_service.return_value = phase_service
 
         result = module.check_auto_transitions()
 
-        assert result == {"transitioned": 0, "errors": 0, "checked": 2}
+        # The removed plant is filtered in AQL (MT-032, #2128) and never reaches the task.
+        assert result == {"transitioned": 0, "errors": 0, "checked": 1}
         phase_service.transition_phase.assert_not_called()
 
     def test_transitions_when_time_rule_met(self, _task_module):
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        _serve_plants(deps, [_plant()])
 
         phase_service = MagicMock()
         phase_service.get_current_phase.return_value = {"days_in_phase": 30}
@@ -164,7 +177,7 @@ class TestCheckAutoTransitions:
 
     def test_no_transition_when_days_below_threshold(self, _task_module):
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        _serve_plants(deps, [_plant()])
 
         phase_service = MagicMock()
         phase_service.get_current_phase.return_value = {"days_in_phase": 10}
@@ -184,7 +197,7 @@ class TestCheckAutoTransitions:
 
     def test_counts_error_without_crashing(self, _task_module):
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        _serve_plants(deps, [_plant()])
 
         phase_service = MagicMock()
         phase_service.get_current_phase.side_effect = RuntimeError("lookup failed")
@@ -198,7 +211,7 @@ class TestCheckAutoTransitions:
         module, deps = _task_module
         # short-day species, current day length 10h < critical 12h -> fire
         monkeypatch.setattr(module, "_day_length_for_plant", lambda _plant, _site_repo: 10.0)
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant(site_key="site_1")], 1)
+        _serve_plants(deps, [_plant(site_key="site_1")])
         lifecycle = SimpleNamespace(
             photoperiod_type=PhotoperiodType.SHORT_DAY,
             critical_day_length_hours=12.0,
@@ -249,7 +262,7 @@ class TestCheckAutoTransitions:
     def test_indeterminate_stays_in_productive_phase(self, _task_module):
         """E4: an indeterminate plant in its productive phase is not auto-advanced."""
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant(current_phase_key="phase_fruit")], 1)
+        _serve_plants(deps, [_plant(current_phase_key="phase_fruit")])
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = self._productive_lifecycle(
             GrowthDeterminacy.INDETERMINATE
         )
@@ -264,7 +277,7 @@ class TestCheckAutoTransitions:
     def test_determinate_proceeds_out_of_productive_phase(self, _task_module):
         """E4: a determinate plant follows the linear path (fruiting -> ripening)."""
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant(current_phase_key="phase_fruit")], 1)
+        _serve_plants(deps, [_plant(current_phase_key="phase_fruit")])
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = self._productive_lifecycle(
             GrowthDeterminacy.DETERMINATE
         )
@@ -280,7 +293,7 @@ class TestCheckAutoTransitions:
 
     def test_vernalization_fires_when_chill_met(self, _task_module):
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant(chill_days_accumulated=60)], 1)
+        _serve_plants(deps, [_plant(chill_days_accumulated=60)])
         lifecycle = SimpleNamespace(
             vernalization_min_days=60,
             photoperiod_type=PhotoperiodType.DAY_NEUTRAL,
@@ -323,7 +336,7 @@ class TestCheckAutoTransitions:
         """Short-day induction fires when the grow-light photoperiod (12h) is
         shorter than the species' critical day length (13h)."""
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant(location_key="loc_1")], 1)
+        _serve_plants(deps, [_plant(location_key="loc_1")])
         _serve_own_site(deps)
         deps.get_site_repo.return_value.get_location_by_key.return_value = _indoor_location()
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = self._lifecycle()
@@ -340,7 +353,7 @@ class TestCheckAutoTransitions:
         """Long-day induction fires when the grow-light photoperiod (18h) is
         longer than the species' critical day length (14h)."""
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant(location_key="loc_1")], 1)
+        _serve_plants(deps, [_plant(location_key="loc_1")])
         # 06:00 -> 00:00 = 18h
         _serve_own_site(deps)
         deps.get_site_repo.return_value.get_location_by_key.return_value = _indoor_location(
@@ -363,7 +376,7 @@ class TestCheckAutoTransitions:
         artificial schedule; it falls through to the outdoor path (no GPS site
         here -> trigger skipped, no fire)."""
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant(location_key="loc_1", site_key=None)], 1)
+        _serve_plants(deps, [_plant(location_key="loc_1", site_key=None)])
         # 12h schedule would fire short-day, but dynamic sunrise disqualifies it
         _serve_own_site(deps)
         deps.get_site_repo.return_value.get_location_by_key.return_value = _indoor_location(use_dynamic_sunrise=True)
@@ -379,7 +392,7 @@ class TestCheckAutoTransitions:
         """A natural-light location (windowsill) has no controllable artificial
         photoperiod; with no GPS site the trigger is skipped."""
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant(location_key="loc_1", site_key=None)], 1)
+        _serve_plants(deps, [_plant(location_key="loc_1", site_key=None)])
         _serve_own_site(deps)
         deps.get_site_repo.return_value.get_location_by_key.return_value = _indoor_location(
             light_type=LightType.NATURAL
@@ -397,7 +410,7 @@ class TestCheckAutoTransitions:
         on photoperiod even with a firing indoor schedule and a photoperiod rule
         present — the evaluator only fires short-/long-day species."""
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant(location_key="loc_1")], 1)
+        _serve_plants(deps, [_plant(location_key="loc_1")])
         _serve_own_site(deps)
         deps.get_site_repo.return_value.get_location_by_key.return_value = _indoor_location()
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = self._lifecycle(
@@ -432,7 +445,7 @@ class TestCheckAutoTransitions:
     def test_sequence_forward_advance_fires(self, _task_module):
         """A PhaseSequence-driven plant advances to the next entry on time."""
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        _serve_plants(deps, [_plant()])
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
             cultivation_cycle_type=None, cycle_type=CycleType.PERENNIAL, growth_determinacy=None
         )
@@ -450,7 +463,7 @@ class TestCheckAutoTransitions:
     def test_sequence_restart_fires_for_perennial(self, _task_module):
         """From the terminal phase, a perennial restarts its cycle."""
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        _serve_plants(deps, [_plant()])
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
             cultivation_cycle_type=None,
             cycle_type=CycleType.PERENNIAL,
@@ -470,7 +483,7 @@ class TestCheckAutoTransitions:
     def test_sequence_restart_suppressed_for_biennial(self, _task_module):
         """should_restart_cycle terminates a bounded (biennial) lifecycle instead of looping."""
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        _serve_plants(deps, [_plant()])
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
             cultivation_cycle_type=None,
             cycle_type=CycleType.BIENNIAL,
@@ -496,7 +509,7 @@ class TestCheckAutoTransitions:
         ``resolve_effective_cycle`` and hands it to ``should_restart_cycle``.
         """
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        _serve_plants(deps, [_plant()])
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
             cultivation_cycle_type=CycleType.ANNUAL,
             cycle_type=CycleType.PERENNIAL,
@@ -513,7 +526,7 @@ class TestCheckAutoTransitions:
 
     def test_sequence_not_due_does_not_fire(self, _task_module):
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        _serve_plants(deps, [_plant()])
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
             cultivation_cycle_type=None, cycle_type=CycleType.PERENNIAL, growth_determinacy=None
         )
@@ -530,10 +543,7 @@ class TestCheckAutoTransitions:
         """SEC-B4: a location belonging to another tenant is not trusted; with no
         GPS site the trigger is skipped rather than firing from foreign data."""
         module, deps = _task_module
-        deps.get_plant_repo.return_value.get_all.return_value = (
-            [_plant(location_key="loc_1", tenant_key="tenant_1", site_key=None)],
-            1,
-        )
+        _serve_plants(deps, [_plant(location_key="loc_1", tenant_key="tenant_1", site_key=None)])
         _serve_own_site(deps)
         # "Foreign" is now expressed the way the data expresses it: a location
         # under a site this tenant does not own. Written as ``tenant_key="tenant_2"``

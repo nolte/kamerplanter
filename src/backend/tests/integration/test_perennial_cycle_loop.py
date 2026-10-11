@@ -25,6 +25,7 @@ from app.domain.models.phase import PhaseHistory
 from app.domain.models.phase_sequence import PhaseDefinition, PhaseSequence, PhaseSequenceEntry
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.phase_service import PhaseService
+from tests.support.tenant_walk import TenantRows, active
 
 # ── Sequence blueprints (mirror seed_data/phase_sequences.yaml) ────────────────
 
@@ -175,9 +176,11 @@ class _FakePlantRepo:
         self._plants[key] = plant
         return plant
 
-    def get_all(self, offset: int = 0, limit: int = 1000, all_tenants: bool = False):
-        plants = list(self._plants.values())
-        return plants, len(plants)
+    def iter_for_tenants(self, tenant_keys, *, filters=None, page_size: int = 1000):  # noqa: ANN001, ANN201
+        """The tenant walk the task reads through (MT-032, #2128)."""
+        return TenantRows(list(self._plants.values())).iter_for_tenants(
+            tenant_keys, filters=filters, page_size=page_size
+        )
 
 
 class _FakeLifecycleRepo:
@@ -271,6 +274,7 @@ def _task_env(monkeypatch):
     mock_deps.get_plant_repo = lambda: plant_repo  # type: ignore[attr-defined]
     mock_deps.get_lifecycle_repo = lambda: lifecycle_repo  # type: ignore[attr-defined]
     mock_deps.get_site_repo = lambda: SimpleNamespace()  # type: ignore[attr-defined]
+    mock_deps.get_tenant_repo = lambda: active("t1")  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     import app.tasks.phase_transitions as task_module
@@ -279,6 +283,7 @@ def _task_env(monkeypatch):
     monkeypatch.setattr(task_module, "get_plant_repo", mock_deps.get_plant_repo)
     monkeypatch.setattr(task_module, "get_lifecycle_repo", mock_deps.get_lifecycle_repo)
     monkeypatch.setattr(task_module, "get_site_repo", mock_deps.get_site_repo)
+    monkeypatch.setattr(task_module, "get_tenant_repo", mock_deps.get_tenant_repo)
 
     return SimpleNamespace(
         task=task_module,

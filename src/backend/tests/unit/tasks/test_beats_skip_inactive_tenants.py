@@ -23,6 +23,7 @@ import pytest
 from app.common.enums import TenantStatus, TenantType
 from app.domain.models.tenant import Tenant
 from tests.support.ha_entity_grants import grant_service
+from tests.support.tenant_walk import TenantRows
 
 OPEN = "t-open"
 CLOSED = "t-closed"
@@ -42,6 +43,10 @@ class _Tenants:
 
     def get_by_key(self, key: str) -> Tenant | None:
         return self.stored.get(key)
+
+    def keys_in_status(self, statuses: Any) -> dict[str, TenantStatus]:
+        """The walk of MT-032 (#2128): the stored tenants in one of *statuses*."""
+        return {key: t.status for key, t in self.stored.items() if t.status in set(statuses)}
 
 
 class _Deps(ModuleType):
@@ -84,8 +89,12 @@ def _site_doc(key: str, tenant_key: str) -> dict[str, Any]:
 
 
 def _paging(rows: list[Any]) -> MagicMock:
+    """A row repository that answers only the tenant walk (MT-032, #2128) — ``get_all`` refuses."""
+    walk = TenantRows(rows)
     repo = MagicMock()
-    repo.get_all.side_effect = lambda offset=0, limit=1000, *_a, **_k: (rows[offset : offset + limit], len(rows))
+    repo.get_all.side_effect = walk.get_all
+    repo.iter_for_tenants.side_effect = walk.iter_for_tenants
+    repo.iter_without_tenant.side_effect = walk.iter_without_tenant
     return repo
 
 
@@ -374,6 +383,78 @@ def test_a_valve_left_open_when_the_tenant_closed_is_closed_on_the_next_tick(
 
     assert repo.actuators["valve"].current_state == "off"
     assert [call[1] for call in ha.calls] == ["turn_off"]
+
+
+def test_an_actuator_without_a_tenant_is_driven_to_a_safe_state_not_dropped(
+    deps: _Deps, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#2128 review W1: a device nobody owns keeps the fail-safe sweep; it is not silently left latched.
+
+    Before #2128 it ran through ``evaluate_actuator``; the first per-tenant walk dropped it, so a heater
+    left on stayed on. It now gets the closed-tenant treatment: safety rules, then off — no schedule.
+    """
+    import app.tasks.actuator_tasks as module
+
+    monkeypatch.setattr(module, "_resolve_location_readings", lambda *_a, **_k: {})
+    orphan = SimpleNamespace(key="act-nobody", tenant_key="", location_key="loc-x", ha_entity_id="switch.x")
+    deps.get_actuator_repo.return_value = _paging([*_actuators(), orphan])
+    service = deps.get_actuator_service.return_value
+    service.evaluate_actuator.return_value = None
+
+    module.evaluate_control_rules.run()
+
+    assert [call.args[0].key for call in service.evaluate_actuator.call_args_list] == [f"act-{OPEN}"]
+    assert [call.args[0].key for call in service.drive_to_safe_state.call_args_list] == [
+        f"act-{CLOSED}",
+        "act-nobody",
+    ]
+
+
+def test_one_invalid_actuator_document_does_not_hide_the_devices_behind_it(
+    deps: _Deps, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#2128 review W2: through the real repository, a document the model refuses is skipped.
+
+    The walk used to wrap a whole page at once; one refused document ended the generator, and since
+    the loop sits outside the per-actuator ``try`` the run aborted — every later device, including the
+    closed tenant's safe state (SEC-003), was never reached.
+    """
+    import app.tasks.actuator_tasks as module
+    from app.data_access.arango.actuator_repository import ArangoActuatorRepository
+    from tests.support.tenant_walk import AqlRowsDb
+
+    def _doc(key: str, tenant: str) -> dict[str, Any]:
+        return {"_key": key, "tenant_key": tenant, "name": key, "actuator_type": "heater", "ha_entity_id": "switch.h"}
+
+    broken = {"_key": "b-broken", "tenant_key": OPEN, "name": "", "actuator_type": "no-such-type"}
+    db = AqlRowsDb([_doc("a-open", OPEN), broken, _doc("c-closed", CLOSED)])
+    monkeypatch.setattr(module, "_resolve_location_readings", lambda *_a, **_k: {})
+    deps.get_actuator_repo.return_value = ArangoActuatorRepository(db)
+    service = deps.get_actuator_service.return_value
+    service.evaluate_actuator.return_value = None
+
+    module.evaluate_control_rules.run()
+
+    assert [call.args[0].key for call in service.evaluate_actuator.call_args_list] == ["a-open"]
+    assert [call.args[0].key for call in service.drive_to_safe_state.call_args_list] == ["c-closed"]
+
+
+def test_check_tank_alerts_keeps_the_installation_sweep_for_a_tank_without_a_tenant(deps: _Deps) -> None:
+    """#2128 review W1: as before #2128, a tenantless tank is checked (read and logged, nothing written)."""
+    tank_repo = _paging(
+        [
+            SimpleNamespace(key=f"tank-{OPEN}", name="o", tenant_key=OPEN),
+            SimpleNamespace(key="tank-nobody", name="n", tenant_key=""),
+        ]
+    )
+    tank_repo.get_latest_state.return_value = None
+    deps.get_tank_repo.return_value = tank_repo
+
+    from app.tasks.tank_maintenance_tasks import check_tank_alerts
+
+    check_tank_alerts()
+
+    assert [call.args[0] for call in tank_repo.get_latest_state.call_args_list] == [f"tank-{OPEN}", "tank-nobody"]
 
 
 def test_sync_actuator_states_polls_the_actuators_of_the_active_tenant_only(deps: _Deps) -> None:
