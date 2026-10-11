@@ -7,10 +7,10 @@ from app.common.dependencies import (
     get_phase_service,
     get_plant_repo,
     get_site_repo,
+    get_tenant_repo,
 )
-from app.common.enums import CycleType, LightType, TransitionTrigger, TransitionTriggerType
+from app.common.enums import CycleType, LightType, TenantStatus, TransitionTrigger, TransitionTriggerType
 from app.common.log_privacy import loggable_error
-from app.data_access.arango.base_repository import get_all_pages
 from app.domain.calculators.photoperiod_calculator import effective_light_hours
 from app.domain.calculators.sun_calculator import calculate_sun_times
 from app.domain.engines.cycle_resolver import resolve_effective_cycle
@@ -172,11 +172,13 @@ def check_auto_transitions() -> dict:
 
     transitioned = 0
     errors = 0
+    checked = 0
 
-    plants = get_all_pages(plant_repo, all_tenants=True)  # system task: all tenants
-    for plant in plants:
-        if plant.removed_on is not None:
-            continue
+    # REQ-056 §5.2 / MT-032 (#2128): only the plants of active tenants that are not removed, selected in
+    # AQL and read one page at a time. The per-plant reads below are still N+1 (#2128).
+    active_tenants = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE})
+    for plant in plant_repo.iter_for_tenants(active_tenants, filters=[("removed_on", "==", None)]):
+        checked += 1
         if not plant.current_phase_key:
             continue
 
@@ -251,4 +253,4 @@ def check_auto_transitions() -> dict:
             errors += 1
             logger.error("auto_transition_error", plant_key=plant.key, error=loggable_error(e))
 
-    return {"transitioned": transitioned, "errors": errors, "checked": len(plants)}
+    return {"transitioned": transitioned, "errors": errors, "checked": checked}

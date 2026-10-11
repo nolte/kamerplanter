@@ -1,6 +1,5 @@
 import structlog
 
-from app.data_access.arango.base_repository import get_all_pages
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -150,8 +149,8 @@ def sync_tank_states_from_ha() -> dict:
         get_tank_repo,
         get_tenant_repo,
     )
+    from app.common.enums import TenantStatus
     from app.domain.models.tank import TankState
-    from app.tasks.tenant_gate import ActiveTenants
 
     ha_client = get_ha_client()
     if ha_client is None:
@@ -162,23 +161,19 @@ def sync_tank_states_from_ha() -> dict:
     # MT-015 (#2112): only entities granted to the tank's tenant are read; one
     # read of every tenant's grants for the whole run.
     grants = get_ha_entity_grant_service().snapshot()
-    tenant_is_active = ActiveTenants(get_tenant_repo())
+    # #2166 — a suspended, pending-deletion, orphaned or erased tenant resolves for nobody: its Home
+    # Assistant entities are not read and no state is written. MT-032 (#2128): only the active tenants'
+    # tanks are selected, in AQL, one page at a time. A tenantless tank is not selected (the grants
+    # admitted nothing for it anyway).
+    active_tenants = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE})
 
-    tanks = get_all_pages(tank_repo, all_tenants=True)  # system task: all tenants
     updated = 0
     skipped = 0
     not_granted = 0
-    closed_tenant = 0
     errors: list[dict] = []
 
-    for tank in tanks:
+    for tank in tank_repo.iter_for_tenants(active_tenants):
         if not tank.key:
-            continue
-        # #2166 — a suspended, pending-deletion, orphaned or erased tenant resolves for nobody: its Home
-        # Assistant entities are not read and no state is written. A tenantless tank keeps the sweep
-        # (the grants admit nothing for it anyway).
-        if tank.tenant_key and not tenant_is_active(tank.tenant_key):
-            closed_tenant += 1
             continue
 
         sensors = sensor_repo.find_by_tank(tank.key)
@@ -230,7 +225,6 @@ def sync_tank_states_from_ha() -> dict:
         tanks_updated=updated,
         tanks_skipped=skipped,
         sensors_not_granted=not_granted,
-        tanks_of_closed_tenants=closed_tenant,
         errors=len(errors),
     )
     return {"updated": updated, "skipped": skipped, "errors": len(errors), "not_granted": not_granted}
@@ -244,26 +238,22 @@ def check_tank_alerts() -> dict:
     runs the enhanced alert engine, and logs results.
     """
     from app.common.dependencies import get_tank_repo, get_tenant_repo
+    from app.common.enums import TenantStatus
     from app.domain.engines.tank_engine import TankEngine
-    from app.tasks.tenant_gate import ActiveTenants
 
     tank_repo = get_tank_repo()
     engine = TankEngine()
-    tenant_is_active = ActiveTenants(get_tenant_repo())
+    # REQ-056 §5.2 — a tenant that is not ``active`` is left alone: its tanks are not checked and
+    # nothing about them is reported. MT-032 (#2128): the active tenants' tanks are selected in AQL and
+    # read one page at a time; a tenantless tank is not selected.
+    active_tenants = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE})
 
-    tanks = get_all_pages(tank_repo, all_tenants=True)  # system task: all tenants
     tanks_checked = 0
     total_alerts = 0
     critical_count = 0
-    closed_tenant = 0
 
-    for tank in tanks:
+    for tank in tank_repo.iter_for_tenants(active_tenants):
         if not tank.key:
-            continue
-        # REQ-056 §5.2 — a tenant that is not ``active`` is left alone: its tanks are not checked and
-        # nothing about them is reported. A tenantless tank keeps the installation sweep.
-        if tank.tenant_key and not tenant_is_active(tank.tenant_key):
-            closed_tenant += 1
             continue
 
         state = tank_repo.get_latest_state(tank.key)
@@ -289,7 +279,6 @@ def check_tank_alerts() -> dict:
     logger.info(
         "tank_alert_check_completed",
         tanks_checked=tanks_checked,
-        tanks_of_closed_tenants=closed_tenant,
         total_alerts=total_alerts,
         critical_count=critical_count,
     )

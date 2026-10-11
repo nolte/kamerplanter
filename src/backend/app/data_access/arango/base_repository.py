@@ -1,5 +1,5 @@
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Collection, Iterator
 from datetime import UTC, datetime
 from typing import Any, ClassVar, Literal
 
@@ -1073,10 +1073,66 @@ class BaseArangoRepository[TModel: BaseModel]:
         never reads that number; this is the same window (same filters, order
         and ``LIMIT``) without the scan: ``include_total=false`` as a method.
         """
-        builder = self._page_builder(offset, limit, filters, sort, sort_direction)
-        query, bind_vars = builder.build_list()
+        return self._wrap_many(self._page_docs(offset, limit, filters, sort, sort_direction))
+
+    def _page_docs(
+        self,
+        offset: int,
+        limit: int,
+        filters: list[FilterTriple] | None,
+        sort: str,
+        sort_direction: SortDirection,
+    ) -> list[dict[str, Any]]:
+        """The normalised documents of one :meth:`_page_builder` window (no count)."""
+        query, bind_vars = self._page_builder(offset, limit, filters, sort, sort_direction).build_list()
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return self._wrap_many([self._from_doc(doc) for doc in cursor])
+        return [self._from_doc(doc) for doc in cursor]
+
+    def iter_for_tenants(
+        self,
+        tenant_keys: Collection[str],
+        *,
+        filters: list[FilterTriple] | None = None,
+        page_size: int = DEFAULT_PAGE_SIZE,
+        max_pages: int = MAX_PAGES,
+    ) -> Iterator[TModel]:
+        """The rows of exactly ``tenant_keys``, one keyset page at a time (MT-032, #2128).
+
+        A beat task used to read every tenant's rows into one list
+        (``get_all_pages(repo, all_tenants=True)``) and drop the rows of a closed
+        tenant in Python, so the worker's memory grew with the installation and the
+        rows it threw away were loaded first. This filters the tenant (and any
+        ``filters``) in AQL and hands out one ``page_size`` window at a time: the
+        worker holds a page, never the collection.
+
+        Paging is a keyset cursor on ``_key`` (``FILTER doc._key > @after``), not an
+        offset, so a caller that writes the rows it is iterating (a field update, a
+        delete) cannot shift a later window and skip a row. No count query is paid.
+
+        An empty ``tenant_keys`` (or one holding only empty keys) reads nothing: a
+        row without a tenant is never selected, so the method cannot widen into an
+        unscoped read (SEC-B4).
+
+        Raises :class:`PagingCeilingError` (logged first) instead of reading past
+        ``max_pages`` pages.
+        """
+        if page_size < 1:
+            raise ValueError("page_size must be >= 1")
+        keys = sorted({key for key in tenant_keys if key})
+        if not keys:
+            return
+        after: str | None = None
+        for _ in range(max_pages):
+            page_filters: list[FilterTriple] = [("tenant_key", "IN", keys), *(filters or [])]
+            if after is not None:
+                page_filters.append(("_key", ">", after))
+            docs = self._page_docs(0, page_size, page_filters, "_key", "ASC")
+            yield from self._wrap_many(docs)
+            if len(docs) < page_size:
+                return
+            after = str(docs[-1]["_key"])
+        logger.error("iter_for_tenants_ceiling", collection=self._collection_name, max_pages=max_pages)
+        raise PagingCeilingError(f"tenant walk hit {max_pages} pages of {page_size} rows without reaching the end")
 
     def _page_builder(
         self,

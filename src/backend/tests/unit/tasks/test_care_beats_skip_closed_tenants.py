@@ -29,6 +29,7 @@ import pytest
 from app.common.enums import TenantStatus, TenantType
 from app.domain.models.tenant import Tenant
 from tests.support.care_reminder_store import CareReminderStore
+from tests.support.tenant_walk import TenantRows
 
 TODAY = datetime.now(UTC).isoformat()
 CLOSED_STATES = [TenantStatus.PENDING_DELETION, TenantStatus.SUSPENDED, TenantStatus.ORPHANED, TenantStatus.DELETED]
@@ -54,6 +55,9 @@ class _Tenants:
     def get_all(self, offset: int = 0, limit: int = 1000, **_kwargs):  # noqa: ANN201 - the paging contract
         rows = list(self.stored.values())
         return rows[offset : offset + limit], len(rows)
+
+    def keys_in_status(self, statuses) -> dict[str, TenantStatus]:  # noqa: ANN001 - the walk of MT-032 (#2128)
+        return {key: t.status for key, t in self.stored.items() if t.status in set(statuses)}
 
 
 # ── generate_due_care_reminders ─────────────────────────────────────────────
@@ -330,14 +334,16 @@ def tank_deps(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 def test_the_tank_sync_reads_and_writes_nothing_for_a_tenant_that_is_not_active(
     tank_deps: ModuleType, status: TenantStatus
 ) -> None:
-    tank_repo = tank_deps.get_tank_repo.return_value
-    tank_repo.get_all.return_value = (
+    tank_repo = MagicMock()
+    walk = TenantRows(
         [
             SimpleNamespace(key="tank-open", tenant_key="t-open"),
             SimpleNamespace(key="tank-closed", tenant_key="t-closed"),
-        ],
-        2,
+        ]
     )
+    tank_repo.get_all.side_effect = walk.get_all
+    tank_repo.iter_for_tenants.side_effect = walk.iter_for_tenants
+    tank_deps.get_tank_repo.return_value = tank_repo
     tank_deps.get_tenant_repo.return_value = _Tenants(_tenant("t-open"), _tenant("t-closed", status))
 
     from app.tasks.tank_maintenance_tasks import sync_tank_states_from_ha

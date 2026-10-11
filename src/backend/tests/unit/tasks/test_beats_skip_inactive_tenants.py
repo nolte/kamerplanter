@@ -23,6 +23,7 @@ import pytest
 from app.common.enums import TenantStatus, TenantType
 from app.domain.models.tenant import Tenant
 from tests.support.ha_entity_grants import grant_service
+from tests.support.tenant_walk import TenantRows
 
 OPEN = "t-open"
 CLOSED = "t-closed"
@@ -42,6 +43,10 @@ class _Tenants:
 
     def get_by_key(self, key: str) -> Tenant | None:
         return self.stored.get(key)
+
+    def keys_in_status(self, statuses: Any) -> dict[str, TenantStatus]:
+        """The walk of MT-032 (#2128): the stored tenants in one of *statuses*."""
+        return {key: t.status for key, t in self.stored.items() if t.status in set(statuses)}
 
 
 class _Deps(ModuleType):
@@ -84,8 +89,11 @@ def _site_doc(key: str, tenant_key: str) -> dict[str, Any]:
 
 
 def _paging(rows: list[Any]) -> MagicMock:
+    """A row repository that answers only the tenant walk (MT-032, #2128) — ``get_all`` refuses."""
+    walk = TenantRows(rows)
     repo = MagicMock()
-    repo.get_all.side_effect = lambda offset=0, limit=1000, *_a, **_k: (rows[offset : offset + limit], len(rows))
+    repo.get_all.side_effect = walk.get_all
+    repo.iter_for_tenants.side_effect = walk.iter_for_tenants
     return repo
 
 
