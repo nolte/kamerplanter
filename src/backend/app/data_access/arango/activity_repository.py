@@ -39,6 +39,35 @@ class ArangoActivityRepository(BaseArangoRepository[Activity], IActivityReposito
         tenant_key: str,
     ) -> tuple[list[Activity], int]:
         """One page of the activities ``tenant_key`` may read, plus their total."""
+        items, total = self._read_readable(offset, limit, filters, tenant_key=tenant_key, count=True)
+        return items, total or 0
+
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Activity]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        return self._read_readable(offset, limit, filters, tenant_key=tenant_key, count=False)[0]
+
+    def _read_readable(
+        self,
+        offset: int,
+        limit: int,
+        filters: dict[str, Any] | None,
+        *,
+        tenant_key: str,
+        count: bool,
+    ) -> tuple[list[Activity], int | None]:
+        """One page of the activities ``tenant_key`` may read and, with ``count``, their total.
+
+        One body for the counted and the count-free read, so the window issues exactly
+        the page query the counted method pays a count for (MT-035, #2131); the query
+        text stays in the function that executes it, where the catalogue guard reads it.
+        """
         predicate, bind_vars = tenant_union_predicate(tenant_key)
         filter_clauses = [predicate]
         idx = 0
@@ -68,9 +97,10 @@ class ArangoActivityRepository(BaseArangoRepository[Activity], IActivityReposito
         query += " SORT doc.sort_order, doc.name, doc._key LIMIT @offset, @limit RETURN doc"
         cursor = self._db.aql.execute(query, bind_vars=list_vars)
         items = [Activity(**self._from_doc(doc)) for doc in cursor]
+        if not count:
+            return items, None
         count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
-        total = next(count_cursor, 0)
-        return items, total
+        return items, next(count_cursor, 0)
 
     def get_readable_or_raise(self, key: ActivityKey, *, tenant_key: str) -> Activity:
         """One activity, if ``tenant_key`` may read it: its own row or a global one.

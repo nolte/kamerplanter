@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import FertilizerKey, FertilizerStockKey
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
@@ -16,6 +17,18 @@ class IFertilizerRepository(ABC):
         *,
         tenant_key: str | None = None,
     ) -> tuple[list[Fertilizer], int]: ...
+
+    @abstractmethod
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Fertilizer]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        ...
 
     @abstractmethod
     def get_by_key(self, key: FertilizerKey) -> Fertilizer | None: ...

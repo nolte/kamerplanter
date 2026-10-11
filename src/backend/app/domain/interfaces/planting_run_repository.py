@@ -25,9 +25,9 @@ class IPlantingRunRepository(ABC):
         limit: int = 50,
         filters: dict[str, Any] | None = None,
         *,
-        tenant_key: str | None,
+        tenant_key: str,
     ) -> list[PlantingRun]:
-        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        """The page of :meth:`get_all` without its count query (MT-035, #2131); one tenant only."""
         ...
 
     @abstractmethod

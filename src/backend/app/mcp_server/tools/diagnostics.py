@@ -338,7 +338,7 @@ class GetPlantDiagnostics(ToolBase):
 
     @staticmethod
     def _inspections(ctx: ToolContext, plant_key: str, cutoff: datetime) -> list[dict[str, Any]]:
-        inspections, _total = ctx.ipm_service.get_inspections(
+        inspections = ctx.ipm_service.get_inspections_window(
             plant_key, offset=0, limit=_MAX_ITEMS, tenant_key=ctx.tenant_key
         )
         return [

@@ -84,7 +84,7 @@ def list_tanks(
     filters: dict[str, str] = {}
     if tank_type:
         filters["tank_type"] = tank_type
-    items, _total = service.list_tanks(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
+    items = service.list_tanks_window(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
     return [_tank_response(t) for t in items]
 
 

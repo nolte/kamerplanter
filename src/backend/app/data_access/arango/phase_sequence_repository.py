@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Any
 
 from arango.database import StandardDatabase
 
@@ -43,26 +44,32 @@ class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoReposito
         limit: int,
         name_filter: str | None = None,
     ) -> tuple[list[PhaseDefinition], int]:
-        filter_parts: list[str] = []
-        bind_vars: dict = {}
-        if name_filter:
-            filter_parts.append("LIKE(doc.name, @name_filter, true)")
-            bind_vars["name_filter"] = f"%{escape_aql_like(name_filter)}%"
-
-        filt = ("FILTER " + " AND ".join(filter_parts)) if filter_parts else ""
-        query = f"FOR doc IN {col.PHASE_DEFINITIONS} {filt} SORT doc.name LIMIT @offset, @limit RETURN doc"
+        items = self.list_definitions_window(offset, limit, name_filter)
+        filt, bind_vars = self._definitions_filter(name_filter)
         count_query = f"FOR doc IN {col.PHASE_DEFINITIONS} {filt} COLLECT WITH COUNT INTO total RETURN total"
-        bind_vars["offset"] = offset
-        bind_vars["limit"] = limit
-
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        items = [PhaseDefinition(**self._from_doc(doc)) for doc in cursor]
-
-        count_bind = {k: v for k, v in bind_vars.items() if k not in ("offset", "limit")}
-        count_cursor = self._db.aql.execute(count_query, bind_vars=count_bind)
+        count_cursor = self._db.aql.execute(count_query, bind_vars=bind_vars)
         total = next(count_cursor, 0)
-
         return items, total
+
+    def list_definitions_window(
+        self,
+        offset: int,
+        limit: int,
+        name_filter: str | None = None,
+    ) -> list[PhaseDefinition]:
+        """The page of :meth:`get_all_definitions` without its count query (MT-035, #2131)."""
+        filt, bind_vars = self._definitions_filter(name_filter)
+        # ``_key`` breaks name ties so a pager walks a total order (BACKEND.md §6.4).
+        query = f"FOR doc IN {col.PHASE_DEFINITIONS} {filt} SORT doc.name, doc._key LIMIT @offset, @limit RETURN doc"
+        page_vars: dict[str, Any] = {**bind_vars, "offset": offset, "limit": limit}
+        cursor = self._db.aql.execute(query, bind_vars=page_vars)
+        return [PhaseDefinition(**self._from_doc(doc)) for doc in cursor]
+
+    @staticmethod
+    def _definitions_filter(name_filter: str | None) -> tuple[str, dict[str, Any]]:
+        if not name_filter:
+            return "", {}
+        return "FILTER LIKE(doc.name, @name_filter, true)", {"name_filter": f"%{escape_aql_like(name_filter)}%"}
 
     def get_definition_by_key(self, key: str) -> PhaseDefinition | None:
         doc = self._db.collection(col.PHASE_DEFINITIONS).get(key)
@@ -183,20 +190,19 @@ class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoReposito
         offset: int,
         limit: int,
     ) -> tuple[list[PhaseSequence], int]:
+        items = self.list_sequences_window(offset, limit)
+        count_query = f"FOR doc IN {col.PHASE_SEQUENCES} COLLECT WITH COUNT INTO total RETURN total"
+        count_cursor = self._db.aql.execute(count_query)
+        total = next(count_cursor, 0)
+        return items, total
+
+    def list_sequences_window(self, offset: int, limit: int) -> list[PhaseSequence]:
+        """The page of :meth:`get_all_sequences` without its count query (MT-035, #2131)."""
         # ``_key`` breaks name ties: names are not unique, and paging (read_all_pages,
         # #2025) is only sound over a total order.
         query = f"FOR doc IN {col.PHASE_SEQUENCES} SORT doc.name, doc._key LIMIT @offset, @limit RETURN doc"
-        count_query = f"FOR doc IN {col.PHASE_SEQUENCES} COLLECT WITH COUNT INTO total RETURN total"
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={"offset": offset, "limit": limit},
-        )
-        items = [PhaseSequence(**self._from_doc(doc)) for doc in cursor]
-
-        count_cursor = self._db.aql.execute(count_query)
-        total = next(count_cursor, 0)
-
-        return items, total
+        cursor = self._db.aql.execute(query, bind_vars={"offset": offset, "limit": limit})
+        return [PhaseSequence(**self._from_doc(doc)) for doc in cursor]
 
     def get_sequence_by_key(self, key: str) -> PhaseSequence | None:
         doc = self._db.collection(col.PHASE_SEQUENCES).get(key)

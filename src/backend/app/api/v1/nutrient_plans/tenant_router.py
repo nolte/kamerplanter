@@ -56,7 +56,7 @@ def list_plans(
         filters["recommended_substrate_type"] = recommended_substrate_type
     if is_template is not None:
         filters["is_template"] = is_template
-    items, _total = service.list_plans(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
+    items = service.list_plans_window(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
     return [_plan_response(p) for p in items]
 
 

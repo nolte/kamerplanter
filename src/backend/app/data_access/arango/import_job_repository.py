@@ -38,6 +38,13 @@ class ArangoImportJobRepository(BaseArangoRepository[ImportJob], IImportJobRepos
         """
         return super().get_all(offset, limit, tenant_key, all_tenants=tenant_key is None)
 
-    def list_all_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str | None) -> list[ImportJob]:
-        """The page of :meth:`list_all` without its count query (MT-035, #2131); same scope rules."""
-        return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key, all_tenants=tenant_key is None)
+    def list_all_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[ImportJob]:
+        """The page of :meth:`list_all` without its count query (MT-035, #2131).
+
+        A request read only: ``tenant_key`` is required and the empty sentinel is
+        refused. Unlike :meth:`list_all` there is no ``None`` → every-tenant arm —
+        no caller pages the system context, and a window that could widen to every
+        tenant's uploaded CSV rows on a ``None`` is the shape SEC-B4 forbids.
+        """
+        self._require_tenant_key(tenant_key, "list_all_window")
+        return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key)

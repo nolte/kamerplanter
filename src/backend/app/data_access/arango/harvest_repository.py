@@ -37,6 +37,10 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
     def get_all_indicators(self, offset: int = 0, limit: int = 50) -> tuple[list[HarvestIndicator], int]:
         return self._indicators.get_all(offset, limit)
 
+    def list_indicators_window(self, offset: int = 0, limit: int = 50) -> list[HarvestIndicator]:
+        """The page of :meth:`get_all_indicators` without its count query (MT-035, #2131)."""
+        return self._indicators.list_window(offset=offset, limit=limit)
+
     def create_indicator(self, indicator: HarvestIndicator) -> HarvestIndicator:
         ind = self._indicators.create(indicator)
 
