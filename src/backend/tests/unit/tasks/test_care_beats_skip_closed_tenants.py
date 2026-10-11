@@ -28,6 +28,7 @@ import pytest
 
 from app.common.enums import TenantStatus, TenantType
 from app.domain.models.tenant import Tenant
+from tests.support.care_reminder_store import CareReminderStore
 
 TODAY = datetime.now(UTC).isoformat()
 CLOSED_STATES = [TenantStatus.PENDING_DELETION, TenantStatus.SUSPENDED, TenantStatus.ORPHANED, TenantStatus.DELETED]
@@ -202,8 +203,7 @@ def notify(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
     def _build(status: TenantStatus) -> _Notifier:
         deps = ModuleType("app.common.dependencies")
         notifier = _Notifier()
-        tasks = MagicMock()
-        tasks.get_all.return_value = ([_task("t-open"), _task("t-closed")], 2)
+        tasks = CareReminderStore([_task("t-open"), _task("t-closed")])
         deps.get_task_repo = MagicMock(return_value=tasks)  # type: ignore[attr-defined]
         deps.get_notification_service = MagicMock(return_value=notifier)  # type: ignore[attr-defined]
         deps.get_membership_repo = MagicMock(return_value=_Memberships())  # type: ignore[attr-defined]
