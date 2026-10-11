@@ -15,6 +15,8 @@ And one level below the tenant (#2171 review W-1): a feed belongs to one member
 (REQ-015 CF-002). Changing, rotating or deleting it is the owner's - or a lead's -
 business; for any other member of the same tenant the feed answers 404 like an
 unknown one, so a grower can neither break nor take over a colleague's subscription.
+Since #2226 re-review SEC-W1 the same holds for reading it: the name and filters of
+a colleague's feed are theirs, not the tenant's.
 """
 
 from __future__ import annotations
@@ -69,7 +71,7 @@ def service(repo: MagicMock) -> CalendarService:
 class TestAForeignOrTenantlessCallerIsRefused:
     def test_get(self, service, tenant_key) -> None:
         with pytest.raises(NotFoundError):
-            service.get_feed("f1", tenant_key=tenant_key)
+            service.get_feed("f1", tenant_key=tenant_key, user_key=FEED_OWNER, role=TenantRole.LEAD)
 
     def test_update(self, service, repo, tenant_key) -> None:
         with pytest.raises(NotFoundError):
@@ -91,7 +93,7 @@ class TestAForeignOrTenantlessCallerIsRefused:
 
 class TestTheOwnerIsServed:
     def test_get(self, service) -> None:
-        assert service.get_feed("f1", tenant_key=OWNER).key == "f1"
+        assert service.get_feed("f1", tenant_key=OWNER, **MINE).key == "f1"
 
     def test_delete(self, service) -> None:
         assert service.delete_feed("f1", tenant_key=OWNER, user_key=FEED_OWNER, role=TenantRole.LEAD) is True
@@ -123,7 +125,19 @@ class TestTheOwnerIsServed:
 
 @pytest.mark.parametrize("role", [TenantRole.GROWER, TenantRole.VIEWER])
 class TestAColleaguesFeedIsRefused:
-    """Same tenant, another member's feed: 404, and nothing is written (W-1)."""
+    """Same tenant, another member's feed: 404, and nothing is written (W-1).
+
+    Reading it is refused the same way (#2226 re-review SEC-W1): its name and
+    filters are the colleague's, and a 403 would confirm the key exists.
+    """
+
+    def test_get(self, service, role) -> None:
+        with pytest.raises(NotFoundError):
+            service.get_feed("f1", tenant_key=OWNER, user_key=COLLEAGUE, role=role)
+
+    def test_get_with_an_empty_caller(self, service, role) -> None:
+        with pytest.raises(NotFoundError):
+            service.get_feed("f1", tenant_key=OWNER, user_key="", role=role)
 
     def test_update(self, service, repo, role) -> None:
         with pytest.raises(NotFoundError):
@@ -152,6 +166,9 @@ class TestAColleaguesFeedIsRefused:
 class TestALeadManagesEveryFeedOfTheTenant:
     LEAD = {"user_key": COLLEAGUE, "role": TenantRole.LEAD}
 
+    def test_get(self, service) -> None:
+        assert service.get_feed("f1", tenant_key=OWNER, **self.LEAD).user_key == FEED_OWNER
+
     def test_update(self, service, repo) -> None:
         updated = service.update_feed("f1", CalendarFeed(name="Renamed"), tenant_key=OWNER, **self.LEAD)
         assert repo.update_fields.call_args.args[1]["name"] == "Renamed"
@@ -173,6 +190,8 @@ class TestALeadManagesEveryFeedOfTheTenant:
 def test_the_tenant_is_required_and_keyword_only(service) -> None:
     with pytest.raises(TypeError):
         service.get_feed("f1")  # type: ignore[call-arg]
+    with pytest.raises(TypeError):
+        service.get_feed("f1", tenant_key=OWNER)  # type: ignore[call-arg]
     with pytest.raises(TypeError):
         service.delete_feed("f1", OWNER)  # type: ignore[misc]
     with pytest.raises(TypeError):

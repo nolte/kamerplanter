@@ -47,7 +47,7 @@ class _FakeCalendarService:
         feed.key = "feed-1"
         return CalendarFeedIssued(feed=feed, token="tok")
 
-    def get_feed(self, key: str, *, tenant_key: str) -> CalendarFeed:
+    def get_feed(self, key: str, *, tenant_key: str, user_key: str, role: TenantRole) -> CalendarFeed:
         return CalendarFeed(
             _key=key,
             tenant_key="personal",

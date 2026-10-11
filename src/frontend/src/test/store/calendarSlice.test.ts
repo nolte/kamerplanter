@@ -30,7 +30,7 @@ function stored(key: string) {
     key,
     name: `Feed ${key}`,
     user_key: 'u1',
-    filters: { categories: [], site_key: null },
+    filters: { categories: [] },
     is_active: true,
     created_at: null,
     updated_at: null,
@@ -160,7 +160,7 @@ describe('calendarSlice thunks', () => {
   it('createCalendarFeed appends the new feed', async () => {
     mocked.createCalendarFeed.mockResolvedValue(issued('f2', 'secret-f2') as never);
     const store = makeStore();
-    const filters = { categories: ['task'], site_key: null };
+    const filters = { categories: ['task'] };
     const result = await store.dispatch(createCalendarFeed({ name: 'My Feed', filters })).unwrap();
     expect(mocked.createCalendarFeed).toHaveBeenCalledWith('My Feed', filters);
     // The caller gets the one-time URL; the store does not keep it.

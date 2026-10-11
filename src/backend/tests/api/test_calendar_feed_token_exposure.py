@@ -48,7 +48,7 @@ class _FakeCalendarService:
     def list_feeds(self, user_key: str, tenant_key: str) -> list[CalendarFeed]:
         return [_stored_feed("feed-1"), _stored_feed("feed-2")]
 
-    def get_feed(self, key: str, *, tenant_key: str) -> CalendarFeed:
+    def get_feed(self, key: str, *, tenant_key: str, user_key: str, role: TenantRole) -> CalendarFeed:
         return _stored_feed(key)
 
     def update_feed(

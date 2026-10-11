@@ -422,6 +422,8 @@ async def test_glossary_search_filters_and_passes_the_language_through():
     resp = await SearchGlossary().run(_ctx(glossary_service=svc), SearchGlossary.Input(query="vpd", language="en"))
     assert svc.seen == (None, "en")
     assert [i["slug"] for i in resp.data["items"]] == ["vpd"]
+    # #2226 sweep: the link named /api/v1/glossary/terms, which no route serves.
+    assert [link.url for link in resp.links] == ["/api/v1/public/glossary/terms"]
 
 
 @pytest.mark.asyncio

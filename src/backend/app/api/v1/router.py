@@ -14,6 +14,7 @@ from app.api.v1.admin.weather_providers.router import router as weather_provider
 from app.api.v1.attachments.token_router import router as attachment_token_router
 from app.api.v1.botanical_families.router import router as families_router
 from app.api.v1.calculations.router import router as calculations_router
+from app.api.v1.calendar.feed_router import router as calendar_feed_router
 from app.api.v1.care_reminders.router import router as care_reminders_router
 from app.api.v1.companion_planting.router import router as companion_router
 from app.api.v1.crop_rotation.router import router as rotation_router
@@ -183,6 +184,10 @@ api_router.include_router(species_router)
 api_router.include_router(substrates_router)
 api_router.include_router(enrichment_router)
 api_router.include_router(family_relationships_router)
+# REQ-015 §4.2 / CF-007 — the public iCal subscription route (#2226). No login and
+# no tenant slug: the feed token in the query is the authorisation, in both modes.
+# Mounted before the tenant-scoped router like the other token routes below.
+api_router.include_router(calendar_feed_router)
 # REQ-026 Aquaponics — global fish-species catalog (not tenant-scoped)
 api_router.include_router(fish_species_router)
 api_router.include_router(ipm_router)
