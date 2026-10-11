@@ -290,17 +290,17 @@ def test_a_rule_reads_only_the_tenants_sensor_location(location: str) -> None:
     service, repo = _actuators()
 
     with pytest.raises(NotFoundError):
-        service.create_rule("act1", "t1", _rule(sensor_location_key=location))
+        service.create_rule("act1", _rule(sensor_location_key=location), tenant_key="t1")
 
     assert repo.rules == {}
 
 
 def test_a_rule_update_cannot_repoint_the_sensor_location() -> None:
     service, repo = _actuators()
-    created = service.create_rule("act1", "t1", _rule(sensor_location_key="loc1"))
+    created = service.create_rule("act1", _rule(sensor_location_key="loc1"), tenant_key="t1")
 
     with pytest.raises(NotFoundError):
-        service.update_rule("act1", created.key, "t1", {"sensor_location_key": "loc_foreign"})
+        service.update_rule("act1", created.key, {"sensor_location_key": "loc_foreign"}, tenant_key="t1")
 
     assert repo.rules[created.key].sensor_location_key == "loc1"
 

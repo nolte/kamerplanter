@@ -61,9 +61,11 @@ def test_equipment_cannot_be_placed_at_another_tenants_location(location: str) -
     service = _inventree(repo)
 
     with pytest.raises(NotFoundError):
-        service.create_equipment(OWN, Equipment(name="Lampe", equipment_type="lighting", location_key=location))
+        service.create_equipment(
+            Equipment(name="Lampe", equipment_type="lighting", location_key=location), tenant_key=OWN
+        )
     with pytest.raises(NotFoundError):
-        service.update_equipment("eq_own", OWN, {"location_key": location})
+        service.update_equipment("eq_own", {"location_key": location}, tenant_key=OWN)
 
     assert repo.created == [] and repo.updated == []
 
@@ -72,8 +74,8 @@ def test_equipment_at_an_own_location_is_stored() -> None:
     repo = _EquipmentRepo()
     service = _inventree(repo)
 
-    service.create_equipment(OWN, Equipment(name="Lampe", equipment_type="lighting", location_key="loc_own"))
-    service.update_equipment("eq_own", OWN, {"location_key": "loc_own"})
+    service.create_equipment(Equipment(name="Lampe", equipment_type="lighting", location_key="loc_own"), tenant_key=OWN)
+    service.update_equipment("eq_own", {"location_key": "loc_own"}, tenant_key=OWN)
 
     assert [e.location_key for e in repo.created] == ["loc_own"]
     assert repo.updated == [("eq_own", "loc_own")]
