@@ -113,6 +113,10 @@ class OverwinteringProfileService:
     ) -> tuple[list[OverwinteringProfile], int]:
         return self._repo.list_by_tenant(tenant_key, offset, limit)
 
+    def list_profiles_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[OverwinteringProfile]:
+        """One ``_key``-ordered page of the tenant's profiles without the count query (MT-035, #2131)."""
+        return self._repo.list_by_tenant_window(offset, limit, tenant_key=tenant_key)
+
     def get_profile(self, key: OverwinteringProfileKey, *, tenant_key: str) -> OverwinteringProfile:
         profile = self._repo.get_profile_by_key(key)
         if profile is None:

@@ -42,7 +42,7 @@ def list_activities(
         filters["scope"] = scope
     if species:
         filters["species"] = species
-    items, _ = service.list_activities(pagination.offset, pagination.limit, filters or None, tenant_key=tenant_key)
+    items = service.list_activities_window(pagination.offset, pagination.limit, filters or None, tenant_key=tenant_key)
     return [to_response(a, ActivityResponse) for a in items]
 
 

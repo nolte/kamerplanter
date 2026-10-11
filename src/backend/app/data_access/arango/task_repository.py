@@ -122,8 +122,45 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         tenant_key: str | None = None,
         target_entity_type: str | None = None,
     ) -> tuple[list[WorkflowTemplate], int]:
+        items, total = self._read_workflow_templates(
+            offset, limit, species_key, tenant_key, target_entity_type, count=True
+        )
+        return items, total or 0
+
+    def list_workflow_templates_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        species_key: str | None = None,
+        target_entity_type: str | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[WorkflowTemplate]:
+        """The page of :meth:`get_all_workflow_templates` without its count query (MT-035, #2131).
+
+        A request read: ``tenant_key`` is required and the empty sentinel refused, the
+        own ∪ global union and the fork suppression are those of the counted method.
+        """
+        self._require_tenant_key(tenant_key, "list_workflow_templates_window")
+        return self._read_workflow_templates(offset, limit, species_key, tenant_key, target_entity_type, count=False)[0]
+
+    def _read_workflow_templates(
+        self,
+        offset: int,
+        limit: int,
+        species_key: str | None,
+        tenant_key: str | None,
+        target_entity_type: str | None,
+        *,
+        count: bool,
+    ) -> tuple[list[WorkflowTemplate], int | None]:
+        """One page and, with ``count``, the total of the workflow-template catalogue.
+
+        One body for the counted and the count-free read (MT-035, #2131); the query
+        text stays in the function that executes it, where the catalogue guard reads it.
+        """
         filter_parts: list[str] = []
-        bind_vars: dict = {}
+        bind_vars: dict[str, Any] = {}
         let_clause = ""
         if species_key:
             filter_parts.append("doc.species_key == @species_key")
@@ -164,7 +201,12 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             filter_parts.append("(@target_entity_type IN doc.target_entity_types)")
             bind_vars["target_entity_type"] = target_entity_type
         filt = ("FILTER " + " AND ".join(filter_parts)) if filter_parts else ""
-        query = f"{let_clause}FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} SORT doc.name LIMIT @offset, @limit RETURN doc"
+        # ``name`` is not unique (a tenant's fork of a shared template keeps its
+        # name until edited), so ``_key`` breaks the tie (BACKEND.md §6.4).
+        query = (
+            f"{let_clause}FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} "
+            "SORT doc.name, doc._key LIMIT @offset, @limit RETURN doc"
+        )
         count_query = (
             f"{let_clause}FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} COLLECT WITH COUNT INTO total RETURN total"
         )
@@ -173,9 +215,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         bind_vars["limit"] = limit
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         items = [WorkflowTemplate(**self._from_doc(doc)) for doc in cursor]
+        if not count:
+            return items, None
         count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
-        total = next(count_cursor, 0)
-        return items, total
+        return items, next(count_cursor, 0)
 
     def get_global_workflow_templates(self) -> list[WorkflowTemplate]:
         """Every global workflow template, the whole catalogue, no row limit (#2027).

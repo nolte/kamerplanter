@@ -22,8 +22,8 @@ class _FakeIpmService:
     def __init__(self, pests: list[Pest]) -> None:
         self._pests = pests
 
-    def list_pests(self, offset: int = 0, limit: int = 50) -> tuple[list[Pest], int]:
-        return self._pests, len(self._pests)
+    def list_pests_window(self, offset: int = 0, limit: int = 50) -> list[Pest]:
+        return self._pests[offset : offset + limit]
 
     def get_pest(self, key: str) -> Pest:
         for pest in self._pests:

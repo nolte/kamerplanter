@@ -68,6 +68,9 @@ class FakeOverwinteringRepo(IOverwinteringProfileRepository):
         items = [p for p in self.store.values() if p.tenant_key == tenant_key]
         return items[offset : offset + limit], len(items)
 
+    def list_by_tenant_window(self, offset=0, limit=50, *, tenant_key):
+        return self.list_by_tenant(tenant_key, offset, limit)[0]
+
     def create_subject_edge(self, profile_key, *, plant_key=None, planting_run_key=None):
         pass
 

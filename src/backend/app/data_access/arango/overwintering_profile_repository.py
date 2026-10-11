@@ -32,6 +32,11 @@ class ArangoOverwinteringProfileRepository(BaseArangoRepository[OverwinteringPro
     ) -> tuple[list[OverwinteringProfile], int]:
         return super().get_all(offset, limit, tenant_key=tenant_key)
 
+    def list_by_tenant_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[OverwinteringProfile]:
+        """The page of :meth:`list_by_tenant` without its count query (MT-035, #2131)."""
+        self._require_tenant_key(tenant_key, "list_by_tenant_window")
+        return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key)
+
     # ── Writes ─────────────────────────────────────────────────────────
 
     def create_profile(self, profile: OverwinteringProfile) -> OverwinteringProfile:

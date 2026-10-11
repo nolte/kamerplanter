@@ -23,7 +23,7 @@ class GetHarvestReadiness(ToolBase):
         limit: int = Field(default=50, ge=1, le=200)
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        plants, _total = ctx.plant_service.list_plants(offset=0, limit=args.limit, tenant_key=ctx.tenant_key)
+        plants = ctx.plant_service.list_plants_window(offset=0, limit=args.limit, tenant_key=ctx.tenant_key)
         items = []
         ready_count = 0
         for plant in plants:

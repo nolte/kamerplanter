@@ -18,7 +18,7 @@ class StarterKitService:
         else:
             # Bounded by construction (#2015): kits come only from starter_kits.yaml (11
             # rows); no API or service caller writes the collection.
-            docs, _ = self._repo.get_all(offset=0, limit=100)
+            docs = self._repo.list_window(offset=0, limit=100)
         kits = [StarterKit(**doc) for doc in docs]
         kits.sort(key=lambda k: (k.difficulty.value, k.sort_order))
         return kits

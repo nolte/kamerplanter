@@ -21,6 +21,16 @@ class IPhaseSequenceRepository(ABC):
     ) -> tuple[list[PhaseDefinition], int]: ...
 
     @abstractmethod
+    def list_definitions_window(
+        self,
+        offset: int,
+        limit: int,
+        name_filter: str | None = None,
+    ) -> list[PhaseDefinition]:
+        """The page of :meth:`get_all_definitions` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def get_definition_by_key(self, key: str) -> PhaseDefinition | None: ...
 
     @abstractmethod
@@ -69,6 +79,11 @@ class IPhaseSequenceRepository(ABC):
         offset: int,
         limit: int,
     ) -> tuple[list[PhaseSequence], int]: ...
+
+    @abstractmethod
+    def list_sequences_window(self, offset: int, limit: int) -> list[PhaseSequence]:
+        """The page of :meth:`get_all_sequences` without its count query (MT-035, #2131)."""
+        ...
 
     @abstractmethod
     def get_sequence_by_key(self, key: str) -> PhaseSequence | None: ...

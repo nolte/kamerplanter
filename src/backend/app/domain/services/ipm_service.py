@@ -92,6 +92,10 @@ class IpmService:
     def list_pests(self, offset: int = 0, limit: int = 50) -> tuple[list[Pest], int]:
         return self._repo.get_all_pests(offset, limit)
 
+    def list_pests_window(self, offset: int = 0, limit: int = 50) -> list[Pest]:
+        """One ``_key``-ordered page of the pest catalogue without the count query (MT-035, #2131)."""
+        return self._repo.list_pests_window(offset, limit)
+
     def get_pest(self, key: str) -> Pest:
         return self._repo.get_pest_or_raise(key)
 
@@ -184,6 +188,10 @@ class IpmService:
     def list_diseases(self, offset: int = 0, limit: int = 50) -> tuple[list[Disease], int]:
         return self._repo.get_all_diseases(offset, limit)
 
+    def list_diseases_window(self, offset: int = 0, limit: int = 50) -> list[Disease]:
+        """One ``_key``-ordered page of the disease catalogue without the count query (MT-035, #2131)."""
+        return self._repo.list_diseases_window(offset, limit)
+
     def get_disease(self, key: str) -> Disease:
         return self._repo.get_disease_or_raise(key)
 
@@ -217,6 +225,10 @@ class IpmService:
 
     def list_treatments(self, offset: int = 0, limit: int = 50) -> tuple[list[Treatment], int]:
         return self._repo.get_all_treatments(offset, limit)
+
+    def list_treatments_window(self, offset: int = 0, limit: int = 50) -> list[Treatment]:
+        """One ``_key``-ordered page of the treatment catalogue without the count query (MT-035, #2131)."""
+        return self._repo.list_treatments_window(offset, limit)
 
     def get_treatment(self, key: str) -> Treatment:
         return self._repo.get_treatment_or_raise(key)
@@ -417,7 +429,7 @@ class IpmService:
         tenant_key: str,
     ) -> dict:
         self._require_own_plant(plant_key, tenant_key)
-        inspections, _ = self._repo.get_inspections_for_plant(plant_key, 0, 1)
+        inspections = self._repo.get_inspections_for_plant_window(plant_key, 0, 1)
         last_at = inspections[0].inspected_at if inspections else None
         next_date = self._scheduler.next_inspection_date(last_at, current_phase, pressure_level)
         urgency = self._scheduler.calculate_urgency(next_date)
