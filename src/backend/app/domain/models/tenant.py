@@ -45,6 +45,12 @@ class Tenant(BaseModel):
     #: end of the cancellable grace (``RETENTION_TENANT_ERASURE_GRACE_DAYS``).
     #: ``None`` in every other state.
     deletion_scheduled_at: datetime | None = None
+    #: The state a scheduled deletion froze (``active`` or ``suspended``, REQ-056 §4.3):
+    #: cancelling the deletion restores it, so a suspended tenant whose deletion a
+    #: platform admin scheduled stays suspended when its management cancels. ``None``
+    #: outside a scheduled deletion; a pending document stored before the field existed
+    #: reads ``None`` and is restored to ``active`` (the behaviour before the rule).
+    status_before_deletion: TenantStatus | None = None
     is_platform: bool = False
     max_members: int = Field(default=1, ge=1)
     #: REQ-056 §7.1 / §13.1 (#2142) — the plan whose quotas apply (collection ``plans``). Every new tenant

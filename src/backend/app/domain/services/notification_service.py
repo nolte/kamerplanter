@@ -1,6 +1,7 @@
 """Notification service — coordinates engine, repositories and channels."""
 
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -260,6 +261,8 @@ class NotificationService:
         self,
         user_key: str,
         since: datetime,
+        *,
+        tenant_is_active: Callable[[str], bool] | None = None,
     ) -> dict:
         """Send one digest email summarising the user's notifications since ``since``.
 
@@ -273,8 +276,16 @@ class NotificationService:
         An empty window sends no mail; an account without a confirmed address
         gets none (``"no_confirmed_address"``); a missing/unhealthy channel or a
         failed send returns ``"failed"`` without raising.
+
+        ``tenant_is_active`` (REQ-056 §5.2) drops every notification about a tenant
+        that is no longer ``active`` — a suspended or pending-deletion tenant resolves
+        for nobody, and the digest would otherwise deliver what was created about it
+        before the suspension. A notification without a tenant (account-level) stays.
+        A window left empty by the filter sends no mail.
         """
         notifications = self._notification_repo.list_for_user_since(user_key, since)
+        if tenant_is_active is not None:
+            notifications = [n for n in notifications if not n.tenant_key or tenant_is_active(n.tenant_key)]
         if not notifications:
             return {"status": "empty", "count": 0}
 

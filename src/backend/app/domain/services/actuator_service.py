@@ -180,6 +180,7 @@ class ActuatorService:
         triggered_by_user: str | None = None,
         sensor_reading: float | None = None,
         on_unsafe_value: Literal["raise", "skip"] = "raise",
+        fallback_task: bool = True,
     ) -> ControlEvent | None:
         # SEC (REQ-018): single chokepoint for every command path (direct, rule,
         # schedule, override, emergency). The safety invariant enforced here is:
@@ -223,8 +224,9 @@ class ActuatorService:
             effective_source = ControlEventSource.FALLBACK_TASK
         elif actuator.protocol == ActuatorProtocol.HOME_ASSISTANT:
             success, error_message = self._dispatch_home_assistant(actuator, command, value)
-            if not success:
-                # Graceful degradation: HA unreachable -> manual task (§6 scenario 6).
+            if not success and fallback_task:
+                # Graceful degradation: HA unreachable -> manual task (§6 scenario 6). Not for a closed
+                # tenant (REQ-056 SEC-003): nobody can open the task; the failed event records the attempt.
                 self._create_fallback_task(actuator, command, value, reason="ha_unreachable")
                 effective_source = ControlEventSource.FALLBACK_TASK
         elif actuator.protocol == ActuatorProtocol.MQTT:
@@ -528,6 +530,57 @@ class ActuatorService:
             on_unsafe_value="skip",
         )
 
+    def drive_to_safe_state(self, actuator: Actuator, sensor_readings: dict[str, float]) -> ControlEvent | None:
+        """Leave the device of a closed tenant in a safe state, never latched (REQ-056 §5.2, SEC-003).
+
+        A suspended, pending-deletion or orphaned tenant gets no schedule, no override and no
+        sensor rule any more — but its hardware still exists, and the last command (a valve
+        opened, a heater switched on) would otherwise stay in force. Each tick:
+
+        1. A firing **safety** rule decides (``winning_safety_state``); dispatched only when the
+           device is not already in that state. Then nothing else is done; neither while a safety
+           rule *holds* its device on (``a_safety_rule_holds`` — rules are edge-triggered).
+        2. Otherwise a device whose type an emergency scenario switches off
+           (:data:`CLOSED_TENANT_OFF_TYPES`; a type a scenario forces on — the exhaust fan —
+           is left as it is) gets one ``turn_off``: only when its state is not ``off`` and the
+           newest event of the device is no ``turn_off`` already (idempotent — an unreachable
+           Home Assistant is not asked again every 30 s). ``fail_safe_state`` of the device
+           overrides the type: ``off`` switches it off, ``on`` leaves it alone.
+
+        A manual actuator is skipped (it can only be switched by a person, through a task in a
+        tenant nobody can open), and no fallback task is written into the closed tenant.
+        """
+        if actuator.protocol == ActuatorProtocol.MANUAL:
+            return None
+        rules = [rule for rule in self._repo.list_active_rules(actuator.key or "") if rule.is_safety_rule]
+        safety = self._engine.winning_safety_state(actuator, rules, sensor_readings, self._now())
+        if safety is not None:
+            if self._engine.is_same_state(actuator, safety):
+                return None
+            return self._dispatch(
+                actuator,
+                safety.command,
+                safety.value,
+                ControlEventSource.SAFETY,
+                triggered_by_rule_key=safety.source_key,
+                sensor_reading=safety.sensor_reading,
+                on_unsafe_value="skip",
+                fallback_task=False,
+            )
+        if self._engine.a_safety_rule_holds(actuator, rules, sensor_readings):
+            return None  # a safety rule switched it on and the reading still calls for it
+        if actuator.fail_safe_state == "on":
+            return None
+        switches_off = actuator.fail_safe_state == "off" or actuator.actuator_type.value in CLOSED_TENANT_OFF_TYPES
+        if not switches_off or actuator.current_state == "off":
+            return None
+        newest = self._repo.list_events(actuator.key or "", actuator.tenant_key, 0, 1)
+        if newest and newest[0].command == "turn_off":
+            return None  # the off was sent (and, if it failed, recorded); not again every tick
+        return self._dispatch(
+            actuator, "turn_off", None, ControlEventSource.SAFETY, on_unsafe_value="skip", fallback_task=False
+        )
+
     # ── Events & stats ───────────────────────────────────────────────────
 
     def list_events(self, actuator_key: str, tenant_key: str, offset: int = 0, limit: int = 50) -> list[ControlEvent]:
@@ -720,3 +773,9 @@ _EMERGENCY_SCENARIOS: dict[str, dict[str, tuple[str, ...]]] = {
         )
     },
 }
+
+#: The device types a closed tenant's hardware is switched off to (REQ-056 §5.2, SEC-003): every type an
+#: emergency scenario switches off, minus every type a scenario forces on (ventilation keeps running).
+CLOSED_TENANT_OFF_TYPES: frozenset[str] = frozenset(
+    kind for scenario in _EMERGENCY_SCENARIOS.values() for kind in scenario.get("off", ())
+) - frozenset(kind for scenario in _EMERGENCY_SCENARIOS.values() for kind in scenario.get("on", ()))

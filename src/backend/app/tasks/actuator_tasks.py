@@ -73,7 +73,9 @@ def evaluate_control_rules(self) -> dict:  # noqa: ANN001 — Celery bound-task 
         get_ha_client,
         get_ha_entity_grant_service,
         get_sensor_repo,
+        get_tenant_repo,
     )
+    from app.tasks.tenant_gate import CLOSED_WITH_HARDWARE, ActiveTenants
 
     repo = get_actuator_repo()
     service = get_actuator_service()
@@ -81,19 +83,34 @@ def evaluate_control_rules(self) -> dict:  # noqa: ANN001 — Celery bound-task 
     ha_client = get_ha_client()
     # MT-015 (#2112): one read of every tenant's grants for the whole run.
     grants = get_ha_entity_grant_service().snapshot()
+    # REQ-056 §5.2 — the control loop of a tenant that is not ``active`` runs no schedule, no override
+    # and no sensor rule. SEC-003: its hardware is not left latched either — a suspended, pending-deletion
+    # or orphaned tenant's devices are driven to a safe state (safety rules, then off) instead.
+    tenant_states = ActiveTenants(get_tenant_repo())
 
     actuators = get_all_pages(repo, all_tenants=True)  # system task: all tenants
     evaluated = 0
     dispatched = 0
     errors = 0
+    closed_tenant = 0
+    safe_state = 0
     readings_cache: dict[tuple[str, str], dict[str, float]] = {}
     for actuator in actuators:
+        closed = bool(actuator.tenant_key) and not tenant_states(actuator.tenant_key)
+        if closed and tenant_states.status(actuator.tenant_key) not in CLOSED_WITH_HARDWARE:
+            closed_tenant += 1  # ``deleted`` or gone: the erasure removes the device
+            continue
         try:
             cache_key = (actuator.tenant_key, actuator.location_key)
             if cache_key not in readings_cache:
                 readings_cache[cache_key] = _resolve_location_readings(
                     sensor_repo, ha_client, actuator.location_key, tenant_key=actuator.tenant_key, grants=grants
                 )
+            if closed:
+                closed_tenant += 1
+                if service.drive_to_safe_state(actuator, readings_cache[cache_key]) is not None:
+                    safe_state += 1
+                continue
             event = service.evaluate_actuator(actuator, readings_cache[cache_key])
             evaluated += 1
             if event is not None:
@@ -102,7 +119,14 @@ def evaluate_control_rules(self) -> dict:  # noqa: ANN001 — Celery bound-task 
             errors += 1
             logger.warning("actuator_evaluation_failed", actuator=actuator.key, error=loggable_error(exc))
 
-    logger.info("actuator_control_rules_evaluated", evaluated=evaluated, dispatched=dispatched, errors=errors)
+    logger.info(
+        "actuator_control_rules_evaluated",
+        evaluated=evaluated,
+        dispatched=dispatched,
+        errors=errors,
+        closed_tenant=closed_tenant,
+        safe_state_commands=safe_state,
+    )
     return {"status": "ok", "evaluated": evaluated, "dispatched": dispatched, "errors": errors}
 
 
@@ -130,7 +154,8 @@ def sync_actuator_states(self) -> dict:  # noqa: ANN001 — Celery bound-task se
 
     from datetime import UTC, datetime
 
-    from app.common.dependencies import get_actuator_repo, get_ha_client, get_ha_entity_grant_service
+    from app.common.dependencies import get_actuator_repo, get_ha_client, get_ha_entity_grant_service, get_tenant_repo
+    from app.tasks.tenant_gate import ActiveTenants
 
     repo = get_actuator_repo()
     ha_client = get_ha_client()
@@ -138,6 +163,8 @@ def sync_actuator_states(self) -> dict:  # noqa: ANN001 — Celery bound-task se
         return {"status": "skipped", "reason": "ha_not_configured"}
     # MT-015 (#2112): an ungranted entity is not polled on the tenant's behalf.
     grants = get_ha_entity_grant_service().snapshot()
+    # REQ-056 §5.2 — nor is one of a tenant that is not ``active``.
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     actuators = get_all_pages(repo, all_tenants=True)  # system task: all tenants
     synced = 0
@@ -145,6 +172,8 @@ def sync_actuator_states(self) -> dict:  # noqa: ANN001 — Celery bound-task se
     not_granted = 0
     for actuator in actuators:
         if actuator.ha_entity_id is None:
+            continue
+        if actuator.tenant_key and not tenant_is_active(actuator.tenant_key):
             continue
         if not grants.is_granted(actuator.tenant_key, actuator.ha_entity_id):
             not_granted += 1

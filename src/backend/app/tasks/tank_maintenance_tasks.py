@@ -243,19 +243,27 @@ def check_tank_alerts() -> dict:
     Iterates all tanks, loads latest state + last fill event,
     runs the enhanced alert engine, and logs results.
     """
-    from app.common.dependencies import get_tank_repo
+    from app.common.dependencies import get_tank_repo, get_tenant_repo
     from app.domain.engines.tank_engine import TankEngine
+    from app.tasks.tenant_gate import ActiveTenants
 
     tank_repo = get_tank_repo()
     engine = TankEngine()
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     tanks = get_all_pages(tank_repo, all_tenants=True)  # system task: all tenants
     tanks_checked = 0
     total_alerts = 0
     critical_count = 0
+    closed_tenant = 0
 
     for tank in tanks:
         if not tank.key:
+            continue
+        # REQ-056 §5.2 — a tenant that is not ``active`` is left alone: its tanks are not checked and
+        # nothing about them is reported. A tenantless tank keeps the installation sweep.
+        if tank.tenant_key and not tenant_is_active(tank.tenant_key):
+            closed_tenant += 1
             continue
 
         state = tank_repo.get_latest_state(tank.key)
@@ -281,6 +289,7 @@ def check_tank_alerts() -> dict:
     logger.info(
         "tank_alert_check_completed",
         tanks_checked=tanks_checked,
+        tanks_of_closed_tenants=closed_tenant,
         total_alerts=total_alerts,
         critical_count=critical_count,
     )

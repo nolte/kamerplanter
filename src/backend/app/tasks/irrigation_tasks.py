@@ -43,9 +43,11 @@ def compute_irrigation_demand(self) -> dict:  # noqa: ANN001 — Celery bound-ta
         get_planting_run_repo,
         get_site_repo,
         get_species_repo,
+        get_tenant_repo,
         get_weather_forecast_repo,
     )
     from app.domain.models.site import Site
+    from app.tasks.tenant_gate import ActiveTenants
 
     site_repo = get_site_repo()
     forecast_repo = get_weather_forecast_repo()
@@ -54,6 +56,8 @@ def compute_irrigation_demand(self) -> dict:  # noqa: ANN001 — Celery bound-ta
     lifecycle_repo = get_lifecycle_repo()
     demand_repo = get_irrigation_demand_repo()
     calculator = EvapotranspirationCalculator()
+    # REQ-056 §5.2 — no demand is materialised for a site whose tenant is not ``active``.
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     site_docs = site_repo.find_site_docs_by_types([t.value for t in WEATHER_RELEVANT_SITE_TYPES])
     today = datetime.now(UTC).date()
@@ -64,6 +68,9 @@ def compute_irrigation_demand(self) -> dict:  # noqa: ANN001 — Celery bound-ta
     for doc in site_docs:
         site = Site(**site_repo._from_doc(doc))  # noqa: SLF001 — cross-tenant iteration
         if not site.key or site.gps_coordinates is None:
+            skipped += 1
+            continue
+        if site.tenant_key and not tenant_is_active(site.tenant_key):
             skipped += 1
             continue
 

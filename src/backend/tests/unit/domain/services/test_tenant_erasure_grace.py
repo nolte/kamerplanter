@@ -36,6 +36,7 @@ from tests.support.tenant_erasure_doubles import (
     authorized,
     tenant_service_for_deletion,
 )
+from tests.support.tenant_transitions import apply_transition
 
 NOW = datetime(2026, 10, 5, 9, 0, tzinfo=UTC)
 GRACE_DAYS = 90
@@ -67,7 +68,14 @@ class _TenantStore:
             self.doc = Tenant.model_validate({**self.doc.model_dump(by_alias=True), **fields})
             return self.doc
 
+        def transition_status(key: str, **kwargs: Any) -> Tenant | None:
+            moved = apply_transition(self.doc if key == self.doc.key else None, **kwargs)
+            if moved is not None:
+                self.doc = moved
+            return moved
+
         repo.update_fields.side_effect = update_fields
+        repo.transition_status.side_effect = transition_status
         return repo
 
 
@@ -421,3 +429,147 @@ def test_a_document_still_carrying_the_retired_bool_never_reads_active_when_it_w
     doc = {"_key": KEY, "name": "Lindenhof", "slug": KEY, "owner_user_key": "owner-1", **legacy}
 
     assert Tenant.model_validate(doc).status == expected
+
+
+# ── A cancellation restores the state before the deletion (REQ-056 §4.3) ─────
+
+
+class TestCancellationRestoresThePreviousState:
+    """Measured on develop: ``cancel_tenant_erasure`` always wrote ``active``.
+
+    A platform admin who scheduled the deletion of a **suspended** tenant handed its own
+    management the way out of the suspension: the cancel route is not behind the tenant
+    resolver (a ``pending_deletion`` tenant resolves for nobody) and proves the right from
+    the stored membership, so the management cancelled and the tenant came back ``active``.
+    """
+
+    def test_a_suspended_tenant_stays_suspended_when_its_management_cancels(self) -> None:
+        service, store, _executor, repo = _service(store=_TenantStore(_org(TenantStatus.SUSPENDED)))
+        service.delete_tenant(KEY, **authorized(KEY, origin="platform_admin"), now=NOW)
+        assert store.doc.status == TenantStatus.PENDING_DELETION
+
+        restored = service.cancel_tenant_erasure(KEY, **_cancel_kwargs())
+
+        assert restored.status == TenantStatus.SUSPENDED
+        assert restored.is_active is False
+        assert restored.status_before_deletion is None
+        assert restored.deletion_scheduled_at is None
+        assert RECORD not in repo.records  # the deletion itself is withdrawn
+
+    def test_a_platform_admin_cancelling_does_not_lift_the_suspension_either(self) -> None:
+        service, store, _executor, _repo = _service(store=_TenantStore(_org(TenantStatus.SUSPENDED)))
+        service.delete_tenant(KEY, **authorized(KEY, origin="platform_admin"), now=NOW)
+
+        service.cancel_tenant_erasure(KEY, **_cancel_kwargs(origin="platform_admin"))
+
+        assert store.doc.status == TenantStatus.SUSPENDED
+
+    def test_an_active_tenant_is_active_again_and_the_remembered_state_is_cleared(self) -> None:
+        service, store, _executor, _repo = _service()
+        service.delete_tenant(KEY, **authorized(KEY), now=NOW)
+        assert store.doc.status_before_deletion == TenantStatus.ACTIVE
+
+        restored = service.cancel_tenant_erasure(KEY, **_cancel_kwargs())
+
+        assert restored.status == TenantStatus.ACTIVE
+        assert restored.status_before_deletion is None
+
+    def test_a_pending_tenant_stored_before_the_rule_is_cancelled_by_a_platform_admin_only(self) -> None:
+        """SEC-001 — fail closed: a pre-REQ-056 document cannot tell whether it froze a suspension."""
+        service, store, _executor, repo = _service()
+        service.delete_tenant(KEY, **authorized(KEY), now=NOW)
+        store.doc = store.doc.model_copy(update={"status_before_deletion": None})  # a pre-REQ-056 document
+
+        kwargs = _cancel_kwargs()
+        with pytest.raises(ForbiddenError, match="platform admin"):
+            service.cancel_tenant_erasure(KEY, **kwargs)
+        assert store.doc.status == TenantStatus.PENDING_DELETION
+        assert RECORD in repo.records  # nothing withdrawn, the step-up code not even spent
+
+        restored = service.cancel_tenant_erasure(KEY, **{**kwargs, "origin": "platform_admin"})
+        assert restored.status == TenantStatus.ACTIVE
+        assert RECORD not in repo.records
+
+    def test_a_stale_snapshot_is_refused_with_409_and_changes_nothing(self) -> None:
+        """SEC-002 — the state moved between the read and the write: nothing is restored or withdrawn."""
+        from app.common.exceptions import WriteConflictError
+
+        service, store, _executor, repo = _service(store=_TenantStore(_org(TenantStatus.SUSPENDED)))
+        service.delete_tenant(KEY, **authorized(KEY, origin="platform_admin"), now=NOW)
+        frozen = store.doc
+        real_get = service._tenant_repo.get_by_key.side_effect
+
+        # The cancellation reads ``pending_deletion``; before it writes, the tenant is ``deleted``.
+        def stale_read(key: str):  # type: ignore[no-untyped-def]
+            snapshot = real_get(key)
+            store.doc = frozen.model_copy(update={"status": TenantStatus.DELETED})
+            return snapshot
+
+        service._tenant_repo.get_by_key.side_effect = stale_read
+
+        with pytest.raises(WriteConflictError):
+            service.cancel_tenant_erasure(KEY, **_cancel_kwargs())
+        assert store.doc.status == TenantStatus.DELETED
+        assert RECORD in repo.records
+
+    def test_the_suspension_switch_refuses_a_stale_snapshot(self) -> None:
+        from app.common.exceptions import WriteConflictError
+
+        service, store, _executor, _repo = _service()
+        service._step_up_verifier = MagicMock()
+        real_get = service._tenant_repo.get_by_key.side_effect
+
+        def stale_read(key: str):  # type: ignore[no-untyped-def]
+            snapshot = real_get(key)
+            store.doc = store.doc.model_copy(update={"status": TenantStatus.PENDING_DELETION})
+            return snapshot
+
+        service._tenant_repo.get_by_key.side_effect = stale_read
+        with pytest.raises(WriteConflictError):
+            service.admin_update_tenant(
+                KEY,
+                {"is_active": False},
+                requester=AUTHORIZED_REQUESTER,
+                current_password=None,
+                step_up_code=None,
+                step_up_token=None,
+                authenticated_with_api_key=False,
+                client_ip=None,
+            )
+        assert store.doc.status == TenantStatus.PENDING_DELETION
+
+    def test_the_tenant_update_refuses_the_remembered_state(self) -> None:
+        service, _store, _executor, _repo = _service()
+
+        with pytest.raises(ValueError, match="lifecycle"):
+            service.update_tenant(KEY, {"status_before_deletion": "active"})
+
+    def test_a_repeated_request_keeps_the_remembered_suspension(self) -> None:
+        service, store, _executor, _repo = _service(store=_TenantStore(_org(TenantStatus.SUSPENDED)))
+        service.delete_tenant(KEY, **authorized(KEY, origin="platform_admin"), now=NOW)
+
+        service.delete_tenant(KEY, **authorized(KEY, origin="platform_admin"), now=NOW + timedelta(days=3))
+
+        assert store.doc.status == TenantStatus.PENDING_DELETION
+        assert store.doc.status_before_deletion == TenantStatus.SUSPENDED
+        assert service.cancel_tenant_erasure(KEY, **_cancel_kwargs()).status == TenantStatus.SUSPENDED
+
+    def test_a_repeated_request_leaves_an_orphaned_organisation_orphaned(self) -> None:
+        service, store, _executor, _repo = _service()
+        service.delete_tenant(KEY, **authorized(KEY, origin="platform_admin"), now=NOW)
+        store.doc = store.doc.model_copy(update={"status": TenantStatus.ORPHANED})  # #2134 settlement
+
+        service.delete_tenant(KEY, **authorized(KEY, origin="platform_admin"), now=NOW + timedelta(days=1))
+
+        assert store.doc.status == TenantStatus.ORPHANED
+        with pytest.raises(InvalidStatusTransitionError):
+            service.cancel_tenant_erasure(KEY, **_cancel_kwargs(origin="platform_admin"))
+
+    def test_the_management_cannot_schedule_the_deletion_of_a_suspended_tenant(self) -> None:
+        service, store, _executor, repo = _service(store=_TenantStore(_org(TenantStatus.SUSPENDED)))
+
+        with pytest.raises(ForbiddenError):
+            service.delete_tenant(KEY, **authorized(KEY), now=NOW)
+
+        assert store.doc.status == TenantStatus.SUSPENDED
+        assert repo.records == {}

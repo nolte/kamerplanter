@@ -26,6 +26,8 @@ def _mock_deps(monkeypatch):
     mock_deps._get_redis_client = MagicMock(name="_get_redis_client")  # type: ignore[attr-defined]
     mock_deps.get_encryption_engine = MagicMock(name="get_encryption_engine")  # type: ignore[attr-defined]
     mock_deps.get_inventree_repo = MagicMock(name="get_inventree_repo")  # type: ignore[attr-defined]
+    # REQ-056 §5.2: every tenant here is active (a MagicMock tenant reads ``is_active``).
+    mock_deps.get_tenant_repo = MagicMock(name="get_tenant_repo")  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
     return mock_deps
 

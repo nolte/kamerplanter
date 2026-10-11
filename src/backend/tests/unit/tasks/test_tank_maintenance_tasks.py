@@ -224,7 +224,7 @@ class TestSyncTankStatesFromHa:
 class TestCheckTankAlerts:
     def test_skips_tank_without_state(self, _mock_dependencies):
         tank_repo = MagicMock()
-        tank_repo.get_all.return_value = ([SimpleNamespace(key="tank_1", name="Res")], 1)
+        tank_repo.get_all.return_value = ([SimpleNamespace(key="tank_1", name="Res", tenant_key="tenant_1")], 1)
         tank_repo.get_latest_state.return_value = None
         _mock_dependencies.get_tank_repo.return_value = tank_repo
 
@@ -239,7 +239,7 @@ class TestCheckTankAlerts:
 
     def test_counts_alerts_and_criticals(self, _mock_dependencies):
         tank_repo = MagicMock()
-        tank_repo.get_all.return_value = ([SimpleNamespace(key="tank_1", name="Res")], 1)
+        tank_repo.get_all.return_value = ([SimpleNamespace(key="tank_1", name="Res", tenant_key="tenant_1")], 1)
         tank_repo.get_latest_state.return_value = SimpleNamespace()
         tank_repo.get_latest_full_change.return_value = None
         _mock_dependencies.get_tank_repo.return_value = tank_repo

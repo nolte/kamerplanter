@@ -33,6 +33,7 @@ from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_erasure import TenantErasureRecord
 from app.domain.models.user import User
 from tests.support.tenant_erasure_doubles import FakeTenantErasureRepository, tenant_service_for_deletion
+from tests.support.tenant_transitions import apply_transition
 
 SLUG = "gemeinschaftsgarten"
 TENANT_KEY = "t-garden"
@@ -87,6 +88,8 @@ class _World:
                 "owner_user_key": "owner-1",
                 "status": status,
                 "deletion_scheduled_at": DUE if status != TenantStatus.ACTIVE else None,
+                # REQ-056 §4.3 — what scheduling a deletion of an active tenant records.
+                "status_before_deletion": TenantStatus.ACTIVE if status == TenantStatus.PENDING_DELETION else None,
             }
         )
         tenants = MagicMock()
@@ -98,6 +101,14 @@ class _World:
             return self.tenant
 
         tenants.update_fields.side_effect = update_fields
+
+        def transition_status(key: str, **kwargs: Any) -> Tenant | None:
+            moved = apply_transition(self.tenant if key == TENANT_KEY else None, **kwargs)
+            if moved is not None:
+                self.tenant = moved
+            return moved
+
+        tenants.transition_status.side_effect = transition_status
         self.records = FakeTenantErasureRepository()
         if status == TenantStatus.PENDING_DELETION:
             self.records.create_with_key(

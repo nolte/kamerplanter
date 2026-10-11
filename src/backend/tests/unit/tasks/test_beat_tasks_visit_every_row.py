@@ -157,7 +157,11 @@ class TestPlantTasks:
         service = MagicMock()
         service.evaluate_plant.return_value = None
         _repoint(
-            monkeypatch, module, deps, get_plant_repo=PagingRepo(_plants(1001)), get_quarter_climate_service=service
+            monkeypatch,
+            module,
+            deps,
+            get_plant_repo=PagingRepo(_plants(1001, tenant_key="t1")),
+            get_quarter_climate_service=service,
         )
 
         result = module.evaluate_quarter_climate()
@@ -234,7 +238,7 @@ class TestTankTasks:
         import app.tasks.tank_maintenance_tasks as module
 
         latest_state = MagicMock(return_value=None)
-        tanks = [SimpleNamespace(key=k, name=k) for k in _keys(1001, "tank")]
+        tanks = [SimpleNamespace(key=k, name=k, tenant_key="t1") for k in _keys(1001, "tank")]
         _repoint(monkeypatch, module, deps, get_tank_repo=PagingRepo(tanks, get_latest_state=latest_state))
 
         module.check_tank_alerts()

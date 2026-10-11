@@ -134,11 +134,9 @@ _SITES: dict[str, tuple[str, str, str]] = {
         "",
         "reads AI settings of ctx.tenant_key, which get_current_tenant already resolved",
     ),
-    f"{_TS}:TenantService._apply_tenant_update": (_DECIDED, "", "mutation; the route resolved the tenant"),
     f"{_TS}:TenantService.delete_tenant": (_DECIDED, "", "erasure must reach a deactivated tenant"),
     f"{_TS}:TenantService.erase_personal_tenant_of": (_DECIDED, "", "erasure must reach a deactivated tenant"),
     # #2123 — the lifecycle of a deletion acts on tenants that resolve for nobody by design.
-    f"{_TS}:TenantService._mark_tenant_erasing": (_DECIDED, "", "erasure claim; marks the tenant deleted"),
     f"{_TS}:TenantService._organisations_of": (
         _DECIDED,
         "",

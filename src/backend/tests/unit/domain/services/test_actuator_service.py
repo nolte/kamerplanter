@@ -847,3 +847,118 @@ class TestStatsAndEnergy:
         service.clear_override("act1", "t1")
         assert len(service.list_events("act1", "t1")) == 1
         assert service.list_location_events("loc1", "t1") == service.list_events("act1", "t1")
+
+
+# ── REQ-056 SEC-003: a closed tenant's hardware is driven to a safe state ────
+
+
+def _typed(kind: ActuatorType, *, key: str = "act1", state: str = "on", **extra) -> Actuator:
+    return Actuator(
+        _key=key,
+        tenant_key="t1",
+        location_key="loc1",
+        name=kind.value,
+        actuator_type=kind,
+        protocol="home_assistant",
+        ha_entity_id=f"switch.{key}",
+        current_state=state,
+        **extra,
+    )
+
+
+def _overheat_cooler_rule() -> ControlRule:
+    return ControlRule(
+        tenant_key="t1",
+        actuator_key="act1",
+        name="Overheat",
+        rule_type=RuleType.THRESHOLD,
+        sensor_parameter="temperature",
+        condition=RuleCondition(operator=ConditionOperator.GT, threshold=35.0),
+        action=RuleAction(command=ActionCommand.TURN_ON),
+        hysteresis=HysteresisConfig(
+            on_threshold=35.0, off_threshold=30.0, min_on_duration_seconds=0, min_off_duration_seconds=0
+        ),
+        is_safety_rule=True,
+    )
+
+
+class TestDriveToSafeState:
+    def test_an_open_valve_is_closed_once(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.IRRIGATION_VALVE)
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+
+        event = service.drive_to_safe_state(repo.actuators["act1"], {})
+
+        assert event is not None and event.command == "turn_off"
+        assert event.event_source == ControlEventSource.SAFETY
+        assert repo.actuators["act1"].current_state == "off"
+        assert service.drive_to_safe_state(repo.actuators["act1"], {}) is None  # already off
+        assert len(ha.calls) == 1
+
+    def test_an_unreachable_home_assistant_is_not_asked_every_tick_and_no_task_is_written(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.HEATER)
+        ha = FakeHaClient(fail=True)
+        tasks = FakeTaskRepo()
+        service = _service(repo, ha=ha, task_repo=tasks)
+
+        first = service.drive_to_safe_state(repo.actuators["act1"], {})
+        second = service.drive_to_safe_state(repo.actuators["act1"], {})
+
+        assert first is not None and first.success is False
+        assert second is None  # the off was sent (and recorded failed)
+        assert len(repo.events) == 1
+        assert tasks.tasks == []  # nobody can open a task in a closed tenant
+
+    def test_the_exhaust_fan_keeps_running(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.EXHAUST_FAN)
+        service = _service(repo, ha=FakeHaClient())
+
+        assert service.drive_to_safe_state(repo.actuators["act1"], {}) is None
+        assert repo.actuators["act1"].current_state == "on"
+
+    def test_a_firing_safety_rule_wins_over_the_switch_off(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.COOLER, state="off")
+        repo.active_rules = [_overheat_cooler_rule()]
+        service = _service(repo, ha=FakeHaClient())
+
+        event = service.drive_to_safe_state(repo.actuators["act1"], {"temperature": 38.0})
+
+        assert event is not None and event.command == "turn_on"
+        # Next tick the rule still fires and the cooler is on: neither re-sent nor switched off.
+        assert service.drive_to_safe_state(repo.actuators["act1"], {"temperature": 38.0}) is None
+        assert repo.actuators["act1"].current_state == "on"
+
+    def test_schedules_overrides_and_sensor_rules_are_not_evaluated(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.LIGHT, state="off")
+        repo.active_rules = [_vpd_rule()]
+        repo.active_schedules = [_schedule()]
+        service = _service(repo, ha=FakeHaClient())
+
+        assert service.drive_to_safe_state(repo.actuators["act1"], {"vpd": 2.0}) is None
+        assert repo.actuators["act1"].current_state == "off"
+
+    def test_fail_safe_state_overrides_the_type(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.ROOF_VENT, fail_safe_state="off")
+        repo.actuators["act2"] = _typed(ActuatorType.HEATER, key="act2", fail_safe_state="on")
+        service = _service(repo, ha=FakeHaClient())
+
+        assert service.drive_to_safe_state(repo.actuators["act1"], {}) is not None
+        assert service.drive_to_safe_state(repo.actuators["act2"], {}) is None
+
+    def test_a_manual_actuator_is_left_alone(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.PUMP).model_copy(update={"protocol": "manual"})
+        tasks = FakeTaskRepo()
+        service = _service(repo, task_repo=tasks)
+
+        assert service.drive_to_safe_state(repo.actuators["act1"], {}) is None
+        assert tasks.tasks == [] and repo.events == []
+
+
+def test_the_safe_off_types_follow_the_emergency_scenarios():
+    from app.domain.services.actuator_service import _EMERGENCY_SCENARIOS, CLOSED_TENANT_OFF_TYPES
+
+    assert "irrigation_valve" in CLOSED_TENANT_OFF_TYPES
+    assert "heater" in CLOSED_TENANT_OFF_TYPES
+    assert "exhaust_fan" not in CLOSED_TENANT_OFF_TYPES  # co2_leak forces it on
+    assert set(_EMERGENCY_SCENARIOS["fire_alarm"]["off"]) - {"exhaust_fan"} <= CLOSED_TENANT_OFF_TYPES
