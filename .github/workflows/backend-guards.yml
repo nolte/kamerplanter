@@ -383,6 +383,9 @@ jobs:
         # `Integration tests (ArangoDB)` keeps one runner slot and one queue
         # wait (see the relevance step below).
         image: timescale/timescaledb:2.30.2-pg16@sha256:6f139d56042989bd35f50ba5986e492cd32e35cc6778c50be2659add298dc09f
+        credentials:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
         env:
           # Throwaway, matches the tier's default (`tests/support/timescale_integration.py`).
           POSTGRES_PASSWORD: changeme

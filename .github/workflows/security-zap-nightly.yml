@@ -71,6 +71,13 @@ jobs:
       # renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy
       ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20261008-stable@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2
     steps:
+      - name: Log in to Docker Hub
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Bring up ephemeral stack

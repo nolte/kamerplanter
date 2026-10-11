@@ -221,7 +221,8 @@ class TestSend:
             result = await channel.send(_make_notification(), config)
 
         assert result.success is True
-        assert "push: RuntimeError" in (result.error or "")
+        assert "push: delivery failed" in (result.error or "")
+        assert "RuntimeError" not in (result.error or ""), "the exception type is an oracle (#2249 SEC-002)"
 
     @pytest.mark.asyncio
     async def test_missing_vapid_private_key(self) -> None:

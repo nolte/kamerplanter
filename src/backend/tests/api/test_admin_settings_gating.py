@@ -189,6 +189,7 @@ def test_platform_admin_is_admitted(monkeypatch, method: str, path: str, body: d
     with (
         patch("app.domain.services.system_settings_service.env_settings") as env,
         patch("app.api.v1.admin.settings.router.httpx.get") as http_get,
+        patch("app.api.v1.admin.settings.router._ha_get") as ha_get,
         patch("app.api.v1.admin.settings.router._sync_ha_notification_channel"),
         patch("app.common.url_safety._resolved_addresses", return_value=_PUBLIC_ADDRESS),
     ):
@@ -197,6 +198,7 @@ def test_platform_admin_is_admitted(monkeypatch, method: str, path: str, body: d
             json=MagicMock(return_value={"message": "API running.", "version": "2026.9"}),
             status_code=200,
         )
+        ha_get.return_value = http_get.return_value
         client = TestClient(_app(service, _tenant_service(platform_admin=True)))
         resp = client.request(method, path, json=body)
 
@@ -217,6 +219,7 @@ def test_light_mode_admits_the_sole_operator(monkeypatch, method: str, path: str
     with (
         patch("app.domain.services.system_settings_service.env_settings") as env,
         patch("app.api.v1.admin.settings.router.httpx.get") as http_get,
+        patch("app.api.v1.admin.settings.router._ha_get") as ha_get,
         patch("app.api.v1.admin.settings.router._sync_ha_notification_channel"),
         patch("app.common.url_safety._resolved_addresses", return_value=_PUBLIC_ADDRESS),
     ):
@@ -225,6 +228,7 @@ def test_light_mode_admits_the_sole_operator(monkeypatch, method: str, path: str
             json=MagicMock(return_value={"message": "API running.", "version": "2026.9"}),
             status_code=200,
         )
+        ha_get.return_value = http_get.return_value
         client = TestClient(_app(service, tenant_service))
         resp = client.request(method, path, json=body)
 
@@ -241,14 +245,14 @@ def test_plain_member_cannot_make_the_backend_dial_a_host_with_the_installation_
     a host of their choosing. The URL used here is public and well-formed, so
     ``validate_ha_url`` admits it — the refusal has to come from the gate.
 
-    The assertion is that ``httpx.get`` is never reached. A 403 alone would
+    The assertion is that the HA request (``_ha_get``) is never reached. A 403 alone would
     also pass if the refusal happened *after* the call.
     """
     monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "full")
     service, _repo = _service()
     with (
         patch("app.domain.services.system_settings_service.env_settings") as env,
-        patch("app.api.v1.admin.settings.router.httpx.get") as http_get,
+        patch("app.api.v1.admin.settings.router._ha_get") as http_get,
         patch("app.common.url_safety._resolved_addresses", return_value=_PUBLIC_ADDRESS),
     ):
         _env_defaults(env)
@@ -275,7 +279,7 @@ def test_the_exfiltration_path_is_real_for_a_caller_the_gate_admits(monkeypatch)
     service, _repo = _service()
     with (
         patch("app.domain.services.system_settings_service.env_settings") as env,
-        patch("app.api.v1.admin.settings.router.httpx.get") as http_get,
+        patch("app.api.v1.admin.settings.router._ha_get") as http_get,
         patch("app.common.url_safety._resolved_addresses", return_value=_PUBLIC_ADDRESS),
     ):
         _env_defaults(env)
