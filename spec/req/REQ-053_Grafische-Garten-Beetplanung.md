@@ -80,7 +80,7 @@ Der Nutzer bildet seine reale Gartenanlage **maßstäblich oder zumindest metris
 ### 2.3 Nicht im Scope
 
 - Ein allgemeiner CAD-/GIS-Editor (keine Layer-Verwaltung jenseits der fachlichen Objektklassen, keine Höhenmodelle, kein Georeferenzieren von Luftbildern im MVP).
-- Ein zweites Positionsmodell für Indoor: Growzelte, Regale und Beete laufen auf **demselben** Slot-Geometriemodell (§9.2a, Entscheidung O-01). Was nicht im Scope ist, sind indoor-spezifische Editor-Funktionen (Ebenen-Stapel eines Regals, Topfgrößen-Raster) — ein Zelt ist eine Location mit Rechteck-Geometrie und Punkt-Slots, mehr nicht.
+- Ein zweites Positionsmodell für Indoor: Growzelte, Regale und Beete laufen auf **demselben** Slot-Geometriemodell (§9.2a, Entscheidung O-01). Ebenen-Stapel eines Regals und Topfgrößen-Raster bleiben außerhalb; ein Zelt ist eine Location mit Rechteck-Geometrie und Punkt-Slots. **Ab v1.3** gibt es zusätzlich einen Wohnungs-/Raum-Grundriss mit denselben Zeichenfunktionen wie der Garten (§9.8, Umfang O-22).
 - Automatische Bewässerungssteuerung (REQ-018 bleibt zuständig; hier nur Zonen-Modell und Verknüpfung).
 - Sonnen-/Schattenberechnung, KI-Pflanzplanung, Ertragsplanung (§29).
 - Änderungen am Tenant-, Rollen- oder Rechtemodell (REQ-024/REQ-049 gelten unverändert).
@@ -154,7 +154,7 @@ Der Auftrag nennt als Zielarchitektur „Go Backend, Vue.js, Tailwind". **Das tr
 | Marktgärtner | `UZG-002` | Sekundär. Reihenkulturen, Sukzession, Flächenertrag. |
 | Bildungseinrichtungen | `UZG-003` | Sekundär. Schulgarten, viele Lesende, wenige Schreibende. |
 | Casual-Hobby-Nutzer | `UZG-001` | Tertiär. Balkon/Terrasse mit Kübeln; profitiert vom Plan nur, wenn er in Minuten entsteht (Vorlagen, §10.4). |
-| Cannabis-Indoor-Grower | `ZG-001` | Nicht adressiert (Indoor-Raster bleibt tabellarisch, §2.3). |
+| Cannabis-Indoor-Grower | `ZG-001` | Zelt/Regal laufen auf demselben Geometriemodell (§9.2a); Wohnungs-Grundriss §9.8 (O-22). |
 
 ---
 
@@ -383,7 +383,7 @@ Abgenommen wird der Editor weiterhin primär mit Outdoor-Szenarien (§30), aber 
 | GP-FR-030 | WON'T | Persistente Gruppen (Gruppenobjekt mit eigenem Dokument). Begründung: Die Hierarchie Location → Location leistet fachliches Gruppieren bereits; ein rein grafisches Gruppenobjekt erzeugt ein zweites Containment-Modell. Mehrfachauswahl deckt den Bedienfall ab. | — |
 | GP-FR-031 | MUST | Ebenen-Sichtbarkeit: Schalter für Raster, Pflanzen, Beschriftungen (MVP) sowie Gartenobjekte, Beete, Zonen, „zuletzt gegossen" (SHOULD). Die Sichtbarkeit ist nutzerbezogen (localStorage). | ja |
 | GP-FR-032 | MUST | Sperren eines Objekts gegen versehentliches Verschieben (`locked: true`, persistiert, Schloss-Symbol). Gartengrenze ist nach dem ersten Speichern standardmäßig gesperrt. | ja |
-| GP-FR-033 | SHOULD | Hintergrundbild (Foto/Skizze/Luftbild) als **Unterlage zum Abzeichnen** mit Zwei-Punkt-Eichung (zwei Punkte + bekannte Distanz → Maßstab) und Deckkraft. Nur Darstellung, nie Datenquelle, nicht im Export (GP-FR-140) und nicht im PDF, außer ausdrücklich gewählt; Dateigröße begrenzt (Quote GP-NFR-017), Lagerung als Attachment (NFR-013); Luftbilder können Wohnort verraten → §26. Georeferenzierung/Kacheln bleiben COULD (GP-FR-033b). *Vorschlag O-19.* | nein |
+| GP-FR-033 | SHOULD | Hintergrundbild (Foto/Skizze/Luftbild) als **Unterlage zum Abzeichnen** mit Zwei-Punkt-Eichung (zwei Punkte + bekannte Distanz → Maßstab) und Deckkraft. Nur Darstellung, nie Datenquelle, nicht im Export (GP-FR-140) und nicht im PDF, außer ausdrücklich gewählt; Dateigröße begrenzt (Quote GP-NFR-017), Lagerung als Attachment (NFR-013); Luftbilder können Wohnort verraten → §26. Georeferenzierung/Kacheln bleiben COULD (GP-FR-033b). *(O-19 entschieden 2026-10-11.)* | nein |
 | GP-FR-034 | COULD | Messwerkzeug (Abstand zwischen zwei Punkten, Fläche eines temporären Polygons). | nein |
 
 ### 9.5 Objektklassen und ihre Darstellung
@@ -497,6 +497,26 @@ Diese Regeln präzisieren §9.4 und §17. Wo sie einer älteren Zeile widersprec
 **Messprofile.** GP-NFR-071 (SHOULD, MVP nein): INP ≤ 200 ms für Auswahl, Drag-Start und Zoom; Pinch-Zoom-Frametime ≤ 33 ms auf Smartphone; Low-End-Android-Profil (CPU 4× gedrosselt) für den Feldmodus. Ergänzt GP-NFR-033/-034.
 
 
+### 9.8 Indoor-/Wohnungs-Grundriss (v1.3, Betreiberwunsch, Umfang O-22)
+
+Wer Zimmerpflanzen, Fensterbänke, Regale und Zelte in der Wohnung hält, soll **dieselben Zeichen- und Planungsfunktionen** nutzen wie im Garten. Grundlage ist bereits entschieden (O-01, O-08): ein Positionsmodell für alle Site-Typen, `V-18` entfällt. Neu ist nur, was einem Wohnungsplan fehlt. Vorschlag: SHOULD, nicht MVP, bis O-22 entschieden ist; die Zeilen gelten für den **Indoor-Plan**, die Editor-Regeln aus §9.7 gelten unverändert mit.
+
+| Aspekt | Regelung |
+|--------|----------|
+| Raum | Location `room` (Seed vorhanden) mit `rect`/`polygon`-Geometrie; die Site-Grenze ist der Wohnungsumriss (GP-FR-005, `boundary`). Etagen: **eine Etage = eine Site-Ebene** wird nicht eingeführt; mehrere Etagen sind mehrere Sites oder verschachtelte `building`-Locations (keine 3D-Stapelung, wie bei Regalen, W-016.4). |
+| Neue Objektklassen | GardenObject `window` (polyline/Linie in der Wand, Props `sill_height_m?`, `glazing ∈ {single, double, unknown}?`, `orientation` abgeleitet aus Wand + `north_angle_deg`), `door` (Linie, Props `swing`), `furniture` (rect; Fensterbank, Regal-Standfläche, Tisch), `lamp` (Punkt/rect, Props `kind ∈ {grow_light, ceiling, floor}`, `height_m`, `ppfd_ref?` — Vorbereitung für Lichtverteilung, keine Berechnung). `wall` (bestehend) bildet Innenwände. |
+| Pflanzplatz | Topf/Kübel = Slot (Punktgeometrie) oder `planter`-Location auf Fensterbank/Regal (`shelf` ist kein Beet, O-09, trägt aber `planter`). Gleiche Bepflanzen-, Aufgaben- und Historienfunktionen wie im Garten. |
+| Licht | Fenster liefert dem Raum eine **Lichtrichtung**: `sun_profile.sun_window` und `sun_exposure` der Locations am Fenster lassen sich aus Fensterorientierung vorbelegen (Vorschlag, manuell überschreibbar; Verschattung durch Gebäude/Bäume draußen bleibt §29). Künstliches Licht über `lamp` + `Location.lighting` (§9.2a). |
+| Zeichnen | Dieselben Werkzeuge (Rechteck/Polygon/Polylinie), Raster, Snap, Zwei-Punkt-Eichung der Hintergrund-Unterlage (GP-FR-033: **Foto oder Skizze des Grundrisses als Vorlage**) und „Hinzufügen mit Maßen“ (GP-UX-046) — die Unterlage ist hier der wichtigste Einstieg. Raster-Standard Indoor 5 cm. |
+| Export/Import | Wie §23 (PDF/SVG/JSON); „Neue Saison aus Vorjahr“ (GP-FR-171) gilt auch hier. |
+
+| ID | Prio | Anforderung | MVP |
+|----|------|-------------|-----|
+| GP-FR-180 | SHOULD | Indoor-Objektklassen `window`, `door`, `furniture`, `lamp` (Tabelle oben) mit Darstellung, Eigenschaftenpanel und Legende; Aufnahme in das Untermenü „Gartenobjekt“ des Werkzeugs (umbenannt in „Objekt“, GP-UX-001 bleibt bei ≤ 8 Werkzeugen). | nein |
+| GP-FR-181 | SHOULD | Fenster tragen eine aus Wandrichtung und Nordwinkel abgeleitete Himmelsrichtung; Locations in einem Radius (konfigurierbar, Standard 1,5 m) können `sun_profile` daraus vorbelegen lassen — nie automatisch überschreiben. | nein |
+| GP-FR-182 | SHOULD | Indoor-Plan ist über Route und Modul wie der Gartenplan erreichbar (`standorte/sites/:key/plan`); Leerzustand erklärt „Zeichne die Umrisse deiner Wohnung oder lade ein Foto als Vorlage“ (GP-UX-049). Für `SiteType` indoor sind Wetter-, Frost- und Windmerkmale (§10.2) ausgeblendet. | nein |
+| GP-FR-183 | COULD | Räume als Hierarchie: Wohnung → Raum → Fensterbank/Regal → Topf; Beetliste (GP-FR-042) heißt Indoor „Pflanzplätze“. | nein |
+
 ---
 
 ## 10. Beetverwaltung
@@ -509,7 +529,7 @@ Diese Regeln präzisieren §9.4 und §17. Wo sie einer älteren Zeile widersprec
 | Geometrie, Fläche | `Location.geometry`, `area_m2` | `geometry` neu | §9.2 |
 | Bodenart, Füllmedium, Bodenzustand | `Location.soil_profile.{soil_texture, growing_medium_kind, conditions[]}` | neu | §15 |
 | Standort (Lage im Garten) | `geometry.origin`, Elternbereich | — | |
-| Sonneneinstrahlung | `Location.sun_exposure ∈ {full_sun, partial_shade, shade, unknown}` | neu | manuell; später aus Berechnung vorbelegbar (§29) |
+| Sonneneinstrahlung | `Location.sun_exposure ∈ {full_sun, partial_shade, shade, deep_shade, unknown}` | neu | manuell; später aus Berechnung vorbelegbar (§29) |
 | Bewässerungszone, -typ | `Location.irrigation_zone_key`, `irrigation_system` (bestehend) | `irrigation_zone_key` neu | §14 |
 | Notizen | `Location.notes` | neu | Freitext, Markdown-frei |
 | Status | `Location.bed_status` (Lebenszyklus) + abgeleiteter `season_state` | neu | §7.4 |
@@ -536,7 +556,7 @@ Diese Regeln präzisieren §9.4 und §17. Wo sie einer älteren Zeile widersprec
 
 ### 10.2 Standortmerkmale des Beets (v1.3)
 
-`sun_exposure` mit vier Werten (§10.1) reicht für die Pflanzenwahl nicht: Ein Beet mit Morgensonne ist für Salat etwas anderes als eines mit Nachmittagssonne, ein Beet unter einem Obstbaum ist im April sonnig und im Juli schattig. Alle Felder sind **optional, Standard `unknown`**, manuell erfassbar und zwingen den Bepflanzen-Dialog zu nichts. Quelle der Befunde: `spec/analysis/outdoor-garden-planner-review-req-053-v1.3.md`. Fachliche Zahlen sind bis zur Prüfung durch den Agrobiologie-Reviewer **unverifiziert** (O-17).
+`sun_exposure` mit fünf Werten (§10.1) reicht für die Pflanzenwahl nicht: Ein Beet mit Morgensonne ist für Salat etwas anderes als eines mit Nachmittagssonne, ein Beet unter einem Obstbaum ist im April sonnig und im Juli schattig. Alle Felder sind **optional, Standard `unknown`**, manuell erfassbar und zwingen den Bepflanzen-Dialog zu nichts. Quelle der Befunde: `spec/analysis/outdoor-garden-planner-review-req-053-v1.3.md`. Fachliche Zahlen sind bis zur Prüfung durch den Agrobiologie-Reviewer **unverifiziert** (O-17).
 
 ```yaml
 Location.site_conditions:                     # neu, eingebetteter Werttyp
@@ -560,10 +580,10 @@ Location.site_conditions:                     # neu, eingebetteter Werttyp
 
 | ID | Prio | Anforderung | MVP |
 |----|------|-------------|-----|
-| GP-FR-157 | MUST | **Sonne/Schatten als Kachelauswahl** mit Icon + Text (nicht Dropdown): ☀ Volle Sonne · ⛅ Halbschatten · ☁ Schatten · ? Unbekannt (Standard). Jede Kachel trägt einen Hilfetext mit Definition („Volle Sonne: mehr als 6 Stunden direktes Sonnenlicht an einem Sommertag“, Glossar UI-NFR-011; Schwellen konfigurierbar, GP-FR-164). Eingabeort: Anlegedialog, Eigenschaftenpanel/Beet-Sheet, Beet-Zusammenfassung (GP-FR-047); im Feldmodus lesend, Ändern über „Bearbeiten“; Kacheln ≥ 64 px. **Stapel-Zuweisung:** „Sonne für alle gewählten Beete setzen“ (30 Parzellen). Ob die Skala um `deep_shade` erweitert wird, entscheidet O-16. | ja |
+| GP-FR-157 | MUST | **Sonne/Schatten als Kachelauswahl** mit Icon + Text (nicht Dropdown): ☀ Volle Sonne · ⛅ Halbschatten · ☁ Schatten · ● Tiefschatten · ? Unbekannt (Standard). Jede Kachel trägt einen Hilfetext mit Definition („Volle Sonne: mehr als 6 Stunden direktes Sonnenlicht an einem Sommertag“, Glossar UI-NFR-011; Schwellen konfigurierbar, GP-FR-164). Eingabeort: Anlegedialog, Eigenschaftenpanel/Beet-Sheet, Beet-Zusammenfassung (GP-FR-047); im Feldmodus lesend, Ändern über „Bearbeiten“; Kacheln ≥ 64 px. **Stapel-Zuweisung:** „Sonne für alle gewählten Beete setzen“ (30 Parzellen). `deep_shade` ist ergänzt, damit die Skala zu `Species.shade_tolerance` passt (O-16 entschieden). | ja |
 | GP-FR-158 | SHOULD | **Sonnenprofil:** `sun_window` als Chip-Auswahl „Morgen / Mittag / Nachmittag / ganztägig“ (Stundenzahl optional, kein Zählen nötig); Eingabe auch im Feldmodus als Beet-Sheet mit 3–4 Chips (GP-UX-057). | nein |
 | GP-FR-159 | SHOULD | **Laubschatten:** Schalter „Laubschatten im Sommer“ (`foliage_shade_in_summer`) belegt die Saisonwerte vor (Frühjahr sonnig, Sommer schattig); die Berechnung bleibt §29. | nein |
-| GP-FR-160 | MUST | **Eignungs-Ampel `site_fit`** im Bepflanzen-Dialog (§11): Beetmerkmal gegen Anspruch der Art, Werte `ok / marginal / poor / unknown`, Begründung im Klartext („Beet: Halbschatten — Tomate braucht Vollsonne“). **Nicht blockierend**, analog zu Fruchtfolge-/Mischkultur-Hinweisen. `unknown` auf einer Seite ergibt keinen Hinweis. Grundlage: `Species.shade_tolerance` (REQ-001; vier Stufen) gegen `sun_exposure`; das Mapping ist als Tabelle im Code und hier zu dokumentieren, **bevor** die Ampel gebaut wird, weil die Semantik von `shade_tolerance` (Toleranz vs. Anspruch) in REQ-001 nicht eindeutig ist (O-16). Der Baustein ist generisch (`site_suitability`: Beetmerkmal ↔ Artanspruch) und wird von REQ-054 als Kriterium wiederverwendet. | ja |
+| GP-FR-160 | MUST | **Eignungs-Ampel `site_fit`** im Bepflanzen-Dialog (§11): Beetmerkmal gegen Anspruch der Art, Werte `ok / marginal / poor / unknown`, Begründung im Klartext („Beet: Halbschatten — Tomate braucht Vollsonne“). **Nicht blockierend**, analog zu Fruchtfolge-/Mischkultur-Hinweisen. `unknown` auf einer Seite ergibt keinen Hinweis. Grundlage: `Species.shade_tolerance` (REQ-001; vier Stufen) gegen `sun_exposure`; das Mapping ist als Tabelle im Code und hier zu dokumentieren, **bevor** die Ampel gebaut wird, weil die Semantik von `shade_tolerance` (Toleranz vs. Anspruch) in REQ-001 nicht eindeutig ist (O-16: Skala ergänzt, Semantik von `shade_tolerance` in REQ-001 noch zu klären). Der Baustein ist generisch (`site_suitability`: Beetmerkmal ↔ Artanspruch) und wird von REQ-054 als Kriterium wiederverwendet. | ja |
 | GP-FR-161 | SHOULD | `site_fit` berücksichtigt zusätzlich `microclimate.frost_risk` ↔ Frostempfindlichkeit/Winterhärte, `wind_exposure` ↔ `Species.support_required` und `soil_profile.drainage` ↔ `waterlogging_tolerance`. | nein |
 | GP-FR-162 | SHOULD | **Mikroklima/Frostrisiko** (`microclimate`): manuell; `frost_risk` fließt in die Frost-Frühwarnung (REQ-046/REQ-392) **beetgenau** statt gartenweit ein. Ableitung der Senke aus `Site.plan.terrain` bleibt §29. | nein |
 | GP-FR-163 | SHOULD | `wind_exposure` manuell; später Ableitung aus `Site.plan.prevailing_wind_deg` und Hindernissen (`fence`/`wall`/`shrub` mit `height_m`/`opacity`) — jetzt nur das Feld, kein Algorithmus. | nein |
@@ -1128,7 +1148,7 @@ Bestandsfelder `dimensions` (3-Tupel) und die in REQ-002 vorgesehenen `bed_width
 
 | Feld | Regel |
 |------|-------|
-| `object_type` | `path \| lawn \| tree \| shrub \| building \| wall \| fence \| trellis \| water_source \| compost \| storage \| other` |
+| `object_type` | `path \| lawn \| tree \| shrub \| building \| wall \| fence \| trellis \| water_source \| compost \| storage \| other` sowie Indoor (§9.8) `window \| door \| furniture \| lamp` |
 | `props` | typabhängiges Objekt, Pydantic-Discriminated-Union nach `object_type` (`TreeProps{species_label?, crown_radius_m, height_m?}`, `WaterSourceProps{water_source_kind, capacity_liters?, last_refilled_at?}`, `PathProps{surface ∈ {gravel, paving, bark, grass, other}}`, …) |
 | `parent_location_key` | optional: Objekt liegt in einem Bereich (z. B. Weg im Gewächshaus); Containment wird geometrisch validiert |
 | `off_site` | `bool = false`; `true` nimmt das Objekt von V-03 aus (Nachbargrundstück, §9.5) |
@@ -1498,12 +1518,12 @@ Mit M1 tragen auch Locations und Slots `tenant_key` (SR-022); Repositories filte
 | GP-FR-147 | MUST | JSON | Sicherung und Wiederherstellung: JSON-Export ist in der DSGVO-Datenexport-Kaskade (`DataExportEngine`, REQ-025) enthalten; Import in dieselbe Site stellt Geometrien vollständig wieder her (AC in §30) | beide | ja (Export), SHOULD (Import) |
 | GP-FR-148 | SHOULD (vor Import `replace`: MUST, SR-011; Rückholung: GP-FR-170) | JSON | Automatischer Snapshot je Saison (`garden_plan_snapshots`, 1. Januar / vor `replace`-Import) mit Wiederherstellung | beide | nein |
 
-### 23.1 Erweiterungen (v1.3, Vorschläge — Entscheidungen O-18…O-21 in §32.1)
+### 23.1 Erweiterungen (v1.3 — Entscheidungen in §32.1)
 
 | ID | Prio | Format | Inhalt | Richtung | MVP |
 |----|------|--------|--------|----------|-----|
-| GP-FR-170 | MUST | JSON | **Wiederherstellung in den MVP:** Eine Sicherung, die sich nicht zurückspielen lässt, ist keine. Import `replace` auf dieselbe Site mit `dry_run`-Prüfbericht und **Pflicht-Snapshot** (SR-011) wird MVP; die Grenzen aus GP-FR-141/SR-018 gelten unverändert. Löst den Widerspruch GP-FR-147 (MUST) ↔ GP-FR-141 (SHOULD) auf. Erst die Rückholfunktion macht den Snapshot (GP-FR-148) wertvoll. *Vorschlag O-18.* | beide | ja |
-| GP-FR-171 | SHOULD | Aktion | **„Neue Saison aus Vorjahr“:** übernimmt Beete, Slots und Zonen, legt **keine** Pflanzen an; Historie bleibt an den Slots (§13), Fruchtfolge-/Mischkultur-Hinweise (GP-FR-131/132) nutzen die Vorjahresbelegung; optional Anzeige „Hier stand: Tomate“ als Planentwurf. Abstimmung mit REQ-054 vor Umsetzung. | Kopie | nein |
+| GP-FR-170 | MUST | JSON | **Wiederherstellung in den MVP:** Eine Sicherung, die sich nicht zurückspielen lässt, ist keine. Import `replace` auf dieselbe Site mit `dry_run`-Prüfbericht und **Pflicht-Snapshot** (SR-011) wird MVP; die Grenzen aus GP-FR-141/SR-018 gelten unverändert. Löst den Widerspruch GP-FR-147 (MUST) ↔ GP-FR-141 (SHOULD) auf. Erst die Rückholfunktion macht den Snapshot (GP-FR-148) wertvoll. *(O-18 entschieden 2026-10-11: MVP.)* | beide | ja |
+| GP-FR-171 | SHOULD | Aktion | **„Neue Saison aus Vorjahr“:** übernimmt Beete, Slots und Zonen, legt **keine** Pflanzen an; Historie bleibt an den Slots (§13), Fruchtfolge-/Mischkultur-Hinweise (GP-FR-131/132) nutzen die Vorjahresbelegung; optional Anzeige „Hier stand: Tomate“ als Planentwurf. Datenkopie gehört zu REQ-053, Belegungsvorschläge zu REQ-054 (O-20 entschieden 2026-10-11); gilt für Garten **und** Wohnung/Indoor (§9.8). | Kopie | nein |
 | GP-FR-172 | SHOULD | JSON | **Teil-Export und Zielwahl:** Export `scope ∈ {site, selection, subtree}` (nur diese Beete / ein Bereich mit Unterbeeten); Import `target ∈ {same_site, other_site, other_tenant}` für Umzug und Parzellenübergabe. Referenzregeln wie GP-FR-141 (externe Verweise → `null`, Bericht `dropped_references[]`); Rolle: Leitung beider Seiten. | beide | nein |
 | GP-FR-173 | COULD | JSON | **Vorlagen-Austausch:** Beet-Vorlage (GP-FR-044) einzeln als JSON exportieren/importieren, ohne Mandanten-Keys, Notizen, Personenbezüge; Härtungen wie GP-FR-141. Eine kuratierte Vereinsbibliothek gehört nicht hierher. | beide | nein |
 | GP-FR-174 | SHOULD | **CSV** | **Beetlisten-Import** zur Massenanlage: Spalten `Name; Typ; Breite_m; Länge_m` (optional Sonne, Bodenart, Zone); Prüfbericht mit Zeilenfehlern (`dry_run`), UTF-8, Semikolon (deutsches Excel), Formel-Injektions-Härtung wie GP-FR-104/145. Legt Beete ohne Layout an (zunächst in einer Reihe); die Anordnung erfolgt im Editor. Export zusätzlich als Excel-Variante (Semikolon, BOM). | Import | nein |
@@ -1613,7 +1633,7 @@ Die Zielwerte gelten für „groß"; die Belastungsgrenze ist zugleich die **har
 | 15 | REST API | §21 (MUST-Zeilen) |
 | 16 | Persistente Speicherung in ArangoDB | §20, Migrationen M1–M3 |
 
-Zusätzlich im MVP, weil ohne sie das Obige nicht abnehmbar ist: Gartenobjekte `path`, `tree`, `building`, `fence`, `water_source`, `other` (Orientierung auf dem Plan); Undo/Redo (ohne es ist jeder Fehlklick ein Datenverlust); PDF/SVG-Export (REQ-032 §2.5 wartet darauf); JSON-Export (Sicherung); Bodenprofil-Grundfelder (Beetfelder laut Auftrag §6); Beet-Nachbarschaft aus Geometrie (sonst läuft die bestehende Mischkultur-Engine für Beete leer); **nach Review (F-12, Betreiberentscheid):** Fruchtfolge-Hinweis auf Beet-Ebene mit Anbaupausen je Familie, Mischkultur-Hinweis im Dialog, Vorjahr am Beet (GP-FR-077/131/132), Beet räumen (GP-FR-055), Schnellprotokoll und Rückgängig im Feldmodus (GP-UX-029, GP-FR-149), Redaktion (GP-FR-109), Quoten und Pflicht-Audit.
+Zusätzlich im MVP, weil ohne sie das Obige nicht abnehmbar ist: Gartenobjekte `path`, `tree`, `building`, `fence`, `water_source`, `other` (Orientierung auf dem Plan); Undo/Redo (ohne es ist jeder Fehlklick ein Datenverlust); PDF/SVG-Export (REQ-032 §2.5 wartet darauf); JSON-Export (Sicherung) **und `replace`-Import mit Pflicht-Snapshot (Wiederherstellung, GP-FR-170, v1.3)**; Bodenprofil-Grundfelder (Beetfelder laut Auftrag §6); Beet-Nachbarschaft aus Geometrie (sonst läuft die bestehende Mischkultur-Engine für Beete leer); **nach Review (F-12, Betreiberentscheid):** Fruchtfolge-Hinweis auf Beet-Ebene mit Anbaupausen je Familie, Mischkultur-Hinweis im Dialog, Vorjahr am Beet (GP-FR-077/131/132), Beet räumen (GP-FR-055), Schnellprotokoll und Rückgängig im Feldmodus (GP-UX-029, GP-FR-149), Redaktion (GP-FR-109), Quoten und Pflicht-Audit.
 
 ### 28.2 Bewusst nicht im MVP (mit Begründung)
 
@@ -1798,20 +1818,19 @@ Alle Punkte wurden vom Betreiber entschieden; die Tabelle bleibt als Protokoll s
 | F-01/F-02 | Reservierung ohne Zeitfenster, kein Saisonwechsel (Review Persona) | **Modellkorrektur eingearbeitet.** | GP-FR-055/065, V-06/V-08, GP-ACC-039/040 |
 | W-014 | Beetstatus mischt Lebenszyklus und Saison (Review Agrobiologie) | **Getrennt.** | §7.4, D-19 |
 
-Es gibt (Stand v1.2) keine offenen Fragen mehr, die die Implementierung des MVP blockieren; die Fragen aus v1.3 stehen in §32.1. Neue Fragen, die während der Umsetzung entstehen, werden als Issue mit Label `spec:REQ-053` erfasst, nicht hier nachgetragen.
+Es gibt (Stand v1.2) keine offenen Fragen mehr, die die Implementierung des MVP blockieren; die Fragen aus v1.3 stehen in §32.1 (O-22 offen). Neue Fragen, die während der Umsetzung entstehen, werden als Issue mit Label `spec:REQ-053` erfasst, nicht hier nachgetragen.
 
-### 32.1 Neue offene Fragen (v1.3, 2026-10-11)
+### 32.1 Fragen aus v1.3 (2026-10-11)
 
-Aus den Reviews v1.3. Bis zur Entscheidung gelten die jeweils markierten „Vorschlag“-Zeilen als nicht freigegeben und sind **nicht** in Roadmap (§34), Anhang A und Akzeptanzkriterien (§30) eingerechnet.
-
-| ID | Frage | Empfehlung | Betrifft |
-|----|-------|------------|----------|
-| O-16 | Skala `Location.sun_exposure` um `deep_shade` erweitern, damit sie zu `Species.shade_tolerance` (4 Stufen) passt, oder nur dokumentiertes Mapping? Und: ist `shade_tolerance` ein Anspruch oder eine Toleranz? | `deep_shade` ergänzen (Feld neu, keine Migration nötig); Semantik in REQ-001 klären, bevor `site_fit` gebaut wird. | GP-FR-157/160 |
-| O-17 | Fachliche Prüfung der Sonnenklassen-Schwellen (6 h / 3–6 h / < 3 h) und des Bezugsdatums (Äquinoktium vs. Sommersonnenwende), der Reichweite 1,2/0,6 m | `agrobiology-requirements-reviewer` beauftragen; bis dahin konfigurierbar. | GP-FR-164/166 |
-| O-18 | Import `replace` + Pflicht-Snapshot in den MVP ziehen (Erweiterung des MVP-Umfangs, Issue 44/GP-FR-148)? | Ja — sonst ist „Sicherung“ im MVP ein leeres Versprechen. | GP-FR-170 |
-| O-19 | Hintergrund-Unterlage (Foto/Skizze, Zwei-Punkt-Eichung) von COULD auf SHOULD? | Ja; Georeferenzierung bleibt COULD. | GP-FR-033 |
-| O-20 | „Neue Saison aus Vorjahr“ in REQ-053 oder in REQ-054? | Datenkopie in REQ-053, Belegungsvorschläge in REQ-054. | GP-FR-171 |
-| O-21 | GeoJSON-Export (Wohnort-Koordinaten in einer Datei, kaum Nutzen für Gartenplaner) streichen? | Streichen oder auf spätere Version verschieben. | GP-FR-146 |
+| ID | Frage | Entscheidung | Eingearbeitet |
+|----|-------|--------------|---------------|
+| O-16 | Skala `sun_exposure` um `deep_shade` erweitern? | **Ja, ergänzt** (Feld neu, keine Migration). Semantik von `Species.shade_tolerance` (Anspruch vs. Toleranz) ist vor dem Bau der Ampel in REQ-001 zu klären. | GP-FR-157/160, §10.1 |
+| O-17 | Fachprüfung der Sonnenklassen-Schwellen, des Bezugsdatums und der Erreichbarkeits-Richtwerte | **Später.** Werte bleiben konfigurierbar und als unverifiziert markiert; Prüfung durch den Agrobiologie-Reviewer wird als Issue erfasst. | GP-FR-164/166 |
+| O-18 | `replace`-Import + Pflicht-Snapshot in den MVP? | **Ja.** | GP-FR-170 |
+| O-19 | Hintergrund-Unterlage als SHOULD? | **Ja**; Georeferenzierung bleibt COULD. | GP-FR-033 |
+| O-20 | „Neue Saison aus Vorjahr“ | **Datenkopie in REQ-053**, Belegungsvorschläge in REQ-054; gilt auch für Indoor. | GP-FR-171 |
+| O-21 | GeoJSON-Export streichen? | **Nein, bleibt COULD** (nicht gestrichen). | GP-FR-146 |
+| O-22 | Umfang des Indoor-/Wohnungs-Grundrisses (§9.8) und seine MVP-Zugehörigkeit | **Offen.** Betreiberwunsch: dieselben Zeichenfunktionen wie für den Garten auch für Wohnung/Indoor. Vorschlag: §9.8 SHOULD, nicht MVP. | §9.8 |
 
 ---
 
@@ -1959,7 +1978,7 @@ Direkt aus den Anforderungen ableitbar; Titel englisch (Feedback-Memory). Labels
 | # | Titel | IDs | Größe |
 |---|-------|-----|-------|
 | 43 | feat(irrigation): irrigation_zones model, endpoints, zone overlay, zone status, log-watering by area | GP-FR-110–114/117, GP-API-050–053 | L |
-| 44 | feat(garden-plan): JSON import with dry-run, merge/replace | GP-FR-141, GP-API-005, GP-ACC-031 | M |
+| 44 | feat(garden-plan): JSON import with dry-run, merge/replace — **replace + snapshot is MVP (O-18, GP-FR-170)** | GP-FR-141/170, GP-API-005, GP-ACC-031 | M |
 | 45 | feat(beds): bed templates + standard sizes + place-template | GP-FR-044/045, GP-API-… §21.7 | M |
 | 46 | feat(rotation): bed-level crop rotation validator + hints in planting dialog + rotation matrix | GP-FR-131–133/135, GP-API-025 | L |
 | 47 | feat(companion): compatibility overlay on plan | GP-FR-134 | M |
