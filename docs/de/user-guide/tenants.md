@@ -228,6 +228,17 @@ Mit der Zusatzberechtigung **Verwaltung** erreichst du alle Einstellungen unter 
 | **Stammdaten-Zuweisung** | Welche globalen Pflanzenarten sind sichtbar |
 | **Einladungen** | E-Mail-Einladungen und Einladungslinks (Tab **Einladungen**, siehe [Mitglieder einladen](#mitglieder-einladen)) |
 
+### Kontingente
+
+Im Tab **Kontingente** der Garten-Einstellungen siehst du — als jedes Mitglied, nicht nur mit **Verwaltung** — den Plan deines Gartens und je Kontingent, wie viel davon schon belegt ist: Mitglieder, Speicherplatz, Fotos je Pflanze und die KI-Aufrufe des Tages. Ein Balken zeigt den Verbrauch; ab 80 % wird er orange, an der Grenze rot. Steht „unbegrenzt“ da, gibt es für dieses Kontingent keine Grenze. <!-- REQ-056 AK-45 -->
+
+- Bei den KI-Aufrufen je Konto siehst du immer nur deinen **eigenen** Verbrauch, nie den eines anderen Mitglieds.
+- Dienstkonten und die KI-Tokens des Gartens sieht nur, wer die Rolle **Leitung** hat.
+- Fotos zählt Kamerplanter je Pflanze, nicht für den ganzen Garten — die Karte nennt deshalb nur die Grenze.
+- Den Plan legt der Betreiber deiner Installation fest; du kannst ihn nicht selbst wechseln. Brauchst du mehr, wende dich an ihn.
+
+Ist ein Kontingent erschöpft, sagt dir Kamerplanter beim nächsten Versuch, welches Kontingent erreicht ist — etwa beim Hochladen eines Fotos oder beim Einladen eines Mitglieds.
+
 !!! warning "Slug ändern bricht URLs"
     Wenn du den Slug änderst, ändern sich alle URLs innerhalb des Tenants. Lesezeichen und geteilte Links werden ungültig. Ändere den Slug nur, wenn nötig.
 

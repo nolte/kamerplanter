@@ -1051,6 +1051,15 @@
       "moderate": "mittel sicher",
       "high": "eher wahrscheinlich",
       "veryHigh": "sehr wahrscheinlich"
+    },
+    "entitlementDimension": {
+      "members": "Mitglieder",
+      "service_accounts": "Dienstkonten",
+      "storage_mb": "Speicherplatz",
+      "photos_per_instance": "Fotos je Pflanze",
+      "ai_calls_per_user_day": "KI-Aufrufe je Konto und Tag",
+      "ai_calls_per_tenant_day": "KI-Aufrufe des Gartens je Tag",
+      "ai_tokens_per_tenant_day": "KI-Tokens des Gartens je Tag"
     }
   }
 }

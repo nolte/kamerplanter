@@ -50,8 +50,21 @@ Jeder Mandant hat einen **Plan**. Ein Plan legt fest, wie viel ein Mandant nutze
 
 Wie viele Organisationen ein Konto selbst gründen darf, ist kein Plan-Kontingent, sondern die Server-Einstellung `TENANT_MAX_ORGANIZATIONS_PER_USER` (Standard `10`; `0` heißt: Organisationen legt nur der Betreiber an).
 
+#### Pläne in der Oberfläche pflegen
+
+Unter **Einstellungen > Plattform-Modus** öffnest du mit **Pläne verwalten** die Seite **Pläne**. <!-- REQ-056 AK-45 -->
+
+- Die Liste zeigt jeden Plan mit Schlüssel, ausgewählten Kontingenten und der Zahl der Mandanten, die ihn nutzen. Der Standard-Plan trägt die Markierung **Standard**. Ein leerer Wert steht dort als **wie Instanz-Einstellung**, ein `0` als **unbegrenzt** bzw. **Budget aus** — nie als „0“.
+- Mit **Plan anlegen** vergibst du Schlüssel (Kleinbuchstaben, Ziffern, `_` oder `-`, später nicht änderbar), Name, optional eine Beschreibung und die Kontingente. Lass ein Feld leer, damit die Server-Einstellung gilt. Unter jedem Feld steht, wie Kamerplanter den Wert anwenden wird.
+- Beim Bearbeiten speicherst du nur, was du geändert hast. Mit **Als Standard-Plan festlegen** bekommen neue Mandanten diesen Plan; der bisherige Standard verliert die Markierung. Einen neuen Plan legst du erst an und markierst ihn danach.
+- Löschen geht nur bei einem Plan, den kein Mandant nutzt und der nicht der Standard ist. Sonst ist der Papierkorb gesperrt, und der Hinweis daran sagt dir, warum.
+
+Auf der Seite eines Mandanten (**Organisation bearbeiten**) zeigt die Karte **Plan und Verbrauch** den aktuellen Plan und je Kontingent Grenze und Verbrauch als Balken. Wähle dort einen anderen Plan und bestätige mit **Plan zuordnen** — auch bei einem gesperrten Mandanten. Für den Mandanten `platform` und einen Mandanten, der gerade gelöscht wird, gibt es keine Auswahl; die Karte sagt dir, warum. Die Zeile „KI-Aufrufe je Konto und Tag“ zeigt deinen eigenen Verbrauch in diesem Mandanten, nicht den eines Mitglieds. Über dem Plan siehst du außerdem, welchem Konto der Mandant gehört.
+
+Die Felder und Codes der API beschreibt die [API-Referenz](../reference/api-reference.md#plaene-und-kontingente). <!-- Issue #2142 -->
+
 !!! warning "Noch nicht implementiert"
-    Pläne pflegst du bisher nur über die API (`/api/v1/admin/platform/plans`, Zuordnung mit `PATCH /api/v1/admin/platform/tenants/{key}` und `plan_key`); eine Seite dafür gibt es im Admin-Bereich noch nicht, und die Mandantenseite zeigt Plan und Verbrauch noch nicht an (interne Referenz: REQ-056 §15). Die Felder und Codes beschreibt die [API-Referenz](../reference/api-reference.md#plaene-und-kontingente). <!-- REQ-056 AK-45, Issue #2142 -->
+    Den Billing-Kontakt und einen Sperrgrund zeigt die Mandantenseite noch nicht an; beides gibt es auch in der API noch nicht (interne Referenz: REQ-056 §5.3, §9.2).
 
 !!! info "Ein deaktivierter Mandant sperrt alle Mitglieder aus"
     Deaktivierst du einen Mandanten, erreicht ihn kein Mitglied mehr — weder in der App noch über einen API-Schlüssel oder einen MCP-Client. Für die Mitglieder sieht er dann aus wie ein Mandant, den es nicht gibt. War es ihr persönlicher Garten, sehen sie nur noch den gemeinsamen Pflanzenkatalog. Die Mitgliedschaften und alle Daten bleiben erhalten: Reaktivierst du den Mandanten, haben alle Mitglieder sofort wieder ihren bisherigen Zugriff mit derselben Rolle. Du selbst verwaltest einen deaktivierten Mandanten weiterhin hier im Admin-Bereich. Pflege-Erinnerungen, Gieß- und Wartungsaufgaben entstehen für ihn nicht mehr; einige automatische Abläufe laufen derzeit aber noch weiter — Tank-Warnungen, das Abholen von Home-Assistant-Messwerten und Wetterdaten, der InvenTree-Abgleich und der tägliche Benachrichtigungs-Digest. <!-- Issue #2105, #2166, REQ-056 -->

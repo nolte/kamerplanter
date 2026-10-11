@@ -259,7 +259,7 @@ export interface PlatformAdminRoute {
  * backend `/admin/**` operation read for its dependency. Six routes reach the
  * platform-admin gate, and only three of them are whole admin pages:
  *
- * - `admin/tenants/:key`, `admin/users/:key`, `admin/oidc-providers` (#1906) —
+ * - `admin/tenants/:key`, `admin/users/:key`, `admin/oidc-providers` (#1906), `admin/plans` (#2142) —
  *   **listed below.** Every request these pages make is `require_platform_admin`,
  *   including the `GET`s they load with. A refused member has nothing to read here at all.
  * - `settings` — the account page **every member owns**. Its *platform* tab is
@@ -324,5 +324,10 @@ export const PLATFORM_ADMIN_ROUTES: Readonly<Record<string, PlatformAdminRoute>>
   // `/admin/oidc-providers` (the reads included), writes behind the admin's step-up.
   'admin/oidc-providers': {
     gate: 'GET /api/v1/admin/oidc-providers — require_platform_admin',
+  },
+  // REQ-056 §7.6 / AK-45 (#2142) — the plan catalogue: list, create, change and delete are all
+  // `require_platform_admin` on `/admin/platform/plans` (the read included); no step-up.
+  'admin/plans': {
+    gate: 'GET /api/v1/admin/platform/plans — require_platform_admin',
   },
 };

@@ -172,3 +172,12 @@ describe('tenants endpoints — assignments', () => {
     expect(client.delete).toHaveBeenCalledWith('/tenants/org/assignments/a1');
   });
 });
+
+describe('tenants endpoints — entitlements (REQ-056 §7.7, #2142)', () => {
+  it('getTenantEntitlements gets /tenants/{slug}/entitlements', async () => {
+    client.get.mockResolvedValue({ data: { plan: { key: 'standard', name: 'Standard' }, limits: [] } });
+    const result = await tenants.getTenantEntitlements('mein-garten');
+    expect(client.get).toHaveBeenCalledWith('/tenants/mein-garten/entitlements');
+    expect(result.plan.name).toBe('Standard');
+  });
+});

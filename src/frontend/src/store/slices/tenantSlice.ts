@@ -3,6 +3,7 @@ import * as tenantApi from '@/api/endpoints/tenants';
 import type { TenantWithRole, TenantCreate } from '@/api/types';
 import { isLightMode } from '@/config/mode';
 import { setActiveTenantSlug } from '@/api/client';
+import { isApiError, parseApiError } from '@/api/errors';
 
 interface TenantState {
   activeTenant: TenantWithRole | null;
@@ -34,14 +35,33 @@ export const loadMyTenants = createAsyncThunk('tenants/loadMyTenants', async () 
   return tenants;
 });
 
-export const createOrganization = createAsyncThunk(
-  'tenants/createOrganization',
-  async (data: TenantCreate) => {
+/** Why founding an organisation was refused: the message and the backend's stable `error_code`. */
+export interface CreateOrganizationRejection {
+  message: string;
+  errorCode: string | null;
+}
+
+/**
+ * Found an organisation and reload the account's tenants. A refusal is passed on with its
+ * `error_code` (REQ-056 §6.2: `ORGANIZATION_LIMIT_REACHED`) — the serialised default error of a
+ * thunk keeps only the English message, which the page could not translate.
+ */
+export const createOrganization = createAsyncThunk<
+  TenantWithRole[],
+  TenantCreate,
+  { rejectValue: CreateOrganizationRejection }
+>('tenants/createOrganization', async (data, { rejectWithValue }) => {
+  try {
     await tenantApi.createOrganization(data);
-    const tenants = await tenantApi.listMyTenants();
-    return tenants;
-  },
-);
+  } catch (err) {
+    return rejectWithValue({
+      message: parseApiError(err),
+      errorCode: isApiError(err) ? err.errorCode : null,
+    });
+  }
+  const tenants = await tenantApi.listMyTenants();
+  return tenants;
+});
 
 const tenantSlice = createSlice({
   name: 'tenants',
