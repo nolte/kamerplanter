@@ -124,24 +124,68 @@ class ArangoInvitationRepository(BaseArangoRepository[Invitation], IInvitationRe
             tiebreak_key=True,
         )
 
-    def mark_accepted_if_pending(self, key: str, fields: dict[str, Any]) -> Invitation | None:
-        """Accept *key* only while it is ``pending``: one AQL ``UPDATE`` on one document (AK-IE-06)."""
+    def consume_use_if_pending(self, key: str, fields: dict[str, Any]) -> Invitation | None:
+        """Consume one use of *key* while pending with a use left: one AQL ``UPDATE`` (AK-IE-06, AK-07)."""
         query = f"""
         FOR doc IN {col.INVITATIONS}
           FILTER doc._key == @key AND doc.status == @pending
-          UPDATE doc WITH MERGE(@fields, {{ status: @accepted, updated_at: @now }}) IN {col.INVITATIONS}
+          LET max_uses = doc.max_uses == null ? 1 : doc.max_uses
+          LET used = doc.use_count == null ? (doc.accepted_by_user_key == null ? 0 : 1) : doc.use_count
+          FILTER used < max_uses
+          UPDATE doc WITH MERGE(@fields, {{
+            use_count: used + 1,
+            max_uses: max_uses,
+            status: used + 1 >= max_uses ? @accepted : @pending,
+            updated_at: @now
+          }}) IN {col.INVITATIONS}
           RETURN NEW
         """
         docs = list(
-            self._db.aql.execute(
-                query,
-                bind_vars={
-                    "key": key,
-                    "fields": fields,
-                    "pending": InvitationStatus.PENDING.value,
-                    "accepted": InvitationStatus.ACCEPTED.value,
-                    "now": datetime.now(UTC).isoformat(),
-                },
+            cast(
+                Cursor,
+                self._db.aql.execute(
+                    query,
+                    bind_vars={
+                        "key": key,
+                        "fields": fields,
+                        "pending": InvitationStatus.PENDING.value,
+                        "accepted": InvitationStatus.ACCEPTED.value,
+                        "now": datetime.now(UTC).isoformat(),
+                    },
+                ),
+            )
+        )
+        return Invitation(**self._from_doc(docs[0])) if docs else None
+
+    def release_use(self, key: str, user_key: str) -> Invitation | None:
+        """Hand back one consumed use of *key* after a failed join: one AQL ``UPDATE`` (#2182)."""
+        query = f"""
+        FOR doc IN {col.INVITATIONS}
+          FILTER doc._key == @key
+          LET used = doc.use_count == null ? (doc.accepted_by_user_key == null ? 0 : 1) : doc.use_count
+          LET mine = doc.accepted_by_user_key == @user_key
+          UPDATE doc WITH {{
+            use_count: MAX([used - 1, 0]),
+            status: doc.status == @accepted ? @pending : doc.status,
+            accepted_by_user_key: mine ? null : doc.accepted_by_user_key,
+            accepted_at: mine ? null : doc.accepted_at,
+            updated_at: @now
+          }} IN {col.INVITATIONS} OPTIONS {{ keepNull: true }}
+          RETURN NEW
+        """
+        docs = list(
+            cast(
+                Cursor,
+                self._db.aql.execute(
+                    query,
+                    bind_vars={
+                        "key": key,
+                        "user_key": user_key,
+                        "pending": InvitationStatus.PENDING.value,
+                        "accepted": InvitationStatus.ACCEPTED.value,
+                        "now": datetime.now(UTC).isoformat(),
+                    },
+                ),
             )
         )
         return Invitation(**self._from_doc(docs[0])) if docs else None

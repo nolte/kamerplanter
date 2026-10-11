@@ -48,6 +48,7 @@ const KC: OidcProvider = {
   enabled: true,
   icon_url: null,
   auto_discover: true,
+  default_tenant_key: null,
   discovery_refreshed_at: '2026-10-01T08:00:00Z',
   created_at: null,
   updated_at: null,
@@ -290,6 +291,42 @@ describe('AdminOidcProvidersPage (#1906)', () => {
       expect(screen.getByTestId('oidc-form-scopes')).toHaveTextContent(i18n.t('pages.admin.oidc.form.githubScopes'));
       await userEvent.click(screen.getByTestId('oidc-form-submit'));
       expect(screen.queryByTestId('oidc-provider-create-dialog')).toBeNull();
+    });
+
+    it('offers the default tenant only for a generic OIDC provider and sends it only there (#2182 SEC-001)', async () => {
+      await renderPage([]);
+      await fillCreateForm();
+      await userEvent.click(within(screen.getByTestId('oidc-form-advanced')).getByRole('button'));
+      await userEvent.type(input('oidc-form-default-tenant'), 'club');
+      expect(screen.getByTestId('oidc-form-default-tenant')).toHaveTextContent(
+        i18n.t('pages.admin.oidc.form.defaultTenantKeyHelper'),
+      );
+
+      // Google: anybody can create an account there - the field goes, and nothing typed into it is sent.
+      await userEvent.selectOptions(input('oidc-form-type'), 'google');
+      expect(screen.queryByTestId('oidc-form-default-tenant')).toBeNull();
+      await userEvent.click(screen.getByTestId('oidc-form-submit'));
+      const dialog = await screen.findByTestId('oidc-provider-create-dialog');
+      await userEvent.type(passwordInput(dialog, 'oidc-provider-create'), ADMIN_PASSWORD);
+      await userEvent.click(within(dialog).getByTestId('oidc-provider-create-confirm'));
+
+      await waitFor(() => expect(api.createOidcProvider).toHaveBeenCalled());
+      expect(fn(api.createOidcProvider).mock.calls[0][0]).not.toHaveProperty('default_tenant_key');
+    });
+
+    it('sends the default tenant of a generic OIDC provider', async () => {
+      await renderPage([]);
+      await fillCreateForm();
+      await userEvent.click(within(screen.getByTestId('oidc-form-advanced')).getByRole('button'));
+      await userEvent.type(input('oidc-form-default-tenant'), ' club ');
+      await userEvent.click(screen.getByTestId('oidc-form-submit'));
+      const dialog = await screen.findByTestId('oidc-provider-create-dialog');
+      await userEvent.type(passwordInput(dialog, 'oidc-provider-create'), ADMIN_PASSWORD);
+      await userEvent.click(within(dialog).getByTestId('oidc-provider-create-confirm'));
+
+      await waitFor(() =>
+        expect(api.createOidcProvider).toHaveBeenCalledWith(expect.objectContaining({ default_tenant_key: 'club' })),
+      );
     });
 
     it('starts switched off', async () => {

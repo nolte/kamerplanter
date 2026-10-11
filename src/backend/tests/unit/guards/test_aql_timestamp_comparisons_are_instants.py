@@ -129,7 +129,9 @@ _ALLOWLIST: dict[tuple[str, str], str] = {}
 #: :data:`FilterTriple` lists; the literal triples are checked where written.
 _PASS_THROUGH: dict[tuple[str, str], str] = {
     ("data_access/arango/base_repository.py", "_find_docs"): "forwards the caller's FilterTriple list",
-    ("data_access/arango/base_repository.py", "get_page"): "forwards the caller's FilterTriple list",
+    ("data_access/arango/base_repository.py", "_page_builder"): (
+        "forwards the caller's FilterTriple list (get_page / get_page_window)"
+    ),
 }
 
 #: Ordering comparisons with an f-string placeholder as an operand: the field

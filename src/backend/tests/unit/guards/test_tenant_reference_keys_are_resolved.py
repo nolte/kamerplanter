@@ -285,7 +285,6 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "aquaponik.SupplementationEvent.system_key": _V,
     "aquaponik.WaterTest.system_key": _V,
     "attachment.Attachment.storage_key": _I,
-    "calendar.CalendarEventsQuery.site_key": _N,
     "calendar.CalendarFeed.user_key": _A,
     "feeding_event.FeedingEvent.plant_key": _V,
     "feeding_event.FeedingEvent.tank_fill_event_key": _V,  # through the tank (#1872 C6)

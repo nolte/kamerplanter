@@ -5,12 +5,16 @@ async NotificationService by using asyncio.run() for async operations.
 """
 
 import asyncio
+from datetime import UTC, date, datetime
 
 import structlog
 
+from app.common.datetimes import today_utc
+from app.common.enums import TenantStatus
 from app.common.log_privacy import log_subject, log_tenant
 from app.data_access.arango.base_repository import get_all_pages
 from app.domain.interfaces.membership_repository import IMembershipRepository
+from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.tasks import celery_app
 from app.tasks.tenant_gate import ActiveTenants
@@ -67,86 +71,83 @@ class _ActiveMembers:
         return self._answers[pair]
 
 
-@celery_app.task(name="notifications.dispatch_due_care")
-def dispatch_due_care_notifications() -> dict:
-    """Dispatch notifications for due care tasks.
+def _active_tenant_keys(tenant_repo: ITenantRepository) -> list[str]:
+    """Keys of every ``active`` tenant, read page by page (#2012, #2166).
 
-    Runs daily at 06:05 UTC (5 min after REQ-022 care reminder generation).
-
-    Logic:
-    1. Load all today-due tasks with category='care_reminder'
-    2. Group by user_key
-    3. Send batched notifications via NotificationService
+    The care beats work tenant by tenant (MT-032, #2128): a suspended,
+    pending-deletion or orphaned tenant resolves for nobody, so there is nothing
+    to notify about, and a task row without a tenant was never notified either.
     """
-    from datetime import UTC, datetime
+    keys: list[str] = []
+    for tenant_doc in (_as_doc(t) for t in get_all_pages(tenant_repo)):
+        tenant_key = tenant_doc.get("_key", tenant_doc.get("key", ""))
+        if tenant_key and tenant_doc.get("status", TenantStatus.ACTIVE.value) == TenantStatus.ACTIVE.value:
+            keys.append(tenant_key)
+    return keys
 
-    from app.common.dependencies import get_membership_repo, get_notification_service, get_task_repo, get_tenant_repo
-    from app.common.enums import TaskCategory, TaskStatus
 
-    task_repo = get_task_repo()
-    service = get_notification_service()
-    is_active_member = _ActiveMembers(get_membership_repo(), get_tenant_repo())
+def _parse_due(task_doc: dict) -> datetime | None:
+    """The task's due date as an aware UTC-comparable instant, or ``None`` when absent or unreadable."""
+    due_date_raw = task_doc.get("due_date")
+    if isinstance(due_date_raw, str):
+        try:
+            due_dt = datetime.fromisoformat(due_date_raw)
+        except ValueError:
+            return None
+    elif isinstance(due_date_raw, datetime):
+        due_dt = due_date_raw
+    else:
+        return None
+    if due_dt.tzinfo is None:  # stored without an offset: the beat windows are UTC
+        due_dt = due_dt.replace(tzinfo=UTC)
+    return due_dt
 
-    # Work in UTC consistently: the task is scheduled at 06:05 UTC and the
-    # window boundaries below carry UTC tzinfo. Using date.today() (local
-    # timezone) made the due-date window drift by a day whenever local time
-    # had rolled past midnight while UTC had not (e.g. CEST 00:00-02:00).
-    today = datetime.now(UTC).date()
-    today_start = datetime(today.year, today.month, today.day, tzinfo=UTC)
-    today_end = datetime(today.year, today.month, today.day, 23, 59, 59, tzinfo=UTC)
 
-    # Find all pending/in-progress care reminder tasks due today
-    all_tasks = [_as_doc(t) for t in get_all_pages(task_repo, all_tenants=True)]  # system task: all tenants
-    due_tasks: list[dict] = []
+def _today_window() -> tuple[date, datetime, datetime]:
+    """Today's UTC calendar day and its first and last second.
 
-    for task_doc in all_tasks:
-        if task_doc.get("category") != TaskCategory.CARE_REMINDER.value:
+    Work in UTC consistently: the beats are scheduled in UTC and the window
+    boundaries carry UTC tzinfo. ``date.today()`` (local timezone) made the
+    due-date window drift by a day whenever local time had rolled past midnight
+    while UTC had not (e.g. CEST 00:00-02:00).
+    """
+    today = today_utc()
+    start = datetime(today.year, today.month, today.day, tzinfo=UTC)
+    end = datetime(today.year, today.month, today.day, 23, 59, 59, tzinfo=UTC)
+    return today, start, end
+
+
+def _due_care_entries(
+    task_repo: ITaskRepository,
+    tenant_key: str,
+    is_active_member: _ActiveMembers,
+    today_start: datetime,
+    today_end: datetime,
+) -> list[dict]:
+    """One tenant's care reminders due today, as the batch ``send_care_notifications`` takes."""
+    rows = task_repo.list_open_care_reminders_due(tenant_key=tenant_key, due_from=today_start, due_until=today_end)
+    tenant_tasks: list[dict] = []
+    for task_doc in (_as_doc(row) for row in rows):
+        due_dt = _parse_due(task_doc)
+        # The store selected the window; the instant is re-read here only to report it.
+        if due_dt is None or due_dt < today_start or due_dt > today_end:
             continue
-        if task_doc.get("status") not in (
-            TaskStatus.PENDING.value,
-            TaskStatus.IN_PROGRESS.value,
-        ):
-            continue
 
-        due_date_raw = task_doc.get("due_date")
-        if due_date_raw is None:
-            continue
-
-        # Parse due_date (stored as ISO string)
-        if isinstance(due_date_raw, str):
-            try:
-                due_dt = datetime.fromisoformat(due_date_raw)
-            except ValueError:
-                continue
-        elif isinstance(due_date_raw, datetime):
-            due_dt = due_date_raw
-        else:
-            continue
-        if due_dt.tzinfo is None:  # stored without an offset: the beat windows are UTC
-            due_dt = due_dt.replace(tzinfo=UTC)
-
-        if due_dt < today_start or due_dt > today_end:
+        # #2114 — only an active member of the task's tenant is notified of its plants and due dates.
+        if not is_active_member(task_doc.get("assigned_to", ""), tenant_key):
             continue
 
         # Determine urgency from priority
-        priority = task_doc.get("priority", "medium")
-        urgency = "due_today"
-        if priority == "high":
-            urgency = "overdue"
+        urgency = "overdue" if task_doc.get("priority", "medium") == "high" else "due_today"
 
         # Extract reminder type from task name (format: "PlantName -- type")
         task_name = task_doc.get("name", "")
         reminder_type = "watering"
-        if " \u2014 " in task_name:
-            reminder_type = task_name.split(" \u2014 ")[-1].strip()
+        if " — " in task_name:
+            reminder_type = task_name.split(" — ")[-1].strip()
+        plant_name = task_name.split(" — ")[0].strip() if " — " in task_name else task_name
 
-        plant_name = task_name.split(" \u2014 ")[0].strip() if " \u2014 " in task_name else task_name
-
-        # #2114 — only an active member of the task's tenant is notified of its plants and due dates.
-        if not is_active_member(task_doc.get("assigned_to", ""), task_doc.get("tenant_key", "")):
-            continue
-
-        due_tasks.append(
+        tenant_tasks.append(
             {
                 "user_key": task_doc.get("assigned_to", ""),
                 "plant_key": task_doc.get("plant_key", ""),
@@ -154,29 +155,53 @@ def dispatch_due_care_notifications() -> dict:
                 "reminder_type": reminder_type,
                 "urgency": urgency,
                 "due_date": due_dt.isoformat(),
-                "tenant_key": task_doc.get("tenant_key", ""),
+                "tenant_key": tenant_key,
             }
         )
+    return tenant_tasks
 
-    if not due_tasks:
-        logger.info("notification_dispatch_no_due_tasks")
-        return {"status": "empty", "tasks_found": 0, "tenants_processed": 0}
 
-    # Group by tenant_key for batched sending
-    by_tenant: dict[str, list[dict]] = {}
-    for task_dict in due_tasks:
-        tenant_key = task_dict.get("tenant_key", "")
-        if tenant_key not in by_tenant:
-            by_tenant[tenant_key] = []
-        by_tenant[tenant_key].append(task_dict)
+@celery_app.task(name="notifications.dispatch_due_care")
+def dispatch_due_care_notifications() -> dict:
+    """Dispatch notifications for due care tasks.
 
+    Runs daily at 06:05 UTC (5 min after REQ-022 care reminder generation).
+
+    Logic, tenant by tenant (MT-032, #2128):
+    1. Read the tenant's open care reminders due today — selected in AQL
+       (:meth:`ITaskRepository.list_open_care_reminders_due`), never the whole
+       ``tasks`` collection
+    2. Keep the ones whose assignee is an active member (#2114)
+    3. Send them as one batch via NotificationService
+
+    The worker holds one tenant's due reminders at a time, so its memory no
+    longer grows with the installation's total task count.
+    """
+    from app.common.dependencies import get_membership_repo, get_notification_service, get_task_repo, get_tenant_repo
+
+    task_repo = get_task_repo()
+    tenant_repo = get_tenant_repo()
+    service = get_notification_service()
+    is_active_member = _ActiveMembers(get_membership_repo(), tenant_repo)
+    _today, today_start, today_end = _today_window()
+
+    tasks_found = 0
+    tenants_processed = 0
     total_users_notified = 0
     total_sent = 0
 
-    for tenant_key, tenant_tasks in by_tenant.items():
-        if not tenant_key:
+    for tenant_key in _active_tenant_keys(tenant_repo):
+        # Per tenant (security review SEC-003): a tenant whose read or rows fail is logged and skipped; it does
+        # not suppress the reminders of every tenant after it.
+        try:
+            tenant_tasks = _due_care_entries(task_repo, tenant_key, is_active_member, today_start, today_end)
+        except Exception:
+            logger.exception("notification_dispatch_tenant_read_failed", tenant=log_tenant(tenant_key))
             continue
-
+        if not tenant_tasks:
+            continue
+        tasks_found += len(tenant_tasks)
+        tenants_processed += 1
         try:
             result = asyncio.run(service.send_care_notifications(tenant_key, tenant_tasks))
             total_users_notified += result.get("users_notified", 0)
@@ -187,18 +212,22 @@ def dispatch_due_care_notifications() -> dict:
                 tenant=log_tenant(tenant_key),
             )
 
+    if not tasks_found:
+        logger.info("notification_dispatch_no_due_tasks")
+        return {"status": "empty", "tasks_found": 0, "tenants_processed": 0}
+
     logger.info(
         "notification_dispatch_complete",
-        tasks_found=len(due_tasks),
-        tenants_processed=len(by_tenant),
+        tasks_found=tasks_found,
+        tenants_processed=tenants_processed,
         users_notified=total_users_notified,
         total_sent=total_sent,
     )
 
     return {
         "status": "complete",
-        "tasks_found": len(due_tasks),
-        "tenants_processed": len(by_tenant),
+        "tasks_found": tasks_found,
+        "tenants_processed": tenants_processed,
         "users_notified": total_users_notified,
         "total_sent": total_sent,
     }
@@ -217,7 +246,6 @@ def escalate_overdue_notifications() -> dict:
     - Day +7: final warning
     """
     from app.common.dependencies import get_notification_service, get_tenant_repo
-    from app.common.enums import TenantStatus
 
     service = get_notification_service()
     tenant_repo = get_tenant_repo()
@@ -273,130 +301,109 @@ def send_daily_summary() -> dict:
 
     Runs daily at 06:30 UTC. Aggregates today's due tasks, overdue items,
     and weather hints into a single summary notification per user.
-    """
-    from datetime import UTC, datetime
 
+    Tenant by tenant (MT-032, #2128): the open care reminders due up to the end
+    of today are selected in AQL (:meth:`ITaskRepository.list_open_care_reminders_due`
+    without a lower bound, so the overdue ones are included); the worker never
+    reads the tenant's other tasks, nor another tenant's while it summarises one.
+    """
     from app.common.dependencies import get_membership_repo, get_notification_service, get_task_repo, get_tenant_repo
-    from app.common.enums import TaskCategory, TaskStatus
     from app.domain.models.notification import NotificationUrgency
 
     service = get_notification_service()
     task_repo = get_task_repo()
-    is_active_member = _ActiveMembers(get_membership_repo(), get_tenant_repo())
+    tenant_repo = get_tenant_repo()
+    is_active_member = _ActiveMembers(get_membership_repo(), tenant_repo)
+    today, today_start, today_end = _today_window()
 
-    # Consistent UTC (see dispatch_due_care_notifications) — date.today() would
-    # drift the window by a day across the local-vs-UTC midnight boundary.
-    today = datetime.now(UTC).date()
-    today_start = datetime(today.year, today.month, today.day, tzinfo=UTC)
-
-    # Find all due/overdue care tasks
-    all_tasks = [_as_doc(t) for t in get_all_pages(task_repo, all_tenants=True)]  # system task: all tenants
-    care_tasks: list[dict] = []
-
-    for task_doc in all_tasks:
-        if task_doc.get("category") != TaskCategory.CARE_REMINDER.value:
-            continue
-        if task_doc.get("status") not in (
-            TaskStatus.PENDING.value,
-            TaskStatus.IN_PROGRESS.value,
-        ):
-            continue
-        care_tasks.append(task_doc)
-
-    # Group by (user, tenant) (#2114): one summary per tenant the user is an active member of. It used to
-    # group by user alone and file the whole lot under the tenant of the FIRST task document, so a user in two
-    # tenants got one notification with both tenants' tasks, under the wrong tenant.
-    by_user: dict[tuple[str, str], list[dict]] = {}
-    for task_doc in care_tasks:
-        user_key = task_doc.get("assigned_to", "")
-        tenant_key = task_doc.get("tenant_key", "")
-        if not user_key or not is_active_member(user_key, tenant_key):
-            continue
-        by_user.setdefault((user_key, tenant_key), []).append(task_doc)
-
+    users_with_tasks: set[str] = set()
     summaries_sent = 0
 
-    for (user_key, tenant_key), user_tasks in by_user.items():
-        # Check if user has daily_summary enabled
-        prefs = service.get_preferences(user_key)
-        if not prefs.daily_summary.enabled:
-            continue
-
-        # Categorize tasks
-        overdue = []
-        due_today = []
-
-        for task_doc in user_tasks:
-            due_date_raw = task_doc.get("due_date")
-            if due_date_raw is None:
-                continue
-
-            if isinstance(due_date_raw, str):
-                try:
-                    due_dt = datetime.fromisoformat(due_date_raw)
-                except ValueError:
-                    continue
-            elif isinstance(due_date_raw, datetime):
-                due_dt = due_date_raw
-            else:
-                continue
-            if due_dt.tzinfo is None:  # stored without an offset: the beat windows are UTC
-                due_dt = due_dt.replace(tzinfo=UTC)
-
-            task_name = task_doc.get("name", "Unknown")
-            if due_dt < today_start:
-                overdue.append(task_name)
-            else:
-                due_today.append(task_name)
-
-        # Build summary
-        parts = []
-        if overdue:
-            parts.append(f"Overdue ({len(overdue)}): {', '.join(overdue[:5])}")
-        if due_today:
-            parts.append(f"Due today ({len(due_today)}): {', '.join(due_today[:5])}")
-
-        if not parts:
-            continue
-
-        body = "\n".join(parts)
-        title = f"Daily care summary: {len(overdue) + len(due_today)} tasks"
-
-        urgency = NotificationUrgency.HIGH if overdue else NotificationUrgency.NORMAL
-
+    for tenant_key in _active_tenant_keys(tenant_repo):
+        # Group by user within this tenant (#2114): one summary per tenant the user is an active member of. It
+        # used to group by user alone and file the whole lot under the tenant of the FIRST task document, so a
+        # user in two tenants got one notification with both tenants' tasks, under the wrong tenant.
+        by_user: dict[str, list[dict]] = {}
+        # Per tenant (security review SEC-003): a failing read skips this tenant, not every tenant after it.
         try:
-            asyncio.run(
-                service.send_notification(
-                    user_key=user_key,
-                    tenant_key=tenant_key,
-                    notification_type="system.daily_summary",
-                    title=title,
-                    body=body,
-                    urgency=urgency,
-                    data={
-                        "overdue_count": len(overdue),
-                        "due_today_count": len(due_today),
-                        "action_url": "/pflege",
-                    },
-                    group_key=f"daily_summary:{user_key}:{tenant_key}:{today.isoformat()}",
-                )
-            )
-            summaries_sent += 1
+            rows = task_repo.list_open_care_reminders_due(tenant_key=tenant_key, due_until=today_end)
+            for task_doc in (_as_doc(row) for row in rows):
+                user_key = task_doc.get("assigned_to", "")
+                if not user_key or not is_active_member(user_key, tenant_key):
+                    continue
+                by_user.setdefault(user_key, []).append(task_doc)
         except Exception:
-            logger.exception(
-                "daily_summary_send_failed",
-                subject=log_subject(user_key),
-            )
+            logger.exception("daily_summary_tenant_read_failed", tenant=log_tenant(tenant_key))
+            continue
+
+        for user_key, user_tasks in by_user.items():
+            users_with_tasks.add(user_key)
+            # Check if user has daily_summary enabled
+            prefs = service.get_preferences(user_key)
+            if not prefs.daily_summary.enabled:
+                continue
+
+            # Categorize tasks
+            overdue = []
+            due_today = []
+            for task_doc in user_tasks:
+                due_dt = _parse_due(task_doc)
+                if due_dt is None:
+                    continue
+                task_name = task_doc.get("name", "Unknown")
+                if due_dt < today_start:
+                    overdue.append(task_name)
+                else:
+                    due_today.append(task_name)
+
+            # Build summary
+            parts = []
+            if overdue:
+                parts.append(f"Overdue ({len(overdue)}): {', '.join(overdue[:5])}")
+            if due_today:
+                parts.append(f"Due today ({len(due_today)}): {', '.join(due_today[:5])}")
+
+            if not parts:
+                continue
+
+            body = "\n".join(parts)
+            title = f"Daily care summary: {len(overdue) + len(due_today)} tasks"
+
+            urgency = NotificationUrgency.HIGH if overdue else NotificationUrgency.NORMAL
+
+            try:
+                asyncio.run(
+                    service.send_notification(
+                        user_key=user_key,
+                        tenant_key=tenant_key,
+                        notification_type="system.daily_summary",
+                        title=title,
+                        body=body,
+                        urgency=urgency,
+                        data={
+                            "overdue_count": len(overdue),
+                            "due_today_count": len(due_today),
+                            "action_url": "/pflege",
+                        },
+                        group_key=f"daily_summary:{user_key}:{tenant_key}:{today.isoformat()}",
+                    )
+                )
+                summaries_sent += 1
+            except Exception:
+                logger.exception(
+                    "daily_summary_send_failed",
+                    subject=log_subject(user_key),
+                )
 
     logger.info(
         "daily_summary_complete",
-        users_with_tasks=len({user for user, _tenant in by_user}),
+        users_with_tasks=len(users_with_tasks),
         summaries_sent=summaries_sent,
     )
 
     return {
         "status": "complete",
-        "users_with_tasks": len({user for user, _tenant in by_user}),
+        "users_with_tasks": len(users_with_tasks),
         "summaries_sent": summaries_sent,
     }
 
@@ -417,7 +424,7 @@ def send_email_digests(self) -> dict:
     single batch email via the registered ``email`` channel. Failures are
     isolated per user so one bad recipient does not abort the run.
     """
-    from datetime import UTC, datetime, timedelta
+    from datetime import timedelta
 
     from app.common.dependencies import (
         get_notification_preference_repo,

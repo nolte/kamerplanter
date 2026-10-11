@@ -326,6 +326,142 @@ expect storage-default "the worker excludes no queue" \
   "$(main_of celery-worker) | .args[] | select(test(\"^(-X|--exclude-queues)\"))" '[]'
 
 # ---------------------------------------------------------------------------
+# #2128 (MT-032) — `celeryWorkers.dedicatedQueues`: one worker Deployment per queue.
+#
+# On, celery-worker consumes `critical` only and two copies of it consume
+# `celery` and `bulk`. Every queue must still have exactly one consumer, and the
+# copies must be the worker in every respect but the queue. The copies are made
+# at render time from the MERGED values (templates/_celery_workers.tpl), so an
+# overlay that changes or hardens celery-worker — image, env, securityContext,
+# egress — must reach them; a YAML anchor would not (security review SEC-001).
+# Checked on the base values, on values-dev.yaml and on an overlay: the same
+# image, pod and container securityContext and env as the worker, the same
+# attachment claim (a new name would be a new, empty claim), one NetworkPolicy
+# per worker with identical egress, and a peer on every policy that admits the
+# worker (ArangoDB, Valkey, inference-service). Off — the default — nothing of
+# it renders. In a profile that switches celery-worker off, no copy appears.
+# ---------------------------------------------------------------------------
+queues_of() { printf '%s | .args | join(" ") | capture("(^| )(-Q|--queues)[ =](?P<q>[^ ]+)") | .q | split(",") | .[]' "$(main_of "$1")"; }
+worker_deploys='select(.kind == "Deployment" and (.metadata.name | test("^kamerplanter-celery-worker")))'
+worker_mains="${worker_deploys} | .spec.template.spec.containers[] | select(.name == \"main\")"
+
+# distinct_over <render> <description> <yq expression per worker> — the three
+# workers render the expression to ONE value (not "some value": three copies of
+# nothing would also be one, so the count of workers is asserted as well).
+distinct_over() {
+  local name="$1" description="$2" expression="$3" got
+  got="$(yq e "[.[] | ${worker_deploys} | (${expression}) | to_json(0)] | {\"workers\": length, \"distinct\": (unique | length)} | to_json(0)" "${work}/${name}.yaml" 2>&1 || true)"
+  if [[ "${got}" != '{"workers":3,"distinct":1}' ]]; then
+    fail "${name}: ${description} — expected one value over three workers, rendered ${got}"
+  fi
+}
+
+# worker_set <render> — the contracts every dedicated render must hold.
+worker_set() {
+  local name="$1" got
+  expect "${name}" "celery-worker consumes critical only" "$(queues_of celery-worker)" '["critical"]'
+  expect "${name}" "celery-worker-default consumes celery" "$(queues_of celery-worker-default)" '["celery"]'
+  expect "${name}" "celery-worker-bulk consumes bulk" "$(queues_of celery-worker-bulk)" '["bulk"]'
+  expect_set "${name}" "every queue has exactly one consumer" \
+    "${worker_mains} | .args | join(\" \") | capture(\"(^| )(-Q|--queues)[ =](?P<q>[^ ]+)\") | .q | split(\",\") | .[]" \
+    '["bulk","celery","critical"]'
+  distinct_over "${name}" "the same image" '.spec.template.spec.containers[] | select(.name == "main") | .image'
+  distinct_over "${name}" "the same pod securityContext" '.spec.template.spec.securityContext'
+  distinct_over "${name}" "the same container securityContext" '.spec.template.spec.containers[] | select(.name == "main") | .securityContext'
+  distinct_over "${name}" "the same env and envFrom" '.spec.template.spec.containers[] | select(.name == "main") | {"env": .env, "envFrom": .envFrom}'
+  distinct_over "${name}" "the same probes and resources" '.spec.template.spec.containers[] | select(.name == "main") | {"r": .readinessProbe, "s": .startupProbe, "l": .livenessProbe, "res": .resources}'
+  distinct_over "${name}" "the same mounts" '.spec.template.spec.containers[] | select(.name == "main") | [.volumeMounts[] | .mountPath] | sort'
+  got="$(yq e '[.[] | select(.kind == "NetworkPolicy" and (.metadata.name | test("^kamerplanter-celery-worker"))) | .spec.egress | to_json(0)] | {"policies": length, "distinct": (unique | length)} | to_json(0)' "${work}/${name}.yaml")"
+  if [[ "${got}" != '{"policies":3,"distinct":1}' ]]; then
+    fail "${name}: every worker needs its own NetworkPolicy with the worker's egress — rendered ${got}"
+  fi
+  for peer in arangodb valkey inference-service; do
+    expect_set "${name}" "the ${peer} policy admits every worker" \
+      "$(netpol "${peer}") | .spec.ingress[] | .from[] | .podSelector.matchLabels.\"app.kubernetes.io/controller\" | select(. != null and test(\"^celery-worker\"))" \
+      '["celery-worker","celery-worker-bulk","celery-worker-default"]'
+  done
+}
+
+inference_on=(--set controllers.inference-service.enabled=true --set service.inference-service.enabled=true
+  --set networkpolicies.inference-service.enabled=true)
+render workers-dedicated --set celeryWorkers.dedicatedQueues=true "${inference_on[@]}"
+worker_set workers-dedicated
+render workers-dedicated-dev -f "${CHART}/values-dev.yaml" --set celeryWorkers.dedicatedQueues=true "${inference_on[@]}"
+worker_set workers-dedicated-dev
+
+# An overlay that hardens / changes the worker reaches the copies (SEC-001).
+cat >"${work}/worker-overlay.yaml" <<'OVERLAY'
+celeryWorkers:
+  dedicatedQueues: true
+controllers:
+  celery-worker:
+    pod:
+      securityContext:
+        runAsUser: 4242
+    containers:
+      main:
+        image:
+          tag: 9.9.9-render
+        env:
+          OVERLAY_MARKER: "render"
+        securityContext:
+          privileged: false
+networkpolicies:
+  celery-worker:
+    rules:
+      egress:
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: arangodb
+          ports:
+            - protocol: TCP
+              port: 8529
+OVERLAY
+render workers-dedicated-overlay -f "${work}/worker-overlay.yaml" "${inference_on[@]}"
+worker_set workers-dedicated-overlay
+expect workers-dedicated-overlay "the overlay's image reaches every worker" \
+  "${worker_mains} | .image" \
+  '["ghcr.io/nolte/kamerplanter-backend:9.9.9-render","ghcr.io/nolte/kamerplanter-backend:9.9.9-render","ghcr.io/nolte/kamerplanter-backend:9.9.9-render"]'
+expect workers-dedicated-overlay "the overlay's pod securityContext reaches every worker" \
+  "${worker_deploys} | .spec.template.spec.securityContext.runAsUser" '[4242,4242,4242]'
+expect workers-dedicated-overlay "the overlay's env reaches every worker" \
+  "${worker_mains} | .env[] | select(.name == \"OVERLAY_MARKER\") | .value" '["render","render","render"]'
+expect workers-dedicated-overlay "the overlay's narrowed egress reaches every worker policy" \
+  "select(.kind == \"NetworkPolicy\" and (.metadata.name | test(\"^kamerplanter-celery-worker\"))) | .spec.egress | length" '[1,1,1]'
+
+# A copy can be tuned on its own; the queue is not one of the knobs.
+render workers-dedicated-tuned --set celeryWorkers.dedicatedQueues=true \
+  --set controllers.celery-worker-bulk.containers.main.resources.limits.memory=3Gi
+expect workers-dedicated-tuned "a per-copy key reaches that copy" "$(main_of celery-worker-bulk) | .resources.limits.memory" '["3Gi"]'
+for untouched in celery-worker celery-worker-default; do
+  expect workers-dedicated-tuned "a per-copy key leaves ${untouched} alone" "$(main_of "${untouched}") | .resources.limits.memory" '["2Gi"]'
+done
+expect workers-dedicated-tuned "tuning a copy keeps its queue" "$(queues_of celery-worker-bulk)" '["bulk"]'
+
+expect storage-default "no dedicated worker renders by default" \
+  "select(.metadata.name | test(\"^kamerplanter-celery-worker-(default|bulk)$\")) | .kind" '[]'
+render workers-off-stray --set controllers.celery-worker-bulk.replicas=2
+expect workers-off-stray "a copy's key without the switch renders no copy" \
+  "select(.metadata.name | test(\"^kamerplanter-celery-worker-(default|bulk)$\")) | .kind" '[]'
+expect workers-dedicated "the copies mount the worker's attachment claim, and no second claim exists" \
+  "${worker_deploys} | .spec.template.spec.volumes[] | select(.persistentVolumeClaim) | .persistentVolumeClaim.claimName" \
+  '["kamerplanter","kamerplanter","kamerplanter"]'
+expect workers-dedicated "one attachment claim" 'select(.kind == "PersistentVolumeClaim") | .metadata.name' '["kamerplanter"]'
+expect workers-dedicated "every worker writes and probes its readiness file on its own /tmp" \
+  "${worker_mains} | [(.env[] | select(.name == \"WORKER_READY_FILE\") | .value), (.volumeMounts[] | select(.mountPath == \"/tmp\") | .mountPath), (.readinessProbe.exec.command | join(\" \"))] | join(\"|\")" \
+  '["/tmp/worker-ready|/tmp|test -f /tmp/worker-ready","/tmp/worker-ready|/tmp|test -f /tmp/worker-ready","/tmp/worker-ready|/tmp|test -f /tmp/worker-ready"]'
+render workers-dedicated-s3 --set celeryWorkers.dedicatedQueues=true --set storage.backend=s3 --set storage.s3.bucket=kp-attachments-render
+expect workers-dedicated-s3 "with s3 no worker mounts a claim" \
+  "${worker_deploys} | .spec.template.spec.volumes[] | select(.persistentVolumeClaim) | .persistentVolumeClaim.claimName" '[]'
+for profile in values-dev-ki values-dev-recognition; do
+  render "workers-dedicated-${profile}" -f "${CHART}/${profile}.yaml" --set celeryWorkers.dedicatedQueues=true
+  expect "workers-dedicated-${profile}" "a profile without the worker gets no copy of it" "${worker_deploys} | .metadata.name" '[]'
+done
+expect_refusal workers-dedicated-bulk-two-rwo "controllers.celery-worker-bulk scales to 2" \
+  --set celeryWorkers.dedicatedQueues=true --set controllers.celery-worker-bulk.replicas=2
+
+# ---------------------------------------------------------------------------
 # #2154 — the worker is ready when its consumer runs, and only then.
 #
 # No readiness probe meant a worker counted ready at container start: an
@@ -419,6 +555,108 @@ expect profile-values-dev "the dev ingress carries the nginx limit as proxy-body
 ingress_targets='select(.kind == "Ingress") | .spec.rules[].http.paths[] | .backend.service.name'
 expect profile-values-dev "the dev ingress routes every path to the frontend" "${ingress_targets}" '["kamerplanter-frontend"]'
 expect body-limit-ingress "the ingress routes every path to the frontend" "${ingress_targets}" '["kamerplanter-frontend"]'
+
+# ---------------------------------------------------------------------------
+# #2127 (MT-031) — scaling and secret-store switches are opt-in.
+#
+# HPA and PDB use the bjw-s keys `controllers.<name>.horizontalPodAutoscaler` /
+# `.podDisruptionBudget`, the ExternalSecret `externalSecrets.app`. None of them
+# renders by default or in any profile, so an existing release is unchanged.
+# What the switches must not do once on: scale a backend or worker past one
+# pod on a ReadWriteOnce attachment volume (the #2124 refusal, now also for
+# maxReplicas), run a second celery-beat / arangodb / vectordb pod, or ship a
+# PodDisruptionBudget that admits no eviction (every drain hangs).
+# ---------------------------------------------------------------------------
+opt_in_kinds='select(.kind == "HorizontalPodAutoscaler" or .kind == "PodDisruptionBudget" or .kind == "ExternalSecret") | .kind'
+expect storage-default "the default renders no HPA, PDB or ExternalSecret" "${opt_in_kinds}" '[]'
+for profile in "${CHART}"/values-*.yaml; do
+  expect "profile-$(basename "${profile}" .yaml)" "no profile renders an HPA, PDB or ExternalSecret" "${opt_in_kinds}" '[]'
+done
+expect storage-default "celery-beat stays a single pod replaced by Recreate" \
+  "$(deploy celery-beat) | {\"replicas\": .spec.replicas, \"strategy\": .spec.strategy.type}" \
+  '[{"replicas":1,"strategy":"Recreate"}]'
+
+render scaling-backend --set storage.backend=s3 --set storage.s3.bucket=kp-attachments-render \
+  --set controllers.backend.horizontalPodAutoscaler.minReplicas=2 \
+  --set controllers.backend.horizontalPodAutoscaler.maxReplicas=6 \
+  --set controllers.backend.podDisruptionBudget.minAvailable=1
+expect scaling-backend "the backend HPA targets the backend Deployment with the configured bounds" \
+  'select(.kind == "HorizontalPodAutoscaler") | {"kind": .spec.scaleTargetRef.kind, "target": .spec.scaleTargetRef.name, "min": .spec.minReplicas, "max": .spec.maxReplicas}' \
+  '[{"kind":"Deployment","target":"kamerplanter-backend","min":2,"max":6}]'
+# A fixed replica count next to an HPA makes every sync (helm, ArgoCD) reset
+# what the autoscaler scaled to.
+expect scaling-backend "the autoscaled backend Deployment carries no fixed replica count" \
+  "$(deploy backend) | .spec | has(\"replicas\")" '[false]'
+# A PDB whose selector matches no pod protects nothing; it must select exactly
+# what the Deployment selects.
+expect scaling-backend "the backend PDB selects the backend pods" \
+  'select(.kind == "PodDisruptionBudget") | {"min": .spec.minAvailable, "selector": (.spec.selector.matchLabels | sort_keys(.))}' \
+  '[{"min":1,"selector":{"app.kubernetes.io/controller":"backend","app.kubernetes.io/instance":"kamerplanter","app.kubernetes.io/name":"kamerplanter"}}]'
+expect scaling-backend "the backend Deployment selects the same labels" \
+  "$(deploy backend) | .spec.selector.matchLabels | sort_keys(.)" \
+  '[{"app.kubernetes.io/controller":"backend","app.kubernetes.io/instance":"kamerplanter","app.kubernetes.io/name":"kamerplanter"}]'
+
+render scaling-frontend --set controllers.frontend.replicas=2 --set controllers.frontend.podDisruptionBudget.minAvailable=1
+expect scaling-frontend "two frontend pods with a PDB of one" \
+  "select(.kind == \"PodDisruptionBudget\") | .spec.selector.matchLabels[\"app.kubernetes.io/controller\"]" '["frontend"]'
+
+expect_refusal scaling-hpa-backend-rwo "ReadWriteMany" --set controllers.backend.horizontalPodAutoscaler.maxReplicas=4
+expect_refusal scaling-hpa-worker-rwo "ReadWriteMany" --set controllers.celery-worker.horizontalPodAutoscaler.maxReplicas=3
+expect_refusal scaling-pdb-single-pod "admits no eviction" --set controllers.frontend.podDisruptionBudget.minAvailable=1
+expect_refusal scaling-pdb-at-hpa-minimum "admits no eviction" \
+  --set storage.backend=s3 --set storage.s3.bucket=kp-attachments-render \
+  --set controllers.backend.horizontalPodAutoscaler.minReplicas=2 \
+  --set controllers.backend.horizontalPodAutoscaler.maxReplicas=4 \
+  --set controllers.backend.podDisruptionBudget.minAvailable=2
+for singleton in celery-beat arangodb; do
+  expect_refusal "scaling-${singleton}-replicas" "runs exactly one pod" --set "controllers.${singleton}.replicas=2"
+  expect_refusal "scaling-${singleton}-hpa" "runs exactly one pod" --set "controllers.${singleton}.horizontalPodAutoscaler.maxReplicas=2"
+done
+# vectordb is off by default, and the refusal deliberately skips a disabled
+# controller — so the contract switches it on, and the disabled case is held too.
+expect_refusal scaling-vectordb-replicas "runs exactly one pod" \
+  --set controllers.vectordb.enabled=true --set controllers.vectordb.replicas=2
+expect_refusal scaling-vectordb-hpa "runs exactly one pod" \
+  --set controllers.vectordb.enabled=true --set controllers.vectordb.horizontalPodAutoscaler.maxReplicas=2
+render scaling-vectordb-disabled --set controllers.vectordb.replicas=2
+expect scaling-vectordb-disabled "a disabled vectordb with replicas=2 renders no vectordb workload" \
+  'select(.kind == "StatefulSet" or .kind == "Deployment") | select(.metadata.name == "kamerplanter-vectordb") | .metadata.name' '[]'
+
+# A PDB admits no eviction in more spellings than minAvailable >= pods:
+# maxUnavailable 0 (as number, "0" or "0%"), and a percentage minAvailable that
+# Kubernetes rounds UP to every pod ("100%" always; "50%" of a single pod).
+# A percentage that leaves one pod evictable must still render.
+expect_refusal scaling-pdb-max-unavailable-zero "admits no eviction" \
+  --set controllers.frontend.replicas=2 --set controllers.frontend.podDisruptionBudget.maxUnavailable=0
+expect_refusal scaling-pdb-max-unavailable-zero-string "admits no eviction" \
+  --set controllers.frontend.replicas=2 --set-string controllers.frontend.podDisruptionBudget.maxUnavailable=0
+expect_refusal scaling-pdb-max-unavailable-zero-percent "admits no eviction" \
+  --set controllers.frontend.replicas=2 --set-string controllers.frontend.podDisruptionBudget.maxUnavailable=0%
+expect_refusal scaling-pdb-min-available-all-percent "admits no eviction" \
+  --set controllers.frontend.replicas=3 --set-string controllers.frontend.podDisruptionBudget.minAvailable=100%
+expect_refusal scaling-pdb-min-available-percent-of-one "admits no eviction" \
+  --set-string controllers.frontend.podDisruptionBudget.minAvailable=50%
+render scaling-pdb-percent --set controllers.frontend.replicas=2 \
+  --set-string controllers.frontend.podDisruptionBudget.minAvailable=50%
+expect scaling-pdb-percent "a 50% minAvailable of two pods renders unchanged" \
+  'select(.kind == "PodDisruptionBudget") | .spec.minAvailable' '["50%"]'
+render scaling-pdb-max-unavailable-percent --set controllers.frontend.replicas=2 \
+  --set-string controllers.frontend.podDisruptionBudget.maxUnavailable=25%
+expect scaling-pdb-max-unavailable-percent "a 25% maxUnavailable renders (Kubernetes rounds it up to one pod)" \
+  'select(.kind == "PodDisruptionBudget") | .spec.maxUnavailable' '["25%"]'
+render scaling-pdb-max-unavailable-one --set controllers.frontend.replicas=2 \
+  --set controllers.frontend.podDisruptionBudget.maxUnavailable=1
+expect scaling-pdb-max-unavailable-one "maxUnavailable 1 renders" \
+  'select(.kind == "PodDisruptionBudget") | .spec.maxUnavailable' '[1]'
+
+render external-secret --set externalSecrets.app.enabled=true --set externalSecrets.app.secretStoreRef.name=kp-store-render
+expect external-secret "the ExternalSecret writes the Secret the pods read, retained when the store entry goes" \
+  'select(.kind == "ExternalSecret") | {"secret": .spec.target.name, "creation": .spec.target.creationPolicy, "deletion": .spec.target.deletionPolicy, "store": .spec.secretStoreRef.name}' \
+  '[{"secret":"kamerplanter-secrets","creation":"Owner","deletion":"Retain","store":"kp-store-render"}]'
+expect external-secret "the pods read their envFrom Secret from that same name" \
+  'select(.kind == "Deployment" or .kind == "StatefulSet") | .spec.template.spec.containers[] | (.envFrom // [])[] | .secretRef.name' \
+  '["kamerplanter-secrets","kamerplanter-secrets","kamerplanter-secrets"]'
+expect_refusal external-secret-without-store "has no SecretStore reference" --set externalSecrets.app.enabled=true
 
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2

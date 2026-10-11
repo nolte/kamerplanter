@@ -459,8 +459,49 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         answer to every origin, the #324 direction of this class of bug.
         """
         self._require_tenant_key(tenant_key, "get_all_tasks")
+        items = self.get_tasks_window(offset, limit, filters, tenant_key=tenant_key, origins=origins)
         query = f"FOR doc IN {col.TASKS}"
-        bind_vars: dict = {"tenant_key": tenant_key}
+        selection, bind_vars = self._tasks_selection(filters, tenant_key=tenant_key, origins=origins)
+        query += selection
+        count_cursor = self._db.aql.execute(query + " COLLECT WITH COUNT INTO total RETURN total", bind_vars=bind_vars)
+        total = next(count_cursor, 0)
+        return items, total
+
+    def get_tasks_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
+        """The page of :meth:`get_all_tasks` without its count query (MT-035, #2131).
+
+        Same predicates, same ``due_date`` order, same ``LIMIT``. The list route
+        answers a bare array and never read the ``total`` the second scan of the
+        tenant's matching tasks produced on every page.
+        """
+        self._require_tenant_key(tenant_key, "get_tasks_window")
+        query = f"FOR doc IN {col.TASKS}"
+        selection, bind_vars = self._tasks_selection(filters, tenant_key=tenant_key, origins=origins)
+        query += selection
+        query += " SORT DATE_TIMESTAMP(doc.due_date) ASC, doc._key ASC LIMIT @offset, @limit RETURN doc"
+        page_vars: dict[str, Any] = {**bind_vars, "offset": offset, "limit": limit}
+        cursor = self._db.aql.execute(query, bind_vars=page_vars)
+        return [Task(**self._from_doc(doc)) for doc in cursor]
+
+    @staticmethod
+    def _tasks_selection(
+        filters: dict[str, Any] | None, *, tenant_key: str, origins: Sequence[str] | None
+    ) -> tuple[str, dict[str, Any]]:
+        """The ``FILTER`` clauses after ``FOR doc IN tasks``, shared by the count and the window.
+
+        The ``FOR`` head stays at the two call sites as a literal so the AQL guards
+        can read which collection each query walks.
+        """
+        query = ""
+        bind_vars: dict[str, Any] = {"tenant_key": tenant_key}
         filter_clauses: list[str] = ["doc.tenant_key == @tenant_key"]
 
         if filters:
@@ -487,18 +528,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             f" FILTER doc.entity_type != 'plant_instance'"
             f" OR (_plant != null AND _plant.removed_on == null)"
         )
-
-        count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
-        count_vars = dict(bind_vars)
-        bind_vars["offset"] = offset
-        bind_vars["limit"] = limit
-        query += " SORT DATE_TIMESTAMP(doc.due_date) ASC LIMIT @offset, @limit RETURN doc"
-
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        items = [Task(**self._from_doc(doc)) for doc in cursor]
-        count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
-        total = next(count_cursor, 0)
-        return items, total
+        return query, bind_vars
 
     def get_task_by_key(self, key: TaskKey) -> Task | None:
         return super().get_by_key(key)
@@ -777,6 +807,58 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
 
     #: Care-reminder spelling of the same set — an alias, not a copy.
     _CARE_OPEN_STATUSES = _OPEN_STATUSES
+
+    def list_open_care_reminders_due(
+        self,
+        *,
+        tenant_key: str,
+        due_until: datetime,
+        due_from: datetime | None = None,
+    ) -> list[Task]:
+        """Open care reminders of ONE tenant whose due date lies in ``[due_from, due_until]`` (MT-032, #2128).
+
+        The notification beats (``notifications.dispatch_due_care``,
+        ``notifications.send_daily_summary``) used to read the WHOLE ``tasks``
+        collection of every tenant into the worker and pick out the open care
+        reminders of the day in Python — worker memory grew with the installation's
+        total task count. The selection now runs in the database, per tenant:
+        category, open status and due window are AQL filters, so the worker holds one
+        tenant's due reminders at a time.
+
+        ``due_from=None`` leaves the window open towards the past (overdue
+        reminders included, the daily summary's question). Both bounds are
+        inclusive and compared as instants: ``DATE_TIMESTAMP`` parses the stored ISO
+        string with its offset, and reads one stored without an offset as UTC —
+        the same reading the beats apply (``due_dt.replace(tzinfo=UTC)``). A row
+        without a parseable due date is not due.
+
+        The result is bounded by one tenant's open care reminders, of which the
+        unique dedup index (``CARE_TASK_DEDUP_INDEX_FIELDS``) admits at most one per
+        (plant, reminder type), so it is read in one cursor rather than paged.
+        """
+        self._require_tenant_key(tenant_key, "list_open_care_reminders_due")
+        query = """
+        FOR doc IN @@col
+            FILTER doc.tenant_key == @tenant_key
+            FILTER doc.category == @care_category
+            FILTER doc.status IN @open_statuses
+            LET due = DATE_TIMESTAMP(doc.due_date)
+            FILTER due != null
+            FILTER due <= DATE_TIMESTAMP(@due_until)
+            FILTER @due_from == null OR due >= DATE_TIMESTAMP(@due_from)
+            SORT doc._key
+            RETURN doc
+        """
+        bind_vars: dict[str, Any] = {
+            "@col": self._collection_name,
+            "tenant_key": tenant_key,
+            "care_category": self._CARE_CATEGORY,
+            "open_statuses": self._CARE_OPEN_STATUSES,
+            "due_until": due_until.isoformat(),
+            "due_from": due_from.isoformat() if due_from is not None else None,
+        }
+        cursor = cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars))
+        return [Task(**self._from_doc(doc)) for doc in cursor]
 
     def find_open_care_task(
         self,

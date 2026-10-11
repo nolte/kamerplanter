@@ -902,6 +902,26 @@ class Settings(BaseSettings):
     #: new link once, perhaps twice; ten leaves room for several people behind
     #: one NAT address.
     rate_limit_resend_verification: str = "10/hour"
+    #: ``GET /api/v1/calendar/feeds/{key}/feed.ics`` (REQ-015 CF-004, #2226), per client IP.
+    #:
+    #: **Why a limit at all**, given that the feed token is a 256-bit secret looked
+    #: up by hash: the route is unauthenticated and renders a calendar per call
+    #: (five event-source reads), so a flood would drive database load one cheap
+    #: request at a time. CF-004 puts it in the "anonymous" tier of NFR-001 §6.3:
+    #: 30 a minute per address.
+    #:
+    #: **The legitimate side.** A calendar client polls a subscription every 15
+    #: minutes to every few hours, Home Assistant's calendar coordinator about as
+    #: often. Thirty a minute leaves room for many subscriptions behind one NAT
+    #: address.
+    rate_limit_calendar_feed: str = "30/minute"
+    #: The same route, per presented feed token (#2226 review SEC-005), on top of
+    #: the per-address limit above. A subscription URL pasted into several
+    #: devices (phone, laptop, Home Assistant) is polled a few times an hour by
+    #: each; sixty an hour leaves room for that and bounds a leaked URL polled
+    #: from many addresses at once. Keyed by a digest of the token, so nobody
+    #: without the token can spend its budget.
+    rate_limit_calendar_feed_per_token: str = "60/hour"
     #: ``GET /api/health``, per client IP (#1210, SEC-003).
     #:
     #: **Why this endpoint has a limit and the Kubernetes probes do not.** The
@@ -1383,5 +1403,37 @@ def report_retention_alias_use(environ: Mapping[str, str] | None = None) -> list
     return found
 
 
+def app_base_url_is_absolute_http(value: str) -> bool:
+    """Whether ``value`` is an absolute ``http://`` or ``https://`` URL with a host."""
+    parts = urlsplit(value.strip())
+    return parts.scheme.lower() in {"http", "https"} and bool(parts.hostname)
+
+
+def report_app_base_url_shape(value: str | None = None) -> bool:
+    """Warn - never fail - when ``APP_BASE_URL`` is not an absolute ``http(s)://host`` URL (#2226 re-review I3).
+
+    The value bases every link the server hands out: QR codes, the OAuth callback,
+    the iCal subscription URL. A start that fails over it would take the whole
+    backend down for a link-shape problem (the precedent: an unresolvable
+    ``HA_URL`` crashed the start), so the start goes on and the operator gets a
+    structured warning naming the variable, never its value. The iCal URL builder
+    adds a missing scheme itself (``tenant_router.public_base_url``).
+
+    Returns whether the value is well-formed.
+    """
+    import structlog  # noqa: PLC0415 — keeps the settings module importable without logging configured
+
+    configured = settings.app_base_url if value is None else value
+    if app_base_url_is_absolute_http(configured):
+        return True
+    structlog.get_logger("app.config.settings").warning(
+        "app_base_url_not_absolute_http",
+        variable="APP_BASE_URL",
+        hint="set it to the public http:// or https:// address with a host; issued links may be broken",
+    )
+    return False
+
+
 settings = load_settings()
 report_retention_alias_use()
+report_app_base_url_shape()

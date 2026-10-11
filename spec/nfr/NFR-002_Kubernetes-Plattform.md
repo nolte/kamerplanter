@@ -6,7 +6,7 @@ Kategorie: Infrastruktur / Deployment Unterkategorie: Container-Orchestrierung, 
 Technologie: Python 3.14, ArangoDB, Kubernetes 1.28+, Helm, Docker, Traefik
 Status: Genehmigt
 Priorität: Kritisch
-Version: 2.5
+Version: 2.7
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [kubernetes, helm, docker, deployment, scaling, high-availability, ci-cd, network-policies, seccomp, container-security]
@@ -324,10 +324,12 @@ spec:
               topologyKey: kubernetes.io/hostname
 ```
 
-**Startup-Budget im Chart (#2125, v2.3):** Das Chart setzte bis v2.3 keinen `startupProbe`; die Liveness-Probe (15 s Verzoegerung, 10 s Periode, 3 Fehlschlaege) beendete den Backend-Container etwa 35 s nach dem Start. Der Lifespan fuehrt aber vor dem ersten `listen` `ensure_collections`, alle offenen Migrationen und die Seeds aus (gemessen 2026-10-04 auf leerer ArangoDB 3.12.12: ~6 s Import, ~33 s Datenbankarbeit), und eine Replica, die den Migrations-Lock belegt findet, wartet bis `BARRIER_TIMEOUT_SECONDS` (600 s, NFR-016). Verbindlich ist deshalb: Der Backend-Container hat einen `startupProbe` auf `/api/v1/health/live`, dessen Budget (`initialDelaySeconds + periodSeconds × failureThreshold`, im Chart 10 s × 90 = 900 s) **groesser** als `BARRIER_TIMEOUT_SECONDS` ist — die begrenzte Wartezeit der Anwendung, nicht das Kubelet, entscheidet ueber einen gescheiterten Start. Geprueft durch `tests/unit/guards/test_chart_backend_startup_budget.py` (liest die Code-Konstante) und `scripts/ci/assert_chart_contracts.sh`. Offen (Betreiberentscheidung): Migrationen und Seeds aus dem Lifespan in einen Helm-`pre-upgrade`-Job verlagern.
+**Startup-Budget im Chart (#2125, v2.3):** Das Chart setzte bis v2.3 keinen `startupProbe`; die Liveness-Probe (15 s Verzoegerung, 10 s Periode, 3 Fehlschlaege) beendete den Backend-Container etwa 35 s nach dem Start. Der Lifespan fuehrt aber vor dem ersten `listen` `ensure_collections`, alle offenen Migrationen und die Seeds aus (gemessen 2026-10-04 auf leerer ArangoDB 3.12.12: ~6 s Import, ~33 s Datenbankarbeit), und eine Replica, die den Migrations-Lock belegt findet, wartet bis `BARRIER_TIMEOUT_SECONDS` (600 s, NFR-016). Verbindlich ist deshalb: Der Backend-Container hat einen `startupProbe` auf `/api/v1/health/live`, dessen Budget (`initialDelaySeconds + periodSeconds × failureThreshold`, im Chart 10 s × 90 = 900 s) **groesser** als `BARRIER_TIMEOUT_SECONDS` ist — die begrenzte Wartezeit der Anwendung, nicht das Kubelet, entscheidet ueber einen gescheiterten Start. Geprueft durch `tests/unit/guards/test_chart_backend_startup_budget.py` (liest die Code-Konstante) und `scripts/ci/assert_chart_contracts.sh`. **Betreiberentscheidung 2026-10-10 (#2125): Migrationen und Seeds bleiben im Lifespan, kein `pre-upgrade`-Job.** Verbindlicher Betreibervertrag ist damit das Startbudget selbst: `docs/{de,en}/deployment/kubernetes.md` (Abschnitt "Startdauer des Backends") nennt maximale Startdauer (900 s, mit Probe-Arithmetik), Barrier-Wartezeit (600 s) und Lock-TTL (300 s); `test_chart_backend_startup_budget.py` vergleicht jede Zeile mit Chart und Code-Konstanten. Bekannte Grenze: Der Migrations-Lauf erneuert seinen Lock nicht (nur der Seed-Lauf ruft `refresh_lock`), eine Migration ueber `LOCK_TTL_SECONDS` hinaus kann deshalb von einer zweiten Replica uebernommen werden.
 
 **Celery-Worker (#2128, #2154, #2153, v2.5):**
 - **Queues:** Der Worker liest `critical` (Aufbewahrung/Loeschung, Benachrichtigungen, Frost, Aktoren), `celery` (Standard) und `bulk` (lange externe Laeufe), im Chart als `-Q critical,celery,bulk`. Eine Queue ohne lesenden Worker haelt ihre Aufgaben stillschweigend; Guard `test_every_task_has_a_queue` und `assert_chart_contracts.sh` binden die Liste an `app/tasks/routing.py`. Zeitlimits je Aufgabe (30/35 min, fortsetzbare Laeufe 3 h), `worker_prefetch_multiplier=1`, `visibility_timeout` 4 h ueber dem laengsten harten Limit.
+- **Ein Worker je Queue (v2.7):** Mit `celeryWorkers.dedicatedQueues: true` liest `celery-worker` nur `critical`, `celery-worker-default` liest `celery`, `celery-worker-bulk` liest `bulk`. Die Kopien entstehen zur Render-Zeit aus den zusammengefuehrten Values (`templates/_celery_workers.tpl`, vor dem bjw-s-Loader): tiefe Kopie von `controllers.celery-worker` und `networkpolicies.celery-worker`, ergaenzte Mounts und Peers — Overlays, `--set` und ArgoCD-`valuesObject` auf den Worker (Image, Env, `securityContext`, Egress) gelten damit fuer alle drei (YAML-Anker taten das nicht, Security-Review SEC-001); `assert_chart_contracts.sh` prueft beide Schalterzustaende (Basis-Values, `values-dev.yaml` und ein haertendes Overlay: jede Queue genau ein Leser, gleiches Image, gleicher Pod-/Container-`securityContext`, gleiche Env, gleicher Claim, gleiche Egress-Regeln, Peers in den Ingress-Policies von ArangoDB, Valkey und inference-service). Default bleibt ein Worker fuer alle drei Queues.
+- **Bestaetigung (v2.7):** Nachrichten werden beim Start bestaetigt, ausser fuer `ACKS_LATE_TASKS` (`app/tasks/routing.py`) — Aufraeumlaeufe, die Zeilen per Praedikat auf Zustand und Uhr waehlen und keine Nachricht senden, nichts schalten und nichts weiterreichen; ein mitten im Lauf verschwundener Pod verliert den Lauf dort nicht. `task_reject_on_worker_lost` bleibt aus.
 - **Bereitschaft:** Ohne HTTP-Endpunkt ist Readiness eine Datei, die der Worker selbst schreibt, sobald sein Consumer laeuft (`WORKER_READY_FILE`); vorher prueft er seine ArangoDB-Anmeldung 60 s lang und beendet sich ohne Erfolg. `startupProbe` (5 s x 36 = 180 s, Guard `test_chart_worker_probes` gegen `WORKER_DATABASE_START_BUDGET_SECONDS`) und `readinessProbe` testen die Datei; ein Rollout behaelt den alten Worker, bis der neue Aufgaben annimmt. Liveness fragt den eigenen Knoten (`inspect ping -d celery@$HOSTNAME`); ein `inspect ping` ohne Ziel antwortet fuer jeden Worker im Cluster.
 - **Anhaenge-Volume:** Liegen die Anhaenge auf einem `ReadWriteOnce`-PVC (`storage.backend: local-fs`), verlangen Backend und Worker per `podAffinity` denselben Node (`topologyKey: kubernetes.io/hostname`); das Rolling Update (surge 1, unavailable 0) bleibt ohne Unterbrechung. Mit S3 oder `ReadWriteMany` rendert der Schluessel auf `kubernetes.io/os` und schraenkt nichts ein.
 
@@ -614,6 +616,8 @@ stringData:
 2. **External Secrets Operator**: Synchronisierung aus Vault/AWS Secrets Manager
 3. **SOPS**: Verschlüsselung mit Age/PGP
 
+**Im Chart (#2127, v2.6):** `externalSecrets.app` rendert ein `ExternalSecret` (`external-secrets.io/v1`, bjw-s-nativ), das `kamerplanter-secrets` aus einem Store-Eintrag schreibt (`dataFrom.extract`, `creationPolicy: Owner`, `deletionPolicy: Retain`). Default `enabled: false` — ohne ESO bleibt das Secret out-of-band. Ohne `secretStoreRef.name` verweigert bjw-s die Darstellung. Geprueft durch `scripts/ci/assert_chart_contracts.sh` (Block #2127).
+
 **Least Privilege fuer Datenbank-Zugaenge (#2126, v2.4):** Ein Pod erhaelt nur die Secret-Schluessel, die er braucht (`secretKeyRef` je Schluessel, kein `envFrom` eines geteilten Secrets an einen Datenbank-Pod). Die Anwendung verbindet sich **nicht als `root`**: Der ArangoDB-Pod liest nur `ARANGO_ROOT_PASSWORD` (Secret konfigurierbar ueber `database.arangodb.rootPasswordSecret`); ein Container `app-user` im selben Pod legt idempotent das Anwendungskonto (`database.arangodb.appUsername`, Default `kamerplanter`) mit `rw` nur auf der Anwendungsdatenbank und `none` auf `_system` an; Backend, Celery-Worker, Celery-Beat und das Backup nutzen dieses Konto. `ArangoConnection.connect` oeffnet dafuer die Anwendungsdatenbank direkt und geht nur bei *database not found* (ERR 1228) ueber `_system`. Gemessen 2026-10-04 (ArangoDB 3.12.12): vorher scheiterte ein solches Konto mit `DatabaseListError 401 ERR 11`, jetzt bootet die Anwendung inkl. aller Migrationen und Seeds darunter (`tests/integration/test_arango_app_scoped_account.py`). **Betreiberschritte** (im Chart nicht erzwingbar): eigenes `ARANGODB_PASSWORD` fuer das Anwendungskonto; `ARANGO_ROOT_PASSWORD` in ein eigenes Secret verschieben — solange es in `kamerplanter-secrets` liegt, sieht das Backend es per `envFrom` weiterhin. Anleitung: `docs/{de,en}/deployment/kubernetes.md`, Abschnitt Datenbank-Zugaenge.
 
 ---
@@ -697,6 +701,8 @@ data:
         as: "${1}_per_second"
       metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (<<.GroupBy>>)'
 ```
+
+**Im Chart (#2127, v2.6):** Die Skizze oben ist Vor-Helm-Stand (`k8s/...` existiert nicht). Das Chart bietet HPA und PDB als Opt-in je Controller ueber die bjw-s-Schluessel `controllers.<name>.horizontalPodAutoscaler` / `.podDisruptionBudget`; Default ist eine Replica ohne HPA/PDB, damit bestehende Installationen unveraendert bleiben (Default-Render vor/nach #2127 identisch). Render-Pruefungen (`renderChecks.attachmentVolume`, `renderChecks.scaling`) verweigern: Backend/Worker mit `maxReplicas` > 1 auf `ReadWriteOnce` ohne `singleNode`; HPA oder `replicas` != 1 fuer `celery-beat`, `arangodb`, `vectordb`; ein PDB mit `minAvailable` >= kleinster Replica-Zahl (blockiert jeden Drain). Worker-HPA nach Queue-Laenge setzt Worker-Metriken voraus (MT-033) und ist offen.
 
 ### 4.2 Vertical Pod Autoscaler (VPA)
 
@@ -1689,8 +1695,8 @@ spec:
     - [ ] Helm Tests vorhanden
 - [ ] **Skalierung**
 
-    - [ ] HPA konfiguriert (min 3, max 10 Pods)
-    - [ ] PDB verhindert kompletten Ausfall
+    - [x] HPA im Chart konfigurierbar (Opt-in je Controller; Groesse min/max je Installation, NFR-012 §4.1 nennt 3–10 fuer den Enterprise-Betrieb) — #2127
+    - [x] PDB im Chart konfigurierbar (Opt-in; Render-Pruefung verweigert ein PDB, das jeden Drain blockiert) — #2127
     - [ ] Resource Limits gesetzt
 - [ ] **Security**
 
@@ -1700,7 +1706,7 @@ spec:
     - [ ] `seccompProfile: RuntimeDefault` in allen Container-Security-Contexts
     - [ ] Pod Security Standards enforced (`restricted` Profile)
     - [ ] RBAC konfiguriert
-    - [ ] Secrets nicht in Git
+    - [ ] Secrets nicht in Git (Chart: `ExternalSecret` als Opt-in, #2127)
 - [ ] **Observability**
 
     - [ ] Prometheus Metrics exportiert
@@ -1973,6 +1979,8 @@ helm dependency build <chart-path>
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.7 | 2026-10-11 | **Ein Worker je Queue, `acks_late` fuer idempotente Laeufe (#2128 MT-032 teilweise):** §3.2 — `celeryWorkers.dedicatedQueues` (Default aus) startet `celery-worker` nur fuer `critical` und die Kopien `celery-worker-default`/`celery-worker-bulk` (zur Render-Zeit aus den zusammengefuehrten Worker-Values abgeleitet: Image, Umgebung, `securityContext`, Anhaenge-Volume, eigene NetworkPolicy, Peers); Render-Vertraege fuer beide Zustaende. Idempotente Aufraeumlaeufe (`ACKS_LATE_TASKS`) bestaetigen nach dem Lauf. Offen aus MT-032: Beat-Abfragen je Mandant (Saison, Tank, Aktoren, Ruhephase, Vernalisation), N+1 in `check_auto_transitions`, Worker-HPA nach Queue-Laenge (MT-033). |
+| 2.6 | 2026-10-10 | **Startbudget als Betreibervertrag, HPA/PDB/ExternalSecret im Chart (#2125 MT-029, #2127 MT-031 teilweise):** §3.2 Betreiberentscheidung — Migrationen/Seeds bleiben im Lifespan, kein Pre-Upgrade-Job; maximale Startdauer, Barrier und Lock-TTL in der Deployment-Doku, gegen Chart und Code geprueft. §3.7 `externalSecrets.app` (Opt-in). §4.1/§4.3 HPA und PDB als Opt-in je Controller mit Render-Pruefungen (Singletons, `ReadWriteOnce`, Drain-blockierendes PDB). §11 Skalierung korrigiert: konfigurierbar statt fester 3–10 im Default. Offen aus MT-031: externe ArangoDB/Valkey (Backend spricht ArangoDB nur per `http://`), TimescaleDB als Controller, Valkey-`maxmemory`/AOF als Default (dokumentierte Empfehlung statt Default-Aenderung), Worker-HPA nach Queue-Laenge. |
 | 2.5 | 2026-10-05 | **Celery-Worker im Chart (#2128 MT-032 teilweise, #2154, #2153):** §3.2 neuer Absatz — drei Queues mit `-Q` und Vertrags-Pruefung, Zeitlimits, Prefetch 1, `visibility_timeout`; Readiness ueber eine vom Worker geschriebene Datei mit vorgeschalteter Datenbank-Anmeldepruefung, Liveness gezielt auf den eigenen Knoten; Backend und Worker per `podAffinity` auf dem Node des `ReadWriteOnce`-Anhaenge-Volumes. Offen aus MT-032: eigener Worker je Queue, Beat-Abfragen je Mandant. |
 | 2.4 | 2026-10-04 | **Least-Privilege-Datenbankzugaenge (#2126, MT-030):** §3.7 — ArangoDB-Pod erhaelt nur `ARANGO_ROOT_PASSWORD` (vorher `envFrom` des ganzen Anwendungs-Secrets), Anwendungskonto mit `rw` nur auf der eigenen Datenbank statt `root`, Provisionierung im Chart (`app-user`), Betreiberschritte zur Trennung des Root-Passworts. |
 | 2.3 | 2026-10-04 | **Backend-`startupProbe` im Chart (#2125, MT-029):** Budget 900 s > `BARRIER_TIMEOUT_SECONDS` (600 s); Liveness beendete den migrierenden Lifespan zuvor nach ~35 s (§3.2 Hinweis). Verlagerung von Migrationen/Seeds in einen Pre-Upgrade-Job bleibt offen. |

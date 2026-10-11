@@ -35,13 +35,15 @@ from typing import Any
 
 import structlog
 
-from app.common.exceptions import DuplicateError, NotFoundError
+from app.common.enums import TenantType
+from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
 from app.common.log_privacy import log_subject
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.oauth_engine import OAuthEngine
 from app.domain.interfaces.auth_provider_repository import IAuthProviderRepository
 from app.domain.interfaces.oidc_config_repository import IOidcConfigRepository
-from app.domain.models.oidc_config import OidcProviderConfig
+from app.domain.interfaces.tenant_repository import ITenantRepository
+from app.domain.models.oidc_config import OidcProviderConfig, admits_default_tenant
 from app.domain.models.user import User
 from app.domain.services.step_up_service import StepUpVerifier
 from app.domain.services.step_up_targets import oidc_provider_target
@@ -82,6 +84,18 @@ def _repoints_discovery(current: OidcProviderConfig, changes: dict[str, Any]) ->
 _EXPLICIT_ENDPOINT_FIELDS = ("authorization_url", "token_url", "userinfo_url", "jwks_url")
 
 
+#: The fields whose change makes the default tenant need judging again (#2182 SEC-001/SEC-002): the
+#: tenant itself, and the provider type that decides whether one is admitted at all.
+_DEFAULT_TENANT_BOUND_FIELDS = frozenset({"default_tenant_key", "provider_type"})
+
+
+def _default_tenant_refused(field_reason: str, code: str) -> ValidationError:
+    return ValidationError(
+        f"default_tenant_key: {field_reason}",
+        details=[{"field": "default_tenant_key", "reason": field_reason, "code": code}],
+    )
+
+
 def _endpoints_of_the_old_issuer(current: OidcProviderConfig, data: dict[str, Any]) -> list[str]:
     """The explicit endpoints a repoint of the issuer leaves behind: set, and not replaced by this request (#1987).
 
@@ -106,8 +120,10 @@ class OidcProviderAdminService:
         oauth_engine: OAuthEngine,
         step_up_verifier: StepUpVerifier,
         auth_provider_repo: IAuthProviderRepository,
+        tenant_repo: ITenantRepository,
     ) -> None:
         self._auth_provider_repo = auth_provider_repo
+        self._tenant_repo = tenant_repo
         self._oidc_config_repo = oidc_config_repo
         self._encryption = encryption_engine
         self._oauth = oauth_engine
@@ -136,6 +152,7 @@ class OidcProviderAdminService:
         client_secret = fields.pop(_SECRET_FIELD)
         config = OidcProviderConfig(**fields, client_secret_encrypted=self._encryption.encrypt(client_secret))
         self._oauth.require_supported_scopes(config)
+        self._refuse_unfit_default_tenant(config)
         self._verify(
             requester,
             target=oidc_provider_target(None, slug=config.slug),
@@ -213,6 +230,12 @@ class OidcProviderAdminService:
         # judges and what the written fields are taken from.
         merged = OidcProviderConfig.model_validate({**config.model_dump(by_alias=True), **changes})
         self._oauth.require_supported_scopes(merged)
+        if _DEFAULT_TENANT_BOUND_FIELDS & set(changes):
+            # Judged on the merged state too: switching a provider WITH a default tenant to
+            # ``google`` is refused as much as setting one on a ``google`` provider (#2182 SEC-001).
+            # Only when one of the two changes, so a tenant deleted since does not block an
+            # unrelated edit - the sign-in skips an unknown tenant on its own.
+            self._refuse_unfit_default_tenant(merged)
         if needs_step_up:
             self._verify(
                 requester,
@@ -307,6 +330,35 @@ class OidcProviderAdminService:
             links_deleted=links_deleted,
             requested_by=log_subject(requester.key),
         )
+
+    def _refuse_unfit_default_tenant(self, config: OidcProviderConfig) -> None:
+        """422 unless *config*'s ``default_tenant_key`` may admit new accounts (REQ-024 AK-09, #2182).
+
+        Security review SEC-001/SEC-002: before, the value was stored as typed. A default tenant on
+        a provider where anybody can create an identity (Google, GitHub, Apple) let anybody join
+        the tenant; one naming a personal tenant or the ``platform`` tenant was stored and only
+        skipped at sign-in, invisibly. Now: generic ``oidc`` providers only
+        (:func:`~app.domain.models.oidc_config.admits_default_tenant`), and the tenant exists, is
+        an organisation and is not the platform tenant. Before the step-up, like the scope check:
+        a request refused anyway spends no mailed code. Not refused: a tenant that is merely
+        suspended now - the sign-in reads its state at each join and skips it while inactive.
+        """
+        tenant_key = config.default_tenant_key
+        if not tenant_key:
+            return
+        if not admits_default_tenant(config.provider_type):
+            raise _default_tenant_refused(
+                "only a generic OIDC provider may place new accounts in a tenant; "
+                f"anybody can create a {config.provider_type} account",
+                "default_tenant_open_registration_provider",
+            )
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        if tenant is None:
+            raise _default_tenant_refused("no tenant has this key", "default_tenant_unknown")
+        if tenant.is_platform:
+            raise _default_tenant_refused("the platform tenant cannot be a default tenant", "default_tenant_platform")
+        if tenant.tenant_type == TenantType.PERSONAL:
+            raise _default_tenant_refused("a personal tenant cannot be a default tenant", "default_tenant_personal")
 
     def _verify(
         self,

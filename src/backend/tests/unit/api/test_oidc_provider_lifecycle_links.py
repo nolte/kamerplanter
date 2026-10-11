@@ -24,6 +24,7 @@ from __future__ import annotations
 import time
 from datetime import UTC, datetime
 from typing import Any
+from unittest.mock import MagicMock
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -124,6 +125,7 @@ def _service(configs: _ConfigStore, world: _World) -> OidcProviderAdminService:
         OAuthEngine(),
         PassedStepUpVerifier(),  # type: ignore[arg-type]
         world.providers,  # type: ignore[arg-type]
+        MagicMock(),
     )
 
 

@@ -4305,6 +4305,10 @@ export interface Invitation {
   created_by: string;
   expires_at: string;
   created_at: string | null;
+  /** How many accounts may join with it (REQ-024 AK-07, #2182); `1` for an e-mail invitation. */
+  max_uses: number;
+  /** Uses consumed so far; the invitation turns `accepted` with the one that reaches `max_uses`. */
+  use_count: number;
 }
 
 export interface InvitationCreate {
@@ -4324,10 +4328,16 @@ export interface InvitationCreated {
   expires_at: string;
   accept_url: string;
   delivered: boolean | null;
+  /** How many accounts may join with it (REQ-024 AK-07, #2182). */
+  max_uses: number;
 }
+
+/** Bounds of `max_uses` — the backend's `INVITATION_MAX_USES_LIMIT` (REQ-024 AK-07, #2182). */
+export const INVITATION_MAX_USES_LIMIT = 100;
 
 export interface InvitationLinkCreate {
   role: TenantRole;
+  /** How many accounts may join with the link, `1`..`INVITATION_MAX_USES_LIMIT`; omitted: `1`. */
   max_uses?: number;
 }
 
@@ -4685,9 +4695,12 @@ export interface CalendarEventsResponse {
   total: number;
 }
 
+/**
+ * What a feed narrows the tenant's calendar to: event categories. A site
+ * filter was stored but never applied and was removed (#2226 review SEC-003).
+ */
 export interface CalendarFeedFilters {
   categories: string[];
-  site_key: string | null;
 }
 
 /**
@@ -6874,8 +6887,9 @@ export type OidcProviderType = 'google' | 'github' | 'apple' | 'oidc';
 /**
  * `OidcProviderResponse` of `GET /admin/oidc-providers`. The client secret is
  * write-only: the API never returns it (or its ciphertext), and neither do
- * the endpoint URL overrides nor the default tenant — those can be set on
- * create (and on update through the API) but not read back.
+ * the endpoint URL overrides — those can be set on create (and on update
+ * through the API) but not read back. The default tenant is returned since
+ * #2182 (security review SEC-002).
  */
 export interface OidcProvider {
   key: string;
@@ -6889,6 +6903,8 @@ export interface OidcProvider {
   enabled: boolean;
   icon_url: string | null;
   auto_discover: boolean;
+  /** The tenant every new account of this provider joins as viewer (REQ-024 AK-09, #2182); `null` when none. */
+  default_tenant_key: string | null;
   discovery_refreshed_at: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -6928,7 +6944,8 @@ export interface OidcProviderUpdate extends CredentialStepUp {
   auto_discover?: boolean;
   enabled?: boolean;
   icon_url?: string;
-  default_tenant_key?: string;
+  /** `null` or `''` clears it (#2182 SEC-002); generic `oidc` providers only, an existing organisation. */
+  default_tenant_key?: string | null;
 }
 
 export interface OidcScopeCheck {

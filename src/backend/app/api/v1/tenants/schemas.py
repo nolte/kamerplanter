@@ -11,6 +11,7 @@ from app.common.enums import (
     TenantStatus,
     TenantType,
 )
+from app.domain.models.invitation import INVITATION_MAX_USES_LIMIT
 from app.domain.models.tenant_erasure import (
     TenantDeletionConfirmation,
     TenantErasureCancelConfirmation,
@@ -273,6 +274,9 @@ class EmailInvitationRequest(BaseModel):
 
 class LinkInvitationRequest(BaseModel):
     role: TenantRole = TenantRole.VIEWER
+    #: How many accounts may join with the link (REQ-024 AK-07, #2182). Each use still meets the
+    #: tenant's member limit; ``1`` (the default) keeps the single-use link.
+    max_uses: int = Field(default=1, ge=1, le=INVITATION_MAX_USES_LIMIT)
 
 
 class InvitationResponse(BaseModel):
@@ -284,6 +288,9 @@ class InvitationResponse(BaseModel):
     status: InvitationStatus
     expires_at: datetime
     created_at: datetime | None
+    #: Uses granted and consumed (REQ-024 AK-07, #2182); an e-mail invitation is ``1``.
+    max_uses: int = 1
+    use_count: int = 0
 
 
 class InvitationLinkResponse(BaseModel):
@@ -295,6 +302,8 @@ class InvitationLinkResponse(BaseModel):
     #: E-mail invitations: whether the invitation mail left (#2162). ``false`` - the invitation
     #: exists but reached nobody; the inviter passes ``accept_url`` on. ``null`` for a link invitation.
     delivered: bool | None = None
+    #: How many accounts may join with it (REQ-024 AK-07, #2182).
+    max_uses: int = 1
 
 
 class AcceptInvitationRequest(BaseModel):

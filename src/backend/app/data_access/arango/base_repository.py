@@ -242,6 +242,17 @@ class BaseArangoRepository[TModel: BaseModel]:
     #: and a model that carries one writes back the value it was read with.
     _update_is_full_replace: ClassVar[bool] = False
 
+    #: How :meth:`update_fields` writes a field whose value is an object.
+    #:
+    #: ``True`` (default, the ArangoDB ``mergeObjects`` default) - the object is
+    #: merged into the stored one, so a sub-key the stored object carries and the
+    #: new one does not survives. ``False`` - the object named in ``fields``
+    #: replaces the stored one whole; fields ``fields`` does not name are still
+    #: left alone (the update stays partial at the top level). A repository whose
+    #: objects are value types - a filter set, where a sub-key nobody wrote any
+    #: more must go - sets ``False`` (#2226 re-review SEC-S1).
+    _update_fields_merges_objects: ClassVar[bool] = True
+
     def __init__(
         self,
         db: StandardDatabase,
@@ -897,8 +908,13 @@ class BaseArangoRepository[TModel: BaseModel]:
         """
         data = {field: value for field, value in fields.items() if field not in _RESERVED_DOC_ATTRIBUTES}
         data["updated_at"] = self._now()
+        # ``merge`` is passed only to switch merging off: every merging repository
+        # keeps the exact call it made before ``_update_fields_merges_objects``.
+        options: dict[str, Any] = {"return_new": True, "keep_none": True}
+        if not self._update_fields_merges_objects:
+            options["merge"] = False
         try:
-            result = self.collection.update({**data, "_key": key}, return_new=True, keep_none=True)
+            result = self.collection.update({**data, "_key": key}, **options)
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
                 # The entity, not the collection: ``details[0].entity`` is a contract
@@ -1028,21 +1044,56 @@ class BaseArangoRepository[TModel: BaseModel]:
 
         Generalises :meth:`get_all` for the hand-written ``FILTER … SORT …
         LIMIT`` list queries in the multi-collection repositories.
+        :meth:`get_page_window` is the same page without the count.
         """
-        builder = AQLBuilder(self._collection_name)
-        for field, op, value in filters or []:
-            builder.filter(field, op, value)
-        builder.sort(sort, sort_direction).paginate(offset, limit)
+        items = self.get_page_window(
+            offset=offset, limit=limit, filters=filters, sort=sort, sort_direction=sort_direction
+        )
 
-        query, bind_vars = builder.build_list()
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        items = [self._from_doc(doc) for doc in cursor]
-
+        builder = self._page_builder(offset, limit, filters, sort, sort_direction)
         count_query, count_vars = builder.build_count()
         count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
         total = next(count_cursor, 0)
 
-        return self._wrap_many(items), total
+        return items, total
+
+    def get_page_window(
+        self,
+        *,
+        offset: int = 0,
+        limit: int = 50,
+        filters: list[FilterTriple] | None = None,
+        sort: str = "_key",
+        sort_direction: SortDirection = "ASC",
+    ) -> list[TModel]:
+        """The page :meth:`get_page` reads, **without** the count query (MT-035, #2131).
+
+        :meth:`get_page` pays for its ``total`` with a second scan of every row
+        the filters match, on every page. A list route answers a bare array and
+        never reads that number; this is the same window (same filters, order
+        and ``LIMIT``) without the scan: ``include_total=false`` as a method.
+        """
+        builder = self._page_builder(offset, limit, filters, sort, sort_direction)
+        query, bind_vars = builder.build_list()
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return self._wrap_many([self._from_doc(doc) for doc in cursor])
+
+    def _page_builder(
+        self,
+        offset: int,
+        limit: int,
+        filters: list[FilterTriple] | None,
+        sort: str,
+        sort_direction: SortDirection,
+    ) -> AQLBuilder:
+        # A non-unique sort value (``created_at``) gets ``_key`` as the second
+        # criterion, so a pager walks a total order and no row lands on two
+        # pages or on none (MT-035, #2131).
+        builder = AQLBuilder(self._collection_name)
+        for field, op, value in filters or []:
+            builder.filter(field, op, value)
+        builder.sort(sort, sort_direction, tiebreak_key=sort != "_key").paginate(offset, limit)
+        return builder
 
     def create(
         self,

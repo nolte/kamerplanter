@@ -22,9 +22,15 @@ tenant — waited for it.
 
 Every queue is declared in ``task_queues``; a worker started without ``-Q``
 consumes all of them, and the Helm chart names all three explicitly
-(``scripts/ci/assert_chart_contracts.sh``). Running ``bulk`` in a worker of its
-own is the next step (the audit's per-queue deployment); the routing below is
-its precondition, and an operator can do it today with ``-Q bulk`` / ``-X bulk``.
+(``scripts/ci/assert_chart_contracts.sh``). With ``celeryWorkers.dedicatedQueues``
+the chart runs one worker Deployment per queue instead (``celery-worker`` on
+``critical``, ``celery-worker-default`` on ``celery``, ``celery-worker-bulk`` on
+``bulk``), so a dataset or image job cannot delay a reminder or an erasure.
+
+**Acknowledgement.** Messages are acknowledged when their task starts, except for
+:data:`ACKS_LATE_TASKS` — idempotent sweeps, acknowledged when they finished, so a
+worker that disappears mid-run does not lose the run (the reasoning per task is at
+the set).
 
 **Time limits** are a backstop against a hung task, not a budget: a soft limit
 raises ``SoftTimeLimitExceeded`` inside the task, the hard limit kills the
@@ -159,6 +165,53 @@ LONG_RUNNING_TASKS: Final = frozenset(
     }
 )
 
+#: Tasks whose message is acknowledged only once they finished (``acks_late``) — the idempotent ones.
+#:
+#: With the default (``acks_late`` off) a message is acknowledged when its task starts; a worker pod
+#: that disappears mid-run (node drain past the grace period, eviction, node loss) loses the run, and
+#: the next one is a beat interval away — a day for most of these. With ``acks_late`` the message
+#: stays unacknowledged in Valkey and is handed out again after :data:`VISIBILITY_TIMEOUT_SECONDS`,
+#: so the work runs a second time. That is only safe for a task whose second run does nothing the
+#: first did not: every task here selects its rows by a predicate on the stored state and the clock
+#: ("expired before now", "older than the retention window", "past its override expiry") and writes
+#: that state — a re-run finds nothing left, or the same rows again — and none sends a message, calls
+#: Home Assistant or dispatches further tasks.
+#:
+#: NOT here, on purpose: notifications and digests (a re-run notifies twice), the actuator control
+#: loop (a re-run switches hardware; its 30 s beat re-evaluates anyway), the erasure runners and
+#: export builders (resumable by their own claim records, and long: a redelivery four hours later
+#: would race the resume sweep), ``retention.redispatch_stale_pending_exports`` (dispatches tasks),
+#: and every generator that creates tasks or rows.
+#:
+#: ``task_reject_on_worker_lost`` stays off: a task whose child process is killed (OOM, hard time
+#: limit) is recorded as failed and acknowledged, not redelivered into the same crash.
+ACKS_LATE_TASKS: Final = frozenset(
+    {
+        # NFR-011 retention sweeps: delete / anonymise / flip rows past a cutoff
+        "retention.anonymize_consent_ips",
+        "retention.expire_data_exports",
+        "retention.expire_email_change_requests",
+        "retention.purge_expired_consent_records",
+        "retention.purge_expired_erasure_records",
+        "retention.purge_expired_legal_retention_rows",
+        "retention.purge_expired_tenant_erasure_records",
+        "app.tasks.auth_tasks.anonymize_old_ips",
+        "app.tasks.auth_tasks.cleanup_expired_tokens",
+        "app.tasks.auth_tasks.cleanup_unverified_accounts",
+        "app.tasks.tenant_tasks.cleanup_expired_invitations",
+        "security_audit.purge_expired",
+        "ai.cleanup_expired_audit_log",
+        "ai.cleanup_expired_conversations",
+        "mcp.cleanup_expired_audit_log",
+        "mcp.cleanup_expired_idempotency",
+        "glossary.cleanup_expired_cache",
+        # deletes index prototypes whose contribution document is gone (#1771); a re-run finds none
+        "pest_image.sweep_orphaned_prototypes",
+        # deactivates overrides whose expiry has passed; switches nothing itself
+        "app.tasks.actuator_tasks.expire_manual_overrides",
+    }
+)
+
 #: Above the longest hard limit, so a message reserved behind a running task is not redelivered.
 VISIBILITY_TIMEOUT_SECONDS: Final = LONG_TIME_LIMIT_SECONDS + 55 * 60
 
@@ -177,12 +230,17 @@ def task_routes() -> dict[str, dict[str, str]]:
     return {name: {"queue": _queue_of(name)} for name in sorted(names)}
 
 
-def task_annotations() -> dict[str, dict[str, int]]:
-    """Per-task limits for :data:`LONG_RUNNING_TASKS`; every other task takes the global default."""
-    return {
-        name: {"soft_time_limit": LONG_SOFT_TIME_LIMIT_SECONDS, "time_limit": LONG_TIME_LIMIT_SECONDS}
-        for name in sorted(LONG_RUNNING_TASKS)
-    }
+def task_annotations() -> dict[str, dict[str, int | bool]]:
+    """Per-task options: the limits of :data:`LONG_RUNNING_TASKS`, ``acks_late`` of :data:`ACKS_LATE_TASKS`.
+
+    Every other task takes the global defaults (30/35 min, acknowledged on start).
+    """
+    annotations: dict[str, dict[str, int | bool]] = {}
+    for name in sorted(LONG_RUNNING_TASKS):
+        annotations[name] = {"soft_time_limit": LONG_SOFT_TIME_LIMIT_SECONDS, "time_limit": LONG_TIME_LIMIT_SECONDS}
+    for name in sorted(ACKS_LATE_TASKS):
+        annotations.setdefault(name, {})["acks_late"] = True
+    return annotations
 
 
 def celery_queue_config() -> dict[str, object]:

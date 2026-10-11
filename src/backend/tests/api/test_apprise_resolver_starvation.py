@@ -8,12 +8,23 @@ block like a nameserver that never answers, every other name answers at once.
 Before #1995 one save of ten stuck names held all eight threads of the one
 module-wide resolver pool, so the next user's fast name waited behind them and
 was refused at the deadline, on save and on send alike.
+
+The timed windows hold only the victim's request and run with the cyclic
+garbage collector paused (:func:`_timed`). In the ``tests/api`` process the
+collector tracks some 2.6 million objects; one incremental old-generation
+collection measured up to 0.70 s locally and ~1 s on the CI runner — a pause the
+victim's request merely happened to allocate into, not a wait for a resolver
+thread. Starvation is a wait on threads and the deadline, which the paused
+collector does not shorten.
 """
 
 import asyncio
+import gc
 import threading
 import time
+from collections.abc import Callable
 from types import ModuleType, SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -128,6 +139,23 @@ def stub_apprise(monkeypatch):
     return seen
 
 
+def _timed(call: Callable[[], Any]) -> tuple[Any, float]:
+    """``(result, seconds)`` of ``call()``, with the cyclic garbage collector paused meanwhile.
+
+    Only the collector's automatic runs pause; threads, locks and waits behave as
+    always, so a request that waits for a resolver thread takes just as long.
+    """
+    was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        started = time.monotonic()
+        result = call()
+        return result, time.monotonic() - started
+    finally:
+        if was_enabled:
+            gc.enable()
+
+
 def test_a_never_answering_user_does_not_delay_another_users_save_or_send(never_answering, stub_apprise):
     attacker = _client("attacker")
     for round_ in range(3):  # ten names per save (the list maximum), three saves
@@ -135,18 +163,18 @@ def test_a_never_answering_user_does_not_delay_another_users_save_or_send(never_
         assert resp.status_code == 422, resp.text
     assert never_answering.inside > 0, "the double never held a resolver thread"
 
-    started = time.monotonic()
-    resp = _save(_client("victim"), ["gotify://fast.example/t"])
-    save_seconds = time.monotonic() - started
+    victim = _client("victim")  # building the test app is not part of the save
+    resp, save_seconds = _timed(lambda: _save(victim, ["gotify://fast.example/t"]))
     assert resp.status_code == 200, (resp.text, round(save_seconds, 2))
     assert save_seconds < DEADLINE, save_seconds
 
     notification = Notification(
         _key="n1", tenant_key="t1", user_key="victim", notification_type="care_watering", title="Water", body="Tomato"
     )
-    started = time.monotonic()
-    result = asyncio.run(AppriseNotificationChannel().send(notification, {"urls": ["gotify://fast2.example/t"]}))
-    send_seconds = time.monotonic() - started
+    channel = AppriseNotificationChannel()
+    result, send_seconds = _timed(
+        lambda: asyncio.run(channel.send(notification, {"urls": ["gotify://fast2.example/t"]}))
+    )
     assert result.success is True, (result.error, round(send_seconds, 2))
     assert stub_apprise == ["gotify://fast2.example/t"]
     assert send_seconds < DEADLINE, send_seconds

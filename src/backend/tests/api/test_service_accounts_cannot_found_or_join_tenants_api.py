@@ -80,7 +80,7 @@ class _World:
             token_hash=InvitationEngine.hash_token(TOKEN),
             expires_at="2999-01-01T00:00:00+00:00",
         )
-        self.invitations.mark_accepted_if_pending.side_effect = lambda key, fields: (
+        self.invitations.consume_use_if_pending.side_effect = lambda key, fields: (
             self.invitations.get_by_token_hash.return_value
         )
         self.audit = MagicMock()
@@ -126,7 +126,7 @@ def test_a_service_account_cannot_accept_an_invitation() -> None:
     response = world.accept()
 
     assert response.status_code == 403, response.text
-    assert not world.invitations.mark_accepted_if_pending.called
+    assert not world.invitations.consume_use_if_pending.called
     assert not world.memberships.create.called
     assert not world.audit.record_membership_change.called
 

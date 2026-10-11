@@ -187,7 +187,11 @@ export default function OidcProviderFormDialog({
     if (tokenUrl.trim()) fields.token_url = tokenUrl.trim();
     if (userinfoUrl.trim()) fields.userinfo_url = userinfoUrl.trim();
     if (jwksUrl.trim()) fields.jwks_url = jwksUrl.trim();
-    if (defaultTenantKey.trim()) fields.default_tenant_key = defaultTenantKey.trim();
+    // #2182 SEC-001 — only a generic OIDC provider may place new accounts in a tenant; on Google,
+    // GitHub and Apple anybody can create an account, so the backend refuses it (422).
+    if (providerType === 'oidc' && defaultTenantKey.trim()) {
+      fields.default_tenant_key = defaultTenantKey.trim();
+    }
     onSubmit({ mode: 'create', fields });
   };
 
@@ -428,16 +432,19 @@ export default function OidcProviderFormDialog({
                     data-testid={`oidc-form-${testId}`}
                   />
                 ))}
-                <TextField
-                  label={t('pages.admin.oidc.form.defaultTenantKey')}
-                  value={defaultTenantKey}
-                  onChange={(e) => setDefaultTenantKey(e.target.value)}
-                  disabled={pending}
-                  fullWidth
-                  autoComplete="off"
-                  slotProps={{ htmlInput: { spellCheck: false, autoCapitalize: 'none' } }}
-                  data-testid="oidc-form-default-tenant"
-                />
+                {providerType === 'oidc' && (
+                  <TextField
+                    label={t('pages.admin.oidc.form.defaultTenantKey')}
+                    value={defaultTenantKey}
+                    onChange={(e) => setDefaultTenantKey(e.target.value)}
+                    disabled={pending}
+                    fullWidth
+                    autoComplete="off"
+                    helperText={t('pages.admin.oidc.form.defaultTenantKeyHelper')}
+                    slotProps={{ htmlInput: { spellCheck: false, autoCapitalize: 'none' } }}
+                    data-testid="oidc-form-default-tenant"
+                  />
+                )}
               </AccordionDetails>
             </Accordion>
           )}

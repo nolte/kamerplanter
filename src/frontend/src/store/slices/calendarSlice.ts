@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type {
   CalendarEvent,
   CalendarFeed,
+  CalendarFeedFilters,
   CalendarFeedIssued,
   FrostConfig,
   SeasonOverviewResponse,
@@ -81,7 +82,7 @@ export const fetchCalendarFeeds = createAsyncThunk(
 
 export const createCalendarFeed = createAsyncThunk(
   'calendar/createFeed',
-  async ({ name, filters }: { name: string; filters: { categories: string[]; site_key: string | null } }) => {
+  async ({ name, filters }: { name: string; filters: CalendarFeedFilters }) => {
     return api.createCalendarFeed(name, filters);
   },
 );

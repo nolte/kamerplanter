@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, Helm, Kubernetes 1.28+, S3-kompatibles Object Storage, ReadWriteMany-PVs
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.11 (§7 Umsetzungsstand: kein Anhang-Backup im Chart; #2121); 1.10 (#2153: Backend und Worker per `podAffinity` auf dem Node des `ReadWriteOnce`-PVC); 1.9 (#2124: Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb — v1.7 #1834 Objekt-Rekonziliation); 1.8 (#2108/#2139: Pixelgrenze, HEIC/HEIF nicht mehr zulässig, Thumbnail-Auftrag je Fenster)
+Version: 1.12 (O-03 beantwortet: Kontingente je Plan, REQ-056 §7 und NFR-012 §10.3; #2143); 1.11 (§7 Umsetzungsstand: kein Anhang-Backup im Chart; #2121); 1.10 (#2153: Backend und Worker per `podAffinity` auf dem Node des `ReadWriteOnce`-PVC); 1.9 (#2124: Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb — v1.7 #1834 Objekt-Rekonziliation); 1.8 (#2108/#2139: Pixelgrenze, HEIC/HEIF nicht mehr zulässig, Thumbnail-Auftrag je Fenster)
 Autor: Business Analyst - Agrotech
 Datum: 2026-04-27
 Tags: [storage, object-storage, s3, minio, local-fs, adapter, photos, attachments, dsgvo, multi-tenant]
@@ -21,6 +21,7 @@ Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachmen
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.12 | 2026-10-11 | **#2143 (MT-050):** O-03 verwies auf eine Kontingent-Tabelle in NFR-012 §10, die es nicht gab. Beantwortet: Kontingente hängen nicht an der Skalierungsstufe, sondern am Plan eines Mandanten (REQ-056 §7); das Speicherkontingent (§5.1 Schritt 3) ist dort die Dimension `storage_mb` mit dem Instanzwert `STORAGE_TENANT_QUOTA_MB`, die Fotos je Pflanze `photos_per_instance`. Die Kapazitätswirkung je Stufe steht in NFR-012 §10.3. Verhalten unverändert; Pläne sind nicht implementiert (#2142). |
 | 1.11 | 2026-10-05 | **#2121 (MT-025):** §7 trägt einen Umsetzungsstand. Gemessen: Der Chart sichert Anhänge nicht (NFR-002 §8.0 nimmt sie ausdrücklich aus); PV-Snapshot, `rsync`-Job, Bucket-Versionierung, Replikation und `scripts/storage/migrate.py` (§7.3) liefert das Repository nicht — sie sind Betreiber-Aufgabe bzw. Zielbild. |
 | 1.10 | 2026-10-05 | **#2153 Rollout auf `ReadWriteOnce`:** Backend und Celery-Worker tragen das Label `kamerplanter.io/attachments-volume` und verlangen per `podAffinity` einen Pod mit diesem Label auf demselben Node, solange die Anhaenge auf einem `ReadWriteOnce`-PVC liegen; mit S3 oder `ReadWriteMany` keine Einschraenkung (`topologyKey` rendert auf `kubernetes.io/os`). Kein `Recreate`: das Rolling Update bleibt ohne Unterbrechung. |
 | 1.9 | 2026-10-04 | **Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb (#2124, MT-028):** Der Block `storage` in `helm/kamerplanter/values.yaml` war bis hierher wirkungslos (das Chart las ihn nicht; `storage.backend: s3` lieferte `local-fs` mit PVC). Jetzt leitet das Chart daraus die `STORAGE_*`-Variablen von Backend und Celery-Worker, das PVC `backend-attachments` (nur bei `local-fs`) und dessen Mounts ab; die S3-Credentials kommen als zwei `secretKeyRef` aus `credentialsRef` (Default-Schluessel jetzt `STORAGE_S3_ACCESS_KEY_ID` / `STORAGE_S3_SECRET_ACCESS_KEY`, wie in der Betriebsdoku). Neuer §10.1: Das Chart verweigert das Rendern von mehr als einer Backend- oder Worker-Replica auf einem `ReadWriteOnce`-Anhang-Volume (Ausweg: S3, RWX oder `storage.localFs.singleNode: true`). Das PVC traegt `Prune=false,Delete=false` fuer ArgoCD. Render-Vertraege in `scripts/ci/assert_chart_contracts.sh`. |
@@ -323,7 +324,7 @@ Pflicht-Reihenfolge fuer jeden Upload:
 
 1. **Authentifizierung** (REQ-023) — gueltiges Access-Token
 2. **Autorisierung** (REQ-024) — `require_permission("attachment:create", scope=tenant)`
-3. **Quota-Pruefung** — pro-Tenant- und pro-Mandant-Limit
+3. **Quota-Pruefung** — pro-Tenant- und pro-Mandant-Limit (wirksames Limit der Dimension `storage_mb` nach REQ-056 §7.3; heute `STORAGE_TENANT_QUOTA_MB`, Plaene nicht implementiert)
 4. **Mime-Type-Whitelist** — gegen `STORAGE_ALLOWED_MIME_TYPES`. Solange `STORAGE_STRIP_EXIF` aktiv ist, wird ein Bildtyp, dessen Metadaten die EXIF-Bereinigung nicht entfernen kann (HEIC/HEIF, GIF), auch dann mit 415 abgelehnt, wenn ein Kategorie-Override ihn zulaesst (v1.8, #2139).
 5. **Magic-Byte-Validierung** — der erste Block wird gegen den deklarierten Mime-Type geprueft (Schutz vor maskierten Uploads)
 5a. **Pixelgrenze (Bilder)** — Breite × Hoehe aus der Kopfzeile, **bevor** ein Pixel dekodiert wird; ueber 40 Megapixel HTTP 413 `IMAGE_PIXEL_LIMIT_EXCEEDED` (v1.8, #2108). Gilt auch bei abgeschaltetem EXIF-Strip, weil die Thumbnail-Erzeugung jedes Bild dekodiert.
@@ -663,7 +664,7 @@ Der Block ist im Chart **verdrahtet**, nicht nur Skizze: bjw-s common rendert se
 |-----|-------|-------------|
 | O-01 | Soll Phase 2 nach Stabilisierung von v1.0 anhand des Nutzerbedarfs (Befragung) priorisiert werden oder fix nach Roadmap? | Produkt |
 | O-02 | Wird ein eingebauter MinIO-Operator als Helm-Subchart fuer Self-Hosted ausgeliefert, oder bleibt MinIO eine externe Voraussetzung? | DevOps |
-| O-03 | Welche Quota-Defaults gelten pro Skalierungsstufe (Small/Medium/Large/Enterprise gemaess NFR-012 §10)? | Produkt + Finance |
+| O-03 | ~~Welche Quota-Defaults gelten pro Skalierungsstufe (Small/Medium/Large/Enterprise gemaess NFR-012 §10)?~~ **Beantwortet (v1.12, #2143):** Kontingente gelten je **Plan**, nicht je Skalierungsstufe — Dimensionen, Regeln und Ablehnungscodes in REQ-056 §7.2/§7.3, Default-Plan `standard` = heutige Instanzwerte (`STORAGE_TENANT_QUOTA_MB` 2048, `STORAGE_MAX_PHOTOS_PER_INSTANCE` 50); Kapazitätswirkung je Stufe in NFR-012 §10.3. Pläne sind noch nicht implementiert (#2142). | Produkt + Finance |
 | O-04 | Wird Application-Layer-Encryption (zusaetzlich zu Storage-Layer) fuer "Confidentiality-Mode"-Tenants angeboten? | Security |
 | O-05 | Sollen Phase-2-Backends in Privatnutzer-Konten (Google Drive, Dropbox) einer separaten Lizenz-/Tarif-Stufe vorbehalten sein? | Produkt |
 

@@ -77,10 +77,25 @@ _SITES: dict[str, tuple[str, str, str]] = {
         "tenant",
         "GET /tenants and the MCP authenticator's memberships (McpAuthenticator._resolve_memberships)",
     ),
+    f"{_TS}:TenantService.join_provider_default_tenant": (
+        _READS,
+        "tenant",
+        "an OIDC provider's default tenant admits a new account only while active (REQ-024 AK-09, #2182)",
+    ),
+    f"{_TS}:TenantService.accept_invitation": (
+        _READS,
+        "tenant",
+        "an invitation admits into an active tenant only; suspended/orphaned/pending deletion refuse (#2182 I-4)",
+    ),
     "app/domain/services/auth_service.py:AuthService._canonical_tenant_scope": (
         _READS,
         "tenant",
         "an API key's tenant_scope may only name an active tenant (#1852)",
+    ),
+    "app/domain/services/calendar_service.py:CalendarService._owner_stands": (
+        _READS,
+        "tenant",
+        "the public iCal feed serves a tenant's calendar only while that tenant is active (#2226 review SEC-001)",
     ),
     # -- lookups that hand the document to a caller which is itself a site --------------
     f"{_TS}:TenantService.get_tenant": (_DECIDED, "", "returns the document; its callers are sites"),
@@ -98,6 +113,11 @@ _SITES: dict[str, tuple[str, str, str]] = {
         "platform admin; a membership in a deactivated tenant resolves for nobody",
     ),
     f"{_TS}:TenantService.list_all_tenants": (_DECIDED, "", "platform-admin catalogue listing"),
+    "app/domain/services/oidc_provider_admin_service.py:OidcProviderAdminService._refuse_unfit_default_tenant": (
+        _DECIDED,
+        "",
+        "platform admin configures an OIDC default tenant (#2182 SEC-002); the sign-in reads is_active at each join",
+    ),
     "app/api/v1/admin/ha_entity_grants/router.py:_existing_tenant": (
         _DECIDED,
         "",

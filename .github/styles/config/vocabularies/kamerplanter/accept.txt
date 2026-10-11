@@ -36,9 +36,13 @@ Kubernetes
 Helm
 Traefik
 Skaffold
+[Aa]utoscalers?
+kubelet
+CRDs?
 ArangoDB
 TimescaleDB
 Valkey
+[Oo]llama
 Redis
 Celery
 FastAPI

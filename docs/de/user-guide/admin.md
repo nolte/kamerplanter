@@ -33,11 +33,13 @@ Im Bereich **Admin > Mandanten** kannst du:
 
 - Alle Mandanten der Plattform einsehen (Name, Slug, Mitgliederzahl, Erstellungsdatum)
 - Einzelne Mandanten deaktivieren oder löschen
-- Mandanten-Kontingente und Limits einsehen
 - Mitglieder eines Mandanten stellvertretend verwalten
 
+!!! warning "Noch nicht implementiert"
+    Eine Übersicht über Kontingente und Verbrauch eines Mandanten gibt es im Admin-Bereich noch nicht. Geplant ist, dass du Pläne mit eigenen Kontingenten anlegst — Mitglieder, Speicherplatz, Fotos je Pflanze, KI-Anfragen pro Tag — und jedem Mandanten einen Plan zuordnest; die Seite eines Mandanten wird dann seinen Plan und den Verbrauch je Kontingent zeigen. Bis dahin gelten für alle Mandanten dieselben Grenzen, die der Betreiber auf dem Server einstellt. <!-- REQ-056, Issue #2142 -->
+
 !!! info "Ein deaktivierter Mandant sperrt alle Mitglieder aus"
-    Deaktivierst du einen Mandanten, erreicht ihn kein Mitglied mehr — weder in der App noch über einen API-Schlüssel oder einen MCP-Client. Für die Mitglieder sieht er dann aus wie ein Mandant, den es nicht gibt. War es ihr persönlicher Garten, sehen sie nur noch den gemeinsamen Pflanzenkatalog. Die Mitgliedschaften und alle Daten bleiben erhalten: Reaktivierst du den Mandanten, haben alle Mitglieder sofort wieder ihren bisherigen Zugriff mit derselben Rolle. Du selbst verwaltest einen deaktivierten Mandanten weiterhin hier im Admin-Bereich. <!-- Issue #2105 -->
+    Deaktivierst du einen Mandanten, erreicht ihn kein Mitglied mehr — weder in der App noch über einen API-Schlüssel oder einen MCP-Client. Für die Mitglieder sieht er dann aus wie ein Mandant, den es nicht gibt. War es ihr persönlicher Garten, sehen sie nur noch den gemeinsamen Pflanzenkatalog. Die Mitgliedschaften und alle Daten bleiben erhalten: Reaktivierst du den Mandanten, haben alle Mitglieder sofort wieder ihren bisherigen Zugriff mit derselben Rolle. Du selbst verwaltest einen deaktivierten Mandanten weiterhin hier im Admin-Bereich. Pflege-Erinnerungen, Gieß- und Wartungsaufgaben entstehen für ihn nicht mehr; einige automatische Abläufe laufen derzeit aber noch weiter — Tank-Warnungen, das Abholen von Home-Assistant-Messwerten und Wetterdaten, der InvenTree-Abgleich und der tägliche Benachrichtigungs-Digest. <!-- Issue #2105, #2166, REQ-056 -->
 
 !!! warning "Mandanten löschen: erst nach einer Frist, bis dahin abbrechbar"
     Löschst du einen Mandanten, wird die Löschung zunächst nur **geplant**: Der Mandant zeigt den Zustand **Löschung geplant** mit dem Löschdatum, ist ab sofort für alle Mitglieder gesperrt, und alle Mitglieder bekommen eine E-Mail mit dem Datum — bis dahin können sie ihre eigenen Daten über den Datenexport sichern. Die Frist beträgt `RETENTION_TENANT_ERASURE_GRACE_DAYS` Tage (Standard 90). Bis zum Löschdatum kannst du hier mit **Löschung abbrechen** und deinem Passwort alles rückgängig machen: Der Mandant ist danach wieder aktiv, alle Mitgliedschaften sind unverändert. Der Aktiv-Schalter und das erneute Löschen sind währenddessen gesperrt. Erst nach Ablauf der Frist wechselt der Zustand auf **Wird gelöscht**, und die eigentliche Löschung beginnt — ab dann ist nichts mehr rückgängig zu machen. Mit `RETENTION_TENANT_ERASURE_GRACE_DAYS=0` löscht die Instanz wie früher sofort. <!-- Issue #2123 -->
@@ -83,7 +85,7 @@ Im Bereich **Admin > Nutzer** kannst du:
 
 - Alle Nutzerkonten der Plattform einsehen
 - Nutzerkonten sperren oder deaktivieren
-- Plattform-Rollen zuweisen (`admin`, `viewer`)
+- Die Plattform-Rolle **admin** vergeben (Mitgliedschaft mit Rolle Leitung im Mandanten `platform`)
 - Passwort-Reset für Nutzer auslösen
 - DSGVO-Anfragen (Datenlöschung, Datenauskunft) bearbeiten
 
@@ -153,7 +155,10 @@ Ein neuer Provider startet **abgeschaltet**. Er erscheint erst auf der Anmeldese
     Das Client-Secret wird verschlüsselt gespeichert und nie wieder angezeigt — weder in der Liste noch im Bearbeiten-Formular. Beim Bearbeiten lässt du **Neues Client-Secret** leer, um das gespeicherte zu behalten; ein neues Secret verlangt deine Bestätigung. <!-- #1906 -->
 
 !!! info "Feste Endpunkte und Standard-Mandant setzt du beim Hinzufügen"
-    Unter **Erweitert** im Formular zum Hinzufügen gibst du feste Adressen für Autorisierung, Token, Userinfo und Schlüsselverzeichnis an, dazu den Standard-Mandanten, dem neue föderierte Konten beitreten. Die Oberfläche zeigt sie danach nicht an, weil die Schnittstelle zum Server sie nicht zurückgibt; zum späteren Ändern nutzt du die REST-Schnittstelle unter `/api/v1/admin/oidc-providers` (`PUT`). Auch den Kurznamen (Slug) kannst du nach dem Hinzufügen nicht mehr ändern: Er steckt in der Rückruf-URL. <!-- #1906 -->
+    Unter **Erweitert** im Formular zum Hinzufügen gibst du feste Adressen für Autorisierung, Token, Userinfo und Schlüsselverzeichnis an, dazu den Standard-Mandanten, dem neue föderierte Konten beitreten (siehe unten) — das Feld erscheint nur beim Typ **OIDC**. Beim Bearbeiten zeigt die Oberfläche diese Angaben nicht an; zum späteren Ändern nutzt du die REST-Schnittstelle unter `/api/v1/admin/oidc-providers` (`PUT`). Den Standard-Mandanten liefert sie in der Antwort mit, und mit `"default_tenant_key": null` (oder `""`) entfernst du ihn wieder. Auch den Kurznamen (Slug) kannst du nach dem Hinzufügen nicht mehr ändern: Er steckt in der Rückruf-URL. <!-- #1906 -->
+
+!!! info "Was der Standard-Mandant bewirkt"
+    Ist beim Anbieter ein Standard-Mandant (`default_tenant_key`) hinterlegt, tritt jedes Konto, das beim **ersten** Anmelden über diesen Anbieter **neu angelegt** wird, dem Mandanten als **Beobachter** bei — zusätzlich zu seinem persönlichen Garten. Bestehende Konten, die den Anbieter nur verknüpfen, treten nicht bei. Einen Standard-Mandanten kannst du nur bei einem Anbieter vom Typ **OIDC** hinterlegen, also deinem eigenen Identity Provider: Bei Google, GitHub und Apple kann sich jede Person ein Konto anlegen, damit käme jede in deinen Garten — Kamerplanter lehnt das beim Speichern ab. Auch einen unbekannten Mandanten, den Mandanten `platform` und persönliche Gärten lehnt Kamerplanter beim Speichern ab. Beitreten kann nur ein Konto, dessen E-Mail-Adresse der Anbieter als bestätigt meldet. Ist der Mandant beim Anmelden nicht aktiv, in Löschung oder voll, oder hat der Anbieter die Adresse nicht bestätigt, überspringt Kamerplanter den Beitritt (Protokollzeile `oidc_auto_join_refused`), die Anmeldung gelingt trotzdem. Jeder Beitritt steht im Sicherheitsprotokoll. Den Standard-Mandanten zu setzen oder zu ändern verlangt deine Bestätigung, weil er bestimmt, wer automatisch Zugang zu einem Garten bekommt. <!-- Issue #2182, REQ-024 AK-09 -->
 
 !!! info "Rückruf-URL beim Provider hinterlegen"
     Trage beim Provider als Rückruf-URL (Redirect URI) genau `{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback` ein — mit der öffentlichen Adresse aus `APP_BASE_URL` und dem Kurznamen (Slug) des Providers, z.B. `https://garten.example/api/v1/auth/oauth/google/callback`. Anmeldung und erneute Anmeldung zur Bestätigung nutzen dieselbe URL. Steht `APP_BASE_URL` noch auf der Voreinstellung `http://localhost:5173`, lehnt der Provider die Anmeldung ab. <!-- #1865 -->
@@ -539,7 +544,10 @@ Die Moderation findest du im Admin-Bereich in der Karte **„Beigesteuerte Schä
     Nein, nicht die Fachdaten. Ein Platform-Admin sieht Verwaltungsdaten über alle Mandanten hinweg — dass ein Mandant existiert, wie er heißt, wer Mitglied ist — aber keine Pflanzen, Ernten oder Tagebücher eines fremden Mandanten. Dafür müsste er dort regulär als Mitglied aufgenommen werden. <!-- REQ-049 §2.5 -->
 
 ??? question "Gibt es eine Viewer-Rolle für den Admin-Bereich?"
-    Ja. Die Plattform-Rolle `viewer` bietet Lesezugriff auf alle Admin-Statistiken und Mandanten-Übersichten, jedoch keine Schreibberechtigungen.
+    Noch nicht. Es gibt nur die volle Plattform-Rolle **admin**. Eine Mitgliedschaft als Beobachter im Mandanten `platform` öffnet den Admin-Bereich nicht — auch nicht lesend.
+
+    !!! warning "Noch nicht implementiert"
+        Eine reine Lese-Rolle für den Admin-Bereich (Statistiken und Mandanten-Übersichten ansehen, nichts ändern) ist geplant, aber nicht umgesetzt. <!-- REQ-024 §1a.4 Platform-Viewer, #2179 -->
 
 ??? question "Wo genau in der UI finde ich die Einstellung für den Pl@ntNet-Key?"
     Öffne **Konto-Einstellungen** (Klick auf dein Profilbild oben rechts) → Tab **Integrationen** → Abschnitt **Pflanzenerkennung**. Dort kannst du den Key eintragen, prüfen und entfernen. Die Einstellung ist nur für Nutzer mit der Plattform-Rolle **admin** sichtbar.

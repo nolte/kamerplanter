@@ -38,6 +38,18 @@ class IHarvestRepository(ABC):
         ...
 
     @abstractmethod
+    def get_observations_for_plant_window(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[HarvestObservation]:
+        """The page of :meth:`get_observations_for_plant` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def get_latest_observations_by_indicator(self, plant_key: str, *, tenant_key: str) -> list[HarvestObservation]:
         """Return the newest observation per indicator, scoped to ``tenant_key`` (#927)."""
         ...
@@ -46,6 +58,11 @@ class IHarvestRepository(ABC):
     def get_all_batches(
         self, offset: int = 0, limit: int = 50, *, tenant_key: str
     ) -> tuple[list[HarvestBatch], int]: ...
+
+    @abstractmethod
+    def list_batches_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[HarvestBatch]:
+        """The page of :meth:`get_all_batches` without its count query (MT-035, #2131)."""
+        ...
 
     @abstractmethod
     def get_batch_by_key(self, key: HarvestBatchKey) -> HarvestBatch | None: ...

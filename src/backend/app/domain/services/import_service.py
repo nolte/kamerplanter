@@ -157,6 +157,16 @@ class ImportService:
             return ([], 0)
         return self._repo.list_all(offset, limit, tenant_key=tenant_key)
 
+    def list_jobs_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str | None = None) -> list[ImportJob]:
+        """One page of :meth:`list_jobs` without the count query (MT-035, #2131).
+
+        The same empty-context short-circuit as :meth:`list_jobs` (review
+        SCR-001): ``""`` answers an empty page and never reaches the repository.
+        """
+        if tenant_key is not None and not tenant_key:
+            return []
+        return self._repo.list_all_window(offset, limit, tenant_key=tenant_key)
+
     def confirm(
         self,
         key: str,
