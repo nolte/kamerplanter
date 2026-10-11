@@ -19,7 +19,7 @@ Wird benötigt von: REQ-054 (Automatische Anbauplanung — liest Beete, Historie
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
-| 1.3 | 2026-10-11 | **Editor-Interaktion, Standortmerkmale, Import/Export** nach zwei neuen Reviews (`spec/analysis/frontend-design-review-req-053-v1.3.md`, `outdoor-garden-planner-review-req-053-v1.3.md`). Neu: **§9.7 Interaktionsregeln** (Auswahl/Hit-Priorität, Touch-Gesten und Zeichnen ohne Maus, Zoom-Definition in px/m und LOD, Eltern-Kind-Verhalten, Snap-Priorität, Undo-Granularität, Fehlbedienungsschutz, Tastatur/WCAG 2.1.4, Fokusmodell, Labels, Leerzustände, Live-Validierung, Export-/Import-UI); **§10.2 Standortmerkmale des Beets** (Sonnenprofil, Mikroklima, Wind, Hang, Erreichbarkeit, Eignungs-Ampel `site_fit` gegen `Species.shade_tolerance`); **§23.1 Import/Export-Erweiterungen** (Vorjahres-Kopie, Teil-Export, CSV-Import, Vorlagen-Austausch, Spaltenauswahl). Widersprüche bereinigt (Long-Press, Pfeiltasten, Redo, Beschriftungs-Zoom, „2 s destruktiv", Doppelklick, GP-NFR-028). **Betreiberentscheidungen O-16…O-22 (§32.1)**: `deep_shade` ergänzt, `replace`-Import + Snapshot im MVP, Hintergrund-Unterlage SHOULD, Saison-Kopie in REQ-053, GeoJSON bleibt COULD, Schwellenprüfung später, Indoor-Grundriss (§9.8) SHOULD und nicht MVP. Neu **§11.4 Pflanzeninfo als Mouseover und grafische Pflanzenzustände** (GP-FR-190…192, GP-UX-058…062, GP-API-054). Roadmap (§34) angepasst; Zählung (§8) und `TC-REQ-053.md` noch nachzuziehen. |
+| 1.3 | 2026-10-11 | **Editor-Interaktion, Standortmerkmale, Import/Export** nach zwei neuen Reviews (`spec/analysis/frontend-design-review-req-053-v1.3.md`, `outdoor-garden-planner-review-req-053-v1.3.md`). Neu: **§9.7 Interaktionsregeln** (Auswahl/Hit-Priorität, Touch-Gesten und Zeichnen ohne Maus, Zoom-Definition in px/m und LOD, Eltern-Kind-Verhalten, Snap-Priorität, Undo-Granularität, Fehlbedienungsschutz, Tastatur/WCAG 2.1.4, Fokusmodell, Labels, Leerzustände, Live-Validierung, Export-/Import-UI); **§10.2 Standortmerkmale des Beets** (Sonnenprofil, Mikroklima, Wind, Hang, Erreichbarkeit, Eignungs-Ampel `site_fit` gegen `Species.shade_tolerance`); **§23.1 Import/Export-Erweiterungen** (Vorjahres-Kopie, Teil-Export, CSV-Import, Vorlagen-Austausch, Spaltenauswahl). Widersprüche bereinigt (Long-Press, Pfeiltasten, Redo, Beschriftungs-Zoom, „2 s destruktiv", Doppelklick, GP-NFR-028). **Betreiberentscheidungen O-16…O-22 (§32.1)**: `deep_shade` ergänzt, `replace`-Import + Snapshot im MVP, Hintergrund-Unterlage SHOULD, Saison-Kopie in REQ-053, GeoJSON bleibt COULD, Schwellenprüfung später, Indoor-Grundriss (§9.8) SHOULD und nicht MVP. Neu **§11.4 Pflanzeninfo als Mouseover und grafische Pflanzenzustände** (GP-FR-190…192, GP-UX-058…062, GP-API-054). Roadmap (§34), Anhang A (Issues 69–86) und Zählung (§8) nachgezogen; `TC-REQ-053.md` noch zu erweitern (Issue 86). |
 | 1.2b | 2026-10-04 | **Pre-Merge-Review (PR #2091, 10 Findings):** Migrationsnummern v0072–v0077 waren auf `develop` bereits vergeben → logische Platzhalter M1…M6 (GP-NFR-015); bbox-Beispiele in §20.3/§21.3 auf die Rotationskonvention korrigiert; GP-ACC-015 nutzt `retired` statt des mit W-014 entfallenen `fallow`-Status; Rückgängig im Feldmodus braucht Void auf eigene Ereignisse ≤ 10 min (GP-API-037); Nacherfassung der Vorjahre bekommt einen Datenpfad GP-API-042 (V-11-Ausnahme serverseitig); `trigger`-Enum in GP-FR-100 vervollständigt; CSV-Pfad vereinheitlicht; GP-ACC-028/GP-FR-133 auf `nutrient_demand`/`plan_role` umgestellt. Nicht übernommen: die Behauptung „TaskCategory hat 18 Werte" — `common/enums.py` hat 16. |
 | 1.2a | 2026-10-04 | Querverweis: §29 verweist für die automatische Anbauplanung auf das neue **REQ-054**; „Wird benötigt von" ergänzt. Keine inhaltliche Änderung. |
 | 1.2 | 2026-10-04 | **Drei Reviews eingearbeitet** (`spec/analysis/agrobiology-review-req-053.md`, `outdoor-garden-planner-review-req-053.md`, `security-review-req-053.md`) mit Betreiberentscheidungen: **O-07 revidiert** (K-001) — Zehrerstufe (3 Werte) und `nitrogen_fixing` (Bool) getrennt, `PlanRole` für den Rotationsplan (§16.3); **`tenant_key` auf Location und Slot** in M1 (SR-022, §20.13, §22.3); **Fruchtfolge- und Mischkultur-Hinweis sowie Vorjahresanzeige in den MVP** (F-12, GP-FR-131/132 → MUST); **Plan-Revision nur für Struktur** — Slot-Korrekturen und Quick-Planting laufen außerhalb (F-09, D-06); Retention `care_events` 5 Jahre (SR-005, NFR-011); `performed_by`-Filter für alle Rollen (SR-020); **Slot-Reservierung mit Zeitfenster** und UC „Beet räumen" (F-01/F-02); **Beetstatus = Lebenszyklus, Saisonzustand abgeleitet** (W-014). Dazu: Bodenmodell neu (K-002/K-003: `soil_texture`, `growing_medium_kind`, `conditions[]`, Messwerte mit Methode/Einheit), Anbaupausen je Familie (K-004), Layout-Semantik präzisiert (W-002/W-003: `grid`, `triangular`, Rand quer/längs, Reihenrichtung, Kapazität mit Reihenabstand), Steckbrief-Felder statt Duplikat (W-001), Pflegekatalog erweitert (W-006/F-03), Tasks an Kompost/Wasserquelle (W-008), Zeltregeln (W-016), Schattenfelder vorbereitet (§29), Security: Batch-Rollenprüfung je Op (SR-001), Referenzauflösung GP-NFR-058 (SR-002/003), Quoten (SR-004), Redaktion GP-FR-109 (SR-006), Kaskade/Export (SR-007/008), `trigger` serverseitig (SR-009), Matrix bereinigt (SR-010), Pflicht-Audit (SR-011), Komplexitäts-/Zeitbudget (SR-012), Prüfreihenfolge (SR-013), HA-Entität (SR-014), `url_fetcher`/SVG-Allowlist (SR-015), CSV (SR-016), Rate-Limits (SR-017), Import (SR-018), Sentry/Cache (SR-019). Feldmodus: Sofortspeichern, Schnellprotokoll-Chips, Rückgängig-Snackbar, Stepper als Standard (F-13/F-16/F-18). MoSCoW/MVP-Widersprüche bereinigt (F-06). 11 neue Akzeptanzkriterien (GP-ACC-039…049). |
@@ -288,16 +288,18 @@ Die funktionalen Anforderungen sind in §9–§16 thematisch gegliedert. Diese T
 
 | Bereich | IDs | MUST | SHOULD | COULD | WON'T |
 |---------|-----|------|--------|-------|-------|
-| Garteneditor (§9) | GP-FR-001 … GP-FR-034 | 25 | 5 | 3 | 1 |
-| Beetverwaltung (§10) | GP-FR-040 … GP-FR-052 | 7 | 4 | 2 | 0 |
-| Pflanzplanung (§11) | GP-FR-060 … GP-FR-076 | 11 | 4 | 2 | 0 |
-| Beetpflege (§12) | GP-FR-080 … GP-FR-091 | 7 | 3 | 2 | 0 |
-| Pflegehistorie (§13) | GP-FR-100 … GP-FR-108 | 5 | 3 | 1 | 0 |
-| Bewässerung (§14) | GP-FR-110 … GP-FR-118 | 0 | 6 | 3 | 0 |
-| Boden/Nährstoffe (§15) | GP-FR-120 … GP-FR-127 | 2 | 4 | 2 | 0 |
-| Fruchtfolge/Mischkultur (§16) | GP-FR-130 … GP-FR-137 | 1 | 5 | 2 | 0 |
-| Import/Export (§23) | GP-FR-140 … GP-FR-148 | 4 | 3 | 2 | 0 |
-| **Summe** | 119 FR · 50 NFR · 26 UX · 38 API · 35 ACC | **62** | **37** | **19** | **1** |
+| Garteneditor inkl. Indoor-Grundriss (§9) | GP-FR-001 … 034, 150 … 156, 180 … 183 | 34 | 7 | 3 | 1 |
+| Beetverwaltung und Standortmerkmale (§10) | GP-FR-040 … 055, 157 … 169 | 11 | 12 | 6 | 0 |
+| Pflanzplanung, Pflanzeninfo und -zustände (§11) | GP-FR-060 … 078, 190 … 192 | 17 | 1 | 4 | 0 |
+| Beetpflege (§12) | GP-FR-080 … 091 | 9 | 2 | 1 | 0 |
+| Pflegehistorie (§13) | GP-FR-100 … 109, 149 | 7 | 3 | 1 | 0 |
+| Bewässerung (§14) | GP-FR-110 … 119 | 0 | 7 | 3 | 0 |
+| Boden/Nährstoffe (§15) | GP-FR-120 … 127 | 2 | 4 | 2 | 0 |
+| Fruchtfolge/Mischkultur (§16) | GP-FR-130 … 139 | 6 | 3 | 1 | 0 |
+| Import/Export (§23) | GP-FR-140 … 148, 170 … 176 | 5 | 8 | 3 | 0 |
+| **Summe** | 163 FR · 60 NFR · 58 UX · 42 API · 52 ACC | **91** | **47** | **24** | **1** |
+
+Stand v1.3, aus den Anforderungstabellen gezählt (nur `GP-FR`-Zeilen je Abschnitt; NFR/UX/API/ACC als Gesamtzahl). Die Zahlen der Vorversion waren seit v1.2 nicht nachgeführt.
 
 ---
 
@@ -2056,5 +2058,23 @@ Direkt aus den Anforderungen ableitbar; Titel englisch (Feedback-Memory). Labels
 | 66 | feat(export): CSV formula hardening, PDF without personal data by default, GeoJSON lead-only | SR-016/SR-024 | S |
 | 67 | chore(spec): register REQ-053 testids in UI-NFR-022, module garden_planner in REQ-042, NFR-011 rows care_events/garden_plan_audit, REQ-049 note on Technik vs. actuator command | GP-UX-012, O-15, SR-005, SR-010 | S |
 | 68 | feat(garden-plan): plant info on hover + graphic plant states (plant_state_calculator, GET /locations/{key}/plant-states, 4 state channels + attention badge, legend, a11y labels) | GP-FR-190–192, GP-UX-058–062, GP-API-054, GP-ACC-050–052 | M |
+| 69 | feat(garden-plan): hit priority, stack selection (`hitTestAll`), roving tabindex, skip links, focus return | GP-UX-032–035, GP-NFR-065/068–070 | M |
+| 70 | feat(garden-plan): touch drawing action bar, multi-select toggle, gesture table, touch CSS, phantom-touch filter | GP-UX-036–038/040/041, GP-NFR-066 | M |
+| 71 | feat(garden-plan): `px_per_m` zoom, LOD table, label placement, handle rules for small objects | GP-FR-150, GP-NFR-067, GP-UX-047/048 | M |
+| 72 | feat(garden-plan): snap priority, undo granularity, parent-child move/scale/delete, delete protection, locked objects | GP-FR-151–156, GP-UX-043 | M |
+| 73 | feat(garden-plan): add-with-dimensions dialog, keyboard rules (WCAG 2.1.4), empty states, header overflow, client live validation | GP-UX-044–046/049/052–054 | M |
+| 74 | feat(garden-plan): export dialog with preview and import wizard (dry-run report, site-name confirmation) | GP-UX-050/051 | M |
+| 75 | feat(locations): `site_conditions` model (sun profile, microclimate, wind, slope, access sides, flags), `deep_shade`, migrate `frost_exposed` | GP-FR-157–159/161–168 | M |
+| 76 | feat(garden-plan): sun/shade tile selector with bulk assignment and `site_fit` hint in the planting dialog | GP-FR-157/160, GP-ACC-050 | M |
+| 77 | spec(REQ-001): clarify `Species.shade_tolerance` semantics (requirement vs tolerance) and define the site suitability mapping | O-16 | S |
+| 78 | spec(REQ-053): agrobiology check of sun-class thresholds, reference date and reach values | O-17, GP-FR-164/166 | S |
+| 79 | feat(garden-plan): map layers sun/moisture/frost and plant-state layer with attention filter | GP-FR-169, GP-UX-061 | M |
+| 80 | feat(garden-plan): background underlay with two-point calibration (not exported, size-limited) | GP-FR-033 | M |
+| 81 | feat(garden-plan): new season from previous year (structure copy) and partial export/target selection | GP-FR-171/172 | M |
+| 82 | feat(garden-plan): CSV bed list import with dry-run and export column selection | GP-FR-174/175 | M |
+| 83 | feat(garden-plan): template exchange as JSON, parcel list page in PDF | GP-FR-173/176 | S |
+| 84 | feat(garden-plan): indoor objects window/door/furniture/lamp, window orientation to sun-profile prefill, indoor plan route | GP-FR-180–183 | L |
+| 85 | chore(garden-plan): import schema migration for the last two versions, INP/pinch measurement profile | GP-NFR-071/072 | S |
+| 86 | spec(REQ-053): extend TC-REQ-053 for the v1.3 delta (§9.7, §10.2, §11.4, GP-FR-170, §9.8) | GP-ACC-050–052 | S |
 
 Bündel-Notizen (keine eigenen Issues): H-001 Beetbreiten-Warnung → in 24; H-002/H-003 Feldnamen → in 59; H-005 Tiefenprüfung → in 24; H-007 Lichtdurchlässigkeit → in 62; F-06 MoSCoW-Bereinigung → erledigt in v1.2; F-14 Ergebnisfelder einklappen → in 33; F-18 Schrift/Foto-Standard → in 36; SR-021 Adjacency-Payload → in 29; SR-023 QR → in 36; SR-025 Logging → in 15; SR-028 ha_publish → HA-Dokument.
