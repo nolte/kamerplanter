@@ -458,7 +458,14 @@
     "tenantsLoadFailed": "Die Mandanten konnten nicht geladen werden.",
     "onboardingStateLoadFailed": "Der Onboarding-Status konnte nicht geladen werden.",
     "starterKitsLoadFailed": "Die Starter-Sets konnten nicht geladen werden.",
-    "preferencesLoadFailed": "Die Einstellungen konnten nicht geladen werden."
+    "preferencesLoadFailed": "Die Einstellungen konnten nicht geladen werden.",
+    "quota": {
+      "organizationLimitReached": "Du kannst keine weitere Organisation gründen: Dein Konto hat die Höchstzahl an Organisationen dieser Installation erreicht – oder Organisationen legt hier nur der Betreiber an. Wende dich an den Betreiber, wenn du eine weitere brauchst.",
+      "memberLimitReached": "Der Garten hat die Höchstzahl an Mitgliedern erreicht. Entferne ein Mitglied, bevor jemand Neues dazukommt, oder bitte den Betreiber um einen größeren Plan.",
+      "serviceAccountLimitReached": "Der Garten hat die Höchstzahl an Dienstkonten seines Plans erreicht. Lösche ein nicht mehr genutztes Dienstkonto oder bitte den Betreiber um einen größeren Plan.",
+      "storageQuotaExceeded": "Der Speicherplatz des Gartens ist aufgebraucht. Lösche nicht mehr benötigte Fotos oder Anhänge oder bitte den Betreiber um mehr Speicher.",
+      "photoQuotaExceeded": "Diese Pflanze hat die Höchstzahl an Fotos erreicht. Lösche ältere Fotos, bevor du neue hochlädst."
+    }
   },
   "validation": {
     "required": "Pflichtfeld.",

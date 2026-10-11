@@ -136,6 +136,7 @@ const OnboardingWizard = lazy(() => import('@/pages/onboarding/OnboardingWizard'
 const AdminEditTenantPage = lazy(() => import('@/pages/admin/AdminEditTenantPage'));
 const AdminEditUserPage = lazy(() => import('@/pages/admin/AdminEditUserPage'));
 const AdminOidcProvidersPage = lazy(() => import('@/pages/admin/AdminOidcProvidersPage'));
+const AdminPlansPage = lazy(() => import('@/pages/admin/AdminPlansPage'));
 
 // UI-NFR-019 Kiosk mode
 const KioskStartPage = lazy(() => import('@/pages/kiosk/KioskStartPage'));
@@ -350,6 +351,17 @@ export const router = createBrowserRouter(
                   <RequirePlatformAdmin>
                     <Suspense fallback={<LoadingSkeleton variant="form" />}>
                       <AdminOidcProvidersPage />
+                    </Suspense>
+                  </RequirePlatformAdmin>
+                }
+              />
+              {/* REQ-056 §7.6 / §15 (AK-45): the plan catalogue. */}
+              <Route
+                path="admin/plans"
+                element={
+                  <RequirePlatformAdmin>
+                    <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                      <AdminPlansPage />
                     </Suspense>
                   </RequirePlatformAdmin>
                 }

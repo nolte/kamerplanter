@@ -176,3 +176,18 @@ describe('adminPlatform endpoints — user memberships', () => {
     });
   });
 });
+
+describe('adminPlatform endpoints — tenant detail (REQ-056 §7.7, #2142)', () => {
+  it('fetchAdminTenantDetail gets one tenant with its entitlements, the key encoded', async () => {
+    client.get.mockResolvedValue({ data: { key: 'a/b', entitlements: { plan: { key: 'standard', name: 'Standard' }, limits: [] } } });
+    const detail = await admin.fetchAdminTenantDetail('a/b');
+    expect(client.get).toHaveBeenCalledWith('/admin/platform/tenants/a%2Fb');
+    expect(detail.entitlements.plan.key).toBe('standard');
+  });
+
+  it('updateAdminTenant assigns a plan with plan_key alone (no step-up)', async () => {
+    client.patch.mockResolvedValue({ data: {} });
+    await admin.updateAdminTenant('t1', { plan_key: 'community' });
+    expect(client.patch).toHaveBeenCalledWith('/admin/platform/tenants/t1', { plan_key: 'community' });
+  });
+});

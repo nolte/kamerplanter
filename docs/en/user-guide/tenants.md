@@ -228,6 +228,17 @@ With the **Management** scope, you can access all settings under **Settings** (g
 | **Master data assignment** | Which global plant species are visible |
 | **Invitations** | Email invitations and invitation links (**Invitations** tab, see [Inviting members](#inviting-members)) |
 
+### Quotas
+
+In the **Quotas** tab of the garden settings you see — as every member, not only with **Management** — your garden's plan and, per quota, how much of it is taken: members, storage, photos per plant and the day's AI calls. A bar shows the usage; from 80 % it turns orange, at the limit red. Where it says "unlimited", that quota has no limit. <!-- REQ-056 AK-45 -->
+
+- For AI calls per account you always see your **own** usage only, never another member's.
+- Service accounts and the garden's AI tokens are shown to members with the role **Lead** only.
+- Kamerplanter counts photos per plant, not for the whole garden — so the card names only the limit.
+- The plan is set by the operator of your installation; you cannot switch it yourself. If you need more, ask them.
+
+When a quota is used up, Kamerplanter tells you on the next attempt which quota was reached — for example when uploading a photo or inviting a member.
+
 !!! warning "Changing the slug breaks URLs"
     If you change the slug, all URLs within the tenant change. Bookmarks and shared links become invalid. Only change the slug if necessary.
 

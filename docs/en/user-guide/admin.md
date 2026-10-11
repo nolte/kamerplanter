@@ -50,8 +50,21 @@ Every tenant has a **plan**. A plan sets how much a tenant may use: active membe
 
 How many organizations an account may found itself is not a plan quota but the server setting `TENANT_MAX_ORGANIZATIONS_PER_USER` (default `10`; `0` means only the operator creates organizations).
 
+#### Maintaining plans in the interface
+
+Under **Settings > Platform Mode**, **Manage plans** opens the **Plans** page. <!-- REQ-056 AK-45 -->
+
+- The list shows every plan with its key, selected quotas and the number of tenants using it. The default plan carries the mark **Default**. An empty value reads **same as instance setting**, a `0` reads **unlimited** or **budget off** — never "0".
+- With **Create plan** you set the key (lower-case letters, digits, `_` or `-`, cannot be changed later), the name, optionally a description and the quotas. Leave a field empty so the server setting applies. Under every field you see how Kamerplanter will apply the value.
+- Editing saves only what you changed. **Make this the default plan** gives new tenants this plan; the previous default loses the mark. You create a new plan first and mark it afterwards.
+- You can delete only a plan that no tenant uses and that is not the default. Otherwise the bin is disabled, and its hint tells you why.
+
+On a tenant's page (**Edit Organization**) the card **Plan and usage** shows the current plan and, per quota, limit and usage as a bar. Choose another plan there and confirm with **Assign plan** — a suspended tenant too. The `platform` tenant and a tenant being deleted offer no selector; the card tells you why. The row "AI calls per account and day" shows your own usage in that tenant, not a member's. Above the plan you also see which account owns the tenant.
+
+The [API reference](../reference/api-reference.md#plaene-und-kontingente) describes the fields and codes of the API. <!-- Issue #2142 -->
+
 !!! warning "Not yet implemented"
-    So far you maintain plans through the API only (`/api/v1/admin/platform/plans`, assignment with `PATCH /api/v1/admin/platform/tenants/{key}` and `plan_key`); the admin area has no page for it yet, and the tenant page does not show plan and usage yet (internal reference: REQ-056 §15). The [API reference](../reference/api-reference.md#plaene-und-kontingente) describes the fields and codes. <!-- REQ-056 AK-45, Issue #2142 -->
+    The tenant page does not show the billing contact or a suspension reason yet; neither exists in the API yet either (internal reference: REQ-056 §5.3, §9.2).
 
 !!! info "A deactivated tenant locks every member out"
     When you deactivate a tenant, no member can reach it any more — not in the app, not with an API key, not from an MCP client. To its members it then looks like a tenant that does not exist. If it was their personal garden, they only see the shared plant catalogue. The memberships and all data are kept: when you reactivate the tenant, every member immediately has their previous access with the same role again. You yourself keep administering a deactivated tenant here in the admin area. Care reminders, watering and maintenance tasks are no longer created for it; some automatic jobs do still run for now, though — tank alerts, fetching Home Assistant readings and weather data, the InvenTree sync and the daily notification digest. <!-- Issue #2105, #2166, REQ-056 -->

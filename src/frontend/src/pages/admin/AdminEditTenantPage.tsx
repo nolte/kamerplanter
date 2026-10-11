@@ -55,6 +55,7 @@ import type {
 import TenantDeleteDialog from '@/components/tenants/TenantDeleteDialog';
 import TenantStatusChip from '@/components/tenants/TenantStatusChip';
 import HaEntityGrantsCard from '@/components/admin/HaEntityGrantsCard';
+import TenantPlanCard from '@/components/admin/TenantPlanCard';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
@@ -189,6 +190,13 @@ export default function AdminEditTenantPage() {
       fetchAdminUsers().then(setAllUsers).catch(() => {});
     }
   }, [showAddMember, allUsers.length]);
+
+  const owner = members.find((m) => m.user_key === tenant?.owner_user_key);
+  const ownerLabel = owner
+    ? `${owner.display_name} (${owner.email})`
+    : membersLoading
+      ? t('common.loading')
+      : t('pages.plans.tenant.ownerNotMember');
 
   const availableUsers = allUsers.filter(
     (u) => u.is_active && !members.some((m) => m.user_key === u.key),
@@ -426,6 +434,14 @@ export default function AdminEditTenantPage() {
                 <TextField label="Slug" value={tenant.slug} disabled sx={{ flex: 1 }} />
                 <TextField label={t('pages.auth.adminTenantType')} value={t(`enums.tenantType.${tenant.tenant_type}`)} disabled sx={{ flex: 1 }} />
               </Box>
+              {/* REQ-056 §15 — who owns the tenant; the owner is a member, so the name comes from the list. */}
+              <TextField
+                label={t('pages.plans.tenant.owner')}
+                value={ownerLabel}
+                disabled
+                helperText={t('pages.plans.tenant.ownerHelper')}
+                data-testid="edit-tenant-owner"
+              />
               <FormControlLabel
                 control={
                   <Switch checked={isActive} onChange={(e) => setIsActive(e.target.checked)} disabled={isPlatform || lifecycleLocked} data-testid="edit-tenant-active-switch" />
@@ -640,6 +656,17 @@ export default function AdminEditTenantPage() {
             />
           </CardContent>
         </Card>
+      </Box>
+
+      {/* REQ-056 §15 (AK-45): plan and usage. The platform tenant is shown too — it follows the
+          instance settings and takes no plan, and the card says so. */}
+      <Box sx={{ mt: 3 }}>
+        <TenantPlanCard
+          tenantKey={tenant.key}
+          isPlatform={isPlatform}
+          status={lifecycle}
+          onAssigned={(updated) => setTenant(updated)}
+        />
       </Box>
 
       {/* MT-015 (#2112): the Home Assistant entities this garden may use. The

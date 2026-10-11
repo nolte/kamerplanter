@@ -24,6 +24,8 @@ vi.mock('react-router-dom', async () => ({
 
 vi.mock('@/api/endpoints/adminPlatform', () => ({
   fetchAdminTenants: vi.fn(),
+  // REQ-056 AK-45: the plan card loads the tenant detail; left pending, it is not under test here.
+  fetchAdminTenantDetail: vi.fn(() => new Promise(() => {})),
   fetchAdminUsers: vi.fn(),
   fetchTenantMembers: vi.fn(),
   updateAdminTenant: vi.fn(),
