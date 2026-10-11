@@ -72,7 +72,7 @@ def test_a_new_run_with_an_unreadable_species_is_refused_before_anything_is_stor
     repo = _Repo()
 
     with pytest.raises(NotFoundError):
-        _service(repo).create_run(_run(), [_entry("sp_own"), _entry(species)])
+        _service(repo).create_run(_run(), [_entry("sp_own"), _entry(species)], tenant_key=OWN)
 
     assert repo.store == {} and repo.entry_writes == []
 
@@ -80,10 +80,10 @@ def test_a_new_run_with_an_unreadable_species_is_refused_before_anything_is_stor
 def test_adding_and_patching_an_entry_resolve_the_species() -> None:
     repo = _Repo()
     service = _service(repo)
-    run = service.create_run(_run(), [_entry("sp_own")])
+    run = service.create_run(_run(), [_entry("sp_own")], tenant_key=OWN)
 
     with pytest.raises(NotFoundError):
-        service.add_entry(run.key, _entry("sp_foreign"))
+        service.add_entry(run.key, _entry("sp_foreign"), tenant_key=OWN)
     with pytest.raises(NotFoundError):
         service.update_entry(run.key, "e1", {"species_key": "sp_foreign"}, tenant_key=OWN)
 
@@ -93,9 +93,9 @@ def test_adding_and_patching_an_entry_resolve_the_species() -> None:
 def test_readable_species_are_accepted_on_every_path() -> None:
     repo = _Repo()
     service = _service(repo)
-    run = service.create_run(_run(), [_entry("sp_global")])
+    run = service.create_run(_run(), [_entry("sp_global")], tenant_key=OWN)
 
-    service.add_entry(run.key, _entry("sp_granted"))
+    service.add_entry(run.key, _entry("sp_granted"), tenant_key=OWN)
     service.update_entry(run.key, "e1", {"species_key": "sp_own"}, tenant_key=OWN)
 
     assert repo.entry_writes == ["sp_global", "sp_granted", "sp_own"]
@@ -107,5 +107,5 @@ def test_without_a_species_resolver_an_entry_is_refused() -> None:
 
     with pytest.raises(NotFoundError):
         PlantingRunService(repo, MagicMock(), engine=engine, site_repo=FakeSiteRepo()).create_run(
-            _run(), [_entry("sp_own")]
+            _run(), [_entry("sp_own")], tenant_key=OWN
         )

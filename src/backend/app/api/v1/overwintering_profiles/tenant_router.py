@@ -195,7 +195,7 @@ def get_overwintering_profile(
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> OverwinteringProfileResponse:
     """Return a single overwintering profile by key."""
-    profile = service.get_profile(key, ctx.tenant_key)
+    profile = service.get_profile(key, tenant_key=ctx.tenant_key)
     return _profile_response(profile)
 
 

@@ -58,7 +58,7 @@ def test_a_batch_that_is_not_the_tenants_is_refused_before_anything_is_stored(ba
     repo = FakeRunRepo()
 
     with pytest.raises(NotFoundError):
-        _service(repo).create_run(_run(batch))
+        _service(repo).create_run(_run(batch), tenant_key=OWN)
 
     assert repo.store == {}
 
@@ -68,7 +68,7 @@ def test_the_clone_path_resolves_the_inherited_batch_too() -> None:
     repo.store["tpl"] = _run("b_foreign").model_copy(update={"key": "tpl"})
 
     with pytest.raises(NotFoundError):
-        _service(repo).create_run(_run(None, clone_from="tpl"))
+        _service(repo).create_run(_run(None, clone_from="tpl"), tenant_key=OWN)
 
     assert list(repo.store) == ["tpl"]
 
@@ -76,7 +76,7 @@ def test_the_clone_path_resolves_the_inherited_batch_too() -> None:
 def test_the_tenants_own_batch_is_accepted() -> None:
     repo = FakeRunRepo()
 
-    created = _service(repo).create_run(_run("b_own"))
+    created = _service(repo).create_run(_run("b_own"), tenant_key=OWN)
 
     assert created.substrate_batch_key == "b_own"
 
@@ -85,7 +85,7 @@ def test_without_a_resolver_a_batch_reference_is_refused_not_skipped() -> None:
     repo = FakeRunRepo()
 
     with pytest.raises(NotFoundError):
-        _service(repo, resolver=None).create_run(_run("b_own"))
+        _service(repo, resolver=None).create_run(_run("b_own"), tenant_key=OWN)
 
     assert repo.store == {}
 
@@ -93,7 +93,7 @@ def test_without_a_resolver_a_batch_reference_is_refused_not_skipped() -> None:
 def test_a_run_without_a_batch_needs_no_resolver() -> None:
     repo = FakeRunRepo()
 
-    created = _service(repo, resolver=None).create_run(_run(None))
+    created = _service(repo, resolver=None).create_run(_run(None), tenant_key=OWN)
 
     assert created.substrate_batch_key is None
 
@@ -120,7 +120,7 @@ def test_entries_of_a_new_run_are_checked_under_the_runs_tenant_before_the_run_i
     foreign = PlantingRunEntry(species_key="s1", cultivar_key="cv_foreign", quantity=2, id_prefix="AC")
 
     with pytest.raises(NotFoundError):
-        _service(repo).create_run(_run(None), [own, foreign])
+        _service(repo).create_run(_run(None), [own, foreign], tenant_key=OWN)
 
     assert checked == [OWN, OWN]
     assert repo.store == {}

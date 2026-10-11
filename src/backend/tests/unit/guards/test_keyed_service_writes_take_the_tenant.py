@@ -147,8 +147,9 @@ def _not_strict() -> set[str]:
     return {w.qualname for w in _inventory() if w.shape != "strict" and w.owner not in _NOT_TENANT_DATA}
 
 
-#: Measured 2026-10-05 after the slices of #2107 that landed (activity-plan apply,
-#: site, nutrient plan). Each line is a keyed write that can still be called
+#: Measured 2026-10-05 after the first slices of #2107 (activity-plan apply, site,
+#: nutrient plan): 150 entries. Re-measured 2026-10-11 after the planting-run and
+#: tank slices: 136. Each line is a keyed write that can still be called
 #: without a tenant, or with a defaulted / positional one. Convert the method to
 #: ``*, tenant_key: str`` (and drop the router's pre-check), then delete the line.
 _REMAINING: frozenset[str] = frozenset(
@@ -254,15 +255,6 @@ _REMAINING: frozenset[str] = frozenset(
         "PlantPhotoService.link_photo",
         "PlantPhotoService.set_cover",
         "PlantPhotoService.update_photo_metadata",
-        "PlantingRunService.add_entry",
-        "PlantingRunService.batch_remove",
-        "PlantingRunService.batch_update_phase_dates",
-        "PlantingRunService.create_plants",
-        "PlantingRunService.create_run",
-        "PlantingRunService.delete_run",
-        "PlantingRunService.remove_nutrient_plan",
-        "PlantingRunService.transition",
-        "PlantingRunService.update_run",
         "PostHarvestService.advance_stage",
         "PostHarvestService.delete_batch",
         "PostHarvestService.record_drying_progress",
@@ -289,11 +281,6 @@ _REMAINING: frozenset[str] = frozenset(
         "SuccessionPlanService.generate_next_run",
         "SuccessionPlanService.generate_runs",
         "SuccessionPlanService.update_plan",
-        "TankService.create_schedule",
-        "TankService.delete_tank",
-        "TankService.log_maintenance",
-        "TankService.record_fill_event",
-        "TankService.record_state",
         "TaskService.activate_dormant_tasks_for_phase",
         "TaskService.create_workflow_phase",
         "TaskService.delete_workflow_phase",

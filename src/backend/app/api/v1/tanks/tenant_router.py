@@ -145,8 +145,7 @@ def delete_tank(
     service: TankService = Depends(get_tank_service),
 ):
     """Delete a tank."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
-    service.delete_tank(key)
+    service.delete_tank(key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/{key}/states", response_model=TankStateResponse, status_code=201)
@@ -157,9 +156,8 @@ def record_state(
     service: TankService = Depends(get_tank_service),
 ):
     """Record a measured state snapshot for a tank."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     state = TankState(**body.model_dump())
-    created = service.record_state(key, state)
+    created = service.record_state(key, state, tenant_key=ctx.tenant_key)
     return to_response(created, TankStateResponse)
 
 
@@ -210,9 +208,8 @@ def log_maintenance(
     service: TankService = Depends(get_tank_service),
 ):
     """Log a completed maintenance action for a tank."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     log = MaintenanceLog(**body.model_dump())
-    created = service.log_maintenance(key, log)
+    created = service.log_maintenance(key, log, tenant_key=ctx.tenant_key)
     return to_response(created, MaintenanceLogResponse)
 
 
@@ -249,9 +246,8 @@ def create_schedule(
     service: TankService = Depends(get_tank_service),
 ):
     """Create a maintenance schedule for a tank."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     schedule = MaintenanceSchedule(**body.model_dump())
-    created = service.create_schedule(key, schedule)
+    created = service.create_schedule(key, schedule, tenant_key=ctx.tenant_key)
     return to_response(created, MaintenanceScheduleResponse)
 
 
@@ -300,10 +296,9 @@ def record_fill_event(
     service: TankService = Depends(get_tank_service),
 ):
     """Record a tank fill event and return the resulting state and warnings."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     ferts = [FertilizerSnapshot(**f.model_dump()) for f in body.fertilizers_used]
     event = TankFillEvent(**body.model_dump(exclude={"fertilizers_used"}), fertilizers_used=ferts)
-    result = service.record_fill_event(key, event)
+    result = service.record_fill_event(key, event, tenant_key=ctx.tenant_key)
     return FillEventResultResponse(
         fill_event=_fill_event_response(result["fill_event"]),
         tank_state=(to_response(result["tank_state"], TankStateResponse) if result["tank_state"] else None),

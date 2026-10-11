@@ -294,7 +294,7 @@ class TestDryingProgressRollup:
         service, _ = _service()
         batch = service.start_drying(TENANT, "hb_1")
         service.record_drying_progress(batch.key, TENANT, 180.0, snap_test_passed=True)
-        refreshed = service.get_batch(batch.key, TENANT)
+        refreshed = service.get_batch(batch.key, tenant_key=TENANT)
         assert refreshed.current_weight_g == 180.0
         assert refreshed.dryness_progress_percent > 0
         assert refreshed.snap_test_passed is True

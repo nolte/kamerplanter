@@ -72,7 +72,7 @@ class _FakeRunService:
     def __init__(self) -> None:
         self._seq = 0
 
-    def create_run(self, run: PlantingRun, entries=None) -> PlantingRun:
+    def create_run(self, run: PlantingRun, entries=None, *, tenant_key: str) -> PlantingRun:
         self._seq += 1
         return run.model_copy(update={"key": f"run{self._seq}"})
 

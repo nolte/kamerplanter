@@ -170,6 +170,9 @@ class TestBatchCreatedPlantsCarryTheirRunsTenant:
 
         site_repo = MagicMock()
         site_repo.get_slots_by_location.return_value = []
+        # The run's stored location is re-resolved under its tenant (#2107 review, W2).
+        site_repo.get_location_by_key.side_effect = lambda key: SimpleNamespace(key=key, site_key="site_a")
+        site_repo.get_site_by_key.side_effect = lambda key: SimpleNamespace(key=key, tenant_key=TENANT)
 
         service = PlantingRunService(
             run_repo=run_repo,
@@ -183,7 +186,7 @@ class TestBatchCreatedPlantsCarryTheirRunsTenant:
     def test_every_created_instance_carries_the_runs_tenant(self):
         service, plant_repo = self._run_service()
 
-        service.create_plants(RUN_KEY)
+        service.create_plants(RUN_KEY, tenant_key=TENANT)
 
         created = [call.args[0] for call in plant_repo.create.call_args_list]
         assert created
