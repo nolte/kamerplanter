@@ -33,11 +33,13 @@ In the **Admin > Tenants** section you can:
 
 - View all platform tenants (name, slug, member count, creation date)
 - Deactivate or delete individual tenants
-- View tenant quotas and limits
 - Manage a tenant's members on their behalf
 
+!!! warning "Not yet implemented"
+    The admin area does not show a tenant's quotas and usage yet. You will be able to create plans with their own quotas — members, storage, photos per plant, AI requests per day — and assign a plan to each tenant; a tenant's page will then show its plan and the usage of each quota. Until then every tenant has the same limits, set by the operator on the server. <!-- REQ-056, Issue #2142 -->
+
 !!! info "A deactivated tenant locks every member out"
-    When you deactivate a tenant, no member can reach it any more — not in the app, not with an API key, not from an MCP client. To its members it then looks like a tenant that does not exist. If it was their personal garden, they only see the shared plant catalogue. The memberships and all data are kept: when you reactivate the tenant, every member immediately has their previous access with the same role again. You yourself keep administering a deactivated tenant here in the admin area. <!-- Issue #2105 -->
+    When you deactivate a tenant, no member can reach it any more — not in the app, not with an API key, not from an MCP client. To its members it then looks like a tenant that does not exist. If it was their personal garden, they only see the shared plant catalogue. The memberships and all data are kept: when you reactivate the tenant, every member immediately has their previous access with the same role again. You yourself keep administering a deactivated tenant here in the admin area. Care reminders, watering and maintenance tasks are no longer created for it; some automatic jobs do still run for now, though — tank alerts, fetching Home Assistant readings and weather data, the InvenTree sync and the daily notification digest. <!-- Issue #2105, #2166, REQ-056 -->
 
 !!! warning "Deleting a tenant: only after a grace period, cancellable until then"
     When you delete a tenant, the deletion is only **scheduled** at first: the tenant shows the state **Deletion scheduled** with the deletion date, is closed for every member at once, and every member receives an email with the date — until then they can save their own data through the data export. The grace period is `RETENTION_TENANT_ERASURE_GRACE_DAYS` days (default 90). Until the deletion date you can undo everything here with **Cancel deletion** and your password: the tenant is active again afterwards, with every membership unchanged. The active switch and deleting again are locked meanwhile. Only once the grace period has ended does the state change to **Being deleted** and the actual deletion begin — from then on nothing can be undone. With `RETENTION_TENANT_ERASURE_GRACE_DAYS=0` the instance deletes at once as before. <!-- Issue #2123 -->
