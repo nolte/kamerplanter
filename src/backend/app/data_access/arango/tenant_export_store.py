@@ -14,7 +14,7 @@ from typing import Any, cast
 
 import structlog
 from arango.cursor import Cursor
-from arango.database import Database, StandardDatabase
+from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -78,11 +78,6 @@ FOR doc IN @@collection
 """
 
 
-def _aql(db: Database, query: str, bind_vars: dict[str, Any]) -> Cursor:
-    """Run *query* synchronously; the driver's union return type is a plain cursor here (no async/batch API)."""
-    return cast(Cursor, db.aql.execute(query, bind_vars=bind_vars))
-
-
 class ArangoTenantDataStore(ITenantDataStore):
     """Reads a tenant's rows page by page and writes an import's rows in bounded transactions."""
 
@@ -95,7 +90,12 @@ class ArangoTenantDataStore(ITenantDataStore):
     def migration_level(self) -> str | None:
         if not self._db.has_collection(col.SCHEMA_MIGRATIONS):
             return None
-        level = next(iter(_aql(self._db, _MIGRATION_LEVEL, {"@collection": col.SCHEMA_MIGRATIONS})), None)
+        level = next(
+            iter(
+                cast(Cursor, self._db.aql.execute(_MIGRATION_LEVEL, bind_vars={"@collection": col.SCHEMA_MIGRATIONS}))
+            ),
+            None,
+        )
         return str(level) if level is not None else None
 
     def tenant_document(self, tenant_key: str) -> dict[str, Any] | None:
@@ -120,19 +120,14 @@ class ArangoTenantDataStore(ITenantDataStore):
         match, binds = tenant_row_filter(entry, parent_keys, col.TENANTS)
         after = ""
         while True:
-            page = list(
-                _aql(
-                    self._db,
-                    _PAGE.format(match=match),
-                    bind_vars={
-                        "@collection": entry.collection,
-                        "tenant_key": tenant_key,
-                        "after": after,
-                        "page": page_size,
-                        **binds,
-                    },
-                )
-            )
+            bind_vars: dict[str, Any] = {
+                "@collection": entry.collection,
+                "tenant_key": tenant_key,
+                "after": after,
+                "page": page_size,
+                **binds,
+            }
+            page = list(cast(Cursor, self._db.aql.execute(_PAGE.format(match=match), bind_vars=bind_vars)))
             if not page:
                 return
             yield [dict(doc) for doc in page]
@@ -142,7 +137,9 @@ class ArangoTenantDataStore(ITenantDataStore):
         found: dict[str, dict[str, Any]] = {}
         for start in range(0, len(ids), self.ID_CHUNK):
             chunk = ids[start : start + self.ID_CHUNK]
-            for edge in _aql(self._db, _EDGES_TOUCHING, {"@collection": edge_collection, "ids": chunk}):
+            for edge in cast(
+                Cursor, self._db.aql.execute(_EDGES_TOUCHING, bind_vars={"@collection": edge_collection, "ids": chunk})
+            ):
                 found[str(edge["_key"])] = dict(edge)
         return [found[key] for key in sorted(found)]
 
@@ -153,7 +150,10 @@ class ArangoTenantDataStore(ITenantDataStore):
         for start in range(0, len(keys), self.ID_CHUNK):
             chunk = keys[start : start + self.ID_CHUNK]
             existing.update(
-                str(key) for key in _aql(self._db, _GLOBAL_KEYS, {"@collection": collection, "keys": chunk})
+                str(key)
+                for key in cast(
+                    Cursor, self._db.aql.execute(_GLOBAL_KEYS, bind_vars={"@collection": collection, "keys": chunk})
+                )
             )
         return existing
 
@@ -162,7 +162,12 @@ class ArangoTenantDataStore(ITenantDataStore):
             return []
         transaction = self._db.begin_transaction(write=[collection], allow_implicit=False)
         try:
-            written = [str(key) for key in _aql(transaction, _INSERT, {"@collection": collection, "docs": documents})]
+            written = [
+                str(key)
+                for key in cast(
+                    Cursor, transaction.aql.execute(_INSERT, bind_vars={"@collection": collection, "docs": documents})
+                )
+            ]
             transaction.commit_transaction()
         except BaseException:
             try:
@@ -178,7 +183,12 @@ class ArangoTenantDataStore(ITenantDataStore):
             chunk = keys[start : start + self.ID_CHUNK]
             removed += int(
                 next(
-                    iter(_aql(self._db, _REMOVE_KEYS, {"@collection": collection, "keys": chunk})),
+                    iter(
+                        cast(
+                            Cursor,
+                            self._db.aql.execute(_REMOVE_KEYS, bind_vars={"@collection": collection, "keys": chunk}),
+                        )
+                    ),
                     0,
                 )
             )
@@ -189,17 +199,22 @@ class ArangoTenantDataStore(ITenantDataStore):
             raise ValueError("a rollback needs the founded tenant's key")
         ids: list[str] = [
             str(member_id)
-            for member_id in _aql(
-                self._db, _MEMBERSHIP_IDS, bind_vars={"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key}
+            for member_id in cast(
+                Cursor,
+                self._db.aql.execute(
+                    _MEMBERSHIP_IDS, bind_vars={"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key}
+                ),
             )
         ]
         ids.append(f"{col.TENANTS}/{tenant_key}")
         for edge_collection in self.edge_collection_names():
             for start in range(0, len(ids), self.ID_CHUNK):
-                _aql(
-                    self._db,
-                    _REMOVE_EDGES_ONTO,
-                    bind_vars={"@collection": edge_collection, "ids": ids[start : start + self.ID_CHUNK]},
+                cast(
+                    Cursor,
+                    self._db.aql.execute(
+                        _REMOVE_EDGES_ONTO,
+                        bind_vars={"@collection": edge_collection, "ids": ids[start : start + self.ID_CHUNK]},
+                    ),
                 )
         member_ids: list[str] = ids[:-1]
         member_keys: list[str] = []
@@ -233,17 +248,14 @@ class ArangoTenantExportRequestRepository(BaseArangoRepository[TenantExportReque
           LIMIT @offset, @limit
           RETURN doc
         """
-        cursor = _aql(
-            self._db,
-            query,
-            bind_vars={
-                "@collection": col.TENANT_EXPORT_REQUESTS,
-                "tenant_key": tenant_key,
-                "requester": requested_by_user_key,
-                "offset": offset,
-                "limit": limit,
-            },
-        )
+        bind_vars: dict[str, Any] = {
+            "@collection": col.TENANT_EXPORT_REQUESTS,
+            "tenant_key": tenant_key,
+            "requester": requested_by_user_key,
+            "offset": offset,
+            "limit": limit,
+        }
+        cursor = cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars))
         return [TenantExportRequest(**self._from_doc(doc)) for doc in cursor]
 
     def count_requested_since(self, *, tenant_key: str, since: datetime) -> int:
@@ -254,10 +266,16 @@ class ArangoTenantExportRequestRepository(BaseArangoRepository[TenantExportReque
           COLLECT WITH COUNT INTO n
           RETURN n
         """
-        cursor = _aql(
-            self._db,
-            query,
-            bind_vars={"@collection": col.TENANT_EXPORT_REQUESTS, "tenant_key": tenant_key, "since": since.isoformat()},
+        cursor = cast(
+            Cursor,
+            self._db.aql.execute(
+                query,
+                bind_vars={
+                    "@collection": col.TENANT_EXPORT_REQUESTS,
+                    "tenant_key": tenant_key,
+                    "since": since.isoformat(),
+                },
+            ),
         )
         return int(next(iter(cursor), 0))
 
@@ -269,7 +287,12 @@ class ArangoTenantExportRequestRepository(BaseArangoRepository[TenantExportReque
           SORT DATE_TIMESTAMP(doc.requested_at), doc._key
           RETURN doc._key
         """
-        cursor = _aql(self._db, query, bind_vars={"@collection": col.TENANT_EXPORT_REQUESTS, "tenant_key": tenant_key})
+        cursor = cast(
+            Cursor,
+            self._db.aql.execute(
+                query, bind_vars={"@collection": col.TENANT_EXPORT_REQUESTS, "tenant_key": tenant_key}
+            ),
+        )
         return [str(key) for key in cursor]
 
     def claim(self, key: str, now: datetime) -> TenantExportRequest | None:
@@ -280,10 +303,11 @@ class ArangoTenantExportRequestRepository(BaseArangoRepository[TenantExportReque
           RETURN NEW
         """
         docs = list(
-            _aql(
-                self._db,
-                query,
-                bind_vars={"@collection": col.TENANT_EXPORT_REQUESTS, "key": key, "now": now.isoformat()},
+            cast(
+                Cursor,
+                self._db.aql.execute(
+                    query, bind_vars={"@collection": col.TENANT_EXPORT_REQUESTS, "key": key, "now": now.isoformat()}
+                ),
             )
         )
         return TenantExportRequest(**self._from_doc(docs[0])) if docs else None
@@ -296,10 +320,12 @@ class ArangoTenantExportRequestRepository(BaseArangoRepository[TenantExportReque
           RETURN NEW
         """
         docs = list(
-            _aql(
-                self._db,
-                query,
-                bind_vars={"@collection": col.TENANT_EXPORT_REQUESTS, "key": key, "fields": _serialisable(fields)},
+            cast(
+                Cursor,
+                self._db.aql.execute(
+                    query,
+                    bind_vars={"@collection": col.TENANT_EXPORT_REQUESTS, "key": key, "fields": _serialisable(fields)},
+                ),
             )
         )
         return TenantExportRequest(**self._from_doc(docs[0])) if docs else None
@@ -312,7 +338,10 @@ class ArangoTenantExportRequestRepository(BaseArangoRepository[TenantExportReque
           LIMIT 500
           RETURN doc
         """
-        cursor = _aql(self._db, query, bind_vars={"@collection": col.TENANT_EXPORT_REQUESTS, "now": now.isoformat()})
+        cursor = cast(
+            Cursor,
+            self._db.aql.execute(query, bind_vars={"@collection": col.TENANT_EXPORT_REQUESTS, "now": now.isoformat()}),
+        )
         return [TenantExportRequest(**self._from_doc(doc)) for doc in cursor]
 
     def list_stale_active(self, before: datetime) -> list[TenantExportRequest]:
@@ -323,8 +352,11 @@ class ArangoTenantExportRequestRepository(BaseArangoRepository[TenantExportReque
           LIMIT 500
           RETURN doc
         """
-        cursor = _aql(
-            self._db, query, bind_vars={"@collection": col.TENANT_EXPORT_REQUESTS, "before": before.isoformat()}
+        cursor = cast(
+            Cursor,
+            self._db.aql.execute(
+                query, bind_vars={"@collection": col.TENANT_EXPORT_REQUESTS, "before": before.isoformat()}
+            ),
         )
         return [TenantExportRequest(**self._from_doc(doc)) for doc in cursor]
 
@@ -337,8 +369,11 @@ class ArangoTenantExportRequestRepository(BaseArangoRepository[TenantExportReque
           COLLECT WITH COUNT INTO n
           RETURN n
         """
-        cursor = _aql(
-            self._db, query, bind_vars={"@collection": col.TENANT_EXPORT_REQUESTS, "before": before.isoformat()}
+        cursor = cast(
+            Cursor,
+            self._db.aql.execute(
+                query, bind_vars={"@collection": col.TENANT_EXPORT_REQUESTS, "before": before.isoformat()}
+            ),
         )
         return int(next(iter(cursor), 0))
 
@@ -362,10 +397,11 @@ class ArangoTenantImportRequestRepository(BaseArangoRepository[TenantImportReque
           RETURN NEW
         """
         docs = list(
-            _aql(
-                self._db,
-                query,
-                bind_vars={"@collection": col.TENANT_IMPORT_REQUESTS, "key": key, "now": now.isoformat()},
+            cast(
+                Cursor,
+                self._db.aql.execute(
+                    query, bind_vars={"@collection": col.TENANT_IMPORT_REQUESTS, "key": key, "now": now.isoformat()}
+                ),
             )
         )
         return TenantImportRequest(**self._from_doc(docs[0])) if docs else None
@@ -378,10 +414,12 @@ class ArangoTenantImportRequestRepository(BaseArangoRepository[TenantImportReque
           RETURN NEW
         """
         docs = list(
-            _aql(
-                self._db,
-                query,
-                bind_vars={"@collection": col.TENANT_IMPORT_REQUESTS, "key": key, "fields": _serialisable(fields)},
+            cast(
+                Cursor,
+                self._db.aql.execute(
+                    query,
+                    bind_vars={"@collection": col.TENANT_IMPORT_REQUESTS, "key": key, "fields": _serialisable(fields)},
+                ),
             )
         )
         return TenantImportRequest(**self._from_doc(docs[0])) if docs else None
@@ -395,8 +433,11 @@ class ArangoTenantImportRequestRepository(BaseArangoRepository[TenantImportReque
           COLLECT WITH COUNT INTO n
           RETURN n
         """
-        cursor = _aql(
-            self._db, query, bind_vars={"@collection": col.TENANT_IMPORT_REQUESTS, "before": before.isoformat()}
+        cursor = cast(
+            Cursor,
+            self._db.aql.execute(
+                query, bind_vars={"@collection": col.TENANT_IMPORT_REQUESTS, "before": before.isoformat()}
+            ),
         )
         return int(next(iter(cursor), 0))
 

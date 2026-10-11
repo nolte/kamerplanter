@@ -10,7 +10,8 @@ the tenant for ever.
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable, Coroutine
+from typing import Any, cast
 
 import structlog
 
@@ -19,7 +20,16 @@ from app.tasks.task_bridge import TaskAttempt, run_async_task
 logger = structlog.get_logger(__name__)
 
 
-async def _run_tenant_export(attempt: TaskAttempt, export_key: str) -> dict[str, str]:
+type _TaskBody = Callable[[TaskAttempt, str], Coroutine[Any, Any, dict[str, str]]]
+
+#: ``run_async_task`` with its return type spelled out: Celery ships no types, and an untyped
+#: decorator would make the coroutines below untyped as well (mypy strict, #2169). Both tasks are
+#: started by name (``celery_app.send_task`` in ``dependencies.get_tenant_export_service``).
+_task = cast(Callable[..., Callable[[_TaskBody], object]], run_async_task)
+
+
+@_task(name="app.tasks.tenant_export_tasks.run_tenant_export", bind=True, max_retries=0)
+async def run_tenant_export(attempt: TaskAttempt, export_key: str) -> dict[str, str]:
     """Write and store the archive of one requested tenant export (dispatched by the request)."""
     del attempt
     from app.common.dependencies import get_tenant_export_service
@@ -30,7 +40,8 @@ async def _run_tenant_export(attempt: TaskAttempt, export_key: str) -> dict[str,
     return {"export_key": export_key, "status": status}
 
 
-async def _run_tenant_import(attempt: TaskAttempt, import_key: str) -> dict[str, str]:
+@_task(name="app.tasks.tenant_export_tasks.run_tenant_import", bind=True, max_retries=0)
+async def run_tenant_import(attempt: TaskAttempt, import_key: str) -> dict[str, str]:
     """Import one verified, stored tenant archive into a new tenant (dispatched by the request)."""
     del attempt
     from app.common.dependencies import get_tenant_export_service
@@ -39,13 +50,3 @@ async def _run_tenant_import(attempt: TaskAttempt, import_key: str) -> dict[str,
     status = result.status if result else "unknown"
     logger.info("tenant_import.task_finished", import_key=import_key, status=status)
     return {"import_key": import_key, "status": status}
-
-
-# Registered by call rather than by decorator: the Celery task object is untyped, and a
-# decorator that returns it would make the coroutine untyped as well (mypy strict, #2169).
-run_tenant_export: Any = run_async_task(
-    name="app.tasks.tenant_export_tasks.run_tenant_export", bind=True, max_retries=0
-)(_run_tenant_export)
-run_tenant_import: Any = run_async_task(
-    name="app.tasks.tenant_export_tasks.run_tenant_import", bind=True, max_retries=0
-)(_run_tenant_import)

@@ -1360,18 +1360,26 @@ def get_tenant_export_service() -> TenantExportService:
     )
     from app.domain.services.tenant_export_service import TenantExportService
 
+    # Dispatched by task name: ``celery_app`` is typed (Celery), the decorated task objects are not, and
+    # ``task_routes`` (``app/tasks/routing.py``) routes both names to the ``bulk`` queue either way.
     def dispatch_export(export_key: str) -> None:
-        from app.tasks.tenant_export_tasks import run_tenant_export
+        from app.tasks import celery_app
 
-        run_tenant_export.apply_async(
-            (export_key,), retry=True, retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1}
+        celery_app.send_task(
+            "app.tasks.tenant_export_tasks.run_tenant_export",
+            args=(export_key,),
+            retry=True,
+            retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1},
         )
 
     def dispatch_import(import_key: str) -> None:
-        from app.tasks.tenant_export_tasks import run_tenant_import
+        from app.tasks import celery_app
 
-        run_tenant_import.apply_async(
-            (import_key,), retry=True, retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1}
+        celery_app.send_task(
+            "app.tasks.tenant_export_tasks.run_tenant_import",
+            args=(import_key,),
+            retry=True,
+            retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1},
         )
 
     db = get_db()
