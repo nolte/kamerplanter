@@ -2,12 +2,16 @@ import { configureStore } from '@reduxjs/toolkit';
 import { setActiveTenantRejectedHandler } from '../api/client';
 import { clearActiveTenant, loadMyTenants } from './slices/tenantSlice';
 import { rootReducer } from './rootReducer';
+import { createSessionEpochMiddleware } from './sessionEpochMiddleware';
 import { sessionListener } from './sessionListener';
 
 export const store = configureStore({
   // The slice map lives in `rootReducer.ts`, wrapped in the session-end reset (#2117).
   reducer: rootReducer,
-  middleware: (getDefaultMiddleware) => getDefaultMiddleware().prepend(sessionListener.middleware),
+  // The epoch guard runs first: an answer of an ended session (#2253) is dropped
+  // before the listener or any reducer sees it.
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().prepend(createSessionEpochMiddleware(), sessionListener.middleware),
 });
 
 /**
