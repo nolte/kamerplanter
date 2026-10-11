@@ -33,6 +33,7 @@ from app.domain.models.weather import (
     WeatherSourceHaConfig,
 )
 from tests.support.ha_entity_grants import grant_service
+from tests.support.tenant_walk import TenantRows, active
 
 GRANTS = {"t1": {"sensor.tank_ec", "switch.fan", "sensor.tent_temp", "weather.home", "sensor.out_temp"}}
 
@@ -53,7 +54,8 @@ def deps(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     module.get_sensor_repo = MagicMock()  # type: ignore[attr-defined]
     module.get_tank_repo = MagicMock()  # type: ignore[attr-defined]
     module.get_actuator_repo = MagicMock()  # type: ignore[attr-defined]
-    module.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]  # #2166 — every tenant here is active
+    # #2166 — every tenant here is active; the beats walk them (MT-032, #2128). t2 holds no grant.
+    module.get_tenant_repo = MagicMock(return_value=active("t1", "t2"))  # type: ignore[attr-defined]
     module.get_ha_entity_grant_service = lambda: grant_service(GRANTS)  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", module)
     from app.config.settings import settings
@@ -70,8 +72,7 @@ class TestTankSync:
     def test_only_the_tanks_granted_entities_are_read(self, deps: ModuleType) -> None:
         ha = _AskedHa()
         deps.get_ha_client.return_value = ha
-        tank_repo = MagicMock()
-        tank_repo.get_all.return_value = ([SimpleNamespace(key="tank-1", tenant_key="t1")], 1)
+        tank_repo = TenantRows([SimpleNamespace(key="tank-1", tenant_key="t1")], create_state=MagicMock())
         deps.get_tank_repo.return_value = tank_repo
         deps.get_sensor_repo.return_value.find_by_tank.return_value = [
             _sensor("s1", "sensor.tank_ec"),
@@ -88,8 +89,7 @@ class TestTankSync:
     def test_a_tank_of_another_tenant_reads_nothing(self, deps: ModuleType) -> None:
         ha = _AskedHa()
         deps.get_ha_client.return_value = ha
-        tank_repo = MagicMock()
-        tank_repo.get_all.return_value = ([SimpleNamespace(key="tank-2", tenant_key="t2")], 1)
+        tank_repo = TenantRows([SimpleNamespace(key="tank-2", tenant_key="t2")], create_state=MagicMock())
         deps.get_tank_repo.return_value = tank_repo
         deps.get_sensor_repo.return_value.find_by_tank.return_value = [_sensor("s1", "sensor.tank_ec")]
 
@@ -109,14 +109,13 @@ class TestActuatorStateSync:
     def test_an_ungranted_actuator_is_not_polled(self, deps: ModuleType) -> None:
         ha = _AskedHa()
         deps.get_ha_client.return_value = ha
-        repo = MagicMock()
-        repo.get_all.return_value = (
+        repo = TenantRows(
             [
                 _Actuator(key="a1", tenant_key="t1", ha_entity_id="switch.fan", is_online=True),
                 _Actuator(key="a2", tenant_key="t1", ha_entity_id="switch.operator_heater", is_online=True),
                 _Actuator(key="a3", tenant_key="t2", ha_entity_id="switch.fan", is_online=True),
             ],
-            3,
+            update_fields=MagicMock(),
         )
         deps.get_actuator_repo.return_value = repo
 

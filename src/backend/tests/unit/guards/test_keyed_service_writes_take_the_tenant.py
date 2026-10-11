@@ -157,7 +157,9 @@ def _not_strict() -> set[str]:
 #: watering, succession, import, post-harvest, activity-plan and
 #: overwintering slice: 106. Re-measured 2026-10-11 after the actuator,
 #: aquaponics and InvenTree slice (positional tenant → keyword-only, every
-#: method of the class, see :data:`_WHOLE_CLASS_KEYWORD_ONLY`): 73. Each line is
+#: method of the class, see :data:`_WHOLE_CLASS_KEYWORD_ONLY`): 73. Re-measured
+#: 2026-10-11 after the plant-photo gallery slice (every method of
+#: ``PlantPhotoService``): 68. Each line is
 #: a keyed write that can still be called without a tenant, or with a defaulted /
 #: positional one. Convert the method to ``*, tenant_key: str`` (and drop the
 #: router's pre-check), then delete the line.
@@ -209,11 +211,6 @@ _REMAINING: frozenset[str] = frozenset(
         "PlantInstanceService.handle_monocarpic_terminal_transition",
         "PlantInstanceService.remove_plant",
         "PlantInstanceService.update_plant",
-        "PlantPhotoService.assess_photo",
-        "PlantPhotoService.delete_photo",
-        "PlantPhotoService.link_photo",
-        "PlantPhotoService.set_cover",
-        "PlantPhotoService.update_photo_metadata",
         "PropagationService.create_batch",
         "PropagationService.finalize_batch",
         "QuarterClimateService.evaluate_plant",
@@ -286,7 +283,13 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     "ActuatorService": "actuator_service.py",
     "AquaponikService": "aquaponik_service.py",
     "InvenTreeService": "inventree_service.py",
+    "PlantPhotoService": "plant_photo_service.py",
 }
+
+#: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
+#: twenty and more; a smaller class is pinned at its measured count so an emptied match still fails.
+_MIN_TENANT_METHODS: dict[str, int] = {"PlantPhotoService": 10}
+_DEFAULT_MIN_TENANT_METHODS = 20
 
 
 def _tenant_taking_methods(
@@ -327,7 +330,10 @@ def test_the_whole_class_rule_is_not_vacuous() -> None:
         klass: len(_tenant_taking_methods(_SERVICES, klass, filename))
         for klass, filename in _WHOLE_CLASS_KEYWORD_ONLY.items()
     }
-    assert all(count >= 20 for count in counts.values()), counts
+    assert set(_MIN_TENANT_METHODS) <= set(_WHOLE_CLASS_KEYWORD_ONLY)
+    assert all(
+        count >= _MIN_TENANT_METHODS.get(klass, _DEFAULT_MIN_TENANT_METHODS) for klass, count in counts.items()
+    ), counts
 
 
 def test_the_whole_class_rule_finds_a_planted_positional_tenant(tmp_path: Path) -> None:

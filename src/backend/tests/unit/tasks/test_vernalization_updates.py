@@ -11,20 +11,32 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.support.tenant_walk import TenantRows, active
+
 
 @pytest.fixture(autouse=True)
 def _mock_dependencies(monkeypatch):
     mock_deps = ModuleType("app.common.dependencies")
     mock_deps.get_plant_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_lifecycle_repo = MagicMock()  # type: ignore[attr-defined]
+    # MT-032 (#2128): the task walks the active tenants' plants; every plant here is tenant_1's.
+    mock_deps.get_tenant_repo = MagicMock(return_value=active("tenant_1"))  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     yield mock_deps
 
 
+def _serve(plant_repo, plants) -> None:
+    """The plant repository answers the tenant walk (MT-032, #2128) over *plants*; ``get_all`` refuses."""
+    walk = TenantRows(plants)
+    plant_repo.get_all.side_effect = walk.get_all
+    plant_repo.iter_for_tenants.side_effect = walk.iter_for_tenants
+
+
 def _plant(**overrides):
     data = {
         "key": "plant_1",
+        "tenant_key": "tenant_1",
         "removed_on": None,
         "species_key": "species_1",
         "chill_days_accumulated": 0,
@@ -37,7 +49,7 @@ class TestUpdateVernalizationProgress:
     def test_counts_cold_day_for_required_species(self, _mock_dependencies):
         plant = _plant()
         plant_repo = _mock_dependencies.get_plant_repo.return_value
-        plant_repo.get_all.return_value = ([plant], 1)
+        _serve(plant_repo, [plant])
         plant_repo.increment_chill_days.return_value = 1
         phase_repo = MagicMock()
         phase_repo.get_lifecycle_by_species.return_value = SimpleNamespace(vernalization_required=True)
@@ -56,7 +68,7 @@ class TestUpdateVernalizationProgress:
         plant_repo.update.assert_not_called()
 
     def test_skips_species_without_vernalization(self, _mock_dependencies):
-        _mock_dependencies.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        _serve(_mock_dependencies.get_plant_repo.return_value, [_plant()])
         phase_repo = MagicMock()
         phase_repo.get_lifecycle_by_species.return_value = SimpleNamespace(vernalization_required=False)
         _mock_dependencies.get_lifecycle_repo.return_value = phase_repo
@@ -71,7 +83,7 @@ class TestUpdateVernalizationProgress:
         assert result == {"cold_day": True, "plants_tracked": 0}
 
     def test_warm_day_tracks_nothing(self, _mock_dependencies):
-        _mock_dependencies.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        _serve(_mock_dependencies.get_plant_repo.return_value, [_plant()])
         phase_repo = MagicMock()
         phase_repo.get_lifecycle_by_species.return_value = SimpleNamespace(vernalization_required=True)
         _mock_dependencies.get_lifecycle_repo.return_value = phase_repo
@@ -86,10 +98,7 @@ class TestUpdateVernalizationProgress:
         assert result == {"cold_day": False, "plants_tracked": 0}
 
     def test_skips_removed_plants(self, _mock_dependencies):
-        _mock_dependencies.get_plant_repo.return_value.get_all.return_value = (
-            [_plant(removed_on="2026-01-01")],
-            1,
-        )
+        _serve(_mock_dependencies.get_plant_repo.return_value, [_plant(removed_on="2026-01-01")])
         phase_repo = MagicMock()
         _mock_dependencies.get_lifecycle_repo.return_value = phase_repo
 
@@ -107,7 +116,7 @@ class TestUpdateVernalizationProgress:
 class _ReplacingPlantRepo:
     """Keeps documents like the real repository: ``update`` REPLACES the stored document.
 
-    ``get_all`` hands out snapshots (copies), so a write of a snapshot reverts
+    ``iter_for_tenants`` hands out snapshots (copies), so a write of a snapshot reverts
     whatever changed in the store since the read -- the #1970 defect.
     """
 
@@ -115,9 +124,16 @@ class _ReplacingPlantRepo:
         self.docs = docs
         self.update_calls = 0
 
-    def get_all(self, offset=0, limit=50, *, all_tenants=False):
-        keys = sorted(self.docs)
-        return [SimpleNamespace(**self.docs[k]) for k in keys[offset : offset + limit]], len(keys)
+    def iter_for_tenants(self, tenant_keys, *, filters=None, page_size=1000):
+        """The tenant walk (MT-032, #2128), one page of snapshots at a time, as the real keyset read."""
+        snapshots = [
+            SimpleNamespace(**self.docs[k])
+            for k in sorted(self.docs)
+            if self.docs[k]["tenant_key"] in tenant_keys and self.docs[k]["removed_on"] is None
+        ]
+        assert filters == [("removed_on", "==", None)]
+        for start in range(0, len(snapshots), page_size):
+            yield from snapshots[start : start + page_size]
 
     def update(self, key, plant):
         self.update_calls += 1
