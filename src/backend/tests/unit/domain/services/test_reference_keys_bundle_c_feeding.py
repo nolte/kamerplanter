@@ -108,7 +108,7 @@ def test_a_watering_event_names_only_the_tenants_fill_and_plan(fields: dict) -> 
     service, repo = _watering_service()
 
     with pytest.raises(NotFoundError):
-        service.create_event(WateringEvent(tenant_key=OWN, volume_liters=1, plant_keys=["p1"], **fields))
+        service.create_event(WateringEvent(volume_liters=1, plant_keys=["p1"], **fields), tenant_key=OWN)
 
     repo.create.assert_not_called()
 
@@ -139,7 +139,7 @@ def test_a_watering_log_names_only_the_tenants_fill_and_plan(fields: dict) -> No
     )
 
     with pytest.raises(NotFoundError):
-        service.create_log(_log(**fields))
+        service.create_log(_log(**fields), tenant_key=OWN)
 
     repo.create.assert_not_called()
 
@@ -155,7 +155,7 @@ def test_a_watering_log_with_an_own_fill_and_a_global_plan_is_stored() -> None:
         fill_event_anchors=_Tanks(),  # type: ignore[arg-type]
     )
 
-    service.create_log(_log(tank_fill_event_key="fill_own", nutrient_plan_key="plan_global"))
+    service.create_log(_log(tank_fill_event_key="fill_own", nutrient_plan_key="plan_global"), tenant_key=OWN)
 
     repo.create.assert_called_once()
 

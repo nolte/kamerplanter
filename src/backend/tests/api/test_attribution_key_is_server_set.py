@@ -58,7 +58,9 @@ class _HarvestService:
     def get_batch(self, key: str, tenant_key: str | None = None) -> HarvestBatch:
         return HarvestBatch(_key=key, tenant_key=tenant_key or "")
 
-    def create_quality_assessment(self, batch_key: str, assessment: QualityAssessment) -> QualityAssessment:
+    def create_quality_assessment(
+        self, batch_key: str, assessment: QualityAssessment, *, tenant_key: str
+    ) -> QualityAssessment:
         self.assessments.append(assessment)
         return assessment.model_copy(update={"key": "qa-1", "batch_key": batch_key})
 

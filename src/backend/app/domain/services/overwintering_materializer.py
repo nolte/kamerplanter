@@ -108,7 +108,7 @@ class OverwinteringMaterializer:
             return self._ensure_provenance(existing, derived_path, template_key)
 
         created = self._service.auto_generate_profile(
-            site.tenant_key,
+            tenant_key=site.tenant_key,
             plant_key=plant.key,
             frost_sensitivity=species.frost_sensitivity,
             species_zone=species_zone,

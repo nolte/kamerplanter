@@ -53,6 +53,18 @@ class FeedingService:
             verify_tenant_ownership(event, tenant_key, "FeedingEvent")
         return event
 
+    def _owned_event(self, key: FeedingEventKey, *, tenant_key: str) -> FeedingEvent:
+        """The feeding event ``key`` of ``tenant_key``, or 404 — the load every write starts with (#2107).
+
+        :meth:`get_event` skips the check for an empty tenant; the writes used to
+        call it without one and rely on the router's pre-check (check-then-act).
+        :func:`verify_tenant_ownership` here answers a foreign event and an empty
+        caller tenant alike with ``NotFoundError``.
+        """
+        event = self._repo.get_or_raise(key)
+        verify_tenant_ownership(event, tenant_key, "FeedingEvent")
+        return event
+
     def create_event(self, event: FeedingEvent) -> FeedingEvent:
         """Persist a feeding event whose fertilizer lines the event's tenant can see (#1713).
 
@@ -79,8 +91,8 @@ class FeedingService:
         """
         require_owned_fill_event(self._fill_event_anchors, key, tenant_key)
 
-    def update_event(self, key: FeedingEventKey, data: dict) -> FeedingEvent:
-        existing = self.get_event(key)
+    def update_event(self, key: FeedingEventKey, data: dict, *, tenant_key: str) -> FeedingEvent:
+        existing = self._owned_event(key, tenant_key=tenant_key)
         allowed_fields = {
             "application_method",
             "is_supplemental",
@@ -99,8 +111,8 @@ class FeedingService:
                 setattr(existing, field, value)
         return self._repo.update(key, existing)
 
-    def delete_event(self, key: FeedingEventKey) -> bool:
-        self.get_event(key)
+    def delete_event(self, key: FeedingEventKey, *, tenant_key: str) -> bool:
+        self._owned_event(key, tenant_key=tenant_key)
         return self._repo.delete(key)
 
     # ── Queries ──────────────────────────────────────────────────────

@@ -210,9 +210,8 @@ def update_batch(
     service: HarvestService = Depends(get_harvest_service),
 ):
     """Update a harvest batch."""
-    service.get_batch(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_batch(key, data)
+    updated = service.update_batch(key, data, tenant_key=ctx.tenant_key)
     return _batch_response(updated)
 
 
@@ -230,9 +229,8 @@ def create_quality_assessment(
     declare the field, so a body carrying it is ignored by the schema and the
     stored value is always this one.
     """
-    service.get_batch(batch_key, tenant_key=ctx.tenant_key)
     assessment = QualityAssessment(**body.model_dump(), assessed_by_key=ctx.user_key)
-    created = service.create_quality_assessment(batch_key, assessment)
+    created = service.create_quality_assessment(batch_key, assessment, tenant_key=ctx.tenant_key)
     return _quality_response(created)
 
 
@@ -256,9 +254,8 @@ def create_yield_metric(
     service: HarvestService = Depends(get_harvest_service),
 ):
     """Record a yield metric for a harvest batch."""
-    service.get_batch(batch_key, tenant_key=ctx.tenant_key)
     metric = YieldMetric(**body.model_dump())
-    created = service.create_yield_metric(batch_key, metric)
+    created = service.create_yield_metric(batch_key, metric, tenant_key=ctx.tenant_key)
     return _yield_response(created)
 
 

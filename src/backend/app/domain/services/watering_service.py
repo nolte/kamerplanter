@@ -85,13 +85,19 @@ class WateringService:
 
     # ── Create ─────────────────────────────────────────────────────────
 
-    def create_event(self, event: WateringEvent) -> dict:
-        """Create a watering event and return it with any warnings.
+    def create_event(self, event: WateringEvent, *, tenant_key: str) -> dict:
+        """Create a watering event of ``tenant_key`` and return it with any warnings.
 
         A ``fertilizers_used`` line's ``product_key`` must name a fertilizer the
         event's tenant can see (#1713); a line without one is a free-text product
         and references nothing.
+
+        The tenant is stamped here, not trusted from the model, and an empty one is
+        refused (#2107): every reference check below reads ``event.tenant_key``.
         """
+        if not tenant_key:
+            raise ValueError("create_event is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        event.tenant_key = tenant_key
         assert_fertilizers_visible(
             self._fertilizer_repo,
             (f.product_key for f in event.fertilizers_used),

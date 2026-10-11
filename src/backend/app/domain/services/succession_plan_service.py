@@ -65,6 +65,17 @@ class SuccessionPlanService:
             verify_tenant_ownership(plan, tenant_key, "SuccessionPlan")
         return plan
 
+    def _owned_plan(self, key: SuccessionPlanKey, *, tenant_key: str) -> SuccessionPlan:
+        """The succession plan ``key`` of ``tenant_key``, or 404 — the load every write starts with (#2107).
+
+        :meth:`get_plan` skips the check for an empty tenant, and the writes passed
+        their defaulted ``tenant_key=""`` straight into it, so an omitted tenant
+        switched the predicate off. Here it runs unconditionally.
+        """
+        plan = self._repo.get_or_raise(key)
+        verify_tenant_ownership(plan, tenant_key, "SuccessionPlan")
+        return plan
+
     def create_plan(self, plan: SuccessionPlan) -> SuccessionPlan:
         plan.status = SuccessionPlanStatus.PLANNED
         plan.completed_batches = 0
@@ -73,8 +84,8 @@ class SuccessionPlanService:
         self._require_readable_species(plan.species_key, plan.tenant_key)
         return self._repo.create(plan)
 
-    def update_plan(self, key: SuccessionPlanKey, data: dict, tenant_key: str = "") -> SuccessionPlan:
-        plan = self.get_plan(key, tenant_key)
+    def update_plan(self, key: SuccessionPlanKey, data: dict, *, tenant_key: str) -> SuccessionPlan:
+        plan = self._owned_plan(key, tenant_key=tenant_key)
         patch = {field: value for field, value in data.items() if field in self._UPDATABLE_FIELDS}
         # Reject a re-pointed location owned by another tenant before persisting.
         if "location_key" in patch:
@@ -102,21 +113,21 @@ class SuccessionPlanService:
         )
         return self._repo.update(key, merged)
 
-    def delete_plan(self, key: SuccessionPlanKey, tenant_key: str = "") -> bool:
-        self.get_plan(key, tenant_key)
+    def delete_plan(self, key: SuccessionPlanKey, *, tenant_key: str) -> bool:
+        self._owned_plan(key, tenant_key=tenant_key)
         return self._repo.delete(key)
 
     # ── Run generation ────────────────────────────────────────────────
 
     def generate_runs(
-        self, plan_key: SuccessionPlanKey, tenant_key: str = ""
+        self, plan_key: SuccessionPlanKey, *, tenant_key: str
     ) -> tuple[SuccessionPlan, list[PlantingRun]]:
         """Generate only the not-yet-generated batch runs and link their edges.
 
         Idempotent: a second call after every batch was generated is a no-op — it
         creates no additional runs and no duplicate ``has_succession_plan`` edges.
         """
-        plan = self.get_plan(plan_key, tenant_key)
+        plan = self._owned_plan(plan_key, tenant_key=tenant_key)
         self._verify_location_ownership(plan.location_key, plan.tenant_key)
         total = self._engine.compute_total_batches(plan.start_date, plan.end_date, plan.interval_days)
         plan.total_batches = total
@@ -136,10 +147,10 @@ class SuccessionPlanService:
         return updated, created
 
     def generate_next_run(
-        self, plan_key: SuccessionPlanKey, tenant_key: str = ""
+        self, plan_key: SuccessionPlanKey, *, tenant_key: str
     ) -> tuple[SuccessionPlan, PlantingRun | None]:
         """Generate only the next not-yet-generated batch run, or nothing when done."""
-        plan = self.get_plan(plan_key, tenant_key)
+        plan = self._owned_plan(plan_key, tenant_key=tenant_key)
         self._verify_location_ownership(plan.location_key, plan.tenant_key)
         if not plan.total_batches:
             plan.total_batches = self._engine.compute_total_batches(plan.start_date, plan.end_date, plan.interval_days)

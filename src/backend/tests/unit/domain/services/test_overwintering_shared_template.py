@@ -123,20 +123,20 @@ def _service(templates=None, plants=None) -> OverwinteringProfileService:
 class TestLinkSharedTemplate:
     def test_link_by_species_key(self):
         service = _service()
-        tpl = service.link_shared_template(TENANT, plant_key="p1", species_key="sp1")
+        tpl = service.link_shared_template(tenant_key=TENANT, plant_key="p1", species_key="sp1")
         assert tpl.key == "aechmea_fasciata"
         assert service.get_shared_template_for_subject(TENANT, plant_key="p1").key == "aechmea_fasciata"
 
     def test_one_template_reused_by_many_subjects(self):
         service = _service()
-        service.link_shared_template(TENANT, plant_key="p1", species_key="sp1")
-        service.link_shared_template(TENANT, plant_key="p2", species_key="sp1")
+        service.link_shared_template(tenant_key=TENANT, plant_key="p1", species_key="sp1")
+        service.link_shared_template(tenant_key=TENANT, plant_key="p2", species_key="sp1")
         repo = service._template_repo
         assert repo.count_subjects("aechmea_fasciata") == 2
 
     def test_link_by_scientific_name_fallback(self):
         service = _service()
-        tpl = service.link_shared_template(TENANT, plant_key="p1", scientific_name="Aechmea fasciata")
+        tpl = service.link_shared_template(tenant_key=TENANT, plant_key="p1", scientific_name="Aechmea fasciata")
         assert tpl.key == "aechmea_fasciata"
 
     def test_link_by_template_key_is_deterministic(self):
@@ -144,7 +144,7 @@ class TestLinkSharedTemplate:
         a = _template(_key="dahlia_embassy", species_key="sp_dahlia", winter_action_month=10)
         b = _template(_key="dahlia_daydream", species_key="sp_dahlia", winter_action_month=11)
         service = _service(templates=[a, b])
-        tpl = service.link_shared_template(TENANT, plant_key="p1", template_key="dahlia_daydream")
+        tpl = service.link_shared_template(tenant_key=TENANT, plant_key="p1", template_key="dahlia_daydream")
         assert tpl.key == "dahlia_daydream"
         assert tpl.winter_action_month == 11
 
@@ -154,46 +154,46 @@ class TestLinkSharedTemplate:
             with pytest.raises(ValidationError):
                 service.get_shared_template_for_subject(TENANT, **bad)
             with pytest.raises(ValidationError):
-                service.unlink_shared_template(TENANT, **bad)
+                service.unlink_shared_template(tenant_key=TENANT, **bad)
 
     def test_relink_replaces_previous(self):
         other = _template(_key="strelitzia_reginae", species_scientific_name="Strelitzia reginae", species_key="sp2")
         service = _service(templates=[_template(), other])
-        service.link_shared_template(TENANT, plant_key="p1", species_key="sp1")
-        service.link_shared_template(TENANT, plant_key="p1", species_key="sp2")
+        service.link_shared_template(tenant_key=TENANT, plant_key="p1", species_key="sp1")
+        service.link_shared_template(tenant_key=TENANT, plant_key="p1", species_key="sp2")
         assert service.get_shared_template_for_subject(TENANT, plant_key="p1").key == "strelitzia_reginae"
         assert service._template_repo.count_subjects("aechmea_fasciata") == 0
 
     def test_unknown_species_raises_not_found(self):
         service = _service()
         with pytest.raises(NotFoundError):
-            service.link_shared_template(TENANT, plant_key="p1", species_key="does-not-exist")
+            service.link_shared_template(tenant_key=TENANT, plant_key="p1", species_key="does-not-exist")
 
     def test_requires_exactly_one_subject(self):
         service = _service()
         with pytest.raises(ValidationError):
-            service.link_shared_template(TENANT, plant_key="p1", planting_run_key="r1", species_key="sp1")
+            service.link_shared_template(tenant_key=TENANT, plant_key="p1", planting_run_key="r1", species_key="sp1")
         with pytest.raises(ValidationError):
-            service.link_shared_template(TENANT, species_key="sp1")
+            service.link_shared_template(tenant_key=TENANT, species_key="sp1")
 
     def test_cross_tenant_subject_rejected(self):
         service = _service(plants={"p1": "other_tenant"})
         with pytest.raises(NotFoundError):
-            service.link_shared_template(TENANT, plant_key="p1", species_key="sp1")
+            service.link_shared_template(tenant_key=TENANT, plant_key="p1", species_key="sp1")
 
     def test_unlink(self):
         service = _service()
-        service.link_shared_template(TENANT, plant_key="p1", species_key="sp1")
-        assert service.unlink_shared_template(TENANT, plant_key="p1") is True
+        service.link_shared_template(tenant_key=TENANT, plant_key="p1", species_key="sp1")
+        assert service.unlink_shared_template(tenant_key=TENANT, plant_key="p1") is True
         assert service.get_shared_template_for_subject(TENANT, plant_key="p1") is None
-        assert service.unlink_shared_template(TENANT, plant_key="p1") is False
+        assert service.unlink_shared_template(tenant_key=TENANT, plant_key="p1") is False
 
 
 class TestAutoGenerateTemplateEnrichment:
     def test_relocation_path_uses_template_quarter(self):
         service = _service()
         profile = service.auto_generate_profile(
-            TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.SENSITIVE, species_key="sp1"
+            tenant_key=TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.SENSITIVE, species_key="sp1"
         )
         assert profile.winter_action == WinterAction.MOVE_INDOORS
         assert profile.winter_quarter_temp_min == 15
@@ -203,7 +203,7 @@ class TestAutoGenerateTemplateEnrichment:
     def test_in_situ_path_ignores_template_quarter(self):
         service = _service()
         profile = service.auto_generate_profile(
-            TENANT,
+            tenant_key=TENANT,
             plant_key="p1",
             frost_sensitivity=FrostTolerance.VERY_HARDY,
             species_zone="6a",
@@ -231,7 +231,7 @@ class TestAutoGenerateTemplateEnrichment:
         )
         service = _service(templates=[tpl])
         profile = service.auto_generate_profile(
-            TENANT,
+            tenant_key=TENANT,
             plant_key="p1",
             frost_sensitivity=FrostTolerance.SENSITIVE,
             is_geophyte=True,
@@ -256,7 +256,7 @@ class TestAutoGenerateTemplateEnrichment:
         service = _service(templates=[tpl])
         # SENSITIVE + not a geophyte → derived action is move_indoors, template is dig_store.
         profile = service.auto_generate_profile(
-            TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.SENSITIVE, species_key="sp1"
+            tenant_key=TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.SENSITIVE, species_key="sp1"
         )
         assert profile.winter_action == WinterAction.MOVE_INDOORS
         assert profile.winter_quarter_temp_min is None
@@ -265,7 +265,7 @@ class TestAutoGenerateTemplateEnrichment:
     def test_no_template_repo_is_backward_compatible(self):
         service = OverwinteringProfileService(FakeOverwinteringRepo())  # no template_repo
         profile = service.auto_generate_profile(
-            TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.SENSITIVE, species_key="sp1"
+            tenant_key=TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.SENSITIVE, species_key="sp1"
         )
         assert profile.winter_action == WinterAction.MOVE_INDOORS
         assert profile.winter_quarter_temp_min is None
@@ -275,7 +275,7 @@ class TestHardinessOverviewSharedTemplates:
     def test_shared_linked_subject_counted(self):
         red = _template()  # frost_free → RED
         service = _service(templates=[red])
-        service.link_shared_template(TENANT, plant_key="p1", species_key="sp1")
+        service.link_shared_template(tenant_key=TENANT, plant_key="p1", species_key="sp1")
         overview = service.get_hardiness_overview(TENANT)
         assert overview.total == 1
         assert overview.red == 1
@@ -293,7 +293,7 @@ class TestHardinessOverviewSharedTemplates:
                 tenant_key=TENANT,
             )
         )
-        service.link_shared_template(TENANT, plant_key="p1", species_key="sp1")
+        service.link_shared_template(tenant_key=TENANT, plant_key="p1", species_key="sp1")
         overview = service.get_hardiness_overview(TENANT)
         assert overview.total == 1  # counted once (instance wins)
 
@@ -309,7 +309,7 @@ class TestHardinessOverviewSharedTemplates:
             winter_watering=None,
         )
         service = _service(templates=[hardy])
-        service.link_shared_template(TENANT, plant_key="p1", species_key="sp1")
+        service.link_shared_template(tenant_key=TENANT, plant_key="p1", species_key="sp1")
         overview = service.get_hardiness_overview(TENANT)
         assert overview.green == 1
         assert overview.red == 0

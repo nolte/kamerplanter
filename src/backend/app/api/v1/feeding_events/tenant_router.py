@@ -69,9 +69,8 @@ def update_event(
     service: FeedingService = Depends(get_feeding_service),
 ):
     """Update an existing feeding event."""
-    service.get_event(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_event(key, data)
+    updated = service.update_event(key, data, tenant_key=ctx.tenant_key)
     return _event_response(updated)
 
 
@@ -82,8 +81,7 @@ def delete_event(
     service: FeedingService = Depends(get_feeding_service),
 ):
     """Delete a feeding event."""
-    service.get_event(key, tenant_key=ctx.tenant_key)
-    service.delete_event(key)
+    service.delete_event(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}/runoff", response_model=RunoffAnalysisResponse, response_model_exclude_unset=True)

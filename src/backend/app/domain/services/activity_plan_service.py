@@ -90,15 +90,18 @@ class ActivityPlanService:
         lifecycle_key: str | None = None,
         growth_system: str | None = None,
         skill_level: str | None = None,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
     ) -> WorkflowTemplate:
         """Generate an activity plan and persist as WorkflowTemplate + TaskTemplates.
 
-        ``tenant_key`` decides who owns the result. The default — empty, the
-        globally **shared template** every tenant reads — is what
-        :meth:`get_or_generate_for_species` uses: a generated plan is derived
-        from the species and its phases, nothing tenant-specific goes into it,
-        and generating one per tenant would multiply identical documents. A
+        ``tenant_key`` decides who owns the result and has no default (#2107): the
+        owner of a persisted plan is named by every caller, never implied. Empty
+        means the globally **shared template** every tenant reads — what
+        :meth:`get_or_generate_for_species` passes for a global species: a
+        generated plan is derived from the species and its phases, nothing
+        tenant-specific goes into it, and generating one per tenant would
+        multiply identical documents. A
         tenant only ever owns a plan once they have changed it, which is
         copy-on-write's whole premise (#1003).
 
@@ -180,7 +183,8 @@ class ActivityPlanService:
         lifecycle_key: str | None = None,
         growth_system: str | None = None,
         skill_level: str | None = None,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
     ) -> WorkflowTemplate:
         """Return the caller's activity plan for a species, generating it if absent.
 
@@ -243,7 +247,8 @@ class ActivityPlanService:
         lifecycle_key: str | None = None,
         growth_system: str | None = None,
         skill_level: str | None = None,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
     ) -> WorkflowTemplate:
         """Rebuild the caller's activity plan from scratch.
 

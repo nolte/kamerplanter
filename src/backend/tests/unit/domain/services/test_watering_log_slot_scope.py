@@ -44,7 +44,7 @@ def test_a_log_naming_a_slot_that_is_not_the_tenants_is_refused(slots: tuple[str
     service, repo = _service()
 
     with pytest.raises(NotFoundError):
-        service.create_log(_log(*slots))
+        service.create_log(_log(*slots), tenant_key=OWN)
 
     repo.create.assert_not_called()
 
@@ -52,6 +52,6 @@ def test_a_log_naming_a_slot_that_is_not_the_tenants_is_refused(slots: tuple[str
 def test_a_log_of_own_slots_is_stored() -> None:
     service, repo = _service()
 
-    service.create_log(_log("slot_own"))
+    service.create_log(_log("slot_own"), tenant_key=OWN)
 
     repo.create.assert_called_once()

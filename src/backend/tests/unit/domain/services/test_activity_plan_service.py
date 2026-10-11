@@ -117,7 +117,7 @@ class TestGeneratePlan:
         wt_mock = _make_workflow_template()
         service._task_repo.create_workflow_template.return_value = wt_mock
 
-        wt = service.generate_plan("sp1")
+        wt = service.generate_plan("sp1", tenant_key="")
         assert wt.name == "Test WF"
         service._task_repo.create_workflow_template.assert_called_once()
         # Should create at least one task template
@@ -145,7 +145,7 @@ class TestGeneratePlan:
         service._activity_repo.get_all.return_value = ([generic], 1)
         service._task_repo.create_workflow_template.return_value = _make_workflow_template()
 
-        service.generate_plan("sp1")
+        service.generate_plan("sp1", tenant_key="")
 
         assert service._task_repo.create_task_template.call_count == 1
         persisted = service._task_repo.create_task_template.call_args.args[0]
@@ -162,7 +162,7 @@ class TestGeneratePlan:
         wt_mock = _make_workflow_template()
         service._task_repo.create_workflow_template.return_value = wt_mock
 
-        service.generate_plan("sp1", lifecycle_key="lc_custom")
+        service.generate_plan("sp1", lifecycle_key="lc_custom", tenant_key="")
         service._phase_repo.get_phases_by_lifecycle.assert_called_with("lc_custom")
 
 
@@ -171,7 +171,7 @@ class TestGetOrGenerateForSpecies:
         existing_wt = _make_workflow_template()
         service._task_repo.get_auto_generated_workflow_for_species.return_value = existing_wt
 
-        result = service.get_or_generate_for_species("sp1")
+        result = service.get_or_generate_for_species("sp1", tenant_key="")
         assert result.key == "wt1"
         # Should not call generate
         service._task_repo.create_workflow_template.assert_not_called()
@@ -187,7 +187,7 @@ class TestGetOrGenerateForSpecies:
         wt_mock = _make_workflow_template()
         service._task_repo.create_workflow_template.return_value = wt_mock
 
-        service.get_or_generate_for_species("sp1")
+        service.get_or_generate_for_species("sp1", tenant_key="")
         service._task_repo.create_workflow_template.assert_called_once()
 
 
@@ -204,7 +204,7 @@ class TestRegenerateForSpecies:
         wt_mock = _make_workflow_template(key="wt2")
         service._task_repo.create_workflow_template.return_value = wt_mock
 
-        service.regenerate_for_species("sp1")
+        service.regenerate_for_species("sp1", tenant_key="")
         service._task_repo.delete_task_templates_for_workflow.assert_called_once_with("wt1")
         service._task_repo.delete_workflow_template.assert_called_once_with("wt1")
         service._task_repo.create_workflow_template.assert_called_once()

@@ -38,7 +38,7 @@ def create_event(
 ):
     """Record a watering event and return it with any warnings."""
     event = WateringEvent(**body.model_dump(), tenant_key=ctx.tenant_key)
-    result = service.create_event(event)
+    result = service.create_event(event, tenant_key=ctx.tenant_key)
     return WateringEventWithWarnings(event=_event_response(result["event"]), warnings=result["warnings"])
 
 
