@@ -57,6 +57,12 @@ class SecurityAuditEntry(BaseModel):
     #: #1855 SEC-005 — of a ``system_account_sealed`` row: what the start revoked (``api_keys``,
     #: ``sessions``, ``calendar_feeds``) - counts only, no key or token.
     revoked_counts: dict[str, int] | None = None
+    #: #1855 — of a ``takeover_accepted`` / ``takeover_declined`` row: how the step-up confirmed the
+    #: decision (``password``, ``email_code``, ``oidc_reauth``).
+    step_up_method: str | None = None
+    #: #1855 — of a ``takeover_refused`` / ``takeover_undo_failed`` row: a fixed reason code
+    #: (``api_key``, ``not_eligible``, ``undo_failed`` ...), never free text.
+    reason: str | None = None
     #: The ``X-Request-ID`` of the request (structlog context), when there is one.
     request_id: str | None = None
     created_at: datetime | None = None

@@ -187,6 +187,7 @@ if TYPE_CHECKING:
     from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
     from app.domain.models.species import Species
     from app.domain.models.substrate import SubstrateBatch
+    from app.domain.models.user import User
     from app.domain.services.activity_plan_service import ActivityPlanService
     from app.domain.services.activity_service import ActivityService
     from app.domain.services.actuator_service import ActuatorService
@@ -1137,8 +1138,15 @@ def get_step_up_verifier() -> StepUpVerifier:
             tenant_erasure_repo=get_tenant_erasure_repo(),
             auth_provider_repo=get_auth_provider_repo(),
             oidc_config_repo=get_oidc_config_repo(),
+            # #1855 R2 review — a ``light_mode_takeover`` factor only for an account that may decide it.
+            takeover_eligibility=_may_decide_light_mode_takeover,
         ),
     )
+
+
+def _may_decide_light_mode_takeover(requester: User) -> bool:
+    """Resolved per call: the mode-switch service is built over the step-up verifier this one feeds."""
+    return get_mode_switch_service().may_decide_takeover(requester)
 
 
 def get_registration_notice_store() -> RedisRegistrationNoticeStore:

@@ -1854,6 +1854,10 @@ class SecurityAuditAction(StrEnum):
     TAKEOVER_ACCEPTED = "takeover_accepted"
     TAKEOVER_DECLINED = "takeover_declined"
     TAKEOVER_REVERTED = "takeover_reverted"
+    # #1855 R2 review — a refused decision (API key, not eligible, nothing open, claimed by another) and a
+    # failed decision whose writes could not be undone (``reason``; the receipt is kept on the take-over).
+    TAKEOVER_REFUSED = "takeover_refused"
+    TAKEOVER_UNDO_FAILED = "takeover_undo_failed"
     # #1855 SEC-005 — one aggregate row per start that sealed the light-mode system account in full mode:
     # how many API keys, sessions and calendar feeds it revoked (``revoked_counts``).
     SYSTEM_ACCOUNT_SEALED = "system_account_sealed"

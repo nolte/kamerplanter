@@ -224,7 +224,8 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
     "ErasurePlan": "the plan itself, built in memory by ErasureEngine.build_erasure_plan",
     "MemberInfo": "read projection of memberships joined with users (tenant_service.list_members)",
     "TakeoverReceipt": (
-        "in-memory record of one light-to-full take-over decision, undone on failure, never stored (#1855)"
+        "no collection of its own: kept in memory for one take-over decision, and only when its undo failed "
+        "embedded as 'receipt' in the one system_meta/pending_takeover document until a decision undoes it (#1855)"
     ),
 }
 

@@ -209,10 +209,16 @@ class SecurityAuditService:
         *,
         action: SecurityAuditAction,
         actor_user_key: str,
-        tenant_key: str,
-        platform_admin_granted: bool,
+        tenant_key: str | None,
+        platform_admin_granted: bool | None = None,
+        step_up_method: str | None = None,
+        reason: str | None = None,
     ) -> SecurityAuditEntry:
-        """Append the row of one light-to-full take-over decision or its undoing (REQ-027 §7a, #1855 SEC-005)."""
+        """Append the row of one light-to-full take-over decision, refusal or failed undo (REQ-027 §7a, #1855).
+
+        ``takeover_accepted`` / ``takeover_declined`` carry ``platform_admin_granted`` and the step-up
+        method that confirmed them (SEC-005); ``takeover_refused`` / ``takeover_undo_failed`` the reason.
+        """
         return self._write(
             SecurityAuditEntry(
                 action=action,
@@ -221,6 +227,8 @@ class SecurityAuditService:
                 target_user_key=actor_user_key,
                 tenant_key=tenant_key,
                 platform_admin_granted=platform_admin_granted,
+                step_up_method=step_up_method,
+                reason=reason,
                 request_id=_current_request_id(),
                 created_at=datetime.now(UTC),
             )

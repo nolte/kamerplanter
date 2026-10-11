@@ -12,7 +12,6 @@ Source code is English only (NFR-003).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
@@ -28,6 +27,9 @@ DeploymentMode = Literal["light", "full"]
 #: How long a claim on the pending take-over holds before another decision may take it over (#1855
 #: SEC-004). A decision runs a handful of writes; a claim this old belongs to a process that died.
 TAKEOVER_CLAIM_TTL_SECONDS = 600
+#: The share of the TTL a decision may spend writing (#1855 R2-003): past it the decision stops and undoes
+#: its writes while it still holds the claim, so no second decision claims a document one is still writing.
+TAKEOVER_DECISION_DEADLINE_SHARE = 0.5
 
 
 def system_account_refused(user_key: str | None, *, mode: str) -> bool:
@@ -41,42 +43,71 @@ def system_account_refused(user_key: str | None, *, mode: str) -> bool:
     return mode == "full" and user_key == SYSTEM_USER_KEY
 
 
-class PendingTakeover(BaseModel):
-    """An open take-over of the light-mode tenant, written when the start detected light → full.
+class TakeoverReceipt(BaseModel):
+    """What one take-over decision wrote, so a failing decision can undo exactly that (#1855 SEC-004, R2-001).
 
-    ``claim_id`` / ``claimed_at`` mark a decision in progress (#1855 SEC-004): the document is
-    removed only after the decision succeeded; a claim older than :data:`TAKEOVER_CLAIM_TTL_SECONDS`
-    may be taken over.
-    """
-
-    system_tenant_key: str = SYSTEM_TENANT_KEY
-    created_at: datetime
-    claim_id: str | None = None
-    claimed_at: datetime | None = None
-
-
-@dataclass
-class TakeoverReceipt:
-    """What one accepted take-over wrote, so a failing decision can undo exactly that (#1855 SEC-004).
-
-    In memory only - built and read within one decision, never stored.
+    Built *before* the first write and filled in by :class:`~app.domain.services.tenant_service.TenantService`
+    as each write happens (the caller passes it in), so a write that fails midway still leaves the caller a
+    record of every write before it. :meth:`TenantService.undo_light_mode_takeover` clears each entry once it
+    is undone, so a partly undone receipt names only what is left. Stored in the pending take-over only when
+    an undo failed (``needs_attention``, R2-002); otherwise in memory for one decision.
     """
 
     tenant_key: str
-    tenant_slug: str
     new_owner_key: str
     system_user_key: str
-    previous_owner_key: str
-    previous_name: str
-    #: The system account's membership the take-over ended (``None``: it was not active).
+    #: The tenant's slug, owner and name before the take-over (read before any write).
+    tenant_slug: str | None = None
+    previous_owner_key: str | None = None
+    previous_name: str | None = None
+    #: ``True`` once the tenant's owner/name write was attempted: undo restores the previous values.
+    tenant_changed: bool = False
+    #: The system account's membership the take-over ends (recorded before the write).
     ended_system_membership_key: str | None = None
-    #: The new owner's membership the take-over created (``None``: an existing one was raised).
+    #: The new owner's membership the take-over created (``None``: none, or an existing one was raised).
     created_membership_key: str | None = None
     #: An existing membership of the new owner the take-over raised, with its previous values.
     raised_membership_key: str | None = None
     raised_previous_role: str | None = None
     raised_previous_scopes: list[str] | None = None
     raised_previous_active: bool | None = None
+    #: The ``platform`` membership the first-admin grant created, or an existing one it raised (with its
+    #: previous values). The platform tenant the grant may create is not undone: the grant finds it by
+    #: slug next time, and without a membership it makes nobody an administrator.
+    platform_created_membership_key: str | None = None
+    platform_raised_membership_key: str | None = None
+    platform_raised_previous_role: str | None = None
+    platform_raised_previous_scopes: list[str] | None = None
+    platform_raised_previous_active: bool | None = None
+
+    def has_writes(self) -> bool:
+        """Whether anything is left to undo."""
+        return bool(
+            self.tenant_changed
+            or self.ended_system_membership_key
+            or self.created_membership_key
+            or self.raised_membership_key
+            or self.platform_created_membership_key
+            or self.platform_raised_membership_key
+        )
+
+
+class PendingTakeover(BaseModel):
+    """An open take-over of the light-mode tenant, written when the start detected light → full.
+
+    ``claim_id`` / ``claimed_at`` mark a decision in progress (#1855 SEC-004): the document is
+    removed only after the decision succeeded; a claim older than :data:`TAKEOVER_CLAIM_TTL_SECONDS`
+    may be taken over. ``needs_attention`` with ``receipt`` (R2-002): a decision failed and so did the
+    undo of its writes; the next decision that claims the document runs that undo first and decides
+    only once it succeeded.
+    """
+
+    system_tenant_key: str = SYSTEM_TENANT_KEY
+    created_at: datetime
+    claim_id: str | None = None
+    claimed_at: datetime | None = None
+    needs_attention: bool = False
+    receipt: TakeoverReceipt | None = None
 
 
 class SystemAccountSealing(BaseModel):

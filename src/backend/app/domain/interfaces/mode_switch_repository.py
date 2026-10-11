@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-from app.domain.models.mode_switch import DeploymentMode, PendingTakeover, TakeoverResourceCounts
+from app.domain.models.mode_switch import DeploymentMode, PendingTakeover, TakeoverReceipt, TakeoverResourceCounts
 
 
 class IModeSwitchRepository(ABC):
@@ -38,6 +38,21 @@ class IModeSwitchRepository(ABC):
     @abstractmethod
     def release_pending_takeover(self, *, claimant: str) -> bool:
         """Drop *claimant*'s claim and leave the take-over open — after a decision that changed nothing."""
+
+    @abstractmethod
+    def holds_claim(self, *, claimant: str) -> bool:
+        """Whether *claimant* still holds the claim on the open take-over (#1855 R2-003)."""
+
+    @abstractmethod
+    def mark_takeover_needs_attention(self, *, claimant: str, receipt: TakeoverReceipt) -> bool:
+        """Store *receipt* - what a failed decision could not undo - on the take-over *claimant* holds (R2-002).
+
+        Sets ``needs_attention``; the claim stays. ``False`` when *claimant* no longer holds it.
+        """
+
+    @abstractmethod
+    def resolve_takeover_attention(self, *, claimant: str) -> bool:
+        """Drop ``needs_attention`` and the stored receipt once *claimant* undid it (R2-002); the claim stays."""
 
     @abstractmethod
     def clear_pending_takeover(self) -> bool:

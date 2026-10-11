@@ -49,6 +49,8 @@ on a kind of target learns nothing about which targets of that kind exist (403 b
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from app.common.enums import TenantRole
 from app.common.exceptions import DuplicateError, ForbiddenError, NotFoundError, ValidationError
 from app.domain.engines.membership_engine import MembershipEngine
@@ -92,6 +94,7 @@ class StepUpTargetAuthorizer:
         tenant_erasure_repo: ITenantErasureRepository | None,
         auth_provider_repo: IAuthProviderRepository,
         oidc_config_repo: IOidcConfigRepository,
+        takeover_eligibility: Callable[[User], bool] | None = None,
     ) -> None:
         self._users = user_repo
         self._memberships = membership_repo
@@ -99,6 +102,9 @@ class StepUpTargetAuthorizer:
         self._tenant_erasures = tenant_erasure_repo
         self._providers = auth_provider_repo
         self._oidc_configs = oidc_config_repo
+        # #1855 R2 review — who may decide the light-mode take-over (``ModeSwitchService.may_decide_takeover``),
+        # resolved lazily by the caller: the mode-switch service itself depends on the step-up verifier.
+        self._takeover_eligibility = takeover_eligibility
 
     def authorize(self, requester: User, *, action: str, target: str) -> None:
         """Refuse (403/404/409/422) a factor for *action* on *target* the requester could not use."""
@@ -145,20 +151,24 @@ class StepUpTargetAuthorizer:
         elif action == "service_account_change":
             self._authorize_service_account_act(user_key, target)
         elif action == "light_mode_takeover":
-            self._authorize_light_mode_takeover(user_key, target)
+            self._authorize_light_mode_takeover(requester, target)
         else:  # pragma: no cover - a new targeted act must be given its rule here
             raise ForbiddenError("This act cannot be confirmed here.")
 
-    def _authorize_light_mode_takeover(self, user_key: str, target: str) -> None:
+    def _authorize_light_mode_takeover(self, requester: User, target: str) -> None:
         """The garden of the former light-mode installation, never for the system account itself (#1855).
 
-        Who may decide (the platform admin or the earliest eligible account) is re-checked by the act
-        (``ModeSwitchService.decide_takeover``); a factor for any other account is useless there.
+        Issued only to an account that may decide the take-over now (the platform admin or the earliest
+        eligible account, ``takeover_eligibility``; R2 review) - so no code is mailed to anyone else. The act
+        (``ModeSwitchService.decide_takeover``) re-checks it, before and after its claim.
         """
-        if user_key == SYSTEM_USER_KEY:
+        if (requester.key or "") == SYSTEM_USER_KEY:
             raise ForbiddenError("The light-mode system account cannot decide the take-over.")
         if target != SYSTEM_TENANT_KEY or self._tenants.get_by_key(target) is None:
             raise NotFoundError("Tenant", target)
+        may_decide = self._takeover_eligibility
+        if may_decide is not None and not may_decide(requester):
+            raise ForbiddenError("Only the platform administrator or the first account can decide the take-over.")
 
     def _is_platform_admin(self, user_key: str) -> bool:
         membership = self._memberships.get_by_user_and_tenant(user_key, _PLATFORM_TENANT_KEY)

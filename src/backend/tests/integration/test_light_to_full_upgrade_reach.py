@@ -45,7 +45,7 @@ from app.domain.engines.login_throttle_engine import LoginThrottleEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
-from app.domain.models.mode_switch import SYSTEM_TENANT_KEY, SYSTEM_USER_KEY
+from app.domain.models.mode_switch import SYSTEM_TENANT_KEY, SYSTEM_USER_KEY, TakeoverReceipt
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
 from app.domain.services.mode_switch_service import ModeSwitchService
@@ -315,9 +315,14 @@ def test_the_first_account_takes_the_light_mode_data_over(installation: _Install
         (SecurityAuditAction.TENANT_TAKEN_OVER, None, SYSTEM_TENANT_KEY),
         (SecurityAuditAction.MEMBERSHIP_ADDED, "anna", "platform"),
         (SecurityAuditAction.TAKEOVER_ACCEPTED, "anna", SYSTEM_TENANT_KEY),
+        # The refused attempts before it (R2 review): a later account, and the API key.
+        (SecurityAuditAction.TAKEOVER_REFUSED, "max", SYSTEM_TENANT_KEY),
+        (SecurityAuditAction.TAKEOVER_REFUSED, "anna", None),
     }
     decision = next(r for r in installation.audit_rows() if r["action"] == SecurityAuditAction.TAKEOVER_ACCEPTED)
-    assert decision["platform_admin_granted"] is True
+    assert (decision["platform_admin_granted"], decision["step_up_method"]) == (True, "password")
+    refusals = {r["reason"] for r in installation.audit_rows() if r["action"] == SecurityAuditAction.TAKEOVER_REFUSED}
+    assert refusals == {"not_eligible", "api_key"}
     # Decided once: a second decision finds nothing open, and a restart does not reopen it.
     assert installation.decide(anna, accept=True).status_code == 404
     again = installation.service.reconcile("full")
@@ -437,7 +442,7 @@ def test_a_failed_platform_grant_undoes_the_take_over(installation: _Installatio
     installation.service.reconcile("full")
     anna = installation.register("anna")
 
-    def fail(_account):
+    def fail(_account, *, receipt):
         raise RuntimeError("platform store down")
 
     monkeypatch.setattr(installation.tenants, "grant_first_platform_admin", fail)
@@ -452,3 +457,127 @@ def test_a_failed_platform_grant_undoes_the_take_over(installation: _Installatio
     pending = installation.repo.get_pending_takeover()
     assert pending is not None and pending.claim_id is None
     assert any(r["action"] == SecurityAuditAction.TAKEOVER_REVERTED for r in installation.audit_rows())
+
+
+def _assert_restored(installation: _Installation, *, owner: str) -> None:
+    """The light-mode tenant as before the decision: no membership of *owner*, the system account's back."""
+    assert installation.membership(owner, SYSTEM_TENANT_KEY) is None
+    assert installation.membership(owner, "platform") is None
+    system = installation.membership(SYSTEM_USER_KEY, SYSTEM_TENANT_KEY)
+    assert system is not None and system.is_active
+    tenant = installation.db.collection(col.TENANTS).get(SYSTEM_TENANT_KEY)
+    assert (tenant["owner_user_key"], tenant["name"]) == (SYSTEM_USER_KEY, "Mein Garten")
+
+
+def test_a_failure_inside_the_take_over_is_undone_from_the_partial_receipt(
+    installation: _Installation, monkeypatch
+) -> None:
+    """#1855 R2-001 — the take-over's own last audit row fails after three writes stood: all three undone."""
+    installation.service.reconcile("full")
+    anna = installation.register("anna")
+    real = installation.tenants._audit_tenant
+
+    def audit(action, **kwargs):
+        if action == SecurityAuditAction.TENANT_TAKEN_OVER:
+            raise RuntimeError("audit store down")
+        return real(action, **kwargs)
+
+    monkeypatch.setattr(installation.tenants, "_audit_tenant", audit)
+
+    assert installation.decide(anna, accept=True).status_code == 500
+
+    _assert_restored(installation, owner="anna")
+    pending = installation.repo.get_pending_takeover()
+    assert pending is not None and pending.claim_id is None and pending.needs_attention is False
+
+
+def test_a_failing_platform_grant_audit_removes_the_platform_membership(
+    installation: _Installation, monkeypatch
+) -> None:
+    """#1855 R2-001 — the grant wrote the platform membership, then its audit row failed: removed again."""
+    installation.service.reconcile("full")
+    anna = installation.register("anna")
+    real = installation.tenants._audit_membership
+
+    def audit(**kwargs):
+        if kwargs["tenant_key"] == "platform" and kwargs["action"] == SecurityAuditAction.MEMBERSHIP_ADDED:
+            raise RuntimeError("audit store down")
+        return real(**kwargs)
+
+    monkeypatch.setattr(installation.tenants, "_audit_membership", audit)
+
+    assert installation.decide(anna, accept=True).status_code == 500
+
+    _assert_restored(installation, owner="anna")
+    assert installation.repo.get_pending_takeover().claim_id is None
+
+
+def test_an_undo_that_failed_is_stored_and_undone_before_the_next_decision(
+    installation: _Installation, monkeypatch
+) -> None:
+    """#1855 R2-002 — the receipt survives on the take-over; the TTL does not hand over a half state."""
+    installation.service.reconcile("full")
+    anna = installation.register("anna")
+    real_undo = installation.tenants.undo_light_mode_takeover
+    real_grant = installation.tenants.grant_first_platform_admin
+
+    def fail_grant(_account, *, receipt):
+        raise RuntimeError("platform store down")
+
+    def fail_undo(_receipt):
+        raise RuntimeError("store still down")
+
+    monkeypatch.setattr(installation.tenants, "grant_first_platform_admin", fail_grant)
+    monkeypatch.setattr(installation.tenants, "undo_light_mode_takeover", fail_undo)
+    assert installation.decide(anna, accept=True).status_code == 500
+
+    pending = installation.repo.get_pending_takeover()
+    assert pending is not None and pending.needs_attention is True and pending.claim_id is not None
+    assert pending.receipt is not None and pending.receipt.created_membership_key
+    assert installation.membership("anna", SYSTEM_TENANT_KEY) is not None  # the half state, recorded
+    assert any(r["action"] == SecurityAuditAction.TAKEOVER_UNDO_FAILED for r in installation.audit_rows())
+    # While the claim is live, nobody decides on top of it.
+    assert installation.decide(anna, accept=False).status_code == 404
+
+    # The claim lapses; the next decision undoes the stored receipt first, then decides.
+    installation.db.collection(col.SYSTEM_META).update(
+        {"_key": "pending_takeover", "claimed_at": (datetime.now(UTC) - timedelta(hours=1)).isoformat()}
+    )
+    monkeypatch.setattr(installation.tenants, "undo_light_mode_takeover", real_undo)
+    monkeypatch.setattr(installation.tenants, "grant_first_platform_admin", real_grant)
+    response = installation.decide(anna, accept=False)
+
+    assert response.status_code == 200, response.text
+    assert installation.repo.get_pending_takeover() is None
+    assert installation.membership("anna", SYSTEM_TENANT_KEY) is None  # the stored take-over was undone
+    system = installation.membership(SYSTEM_USER_KEY, SYSTEM_TENANT_KEY)
+    assert system is not None and system.is_active
+    platform = installation.membership("anna", "platform")
+    assert platform is not None and platform.is_active  # the decline made anna the first admin
+
+
+def test_the_attention_queries_hold_to_the_claimant(installation: _Installation) -> None:
+    """#1855 R2-002/003 — store, read back and drop a receipt only as the holder of the claim."""
+    installation.service.reconcile("full")
+    repo = installation.repo
+    now = datetime.now(UTC)
+    receipt = TakeoverReceipt(
+        tenant_key=SYSTEM_TENANT_KEY,
+        new_owner_key="anna",
+        system_user_key=SYSTEM_USER_KEY,
+        created_membership_key="m-1",
+        raised_previous_scopes=["management"],
+        tenant_changed=True,
+    )
+    assert repo.claim_pending_takeover(claimant="a", now=now, stale_before=now - timedelta(minutes=10))
+
+    assert repo.holds_claim(claimant="a") is True and repo.holds_claim(claimant="b") is False
+    assert repo.mark_takeover_needs_attention(claimant="b", receipt=receipt) is False
+    assert repo.mark_takeover_needs_attention(claimant="a", receipt=receipt) is True
+    stored = repo.get_pending_takeover()
+    assert stored is not None and stored.needs_attention is True and stored.receipt == receipt
+    assert repo.resolve_takeover_attention(claimant="b") is False
+    assert repo.resolve_takeover_attention(claimant="a") is True
+    resolved = repo.get_pending_takeover()
+    assert resolved is not None and resolved.needs_attention is False and resolved.receipt is None
+    assert resolved.claim_id == "a"

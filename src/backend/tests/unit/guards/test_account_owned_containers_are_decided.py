@@ -41,6 +41,19 @@ DECIDED_OWNERSHIP: dict[tuple[str, str], str] = {
         "is kept and loses the owner reference (ErasureEngine tenants rule); who takes over a "
         "shared personal tenant is open (#1824)."
     ),
+    # #1855 R2-001/002 — not a container: the take-over receipt names whose take-over it undoes. It lives
+    # in memory for one decision; only after a failed undo is it embedded in system_meta/pending_takeover,
+    # until the next decision (or a light start) undoes it and drops it. The account erasure does not reach
+    # it: an account erased in that window leaves its key in the stored receipt until then (open, reported
+    # on PR #2269). previous_owner_key is the light-mode system account, never a person.
+    ("TakeoverReceipt", "new_owner_key"): (
+        "Not erased: kept only while a failed take-over undo is pending (system_meta/pending_takeover), "
+        "removed by the next decision's undo; gap for an account erased in that window (PR #2269)."
+    ),
+    ("TakeoverReceipt", "previous_owner_key"): (
+        "Not erased: the tenant's owner before the take-over - the light-mode system account - kept only "
+        "while a failed take-over undo is pending (system_meta/pending_takeover)."
+    ),
 }
 
 

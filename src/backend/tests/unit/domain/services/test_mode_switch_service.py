@@ -16,7 +16,7 @@ import pytest
 import structlog
 
 from app.common.enums import SecurityAuditAction, SecurityAuditVia, TenantRole
-from app.common.exceptions import ForbiddenError, NotFoundError, UnauthorizedError
+from app.common.exceptions import ForbiddenError, NotFoundError, UnauthorizedError, WriteConflictError
 from app.domain.interfaces.mode_switch_repository import IModeSwitchRepository
 from app.domain.models.auth import ApiKey
 from app.domain.models.membership import Membership
@@ -80,6 +80,21 @@ class _MemoryModeSwitchRepo(IModeSwitchRepository):
             return True
         return False
 
+    def holds_claim(self, *, claimant: str) -> bool:
+        return self.pending is not None and self.pending.claim_id == claimant
+
+    def mark_takeover_needs_attention(self, *, claimant: str, receipt: TakeoverReceipt) -> bool:
+        if not self.holds_claim(claimant=claimant):
+            return False
+        self.pending = self.pending.model_copy(update={"needs_attention": True, "receipt": receipt.model_copy()})
+        return True
+
+    def resolve_takeover_attention(self, *, claimant: str) -> bool:
+        if not self.holds_claim(claimant=claimant):
+            return False
+        self.pending = self.pending.model_copy(update={"needs_attention": False, "receipt": None})
+        return True
+
     def clear_pending_takeover(self) -> bool:
         had, self.pending = self.pending is not None, None
         return had
@@ -94,16 +109,23 @@ class _MemoryModeSwitchRepo(IModeSwitchRepository):
         return self.persons
 
 
-RECEIPT = TakeoverReceipt(
-    tenant_key=SYSTEM_TENANT_KEY,
-    tenant_slug="mein-garten",
-    new_owner_key="anna",
-    system_user_key=SYSTEM_USER_KEY,
-    previous_owner_key=SYSTEM_USER_KEY,
-    previous_name="Mein Garten",
-    ended_system_membership_key="m-system",
-    created_membership_key="m-anna",
-)
+def _take_over(**kwargs) -> TakeoverReceipt:
+    """The tenant service's take-over, as the double: it fills the caller's receipt as it writes (R2-001)."""
+    receipt: TakeoverReceipt = kwargs["receipt"]
+    receipt.tenant_slug = "mein-garten"
+    receipt.previous_owner_key = SYSTEM_USER_KEY
+    receipt.previous_name = "Mein Garten"
+    receipt.ended_system_membership_key = "m-system"
+    receipt.created_membership_key = "m-anna"
+    receipt.tenant_changed = True
+    return receipt
+
+
+def _undone(receipt: TakeoverReceipt) -> None:
+    """The tenant service's undo, as the double: it clears what it took back."""
+    receipt.ended_system_membership_key = receipt.created_membership_key = None
+    receipt.platform_created_membership_key = None
+    receipt.tenant_changed = False
 
 
 def _decide(stage, who: str, *, accept: bool, api_key: bool = False):
@@ -176,7 +198,8 @@ class _Stage:
         self.tenants.get_tenant.return_value = Tenant(
             _key=SYSTEM_TENANT_KEY, name="Mein Garten", slug="mein-garten", owner_user_key=SYSTEM_USER_KEY
         )
-        self.tenants.take_over_light_mode_tenant.return_value = RECEIPT
+        self.tenants.take_over_light_mode_tenant.side_effect = _take_over
+        self.tenants.undo_light_mode_takeover.side_effect = _undone
         self.tenants.grant_first_platform_admin.return_value = not platform_admins
         self.onboarding = MagicMock()
         self.step_up = MagicMock()
@@ -335,10 +358,15 @@ def test_accepting_hands_over_the_tenant_and_the_platform_role() -> None:
 
     result = _decide(stage, "anna", accept=True)
 
-    stage.tenants.take_over_light_mode_tenant.assert_called_once_with(
-        tenant_key=SYSTEM_TENANT_KEY, system_user_key=SYSTEM_USER_KEY, new_owner=anna
+    kwargs = stage.tenants.take_over_light_mode_tenant.call_args.kwargs
+    assert (kwargs["tenant_key"], kwargs["system_user_key"], kwargs["new_owner"]) == (
+        SYSTEM_TENANT_KEY,
+        SYSTEM_USER_KEY,
+        anna,
     )
-    stage.tenants.grant_first_platform_admin.assert_called_once_with(anna)
+    # one receipt for the whole decision: the grant writes into the take-over's
+    grant = stage.tenants.grant_first_platform_admin.call_args
+    assert grant.args == (anna,) and grant.kwargs["receipt"] is kwargs["receipt"]
     assert (result.accepted, result.tenant_slug, result.platform_admin_granted) == (True, "mein-garten", True)
     assert stage.repo.pending is None
     stage.onboarding.ensure_onboarding_state_for_user.assert_called_once_with(
@@ -399,13 +427,14 @@ def test_grant_raises_after_a_successful_take_over() -> None:
     with pytest.raises(RuntimeError):
         _decide(stage, "anna", accept=True)
 
-    stage.tenants.undo_light_mode_takeover.assert_called_once_with(RECEIPT)
+    undone = stage.tenants.undo_light_mode_takeover.call_args.args[0]
+    assert undone.new_owner_key == "anna" and not undone.has_writes()
     assert stage.repo.pending == pending
-    stage.audit.record_takeover_decision.assert_not_called()
+    assert [c.kwargs["action"] for c in stage.audit.record_takeover_decision.call_args_list] == []
 
 
 def test_an_undo_that_fails_keeps_the_takeover_claimed() -> None:
-    """Reopened only on a consistent state: an undo that failed leaves the claim until its TTL lapses."""
+    """Reopened only on a consistent state: an undo that failed keeps the claim and stores the receipt (R2-002)."""
     stage = _Stage(earliest="anna")
     stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
     stage.tenants.grant_first_platform_admin.side_effect = RuntimeError("store down")
@@ -414,9 +443,145 @@ def test_an_undo_that_fails_keeps_the_takeover_claimed() -> None:
     with pytest.raises(RuntimeError, match="store down"):
         _decide(stage, "anna", accept=True)
 
-    assert stage.repo.pending is not None and stage.repo.pending.claim_id is not None
+    pending = stage.repo.pending
+    assert pending is not None and pending.claim_id is not None
+    assert pending.needs_attention is True
+    assert pending.receipt is not None and pending.receipt.created_membership_key == "m-anna"
+    assert _audited(stage)[-1] == (SecurityAuditAction.TAKEOVER_UNDO_FAILED, "undo_failed")
     with pytest.raises(NotFoundError):  # a second decision cannot claim it meanwhile
         _decide(stage, "anna", accept=True)
+
+
+def _audited(stage) -> list[tuple]:
+    return [(c.kwargs["action"], c.kwargs.get("reason")) for c in stage.audit.record_takeover_decision.call_args_list]
+
+
+def _lapse(stage) -> None:
+    stage.repo.pending = stage.repo.pending.model_copy(update={"claimed_at": datetime.now(UTC) - timedelta(hours=1)})
+
+
+def test_a_write_that_fails_inside_the_take_over_is_undone_from_the_partial_receipt() -> None:
+    """#1855 R2-001 — the take-over wrote, then its own audit row failed: the caller still holds the receipt."""
+    stage = _Stage(earliest="anna")
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
+
+    def half(**kwargs):
+        kwargs["receipt"].ended_system_membership_key = "m-system"
+        kwargs["receipt"].created_membership_key = "m-anna"
+        raise RuntimeError("audit store down")
+
+    stage.tenants.take_over_light_mode_tenant.side_effect = half
+
+    with pytest.raises(RuntimeError, match="audit store down"):
+        _decide(stage, "anna", accept=True)
+
+    stage.tenants.undo_light_mode_takeover.assert_called_once()
+    assert stage.tenants.undo_light_mode_takeover.call_args.args[0].new_owner_key == "anna"
+    assert stage.repo.pending is not None and stage.repo.pending.claim_id is None  # undone, then reopened
+
+
+def test_a_lapsed_claim_with_a_stored_receipt_is_undone_before_anyone_decides() -> None:
+    """#1855 R2-002 — the TTL does not hand an inconsistent take-over to the next decision."""
+    stage = _Stage(earliest="anna")
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
+    stage.tenants.grant_first_platform_admin.side_effect = RuntimeError("store down")
+    stage.tenants.undo_light_mode_takeover.side_effect = RuntimeError("still down")
+    with pytest.raises(RuntimeError):
+        _decide(stage, "anna", accept=True)
+    _lapse(stage)
+
+    # The store is still down: the stored undo fails again - 409, nothing decided, receipt kept.
+    with pytest.raises(WriteConflictError):
+        _decide(stage, "anna", accept=False)
+    assert stage.repo.pending is not None and stage.repo.pending.needs_attention is True
+    assert stage.tenants.grant_first_platform_admin.call_count == 1
+
+    # The store is back: the stored receipt is undone first, then the decision runs.
+    _lapse(stage)
+    stage.tenants.undo_light_mode_takeover.side_effect = _undone
+    stage.tenants.grant_first_platform_admin.side_effect = None
+    assert _decide(stage, "anna", accept=False).accepted is False
+    stored = stage.tenants.undo_light_mode_takeover.call_args_list[-1].args[0]
+    assert stored.created_membership_key is None  # the stored receipt was the one undone
+    assert stage.repo.pending is None
+
+
+def test_a_lost_claim_is_not_a_success() -> None:
+    """#1855 R2-003 — ``complete_pending_takeover`` False: 409, no ``takeover_accepted`` row."""
+    stage = _Stage(earliest="anna")
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
+    stage.tenants.grant_first_platform_admin.side_effect = lambda account, *, receipt: (
+        stage.repo.clear_pending_takeover()
+    )
+
+    with pytest.raises(WriteConflictError):
+        _decide(stage, "anna", accept=True)
+
+    actions = [a for a, _ in _audited(stage)]
+    assert SecurityAuditAction.TAKEOVER_ACCEPTED not in actions
+    assert actions[-1] == SecurityAuditAction.TAKEOVER_UNDO_FAILED
+
+
+def test_no_undo_without_the_claim() -> None:
+    """#1855 R2-003 — a decision that lost its claim does not undo: another may be writing the tenant."""
+    stage = _Stage(earliest="anna")
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
+
+    def lose_and_fail(account, *, receipt):
+        stage.repo.pending = stage.repo.pending.model_copy(update={"claim_id": "other"})
+        raise RuntimeError("store down")
+
+    stage.tenants.grant_first_platform_admin.side_effect = lose_and_fail
+
+    with pytest.raises(RuntimeError):
+        _decide(stage, "anna", accept=True)
+
+    stage.tenants.undo_light_mode_takeover.assert_not_called()
+    assert _audited(stage)[-1] == (SecurityAuditAction.TAKEOVER_UNDO_FAILED, "claim_lost_before_undo")
+
+
+def test_a_decision_past_its_deadline_is_undone() -> None:
+    """#1855 R2-003 — the writes stop well inside the TTL; past the deadline they are undone (409)."""
+    stage = _Stage(earliest="anna")
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
+    stage.service._claim_ttl = timedelta(seconds=-2)  # the deadline lies before the first write
+
+    with pytest.raises(WriteConflictError):
+        _decide(stage, "anna", accept=True)
+
+    stage.tenants.undo_light_mode_takeover.assert_called_once()
+    stage.tenants.grant_first_platform_admin.assert_not_called()
+
+
+def test_refusals_are_audited() -> None:
+    stage = _Stage(earliest="anna")
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC))
+
+    with pytest.raises(ForbiddenError):
+        _decide(stage, "anna", accept=True, api_key=True)
+    with pytest.raises(ForbiddenError):
+        _decide(stage, "max", accept=True)
+
+    assert _audited(stage) == [
+        (SecurityAuditAction.TAKEOVER_REFUSED, "api_key"),
+        (SecurityAuditAction.TAKEOVER_REFUSED, "not_eligible"),
+    ]
+
+
+def test_a_light_start_undoes_a_stored_receipt_before_dropping_the_takeover() -> None:
+    stage = _Stage(mode="full", system_user=_user(SYSTEM_USER_KEY, active=False))
+    receipt = TakeoverReceipt(
+        tenant_key=SYSTEM_TENANT_KEY, new_owner_key="anna", system_user_key=SYSTEM_USER_KEY, created_membership_key="m"
+    )
+    stage.repo.pending = PendingTakeover(created_at=datetime.now(UTC), needs_attention=True, receipt=receipt)
+    stage.tenants.undo_light_mode_takeover.side_effect = RuntimeError("down")
+
+    stage.service.reconcile("light")
+    assert stage.repo.pending is not None  # kept: the only record of what is left
+
+    stage.tenants.undo_light_mode_takeover.side_effect = _undone
+    stage.service.reconcile("light")
+    assert stage.repo.pending is None
 
 
 def test_a_claim_that_lapsed_may_be_taken_over() -> None:
@@ -479,6 +644,8 @@ def test_the_decision_is_audited() -> None:
         actor_user_key="anna",
         tenant_key=SYSTEM_TENANT_KEY,
         platform_admin_granted=True,
+        step_up_method=stage.step_up.verify.return_value,
+        reason=None,
     )
 
 

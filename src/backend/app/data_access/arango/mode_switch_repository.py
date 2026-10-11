@@ -15,10 +15,11 @@ from arango.collection import StandardCollection
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from arango.exceptions import AQLQueryExecuteError, DocumentInsertError
+from pydantic_core import to_jsonable_python
 
 from app.data_access.arango import collections as col
 from app.domain.interfaces.mode_switch_repository import IModeSwitchRepository
-from app.domain.models.mode_switch import DeploymentMode, PendingTakeover, TakeoverResourceCounts
+from app.domain.models.mode_switch import DeploymentMode, PendingTakeover, TakeoverReceipt, TakeoverResourceCounts
 
 DEPLOYMENT_MODE_KEY = "deployment_mode"
 PENDING_TAKEOVER_KEY = "pending_takeover"
@@ -52,6 +53,29 @@ _RELEASE_QUERY = """
 FOR doc IN @@collection
   FILTER doc._key == @key AND doc.claim_id == @claimant
   UPDATE doc WITH { claim_id: null, claimed_at: null } IN @@collection OPTIONS { keepNull: false }
+  RETURN NEW._key
+"""
+
+#: Whether *this* claimant still holds the take-over (#1855 R2-003).
+_HOLDS_QUERY = """
+FOR doc IN @@collection
+  FILTER doc._key == @key AND doc.claim_id == @claimant
+  RETURN doc._key
+"""
+
+#: Store what a failed decision could not undo, while *this* claimant holds it (#1855 R2-002).
+_ATTENTION_QUERY = """
+FOR doc IN @@collection
+  FILTER doc._key == @key AND doc.claim_id == @claimant
+  UPDATE doc WITH { needs_attention: true, receipt: @receipt } IN @@collection OPTIONS { mergeObjects: false }
+  RETURN NEW._key
+"""
+
+#: Drop the stored receipt once *this* claimant undid it; the claim stays.
+_RESOLVE_QUERY = """
+FOR doc IN @@collection
+  FILTER doc._key == @key AND doc.claim_id == @claimant
+  UPDATE doc WITH { needs_attention: null, receipt: null } IN @@collection OPTIONS { keepNull: false }
   RETURN NEW._key
 """
 
@@ -188,6 +212,32 @@ class ArangoModeSwitchRepository(IModeSwitchRepository):
         )
         return bool(list(cast(Cursor, cursor)))
 
+    def holds_claim(self, *, claimant: str) -> bool:
+        cursor = self._db.aql.execute(
+            _HOLDS_QUERY,
+            bind_vars={"@collection": col.SYSTEM_META, "key": PENDING_TAKEOVER_KEY, "claimant": claimant},
+        )
+        return bool(list(cast(Cursor, cursor)))
+
+    def mark_takeover_needs_attention(self, *, claimant: str, receipt: TakeoverReceipt) -> bool:
+        cursor = self._db.aql.execute(
+            _ATTENTION_QUERY,
+            bind_vars={
+                "@collection": col.SYSTEM_META,
+                "key": PENDING_TAKEOVER_KEY,
+                "claimant": claimant,
+                "receipt": to_jsonable_python(receipt),
+            },
+        )
+        return bool(list(cast(Cursor, cursor)))
+
+    def resolve_takeover_attention(self, *, claimant: str) -> bool:
+        cursor = self._db.aql.execute(
+            _RESOLVE_QUERY,
+            bind_vars={"@collection": col.SYSTEM_META, "key": PENDING_TAKEOVER_KEY, "claimant": claimant},
+        )
+        return bool(list(cast(Cursor, cursor)))
+
     def clear_pending_takeover(self) -> bool:
         cursor = self._db.aql.execute(
             _CLEAR_QUERY, bind_vars={"@collection": col.SYSTEM_META, "key": PENDING_TAKEOVER_KEY}
@@ -236,4 +286,6 @@ class ArangoModeSwitchRepository(IModeSwitchRepository):
             created_at=doc.get("created_at") or datetime.now(UTC),
             claim_id=doc.get("claim_id"),
             claimed_at=doc.get("claimed_at"),
+            needs_attention=bool(doc.get("needs_attention")),
+            receipt=TakeoverReceipt(**doc["receipt"]) if doc.get("receipt") else None,
         )
