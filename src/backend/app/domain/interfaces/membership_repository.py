@@ -83,6 +83,14 @@ class IMembershipRepository(ABC):
         """Deactivate every membership of the tenant (#1769: freezes a tenant being erased)."""
 
     @abstractmethod
+    def activate_all_for_importing_tenant(self, tenant_key: str) -> int:
+        """Activate the memberships of a tenant that is still ``importing`` (REQ-056 §8.4, #2138 SEC-007).
+
+        Conditional on the tenant's state in the same statement: a tenant that left ``importing``
+        (erased by the stale sweep) gets no active membership back.
+        """
+
+    @abstractmethod
     def active_member_user_keys(self, *, tenant_key: str) -> list[str]:
         """The distinct account keys holding an active membership of the tenant (#1788)."""
 

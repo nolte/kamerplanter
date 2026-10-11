@@ -44,6 +44,9 @@ NOT_SHARED: dict[tuple[str, str], str] = {
     ("domain/services/tenant_export_service.py", "run_import"): (
         "#2138 — the uploaded import archive (tenant-imports/{import_key}.zip) is held by its one import request"
     ),
+    ("domain/services/tenant_export_service.py", "_sweep_abandoned_import"): (
+        "#2138 SEC-007 — the upload of a dead import (tenant-imports/{import_key}.zip), held by its one request"
+    ),
     ("domain/services/tenant_export_service.py", "_rollback"): (
         "#2138 — removes only the objects this failed import run itself wrote under the new tenant's prefix"
     ),

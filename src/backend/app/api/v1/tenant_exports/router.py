@@ -87,13 +87,15 @@ def list_tenant_exports(
     tenant_slug: str = Path(description="URL slug of the exported tenant."),
     pagination: PaginationParams = Depends(get_pagination),
     user: User = Depends(require_account_principal),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
     service: TenantExportService = Depends(get_tenant_export_service),
 ) -> list[TenantExportResponse]:
-    """The caller's own exports of the tenant, newest first (paginated); lead ∧ management only."""
+    """The caller's own exports of the tenant, newest first (paginated); lead ∧ management, never an API key."""
     return [
         TenantExportResponse.from_request(r)
         for r in service.list_exports(
             requester=user,
+            authenticated_with_api_key=via_api_key,
             origin="tenant_management",
             slug=tenant_slug,
             offset=pagination.offset,
@@ -111,11 +113,20 @@ async def download_tenant_export(
     tenant_slug: Annotated[str, Path(description="URL slug of the exported tenant.")],
     export_key: Annotated[str, Path(description="Key of the export request.")],
     user: User = Depends(require_account_principal),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
     service: TenantExportService = Depends(get_tenant_export_service),
 ) -> StreamingResponse:
-    """Stream the archive to the person who requested it, until it expires (NFR-011 R-05; 404 after)."""
+    """Stream the archive to the person who requested it, until it expires (NFR-011 R-05; 404 after).
+
+    Never with an API key (403); every download is audited (``tenant_export_downloaded``).
+    """
     export = await run_in_threadpool(
-        service.prepare_download, export_key, requester=user, origin="tenant_management", slug=tenant_slug
+        service.prepare_download,
+        export_key,
+        requester=user,
+        authenticated_with_api_key=via_api_key,
+        origin="tenant_management",
+        slug=tenant_slug,
     )
     return _archive_response(await service.open_download(export), export.key or export_key)
 
@@ -151,13 +162,19 @@ def admin_list_tenant_exports(
     key: str = Path(description="Key of the exported tenant."),
     pagination: PaginationParams = Depends(get_pagination),
     admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
     service: TenantExportService = Depends(get_tenant_export_service),
 ) -> list[TenantExportResponse]:
-    """The admin's own exports of the tenant, newest first (paginated)."""
+    """The admin's own exports of the tenant, newest first (paginated); never an API key."""
     return [
         TenantExportResponse.from_request(r)
         for r in service.list_exports(
-            requester=admin, origin="platform_admin", tenant_key=key, offset=pagination.offset, limit=pagination.limit
+            requester=admin,
+            authenticated_with_api_key=via_api_key,
+            origin="platform_admin",
+            tenant_key=key,
+            offset=pagination.offset,
+            limit=pagination.limit,
         )
     ]
 
@@ -171,11 +188,17 @@ async def admin_download_tenant_export(
     key: Annotated[str, Path(description="Key of the exported tenant.")],
     export_key: Annotated[str, Path(description="Key of the export request.")],
     admin: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
     service: TenantExportService = Depends(get_tenant_export_service),
 ) -> StreamingResponse:
-    """Stream an archive the admin requested, until it expires."""
+    """Stream an archive the admin requested, until it expires; never an API key; audited."""
     export = await run_in_threadpool(
-        service.prepare_download, export_key, requester=admin, origin="platform_admin", tenant_key=key
+        service.prepare_download,
+        export_key,
+        requester=admin,
+        authenticated_with_api_key=via_api_key,
+        origin="platform_admin",
+        tenant_key=key,
     )
     return _archive_response(await service.open_download(export), export.key or export_key)
 
@@ -187,8 +210,10 @@ def admin_import_tenant(
     archive: UploadFile = File(description="A tenant archive (kamerplanter-tenant-export/1)."),
     member_mapping: str | None = Form(
         default=None,
-        description='JSON object {"<archive user key>": "<e-mail of an existing account>"}; unmapped members '
-        "are dropped and their references become the pseudonym _anonymized.",
+        description='JSON object {"<archive user key>": {"email": "<e-mail of an existing account>", '
+        '"role": "lead|grower|viewer", "admin_scopes": ["management", "technical"]}}. The role and scopes '
+        "are the ones you confirm, never the archive's. Unmapped members are dropped and their references "
+        "become the pseudonym _anonymized.",
     ),
     plan_key: str | None = Form(default=None, description="Plan of the new tenant; the default plan when omitted."),
     current_password: str | None = Form(default=None, max_length=128),
@@ -201,13 +226,16 @@ def admin_import_tenant(
 ) -> TenantImportResponse:
     """Import a tenant archive as a **new** tenant (REQ-056 §8.4) — platform admin + step-up ``tenant_import``.
 
-    The archive is verified completely before anything is written: format and migration level
-    (``422 IMPORT_FORMAT_UNSUPPORTED``), checksums (``IMPORT_CHECKSUM_MISMATCH``), every reference field
-    declared (``IMPORT_UNDECLARED_REFERENCE``), every global catalogue entry present
-    (``IMPORT_MISSING_CATALOG_ENTRIES``, listed) and every mapped address an existing account
-    (``IMPORT_MEMBER_NOT_FOUND``). Every document gets a new key. ``202 Accepted``; poll
-    ``GET /admin/platform/tenant-imports/{import_key}`` for the report. ``413`` above
-    ``TENANT_IMPORT_MAX_UPLOAD_MB``.
+    The step-up is bound to ``archive:<first 32 hex digits of the upload's SHA-256>`` and checked before
+    the upload is parsed. The archive is then verified completely before anything is written: ZIP
+    directory bounds, format and migration level (``422 IMPORT_FORMAT_UNSUPPORTED``), checksums
+    (``IMPORT_CHECKSUM_MISMATCH``), that every row and edge belongs to the archived tenant, every
+    reference field declared (``IMPORT_UNDECLARED_REFERENCE``), every object key and type, every global
+    catalogue entry present (``IMPORT_MISSING_CATALOG_ENTRIES``, listed) and every mapped address an
+    existing account with a valid role (``IMPORT_MEMBER_NOT_FOUND``). ``verified`` in the response says
+    whether this installation signed the archive; a foreign or unsigned archive is imported unverified.
+    Every document gets a new key. ``202 Accepted``; poll ``GET /admin/platform/tenant-imports/{import_key}``
+    for the report. ``413`` above ``TENANT_IMPORT_MAX_UPLOAD_MB``.
     """
     handle = archive.file
     handle.seek(0, 2)

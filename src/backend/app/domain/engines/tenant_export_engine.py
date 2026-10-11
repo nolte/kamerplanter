@@ -37,15 +37,17 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
-import io
+import hmac
 import json
 import re
 import zipfile
+import zlib
 from collections.abc import Iterable
 from datetime import date, datetime
 from typing import IO, Any, Literal
 
 from pydantic import BaseModel, Field
+from pydantic import ValidationError as PydanticValidationError
 
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
@@ -173,6 +175,213 @@ class TenantExportEngine:
         "security_audit_log": _AUDIT,
         "tenant_erasure_records": "the proof of a tenant deletion in this installation",
         "tenant_export_requests": "export requests are not exported (§8.3)",
+    }
+
+    _ACCOUNT_EDGE = (
+        "connects an account to its own data (sessions, keys, consents, requests); accounts are not exported"
+    )
+    _CATALOGUE_EDGE = (
+        "relates two global catalogue rows only; an archive may never write catalogue relations every tenant reads"
+    )
+
+    #: Edge collections an import never writes, each with the reason (SEC-002 of the PR #2267 review).
+    #: ``test_tenant_export_covers_the_inventory.py`` holds this and :attr:`IMPORTABLE_EDGES` against
+    #: ``collections.EDGE_COLLECTIONS`` in both directions: a new edge collection needs a decision.
+    EXCLUDED_EDGES: dict[str, str] = {
+        "tenant_has_access": (
+            "an access grant onto another tenant's catalogue rows; an archive must not grant itself access"
+        ),
+        "has_membership": "memberships are re-created from the admin's member mapping, never from an archive",
+        "membership_in": "memberships are re-created from the admin's member mapping, never from an archive",
+        "assignment_for": "location assignments are not exported (write grants bound to memberships)",
+        "assignment_in_tenant": "location assignments are not exported (write grants bound to memberships)",
+        "assigned_to_location": "location assignments are not exported (write grants bound to memberships)",
+        "task_assigned_to": "points at an account; accounts are not exported",
+        "has_api_key": _ACCOUNT_EDGE,
+        "has_auth_provider": _ACCOUNT_EDGE,
+        "has_consent": _ACCOUNT_EDGE,
+        "has_restriction": _ACCOUNT_EDGE,
+        "has_session": _ACCOUNT_EDGE,
+        "requested_email_change": _ACCOUNT_EDGE,
+        "requested_erasure": _ACCOUNT_EDGE,
+        "requested_export": _ACCOUNT_EDGE,
+        "user_favorites": _ACCOUNT_EDGE,
+        "has_invitation": "invitations are credentials and not exported",
+        "has_inventree_ref": "the InvenTree references are not exported",
+        "has_stock_transaction": "the InvenTree push queue is not exported",
+        "notified_about_plant": "notifications are not exported",
+        "notified_about_task": "notifications are not exported",
+        "notification_for_run": "notifications are not exported",
+        "ai_audit_about": "the AI audit log is not exported",
+        "ai_conversation_about": "AI conversations are not exported",
+        "ai_tip_references_plant": "the AI tip cache is not exported",
+        "ai_tip_references_run": "the AI tip cache is not exported",
+        "consists_of": _CATALOGUE_EDGE,
+        "contraindicated_with": _CATALOGUE_EDGE,
+        "entry_uses_definition": _CATALOGUE_EDGE,
+        "family_compatible_with": _CATALOGUE_EDGE,
+        "family_incompatible_with": _CATALOGUE_EDGE,
+        "governed_by": _CATALOGUE_EDGE,
+        "next_phase": _CATALOGUE_EDGE,
+        "requires_profile": _CATALOGUE_EDGE,
+        "rotation_after": _CATALOGUE_EDGE,
+        "seq_has_entry": _CATALOGUE_EDGE,
+        "shares_pest_risk": _CATALOGUE_EDGE,
+        "targets_disease": _CATALOGUE_EDGE,
+        "targets_pest": _CATALOGUE_EDGE,
+        "uses_nutrients": _CATALOGUE_EDGE,
+        "vulnerable_in_phase": _CATALOGUE_EDGE,
+    }
+
+    #: The edge collections an archive may carry and an import writes — an allowlist, not "whatever the
+    #: database has" (SEC-002). An edge is still written only when at least one end is a row of the
+    #: archive or the tenant itself (:meth:`TenantImportEngine.remap_edge`).
+    IMPORTABLE_EDGES: frozenset[str] = frozenset(
+        {
+            "actuator_controls_location",
+            "actuator_event",
+            "actuator_has_override",
+            "actuator_has_rule",
+            "actuator_has_schedule",
+            "adjacent_to",
+            "applied_to_plant",
+            "assessed_by_quality",
+            "belongs_to_family",
+            "belongs_to_tenant",
+            "care_event_for",
+            "cloned_from",
+            "compatible_fish_plant",
+            "compatible_with",
+            "confirms_care",
+            "contains",
+            "created_by_wizard",
+            "current_phase",
+            "cv_attached_to_inspection",
+            "cv_diagnosed_for",
+            "cv_diagnosis_found",
+            "cv_phenotype_of",
+            "demand_for_run",
+            "descended_from",
+            "detected_disease",
+            "detected_pest",
+            "enriched_by",
+            "entry_for_species",
+            "equipment_at",
+            "fed_by",
+            "feeding_for_stock",
+            "feeding_used",
+            "feeds_from",
+            "fert_incompatible",
+            "filled_with",
+            "follows_plan",
+            "follows_workflow",
+            "generated_task",
+            "grown_in",
+            "harvested_as",
+            "has_actuator",
+            "has_burping_event",
+            "has_care_profile",
+            "has_climate_normal",
+            "has_component",
+            "has_cultivar",
+            "has_diary_entry",
+            "has_drying_progress",
+            "has_entry",
+            "has_fill_event",
+            "has_fish_stock",
+            "has_forecast",
+            "has_harvest_indicator",
+            "has_irrigation_demand",
+            "has_lifecycle",
+            "has_maintenance",
+            "has_overwintering_profile",
+            "has_phase_entry",
+            "has_phase_sequence",
+            "has_schedule",
+            "has_season_state",
+            "has_slot",
+            "has_state",
+            "has_stock",
+            "has_storage_observation",
+            "has_succession_plan",
+            "has_tank",
+            "has_task",
+            "has_weather_source_config",
+            "has_yield_metric",
+            "includes_cultivar",
+            "includes_nutrient_plan",
+            "includes_species",
+            "includes_template",
+            "incompatible_fish_plant",
+            "incompatible_with",
+            "inspected_by",
+            "instance_of",
+            "located_at",
+            "located_in_zone",
+            "location_profile",
+            "log_fertilizer",
+            "log_plant",
+            "log_slot",
+            "mixed_into",
+            "monitors_tank",
+            "observed_for_harvest",
+            "overwinters_at",
+            "pest_detection_flagged",
+            "pest_detection_of",
+            "pest_detection_suggested_inspection",
+            "phase_history_edge",
+            "phase_profile",
+            "placed_in",
+            "plan_uses_fertilizer",
+            "post_harvest_of",
+            "requires_phase",
+            "rule_monitors",
+            "run_at_location",
+            "run_contains",
+            "run_follows_plan",
+            "run_uses_substrate",
+            "stock_of_species",
+            "succession_at",
+            "supplementation_for",
+            "supplies",
+            "system_has_growbed",
+            "system_has_tank",
+            "task_blocks",
+            "task_cloned_from",
+            "task_has_audit",
+            "task_has_comment",
+            "task_recurs_from",
+            "task_uses_activity",
+            "to_run",
+            "treatment_uses",
+            "triggered_mold_alert",
+            "uses_indicator",
+            "uses_overwintering_template",
+            "uses_type",
+            "water_test_for",
+            "watered_plant",
+            "watering_from",
+            "wf_contains",
+            "wf_executing",
+            "wf_generated",
+            "wf_has_phase",
+        }
+    )
+
+    #: Fields an export removes before a row leaves the installation (SEC-005): an encrypted secret
+    #: or a reference to one is configured anew in the target. Dot paths; lists are walked.
+    REDACTED_FIELDS: dict[str, tuple[str, ...]] = {
+        "weather_source_configs": ("sources.config.api_key_ref",),
+    }
+
+    #: Field names that look like a secret (``*_ref``, ``*token*``, ``*secret*``, ``*encrypted*``,
+    #: ``*password*``, ``*api_key*``) and are none, with the reason. The guard in
+    #: ``test_tenant_export_covers_the_inventory.py`` fails on a match that is neither here nor redacted.
+    NOT_SECRET_FIELDS: dict[str, str] = {
+        "photo_refs": "attachment ids of the tenant's own photos (rewritten on import)",
+        "cover_photo_ref": "the attachment id of the cover photo (rewritten on import)",
+        "external_ref": "a machine producer's idempotency key of a task (#1082), not a credential",
+        "source_run_ref": "the id of the producer run (pipeline) that emitted a task, shown for traceability",
     }
 
     #: Inventory collections whose global rows carry an empty ``tenant_key`` beside tenant-owned rows:
@@ -476,9 +685,47 @@ def _json_default(value: Any) -> Any:
     raise TypeError(f"not serialisable: {type(value).__name__}")
 
 
-def archive_document(document: dict[str, Any]) -> dict[str, Any]:
-    """A stored document as the archive carries it: without ``_id``/``_rev``, ``_key`` kept as source key."""
-    return {name: value for name, value in document.items() if name not in _SYSTEM_ATTRIBUTES}
+def archive_document(document: dict[str, Any], *, collection: str | None = None) -> dict[str, Any]:
+    """A stored document as the archive carries it: without ``_id``/``_rev``, ``_key`` kept as source key.
+
+    With *collection*, every :attr:`TenantExportEngine.REDACTED_FIELDS` path of that collection is
+    removed (SEC-005) — on export, and again on import for an archive another installation wrote.
+    """
+    kept = {name: value for name, value in document.items() if name not in _SYSTEM_ATTRIBUTES}
+    for path in TenantExportEngine.REDACTED_FIELDS.get(collection or "", ()):
+        dotted: str = path
+        kept = _without(kept, dotted.split("."))
+    return kept
+
+
+def _without(node: Any, segments: list[str]) -> Any:
+    """A copy of *node* without the field at *segments* (lists are walked transparently)."""
+    if isinstance(node, list):
+        return [_without(item, segments) for item in node]
+    if not isinstance(node, dict):
+        return node
+    mapping: dict[str, Any] = node
+    head, rest = segments[0], segments[1:]
+    if head not in mapping:
+        return mapping
+    copy = dict(mapping)
+    if rest:
+        copy[head] = _without(mapping[head], rest)
+    else:
+        del copy[head]
+    return copy
+
+
+def manifest_signature(manifest: dict[str, Any], signing_key: bytes) -> str:
+    """HMAC-SHA256 over the canonical manifest without its ``signature`` (SEC-003).
+
+    The manifest lists the SHA-256 of every part, so the signature authenticates the whole
+    archive — for the installation that holds *signing_key*. The per-part hashes alone only
+    detect corruption: anyone can recompute them after an edit.
+    """
+    body = {name: value for name, value in manifest.items() if name != "signature"}
+    canonical = json.dumps(body, ensure_ascii=False, sort_keys=True, default=_json_default).encode("utf-8")
+    return hmac.new(signing_key, canonical, hashlib.sha256).hexdigest()
 
 
 def _line(document: dict[str, Any]) -> bytes:
@@ -544,9 +791,11 @@ class TenantArchiveWriter:
         self._parts[name] = {"rows": 1, "sha256": hashlib.sha256(data).hexdigest()}
         self._check_size()
 
-    def finish(self, manifest: dict[str, Any]) -> dict[str, int]:
-        """Write ``manifest.json`` (with every part's count and hash) and close; returns rows per part."""
-        payload = {**manifest, "files": dict(sorted(self._parts.items()))}
+    def finish(self, manifest: dict[str, Any], *, signing_key: bytes | None = None) -> dict[str, int]:
+        """Write ``manifest.json`` (every part's count and hash, signed when a key is given) and close."""
+        payload: dict[str, Any] = {**manifest, "files": dict(sorted(self._parts.items()))}
+        if signing_key:
+            payload["signature"] = {"alg": "HMAC-SHA256", "value": manifest_signature(payload, signing_key)}
         self._zip.writestr(
             MANIFEST_NAME, json.dumps(payload, ensure_ascii=False, sort_keys=True, default=_json_default)
         )
@@ -562,6 +811,40 @@ class TenantArchiveWriter:
 # ── reading ───────────────────────────────────────────────────────────
 
 
+#: Entries a tenant archive may hold; checked on the ZIP directory before anything is read (SEC-008).
+MAX_ARCHIVE_ENTRIES = 200_000
+
+#: ``tenant.json`` is a handful of fields; more is not a tenant document.
+MAX_TENANT_JSON_BYTES = 1024 * 1024
+
+#: The deepest nesting a stored document reaches is single digits; anything deeper is crafted.
+MAX_JSON_DEPTH = 32
+
+
+def _check_depth(value: Any, part: str) -> None:
+    """Refuse a parsed value nested deeper than :data:`MAX_JSON_DEPTH` (iterative: no recursion to exhaust)."""
+    stack: list[tuple[Any, int]] = [(value, 0)]
+    while stack:
+        node, depth = stack.pop()
+        if depth > MAX_JSON_DEPTH:
+            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"{part}: nested deeper than {MAX_JSON_DEPTH}")
+        if isinstance(node, dict):
+            mapping: dict[str, Any] = node
+            stack.extend((inner, depth + 1) for inner in mapping.values())
+        elif isinstance(node, list):
+            items: list[Any] = node
+            stack.extend((inner, depth + 1) for inner in items)
+
+
+def _loads(data: bytes, part: str) -> Any:
+    try:
+        value = json.loads(data)
+    except (ValueError, RecursionError) as exc:
+        raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"{part} is not JSON") from exc
+    _check_depth(value, part)
+    return value
+
+
 def _parse_lines(data: bytes, part: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     lines: list[bytes] = data.splitlines()
@@ -569,42 +852,72 @@ def _parse_lines(data: bytes, part: str) -> list[dict[str, Any]]:
         line: bytes = raw
         if not line.strip():
             continue
-        try:
-            document = json.loads(raw)
-        except ValueError as exc:
-            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"{part}: line {number} is not JSON") from exc
+        document = _loads(line, f"{part}: line {number}")
         if not isinstance(document, dict):
             raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"{part}: line {number} is not an object")
         rows.append(document)
     return rows
 
 
-def read_tenant_archive(source: IO[bytes], *, max_uncompressed_bytes: int) -> TenantArchive:
-    """Verify and parse an archive: format, every checksum, every part listed and nothing unlisted.
+def read_tenant_archive(
+    source: IO[bytes],
+    *,
+    max_uncompressed_bytes: int,
+    max_entry_bytes: int | None = None,
+    max_entries: int = MAX_ARCHIVE_ENTRIES,
+    signing_key: bytes | None = None,
+) -> TenantArchive:
+    """Verify and parse an archive: directory bounds, format, every checksum, every part listed.
 
-    The total uncompressed size is bounded before anything is decompressed (a ZIP bomb
-    is refused by its directory, not by running out of memory). Raises
-    :class:`TenantArchiveError` (``IMPORT_FORMAT_UNSUPPORTED`` / ``IMPORT_CHECKSUM_MISMATCH``).
+    Everything the ZIP directory can tell — entry count, each entry's and the total
+    uncompressed size, the size of ``tenant.json`` — is checked **before** any entry is
+    decompressed (SEC-008). Every failure of the ZIP or JSON reader is a refusal
+    (:class:`TenantArchiveError`: ``IMPORT_FORMAT_UNSUPPORTED`` / ``IMPORT_CHECKSUM_MISMATCH``),
+    never an unhandled exception. With *signing_key* the manifest signature is checked:
+    ``TenantArchive.verified`` says whether this installation wrote the archive unchanged
+    (SEC-003); an unsigned or foreign archive reads as unverified, it is not refused.
     """
     try:
-        archive = zipfile.ZipFile(source)
-    except zipfile.BadZipFile as exc:
-        raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the upload is not a ZIP archive") from exc
+        return _read(
+            source, max_uncompressed_bytes, max_entry_bytes or max_uncompressed_bytes, max_entries, signing_key
+        )
+    except TenantArchiveError:
+        raise
+    except (zipfile.BadZipFile, zipfile.LargeZipFile, RuntimeError, NotImplementedError, EOFError, OSError) as exc:
+        raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive cannot be read") from exc
+    except (zlib.error, ValueError, TypeError, KeyError) as exc:
+        raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive's content has the wrong shape") from exc
+
+
+def _read(
+    source: IO[bytes], max_total: int, max_entry: int, max_entries: int, signing_key: bytes | None
+) -> TenantArchive:
+    archive = zipfile.ZipFile(source)
     with archive:
+        listed_infos: list[zipfile.ZipInfo] = archive.infolist()
+        if len(listed_infos) > max_entries:
+            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"the archive holds more than {max_entries} entries")
         infos: dict[str, zipfile.ZipInfo] = {}
-        for listed in archive.infolist():
+        for listed in listed_infos:
             info: zipfile.ZipInfo = listed
-            if not info.is_dir():
-                infos[info.filename] = info
-        if sum(info.file_size for info in infos.values()) > max_uncompressed_bytes:
+            if info.is_dir():
+                continue
+            if info.file_size > max_entry:
+                raise TenantArchiveError(
+                    "IMPORT_FORMAT_UNSUPPORTED", f"an entry unpacks beyond the limit: {info.filename}"
+                )
+            if info.filename in infos:
+                raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"a duplicate entry: {info.filename}")
+            infos[info.filename] = info
+        if sum(info.file_size for info in infos.values()) > max_total:
             raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive unpacks beyond the import limit")
-        if MANIFEST_NAME not in infos:
-            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive has no manifest.json")
-        try:
-            manifest = json.loads(archive.read(MANIFEST_NAME))
-        except ValueError as exc:
-            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "manifest.json is not JSON") from exc
-        if not isinstance(manifest, dict) or manifest.get("format") != ARCHIVE_FORMAT:
+        if MANIFEST_NAME not in infos or infos[MANIFEST_NAME].file_size > MAX_TENANT_JSON_BYTES:
+            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive has no readable manifest.json")
+        if TENANT_NAME in infos and infos[TENANT_NAME].file_size > MAX_TENANT_JSON_BYTES:
+            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "tenant.json is larger than a tenant document")
+        parsed = _loads(archive.read(MANIFEST_NAME), MANIFEST_NAME)
+        manifest: dict[str, Any] = parsed if isinstance(parsed, dict) else {}
+        if manifest.get("format") != ARCHIVE_FORMAT:
             raise TenantArchiveError(
                 "IMPORT_FORMAT_UNSUPPORTED", f"unknown archive format (this installation reads {ARCHIVE_FORMAT})"
             )
@@ -633,16 +946,23 @@ def read_tenant_archive(source: IO[bytes], *, max_uncompressed_bytes: int) -> Te
             raise TenantArchiveError(
                 "IMPORT_CHECKSUM_MISMATCH", "a part of the archive does not match its checksum", entries=mismatched
             )
-    return _assemble(manifest, contents)
+    return _assemble(manifest, contents, verified=_signature_valid(manifest, signing_key))
 
 
-def _assemble(manifest: dict[str, Any], contents: dict[str, bytes]) -> TenantArchive:
+def _signature_valid(manifest: dict[str, Any], signing_key: bytes | None) -> bool:
+    signature = manifest.get("signature")
+    if not signing_key or not isinstance(signature, dict):
+        return False
+    value = signature.get("value")
+    if signature.get("alg") != "HMAC-SHA256" or not isinstance(value, str):
+        return False
+    return hmac.compare_digest(value, manifest_signature(manifest, signing_key))
+
+
+def _assemble(manifest: dict[str, Any], contents: dict[str, bytes], *, verified: bool) -> TenantArchive:
     if TENANT_NAME not in contents:
         raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive has no tenant.json")
-    try:
-        tenant = json.loads(contents[TENANT_NAME])
-    except ValueError as exc:
-        raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "tenant.json is not JSON") from exc
+    tenant = _loads(contents[TENANT_NAME], TENANT_NAME)
     source_tenant_key = manifest.get("source_tenant_key")
     if not isinstance(tenant, dict) or not isinstance(source_tenant_key, str) or not source_tenant_key:
         raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive names no source tenant")
@@ -654,7 +974,10 @@ def _assemble(manifest: dict[str, Any], contents: dict[str, bytes]) -> TenantArc
         if name in (TENANT_NAME,):
             continue
         if name == MEMBERS_NAME:
-            members = [TenantArchiveMember(**row) for row in _parse_lines(data, name)]
+            try:
+                members = [TenantArchiveMember(**row) for row in _parse_lines(data, name)]
+            except PydanticValidationError as exc:
+                raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "members.jsonl has the wrong shape") from exc
         elif name.startswith(COLLECTIONS_DIR) and name.endswith(".jsonl"):
             collection = name[len(COLLECTIONS_DIR) : -len(".jsonl")]
             _require_name(collection, name)
@@ -679,26 +1002,13 @@ def _assemble(manifest: dict[str, Any], contents: dict[str, bytes]) -> TenantArc
         edges=edges,
         members=members,
         objects=objects,
+        verified=verified,
     )
 
 
 def _require_name(collection: str, part: str) -> None:
     if not _COLLECTION_NAME.match(collection):
         raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"collection name not allowed: {part}")
-
-
-def peek_tenant_slug(source: IO[bytes]) -> str | None:
-    """The slug ``tenant.json`` names, read without verifying anything (the step-up target, §12.1)."""
-    try:
-        with zipfile.ZipFile(source) as archive:
-            tenant = json.loads(archive.read(TENANT_NAME))
-    except zipfile.BadZipFile, KeyError, ValueError:
-        return None
-    finally:
-        if isinstance(source, io.IOBase) and source.seekable():
-            source.seek(0)
-    slug = tenant.get("slug") if isinstance(tenant, dict) else None
-    return slug if isinstance(slug, str) else None
 
 
 def is_tombstone_or_pseudonym(value: str) -> bool:

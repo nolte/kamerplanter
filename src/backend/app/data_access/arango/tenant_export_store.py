@@ -424,6 +424,22 @@ class ArangoTenantImportRequestRepository(BaseArangoRepository[TenantImportReque
         )
         return TenantImportRequest(**self._from_doc(docs[0])) if docs else None
 
+    def list_stale_active(self, before: datetime) -> list[TenantImportRequest]:
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.status IN ["pending", "validating", "running"]
+            AND DATE_TIMESTAMP(doc.updated_at || doc.requested_at) <= DATE_TIMESTAMP(@before)
+          LIMIT 100
+          RETURN doc
+        """
+        cursor = cast(
+            Cursor,
+            self._db.aql.execute(
+                query, bind_vars={"@collection": col.TENANT_IMPORT_REQUESTS, "before": before.isoformat()}
+            ),
+        )
+        return [TenantImportRequest(**self._from_doc(doc)) for doc in cursor]
+
     def delete_finished_before(self, before: datetime) -> int:
         query = """
         FOR doc IN @@collection

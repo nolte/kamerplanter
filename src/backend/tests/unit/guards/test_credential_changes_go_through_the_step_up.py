@@ -563,6 +563,11 @@ _IRREVERSIBLE_CALLERS: dict[tuple[str, str], str] = {
         "the body of the Celery task delete_tenant dispatches (#1792): runs a record that exists only because "
         "delete_tenant created it behind the step-up (the task takes a record key, never a tenant to erase)"
     ),
+    ("domain/services/tenant_service.py", "TenantService.erase_abandoned_import"): (
+        "#2138 SEC-007 — the hourly sweep of retention.expire_data_exports: erases only a tenant still "
+        "'importing' (founded behind the platform admin's tenant_import step-up, never reached by anybody) "
+        "whose import run died"
+    ),
     ("tasks/auth_tasks.py", "cleanup_unverified_accounts"): (
         "Celery: erases registrations never verified past their deadline — no person, no session"
     ),
@@ -630,7 +635,7 @@ def irreversible_callers(root: Path = APP) -> dict[tuple[str, str], tuple[set[st
 
 #: Measured when the second class was added (review SEC-004 d); +2 by #1949 (request_account_erasure_by_admin
 #: dispatches the worker, run_account_erasure_task is the worker body).
-EXPECTED_IRREVERSIBLE_CALLERS = 14
+EXPECTED_IRREVERSIBLE_CALLERS = 15  # +1 with #2138: erase_abandoned_import (the dead-import sweep)
 
 
 def test_every_caller_of_an_irreversible_core_reaches_the_step_up_or_is_classified() -> None:

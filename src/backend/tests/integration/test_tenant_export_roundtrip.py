@@ -22,6 +22,14 @@ unit tier's, ``test_tenant_export_service.py``).
   is in the archive bytes.
 * **Refusals (AK-34).** A missing global catalogue row refuses the import with the
   list and writes nothing; a failure mid-write leaves no tenant and no row behind.
+* **A crafted archive (PR #2267 review SEC-001/-002/-003).** Rows without the source
+  tenant's key and an edge between two global catalogue rows are refused before a
+  single document is written; an archive this installation did not sign imports as
+  unverified.
+* **Unreachable until done, swept when dead (SEC-007).** The new tenant is
+  ``importing`` with inactive memberships while rows are written, ``active`` after;
+  an import whose run died is erased through the tenant-erasure inventory by the
+  hourly sweep.
 
 Locally::
 
@@ -56,10 +64,13 @@ from app.data_access.arango.tenant_export_store import (
 from app.data_access.arango.tenant_repository import ArangoTenantRepository
 from app.data_access.arango.user_repository import ArangoUserRepository
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
+from app.data_access.timescale.null_observation_repository import NullObservationRepository
+from app.data_access.vectordb.noop_reference_index_store import NoopReferenceIndexStore
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
-from app.domain.engines.tenant_export_engine import read_tenant_archive
+from app.domain.engines.tenant_export_engine import TenantArchiveWriter, read_tenant_archive
+from app.domain.models.tenant_export import TenantImportMemberGrant, TenantImportRequest
 from app.domain.models.user import User
 from app.domain.services.entitlement_service import EntitlementService
 from app.domain.services.security_audit_service import SecurityAuditService
@@ -80,6 +91,7 @@ SECRETS = {
     "api_key_hash": "APIKEYHASHMARKER0123456789",
     "invitation_token": "INVITATIONTOKENMARKER",
     "provider_secret": "PROVIDERSECRETMARKER",
+    "weather_key_ref": "gAAAAAWEATHERKEYREFMARKER",
     "foreign_row": "ROW-OF-TENANT-B-MARKER",
 }
 
@@ -249,18 +261,35 @@ def _seed_tenant(db, tenant: str, *, marker: str = "") -> dict[str, str]:
         {"tenant_key": tenant, "token_hash": f"{SECRETS['invitation_token']}-{tenant}", "email": "x@example.com"}
     )
     db.collection("ai_provider_configs").insert({"tenant_key": tenant, "api_key_encrypted": SECRETS["provider_secret"]})
+    db.collection("weather_source_configs").insert(
+        {
+            "tenant_key": tenant,
+            "site_key": k["site"],
+            "sources": [{"source": "owm", "config": {"api_key_ref": SECRETS["weather_key_ref"]}}],
+        }
+    )
     return k
 
 
 # ── service wiring ────────────────────────────────────────────────────
 
 
-def _service(db, storage_root: Path) -> TenantExportService:
+SIGNING_KEY = b"integration-installation-key-0123456789"
+SALT = "tenant-export-salt-not-a-secret-0123456789"
+
+
+def _service(db, storage_root: Path, *, signing_key: bytes | None = SIGNING_KEY) -> TenantExportService:
+    from app.data_access.arango.tenant_erasure_executor import ArangoTenantErasureExecutor
+    from app.data_access.arango.tenant_erasure_repository import ArangoTenantErasureRepository
+
     tenant_repo = ArangoTenantRepository(db)
     membership_repo = ArangoMembershipRepository(db)
     audit = SecurityAuditService(ArangoSecurityAuditRepository(db))
     entitlements = EntitlementService(plan_repo=None, tenant_repo=tenant_repo)
     step_up = MagicMock()
+    storage = LocalFsStorageAdapter(
+        str(storage_root), "http://storage.invalid", "test-signing-secret", max_object_size_bytes=50 * 1024 * 1024
+    )
     tenant_service = TenantService(
         tenant_repo=tenant_repo,
         membership_repo=membership_repo,
@@ -272,9 +301,12 @@ def _service(db, storage_root: Path) -> TenantExportService:
         security_audit=audit,
         step_up_verifier=step_up,
         entitlements=entitlements,
-    )
-    storage = LocalFsStorageAdapter(
-        str(storage_root), "http://storage.invalid", "test-signing-secret", max_object_size_bytes=50 * 1024 * 1024
+        storage_adapter=storage,
+        reference_index_store=NoopReferenceIndexStore(),
+        observation_repo=NullObservationRepository(),
+        tenant_erasure_executor=ArangoTenantErasureExecutor(db),
+        tenant_erasure_repo=ArangoTenantErasureRepository(db),
+        tombstone_salt=SALT,
     )
     return TenantExportService(
         store=ArangoTenantDataStore(db),
@@ -288,7 +320,14 @@ def _service(db, storage_root: Path) -> TenantExportService:
         step_up_verifier=step_up,
         security_audit=audit,
         entitlements=entitlements,
+        signing_key=signing_key,
+        allowed_mime_types=lambda category: ["image/jpeg", "image/png", "image/webp"],
+        max_object_bytes=10 * 1024 * 1024,
     )
+
+
+def _grant(email: str, role: str = "lead", scopes: tuple[str, ...] = ("management", "technical")) -> dict:
+    return {"email": email, "role": role, "admin_scopes": list(scopes)}
 
 
 async def _put(storage, key: str, data: bytes) -> None:
@@ -377,7 +416,7 @@ def test_roundtrip_export_import_export_differs_only_in_keys(source, target, tmp
         size_bytes=len(first),
         requester=_person(ADMIN),
         authenticated_with_api_key=False,
-        member_mapping={f"{A}-{LEAD}": "new-lead@example.com"},
+        member_mapping={f"{A}-{LEAD}": _grant("new-lead@example.com")},
         plan_key=None,
         factors=StepUpFactors(password="pw"),
         client_ip=None,
@@ -387,6 +426,13 @@ def test_roundtrip_export_import_export_differs_only_in_keys(source, target, tmp
     new_tenant = finished.target_tenant_key or ""
     assert new_tenant and new_tenant != A
     assert finished.report["plant_instances"] == 1
+    assert accepted.verified is True  # the same installation key signed it
+    # SEC-007 — open only now: the tenant is active and the mapped lead's membership active.
+    assert target.collection("tenants").get(new_tenant)["status"] == "active"
+    imported_members = list(
+        target.aql.execute("FOR m IN memberships FILTER m.tenant_key == @t RETURN m", bind_vars={"t": new_tenant})
+    )
+    assert [(m["user_key"], m["role"], m["is_active"]) for m in imported_members] == [("new-lead", "lead", True)]
 
     request = dst.request_export(
         requester=_person("new-lead"),
@@ -465,7 +511,11 @@ def test_restoring_a_beside_b_changes_nothing_of_b(source, tmp_path) -> None:
         service.import_archive(
             read_tenant_archive(io.BytesIO(archive), max_uncompressed_bytes=10**8),
             actor_user_key=ADMIN,
-            member_accounts={f"{A}-{LEAD}": f"{A}-{LEAD}"},
+            member_grants={
+                f"{A}-{LEAD}": TenantImportMemberGrant(
+                    account_key=f"{A}-{LEAD}", role="lead", admin_scopes=["management", "technical"]
+                )
+            },
             plan_key="standard",
         )
     )
@@ -534,7 +584,7 @@ def test_a_failure_mid_import_leaves_no_tenant_behind(source, target, tmp_path) 
     }
 
     with pytest.raises(RuntimeError):
-        run_async(dst.import_archive(archive, actor_user_key=ADMIN, member_accounts={}, plan_key="standard"))
+        run_async(dst.import_archive(archive, actor_user_key=ADMIN, member_grants={}, plan_key="standard"))
 
     counts_after = {
         info["name"]: target.collection(info["name"]).count() for info in target.collections() if not info["system"]
@@ -542,3 +592,142 @@ def test_a_failure_mid_import_leaves_no_tenant_behind(source, target, tmp_path) 
     grown = {name: (counts_before[name], n) for name, n in counts_after.items() if n != counts_before[name]}
     # The founding wrote one security-audit row (membership_added); that row is the proof and stays.
     assert set(grown) <= {"security_audit_log"}, grown
+
+
+def _crafted(entries: dict[str, list[dict]], edges: dict[str, list[dict]] | None = None) -> bytes:
+    """An archive written by hand (unsigned), the way an attacker would."""
+    buffer = io.BytesIO()
+    writer = TenantArchiveWriter(buffer, max_bytes=None)
+    writer.write_json("tenant.json", {"name": "Crafted", "slug": "crafted"})
+    for name, rows in entries.items():
+        writer.write_lines(f"collections/{name}.jsonl", [rows])
+    for name, rows in (edges or {}).items():
+        writer.write_lines(f"edges/{name}.jsonl", [rows])
+    writer.write_lines("members.jsonl", [[]])
+    writer.finish({"format": "kamerplanter-tenant-export/1", "source_tenant_key": "ten-src"})
+    return buffer.getvalue()
+
+
+@pytest.mark.parametrize(
+    ("entries", "edges"),
+    [
+        # SEC-001 — a "tenant" species with no tenant key would become a global catalogue row.
+        ({"species": [{"_key": "evil", "scientific_name": "Evilus globalis", "tenant_key": ""}]}, None),
+        ({"species": [{"_key": "evil", "scientific_name": "Evilus globalis"}]}, None),
+        # SEC-002 — an edge between two global rows rewrites the catalogue for everybody.
+        (
+            {"sites": [{"_key": "s1", "tenant_key": "ten-src"}]},
+            {"belongs_to_family": [{"_from": "species/sp-global", "_to": "botanical_families/fam-1"}]},
+        ),
+        # SEC-002 — an access grant is never imported.
+        (
+            {"sites": [{"_key": "s1", "tenant_key": "ten-src"}]},
+            {"tenant_has_access": [{"_from": "tenants/ten-src", "_to": "species/sp-global"}]},
+        ),
+    ],
+)
+def test_a_crafted_archive_is_refused_before_anything_is_written(target, tmp_path, entries, edges) -> None:
+    data = _crafted(entries, edges)
+    dst = _service(target, tmp_path / "dst")
+
+    def counts() -> dict[str, int]:
+        return {
+            info["name"]: target.collection(info["name"]).count() for info in target.collections() if not info["system"]
+        }
+
+    before = counts()
+    with pytest.raises(TenantImportRefusedError) as refused:
+        dst.request_import(
+            io.BytesIO(data),
+            size_bytes=len(data),
+            requester=_person(ADMIN),
+            authenticated_with_api_key=False,
+            member_mapping={},
+            plan_key=None,
+            factors=StepUpFactors(password="pw"),
+            client_ip=None,
+        )
+    assert refused.value.error_code == "IMPORT_FORMAT_UNSUPPORTED"
+    assert counts() == before
+
+
+def test_a_foreign_archive_imports_unverified(source, target, tmp_path) -> None:
+    _seed_tenant(source, A)
+    archive = _export(_service(source, tmp_path / "src", signing_key=b"another-installation-key-xxxxxxx"), source, A)
+    dst = _service(target, tmp_path / "dst")
+    accepted = dst.request_import(
+        io.BytesIO(archive),
+        size_bytes=len(archive),
+        requester=_person(ADMIN),
+        authenticated_with_api_key=False,
+        member_mapping={},
+        plan_key=None,
+        factors=StepUpFactors(password="pw"),
+        client_ip=None,
+    )
+    assert accepted.verified is False
+
+
+def test_the_tenant_is_unreachable_while_importing_and_a_dead_import_is_swept(source, target, tmp_path) -> None:
+    _seed_tenant(source, A)
+    archive = read_tenant_archive(
+        io.BytesIO(_export(_service(source, tmp_path / "src"), source, A)), max_uncompressed_bytes=10**8
+    )
+    dst = _service(target, tmp_path / "dst")
+    target.collection("users").insert(
+        {"_key": "new-lead", "email": "new-lead@example.com", "display_name": "L", "account_type": "human"}
+    )
+    seen: dict[str, Any] = {}
+    real_insert = dst._store.insert_documents
+
+    def observing_insert(collection: str, documents: list[dict[str, Any]]) -> list[str]:
+        tenant_key = documents[0].get("tenant_key") if documents else None
+        if tenant_key and "status" not in seen:
+            seen["status"] = target.collection("tenants").get(tenant_key)["status"]
+            seen["active_members"] = list(
+                target.aql.execute(
+                    "FOR m IN memberships FILTER m.tenant_key == @t AND m.is_active RETURN m",
+                    bind_vars={"t": tenant_key},
+                )
+            )
+        return real_insert(collection, documents)
+
+    dst._store.insert_documents = observing_insert  # type: ignore[method-assign]
+    grants = {f"{A}-{LEAD}": TenantImportMemberGrant(account_key="new-lead", role="lead", admin_scopes=["management"])}
+    run_async(dst.import_archive(archive, actor_user_key=ADMIN, member_grants=grants, plan_key="standard"))
+    assert seen == {"status": "importing", "active_members": []}
+
+    # A run that died after founding: the tenant stays ``importing`` with rows in it.
+    dst._store.insert_documents = real_insert  # type: ignore[method-assign]
+    half = dst._tenant_service.found_imported_tenant(
+        actor_user_key=ADMIN,
+        name="Half",
+        slug_hint="half",
+        description=None,
+        settings={},
+        plan_key="standard",
+        owner_user_key=ADMIN,
+        members=[],
+    )
+    half_key = half.key or ""
+    target.collection("sites").insert({"_key": "half-site", "tenant_key": half_key, "name": "half"})
+    long_ago = datetime(2026, 1, 1, tzinfo=UTC)
+    stale = dst._imports.create(
+        TenantImportRequest(
+            requested_by_user_key=ADMIN,
+            status="running",
+            source_format="kamerplanter-tenant-export/1",
+            target_tenant_key=half_key,
+            requested_at=long_ago,
+            updated_at=long_ago,
+        )
+    )
+
+    # The repository stamps ``updated_at`` on create; the run's last heartbeat was long ago.
+    dst._imports.update_fields(stale.key or "", {"updated_at": long_ago})
+
+    result = run_async(dst.expire())
+
+    assert result["abandoned_imports"] == 1
+    assert target.collection("sites").get("half-site") is None
+    assert target.collection("tenants").get(half_key) is None

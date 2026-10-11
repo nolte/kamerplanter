@@ -127,3 +127,7 @@ class ITenantImportRequestRepository(ABC):
     @abstractmethod
     def delete_finished_before(self, before: datetime) -> int:
         """Remove ``completed``/``failed`` requests finished before *before* (NFR-011 R-40)."""
+
+    @abstractmethod
+    def list_stale_active(self, before: datetime) -> list[TenantImportRequest]:
+        """``pending``/``validating``/``running`` requests not touched since *before* (a run that died, SEC-007)."""

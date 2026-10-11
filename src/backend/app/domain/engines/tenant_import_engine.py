@@ -10,9 +10,14 @@ collection; which fields are references is declared once, in
 
 Rules per reference kind (``TenantReference.kind``):
 
-* ``tenant`` — the source tenant's key becomes the new tenant's; empty stays
-  empty; any other tenant key refuses the archive (it names a tenant the archive
-  does not own).
+* ``tenant`` — the source tenant's key becomes the new tenant's; any other tenant
+  key refuses the archive (it names a tenant the archive does not own). Which
+  rows *must* carry it is the tenant-erasure inventory's: a collection selected by
+  ``tenant_key`` alone needs the source key on every row — an empty or absent one
+  would be written as a global catalogue row every tenant reads, so it refuses
+  the archive; a collection also selected through a parent (``locations`` via
+  their site) needs the source key **or** a parent of the archive, and a supplied
+  key is replaced by the new tenant's (SEC-001 of the PR #2267 review).
 * ``internal`` — a row of the archive → its new key. A key the archive does not
   hold: a global catalogue row of the target when a target collection is a
   (hybrid) catalogue — collected first and checked by the service
@@ -23,14 +28,21 @@ Rules per reference kind (``TenantReference.kind``):
 * ``account`` — an account the admin mapped → that account; anything else
   becomes the pseudonym ``_anonymized`` (§8.4 step 4). A pseudonym or an erasure
   tombstone stays as it is.
-* ``storage`` / ``attachment`` — ``t/<source>/…`` becomes ``t/<new>/…``; an
+* ``storage`` / ``attachment`` — ``t/<source>/…`` becomes ``t/<new>/…``; any other
+  object key, or one with a ``..`` segment, refuses the archive (SEC-004); an
   attachment id is mapped like an internal reference.
 * ``polymorphic`` — the sibling discriminator names the collection, then as
   ``internal``; an unknown discriminator clears the reference.
 
+Edges (SEC-002): only an edge collection of :attr:`TenantExportEngine.IMPORTABLE_EDGES`
+is written, and only an edge with at least one end in the archive (or on the tenant
+itself) — an edge between two global catalogue rows would change what every tenant
+reads. A ``tenant_key`` on an edge becomes the new tenant's.
+
 A ``*_key`` path no declaration covers refuses the archive
 (``IMPORT_UNDECLARED_REFERENCE``): writing it unchanged is the one thing the
-import must never do.
+import must never do. :meth:`TenantImportEngine.validate_documents` applies every
+rule to every row and edge **before** anything is written.
 """
 
 from __future__ import annotations
@@ -39,13 +51,16 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
+from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.engines.tenant_export_engine import (
     ANONYMIZED_ACCOUNT,
     TenantArchiveError,
     TenantExportEngine,
     TenantReference,
+    archive_document,
     is_tombstone_or_pseudonym,
 )
+from app.domain.models.tenant_erasure import TenantErasureEntry
 from app.domain.models.tenant_export import TenantArchive
 
 #: Sentinel for "drop this value" while rewriting.
@@ -73,6 +88,9 @@ class TenantImportEngine:
         self._target = target_tenant_key
         self._members: dict[str, str] = dict(member_accounts)
         self._exported = set(TenantExportEngine.exported_collections())
+        self._entries: dict[str, TenantErasureEntry] = {
+            entry.collection: entry for entry in TenantErasureEngine.INVENTORY
+        }
         self._catalogues = TenantExportEngine.global_catalogues()
         self._hybrid = TenantExportEngine.HYBRID_CATALOGUES
         self.mapping: dict[str, dict[str, str]] = {}
@@ -114,6 +132,13 @@ class TenantImportEngine:
                     f"{collection}.{path}"
                     for path in TenantExportEngine.undeclared_reference_paths(collection, document)
                 )
+        foreign_edges = sorted(set(archive.edges) - TenantExportEngine.IMPORTABLE_EDGES)
+        if foreign_edges:
+            raise TenantArchiveError(
+                "IMPORT_FORMAT_UNSUPPORTED",
+                "the archive carries edge collections a tenant import does not write",
+                entries=foreign_edges,
+            )
         for name, edges in archive.edges.items():
             for row in edges:
                 edge: dict[str, Any] = row
@@ -131,6 +156,49 @@ class TenantImportEngine:
                 "the archive carries reference fields this installation does not know how to rewrite",
                 entries=sorted(undeclared),
             )
+
+    def validate_documents(self) -> None:
+        """Apply every ownership and rewrite rule to every row and edge, writing nothing (SEC-001/-002/-004).
+
+        Run before the new tenant is founded: an archive that would fail half-way is
+        refused as a whole. Catalogue rows count as absent here — this pass checks what
+        the archive *claims*, the catalogue check is :meth:`catalogue_requirements`.
+        """
+        for collection, documents in self._archive.collections.items():
+            for row in documents:
+                document: dict[str, Any] = row
+                self._check_ownership(collection, document)
+                self.remap_document(collection, document, existing_global=set())
+        for edges in self._archive.edges.values():
+            for row in edges:
+                edge: dict[str, Any] = row
+                self.remap_edge(edge, existing_global=set(), dry_run=True)
+        self.nulled_references = 0
+
+    def _check_ownership(self, collection: str, document: dict[str, Any]) -> None:
+        """The row belongs to the source tenant by its own key or through a parent row of the archive."""
+        entry = self._entries.get(collection)
+        if entry is None:
+            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", f"{collection}: not a collection of a tenant")
+        claimed = document.get(entry.tenant_field)
+        if claimed == self._source:
+            return
+        if claimed not in (None, ""):
+            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive carries a row of another tenant")
+        for parent in entry.parents:
+            value = document.get(parent.field)
+            where: dict[str, Any] = dict(parent.where)
+            if (
+                isinstance(value, str)
+                and value in self._table(parent.collection)
+                and all(document.get(name) == expected for name, expected in where.items())
+            ):
+                return
+        raise TenantArchiveError(
+            "IMPORT_FORMAT_UNSUPPORTED",
+            f"{collection}: a row that belongs to no tenant of the archive (no tenant key, no parent row)",
+            entries=[f"{collection}/{document.get('_key')}"],
+        )
 
     def catalogue_requirements(self) -> dict[str, set[str]]:
         """Every global catalogue row the archive points at: ``collection -> keys`` (to be checked by the store)."""
@@ -175,17 +243,39 @@ class TenantImportEngine:
         target has (the service resolved :meth:`catalogue_requirements`).
         """
         old_key = str(document["_key"])
-        rewritten = {name: value for name, value in document.items() if name not in ("_id", "_rev")}
+        rewritten = archive_document(document, collection=collection)
         rewritten["_key"] = self.mapping[collection][old_key]
         references = TenantExportEngine.references_of(collection)
         for path, reference in references.items():
             dotted: str = path
             segments: list[str] = dotted.split(".")
             self._rewrite_path(rewritten, segments, reference, rewritten, existing_global)
+        entry = self._entries.get(collection)
+        if entry is not None and entry.tenant_field in rewritten:
+            # SEC-001 — whatever the archive said, a row the import writes is the new tenant's.
+            rewritten[entry.tenant_field] = self._target
+        elif entry is not None and not entry.parents:
+            rewritten[entry.tenant_field] = self._target
         return rewritten
 
-    def remap_edge(self, edge: dict[str, Any], *, existing_global: set[str]) -> dict[str, Any] | None:
-        """The edge with both ends rewritten, or ``None`` when an end has no place in the target."""
+    def remap_edge(
+        self, edge: dict[str, Any], *, existing_global: set[str], dry_run: bool = False
+    ) -> dict[str, Any] | None:
+        """The edge with both ends rewritten, or ``None`` when an end has no place in the target.
+
+        Refuses (SEC-002) an edge none of whose ends is a row of the archive or the tenant itself:
+        such an edge relates rows the tenant does not own.
+        """
+        if not any(self._owned_end(str(edge.get(end, ""))) for end in ("_from", "_to")):
+            raise TenantArchiveError(
+                "IMPORT_FORMAT_UNSUPPORTED",
+                "the archive carries an edge between rows that are not the tenant's",
+                entries=[f"{edge.get('_from')} -> {edge.get('_to')}"],
+            )
+        if dry_run:
+            if "tenant_key" in edge:
+                self._rewrite_tenant(edge["tenant_key"])
+            return None
         ends: dict[str, str] = {}
         for end in ("_from", "_to"):
             resolved = self._resolve_id(str(edge[end]), existing_global)
@@ -195,14 +285,23 @@ class TenantImportEngine:
         rewritten = {name: value for name, value in edge.items() if name not in ("_id", "_rev", "_key", "_from", "_to")}
         rewritten.update(ends)
         if "tenant_key" in rewritten:
-            rewritten["tenant_key"] = self._rewrite_tenant(rewritten["tenant_key"])
+            self._rewrite_tenant(rewritten["tenant_key"])
+            rewritten["tenant_key"] = self._target
         return rewritten
 
+    def _owned_end(self, document_id: str) -> bool:
+        collection, _, key = document_id.partition("/")
+        if collection == "tenants":
+            return key == self._source
+        return key in self._table(collection)
+
     def rewrite_storage_key(self, value: str) -> str:
+        """``t/<source>/…`` → ``t/<new>/…``; anything else (or a ``..`` / empty segment) refuses (SEC-004)."""
         prefix = f"t/{self._source}/"
-        if value.startswith(prefix):
-            return f"t/{self._target}/{value[len(prefix) :]}"
-        raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "an object key outside the source tenant's namespace")
+        tail = value[len(prefix) :] if value.startswith(prefix) else ""
+        if not tail or any(segment in ("", ".", "..") for segment in tail.split("/")):
+            raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "an object key outside the source tenant's namespace")
+        return f"t/{self._target}/{tail}"
 
     # ── internals ──────────────────────────────────────────────────────
 
@@ -264,9 +363,9 @@ class TenantImportEngine:
             return self._members.get(value, ANONYMIZED_ACCOUNT)
         text: str = value
         if kind == "storage":
-            return self.rewrite_storage_key(text) if text.startswith("t/") else text
+            return self.rewrite_storage_key(text)
         if kind == "attachment":
-            if text.startswith("t/"):
+            if "/" in text:
                 return self.rewrite_storage_key(value)
             return self._internal(value, ("attachments",), existing_global)
         if kind == "global":

@@ -50,6 +50,7 @@ from app.domain.models.site import Location, Site, Slot
 from app.domain.models.tank import MaintenanceLog, Tank, TankFillEvent, TankState
 from app.domain.models.task import Task, TaskComment
 from app.domain.models.tenant import Tenant
+from app.domain.models.tenant_export import TenantExportRequest, TenantImportRequest
 from app.domain.models.user import User
 from app.domain.models.user_preference import UserPreference
 from app.domain.models.watering_event import WateringEvent
@@ -120,6 +121,9 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "sensor_readings": SensorReading,
     "sensor_hourly": AggregatedReading,
     "sensor_daily": AggregatedReading,
+    # REQ-056 §12.3 (#2138) — the tenant export and import requests a subject asked for.
+    "tenant_export_requests": TenantExportRequest,
+    "tenant_import_requests": TenantImportRequest,
 }
 
 

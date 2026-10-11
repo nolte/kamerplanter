@@ -19,6 +19,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.common.enums import AdminScope, TenantRole
+
 #: Who asked for the export (REQ-056 §8.2).
 type TenantExportOrigin = Literal["tenant_management", "platform_admin"]
 
@@ -61,6 +63,18 @@ class TenantExportRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class TenantImportMemberGrant(BaseModel):
+    """What the importing admin confirmed for one archive member (SEC-003 of the PR #2267 review).
+
+    The role and scopes are the admin's, never ``members.jsonl``'s: an archive is a file
+    someone handed over, and a role written into it must not become a grant by itself.
+    """
+
+    account_key: str
+    role: TenantRole
+    admin_scopes: list[AdminScope] = Field(default_factory=list)
+
+
 class TenantImportRequest(BaseModel):
     """One import of a tenant archive by a platform admin (REQ-056 §13.5)."""
 
@@ -70,8 +84,10 @@ class TenantImportRequest(BaseModel):
     source_format: str
     #: The uploaded archive until the run ends (deleted on completion and on failure).
     upload_storage_key: str | None = None
-    #: ``member_mapping`` resolved to account keys at request time: archive user key → account key.
-    member_accounts: dict[str, str] = Field(default_factory=dict)
+    #: ``member_mapping`` resolved at request time: archive user key → account and confirmed role.
+    member_grants: dict[str, TenantImportMemberGrant] = Field(default_factory=dict)
+    #: The archive carried this installation's valid signature (SEC-003); ``False`` = unverified.
+    verified: bool = False
     plan_key: str | None = None
     target_tenant_key: str | None = None
     #: Rows written per collection; no contents.
@@ -113,6 +129,10 @@ class TenantArchive(BaseModel):
     edges: dict[str, list[dict[str, object]]] = Field(default_factory=dict)
     members: list[TenantArchiveMember] = Field(default_factory=list)
     objects: dict[str, bytes] = Field(default_factory=dict)
+    #: The manifest carries this installation's signature and it matches (SEC-003). ``False`` for an
+    #: archive another installation wrote, an unsigned one, or one changed after it was signed: its
+    #: content is then only as trustworthy as the person who handed it over.
+    verified: bool = False
 
 
 class TenantImportOutcome(BaseModel):

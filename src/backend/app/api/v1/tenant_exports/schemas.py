@@ -66,6 +66,8 @@ class TenantImportResponse(BaseModel):
     source_format: str
     target_tenant_key: str | None = None
     plan_key: str | None = None
+    #: The archive carried this installation's valid signature; ``False`` = foreign, unsigned or changed.
+    verified: bool = False
     report: dict[str, int] = {}
     failure_reason: str | None = None
     missing_catalog_entries: list[str] = []
@@ -80,6 +82,7 @@ class TenantImportResponse(BaseModel):
             source_format=request.source_format,
             target_tenant_key=request.target_tenant_key,
             plan_key=request.plan_key,
+            verified=request.verified,
             report=request.report,
             failure_reason=request.failure_reason,
             missing_catalog_entries=request.missing_catalog_entries,

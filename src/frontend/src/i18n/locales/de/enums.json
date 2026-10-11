@@ -875,7 +875,8 @@
       "suspended": "Gesperrt",
       "pending_deletion": "Löschung geplant",
       "orphaned": "Verwaist",
-      "deleted": "Wird gelöscht"
+      "deleted": "Wird gelöscht",
+      "importing": "Wird importiert"
     },
     "invitationType": {
       "email": "E-Mail",

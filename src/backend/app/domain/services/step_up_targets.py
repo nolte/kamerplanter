@@ -39,7 +39,8 @@ on a kind of target learns nothing about which targets of that kind exist (403 b
   accounts learns nothing about which exist;
 * ``tenant_export`` (#2138, REQ-056 §8.2) — the rule of ``tenant_deletion``: the lead role and the management
   scope in the tenant, or a platform admin; the tenant exists;
-* ``tenant_import`` (#2138) — a platform admin; the target is ``new:<slug>`` with the archive's slug;
+* ``tenant_import`` (#2138) — a platform admin; the target is ``archive:<32 hex>``, the start of the
+  upload's SHA-256 (the confirmation names the archive by content, PR #2267 review SEC-009);
 * ``tenant_member_removal`` / ``tenant_member_role_change`` (#2032) — the requester holds
   the ``management`` scope in the tenant the membership belongs to
   (``MembershipEngine.can_manage_members``, the predicate the routes' scope gate
@@ -49,6 +50,8 @@ on a kind of target learns nothing about which targets of that kind exist (403 b
 """
 
 from __future__ import annotations
+
+import re
 
 from app.common.enums import TenantRole
 from app.common.exceptions import DuplicateError, ForbiddenError, NotFoundError, ValidationError
@@ -63,6 +66,9 @@ from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.oidc_config import is_valid_oidc_slug
 from app.domain.models.user import User
 from app.domain.services.step_up_service import NEW_OIDC_PROVIDER_TARGET_PREFIX, TARGETED_ACTIONS
+
+#: The step-up target of a tenant import (``tenant_export_service.import_step_up_target``).
+_IMPORT_TARGET = re.compile(r"archive:[0-9a-f]{32}")
 
 _PLATFORM_TENANT_KEY = "platform"
 
@@ -148,10 +154,10 @@ class StepUpTargetAuthorizer:
             self._authorize_tenant_export(user_key, target)
         elif action == "tenant_import":
             self._require_platform_admin(user_key)
-            if not target.startswith(NEW_OIDC_PROVIDER_TARGET_PREFIX) or not target.removeprefix(
-                NEW_OIDC_PROVIDER_TARGET_PREFIX
-            ):
-                raise ValidationError("A tenant_import target is new:<slug> with the archive's slug.")
+            if not _IMPORT_TARGET.fullmatch(target):
+                raise ValidationError(
+                    "A tenant_import target is archive:<the first 32 hex digits of the upload's SHA-256>."
+                )
         else:  # pragma: no cover - a new targeted act must be given its rule here
             raise ForbiddenError("This act cannot be confirmed here.")
 

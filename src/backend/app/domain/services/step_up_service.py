@@ -181,7 +181,7 @@ type StepUpAction = Literal[
     "service_account_change",
     # #2138 (REQ-056 §12.1) — a tenant's management (lead + management) or a platform admin exporting a tenant.
     "tenant_export",
-    # #2138 (REQ-056 §12.1) — a platform admin importing a tenant archive as a new tenant (``new:<slug>``).
+    # #2138 (REQ-056 §12.1) — a platform admin importing a tenant archive (``archive:<sha256 prefix>``).
     "tenant_import",
 ]
 
@@ -203,8 +203,9 @@ type StepUpAction = Literal[
 #: target; the same pair whichever of the two admin views adds) — and, since #2123, the tenant's
 #: key of ``tenant_erasure_cancel`` — and, since #2137, ``service_account_change``: the tenant's key
 #: for a creation (the account does not exist yet) and ``<tenant_key>|<service_account_key>`` for a
-#: rotation or a removal — and, since #2138, the tenant's key of ``tenant_export`` and ``new:<slug>``
-#: of ``tenant_import`` (the archive's slug; the tenant does not exist yet). Every other act acts on the
+#: rotation or a removal — and, since #2138, the tenant's key of ``tenant_export`` and
+#: ``archive:<first 32 hex of the upload's SHA-256>`` of ``tenant_import`` (the tenant does not exist
+#: yet; the archive is named by its content). Every other act acts on the
 #: requester's own account, which the digest already binds; it carries no target.
 TARGETED_ACTIONS: frozenset[str] = frozenset(
     {

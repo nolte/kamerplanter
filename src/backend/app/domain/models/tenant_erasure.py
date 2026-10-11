@@ -32,7 +32,11 @@ type TenantErasureAction = Literal["delete", "pseudonymize", "retain"]
 #: is an active member of it (#1788, erasure together #1824). ``orphaned_organisation``
 #: (#2134) is an organisation an account erasure left without anybody who can
 #: administer it: it runs into the grace of #2123 and is erased afterwards.
-type TenantErasureOrigin = Literal["tenant_management", "platform_admin", "account_erasure", "orphaned_organisation"]
+#: ``abandoned_import`` (#2138) is the ``importing`` tenant of an import whose run died; the hourly
+#: sweep of ``retention.expire_data_exports`` erases it.
+type TenantErasureOrigin = Literal[
+    "tenant_management", "platform_admin", "account_erasure", "orphaned_organisation", "abandoned_import"
+]
 
 #: ``scheduled`` (#2123, MT-027) — accepted and inside its cancellable grace
 #: (``scheduled_for``); nothing has been erased and no run has claimed it. The daily
@@ -51,8 +55,15 @@ type TenantErasureStatus = Literal["scheduled", "in_progress", "completed", "par
 #: tenant is a personal tenant of the erased account, and the account
 #: erasure that decided it (itself re-authenticated, a platform admin, or the
 #: unverified cleanup) took no step-up for the tenant (#1788).
+#: ``abandoned_import_no_interactive_step_up`` (#2138) — the sweep of a dead import: the admin's
+#: ``tenant_import`` step-up confirmed the import, nobody asks for its removal.
 type TenantDeletionStepUp = Literal[
-    "oidc_reauth", "email_code", "slug_confirmation", "account_erasure_no_interactive_step_up", "password"
+    "oidc_reauth",
+    "email_code",
+    "slug_confirmation",
+    "account_erasure_no_interactive_step_up",
+    "password",
+    "abandoned_import_no_interactive_step_up",
 ]
 
 

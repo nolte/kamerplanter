@@ -36,7 +36,7 @@ The archive is a ZIP file in the format `kamerplanter-tenant-export/1`. It holds
 - A member with the **lead** role and the **management** permission, while the garden is active or scheduled for deletion.
 - A **platform admin** in every state but deleted — also for a suspended or orphaned garden.
 
-Both confirm with their own password (or, without a local password, with a fresh sign-in or an e-mail code). An API key or a service account cannot export. At most one export runs per garden at a time, and at most `TENANT_EXPORTS_PER_DAY` exports (default `3`) can be requested within 24 hours — failed ones count. With every export, all members with the management permission get an e-mail, and the security log records `tenant_export_requested`.
+Both confirm with their own password (or, without a local password, with a fresh sign-in or an e-mail code). An API key or a service account can neither export nor list or download an archive. At most one export runs per garden at a time, and at most `TENANT_EXPORTS_PER_DAY` exports (default `3`) can be requested within 24 hours — failed ones count. With every export, all members with the management permission get an e-mail, and the security log records `tenant_export_requested`.
 
 ### Steps
 
@@ -67,6 +67,15 @@ Both confirm with their own password (or, without a local password, with a fresh
       -H "Authorization: Bearer <access-token>"
     ```
 
+    The security log records every download (`tenant_export_downloaded`).
+
+### Signature
+
+Your installation signs every archive it writes (`manifest.json`, field `signature`). On import into the **same** installation the import reports `verified: true`: the archive is exactly the one written here. An archive from another installation, an unsigned one or one changed after export is imported with `verified: false` — its content is then only as trustworthy as the person who handed it to you. The signature key is derived from `JWT_SECRET_KEY`; if you rotate it, older archives read as unverified.
+
+!!! warning "Not in the archive"
+    The keys of integrations (for example the OpenWeatherMap key of a weather source) are removed from the archive. Set them up again in the target installation.
+
 ---
 
 ## Importing an archive (platform admin)
@@ -75,8 +84,8 @@ An import **always creates a new garden**. It never merges into an existing one,
 
 ### Preparation
 
-- **Map the members:** the archive knows the members only by their old internal id (`user_key` in `members.jsonl`). For every member who should be part of the new garden, you name the e-mail address of an **existing** account in the target installation. Unmapped members are dropped; entries they wrote then carry the pseudonym `_anonymized`.
-- **Owner:** the new garden belongs to the longest-serving mapped member with lead and management. If you map none, it belongs to you until you hand it over.
+- **Map the members:** the archive knows the members only by their old internal id (`user_key` in `members.jsonl`). For every member who should be part of the new garden, you name the e-mail address of an **existing** account in the target installation **and the role and permissions** that person gets. The roles recorded in the archive are only a hint; the import takes yours. Unmapped members are dropped; entries they wrote then carry the pseudonym `_anonymized`.
+- **Owner:** the new garden belongs to the longest-serving mapped member you gave lead and management. If there is none, it belongs to you until you hand it over.
 - **Catalogue:** the target installation needs every global catalogue entry the archive points at (species, families, pests …). If one is missing, the import refuses with the list and writes nothing.
 
 ### Steps
@@ -85,11 +94,13 @@ An import **always creates a new garden**. It never merges into an existing one,
 curl -X POST https://<your-instance>/api/v1/admin/platform/tenant-imports \
   -H "Authorization: Bearer <access-token>" \
   -F "archive=@garden.zip" \
-  -F 'member_mapping={"<old user_key>": "anna@example.com"}' \
+  -F 'member_mapping={"<old user_key>": {"email": "anna@example.com", "role": "lead", "admin_scopes": ["management"]}}' \
   -F "current_password=<your password>"
 ```
 
-Optionally `-F "plan_key=<plan>"` picks the new garden's plan; otherwise it gets the default plan. The answer is `202` with the import's key. Read its state and, at the end, the report (counts per kind of record, no contents) like this:
+Optionally `-F "plan_key=<plan>"` picks the new garden's plan; otherwise it gets the default plan. Your confirmation is bound to this file: if you confirm with a fresh sign-in token instead of the password, request it for the target `archive:<the first 32 hex digits of the file's SHA-256>` (`sha256sum garden.zip | cut -c1-32`). The answer is `202` with the import's key and `verified` (see [Signature](#signature)).
+
+While the import writes, the new garden has the state **importing**: nobody can open it yet, and the memberships only become active at the end. Read its state and, at the end, the report (counts per kind of record, no contents) like this:
 
 ```bash
 curl https://<your-instance>/api/v1/admin/platform/tenant-imports/<import-key> \
@@ -102,14 +113,17 @@ curl https://<your-instance>/api/v1/admin/platform/tenant-imports/<import-key> \
 
 | Answer | Meaning | What you do |
 |---|---|---|
-| `422 IMPORT_FORMAT_UNSUPPORTED` | no ZIP file, an unknown format, or the archive comes from a newer installation | update the target installation and try again |
-| `422 IMPORT_CHECKSUM_MISMATCH` | a file in the archive was changed or is missing | use an unchanged archive |
+| `422 IMPORT_FORMAT_UNSUPPORTED` | no ZIP file, an unknown format, too many or too large files, a record that does not belong to the archived garden, a file of a type this installation does not accept (SVG for example), or the archive comes from a newer installation | use an archive Kamerplanter wrote; update the target installation |
+| `422 IMPORT_CHECKSUM_MISMATCH` | a file in the archive does not match the checksum in `manifest.json` or is missing — the archive is damaged | use an undamaged copy |
 | `422 IMPORT_UNDECLARED_REFERENCE` | the archive holds a reference field this installation does not know | bring both installations to the same version |
 | `422 IMPORT_MISSING_CATALOG_ENTRIES` | catalogue entries are missing; `details` lists them | complete the target's catalogue (check the seed level) |
 | `422 IMPORT_MEMBER_NOT_FOUND` | a mapping names no member of the archive or no existing account | correct the mapping |
 | `413` | larger than `TENANT_IMPORT_MAX_UPLOAD_MB` | raise the limit or reduce the garden |
 
-If the import fails only while writing, it removes everything it created so far and reports `failed`. No half garden is left behind; only the log entries of the memberships it created stay as proof.
+If the import fails only while writing, it removes everything it created so far and reports `failed`. If its run dies (a worker restart, for example), the hourly retention job deletes the half garden through the regular garden deletion after six hours without progress and reports `failed` with `IMPORT_ABANDONED`. No half garden is left behind; only the log entries of the memberships it created stay as proof.
+
+!!! info "The checksums are no proof of origin"
+    The checksums in `manifest.json` only reveal a damaged archive: whoever changes a file can recompute them. Whether an archive comes unchanged from your installation is told only by `verified`.
 
 !!! warning "Restoring beside the original that still exists"
     If you import an archive into the **same** installation while the original garden still exists, the import fails on own species with the same scientific name (the database allows each name once) and is rolled back completely. For a single-garden restore the original is usually lost anyway; otherwise delete it first or import into another installation.

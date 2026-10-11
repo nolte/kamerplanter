@@ -35,7 +35,7 @@ from app.common.exceptions import (
 from app.domain.models.membership import Membership
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_erasure import TenantErasureEntry
-from app.domain.models.tenant_export import TenantExportRequest
+from app.domain.models.tenant_export import TenantExportRequest, TenantImportRequest
 from app.domain.models.user import User
 from app.domain.services.tenant_export_service import StepUpFactors, TenantExportService
 
@@ -126,6 +126,46 @@ class _Exports:
 
     def delete_finished_before(self, before: datetime) -> int:
         return 0
+
+
+class _Imports:
+    def __init__(self) -> None:
+        self.rows: dict[str, TenantImportRequest] = {}
+        self.seq = 0
+
+    def create(self, request: TenantImportRequest) -> TenantImportRequest:
+        self.seq += 1
+        stored = request.model_copy(update={"key": f"imp-{self.seq}"})
+        self.rows[stored.key or ""] = stored
+        return stored
+
+    def get(self, key: str) -> TenantImportRequest | None:
+        return self.rows.get(key)
+
+    def update_fields(self, key: str, fields: dict[str, Any]) -> TenantImportRequest | None:
+        if key not in self.rows:
+            return None
+        self.rows[key] = self.rows[key].model_copy(update=fields)
+        return self.rows[key]
+
+    def list_stale_active(self, before: datetime) -> list[TenantImportRequest]:
+        return [
+            r
+            for r in self.rows.values()
+            if r.status in ("pending", "validating", "running") and (r.updated_at or r.requested_at) <= before
+        ]
+
+    def delete_finished_before(self, before: datetime) -> int:
+        return 0
+
+
+class _TenantService:
+    def __init__(self) -> None:
+        self.erased: list[str] = []
+
+    def erase_abandoned_import(self, tenant_key: str, *, now: datetime) -> bool:
+        self.erased.append(tenant_key)
+        return True
 
 
 class _Store:
@@ -277,16 +317,18 @@ def world():
     mail = _Mail()
     dispatched: list[str] = []
     entitlements = _Entitlements()
+    imports = _Imports()
+    tenant_service = _TenantService()
 
-    def build(store: _Store | None = None) -> TenantExportService:
+    def build(store: _Store | None = None, **extra: Any) -> TenantExportService:
         return TenantExportService(
             store=store or _Store(),
             export_repo=exports,
-            import_repo=SimpleNamespace(delete_finished_before=lambda before: 0),  # type: ignore[arg-type]
+            import_repo=imports,  # type: ignore[arg-type]
             tenant_repo=tenants,  # type: ignore[arg-type]
             membership_repo=memberships,  # type: ignore[arg-type]
             user_repo=_Users(LEAD, GROWER, STRANGER, ADMIN),  # type: ignore[arg-type]
-            tenant_service=None,  # type: ignore[arg-type]
+            tenant_service=tenant_service,  # type: ignore[arg-type]
             storage=storage,  # type: ignore[arg-type]
             step_up_verifier=step_up,  # type: ignore[arg-type]
             security_audit=audit,  # type: ignore[arg-type]
@@ -295,6 +337,7 @@ def world():
             exports_per_day=3,
             dispatch_export=dispatched.append,
             clock=lambda: clock.now,
+            **extra,
         )
 
     return SimpleNamespace(
@@ -307,6 +350,8 @@ def world():
         dispatched=dispatched,
         clock=clock,
         entitlements=entitlements,
+        imports=imports,
+        tenant_service=tenant_service,
     )
 
 
@@ -416,15 +461,39 @@ class TestTheRun:
         assert done.storage_key == f"t/t-1/tenant_export/{created.key}.zip"
         assert done.counts["collections/sites.jsonl"] == 2
         assert done.expires_at == NOW + timedelta(hours=72)
-        assert service.prepare_download(created.key or "", requester=LEAD, origin="tenant_management", slug="garden")
+        assert service.prepare_download(
+            created.key or "",
+            authenticated_with_api_key=False,
+            requester=LEAD,
+            origin="tenant_management",
+            slug="garden",
+        )
         with pytest.raises(ForbiddenError):  # a member without lead + management
-            service.prepare_download(created.key or "", requester=GROWER, origin="tenant_management", slug="garden")
+            service.prepare_download(
+                created.key or "",
+                authenticated_with_api_key=False,
+                requester=GROWER,
+                origin="tenant_management",
+                slug="garden",
+            )
         with pytest.raises(NotFoundError):  # a platform admin who did not request it
-            service.prepare_download(created.key or "", requester=ADMIN, origin="platform_admin", tenant_key="t-1")
+            service.prepare_download(
+                created.key or "",
+                authenticated_with_api_key=False,
+                requester=ADMIN,
+                origin="platform_admin",
+                tenant_key="t-1",
+            )
 
         world.clock.now = NOW + timedelta(hours=73)
         with pytest.raises(NotFoundError):  # AK-35
-            service.prepare_download(created.key or "", requester=LEAD, origin="tenant_management", slug="garden")
+            service.prepare_download(
+                created.key or "",
+                authenticated_with_api_key=False,
+                requester=LEAD,
+                origin="tenant_management",
+                slug="garden",
+            )
         result = run_async(service.expire())
         assert result["expired"] == 1
         assert world.storage.objects == {}
@@ -481,3 +550,182 @@ class TestImportRefusals:
             )
         assert refused.value.error_code == "IMPORT_FORMAT_UNSUPPORTED"
         assert world.step_up.calls[0]["action"] == "tenant_import"
+
+
+# ── PR #2267 security review ─────────────────────────────────────────
+
+SIGNING_KEY = b"k" * 32
+
+
+def _archive_bytes(
+    *,
+    signing_key: bytes | None = SIGNING_KEY,
+    members: list[dict[str, Any]] | None = None,
+    attachments: list[dict[str, Any]] | None = None,
+    objects: dict[str, bytes] | None = None,
+) -> bytes:
+    from app.domain.engines.tenant_export_engine import TenantArchiveWriter
+
+    buffer = io.BytesIO()
+    writer = TenantArchiveWriter(buffer, max_bytes=None)
+    writer.write_json("tenant.json", {"name": "Garden", "slug": "garden"})
+    writer.write_lines("collections/sites.jsonl", [[{"_key": "s1", "tenant_key": "t-src"}]])
+    if attachments:
+        writer.write_lines("collections/attachments.jsonl", [attachments])
+    writer.write_lines(
+        "members.jsonl",
+        [
+            members
+            or [{"user_key": "old-lead", "role": "lead", "admin_scopes": ["management"], "joined_at": "2026-01-01"}]
+        ],
+    )
+    for path, data in (objects or {}).items():
+        writer.write_object(path, data)
+    writer.finish({"format": "kamerplanter-tenant-export/1", "source_tenant_key": "t-src"}, signing_key=signing_key)
+    return buffer.getvalue()
+
+
+def _import(service: TenantExportService, data: bytes, mapping: dict[str, Any] | None = None, **kw: Any):
+    return service.request_import(
+        io.BytesIO(data),
+        size_bytes=len(data),
+        requester=ADMIN,
+        authenticated_with_api_key=False,
+        member_mapping=mapping if mapping is not None else {},
+        plan_key=None,
+        factors=StepUpFactors(password=kw.pop("password", "right")),
+        client_ip=None,
+    )
+
+
+class TestTheArchiveIsAuthenticated:
+    """SEC-003 — checksums detect corruption; only this installation's signature makes an archive verified."""
+
+    def test_an_archive_this_installation_signed_is_verified(self, world) -> None:
+        created = _import(world.build(signing_key=SIGNING_KEY), _archive_bytes())
+        assert created.verified is True
+
+    @pytest.mark.parametrize("signed_with", [None, b"another-installation-key-xxxxxxxx"])
+    def test_an_unsigned_or_foreign_archive_is_imported_unverified(self, world, signed_with) -> None:
+        created = _import(world.build(signing_key=SIGNING_KEY), _archive_bytes(signing_key=signed_with))
+        assert created.verified is False
+
+    def test_the_role_is_the_one_the_admin_confirms_not_the_archives(self, world) -> None:
+        mapping = {"old-lead": {"email": "lead@example.com", "role": "viewer", "admin_scopes": []}}
+        created = _import(world.build(signing_key=SIGNING_KEY), _archive_bytes(), mapping)
+        grant = created.member_grants["old-lead"]
+        assert (grant.account_key, grant.role, grant.admin_scopes) == ("u-lead", TenantRole.VIEWER, [])
+
+    def test_a_mapping_without_a_valid_role_is_refused(self, world) -> None:
+        with pytest.raises(TenantImportRefusedError) as refused:
+            _import(world.build(), _archive_bytes(), {"old-lead": {"email": "lead@example.com", "role": "owner"}})
+        assert refused.value.error_code == "IMPORT_MEMBER_NOT_FOUND"
+
+
+class TestTheStepUpComesFirstAndNamesTheArchive:
+    """SEC-008/SEC-009 — no byte of an upload is parsed before the step-up, which is bound to its hash."""
+
+    def test_the_target_is_the_uploads_hash(self, world) -> None:
+        import hashlib
+
+        data = _archive_bytes()
+        _import(world.build(), data)
+        assert world.step_up.calls[-1]["target"] == "archive:" + hashlib.sha256(data).hexdigest()[:32]
+
+    def test_a_failed_step_up_answers_before_the_upload_is_parsed(self, world) -> None:
+        with pytest.raises(UnauthorizedError):
+            _import(world.build(), b"not a zip at all", password="wrong")
+
+
+class TestImportedObjectsAreChecked:
+    """SEC-010 — every object belongs to an attachment of the archive with a type the target accepts."""
+
+    def _attachment(self, mime: str) -> dict[str, Any]:
+        return {
+            "_key": "a1",
+            "tenant_key": "t-src",
+            "storage_key": "t/t-src/plant/2026/10/a1.bin",
+            "mime_type": mime,
+            "category": "plant",
+        }
+
+    def test_an_svg_is_refused_even_when_the_whitelist_has_it(self, world) -> None:
+        service = world.build(allowed_mime_types=lambda category: ["image/jpeg", "image/svg+xml"])
+        data = _archive_bytes(
+            attachments=[self._attachment("image/svg+xml")], objects={"plant/2026/10/a1.bin": b"<svg/>"}
+        )
+        with pytest.raises(TenantImportRefusedError):
+            _import(service, data)
+
+    def test_an_object_no_attachment_names_is_refused(self, world) -> None:
+        data = _archive_bytes(objects={"plant/2026/10/stray.bin": b"x"})
+        with pytest.raises(TenantImportRefusedError):
+            _import(world.build(allowed_mime_types=lambda category: ["image/jpeg"]), data)
+
+
+class TestDownloadsArePeopleAndAudited:
+    """SEC-006 — listing and downloading an archive is never done with an API key, and every download is audited."""
+
+    def test_an_api_key_cannot_list_or_download(self, world) -> None:
+        service = world.build()
+        created = _request(service)
+        run_async(service.run_export(created.key or ""))
+        with pytest.raises(ForbiddenError):
+            service.list_exports(
+                requester=LEAD,
+                authenticated_with_api_key=True,
+                origin="tenant_management",
+                slug="garden",
+                offset=0,
+                limit=10,
+            )
+        with pytest.raises(ForbiddenError):
+            service.prepare_download(
+                created.key or "",
+                requester=LEAD,
+                authenticated_with_api_key=True,
+                origin="tenant_management",
+                slug="garden",
+            )
+
+    def test_a_download_is_audited(self, world) -> None:
+        service = world.build()
+        created = _request(service)
+        run_async(service.run_export(created.key or ""))
+        service.prepare_download(
+            created.key or "",
+            requester=LEAD,
+            authenticated_with_api_key=False,
+            origin="tenant_management",
+            slug="garden",
+        )
+        assert world.audit.rows[-1]["action"] == SecurityAuditAction.TENANT_EXPORT_DOWNLOADED
+        assert world.audit.rows[-1]["tenant_key"] == "t-1"
+
+
+class TestADeadImportIsSwept:
+    """SEC-007 — an import whose run died leaves no half tenant and no upload behind."""
+
+    def test_the_sweep_erases_the_half_tenant_and_the_upload(self, world) -> None:
+        world.storage.objects["tenant-imports/imp-x.zip"] = b"zip"
+        world.imports.rows["imp-x"] = TenantImportRequest.model_validate(
+            {
+                "_key": "imp-x",
+                "requested_by_user_key": "u-admin",
+                "status": "running",
+                "source_format": "kamerplanter-tenant-export/1",
+                "target_tenant_key": "t-half",
+                "upload_storage_key": "tenant-imports/imp-x.zip",
+                "requested_at": NOW,
+                "updated_at": NOW,
+            }
+        )
+        world.clock.now = NOW + timedelta(hours=7)
+
+        result = run_async(world.build().expire())
+
+        assert result["abandoned_imports"] == 1
+        assert world.tenant_service.erased == ["t-half"]
+        assert "tenant-imports/imp-x.zip" not in world.storage.objects
+        assert world.imports.rows["imp-x"].status == "failed"
+        assert world.imports.rows["imp-x"].failure_reason == "IMPORT_ABANDONED"

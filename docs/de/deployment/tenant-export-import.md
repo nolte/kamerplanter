@@ -36,7 +36,7 @@ Das Archiv ist eine ZIP-Datei im Format `kamerplanter-tenant-export/1`. Es enth�
 - Ein Mitglied mit der Rolle **Leitung** und der Zusatzberechtigung **Verwaltung**, solange der Garten aktiv oder zur Löschung vorgemerkt ist.
 - Ein **Plattform-Admin** in jedem Zustand außer gelöscht — auch für einen gesperrten oder verwaisten Garten.
 
-Beide bestätigen mit dem eigenen Passwort (oder, ohne lokales Passwort, mit einer frischen Anmeldung bzw. einem E-Mail-Code). Ein API-Schlüssel oder ein Service Account kann nicht exportieren. Je Garten läuft höchstens ein Export gleichzeitig, und höchstens `TENANT_EXPORTS_PER_DAY` Exporte (Standard `3`) dürfen innerhalb von 24 Stunden angefordert werden — fehlgeschlagene zählen mit. Bei jedem Export bekommen alle Mitglieder mit Verwaltung eine E-Mail, und das Sicherheitsprotokoll vermerkt `tenant_export_requested`.
+Beide bestätigen mit dem eigenen Passwort (oder, ohne lokales Passwort, mit einer frischen Anmeldung bzw. einem E-Mail-Code). Ein API-Schlüssel oder ein Service Account kann weder exportieren noch ein Archiv auflisten oder herunterladen. Je Garten läuft höchstens ein Export gleichzeitig, und höchstens `TENANT_EXPORTS_PER_DAY` Exporte (Standard `3`) dürfen innerhalb von 24 Stunden angefordert werden — fehlgeschlagene zählen mit. Bei jedem Export bekommen alle Mitglieder mit Verwaltung eine E-Mail, und das Sicherheitsprotokoll vermerkt `tenant_export_requested`.
 
 ### Ablauf
 
@@ -67,6 +67,15 @@ Beide bestätigen mit dem eigenen Passwort (oder, ohne lokales Passwort, mit ein
       -H "Authorization: Bearer <access-token>"
     ```
 
+    Das Sicherheitsprotokoll vermerkt jeden Download (`tenant_export_downloaded`).
+
+### Signatur
+
+Deine Installation signiert jedes Archiv, das sie schreibt (`manifest.json`, Feld `signature`). Beim Import in **dieselbe** Installation meldet der Import `verified: true`: Das Archiv ist genau das hier geschriebene. Ein Archiv aus einer anderen Installation, ein unsigniertes oder ein nach dem Export verändertes wird mit `verified: false` importiert — sein Inhalt ist dann nur so vertrauenswürdig wie die Person, die es dir gegeben hat. Der Signaturschlüssel ist aus `JWT_SECRET_KEY` abgeleitet; wechselst du ihn, gelten ältere Archive als nicht verifiziert.
+
+!!! warning "Nicht im Archiv"
+    Die Schlüssel von Integrationen (zum Beispiel der OpenWeatherMap-Schlüssel einer Wetterquelle) werden aus dem Archiv entfernt. Richte sie in der Zielinstallation neu ein.
+
 ---
 
 ## Archiv importieren (Plattform-Admin)
@@ -75,8 +84,8 @@ Ein Import legt **immer einen neuen Garten** an. Er führt nie in einen bestehen
 
 ### Vorbereiten
 
-- **Mitglieder zuordnen:** Das Archiv kennt die Mitglieder nur über ihre alte interne Kennung (`user_key` in `members.jsonl`). Für jedes Mitglied, das im neuen Garten wieder dabei sein soll, nennst du die E-Mail-Adresse eines **bestehenden** Kontos in der Zielinstallation. Nicht zugeordnete Mitglieder entfallen; Einträge, die sie verfasst haben, tragen danach das Pseudonym `_anonymized`.
-- **Eigentümer:** Der neue Garten gehört dem dienstältesten zugeordneten Mitglied mit Leitung und Verwaltung. Ordnest du keines zu, gehört er dir, bis du ihn übergibst.
+- **Mitglieder zuordnen:** Das Archiv kennt die Mitglieder nur über ihre alte interne Kennung (`user_key` in `members.jsonl`). Für jedes Mitglied, das im neuen Garten wieder dabei sein soll, nennst du die E-Mail-Adresse eines **bestehenden** Kontos in der Zielinstallation **und die Rolle und Zusatzberechtigungen**, die diese Person bekommt. Die Rollen im Archiv sind nur ein Hinweis; der Import übernimmt deine Angabe. Nicht zugeordnete Mitglieder entfallen; Einträge, die sie verfasst haben, tragen danach das Pseudonym `_anonymized`.
+- **Eigentümer:** Der neue Garten gehört dem dienstältesten zugeordneten Mitglied, dem du Leitung und Verwaltung gibst. Ordnest du keines zu, gehört er dir, bis du ihn übergibst.
 - **Katalog:** Die Zielinstallation braucht alle globalen Katalogeinträge, auf die das Archiv verweist (Arten, Familien, Schädlinge …). Fehlt einer, lehnt der Import mit der Liste ab, und nichts wird geschrieben.
 
 ### Ablauf
@@ -85,11 +94,13 @@ Ein Import legt **immer einen neuen Garten** an. Er führt nie in einen bestehen
 curl -X POST https://<deine-instanz>/api/v1/admin/platform/tenant-imports \
   -H "Authorization: Bearer <access-token>" \
   -F "archive=@garden.zip" \
-  -F 'member_mapping={"<alter user_key>": "anna@example.com"}' \
+  -F 'member_mapping={"<alter user_key>": {"email": "anna@example.com", "role": "lead", "admin_scopes": ["management"]}}' \
   -F "current_password=<dein Passwort>"
 ```
 
-Optional wählst du mit `-F "plan_key=<plan>"` den Plan des neuen Gartens; sonst bekommt er den Standardplan. Die Antwort ist `202` mit dem Schlüssel des Imports. Den Stand und am Ende den Bericht (Anzahl je Datenart, keine Inhalte) liest du so:
+Optional wählst du mit `-F "plan_key=<plan>"` den Plan des neuen Gartens; sonst bekommt er den Standardplan. Deine Bestätigung ist an diese Datei gebunden: Bestätigst du statt mit dem Passwort mit einem Token einer frischen Anmeldung, forderst du es für das Ziel `archive:<die ersten 32 Hex-Zeichen des SHA-256 der Datei>` an (`sha256sum garden.zip | cut -c1-32`). Die Antwort ist `202` mit dem Schlüssel des Imports und `verified` (siehe [Signatur](#signatur)).
+
+Solange der Import schreibt, hat der neue Garten den Zustand **Wird importiert**: Niemand kann ihn öffnen, und die Mitgliedschaften werden erst am Ende aktiv. Den Stand und am Ende den Bericht (Anzahl je Datenart, keine Inhalte) liest du so:
 
 ```bash
 curl https://<deine-instanz>/api/v1/admin/platform/tenant-imports/<import-key> \
@@ -102,14 +113,17 @@ curl https://<deine-instanz>/api/v1/admin/platform/tenant-imports/<import-key> \
 
 | Antwort | Bedeutung | Was du tust |
 |---|---|---|
-| `422 IMPORT_FORMAT_UNSUPPORTED` | keine ZIP-Datei, unbekanntes Format, oder das Archiv stammt aus einer neueren Installation | Zielinstallation aktualisieren und erneut versuchen |
-| `422 IMPORT_CHECKSUM_MISMATCH` | eine Datei im Archiv wurde verändert oder fehlt | ein unverändertes Archiv verwenden |
+| `422 IMPORT_FORMAT_UNSUPPORTED` | keine ZIP-Datei, unbekanntes Format, zu viele oder zu große Dateien, ein Datensatz, der nicht zum archivierten Garten gehört, eine Datei eines Typs, den diese Installation nicht annimmt (zum Beispiel SVG), oder das Archiv stammt aus einer neueren Installation | ein von Kamerplanter geschriebenes Archiv verwenden; Zielinstallation aktualisieren |
+| `422 IMPORT_CHECKSUM_MISMATCH` | eine Datei im Archiv passt nicht zur Prüfsumme in `manifest.json` oder fehlt — das Archiv ist beschädigt | eine unbeschädigte Kopie verwenden |
 | `422 IMPORT_UNDECLARED_REFERENCE` | das Archiv enthält ein Verweisfeld, das diese Installation nicht kennt | beide Installationen auf denselben Stand bringen |
 | `422 IMPORT_MISSING_CATALOG_ENTRIES` | Katalogeinträge fehlen; die Liste steht in `details` | Katalog der Zielinstallation ergänzen (Seed-Stand prüfen) |
 | `422 IMPORT_MEMBER_NOT_FOUND` | eine Zuordnung nennt kein Mitglied des Archivs oder kein bestehendes Konto | Zuordnung korrigieren |
 | `413` | größer als `TENANT_IMPORT_MAX_UPLOAD_MB` | Grenze anheben oder Garten verkleinern |
 
-Scheitert der Import erst während des Schreibens, entfernt er alles, was er bis dahin angelegt hat, und meldet `failed`. Ein halber Garten bleibt nicht stehen; nur die Protokolleinträge der angelegten Mitgliedschaften bleiben als Nachweis.
+Scheitert der Import erst während des Schreibens, entfernt er alles, was er bis dahin angelegt hat, und meldet `failed`. Bricht sein Lauf ab (zum Beispiel bei einem Neustart des Workers), löscht der stündliche Aufbewahrungsjob den halben Garten nach sechs Stunden ohne Fortschritt über die reguläre Gartenlöschung und meldet `failed` mit `IMPORT_ABANDONED`. Ein halber Garten bleibt nicht stehen; nur die Protokolleinträge der angelegten Mitgliedschaften bleiben als Nachweis.
+
+!!! info "Die Prüfsummen sind kein Herkunftsnachweis"
+    Die Prüfsummen in `manifest.json` zeigen nur ein beschädigtes Archiv an: Wer eine Datei ändert, kann sie neu berechnen. Ob ein Archiv unverändert aus deiner Installation stammt, sagt allein `verified`.
 
 !!! warning "Wiederherstellen neben dem noch bestehenden Original"
     Spielst du ein Archiv in **dieselbe** Installation ein, während der ursprüngliche Garten noch existiert, scheitert der Import an eigenen Arten mit demselben wissenschaftlichen Namen (die Datenbank erlaubt jeden Namen nur einmal) und wird vollständig zurückgerollt. Für eine Einzel-Wiederherstellung ist der ursprüngliche Garten in der Regel ohnehin verloren; sonst lösche ihn vorher oder importiere in eine andere Installation.

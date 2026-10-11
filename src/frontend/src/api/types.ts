@@ -4996,9 +4996,10 @@ export interface TaskTemplateUpdateRequest {
 /**
  * Lifecycle state of a tenant (REQ-024 AK-65, #2123) — mirrors `TenantStatus` in the
  * backend. Only `active` resolves for its members; `orphaned` marks an organization an
- * account deletion left without anybody who can administer it (#2134).
+ * account deletion left without anybody who can administer it (#2134); `importing` is a tenant a
+ * platform admin's import is still writing (#2138).
  */
-export type TenantStatus = 'active' | 'suspended' | 'pending_deletion' | 'orphaned' | 'deleted';
+export type TenantStatus = 'active' | 'suspended' | 'pending_deletion' | 'orphaned' | 'deleted' | 'importing';
 
 /**
  * Response of `DELETE /tenants/{slug}` and `DELETE /admin/platform/tenants/{key}`.

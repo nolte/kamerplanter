@@ -28,6 +28,7 @@ and from the account erasure respectively).
 from __future__ import annotations
 
 import importlib
+import re
 import types
 import typing
 from pathlib import Path
@@ -174,3 +175,77 @@ class TestTheDetectorFires:
         assert undeclared_findings("sites", reference_paths(Outer)) == [
             "sites.parts.brand_new_key: not declared as a reference (or opaque)"
         ]
+
+
+#: A field name that looks like a secret or a reference to one (PR #2267 review SEC-005).
+_SECRET_SHAPE = re.compile(r"(_refs?$|token|secret|encrypted|password|api_key|credential)")
+
+
+def secret_shaped_paths(model: type[BaseModel], prefix: str = "", seen: frozenset[type] = frozenset()) -> set[str]:
+    """Every field path of *model* whose name looks like a secret, through nested models and lists."""
+    paths: set[str] = set()
+    for name, field in model.model_fields.items():
+        alias = field.alias or name
+        if alias.startswith("_"):
+            continue
+        path = f"{prefix}{alias}"
+        if _SECRET_SHAPE.search(alias):
+            paths.add(path)
+        for inner in _inner_models(field.annotation):
+            if inner not in seen:
+                paths |= secret_shaped_paths(inner, f"{path}.", seen | {model})
+    return paths
+
+
+def undecided_secret_findings(collection: str, paths: set[str]) -> list[str]:
+    redacted = set(TenantExportEngine.REDACTED_FIELDS.get(collection, ()))
+    return [
+        f"{collection}.{path}: looks like a secret — redact it (REDACTED_FIELDS) or say why not (NOT_SECRET_FIELDS)"
+        for path in sorted(paths)
+        if path not in redacted and path.rsplit(".", 1)[-1] not in TenantExportEngine.NOT_SECRET_FIELDS
+    ]
+
+
+class TestNoSecretLeavesWithTheArchive:
+    """SEC-005 — every secret-shaped field of every exported model is redacted or declared harmless."""
+
+    def test_every_secret_shaped_field_is_decided(self, models_by_collection) -> None:
+        findings: list[str] = []
+        for collection, classes in models_by_collection.items():
+            for cls in classes:
+                findings += undecided_secret_findings(collection, secret_shaped_paths(cls))
+        assert findings == [], "\n".join(findings)
+
+    def test_not_vacuous_the_weather_key_reference_is_seen_and_redacted(self, models_by_collection) -> None:
+        paths = set().union(*(secret_shaped_paths(cls) for cls in models_by_collection["weather_source_configs"]))
+        assert "sources.config.api_key_ref" in paths
+        assert "sources.config.api_key_ref" in TenantExportEngine.REDACTED_FIELDS["weather_source_configs"]
+
+    def test_the_detector_fires_on_a_new_token_field(self) -> None:
+        class Leaky(BaseModel):
+            webhook_token: str
+
+        assert undecided_secret_findings("sites", secret_shaped_paths(Leaky)) == [
+            "sites.webhook_token: looks like a secret — redact it (REDACTED_FIELDS) or say why not (NOT_SECRET_FIELDS)"
+        ]
+
+    def test_every_redacted_collection_is_exported(self) -> None:
+        assert set(TenantExportEngine.REDACTED_FIELDS) <= set(TenantExportEngine.exported_collections())
+
+
+class TestEveryEdgeCollectionIsDecided:
+    """SEC-002 — the importable edges are an allowlist, held against the declared edge collections both ways."""
+
+    def test_every_edge_collection_is_importable_or_excluded(self) -> None:
+        from app.data_access.arango.collections import EDGE_COLLECTIONS
+
+        declared = set(EDGE_COLLECTIONS)
+        importable = set(TenantExportEngine.IMPORTABLE_EDGES)
+        excluded = set(TenantExportEngine.EXCLUDED_EDGES)
+        assert importable & excluded == set()
+        assert sorted(declared - importable - excluded) == [], "a new edge collection needs a decision"
+        assert sorted((importable | excluded) - declared) == [], "a decision about an edge collection that is gone"
+        assert all(reason.strip() for reason in TenantExportEngine.EXCLUDED_EDGES.values())
+
+    def test_an_access_grant_is_never_imported(self) -> None:
+        assert "tenant_has_access" in TenantExportEngine.EXCLUDED_EDGES
