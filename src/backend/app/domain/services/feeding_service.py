@@ -65,12 +65,19 @@ class FeedingService:
         verify_tenant_ownership(event, tenant_key, "FeedingEvent")
         return event
 
-    def create_event(self, event: FeedingEvent) -> FeedingEvent:
-        """Persist a feeding event whose fertilizer lines the event's tenant can see (#1713).
+    def create_event(self, event: FeedingEvent, *, tenant_key: str) -> FeedingEvent:
+        """Persist a feeding event of ``tenant_key`` whose fertilizer lines it can see (#1713).
 
         The repository also writes a ``feeding_used`` edge per line, so an
         unchecked key would put an edge into another tenant's product.
+
+        The tenant is stamped here, not trusted from the model, and an empty one is
+        refused (#2107 review SEC-003): every reference check below and the
+        repository's plant check read ``event.tenant_key``.
         """
+        if not tenant_key:
+            raise ValueError("create_event is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        event.tenant_key = tenant_key
         assert_fertilizers_visible(
             self._fertilizer_repo,
             (f.fertilizer_key for f in event.fertilizers_used),

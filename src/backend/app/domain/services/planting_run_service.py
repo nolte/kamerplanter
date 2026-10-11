@@ -757,6 +757,22 @@ class PlantingRunService:
             key=lambda s: s.slot_id,
         )
 
+    def _owned_run_plant_rows(self, run_key: PlantingRunKey, tenant_key: str) -> list[dict[str, Any]]:
+        """The run's attached plant rows whose plant belongs to ``tenant_key`` (#2107 review SEC-001).
+
+        ``get_run_plants`` follows ``run_contains`` edges, which are stored data,
+        not proof of ownership: a legacy edge can point at another tenant's plant.
+        Every row is re-resolved through the plant repository and kept only when
+        that plant is the caller's; an empty tenant keeps nothing.
+        """
+        rows: list[dict[str, Any]] = []
+        for row in self._repo.get_run_plants(run_key, include_detached=False):
+            plant_key = row.get("_key") or row.get("key", "")
+            plant = self._plant_repo.get_by_key(plant_key) if plant_key else None
+            if plant is not None and tenant_key and plant.tenant_key == tenant_key:
+                rows.append(row)
+        return rows
+
     def _reassign_plant_slots(
         self,
         run_key: PlantingRunKey,
@@ -776,14 +792,16 @@ class PlantingRunService:
             return
         self._require_owned_location_key(new_location_key, tenant_key)
 
-        plants_raw = self._repo.get_run_plants(run_key, include_detached=False)
+        # Only the tenant's own plants are moved: a legacy run edge to another
+        # tenant's plant is skipped, not re-slotted (#2107 review SEC-001 sweep).
+        plants_raw = self._owned_run_plant_rows(run_key, tenant_key)
 
         # Release old slots
         for p in plants_raw:
             slot_key = p.get("slot_key")
             if slot_key:
                 plant_key = p.get("_key") or p.get("key", "")
-                plant = self._plant_repo.get(plant_key)
+                plant = self._plant_repo.get_by_key(plant_key)
                 if plant:
                     plant.slot_key = None
                     self._plant_repo.update(plant_key, plant)
@@ -800,7 +818,7 @@ class PlantingRunService:
             if i >= len(available_slots):
                 break
             plant_key = p.get("_key") or p.get("key", "")
-            plant = self._plant_repo.get(plant_key)
+            plant = self._plant_repo.get_by_key(plant_key)
             if plant and available_slots[i].key:
                 plant.slot_key = available_slots[i].key
                 self._plant_repo.update(plant_key, plant)
@@ -885,7 +903,8 @@ class PlantingRunService:
                 else PlantingRunStatus.CANCELLED
             )
 
-        plants = self._repo.get_run_plants(run_key, include_detached=False)
+        # A legacy edge to another tenant's plant is skipped (#2107 review SEC-001 sweep).
+        plants = self._owned_run_plant_rows(run_key, tenant_key)
         removed = []
         for plant in plants:
             plant_key = plant.get("_key", "")
@@ -1170,7 +1189,9 @@ class PlantingRunService:
         if entered_at is not None and exited_at is not None and entered_at >= exited_at:
             raise ValueError("entered_at must be before exited_at")
 
-        plants_raw = self._repo.get_run_plants(run_key, include_detached=False)
+        # Phase history is the plant's: a legacy edge to another tenant's plant is
+        # not followed (#2107 review SEC-001 sweep).
+        plants_raw = self._owned_run_plant_rows(run_key, tenant_key)
         updated_count = 0
         skipped_count = 0
 

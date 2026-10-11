@@ -29,7 +29,12 @@ from app.domain.services.feeding_references import (
 )
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
 from app.domain.services.location_ownership import resolve_owned_slot
-from app.domain.services.watering_confirmation_scope import own_task_or_none, require_confirmable_run
+from app.domain.services.watering_confirmation_scope import (
+    own_run_plants,
+    own_task_or_none,
+    readable_run_plan,
+    require_confirmable_run,
+)
 
 if TYPE_CHECKING:
     from app.domain.services.care_reminder_service import CareReminderService
@@ -374,17 +379,14 @@ class WateringLogService:
         task_doc = own_task_or_none(self._task_repo, task_key, tenant_key=tenant_key)
         own_task_key = task_key if task_doc else None
 
-        # Get run and plan info
-        plan_key = self._run_repo.get_run_nutrient_plan_key(run_key)
-        plan = None
-        watering_schedule = None
-        if plan_key and self._nutrient_plan_repo:
-            plan = self._nutrient_plan_repo.get_by_key(plan_key)
-            if plan and hasattr(plan, "watering_schedule"):
-                watering_schedule = plan.watering_schedule
+        # The run's plan only when the tenant may read it (#2107 review SEC-002):
+        # an unreadable plan is no plan — its schedule and key are not used.
+        plan_key, plan = readable_run_plan(self._run_repo, self._nutrient_plan_repo, run_key, tenant_key=tenant_key)
+        watering_schedule = getattr(plan, "watering_schedule", None) if plan is not None else None
 
-        # Get plants in the run
-        plants = self._run_repo.get_run_plants(run_key, include_detached=False)
+        # The run's own plants only: a legacy edge to another tenant's plant is
+        # left out of the event/log and of every derived write (SEC-001 sweep).
+        plants = own_run_plants(self._run_repo, self._plant_repo, run_key, tenant_key=tenant_key)
         plant_keys = [p["_key"] for p in plants if p.get("_key")]
         slot_keys = list({p.get("slot_key", "") for p in plants if p.get("slot_key")})
         if not slot_keys:

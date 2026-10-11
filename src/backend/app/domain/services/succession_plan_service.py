@@ -76,7 +76,15 @@ class SuccessionPlanService:
         verify_tenant_ownership(plan, tenant_key, "SuccessionPlan")
         return plan
 
-    def create_plan(self, plan: SuccessionPlan) -> SuccessionPlan:
+    def create_plan(self, plan: SuccessionPlan, *, tenant_key: str) -> SuccessionPlan:
+        """Create a succession plan of ``tenant_key``.
+
+        The tenant is stamped here and an empty one refused (#2107 review SEC-003):
+        the location and species checks below skip an empty tenant.
+        """
+        if not tenant_key:
+            raise ValueError("create_plan is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        plan.tenant_key = tenant_key
         plan.status = SuccessionPlanStatus.PLANNED
         plan.completed_batches = 0
         plan.total_batches = self._engine.compute_total_batches(plan.start_date, plan.end_date, plan.interval_days)

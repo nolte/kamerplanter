@@ -1856,6 +1856,7 @@ def get_activity_plan_service() -> ActivityPlanService:
         species_repo=get_species_repo(),
         family_repo=get_family_repo(),
         phase_seq_repo=get_phase_sequence_repo(),
+        plant_repo=get_plant_repo(),
     )
 
 

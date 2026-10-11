@@ -51,7 +51,7 @@ class _HarvestService:
         self.created: list[HarvestBatch] = []
         self.assessments: list[QualityAssessment] = []
 
-    def create_harvest_batch(self, plant_key: str, batch: HarvestBatch) -> HarvestBatch:
+    def create_harvest_batch(self, plant_key: str, batch: HarvestBatch, *, tenant_key: str) -> HarvestBatch:
         self.created.append(batch)
         return batch.model_copy(update={"key": "hb-1", "plant_key": plant_key})
 

@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
@@ -6,6 +7,8 @@ from app.common.enums import ActivityCategory, SkillLevel, StressLevel, StressTo
 from app.domain.engines.activity_plan_engine import ActivityPlanEngine
 from app.domain.models.activity import Activity
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
+from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.planting_run import PlantingRun
 from app.domain.models.task import TaskTemplate, WorkflowTemplate
 from app.domain.services.activity_plan_service import ActivityPlanService
 from tests.conftest import wire_or_raise
@@ -89,6 +92,13 @@ def service():
     species_repo = MagicMock()
     wire_or_raise(species_repo, "Species")
     wire_or_raise(run_repo, "PlantingRun")
+    # Every plant the apply tests name is the caller's (tenant-a); the foreign
+    # cases live in tests/api/test_activity_plan_apply_tenant_scope.py.
+    plant_repo = MagicMock()
+    plant_repo.get_by_key.side_effect = lambda key: PlantInstance(
+        _key=key, instance_id=key, species_key="sp1", planted_on=date(2026, 1, 1), tenant_key="tenant-a"
+    )
+    wire_or_raise(plant_repo, "PlantInstance")
     wire_or_raise(
         task_repo,
         "WorkflowTemplate",
@@ -103,6 +113,7 @@ def service():
         task_repo=task_repo,
         planting_run_repo=run_repo,
         species_repo=species_repo,
+        plant_repo=plant_repo,
     )
 
 
@@ -327,8 +338,7 @@ class TestApplyPlanToRun:
             _make_task_template(key="tt1", enabled=True),
         ]
 
-        run = MagicMock()
-        run.key = "run1"
+        run = PlantingRun(_key="run1", tenant_key="tenant-a", name="Run", run_type="monoculture")
         service._run_repo.get_by_key.return_value = run
         service._run_repo.get_run_plants.return_value = [
             {"key": "p1"},

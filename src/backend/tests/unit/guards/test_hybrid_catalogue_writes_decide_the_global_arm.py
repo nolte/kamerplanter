@@ -73,10 +73,6 @@ _GATES = frozenset(
 _MUTATING = re.compile(r"(?:update|delete|replace|remove|revoke|grant)(?:_\w+)?|add_incompatibility")
 
 _WRITES_NO_HYBRID_ROW: dict[str, str] = {
-    "ActivityPlanService.apply_plan_to_plant": (
-        "reads a readable plan (own or shared) and creates tasks stamped with the caller's tenant for an own plant"
-    ),
-    "ActivityPlanService.apply_plan_to_run": "as apply_plan_to_plant, for every plant of an own run",
     "TaskService.duplicate_workflow_template": "reads a readable template and writes a new copy owned by the caller",
     "TaskService.instantiate_workflow": "reads a readable template and writes tasks and an execution of the caller",
     "NutrientPlanService.remove_plant_plan": (

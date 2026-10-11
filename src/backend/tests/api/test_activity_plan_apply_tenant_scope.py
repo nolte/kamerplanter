@@ -33,6 +33,7 @@ from datetime import date
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
@@ -97,6 +98,9 @@ class _FakePlantRepo:
     def __init__(self, plants: dict[str, PlantInstance]) -> None:
         self._plants = plants
 
+    def get_by_key(self, key: str) -> PlantInstance | None:
+        return self._plants.get(key)
+
     def get_or_raise(self, key: str) -> PlantInstance:
         plant = self._plants.get(key)
         if plant is None:
@@ -144,6 +148,7 @@ class _Fixture:
             phase_repo=MagicMock(),
             task_repo=self.task_repo,
             planting_run_repo=self.run_repo,
+            plant_repo=self.plant_repo,  # type: ignore[arg-type]
         )
         self.plant_service = PlantInstanceService(
             plant_repo=self.plant_repo,
@@ -296,6 +301,32 @@ class TestAForeignTargetIsRefused:
         assert fx.task_repo.created_tasks == []
 
 
+class TestTheServiceResolvesTheTargetItself:
+    """#2107 review SEC-001: the route's pre-checks are gone, so the service must refuse alone."""
+
+    def test_apply_plan_to_plant_refuses_a_foreign_plant(self):
+        fx = _Fixture()
+        fx.add_plant("plant-b", TENANT_B)
+        with pytest.raises(NotFoundError):
+            fx.plan_service.apply_plan_to_plant(SHARED_PLAN, "plant-b", tenant_key=TENANT_A)
+        assert fx.task_repo.created_tasks == []
+
+    def test_apply_plan_to_run_refuses_a_foreign_run(self):
+        fx = _Fixture()
+        fx.add_run("run-b", TENANT_B, ["p1"])
+        with pytest.raises(NotFoundError):
+            fx.plan_service.apply_plan_to_run(SHARED_PLAN, "run-b", tenant_key=TENANT_A)
+        assert fx.task_repo.created_tasks == []
+
+    def test_without_a_plant_repository_apply_fails_closed(self):
+        fx = _Fixture()
+        fx.add_plant("plant-a", TENANT_A)
+        fx.plan_service._plant_repo = None
+        with pytest.raises(NotFoundError):
+            fx.plan_service.apply_plan_to_plant(SHARED_PLAN, "plant-a", tenant_key=TENANT_A)
+        assert fx.task_repo.created_tasks == []
+
+
 # ── The caller can still apply within their own tenant (the #324 half) ───────
 
 
@@ -335,6 +366,32 @@ class TestApplyingWithinTheCallersOwnTenant:
         assert body["plant_count"] == 2
         assert body["total_tasks"] == 4  # 2 enabled templates x 2 plants
         assert {t.tenant_key for t in fx.task_repo.created_tasks} == {TENANT_A}
+
+    def test_a_legacy_edge_to_a_foreign_plant_gets_no_task_and_is_not_counted(self):
+        """#2107 review SEC-001: the run's plants come from edges; a foreign one on a legacy edge is skipped."""
+        fx = _Fixture()
+        fx.add_run("run-a", TENANT_A, ["p1"])
+        fx.add_plant("plant-b", TENANT_B)
+        fx.run_plants["run-a"].append({"key": "plant-b"})
+
+        resp = fx.apply(TENANT_A, {"workflow_template_key": SHARED_PLAN, "run_key": "run-a"})
+
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["plant_count"] == 1
+        assert body["total_tasks"] == 2
+        assert {t.entity_key for t in fx.task_repo.created_tasks} == {"p1"}
+
+    def test_a_run_whose_only_plant_is_foreign_creates_nothing(self):
+        fx = _Fixture()
+        fx.add_run("run-a", TENANT_A, [])
+        fx.add_plant("plant-b", TENANT_B)
+        fx.run_plants["run-a"].append({"key": "plant-b"})
+
+        resp = fx.apply(TENANT_A, {"workflow_template_key": SHARED_PLAN, "run_key": "run-a"})
+
+        assert resp.status_code == 422, resp.text
+        assert fx.task_repo.created_tasks == []
 
     def test_neither_plant_nor_run_is_a_validation_error(self):
         fx = _Fixture()

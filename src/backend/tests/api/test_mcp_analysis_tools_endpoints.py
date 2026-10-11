@@ -70,7 +70,7 @@ class _FeedingService:
     def __init__(self) -> None:
         self.created: list[FeedingEvent] = []
 
-    def create_event(self, event: FeedingEvent) -> FeedingEvent:
+    def create_event(self, event: FeedingEvent, *, tenant_key: str) -> FeedingEvent:
         # ``timestamp`` is defaulted on write by the repository
         # (``default_now_fields``), and the trend keys on it — a fake that left it
         # unset would make the diagnostics assertions pass vacuously.

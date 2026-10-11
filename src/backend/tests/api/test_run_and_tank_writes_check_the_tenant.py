@@ -162,7 +162,6 @@ def _run_world(
     plant_repo = MagicMock()
     known = plants if plants is not None else {"p1": _plant("p1", owner)}
     plant_repo.get_by_key.side_effect = known.get
-    plant_repo.get.side_effect = known.get
     service = PlantingRunService(
         run_repo=run_repo,
         plant_repo=plant_repo,

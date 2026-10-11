@@ -46,7 +46,7 @@ def create_event(
 ):
     """Record a new feeding event for the tenant."""
     event = FeedingEvent(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_event(event)
+    created = service.create_event(event, tenant_key=ctx.tenant_key)
     return _event_response(created)
 
 

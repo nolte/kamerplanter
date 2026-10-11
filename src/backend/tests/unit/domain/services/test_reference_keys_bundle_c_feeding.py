@@ -67,7 +67,7 @@ def test_a_feeding_event_names_only_a_fill_of_the_tenants_tank(fill: str) -> Non
 
     with pytest.raises(NotFoundError):
         service.create_event(
-            FeedingEvent(tenant_key=OWN, plant_key="p1", volume_applied_liters=1, tank_fill_event_key=fill)
+            FeedingEvent(plant_key="p1", volume_applied_liters=1, tank_fill_event_key=fill), tenant_key=OWN
         )
 
     repo.create.assert_not_called()
@@ -77,7 +77,7 @@ def test_a_feeding_event_with_an_own_fill_is_stored() -> None:
     repo = MagicMock()
 
     FeedingService(repo, fill_event_anchors=_Tanks()).create_event(
-        FeedingEvent(tenant_key=OWN, plant_key="p1", volume_applied_liters=1, tank_fill_event_key="fill_own")
+        FeedingEvent(plant_key="p1", volume_applied_liters=1, tank_fill_event_key="fill_own"), tenant_key=OWN
     )
 
     repo.create.assert_called_once()

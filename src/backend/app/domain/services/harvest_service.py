@@ -171,13 +171,20 @@ class HarvestService:
         verify_tenant_ownership(batch, tenant_key, "HarvestBatch")
         return batch
 
-    def create_harvest_batch(self, plant_key: str, batch: HarvestBatch) -> HarvestBatch:
-        """Create a harvest batch -- enforces Karenz-Gate.
+    def create_harvest_batch(self, plant_key: str, batch: HarvestBatch, *, tenant_key: str) -> HarvestBatch:
+        """Create a harvest batch of ``tenant_key`` -- enforces Karenz-Gate.
+
+        The tenant is stamped here and an empty one refused (#2107 review SEC-003):
+        the Karenz gate, the batch-id lookup and the repository's ``plant_key``
+        ownership check all read ``batch.tenant_key``.
 
         When the caller leaves ``batch_id`` blank a deterministic, collision-free
         identifier is generated so a second batch for the same plant on the same
         day no longer trips the unique ``batch_id`` index (issue #744).
         """
+        if not tenant_key:
+            raise ValueError("create_harvest_batch is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        batch.tenant_key = tenant_key
         batch.plant_key = plant_key
         harvest_date = ensure_aware_utc(batch.harvest_date) or now_utc()
         # The date the Karenz gate checked is the harvest date the row keeps: NFR-011

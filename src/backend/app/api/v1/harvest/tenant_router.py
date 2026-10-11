@@ -158,7 +158,7 @@ def create_batch(
     stored value is always this one.
     """
     batch = HarvestBatch(**body.model_dump(), tenant_key=ctx.tenant_key, harvested_by_key=ctx.user_key)
-    created = service.create_harvest_batch(plant_key, batch)
+    created = service.create_harvest_batch(plant_key, batch, tenant_key=ctx.tenant_key)
     return _batch_response(created)
 
 

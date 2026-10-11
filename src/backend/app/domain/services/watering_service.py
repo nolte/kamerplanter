@@ -25,7 +25,12 @@ from app.domain.services.feeding_references import (
 )
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
 from app.domain.services.species_visibility import readable_species
-from app.domain.services.watering_confirmation_scope import own_task_or_none, require_confirmable_run
+from app.domain.services.watering_confirmation_scope import (
+    own_run_plants,
+    own_task_or_none,
+    readable_run_plan,
+    require_confirmable_run,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -230,17 +235,14 @@ class WateringService:
         task_doc = own_task_or_none(self._task_repo, task_key, tenant_key=tenant_key)
         own_task_key = task_key if task_doc else None
 
-        # Get run and plan info
-        plan_key = self._run_repo.get_run_nutrient_plan_key(run_key)
-        plan = None
-        watering_schedule = None
-        if plan_key and self._nutrient_plan_repo:
-            plan = self._nutrient_plan_repo.get_by_key(plan_key)
-            if plan and hasattr(plan, "watering_schedule"):
-                watering_schedule = plan.watering_schedule
+        # The run's plan only when the tenant may read it (#2107 review SEC-002):
+        # an unreadable plan is no plan — its schedule and key are not used.
+        plan_key, plan = readable_run_plan(self._run_repo, self._nutrient_plan_repo, run_key, tenant_key=tenant_key)
+        watering_schedule = getattr(plan, "watering_schedule", None) if plan is not None else None
 
-        # Get plants in the run
-        plants = self._run_repo.get_run_plants(run_key, include_detached=False)
+        # The run's own plants only: a legacy edge to another tenant's plant is
+        # left out of the event/log and of every derived write (SEC-001 sweep).
+        plants = own_run_plants(self._run_repo, self._plant_repo, run_key, tenant_key=tenant_key)
         plant_keys = [p["_key"] for p in plants if p.get("_key")]
         if not plant_keys:
             raise ValueError("No active plants found in run")
@@ -303,8 +305,8 @@ class WateringService:
                     # Fail-closed tenant guard (SEC-001): the run's plants come from graph
                     # edges, so resolve each one under the tenant before its care profile
                     # is read or a confirmation is written; skip silently otherwise.
-                    plant = self._plant_repo.get_by_key(plant_key) if self._plant_repo else None
-                    if plant is None or plant.tenant_key != tenant_key:
+                    owned_plant = self._plant_repo.get_by_key(plant_key) if self._plant_repo else None
+                    if owned_plant is None or owned_plant.tenant_key != tenant_key:
                         continue
                     # ``care_profile_key`` is required: a plant without a care
                     # profile has no reminder to confirm, so it is skipped (#1898).
