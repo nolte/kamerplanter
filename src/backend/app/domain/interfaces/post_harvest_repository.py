@@ -38,6 +38,11 @@ class IPostHarvestRepository(ABC):
     ) -> tuple[list[PostHarvestBatch], int]: ...
 
     @abstractmethod
+    def list_batches_window(self, *, tenant_key: str, offset: int = 0, limit: int = 50) -> list[PostHarvestBatch]:
+        """The page of :meth:`list_batches` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def list_for_harvest_batch(
         self,
         harvest_batch_key: str,

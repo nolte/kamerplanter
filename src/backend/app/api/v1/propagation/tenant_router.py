@@ -111,8 +111,8 @@ def list_events(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """List the tenant's propagation events (paginated), optionally filtered."""
-    items, _total = service.list_events(
-        ctx.tenant_key, method=method, status=status, offset=pagination.offset, limit=pagination.limit
+    items = service.list_events_window(
+        tenant_key=ctx.tenant_key, method=method, status=status, offset=pagination.offset, limit=pagination.limit
     )
     return [_event_response(e) for e in items]
 
@@ -182,8 +182,8 @@ def list_batches(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """List the tenant's propagation batches (paginated), optionally filtered."""
-    items, _total = service.list_batches(
-        ctx.tenant_key, status=status, method=method, offset=pagination.offset, limit=pagination.limit
+    items = service.list_batches_window(
+        tenant_key=ctx.tenant_key, status=status, method=method, offset=pagination.offset, limit=pagination.limit
     )
     return [_batch_response(b) for b in items]
 

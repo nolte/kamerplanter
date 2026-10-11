@@ -406,7 +406,7 @@ def list_tasks(
         filters["entity_type"] = entity_type
     if entity_key:
         filters["entity_key"] = entity_key
-    tasks, _ = service.list_tasks(
+    tasks = service.list_tasks_window(
         pagination.offset,
         pagination.limit,
         filters or None,

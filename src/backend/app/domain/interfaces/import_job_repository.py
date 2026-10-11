@@ -28,6 +28,10 @@ class IImportJobRepository(ABC):
         tenant it resolved: a staged job carries the rows of an uploaded CSV, so an
         unscoped list handed one tenant's upload to every other one.
         """
+
+    @abstractmethod
+    def list_all_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str | None) -> list[ImportJob]:
+        """The page of :meth:`list_all` without its count query (MT-035, #2131); same scope rules."""
         ...
 
     @abstractmethod

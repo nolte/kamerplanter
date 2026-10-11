@@ -102,6 +102,29 @@ class PropagationRepository:
             sort_direction="DESC",
         )
 
+    def list_events_window(
+        self,
+        *,
+        tenant_key: str,
+        method: str | None = None,
+        status: str | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[PropagationEvent]:
+        """The page of :meth:`list_events` without its count query (MT-035, #2131)."""
+        filters: list[tuple[str, str, Any]] = [("tenant_key", "==", tenant_key)]
+        if method:
+            filters.append(("method", "==", method))
+        if status:
+            filters.append(("status", "==", status))
+        return self._events.get_page_window(
+            offset=offset,
+            limit=limit,
+            filters=filters,
+            sort="created_at",
+            sort_direction="DESC",
+        )
+
     def list_events_for_plant(self, plant_key: str, tenant_key: str) -> list[PropagationEvent]:
         """Events where the plant is either a source (parent) or a result (child)."""
         query = """
@@ -154,6 +177,29 @@ class PropagationRepository:
         if method:
             filters.append(("method", "==", method))
         return self._batches.get_page(
+            offset=offset,
+            limit=limit,
+            filters=filters,
+            sort="created_at",
+            sort_direction="DESC",
+        )
+
+    def list_batches_window(
+        self,
+        *,
+        tenant_key: str,
+        status: str | None = None,
+        method: str | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[PropagationBatch]:
+        """The page of :meth:`list_batches` without its count query (MT-035, #2131)."""
+        filters: list[tuple[str, str, Any]] = [("tenant_key", "==", tenant_key)]
+        if status:
+            filters.append(("status", "==", status))
+        if method:
+            filters.append(("method", "==", method))
+        return self._batches.get_page_window(
             offset=offset,
             limit=limit,
             filters=filters,

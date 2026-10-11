@@ -141,9 +141,9 @@ class TestReadsAreUnaffected:
 
         def _list(offset, limit, *, tenant_key):
             seen["tenant_key"] = tenant_key
-            return ([], 0)
+            return []
 
-        service.list_jobs = _list  # type: ignore[attr-defined]
+        service.list_jobs_window = _list  # type: ignore[attr-defined]
 
         response = _client(service, role=TenantRole.VIEWER).get("/api/v1/import/jobs")
 

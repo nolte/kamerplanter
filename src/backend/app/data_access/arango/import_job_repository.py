@@ -37,3 +37,7 @@ class ArangoImportJobRepository(BaseArangoRepository[ImportJob], IImportJobRepos
         answers it with an empty list — but if it did, the guard would raise.
         """
         return super().get_all(offset, limit, tenant_key, all_tenants=tenant_key is None)
+
+    def list_all_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str | None) -> list[ImportJob]:
+        """The page of :meth:`list_all` without its count query (MT-035, #2131); same scope rules."""
+        return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key, all_tenants=tenant_key is None)

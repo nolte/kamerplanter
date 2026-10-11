@@ -584,7 +584,15 @@ def list_plants(
   bekommt `_key` als zweites Sortierkriterium (`tiebreak_key=True`), sonst kann ein
   Eintrag auf zwei Seiten erscheinen und ein anderer auf keiner.
 - Ein Repository, dessen Aufrufer die Gesamtzahl verwirft, liest mit
-  `list_window` statt `get_all` — `get_all` zaehlt bei jeder Seite alle Treffer.
+  `list_window` statt `get_all` bzw. `get_page_window` statt `get_page` — die
+  gezaehlten Methoden zaehlen bei jeder Seite alle Treffer. Eine handgeschriebene
+  Abfrage bekommt eine `*_window`-Schwester mit demselben Seiten-Query ohne
+  `COLLECT WITH COUNT`; die gezaehlte Methode bleibt fuer Aufrufer, die die Zahl
+  wirklich lesen. Das ist die Form von `include_total=false`: die Listen-Antwort
+  traegt keine Gesamtzahl, also gibt es keinen Query-Parameter dafuer. Eine Route,
+  die `rows, _ = service.list_x(...)` entpackt, faellt durch den Guard
+  `tests/unit/guards/test_list_routes_do_not_discard_a_paid_total.py`; Kataloge und
+  Konfigurationslisten stehen dort mit Grund in einer gezaehlten Tabelle.
 - Eine Collection mit Cursor-Route traegt den Index `(tenant_key, _key)`
   (`KEYSET_PAGED_COLLECTIONS`).
 - Ausnahmen (globale Kataloge, Kinder eines Elterndokuments, berechnete Listen fester
