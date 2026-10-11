@@ -192,7 +192,7 @@ class SuccessionPlanService:
 
     def _persist_run(self, plan_key: SuccessionPlanKey, plan: SuccessionPlan, run: PlantingRun) -> PlantingRun:
         entry = self._engine.build_entry(plan)
-        created = self._run_service.create_run(run, [entry])
+        created = self._run_service.create_run(run, [entry], tenant_key=plan.tenant_key)
         if created.key:
             self._repo.link_plan_to_run(plan_key, created.key)
         return created

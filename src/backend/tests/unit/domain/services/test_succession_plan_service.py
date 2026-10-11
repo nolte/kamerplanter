@@ -67,7 +67,7 @@ class _FakeRunService:
         self.created_runs: list[PlantingRun] = []
         self.created_entries: list[list] = []
 
-    def create_run(self, run: PlantingRun, entries=None) -> PlantingRun:
+    def create_run(self, run: PlantingRun, entries=None, *, tenant_key: str) -> PlantingRun:
         self._seq += 1
         created = run.model_copy(update={"key": f"run{self._seq}"})
         self.created_runs.append(created)

@@ -113,7 +113,7 @@ class OverwinteringProfileService:
     ) -> tuple[list[OverwinteringProfile], int]:
         return self._repo.list_by_tenant(tenant_key, offset, limit)
 
-    def get_profile(self, key: OverwinteringProfileKey, tenant_key: str) -> OverwinteringProfile:
+    def get_profile(self, key: OverwinteringProfileKey, *, tenant_key: str) -> OverwinteringProfile:
         profile = self._repo.get_profile_by_key(key)
         if profile is None:
             raise NotFoundError(_ENTITY, key)
@@ -139,7 +139,7 @@ class OverwinteringProfileService:
         return created
 
     def update_profile(self, key: OverwinteringProfileKey, tenant_key: str, updates: dict) -> OverwinteringProfile:
-        existing = self.get_profile(key, tenant_key)
+        existing = self.get_profile(key, tenant_key=tenant_key)
         data = existing.model_dump()
         data.update(updates)
         # Preserve identity/ownership fields regardless of the payload.
@@ -167,7 +167,7 @@ class OverwinteringProfileService:
         return self._repo.update_profile(key, merged)
 
     def delete_profile(self, key: OverwinteringProfileKey, tenant_key: str) -> bool:
-        self.get_profile(key, tenant_key)
+        self.get_profile(key, tenant_key=tenant_key)
         return self._repo.delete_profile(key)
 
     def remove_auto_profile_for_plant(self, plant_key: str, *, tenant_key: str) -> bool:

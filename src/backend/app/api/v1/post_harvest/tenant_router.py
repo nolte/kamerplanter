@@ -116,7 +116,7 @@ def get_batch(
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
     """Return a post-harvest batch with its latest drying progress and open alerts."""
-    batch = service.get_batch(key, ctx.tenant_key)
+    batch = service.get_batch(key, tenant_key=ctx.tenant_key)
     latest = service.get_latest_drying_progress(key, ctx.tenant_key)
     open_alerts = sum(1 for a in service.list_mold_alerts(key, ctx.tenant_key) if a.resolved_at is None)
     return PostHarvestBatchDetailResponse(
