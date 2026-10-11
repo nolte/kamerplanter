@@ -7,8 +7,11 @@ Security (REQ-016 §4.1):
 
 * **SSRF (IT-003/SEC):** the admin/tenant-supplied ``base_url`` is re-validated
   with :func:`validate_inventree_url` immediately before *every* request, so a
-  stored-but-unsafe URL (or a DNS rebind) can never turn the adapter into an
-  SSRF primitive. Link-local / cloud-metadata addresses are always blocked;
+  stored-but-unsafe URL is refused with a reason. That check alone does not stop
+  a DNS rebind (the client resolves the name again when it connects), so the
+  client connects through :func:`pinned_async_transport`, which judges the
+  connect-time answer by the same rule and dials only an address it accepted
+  (#2249). Link-local / cloud-metadata addresses are always blocked;
   private/LAN addresses only when the operator opted in.
 * **Credentials (IT-001/IT-002):** the plaintext token lives only in this
   adapter's in-memory ``Authorization`` header — it is never logged (structlog
@@ -39,7 +42,7 @@ from typing import Any
 import httpx
 import structlog
 
-from app.common.url_safety import validate_inventree_url
+from app.common.url_safety import inventree_address_policy, pinned_async_transport, validate_inventree_url
 from app.domain.interfaces.inventree_adapter import (
     InvenTreeAdapter,
     InvenTreeCategoryData,
@@ -155,10 +158,14 @@ class InvenTreeRestAdapter(InvenTreeAdapter):
         self._guard_url()
         self._guard_rate_limit()
         # follow_redirects=False (IT-003/SEC): never chase a 3xx to an internal target.
+        # The transport pins the connection to an address judged at connect time (#2249);
+        # TLS verification lives on the transport, which is what dials.
         return httpx.AsyncClient(
             headers=self._headers,
             timeout=self._timeout,
-            verify=self._verify_ssl,
+            transport=pinned_async_transport(
+                inventree_address_policy(allow_private=self._allow_private), verify=self._verify_ssl
+            ),
             follow_redirects=False,
         )
 
