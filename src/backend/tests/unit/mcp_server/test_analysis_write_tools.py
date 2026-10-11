@@ -159,6 +159,9 @@ class _IpmService:
     def get_inspections(self, plant_key, offset=0, limit=50, *, tenant_key):
         return list(self._inspections), len(self._inspections)
 
+    def get_inspections_window(self, plant_key, offset=0, limit=50, *, tenant_key):
+        return self.get_inspections(plant_key, offset, limit, tenant_key=tenant_key)[0]
+
     def check_harvest_safety(self, plant_key, planned_date=None, *, tenant_key):
         return self._harvest_ok, list(self._karenz)
 

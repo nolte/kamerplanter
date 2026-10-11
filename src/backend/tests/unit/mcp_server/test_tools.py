@@ -282,7 +282,8 @@ async def test_get_harvest_readiness_aggregates():
             "estimated_days": 0,
         }
     )
-    plant_svc = SimpleNamespace(list_plants=lambda offset, limit, tenant_key: (plants, 2))
+    # The count-free window (MT-035, #2131): the tool never read the total.
+    plant_svc = SimpleNamespace(list_plants_window=lambda *, offset, limit, tenant_key: plants)  # noqa: ARG005
     resp = await GetHarvestReadiness().run(
         _ctx(plant_instance_service=plant_svc, harvest_service=harvest), GetHarvestReadiness.Input()
     )

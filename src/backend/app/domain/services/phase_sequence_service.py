@@ -54,6 +54,15 @@ class PhaseSequenceService:
     ) -> tuple[list[PhaseDefinition], int]:
         return self._repo.get_all_definitions(offset, limit, name_filter)
 
+    def list_definitions_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        name_filter: str | None = None,
+    ) -> list[PhaseDefinition]:
+        """One page of :meth:`list_definitions` without the count query (MT-035, #2131)."""
+        return self._repo.list_definitions_window(offset, limit, name_filter)
+
     def get_definition(self, key: str) -> PhaseDefinition:
         defn = self._repo.get_definition_by_key(key)
         if not defn:
@@ -154,6 +163,10 @@ class PhaseSequenceService:
         limit: int = 50,
     ) -> tuple[list[PhaseSequence], int]:
         return self._repo.get_all_sequences(offset, limit)
+
+    def list_sequences_window(self, offset: int = 0, limit: int = 50) -> list[PhaseSequence]:
+        """One page of :meth:`list_sequences` without the count query (MT-035, #2131)."""
+        return self._repo.list_sequences_window(offset, limit)
 
     def get_sequence(self, key: str) -> PhaseSequence:
         seq = self._repo.get_sequence_by_key(key)

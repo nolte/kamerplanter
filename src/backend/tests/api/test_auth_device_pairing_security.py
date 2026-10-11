@@ -432,10 +432,10 @@ def _world(platform_leads: frozenset[str] = frozenset()) -> Iterator[_World]:
     )
 
     sites = MagicMock()
-    sites.list_sites.return_value = (
-        [Site(_key="site-owner", tenant_key=_OWNER_TENANT.key or "", name=_OWNER_SITE_NAME)],
-        1,
-    )
+    # The list route reads the count-free window (MT-035, #2131).
+    sites.list_sites_window.return_value = [
+        Site(_key="site-owner", tenant_key=_OWNER_TENANT.key or "", name=_OWNER_SITE_NAME)
+    ]
     sites.get_water_warnings.return_value = []
 
     # The real provider: every token this module asserts about is verified by
@@ -657,7 +657,7 @@ class TestTenantIntegrity:
 
         assert response.status_code == 200, response.text
         assert [site["name"] for site in response.json()] == [_OWNER_SITE_NAME]
-        assert world.sites.list_sites.call_args.kwargs["tenant_key"] == _OWNER_TENANT.key
+        assert world.sites.list_sites_window.call_args.kwargs["tenant_key"] == _OWNER_TENANT.key
 
     def test_a_paired_token_is_refused_by_a_tenant_its_user_is_no_member_of(self, world: _World) -> None:
         """The scope a paired phone carries is the issuing account's, and nothing
@@ -665,12 +665,12 @@ class TestTenantIntegrity:
         refusal that happened only inside the repository — i.e. one row-level
         filter away from a leak — would not pass for a gate."""
         pair = world.pair(_OWNER)
-        world.sites.list_sites.reset_mock()
+        world.sites.list_sites_window.reset_mock()
 
         response = world.read_sites(_STRANGER_TENANT.slug, pair["access_token"])
 
         assert response.status_code == 403, response.text
-        assert world.sites.list_sites.call_count == 0, "the tenant gate let the request through to the service"
+        assert world.sites.list_sites_window.call_count == 0, "the tenant gate let the request through to the service"
 
     def test_membership_is_resolved_per_request_not_frozen_into_the_paired_token(self, world: _World) -> None:
         """A paired device holds its access token for 15 minutes and its refresh

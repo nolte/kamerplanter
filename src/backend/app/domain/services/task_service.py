@@ -264,6 +264,24 @@ class TaskService:
             target_entity_type=target_entity_type,
         )
 
+    def list_workflow_templates_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        species_key: str | None = None,
+        target_entity_type: str | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[WorkflowTemplate]:
+        """One page of :meth:`list_workflow_templates` without the count query (MT-035, #2131)."""
+        return self._repo.list_workflow_templates_window(
+            offset,
+            limit,
+            species_key=species_key,
+            target_entity_type=target_entity_type,
+            tenant_key=tenant_key,
+        )
+
     def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]:
         """Return species_name and ``tenant_key``'s assigned entity count per workflow key (#1708)."""
         return self._repo.get_workflow_usage_stats(wf_keys, tenant_key=tenant_key)

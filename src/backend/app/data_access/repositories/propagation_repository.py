@@ -237,12 +237,43 @@ class PropagationRepository:
         limit: int = 100,
     ) -> tuple[list[RootingProtocol], int]:
         """Union of global templates (``tenant_key == ""``) and the tenant's own."""
+        items, total = self._read_protocols(tenant_key, method, is_template, offset, limit, count=True)
+        return items, total or 0
+
+    def list_protocols_window(
+        self,
+        *,
+        tenant_key: str,
+        method: str | None = None,
+        is_template: bool | None = None,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> list[RootingProtocol]:
+        """The page of :meth:`list_protocols` without its count query (MT-035, #2131)."""
+        return self._read_protocols(tenant_key, method, is_template, offset, limit, count=False)[0]
+
+    def _read_protocols(
+        self,
+        tenant_key: str,
+        method: str | None,
+        is_template: bool | None,
+        offset: int,
+        limit: int,
+        *,
+        count: bool,
+    ) -> tuple[list[RootingProtocol], int | None]:
+        """One page and, with ``count``, the total of the protocols ``tenant_key`` may read.
+
+        ``name`` is not unique (a tenant's copy of a global template), so ``_key``
+        breaks the tie: offset paging over a partial order may show a row on two
+        pages or none (BACKEND.md §6.4, MT-035 #2131).
+        """
         query = """
         FOR p IN @@col
           FILTER p.tenant_key == "" OR p.tenant_key == @tenant_key
           FILTER @method == null OR p.method == @method
           FILTER @is_template == null OR p.is_template == @is_template
-          SORT p.name ASC
+          SORT p.name ASC, p._key ASC
           LIMIT @offset, @limit
           RETURN p
         """
@@ -256,15 +287,16 @@ class PropagationRepository:
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         items = [RootingProtocol(**self._protocols._from_doc(doc)) for doc in cursor]
+        if not count:
+            return items, None
 
         count_query = """
-        RETURN LENGTH(
-          FOR p IN @@col
-            FILTER p.tenant_key == "" OR p.tenant_key == @tenant_key
-            FILTER @method == null OR p.method == @method
-            FILTER @is_template == null OR p.is_template == @is_template
-            RETURN 1
-        )
+        FOR p IN @@col
+          FILTER p.tenant_key == "" OR p.tenant_key == @tenant_key
+          FILTER @method == null OR p.method == @method
+          FILTER @is_template == null OR p.is_template == @is_template
+          COLLECT WITH COUNT INTO total
+          RETURN total
         """
         count_vars = {
             "@col": col.ROOTING_PROTOCOLS,
@@ -272,8 +304,7 @@ class PropagationRepository:
             "method": method,
             "is_template": is_template,
         }
-        total = next(self._db.aql.execute(count_query, bind_vars=count_vars), 0)
-        return items, total
+        return items, next(self._db.aql.execute(count_query, bind_vars=count_vars), 0)
 
     def protocol_in_use(self, protocol_key: str, tenant_key: str) -> bool:
         """Whether any of the tenant's events reference this protocol."""

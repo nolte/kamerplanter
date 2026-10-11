@@ -32,6 +32,10 @@ class SiteService:
     def list_sites(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[Site], int]:
         return self._repo.get_all_sites(offset, limit, tenant_key=tenant_key)
 
+    def list_sites_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[Site]:
+        """One ``_key``-ordered page of the tenant's sites without the count query (MT-035, #2131)."""
+        return self._repo.list_sites_window(offset, limit, tenant_key=tenant_key)
+
     # #2107 (MT-010): every method below that addresses a site, location or slot by
     # key takes ``tenant_key`` keyword-only without a default and resolves the key
     # under it itself. The routers used to call ``get_site(key, tenant_key=…)`` and

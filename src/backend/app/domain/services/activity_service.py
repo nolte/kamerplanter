@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.exceptions import ForbiddenError, ValidationError
@@ -21,6 +23,17 @@ class ActivityService:
     ) -> tuple[list[Activity], int]:
         """The activities ``tenant_key`` may read: its own plus the global catalogue (#2119)."""
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
+
+    def list_activities_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Activity]:
+        """One page of :meth:`list_activities` without the count query (MT-035, #2131)."""
+        return self._repo.get_all_window(offset, limit, filters, tenant_key=tenant_key)
 
     def get_readable_activity(self, key: ActivityKey, *, tenant_key: str) -> Activity:
         """One activity for a reader: its own row or a global one, else 404 (#2119)."""

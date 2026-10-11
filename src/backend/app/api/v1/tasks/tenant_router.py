@@ -102,7 +102,7 @@ def list_workflows(
     service: TaskService = Depends(get_task_service),
 ):
     """List the tenant's workflow templates with usage stats (paginated)."""
-    templates, _ = service.list_workflow_templates(
+    templates = service.list_workflow_templates_window(
         pagination.offset,
         pagination.limit,
         species_key=species_key,
