@@ -22,6 +22,7 @@ The helper is reused both when a subscription is stored (raising
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import socket
 import ssl
@@ -33,7 +34,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from functools import partial
 from urllib.parse import SplitResult, unquote_plus, urlsplit
 
-import anyio.to_thread
+import anyio
 import httpcore
 import httpx
 import structlog
@@ -472,6 +473,20 @@ def validate_ha_url(url: str, *, allow_private: bool = False, field: str = "ha_u
     return url
 
 
+def _is_internal_address(address: ipaddress._BaseAddress) -> bool:
+    """Private, loopback, or any other space that is not globally routable (#2249 review).
+
+    ``is_global`` is false for CGNAT ``100.64.0.0/10``, which carries pod addresses in some
+    clusters; IPv6 site-local ``fec0::/10`` is deprecated but still "global" to the stdlib,
+    so it is named here.
+    """
+    if isinstance(address, ipaddress.IPv6Address):
+        return _is_blocked_address(address) or not address.is_global or address.is_site_local
+    if isinstance(address, ipaddress.IPv4Address):
+        return _is_blocked_address(address) or not address.is_global
+    return True
+
+
 def _judge_ha_addresses(
     host: str, addresses: Sequence[ipaddress._BaseAddress], *, allow_private: bool, field: str = "ha_url"
 ) -> None:
@@ -483,9 +498,13 @@ def _judge_ha_addresses(
     Raises:
         ValidationError: an address is link-local/metadata, or private without the opt-in.
     """
-    for address in addresses:
+    for resolved in addresses:
+        # An IPv4 address carried in IPv6 (mapped, NAT64, 6to4) is judged as itself (#2249 review).
+        address = _unwrap_embedded_ipv4(resolved)
         # Link-local / metadata / reserved / multicast / unspecified — ALWAYS blocked.
-        if _is_metadata_or_link_local(address):
+        if _is_metadata_or_link_local(address) or any(
+            address in network for network in _APPRISE_EXTRA_BLOCKED_NETWORKS
+        ):
             logger.warning("ha_url_rejected_ssrf", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "Home Assistant URL resolves to a blocked address.",
@@ -497,8 +516,9 @@ def _judge_ha_addresses(
                     }
                 ],
             )
-        # Private / loopback — blocked unless the operator opted in.
-        if _is_blocked_address(address) and not allow_private:
+        # Private / loopback / any other non-global space (CGNAT 100.64.0.0/10, site-local
+        # fec0::/10) — blocked unless the operator opted in (#2249 review, as the OIDC rule).
+        if _is_internal_address(address) and not allow_private:
             logger.warning("ha_url_rejected_private", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "Home Assistant URL resolves to a private address.",
@@ -588,9 +608,13 @@ def _judge_inventree_addresses(
     Raises:
         ValidationError: an address is link-local/metadata, or private without the opt-in.
     """
-    for address in addresses:
+    for resolved in addresses:
+        # An IPv4 address carried in IPv6 (mapped, NAT64, 6to4) is judged as itself (#2249 review).
+        address = _unwrap_embedded_ipv4(resolved)
         # Link-local / metadata / reserved / multicast / unspecified — ALWAYS blocked.
-        if _is_metadata_or_link_local(address):
+        if _is_metadata_or_link_local(address) or any(
+            address in network for network in _APPRISE_EXTRA_BLOCKED_NETWORKS
+        ):
             logger.warning("inventree_url_rejected_ssrf", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "InvenTree URL resolves to a blocked address.",
@@ -602,8 +626,9 @@ def _judge_inventree_addresses(
                     }
                 ],
             )
-        # Private / loopback — blocked unless the operator opted in.
-        if _is_blocked_address(address) and not allow_private:
+        # Private / loopback / any other non-global space (CGNAT 100.64.0.0/10, site-local
+        # fec0::/10) — blocked unless the operator opted in (#2249 review, as the OIDC rule).
+        if _is_internal_address(address) and not allow_private:
             logger.warning("inventree_url_rejected_private", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "InvenTree URL resolves to a private address.",
@@ -675,6 +700,11 @@ def _pinned_addresses(host: str, policy: AddressPolicy) -> list[str]:
         addresses = _resolved_addresses(host)
     except OSError as exc:
         raise httpcore.ConnectError("host does not resolve") from exc
+    return _judged_addresses(host, addresses, policy)
+
+
+def _judged_addresses(host: str, addresses: Sequence[ipaddress._BaseAddress], policy: AddressPolicy) -> list[str]:
+    """The judged half of :func:`_pinned_addresses`: *policy* over one answer, deduplicated."""
     if not addresses:
         raise httpcore.ConnectError("host resolves to no address")
     try:
@@ -682,6 +712,41 @@ def _pinned_addresses(host: str, policy: AddressPolicy) -> list[str]:
     except ValidationError as exc:
         raise PinnedConnectRefusedError("connection refused: the host resolves to a blocked address") from exc
     return list(dict.fromkeys(address.compressed for address in addresses))
+
+
+#: Seconds a connect-time lookup may take when the caller's connect timeout is unbounded.
+PINNED_RESOLVE_TIMEOUT_SECONDS = 10.0
+
+
+def _resolved_address_strings(host: str) -> list[str]:
+    """:func:`_resolved_addresses` as strings — the shape a resolver lane carries."""
+    return [address.compressed for address in _resolved_addresses(host)]
+
+
+async def _resolve_off_loop(host: str, timeout: float | None) -> list[ipaddress._BaseAddress]:
+    """Resolve *host* in the bounded connect lane, never in the loop's shared thread limiter.
+
+    A ``getaddrinfo`` against a nameserver that never answers holds its thread for the
+    system resolver's own timeout. In anyio's default limiter (40 threads, shared with
+    every ``to_thread`` call of the process) a burst of such names would starve unrelated
+    work. The lane bounds it (8 threads, 3 per host) and refuses instead of queueing; the
+    wait is bounded by the connect timeout (#2249 review SEC-003).
+
+    Raises:
+        httpcore.ConnectTimeout: no answer within the timeout.
+        httpcore.ConnectError: the lane is full, or the host does not resolve.
+    """
+    future = _connect_lane.try_submit(host.lower(), _resolved_address_strings, host)
+    if future is None:
+        raise httpcore.ConnectError("resolver busy: connection refused")
+    try:
+        with anyio.fail_after(PINNED_RESOLVE_TIMEOUT_SECONDS if timeout is None else timeout):
+            answer = await asyncio.wrap_future(future)
+    except TimeoutError as exc:
+        raise httpcore.ConnectTimeout("host did not resolve in time") from exc
+    except OSError as exc:
+        raise httpcore.ConnectError("host does not resolve") from exc
+    return [ipaddress.ip_address(address) for address in answer]
 
 
 class _PinnedSyncBackend(httpcore.NetworkBackend):
@@ -737,7 +802,8 @@ class _PinnedAsyncBackend(httpcore.AsyncNetworkBackend):
         socket_options: Iterable[httpcore.SOCKET_OPTION] | None = None,
     ) -> httpcore.AsyncNetworkStream:
         last_error: httpcore.ConnectError | None = None
-        for address in await anyio.to_thread.run_sync(_pinned_addresses, host, self._policy):
+        resolved = await _resolve_off_loop(host, timeout)
+        for address in _judged_addresses(host, resolved, self._policy):
             try:
                 return await self._inner.connect_tcp(
                     address, port, timeout=timeout, local_address=local_address, socket_options=socket_options
@@ -1120,6 +1186,9 @@ _resolution_cache = _HostCache()
 #: of saves cannot hold the threads delivery needs, nor the other way round.
 _save_lane = _ResolverLane("save", trusts_cache=True)
 _send_lane = _ResolverLane("send", trusts_cache=False)
+#: Connect-time lookups of the pinned async transport (#2249): their own lane, so a
+#: hanging name can neither starve anyio's shared thread limiter nor the Apprise lanes.
+_connect_lane = _ResolverLane("connect", trusts_cache=False)
 
 
 def resolve_host_addresses(host: str) -> list[str]:

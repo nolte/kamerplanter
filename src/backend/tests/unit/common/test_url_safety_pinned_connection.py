@@ -28,12 +28,15 @@ from __future__ import annotations
 import datetime
 import http.server
 import ipaddress
+import os
 import socket
 import ssl
 import threading
+import time
 from collections.abc import Iterator
 from pathlib import Path
 
+import anyio
 import httpcore
 import httpx
 import pytest
@@ -43,6 +46,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
 import app.api.v1.admin.settings.router as settings_router
+import app.common.url_safety as url_safety
 from app.common.url_safety import (
     PinnedConnectRefusedError,
     ha_address_policy,
@@ -262,6 +266,13 @@ BLOCKED_WITHOUT_OPT_IN = [
     "fc00::5",
     "::ffff:127.0.0.1",
     "::ffff:169.254.169.254",
+    # Not global, not "private" to the stdlib: CGNAT (pod networks in some clusters) and
+    # deprecated IPv6 site-local — the opt-in class, as in the OIDC rule (review SEC-001).
+    "100.64.0.1",
+    "fec0::1",
+    # IPv4 carried in 6to4 / NAT64, judged as the IPv4 address it carries (review SEC-004).
+    "2002:c0a8:0101::",
+    "64:ff9b::a00:5",
 ]
 
 
@@ -304,7 +315,21 @@ class TestConnectTimeAnswerIsJudged:
         assert _refused_by_pin(caught.value)
         assert tcp_connects == []
 
-    @pytest.mark.parametrize("address", ["169.254.169.254", "fe80::1", "::ffff:169.254.169.254", "224.0.0.1"])
+    @pytest.mark.parametrize(
+        "address",
+        [
+            "169.254.169.254",
+            "fe80::1",
+            "::ffff:169.254.169.254",
+            "224.0.0.1",
+            # 6to4 / NAT64 carrying 169.254.169.254 — metadata, never opt-in-able (review SEC-004).
+            "2002:a9fe:a9fe::",
+            "64:ff9b::a9fe:a9fe",
+            # AWS IMDS over IPv6 and Alibaba's metadata address (the OIDC rule's extra list).
+            "fd00:ec2::254",
+            "100.100.100.200",
+        ],
+    )
     def test_metadata_and_link_local_stay_refused_with_the_private_opt_in(self, resolver, tcp_connects, address):
         host = "metadata.kamerplanter.test"
         resolver.set(host, [address])
@@ -474,3 +499,146 @@ class TestTlsVerifiesTheName:
 
         assert "Hostname mismatch" in str(caught.value), str(caught.value)
         assert server.hits == []
+
+
+# ── Review follow-ups (#2249 SEC-003, SEC-005) ──────────────────────────────
+
+
+class TestAddressFallbackAndTimeouts:
+    def test_a_refused_first_address_falls_back_to_the_next_judged_one(self, resolver, listener, tcp_connects):
+        """127.0.0.2 has no listener on this port (the listener binds 127.0.0.1 only)."""
+        host = "fallback.kamerplanter.test"
+        resolver.set(host, ["127.0.0.2", "127.0.0.1"])
+        transport = pinned_transport(ha_address_policy(allow_private=True))
+
+        with httpx.Client(transport=transport, timeout=5) as client:
+            assert client.get(f"http://{host}:{listener.port}/api/").status_code == 200
+
+        assert tcp_connects == ["127.0.0.2", "127.0.0.1"]
+        assert len(listener.hits) == 1
+
+    @pytest.mark.asyncio
+    async def test_async_fallback_across_judged_addresses(self, resolver, listener, tcp_connects):
+        host = "fallback-async.kamerplanter.test"
+        resolver.set(host, ["127.0.0.2", "127.0.0.1"])
+        transport = pinned_async_transport(inventree_address_policy(allow_private=True))
+
+        async with httpx.AsyncClient(transport=transport, timeout=5) as client:
+            assert (await client.get(f"http://{host}:{listener.port}/api/")).status_code == 200
+
+        assert tcp_connects == ["127.0.0.2", "127.0.0.1"]
+
+    def test_a_connect_timeout_does_not_fall_through_to_the_next_address(self, monkeypatch, resolver):
+        """A timeout already spent the caller's connect budget; trying the next address would double it."""
+        attempts: list[str] = []
+
+        def _timeout(self, host, port, *args, **kwargs):  # noqa: ANN001, ANN202, ARG001
+            attempts.append(host)
+            raise httpcore.ConnectTimeout("timed out")
+
+        monkeypatch.setattr(httpcore.SyncBackend, "connect_tcp", _timeout)
+        host = "slow.kamerplanter.test"
+        resolver.set(host, ["127.0.0.2", "127.0.0.1"])
+        transport = pinned_transport(ha_address_policy(allow_private=True))
+
+        with httpx.Client(transport=transport, timeout=5) as client, pytest.raises(httpx.ConnectTimeout):
+            client.get(f"http://{host}:8123/api/")
+
+        assert attempts == ["127.0.0.2"]
+
+
+class TestConnectTimeResolutionIsBounded:
+    @pytest.mark.asyncio
+    async def test_a_hanging_resolver_times_out_without_borrowing_the_shared_thread_limiter(self, monkeypatch):
+        release = threading.Event()
+
+        def _hang(host: str) -> list:
+            release.wait(10)
+            raise OSError("released")
+
+        monkeypatch.setattr(url_safety, "_resolved_addresses", _hang)
+        transport = pinned_async_transport(ha_address_policy(allow_private=True))
+        try:
+            started = time.monotonic()
+            async with httpx.AsyncClient(transport=transport, timeout=0.3) as client:
+                with pytest.raises(httpx.ConnectTimeout):
+                    await client.get("http://hang.kamerplanter.test/api/")
+            elapsed = time.monotonic() - started
+
+            assert elapsed < 3, f"the lookup was not bounded by the connect timeout ({elapsed:.1f} s)"
+            assert anyio.to_thread.current_default_thread_limiter().borrowed_tokens == 0
+        finally:
+            release.set()
+
+    @pytest.mark.asyncio
+    async def test_a_full_lane_refuses_instead_of_queueing(self, monkeypatch):
+        lane = url_safety._ResolverLane("test-connect", workers=1, per_owner=1, trusts_cache=False)
+        monkeypatch.setattr(url_safety, "_connect_lane", lane)
+        release = threading.Event()
+
+        def _hang(host: str) -> list:
+            release.wait(10)
+            raise OSError("released")
+
+        monkeypatch.setattr(url_safety, "_resolved_addresses", _hang)
+        transport = pinned_async_transport(ha_address_policy(allow_private=True))
+        try:
+            async with httpx.AsyncClient(transport=transport, timeout=0.3) as client:
+                with pytest.raises(httpx.ConnectTimeout):
+                    await client.get("http://hang-a.kamerplanter.test/api/")
+                # The first lookup still holds the only thread: the next is refused at once.
+                started = time.monotonic()
+                with pytest.raises(httpx.ConnectError) as caught:
+                    await client.get("http://hang-b.kamerplanter.test/api/")
+
+            assert "resolver busy" in str(caught.value)
+            assert time.monotonic() - started < 0.3
+        finally:
+            release.set()
+
+
+class TestTransportSettingsCannotBypassThePin:
+    @pytest.mark.asyncio
+    async def test_inventree_verify_ssl_false_still_goes_through_the_pin(self, tmp_path, resolver):
+        host = "inventree-selfsigned.kamerplanter.test"
+        server_context, _client_context = _ca_and_leaf(tmp_path, host)
+        server = _Listener(server_context)
+        try:
+            resolver.set(host, ["127.0.0.1"])
+            url = f"https://{host}:{server.port}"
+            unverified = InvenTreeRestAdapter(url, "tok", allow_private=True, verify_ssl=False)
+            verified = InvenTreeRestAdapter(url, "tok", allow_private=True, verify_ssl=True)
+
+            assert await unverified.health_check() is True
+            assert await verified.health_check() is False, "an unknown CA must fail when verification is on"
+
+            # And with verification off, the connect-time rule still applies.
+            resolver.set(host, [PUBLIC], [PUBLIC], ["127.0.0.1"])
+            blocked = InvenTreeRestAdapter(url, "tok", allow_private=False, verify_ssl=False)
+            hits_before = len(server.hits)
+            assert await blocked.health_check() is False
+            assert len(server.hits) == hits_before
+        finally:
+            server.close()
+
+    def test_proxy_environment_does_not_bypass_the_pin(self, monkeypatch, resolver, listener):
+        """A proxy would resolve the name itself; with the pinned transport the env proxy is not used."""
+        proxy = _Listener()
+        try:
+            for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+                monkeypatch.setenv(name, f"http://127.0.0.1:{proxy.port}")
+            monkeypatch.delenv("NO_PROXY", raising=False)
+            monkeypatch.delenv("no_proxy", raising=False)
+            assert os.environ["HTTP_PROXY"].endswith(str(proxy.port))
+
+            host = "ha-proxy.kamerplanter.test"
+            resolver.set(host, [PUBLIC], ["127.0.0.1"])
+            client = HomeAssistantClient(f"http://{host}:{listener.port}", "llat-secret", timeout=5)
+            with pytest.raises(httpx.ConnectError) as caught:
+                client.get_state("sensor.tank_ec")
+
+            assert _refused_by_pin(caught.value)
+            assert proxy.hits == [], "the request went to the environment proxy, around the pin"
+            assert listener.hits == []
+        finally:
+            proxy.close()

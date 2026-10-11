@@ -619,6 +619,9 @@ Das Chart schränkt den Egress von `backend` und `celery-worker` deshalb bereits
 
 Kamerplanter prüft die URL von Home Assistant und InvenTree nicht nur beim Speichern: Jede Verbindung prüft die Adressen, zu denen sie aufgebaut wird, und verbindet sich nur mit einer davon. Eine DNS-Antwort, die sich zwischen Prüfung und Verbindung ändert (DNS-Rebinding), führt deshalb nicht an eine interne Adresse. Cloud-Metadaten und Link-Local bleiben immer gesperrt, private Adressen nur mit `HA_ALLOW_PRIVATE_ENDPOINT` bzw. `INVENTREE_ALLOW_PRIVATE_ENDPOINT`. Weiterleitungen folgt keine dieser Verbindungen, Web-Push ebenfalls nicht.
 
+!!! warning "Web-Push ist nicht angeheftet"
+    Den Push-Endpunkt prüft Kamerplanter beim Speichern und vor jedem Senden, beim Verbinden wird der Name aber erneut aufgelöst. Ein Name, der dann auf eine interne Adresse zeigt, scheitert am TLS-Zertifikat, bevor ein HTTP-Request gesendet wird; die TCP-Verbindung dorthin wird aber geöffnet. Die Egress-Regel des Charts (ohne `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`) ist hier die eigentliche Schranke.
+
 !!! note "Kein HTTP-Proxy für diese Verbindungen"
     Für Home Assistant und InvenTree gelten `HTTP_PROXY` und `HTTPS_PROXY` nicht: Ein Proxy würde den Namen selbst auflösen, und genau das soll die Verbindung nicht aus der Hand geben. Braucht dein Cluster für ausgehenden Verkehr einen Proxy, gib Home Assistant und InvenTree über eine Egress-Regel direkt frei.
 

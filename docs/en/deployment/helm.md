@@ -618,6 +618,9 @@ The chart therefore already restricts egress for `backend` and `celery-worker` (
 
 Kamerplanter does not only check the Home Assistant and InvenTree URL when it is saved: every connection checks the addresses it opens to and connects only to one of them. A DNS answer that changes between the check and the connection (DNS rebinding) therefore does not lead to an internal address. Cloud metadata and link-local stay refused in every case, private addresses only with `HA_ALLOW_PRIVATE_ENDPOINT` or `INVENTREE_ALLOW_PRIVATE_ENDPOINT`. None of these connections follows a redirect, and neither does Web Push.
 
+!!! warning "Web Push is not pinned"
+    Kamerplanter checks the push endpoint when it is saved and before every send, but the name is resolved again when connecting. A name that then points at an internal address fails at the TLS certificate before any HTTP request is sent; the TCP connection to it is opened, though. The chart's egress rule (excluding `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`) is the actual barrier here.
+
 !!! note "No HTTP proxy for these connections"
     `HTTP_PROXY` and `HTTPS_PROXY` do not apply to Home Assistant and InvenTree: a proxy would resolve the name itself, which is exactly what the connection must not hand over. If your cluster needs a proxy for outbound traffic, allow Home Assistant and InvenTree directly through an egress rule.
 

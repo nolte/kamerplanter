@@ -188,10 +188,14 @@ class PwaNotificationChannel(INotificationChannel):
                 # requests/urllib3 error names the endpoint as a *bare path*
                 # (``Max retries exceeded with url: /fcm/send/<token>``), which no
                 # URL masking recognises, and the traceback would render it again.
-                # The ``errors`` detail is logged by the engine, so it carries the
-                # host and the type only.
+                # The ``errors`` detail is logged by the engine and can reach the
+                # subscriber, so it carries the host and a generic class only: the
+                # exception type (ConnectTimeout vs. ConnectionError vs. SSLError) would
+                # tell a subscriber who rebinds their endpoint's name whether an
+                # internal address:port is open (#2249 review SEC-002). The type stays
+                # in the operator log below.
                 except Exception as exc:  # noqa: BLE001 — never abort the batch
-                    errors.append(f"{loggable_endpoint_host(endpoint)}: {type(exc).__name__}")
+                    errors.append(f"{loggable_endpoint_host(endpoint)}: delivery failed")
                     logger.error(
                         "pwa_notification_error",
                         endpoint_host=loggable_endpoint_host(endpoint),
