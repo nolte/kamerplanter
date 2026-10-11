@@ -2,7 +2,7 @@
 req_id: REQ-053
 title: Grafische Garten- und Beetplanung (Plan-Editor, Beetverwaltung, Pflanzplanung, Beetpflege, Feldmodus, Druck/Export)
 category: Standorte & Pflanzplanung
-test_count: 30
+test_count: 44
 coverage_areas:
   - Gartengrenze und Beete zeichnen (Raster, Snap, Maße)
   - Verschieben, Drehen, Undo/Redo, Tastaturbedienung
@@ -14,14 +14,17 @@ coverage_areas:
   - Pflegeaufgaben erledigen, Pflegehistorie (Filter, Zeitstrahl, Korrektur, Schwärzung)
   - Feldmodus Smartphone 390 × 844 (Erledigt in zwei Tipps, Schnellprotokoll mit Rückgängig)
   - Plan drucken (PDF) und JSON-Export
-generated: "2026-10-04"
-version: "1.2"
+  - v1.3 — Stapelauswahl, Touch-Zeichnen, Eltern-Kind, Maßeingabe, Zoom/LOD, Tastaturfokus
+  - v1.3 — Pflanzeninfo beim Überfahren, grafische Pflanzenzustände, Standortmerkmale, Eignungs-Ampel
+  - v1.3 — Wiederherstellung per Import, Saison-Kopie, Indoor-Grundriss (SHOULD)
+generated: "2026-10-11"
+version: "1.3"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
 
 Dieses Dokument enthält End-to-End-Testfälle aus **REQ-053 Grafische Garten- und Beetplanung
-v1.2**, ausschließlich aus der Perspektive eines Nutzers im Browser. Keine Endpunkte,
+v1.3**, ausschließlich aus der Perspektive eines Nutzers im Browser. Keine Endpunkte,
 HTTP-Statuscodes, Collection-Namen oder Datenbankabfragen erscheinen in den Testschritten. Alle
 Aussagen beschreiben, was der Nutzer sieht, anklickt, antippt, eintippt und auf dem Bildschirm
 erwartet. `data-testid`-Werte aus GP-UX-012 stehen in Klammern ausschließlich als Lokator-Hinweis.
@@ -42,17 +45,17 @@ Testdaten-Vorgabe.
 
 Abgedeckt sind die browser-beobachtbaren Akzeptanzkriterien GP-ACC-001, 002, 005, 006, 007, 008,
 011, 012, 015, 016, 019, 020, 021, 022, 024, 025, 026, 027, 028, 029, 030, 031 (nur Export),
-032, 035, 036, 039, 040, 044, 047 und 048. Die Kriterien sind dort, wo sie als Integrationstest
+032, 035, 036, 039, 040, 044, 047, 048, 051 und 052. Die Kriterien sind dort, wo sie als Integrationstest
 (I) formuliert sind, auf ihre sichtbare Wirkung in der Oberfläche reduziert; der Datenvertrag
 selbst (Feldwerte, Fehlercodes, Edges) wird in Integrationstests geprüft.
 
 Zusätzlich sind drei Testfälle aus Use Cases abgeleitet, die kein Akzeptanzkriterium trifft:
 TC-053-007 (Speichern-Status und Verlassen-Dialog, abgeleitet aus UC-02 / GP-UX-003),
 TC-053-029 (Plan drucken, abgeleitet aus UC-11) und TC-053-030 (Plan als JSON sichern,
-abgeleitet aus UC-12).
+abgeleitet aus UC-12). Die Fälle TC-053-031 bis TC-053-044 sind aus den Anforderungen der Version 1.3 abgeleitet (GP-ACC-051 und GP-ACC-052 sind direkt zugeordnet).
 
 **Nicht** abgedeckt sind die Kriterien GP-ACC-003, 004, 009, 010, 013, 014, 017, 018, 023,
-033, 034, 037, 038, 041, 042, 043, 045, 046 und 049 — siehe Abschnitt „Nicht abgedeckte
+033, 034, 037, 038, 041, 042, 043, 045, 046, 049 und 050 — siehe Abschnitt „Nicht abgedeckte
 Akzeptanzkriterien" am Dokumentende für die Begründung je Kriterium. Sie gehören in Unit-,
 Integrations- und Benchmark-Tests.
 
@@ -950,12 +953,414 @@ Jeder Testfall hält ausdrücklich fest, wie der Zustand herzustellen ist: über
 - Die Datei enthält Namen, Typen, Maße und Geometrien aller 5 Beete, der Positionen und der 3
   Gartenobjekte sowie Bodenprofile
 - Die Datei enthält keine Pflanzen, Aufgaben, Ereignisse oder Fotos
-- Der Import ist in diesem Zuschnitt nicht Teil des Tests (SHOULD, siehe unten)
+- Die Wiederherstellung per Import wird in TC-053-041 geprüft
 
 **Nachbedingungen**:
 - Datei heruntergeladen; Plan unverändert
 
 **Tags**: [req-053, export, json, sicherung, desktop, abgeleitet-uc-12, gp-acc-031]
+
+---
+
+## 6. Neu in v1.3 (Editor-Regeln, Pflanzeninfo, Standortmerkmale, Import)
+
+Die folgenden Testfälle decken die Erweiterungen aus Version 1.3 ab. TC-053-037 setzt die geklärte Semantik von `Species.shade_tolerance` voraus, TC-053-042 und TC-053-044 gehören zu SHOULD-Anforderungen und laufen erst mit deren Umsetzung.
+
+### TC-053-031: Überlappende Objekte — Stapelauswahl und Hit-Priorität
+
+**Requirement**: REQ-053 §9.7 GP-UX-032, GP-UX-033 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Interaktion
+**Preconditions**:
+- Plan mit einem Bereich „Nutzgarten“, darin ein Beet „Hochbeet 3“ mit 6 Pflanzen (Seed-Daten)
+
+**Testschritte**:
+1. Nutzer klickt auf eine Pflanze im Beet
+2. Nutzer klickt auf eine freie Stelle des Beets zwischen den Pflanzen
+3. Nutzer klickt auf eine Stelle im Bereich außerhalb des Beets
+4. Nutzer klickt erneut an derselben Stelle auf dem Beet und hält dabei `Alt`
+5. Nutzer öffnet im Panel die Liste „Objekte an dieser Stelle“
+
+**Erwartete Ergebnisse**:
+- Schritt 1 wählt die Pflanze, nicht das Beet
+- Schritt 2 wählt das Beet
+- Schritt 3 wählt den Bereich
+- Schritt 4 wählt das nächste Objekt unter dem Beet (den Bereich)
+- Die Liste nennt Pflanze, Beet und Bereich in dieser Reihenfolge; ein Klick auf einen Eintrag wählt das Objekt
+
+**Nachbedingungen**:
+- Bereich ausgewählt; nichts geändert
+
+**Tags**: [req-053, auswahl, hit-prioritaet, stapel, desktop, gp-ux-032]
+
+---
+
+### TC-053-032: Touch: Beet zeichnen mit Aktionsleiste und Mehrfachauswahl
+
+**Requirement**: REQ-053 §9.7 GP-UX-036, GP-UX-037, GP-UX-038 (abgeleitet)
+**Gerät**: Smartphone 390 × 844
+**Priority**: High
+**Category**: Touch-Bedienung
+**Preconditions**:
+- Plan mit Gartengrenze und zwei Beeten; Nutzer wechselt über „Bearbeiten“ in den Editiermodus
+
+**Testschritte**:
+1. Nutzer wählt das Werkzeug „Beet“ und die Form Polygon
+2. Nutzer tippt viermal „Punkt setzen“ an verschiedenen Stellen
+3. Nutzer tippt „Rückgängig“ und setzt den vierten Punkt neu
+4. Nutzer tippt „Fertig“
+5. Nutzer wählt das Polygon und tippt „Punkt löschen“ bei einem Eckpunkt
+6. Nutzer schaltet „Mehrfachauswahl“ ein und tippt die beiden anderen Beete an
+
+**Erwartete Ergebnisse**:
+- Die Aktionsleiste „Punkt setzen · Rückgängig · Fertig · Abbrechen“ ist sichtbar, jede Schaltfläche ist ≥ 48 px
+- Es ist kein Long-Press nötig
+- Nach „Fertig“ steht ein Beet mit Namensfeld im Panel
+- Nach „Punkt löschen“ hat das Polygon einen Punkt weniger; bei nur drei Punkten ist die Schaltfläche inaktiv
+- Im Mehrfachauswahl-Modus fügt jeder Tipp hinzu oder entfernt wieder; das Panel zeigt „3 Objekte ausgewählt“
+
+**Nachbedingungen**:
+- Neues Beet nicht gespeichert (Planungsmodus)
+
+**Tags**: [req-053, touch, zeichnen, mehrfachauswahl, smartphone, gp-ux-036]
+
+---
+
+### TC-053-033: Touch: dichte Pflanzen — Auswahlliste „Pflanzen in der Nähe“
+
+**Requirement**: REQ-053 §9.7 GP-UX-034, GP-UX-035 (abgeleitet)
+**Gerät**: Smartphone 390 × 844
+**Priority**: High
+**Category**: Touch-Bedienung
+**Preconditions**:
+- Beet 1,2 × 2,4 m mit 40 Radieschen im Abstand 5 cm (Seed-Daten), Feldmodus
+
+**Testschritte**:
+1. Nutzer öffnet die Beetansicht und zoomt auf „An Fläche anpassen“
+2. Nutzer tippt auf die Pflanzenreihe
+3. Nutzer tippt in der Liste auf einen Eintrag
+4. Nutzer tippt „Nächste Pflanze“
+
+**Erwartete Ergebnisse**:
+- Statt einer geratenen Einzelpflanze öffnet sich die Liste „Pflanzen in der Nähe“ als Bottom Sheet
+- Die Einträge nennen Art und Slot-Nummer und sind ≥ 64 px hoch
+- Der Tipp auf einen Eintrag wählt genau diese Pflanze und zeigt ihre Pflanzen-Info
+- „Nächste Pflanze“ springt in Reihenfolge der Reihe weiter
+
+**Nachbedingungen**:
+- Eine Pflanze ausgewählt; nichts geändert
+
+**Tags**: [req-053, touch, pflanzenauswahl, smartphone, gp-ux-034]
+
+---
+
+### TC-053-034: Pflanzen-Info beim Überfahren, ohne Nachladen
+
+**Requirement**: REQ-053 §11.4 GP-FR-190, GP-FR-191, GP-UX-058 — GP-ACC-051
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Pflanzeninfo
+**Preconditions**:
+- Beet mit 40 Pflanzen, eine Tomate in der Blüte mit zwei überfälligen Aufgaben (Seed-Daten)
+- Der Browser protokolliert Netzwerkaufrufe (Entwicklerwerkzeuge)
+
+**Testschritte**:
+1. Nutzer bewegt den Zeiger auf die Tomate und wartet 300 ms
+2. Nutzer bewegt den Zeiger in die Info-Blase
+3. Nutzer drückt `Esc`
+4. Nutzer setzt den Tastaturfokus mit den Pfeiltasten auf eine andere Pflanze
+5. Nutzer zieht ein Objekt (Drag) über den Plan
+
+**Erwartete Ergebnisse**:
+- Die Info-Blase erscheint nach 300 ms mit Art, Sorte, Phase samt Fortschritt („{n} d / {m} d“), Alter, Position, nächster Aufgabe und „2 Aufgaben überfällig“
+- Zwischen Überfahren und Anzeige findet kein Netzwerkaufruf statt
+- Die Blase bleibt sichtbar, solange der Zeiger auf ihr liegt, und verschwindet mit `Esc`
+- Der Tastaturfokus zeigt dieselbe Information; der Screenreader liest sie vor
+- Während des Drags erscheint keine Blase
+
+**Nachbedingungen**:
+- Nichts geändert
+
+**Tags**: [req-053, pflanzeninfo, mouseover, a11y, desktop, gp-acc-051]
+
+---
+
+### TC-053-035: Pflanzenzustände am Marker — Ring, Stil, Badge, Legende, Graustufen
+
+**Requirement**: REQ-053 §11.4 GP-FR-192, GP-UX-059, GP-UX-060, GP-UX-062 — GP-ACC-052
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Pflanzenzustand
+**Preconditions**:
+- Beet mit fünf Pflanzen in den Zuständen geplant, gesät, aktiv, in Ernte und ausgefallen (Seed-Daten); die aktive Pflanze hat zusätzlich einen offenen Befund und eine überfällige Aufgabe
+
+**Testschritte**:
+1. Nutzer öffnet die Beetansicht und prüft die fünf Marker
+2. Nutzer öffnet die Legende
+3. Nutzer schaltet in den Entwicklerwerkzeugen die Graustufen-Darstellung und die Simulation Rot-Grün-Schwäche ein
+4. Nutzer wechselt in den Dark Mode
+
+**Erwartete Ergebnisse**:
+- Geplant ist gestrichelt und blass, gesät zeigt das Saatmuster, aktiv einen durchgezogenen Ring in der Phasenfarbe, in Ernte das Erntesymbol, ausgefallen ein graues Kreuz mit „Nachpflanzen“
+- Die aktive Pflanze trägt genau ein Badge (Warndreieck für den Befund, nicht der rote Punkt für die überfällige Aufgabe)
+- Die Legende erklärt Ringfarben, Ringstile und alle Badges
+- Alle fünf Zustände bleiben in Graustufen und bei simulierter Rot-Grün-Schwäche unterscheidbar
+- Im Dark Mode bleiben die Kanäle gut erkennbar (Kontrast)
+
+**Nachbedingungen**:
+- Nichts geändert
+
+**Tags**: [req-053, pflanzenzustand, legende, a11y, desktop, gp-acc-052]
+
+---
+
+### TC-053-036: Sonne/Schatten am Beet erfassen — Kacheln und Stapel-Zuweisung
+
+**Requirement**: REQ-053 §10.2 GP-FR-157 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Standortmerkmale
+**Preconditions**:
+- Plan mit 30 Parzellen-Beeten (Seed-Daten), Sonne jeweils „Unbekannt“
+
+**Testschritte**:
+1. Nutzer wählt ein Beet und öffnet im Panel „Sonne/Schatten“
+2. Nutzer liest die Hilfetexte der Kacheln und wählt „Halbschatten“
+3. Nutzer wählt mit Rahmenauswahl 10 Parzellen und wählt „Sonne für alle gewählten Beete setzen“ → „Volle Sonne“
+4. Nutzer öffnet ein beliebiges dieser Beete
+
+**Erwartete Ergebnisse**:
+- Es gibt fünf Kacheln mit Icon und Text: Volle Sonne, Halbschatten, Schatten, Tiefschatten, Unbekannt (Standard)
+- Jede Kachel erklärt ihre Definition, z. B. mehr als 6 Stunden direktes Licht
+- Nach der Stapel-Zuweisung zeigen alle 10 Beete „Volle Sonne“, die übrigen bleiben unverändert
+- Die Beet-Zusammenfassung nennt die Sonneneinstrahlung
+
+**Nachbedingungen**:
+- Änderungen ungespeichert (Planungsmodus)
+
+**Tags**: [req-053, standortmerkmale, sonne, schatten, desktop, gp-fr-157]
+
+---
+
+### TC-053-037: Eignungs-Ampel beim Bepflanzen — nicht blockierend
+
+**Requirement**: REQ-053 §10.2 GP-FR-160 (abgeleitet); Voraussetzung: Semantik von `shade_tolerance` geklärt (O-16)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Standortmerkmale
+**Preconditions**:
+- Beet mit „Schatten“, Beet mit „Unbekannt“; Art Tomate (Vollsonne) im Steckbrief
+
+**Testschritte**:
+1. Nutzer wählt das Schattenbeet und öffnet „Bepflanzen“ mit Tomate
+2. Nutzer legt den Durchlauf an
+3. Nutzer wiederholt den Vorgang im Beet mit „Unbekannt“
+
+**Erwartete Ergebnisse**:
+- Der Dialog zeigt eine Ampel „schlecht geeignet“ mit Klartext („Beet: Schatten — Tomate braucht Vollsonne“)
+- Der Durchlauf lässt sich trotzdem anlegen; es gibt keine Sperre
+- Im Beet mit „Unbekannt“ erscheint kein Hinweis
+
+**Nachbedingungen**:
+- Durchläufe angelegt
+
+**Tags**: [req-053, site-fit, eignung, desktop, gp-fr-160]
+
+---
+
+### TC-053-038: Bereich verschieben und löschen — Kinder wandern mit, Dialog nennt die Anzahl
+
+**Requirement**: REQ-053 §9.7 GP-FR-151, GP-FR-153, GP-UX-043 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Eltern-Kind
+**Preconditions**:
+- Bereich „Nutzgarten“ mit 3 Beeten, davon eines mit 6 Pflanzen und 2 offenen Aufgaben, plus 1 Weg (Seed-Daten)
+
+**Testschritte**:
+1. Nutzer wählt den Bereich und verschiebt ihn um 2 m
+2. Nutzer drückt `Ctrl+Z`
+3. Nutzer wählt den Bereich und drückt `Entf`
+4. Nutzer bricht ab
+
+**Erwartete Ergebnisse**:
+- Alle enthaltenen Beete und der Weg wandern mit; ein Schritt rückgängig stellt alles wieder her
+- Der Löschdialog nennt „3 Beete, 1 Objekt, 6 Pflanzen, 2 Aufgaben“; der Fokus liegt auf „Abbrechen“
+- Nach „Abbrechen“ bleibt alles unverändert
+
+**Nachbedingungen**:
+- Bereich unverändert an Ursprungsposition
+
+**Tags**: [req-053, eltern-kind, loeschen, undo, desktop, gp-fr-151]
+
+---
+
+### TC-053-039: Beet per Maßeingabe anlegen und Objekt mit Tastatur platzieren
+
+**Requirement**: REQ-053 §9.7 GP-UX-046, GP-UX-044 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Eingabe
+**Preconditions**:
+- Plan mit Gartengrenze
+
+**Testschritte**:
+1. Nutzer öffnet „Hinzufügen mit Maßen“
+2. Nutzer wählt Hochbeet, Breite 1,2 m, Länge 2,4 m, Name „Hochbeet 4“, Position x 3,0 / y 2,0
+3. Nutzer bestätigt
+4. Nutzer drückt die Pfeiltaste nach rechts, ohne zuvor ein Objekt zu wählen
+5. Nutzer wählt das Beet und drückt die Pfeiltaste nach rechts
+
+**Erwartete Ergebnisse**:
+- Das Beet erscheint mit den angegebenen Maßen und Position, ohne dass mit der Maus gezeichnet wurde
+- Ohne Auswahl scrollt die Pfeiltaste den Plan
+- Mit Auswahl verschiebt die Pfeiltaste das Beet um einen Rasterschritt; die Statuszeile nennt den Modus
+
+**Nachbedingungen**:
+- Beet ungespeichert
+
+**Tags**: [req-053, hinzufuegen-mit-massen, tastatur, desktop, gp-ux-046]
+
+---
+
+### TC-053-040: Zoom und Beschriftung in der Übersicht — Beetnamen bleiben lesbar
+
+**Requirement**: REQ-053 §9.7 GP-FR-150, GP-NFR-067, GP-UX-047 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Darstellung
+**Preconditions**:
+- Plan 28 × 20 m mit 12 Beeten und je 20 Pflanzen, darunter ein sehr schmales Beet (Seed-Daten)
+
+**Testschritte**:
+1. Nutzer wählt „An Fläche anpassen“
+2. Nutzer zoomt schrittweise hinein
+3. Nutzer wählt das schmale Beet
+
+**Erwartete Ergebnisse**:
+- In der Übersicht tragen Beete ab 60 px Breite ihren Namen in gleichbleibender Schriftgröße; zu schmale zeigen das Typ-Icon
+- Pflanzen erscheinen erst bei genug Abstand, davor als Cluster mit Zähler („{n} Pflanzen · {m} mit Handlungsbedarf“)
+- Beim Hineinzoomen erscheinen Namen und Pflanzen, die Schrift springt nicht
+- Maßangaben stehen nur beim ausgewählten Beet
+
+**Nachbedingungen**:
+- Nichts geändert
+
+**Tags**: [req-053, zoom, lod, beschriftung, desktop, gp-nfr-067]
+
+---
+
+### TC-053-041: Plan aus JSON-Sicherung wiederherstellen — Prüfbericht und Snapshot
+
+**Requirement**: REQ-053 §23.1 GP-FR-170 (O-18, MVP), GP-FR-147
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Import
+**Preconditions**:
+- Leitung; JSON-Sicherung eines Plans mit 5 Beeten; der aktuelle Plan wurde danach um ein Beet geändert und ein Beet gelöscht
+
+**Testschritte**:
+1. Nutzer öffnet „Importieren“ und wählt die Sicherungsdatei
+2. Nutzer prüft den Prüfbericht
+3. Nutzer wählt den Modus „Ersetzen“ und tippt zur Bestätigung den Garten-Namen
+4. Nutzer bestätigt
+5. Nutzer meldet sich als Gärtner an und sucht „Importieren“
+
+**Erwartete Ergebnisse**:
+- Der Prüfbericht zeigt vor dem Import Zähler (neu/geändert/entfernt), Warnungen und verworfene Verweise; es wird noch nichts geändert
+- „Ersetzen“ verlangt die Eingabe des Garten-Namens und nennt den Sicherungs-Snapshot
+- Danach entspricht der Plan der Sicherung (5 Beete)
+- Der Gärtner sieht keinen Import-Eintrag
+
+**Nachbedingungen**:
+- Plan wiederhergestellt; Snapshot vorhanden
+
+**Tags**: [req-053, import, wiederherstellung, snapshot, desktop, gp-fr-170]
+
+---
+
+### TC-053-042: Neue Saison aus Vorjahr — Struktur ohne Pflanzen
+
+**Requirement**: REQ-053 §23.1 GP-FR-171 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Saison
+**Preconditions**:
+- Plan mit 4 Beeten und Vorjahrespflanzungen (historisch); Leitung
+
+**Testschritte**:
+1. Nutzer wählt „Neue Saison aus Vorjahr“
+2. Nutzer bestätigt
+3. Nutzer öffnet ein Beet und die Historie
+
+**Erwartete Ergebnisse**:
+- Beete, Positionen und Zonen sind übernommen; es gibt keine aktiven Pflanzen
+- Die Historie des Beets zeigt die Vorjahreskultur; Fruchtfolge-Hinweise beim Bepflanzen nutzen sie
+- Der Nutzer kann ein Beet bepflanzen
+
+**Nachbedingungen**:
+- Neue Saison ohne Pflanzen
+
+**Tags**: [req-053, saison-kopie, historie, desktop, gp-fr-171]
+
+---
+
+### TC-053-043: Tastaturnavigation durch den Plan — ein Tab-Stopp, Skip-Link
+
+**Requirement**: REQ-053 §9.7 GP-NFR-068, GP-NFR-069, GP-NFR-070 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Barrierefreiheit
+**Preconditions**:
+- Plan mit 12 Beeten, 200 Pflanzen; nur Tastatur und Screenreader
+
+**Testschritte**:
+1. Nutzer drückt `Tab`, bis die Zeichenfläche den Fokus hat
+2. Nutzer drückt `Tab` weiter
+3. Nutzer navigiert mit den Pfeiltasten zu einem Beet und drückt `Enter`
+4. Nutzer drückt `Esc`
+5. Nutzer löscht das Beet über das Panel, bestätigt und prüft den Fokus
+
+**Erwartete Ergebnisse**:
+- Die Zeichenfläche ist genau ein Tab-Stopp; der nächste `Tab` führt zum Panel, nicht durch 200 Pflanzen
+- Ein Skip-Link „Zur Objektliste“ ist erreichbar
+- `Enter` betritt das Beet, nun sind die Pflanzen fokussierbar; `Esc` führt zurück
+- Nach dem Löschen liegt der Fokus auf einem Nachbarobjekt, nicht auf der Seite insgesamt
+- Der Screenreader nennt Art, Phase und Handlungsbedarf jedes fokussierten Markers
+
+**Nachbedingungen**:
+- Beet gelöscht (nicht gespeichert)
+
+**Tags**: [req-053, tastatur, roving-tabindex, screenreader, desktop, gp-nfr-068]
+
+---
+
+### TC-053-044: Wohnungs-Grundriss mit Fenster (SHOULD, Indoor)
+
+**Requirement**: REQ-053 §9.8 GP-FR-180, GP-FR-181, GP-FR-033 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: Low
+**Category**: Indoor
+**Preconditions**:
+- Indoor-Site „Wohnung“ ohne Plan; Foto eines Grundrisses vorhanden
+
+**Testschritte**:
+1. Nutzer öffnet den Plan; der Leerzustand bietet das Foto als Vorlage an
+2. Nutzer lädt das Foto und legt zwei Punkte mit bekannter Distanz 4,0 m fest
+3. Nutzer zeichnet den Raum als Polygon und fügt ein Fenster in der Südwand hinzu
+4. Nutzer legt eine Fensterbank als Möbel an und stellt einen Topf als Pflanzposition darauf
+
+**Erwartete Ergebnisse**:
+- Der Leerzustand erklärt: „Zeichne die Umrisse deiner Wohnung oder lade ein Foto als Vorlage“
+- Nach der Eichung stimmen angezeigte Maße mit der Vorlage
+- Das Fenster trägt die abgeleitete Himmelsrichtung Süden
+- Der Topf ist bepflanzbar wie ein Beet-Slot; die Vorlage ist im Export nicht enthalten
+
+**Nachbedingungen**:
+- Plan ungespeichert; Vorlage nur Darstellung
+
+**Tags**: [req-053, indoor, wohnung, fenster, unterlage, desktop, gp-fr-180]
 
 ---
 
@@ -984,7 +1389,7 @@ Jeder Testfall hält ausdrücklich fest, wie der Zustand herzustellen ist: über
 | GP-ACC-028 | Fruchtfolge-Verlauf je Jahr | TC-053-024 |
 | GP-ACC-029 | Erledigt in zwei Tipps, ≥ 64 px | TC-053-025 |
 | GP-ACC-030 | PDF maßstäblich mit Leiste/Nordpfeil/Legende | TC-053-029 |
-| GP-ACC-031 | JSON-Export (Import nicht abgedeckt) | TC-053-030 |
+| GP-ACC-031 | JSON-Export und Wiederherstellung (Weg „Ersetzen“) | TC-053-030, TC-053-041 |
 | GP-ACC-032 | Ansicht „Als Liste", Barrierefreiheit | TC-053-009 |
 | GP-ACC-035 | Bestandsbeet ohne Geometrie | TC-053-011 |
 | GP-ACC-036 | Zelt = Beetansicht, Slot verschieben | TC-053-014 |
@@ -993,6 +1398,18 @@ Jeder Testfall hält ausdrücklich fest, wie der Zustand herzustellen ist: über
 | GP-ACC-044 | Ereignis schwärzen (Leitung) | TC-053-028 |
 | GP-ACC-047 | Fruchtfolge-Hinweis, „Trotzdem pflanzen" | TC-053-018 |
 | GP-ACC-048 | Chip „Gejätet/Gemulcht", Rückgängig 8 s | TC-053-026 |
+| GP-ACC-051 | Pflanzen-Info beim Überfahren ohne Nachladen | TC-053-034 |
+| GP-ACC-052 | Pflanzenzustände auch in Graustufen/Rot-Grün unterscheidbar | TC-053-035 |
+| (abgeleitet aus GP-UX-032/033) | Hit-Priorität, Stapelauswahl | TC-053-031 |
+| (abgeleitet aus GP-UX-034–038) | Touch-Zeichnen, dichte Pflanzen, Mehrfachauswahl | TC-053-032, TC-053-033 |
+| (abgeleitet aus GP-FR-157/160) | Sonne/Schatten erfassen, Eignungs-Ampel | TC-053-036, TC-053-037 |
+| (abgeleitet aus GP-FR-151/153) | Eltern-Kind, Löschdialog | TC-053-038 |
+| (abgeleitet aus GP-UX-044/046) | Maßeingabe, Tastatur | TC-053-039 |
+| (abgeleitet aus GP-FR-150, GP-NFR-067) | Zoom und Beschriftung | TC-053-040 |
+| (abgeleitet aus GP-FR-170) | Wiederherstellung per Import | TC-053-041 |
+| (abgeleitet aus GP-FR-171) | Saison-Kopie (SHOULD) | TC-053-042 |
+| (abgeleitet aus GP-NFR-068–070) | Fokusmodell | TC-053-043 |
+| (abgeleitet aus §9.8) | Indoor-Grundriss (SHOULD) | TC-053-044 |
 | (abgeleitet aus UC-02) | Speichern-Status, Verlassen-Dialog | TC-053-007 |
 | (abgeleitet aus UC-11) | Plan drucken | TC-053-029 |
 | (abgeleitet aus UC-12) | Plan sichern (Export) | TC-053-030 |
@@ -1023,10 +1440,10 @@ Testebenen:
 | GP-ACC-045 | Schutz vor Injektion im Beetnamen (SVG/PDF) | Sicherheitstest auf API-Ebene |
 | GP-ACC-046 | Mandantenfilter am Repository | Repository-Test |
 | GP-ACC-049 | Migration Spezies-Zehrerstufe | Unit-/Migrationstest |
+| GP-ACC-050 | Pflanzenzustand als reine Funktion, Frontend-Port identisch | Unit-Test (Calculator, Port-Gleichheit) |
 
-Teilweise nicht abgedeckt: der Import aus GP-ACC-031 (SHOULD, nicht im MVP) und die
-Konfliktfälle der Ersetzungs-/Wiederherstellungsfunktion; die Quoten- und Prüfregeln der Datei
-sind kein Browser-Artefakt.
+Teilweise nicht abgedeckt: der Import aus GP-ACC-031 ist über TC-053-041 für den Weg „Ersetzen“ abgedeckt; die Konfliktfälle der Ersetzungs-/Wiederherstellungsfunktion sowie die Quoten- und
+Prüfregeln der Datei sind kein Browser-Artefakt.
 
 ---
 
