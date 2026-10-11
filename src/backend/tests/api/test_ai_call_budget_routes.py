@@ -38,6 +38,7 @@ from app.domain.models.ai_assistant import AiConversation
 from app.domain.models.glossary_term import GlossaryTerm
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_context import TenantContext
+from tests.support.entitlement_doubles import patch_entitlement_leaves
 
 TENANT = "home"
 
@@ -170,6 +171,8 @@ def client(monkeypatch, adapter: MagicMock, valkey: FakeValkey) -> TestClient:
     )
     app.dependency_overrides[get_current_tenant] = _ctx
     app.dependency_overrides[get_tenant_repo] = lambda: tenant_repo
+    # #2142 — the KI budgets are the tenant's plan's: the entitlement service reads these two leaves.
+    patch_entitlement_leaves(monkeypatch, tenant_repo)
     return TestClient(app)
 
 

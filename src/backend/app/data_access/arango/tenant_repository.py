@@ -5,7 +5,7 @@ import structlog
 from arango.database import StandardDatabase, TransactionDatabase
 from arango.exceptions import DocumentInsertError, TransactionCommitError
 
-from app.common.enums import TenantType
+from app.common.enums import TenantStatus, TenantType
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.tenant_repository import ITenantRepository
@@ -170,16 +170,19 @@ class ArangoTenantRepository(BaseArangoRepository[Tenant], ITenantRepository):
     def count_organizations_by_owner(self, owner_user_key: str) -> int:
         query = """
         FOR doc IN @@collection
-          FILTER doc.owner_user_key == @owner AND doc.tenant_type == @type
+          FILTER doc.owner_user_key == @owner AND doc.tenant_type == @type AND doc.status != @deleted
           COLLECT WITH COUNT INTO cnt
           RETURN cnt
         """
+        # REQ-056 §6.2 (#2142) — every state counts (a suspended organisation too) except ``deleted``:
+        # its erasure has claimed it and the document is on its way out.
         cursor = self._db.aql.execute(
             query,
             bind_vars={
                 "@collection": col.TENANTS,
                 "owner": owner_user_key,
                 "type": TenantType.ORGANIZATION.value,
+                "deleted": TenantStatus.DELETED.value,
             },
         )
         return next(cursor, 0)

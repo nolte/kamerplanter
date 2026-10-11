@@ -29,10 +29,9 @@ from datetime import UTC, date, datetime
 
 import structlog
 
-from app.common.enums import AttachmentCategory
+from app.common.enums import AttachmentCategory, EntitlementDimension
 from app.common.exceptions import (
     NotFoundError,
-    PhotoQuotaExceededError,
     ValidationError,
 )
 from app.common.log_privacy import log_tenant
@@ -46,6 +45,7 @@ from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.attachment import CAPTION_MAX_LENGTH, Attachment, QualityAssessment
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.attachment_service import AttachmentService
+from app.domain.services.entitlement_service import EntitlementService
 from app.domain.services.identification_service import IdentificationService
 from app.domain.services.species_visibility import readable_species
 
@@ -65,11 +65,15 @@ class PlantPhotoService:
         identification_service: IdentificationService | None = None,
         species_repo: ISpeciesRepository | None = None,
         quality_assessor: PhotoQualityAssessor | None = None,
+        entitlements: EntitlementService | None = None,
     ) -> None:
         self._plants = plant_repo
         self._attachments = attachment_repo
         self._attachment_service = attachment_service
-        self._settings = settings
+        # REQ-056 §7.4 (#2142) — the gallery limit per plant comes from the tenant's plan (``null`` = the
+        # instance setting ``STORAGE_MAX_PHOTOS_PER_INSTANCE``). Without the plan resolution every tenant is
+        # held to the instance setting of ``settings``, as before #2142.
+        self._entitlements = entitlements or EntitlementService(plan_repo=None, tenant_repo=None, settings=settings)
         # REQ-034 §4a — optional dependencies for the on-demand quality
         # assessment. They are only required by ``assess_photo``; the link /
         # cover / delete paths work without them (kept optional so existing
@@ -118,9 +122,13 @@ class PlantPhotoService:
         # feature (same user/tenant, RBAC-gated); a hard guarantee would need an
         # atomic AQL `UPDATE ... FILTER LENGTH(photo_refs) < @limit` and is left
         # as a follow-up rather than risking the well-tested link path now.
-        limit = self._settings.storage_max_photos_per_instance
-        if limit > 0 and len(plant.photo_refs) >= limit:
-            raise PhotoQuotaExceededError(plant.key or "unknown", limit)
+        # REQ-056 §7.2 ``photos_per_instance``: ``0`` = unlimited; the photo being added is the projected one.
+        self._entitlements.require(
+            plant.tenant_key,
+            EntitlementDimension.PHOTOS_PER_INSTANCE,
+            projected=len(plant.photo_refs) + 1,
+            subject=plant.key or "unknown",
+        )
 
     # ── Quota pre-check (called by the API before uploading) ──────────
 

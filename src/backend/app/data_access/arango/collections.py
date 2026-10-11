@@ -252,6 +252,12 @@ TENANT_HA_ENTITY_GRANTS = "tenant_ha_entity_grants"
 #: The identity of a grant — enforced unique, so a re-grant is a no-op.
 HA_ENTITY_GRANT_IDENTITY_FIELDS = ["tenant_key", "entity_id"]
 
+# REQ-056 §7 (#2142) — the plan catalogue: named quota sets every tenant points at with
+# ``plan_key``. Global (not tenant-scoped), kept by the platform admin; ``standard`` is seeded.
+PLANS = "plans"
+#: Counting a plan's tenants (listing, refusing to delete a plan in use) reads by this field.
+TENANT_PLAN_INDEX_FIELDS = ["plan_key"]
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -375,6 +381,8 @@ DOCUMENT_COLLECTIONS = [
     SECURITY_AUDIT_LOG,
     # MT-015 Home Assistant entity allowlist (#2112)
     TENANT_HA_ENTITY_GRANTS,
+    # REQ-056 plan catalogue (#2142)
+    PLANS,
     # REQ-026 Aquaponics
     FISH_SPECIES,
     FISH_STOCKS,
@@ -2312,6 +2320,8 @@ def ensure_collections(db: StandardDatabase) -> None:
     # REQ-024 Tenant indexes
     tenants_col = db.collection(TENANTS)
     tenants_col.add_persistent_index(fields=["slug"], unique=True)
+    # REQ-056 §13.2 (#2142) — how many tenants a plan has (listing, delete refusal).
+    tenants_col.add_persistent_index(fields=TENANT_PLAN_INDEX_FIELDS, unique=False, in_background=True)
 
     memberships_col = db.collection(MEMBERSHIPS)
     memberships_col.add_persistent_index(fields=["user_key", "tenant_key"], unique=True)

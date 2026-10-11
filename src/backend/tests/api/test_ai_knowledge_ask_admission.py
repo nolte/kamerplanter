@@ -51,6 +51,7 @@ from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_context import TenantContext
 from tests.api.test_ai_call_budget_routes import DownValkey, FakeValkey
 from tests.api.test_expensive_routes_per_user_limit import _TokenAuth
+from tests.support.entitlement_doubles import patch_entitlement_leaves
 from tests.support.fake_consent_repo import FakeConsentRepo
 
 TENANT = "home"
@@ -141,6 +142,8 @@ def wired(monkeypatch):
         tenant_key=TENANT, tenant_slug=TENANT, user_key=USER, role=state.role
     )
     app.dependency_overrides[get_tenant_repo] = lambda: tenant_repo
+    # #2142 — the KI budgets are the tenant's plan's: the entitlement service reads these two leaves.
+    patch_entitlement_leaves(monkeypatch, tenant_repo)
     # No override for get_ai_assistant_service — the provider itself runs.
     yield SimpleNamespace(
         client=TestClient(app),

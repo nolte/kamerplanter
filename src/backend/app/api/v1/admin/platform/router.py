@@ -7,6 +7,7 @@ from app.api.v1.admin.platform.schemas import (
     AdminAddUserToTenantRequest,
     AdminMembershipRemovalRequest,
     AdminStatsResponse,
+    AdminTenantDetailResponse,
     AdminTenantMemberResponse,
     AdminTenantResponse,
     AdminTenantUpdate,
@@ -15,6 +16,9 @@ from app.api.v1.admin.platform.schemas import (
     AdminUserResponse,
     AdminUserTenantRole,
     AdminUserUpdate,
+    PlanCreateRequest,
+    PlanResponse,
+    PlanUpdateRequest,
     SecurityAuditEntryResponse,
 )
 from app.api.v1.auth.schemas import CREDENTIAL_STEP_UP_FIELDS
@@ -29,10 +33,13 @@ from app.api.v1.privacy.schemas import (
 from app.api.v1.tenants.schemas import (
     TenantDeleteRequest,
     TenantDeletionAcceptedResponse,
+    TenantEntitlementsResponse,
     TenantErasureCancelRequest,
 )
 from app.common.auth import get_authenticated_with_api_key, require_platform_admin
 from app.common.dependencies import (
+    get_entitlement_service,
+    get_plan_service,
     get_privacy_service,
     get_security_audit_service,
     get_tenant_service,
@@ -41,7 +48,10 @@ from app.common.dependencies import (
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
 from app.common.request_ip import resolve_client_ip
+from app.domain.models.plan import ZERO_IS_UNLIMITED_FIELDS, PlanWithUsage
 from app.domain.models.user import User
+from app.domain.services.entitlement_service import EntitlementService
+from app.domain.services.plan_service import PlanService
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.security_audit_service import MAX_READ_LIMIT, SecurityAuditService
 from app.domain.services.tenant_service import TenantService
@@ -126,9 +136,122 @@ def list_all_tenants(
                 member_count=member_count,
                 created_at=tenant.created_at,
                 updated_at=tenant.updated_at,
+                plan_key=tenant.plan_key,
             )
         )
     return results
+
+
+@router.get("/tenants/{key}", response_model=AdminTenantDetailResponse)
+def get_tenant_detail(
+    key: Annotated[str, Path(description="Document key of the tenant.")],
+    _user: User = Depends(require_platform_admin),
+    tenant_service: TenantService = Depends(get_tenant_service),
+    entitlement_service: EntitlementService = Depends(get_entitlement_service),
+) -> AdminTenantDetailResponse:
+    """One tenant with its plan and, per quota dimension, the effective limit and the usage. Platform admin only.
+
+    REQ-056 §7.7 (#2142): every dimension, the lead-only ones (service accounts, KI tokens) included. The
+    per-account KI count is the requesting admin's own in that tenant (normally ``0``), never a member's.
+    """
+    tenant = tenant_service.get_tenant(key)
+    entitlements = entitlement_service.usage(key, user_key=None, include_lead_only=True)
+    return AdminTenantDetailResponse(
+        key=tenant.key or key,
+        name=tenant.name,
+        slug=tenant.slug,
+        tenant_type=tenant.tenant_type,
+        description=tenant.description,
+        owner_user_key=tenant.owner_user_key,
+        is_active=tenant.is_active,
+        status=tenant.status,
+        deletion_scheduled_at=tenant.deletion_scheduled_at,
+        is_platform=tenant.is_platform,
+        max_members=tenant.max_members,
+        member_count=tenant_service.count_active_members(key),
+        created_at=tenant.created_at,
+        updated_at=tenant.updated_at,
+        plan_key=tenant.plan_key,
+        entitlements=TenantEntitlementsResponse.from_domain(entitlements),
+    )
+
+
+# ── Plan catalogue (REQ-056 §7.6, #2142) ─────────────────────────────
+
+
+def _plan_response(item: PlanWithUsage) -> PlanResponse:
+    plan = item.plan
+    return PlanResponse(
+        key=plan.key,
+        name=plan.name,
+        description=plan.description,
+        limits=plan.limits,
+        unlimited=[name for name in ZERO_IS_UNLIMITED_FIELDS if getattr(plan.limits, name) == 0],
+        is_default=plan.is_default,
+        tenant_count=item.tenant_count,
+        created_at=plan.created_at,
+        updated_at=plan.updated_at,
+    )
+
+
+@router.get("/plans", response_model=list[PlanResponse])
+def list_plans(
+    _user: User = Depends(require_platform_admin),
+    plan_service: PlanService = Depends(get_plan_service),
+) -> list[PlanResponse]:
+    """Every plan with the number of tenants assigned to it, ordered by key. Platform admin only.
+
+    Not paged: the catalogue is kept by hand and holds a handful of plans (REQ-056 §7.6).
+    """
+    return [_plan_response(item) for item in plan_service.list_plans()]
+
+
+@router.post("/plans", response_model=PlanResponse, status_code=201)
+def create_plan(
+    body: PlanCreateRequest,
+    admin: User = Depends(require_platform_admin),
+    plan_service: PlanService = Depends(get_plan_service),
+) -> PlanResponse:
+    """Create a plan. Platform admin only; 409 for a taken key, 422 for limits out of range.
+
+    A limit left out or ``null`` follows the instance setting. **``0`` means unlimited** for
+    ``storage_mb`` / ``photos_per_instance`` and **budget off** for the KI budgets — it never means
+    "nothing allowed"; the response lists such dimensions in ``unlimited``. ``members`` above
+    ``TENANT_MAX_MEMBERS_CEILING`` is 422; every limit has an upper bound (422 above it).
+    Written to the security audit (``plan_created``); no step-up.
+    """
+    created = plan_service.create_plan(
+        key=body.key, name=body.name, description=body.description, limits=body.limits, actor=admin
+    )
+    return _plan_response(created)
+
+
+@router.patch("/plans/{plan_key}", response_model=PlanResponse)
+def update_plan(
+    body: PlanUpdateRequest,
+    plan_key: Annotated[str, Path(description="Key of the plan.")],
+    admin: User = Depends(require_platform_admin),
+    plan_service: PlanService = Depends(get_plan_service),
+) -> PlanResponse:
+    """Change a plan's name, description or single limits, or make it the default. Platform admin only.
+
+    Applies to every tenant on the plan from its next check; a lower limit removes nothing (REQ-056 §7.5).
+    **``0`` means unlimited** (storage, photos) or **budget off** (KI); the audit row flags such a change.
+    ``is_default: true`` moves the default mark here; ``false`` is 422. Written to the security audit
+    (``plan_changed`` with the changed field names); no step-up.
+    """
+    updated = plan_service.update_plan(plan_key, body.model_dump(exclude_unset=True), actor=admin)
+    return _plan_response(updated)
+
+
+@router.delete("/plans/{plan_key}", status_code=204)
+def delete_plan(
+    plan_key: Annotated[str, Path(description="Key of the plan.")],
+    admin: User = Depends(require_platform_admin),
+    plan_service: PlanService = Depends(get_plan_service),
+) -> None:
+    """Delete a plan. Platform admin only; 409 while it is the default or a tenant is assigned to it."""
+    plan_service.delete_plan(plan_key, actor=admin)
 
 
 @router.get("/users", response_model=list[AdminUserResponse])
@@ -250,6 +373,7 @@ def update_tenant(
         member_count=member_count,
         created_at=tenant.created_at,
         updated_at=tenant.updated_at,
+        plan_key=tenant.plan_key,
     )
 
 
@@ -413,6 +537,7 @@ def cancel_tenant_erasure(
         member_count=member_count,
         created_at=tenant.created_at,
         updated_at=tenant.updated_at,
+        plan_key=tenant.plan_key,
     )
 
 

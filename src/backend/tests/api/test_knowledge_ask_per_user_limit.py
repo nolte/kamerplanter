@@ -30,6 +30,7 @@ from app.domain.interfaces.knowledge_service import AskResult
 from app.domain.models.tenant import Tenant
 from tests.api.test_ai_call_budget_routes import FakeValkey
 from tests.api.test_expensive_routes_per_user_limit import TENANT_SLUG, _tenant, _TokenAuth
+from tests.support.entitlement_doubles import patch_entitlement_leaves
 from tests.support.fake_consent_repo import GrantAllConsentRepo
 
 ASK = f"/api/v1/t/{TENANT_SLUG}/ai/knowledge/ask"
@@ -81,6 +82,8 @@ def wired(monkeypatch):
     app.dependency_overrides[get_auth_provider] = _TokenAuth
     app.dependency_overrides[get_current_tenant] = _tenant
     app.dependency_overrides[get_tenant_repo] = lambda: tenant_repo
+    # #2142 — the KI budgets are the tenant's plan's: the entitlement service reads these two leaves.
+    patch_entitlement_leaves(monkeypatch, tenant_repo)
     yield TestClient(app), knowledge
     limiter.reset()
 

@@ -8,7 +8,7 @@ Fokus: Beides
 Technologie: Python 3.14+, FastAPI, Celery, ArangoDB, TimescaleDB, Valkey, React 19, TypeScript 6, MUI 9
 Status: Entwurf
 Priorität: Mittel (Phase 4 des Multi-Tenant-/SaaS-Audits; Voraussetzung für Gate 3 „SaaS Ready“)
-Version: 1.0 (Erstfassung aus MT-050, #2143)
+Version: 1.1 (Plan-Katalog und Kontingente umgesetzt, #2142); 1.0 (Erstfassung aus MT-050, #2143)
 Datum: 2026-10-11
 Tags: [tenant, lifecycle, suspension, quota, entitlements, plan, registration, export, import, key-remapping, owner, billing-contact, saas]
 Abhängigkeit: REQ-023 v1.50 (Registrierungsmodus §3.2d, Step-up §3.9, Plattform-Admin §5a), REQ-024 v1.35 (Mandant, Zustände AK-52/AK-56/AK-65, Mitgliederlimit AK-64), REQ-025 v1.39 (Kontolöschung §3.1.3 Regel 2 und 4, Art.-15-Export), REQ-049 v1.14 (Rollen und Zusatzberechtigungen), REQ-031 v2.6 (KI-Tagesbudgets §3), REQ-034 v1.4 (Fotos je Pflanze), REQ-027 v1.8 (Light-Modus), NFR-011 v1.43 (R-01b, R-05, R-38, R-39, R-40), NFR-012 v1.2 (§10.3 Kontingente), NFR-013 v1.12 (Speicherkontingent §5.1, O-03)
@@ -20,6 +20,7 @@ Quelle: spec/analysis/multi-tenant-saas-readiness-audit-2026-10-04.md, Maßnahme
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.1 | 2026-10-11 | **#2142 (MT-049) umgesetzt:** §6.2 und §7 ohne Frontend. `Tenant.plan_key` (neue Mandanten erhalten den als Default markierten Plan), Collection `plans` mit dem fatalen Seed-Job `plans` aus `plans.yaml` (`standard`, alle Limits `null`; läuft bei jedem Start direkt nach den Migrationen), Migration `v0091` (stempelt `standard` auf jeden Mandanten ohne Plan, idempotent), `EntitlementService` (`limit`, `require`, `usage`, `ai_budget_limits`) als einzige Leserin der Settings aus §7.2 — Mitgliederlimit, Dienstkonten, Speicher, Fotos je Pflanze und `AiCallBudget` fragen nur noch ihn; `PlanService` und die Routen aus §7.6/§7.7; `TENANT_MAX_ORGANIZATIONS_PER_USER` mit `422 ORGANIZATION_LIMIT_REACHED`. Stand-Spalten in §2, §14, §16.2, §16.3, §16.6 und §20 nachgezogen. Abweichungen vom Entwurf: (1) kein eindeutiger Index auf `is_default` — „genau ein Default“ hält eine einzelne AQL-Anweisung (`make_default`), das Löschen prüft Nutzung und Default in derselben Anweisung (`delete_unused`); (2) kein Cache, der Plan wird bei jeder Prüfung frisch gelesen (§7.3 lässt beides zu); (3) zusätzlich zu `tenant_plan_changed`/`plan_changed` die Audit-Aktionen `plan_created` und `plan_deleted`; (4) `require` entscheidet die KI-Dimensionen nicht — sie bleiben Valkey-Zähler in `AiCallBudget`, das seine Grenzen über `ai_budget_limits` bezieht. Nach dem Security-Review: ein Plan-Dokument, das nicht validiert, gilt als fehlend (Log `entitlement.plan_invalid`, Rückfallkette), das Lesemodell ignoriert unbekannte Limit-Felder; Plan ändern und Plan zuordnen sind je eine AQL-Anweisung (die Zuordnung schreibt nur, solange der Plan existiert, und kollidiert mit seiner gleichzeitigen Löschung → `409`); `plan_changed` trägt für Limits alten und neuen Wert und markiert Aufhebungen (`to_unlimited`, `to_instance_setting`); jede Dimension hat eine Obergrenze; der Plattform-Mandant folgt immer den Instanzwerten und nimmt keinen Plan an (`422`). „`0` = unbegrenzt“ bei Speicher/Fotos/KI bleibt wie in §7.2 (überstimmbar), die Admin-Antwort listet solche Dimensionen in `unlimited`. Offen: Frontend (§15, AK-45). |
 | 1.0 | 2026-10-11 | Erstfassung (#2143, MT-050). Bestandsaufnahme gegen `develop` @ `1fc021724` (§2): Zustände, Gnadenfrist, verwaiste Organisationen, Registrierungsmodus, Mitglieder-, Dienstkonto-, Speicher-, Foto- und KI-Limits sind umgesetzt und in REQ-023/REQ-024/REQ-025/REQ-031 spezifiziert; dieses Dokument führt sie zusammen, ohne sie zu duplizieren (§1.2). Neu spezifiziert: Hintergrundjobs eines nicht aktiven Mandanten (§5.2, fünf Beat-Aufgaben ohne Prüfung gemessen), Sperrgrund und Benachrichtigung (§5.3/§5.4), Abbruch einer Löschung stellt den Zustand **vor** der Löschung her (§4.3, gemessener Ausweg aus einer Sperre), Plan-Katalog mit Default-Plan `standard` = heutige Grenzen (§7, Betreiberentscheidung), Mandanten-Export und -Import mit Schlüssel-Neuvergabe (§8), Eigentümerwechsel und Billing-Kontakt mit Step-up (§9), Billing nur als dokumentierter Anknüpfungspunkt (§11). 45 Abnahmekriterien (§16), 10 überstimmbare Entscheidungen (§19). Folgeänderungen: REQ-023 v1.50, REQ-024 v1.35, REQ-025 v1.39, NFR-011 v1.43, NFR-012 v1.2 (§10.3 neu), NFR-013 v1.12 (O-03 beantwortet). |
 
 ---
@@ -79,13 +80,13 @@ Alle Pfade relativ zu `src/backend/app/`.
 | Sperrgrund, Benachrichtigung | Kein Sperrgrund; Mitglieder erfahren von einer Sperre nichts | `api/v1/admin/platform/schemas.py` (`AdminTenantUpdate`) | fehlt, §5.3/§5.4 |
 | Verwaiste Organisation | Kontolöschantrag der letzten Verwaltung: dienstälteste Leitung übernimmt, sonst `orphaned` mit Löschfrist; kein Notfall-Admin | `domain/services/tenant_service.py` (`settle_organisations_of_erased_account`) | umgesetzt (#2134, #2166) |
 | Registrierungsmodus | `REGISTRATION_MODE` (`open`/`invite_only`/`closed`) und `REGISTRATION_ALLOWED_DOMAINS` | `config/settings.py`, REQ-023 §3.2d | umgesetzt (#2132) |
-| Organisationen je Konto | Fest **10** im Code (`TenantEngine.can_create_organization(existing_org_count, max_orgs=10)`), gezählt über `owner_user_key`; Ablehnung als allgemeiner Validierungsfehler | `domain/engines/tenant_engine.py`, `tenant_service.py` (`create_organization`) | hartkodiert, §6.2 |
+| Organisationen je Konto | Fest **10** im Code (`TenantEngine.can_create_organization(existing_org_count, max_orgs=10)`), gezählt über `owner_user_key`; Ablehnung als allgemeiner Validierungsfehler | `domain/engines/tenant_engine.py`, `tenant_service.py` (`create_organization`) | hartkodiert, §6.2 — seit v1.1 Setting `TENANT_MAX_ORGANIZATIONS_PER_USER` (#2142) |
 | Mitgliederlimit | `min(max_members, TENANT_MAX_MEMBERS_CEILING)` (Default 50), `422 MEMBER_LIMIT_REACHED` | REQ-024 AK-64 | umgesetzt (#2133) |
 | Dienstkonten je Mandant | `TENANT_MAX_SERVICE_ACCOUNTS` (Default 20), `422 SERVICE_ACCOUNT_LIMIT_REACHED` | `config/settings.py` | umgesetzt (#2137) |
 | Speicher je Mandant | `STORAGE_TENANT_QUOTA_MB` (Default 2048, `0` = unbegrenzt), `409 STORAGE_QUOTA_EXCEEDED` | `domain/services/attachment_service.py` | umgesetzt |
 | Fotos je Pflanze | `STORAGE_MAX_PHOTOS_PER_INSTANCE` (Default 50, `0` = unbegrenzt), `409 PHOTO_QUOTA_EXCEEDED` | `domain/services/plant_photo_service.py` | umgesetzt |
 | KI-Tagesbudgets | `AI_BUDGET_USER_CALLS_PER_DAY` (50), `AI_BUDGET_TENANT_CALLS_PER_DAY` (500), `AI_BUDGET_TENANT_TOKENS_PER_DAY` (2 000 000), `429 AI_BUDGET_EXCEEDED` | `domain/services/ai_call_budget.py` | umgesetzt (#2110) |
-| Plan, Entitlements | Kein `plan_key`, keine Plan-Collection, kein Entitlement-Dienst; jede Grenze liest ihr Setting selbst | — | fehlt, §7 (#2142) |
+| Plan, Entitlements | Kein `plan_key`, keine Plan-Collection, kein Entitlement-Dienst; jede Grenze liest ihr Setting selbst | — | fehlt, §7 (#2142) — seit v1.1 umgesetzt bis auf das Frontend: `domain/services/entitlement_service.py`, `domain/services/plan_service.py`, `migrations/versions/v0091_tenant_plan_key.py` |
 | Mandanten-Export | Kein Export eines ganzen Mandanten; `AttachmentCategory.TENANT_EXPORT` ist deklariert und ungenutzt; `_key` wird je Collection von ArangoDB vergeben | `common/enums.py`, `data_access/arango/base_repository.py` | fehlt, §8 (#2138) |
 | Eigentum | `owner_user_key` verleiht kein Recht (REQ-049), zählt aber für das Organisationslimit des Kontos; kein Wechsel möglich; bei Kontolöschung wird er anonymisiert | `domain/engines/erasure_engine.py`, `domain/engines/membership_engine.py` | fehlt, §9 |
 | Billing-Kontakt | existiert nicht | — | fehlt, §9 |
@@ -571,11 +572,11 @@ class TenantImportRequest(BaseModel):
 
 | Methode | Pfad | Zweck | Berechtigung | Stand |
 |---|---|---|---|---|
-| PATCH | `/admin/platform/tenants/{key}` | `is_active` (mit `suspension_reason`, `suspension_note`), `plan_key` | Plattform-Admin; Step-up bei `is_active` | `is_active` umgesetzt; Rest neu |
-| GET | `/admin/platform/tenants/{key}` | + `plan_key`, `entitlements`, Eigentümer, Billing-Kontakt, Sperrgrund | Plattform-Admin | neu (Felder) |
-| GET/POST | `/admin/platform/plans` | Pläne listen/anlegen | Plattform-Admin | neu |
-| PATCH/DELETE | `/admin/platform/plans/{plan_key}` | Plan ändern/löschen | Plattform-Admin | neu |
-| GET | `/tenants/{slug}/entitlements` | Plan, Limits, Verbrauch | jedes Mitglied (Teile nur Leitung, §7.7) | neu |
+| PATCH | `/admin/platform/tenants/{key}` | `is_active` (mit `suspension_reason`, `suspension_note`), `plan_key` | Plattform-Admin; Step-up bei `is_active` | `is_active`, `plan_key` umgesetzt (#2142); Sperrgrund neu |
+| GET | `/admin/platform/tenants/{key}` | + `plan_key`, `entitlements`, Eigentümer, Billing-Kontakt, Sperrgrund | Plattform-Admin | `plan_key`, `entitlements` umgesetzt (#2142); Rest neu |
+| GET/POST | `/admin/platform/plans` | Pläne listen/anlegen | Plattform-Admin | umgesetzt (#2142) |
+| PATCH/DELETE | `/admin/platform/plans/{plan_key}` | Plan ändern/löschen | Plattform-Admin | umgesetzt (#2142) |
+| GET | `/tenants/{slug}/entitlements` | Plan, Limits, Verbrauch | jedes Mitglied (Teile nur Leitung, §7.7) | umgesetzt (#2142) |
 | POST | `/tenants/{slug}/exports` | Export anfordern (`202`) | Verwaltung ∧ Leitung + Step-up | neu |
 | GET | `/tenants/{slug}/exports` | eigene Exporte listen | Anfordernde | neu |
 | GET | `/tenants/{slug}/exports/{export_key}/download` | Archiv laden | Anfordernde | neu |
@@ -632,23 +633,23 @@ Status: **umgesetzt** (mit Testbeleg) oder **nicht implementiert**. Testart: U =
 | AK | Kriterium | Test | Stand |
 |---|---|---|---|
 | AK-13 | `REGISTRATION_MODE` und `REGISTRATION_ALLOWED_DOMAINS` wirken nach REQ-023 §3.2d. | U `test_registration_mode.py`, I `test_registration_mode_reach.py`, A `test_registration_mode_api.py` | umgesetzt |
-| AK-14 | GIVEN `TENANT_MAX_ORGANIZATIONS_PER_USER=2` und ein Konto mit zwei Organisationen (eine davon gesperrt), WHEN es eine dritte gründet, THEN `422 ORGANIZATION_LIMIT_REACHED`, nichts angelegt. | U + A | nicht implementiert |
-| AK-15 | GIVEN `TENANT_MAX_ORGANIZATIONS_PER_USER=0`, WHEN ein Konto `POST /tenants` aufruft, THEN `422 ORGANIZATION_LIMIT_REACHED`; ein Plattform-Admin legt weiterhin Organisationen an. | U | nicht implementiert |
+| AK-14 | GIVEN `TENANT_MAX_ORGANIZATIONS_PER_USER=2` und ein Konto mit zwei Organisationen (eine davon gesperrt), WHEN es eine dritte gründet, THEN `422 ORGANIZATION_LIMIT_REACHED`, nichts angelegt. | U `test_tenant_quotas_follow_the_plan.py`, A `test_plan_and_entitlement_routes.py`, I `test_v0091_tenant_plan_key.py` (Zählung ohne `deleted`) | umgesetzt (#2142) |
+| AK-15 | GIVEN `TENANT_MAX_ORGANIZATIONS_PER_USER=0`, WHEN ein Konto `POST /tenants` aufruft, THEN `422 ORGANIZATION_LIMIT_REACHED`; ein Plattform-Admin legt weiterhin Organisationen an. | U `test_tenant_quotas_follow_the_plan.py` | umgesetzt (#2142; die Grenze sitzt nur in `TenantService.create_organization`, das allein `POST /tenants` ruft — eine Admin-Route zum Anlegen einer Organisation gibt es nicht, der Plattform-Admin ist also an nichts gebunden) |
 
 ### 16.3 Plan und Kontingente
 
 | AK | Kriterium | Test | Stand |
 |---|---|---|---|
-| AK-16 | Nach der Migration trägt jeder Mandant `plan_key = "standard"`; der Plan `standard` existiert mit allen Limits `null` und `is_default: true`; die Migration ist idempotent. | I | nicht implementiert |
-| AK-17 | Mit Plan `standard` und unveränderten Settings ist jede Ablehnung (Code, Status, Schwelle) dieselbe wie vor der Umstellung — die bestehenden Tests der sechs Prüfstellen bleiben unverändert grün. | U (bestehende Suiten) | nicht implementiert |
-| AK-18 | Je Dimension aus §7.2: GIVEN ein Plan mit Limit n, WHEN die (n+1)-te Anlage versucht wird, THEN Ablehnung mit dem Code der Dimension; `null` übernimmt den Instanzwert; `0` bei Speicher/Fotos = unbegrenzt, bei KI = Budget aus. | U je Dimension | nicht implementiert |
-| AK-19 | Kein Modul unter `app/` außer `EntitlementService` und `config/settings.py` liest die Settings aus §7.2 (AST-Guard). Der Guard schlägt bei einem eingeschleusten direkten Lesezugriff fehl (Selbsttest). | G | nicht implementiert |
-| AK-20 | Ein Plan mit `members` über `TENANT_MAX_MEMBERS_CEILING` → `422` beim Anlegen und Ändern; wirksam ist `min(max_members, plan.members ?? Obergrenze, Obergrenze)`. | U | nicht implementiert |
-| AK-21 | Senken eines Limits (Planwechsel oder Plan ändern) entfernt nichts; die nächste Anlage wird abgelehnt. | U | nicht implementiert |
-| AK-22 | Plan löschen, der genutzt wird oder Default ist → `409`; Default wechseln setzt genau einen Default (Transaktion). | U + I | nicht implementiert |
-| AK-23 | Plan zuordnen und Plan ändern schreiben `tenant_plan_changed` bzw. `plan_changed`; ein Nicht-Admin erhält `403`; die Verwaltung eines Mandanten kann `plan_key` über keine Route setzen. | A | nicht implementiert |
-| AK-24 | `GET /tenants/{slug}/entitlements` liefert Plan, Limits und Verbrauch; `ai_calls_per_user_day.used` ist der eigene Verbrauch; `service_accounts` und `ai_tokens_per_tenant_day` fehlen für Nicht-Leitung; ein gesperrter Mandant antwortet wie ein unbekannter. | A | nicht implementiert |
-| AK-25 | Fehlt der referenzierte Plan, gelten die Limits des Default-Plans und `entitlement.plan_missing` wird geloggt; es wird nie unbegrenzt. | U | nicht implementiert |
+| AK-16 | Nach der Migration trägt jeder Mandant `plan_key = "standard"`; der Plan `standard` existiert mit allen Limits `null` und `is_default: true`; die Migration ist idempotent. | I `test_v0091_tenant_plan_key.py` | umgesetzt (#2142) |
+| AK-17 | Mit Plan `standard` und unveränderten Settings ist jede Ablehnung (Code, Status, Schwelle) dieselbe wie vor der Umstellung — die bestehenden Tests der sechs Prüfstellen bleiben unverändert grün. | U `test_entitlement_service.py` + bestehende Suiten | umgesetzt (#2142; drei KI-API-Suiten ersetzen zusätzlich die beiden Repository-Blätter des Dienstes, ihre Assertions sind unverändert) |
+| AK-18 | Je Dimension aus §7.2: GIVEN ein Plan mit Limit n, WHEN die (n+1)-te Anlage versucht wird, THEN Ablehnung mit dem Code der Dimension; `null` übernimmt den Instanzwert; `0` bei Speicher/Fotos = unbegrenzt, bei KI = Budget aus. | U `test_entitlement_service.py`, `test_tenant_quotas_follow_the_plan.py` | umgesetzt (#2142) |
+| AK-19 | Kein Modul unter `app/` außer `EntitlementService` und `config/settings.py` liest die Settings aus §7.2 (AST-Guard). Der Guard schlägt bei einem eingeschleusten direkten Lesezugriff fehl (Selbsttest). | G `test_quota_settings_are_read_by_the_entitlement_service.py`, `test_quota_checks_reach_the_entitlement_service.py` | umgesetzt (#2142) |
+| AK-20 | Ein Plan mit `members` über `TENANT_MAX_MEMBERS_CEILING` → `422` beim Anlegen und Ändern; wirksam ist `min(max_members, plan.members ?? Obergrenze, Obergrenze)`. | U `test_entitlement_service.py`, `test_plan_service.py` | umgesetzt (#2142) |
+| AK-21 | Senken eines Limits (Planwechsel oder Plan ändern) entfernt nichts; die nächste Anlage wird abgelehnt. | U `test_tenant_quotas_follow_the_plan.py`, `test_entitlement_service.py` | umgesetzt (#2142) |
+| AK-22 | Plan löschen, der genutzt wird oder Default ist → `409`; Default wechseln setzt genau einen Default (Transaktion). | U `test_plan_service.py`, I `test_v0091_tenant_plan_key.py` | umgesetzt (#2142; eine AQL-Anweisung statt Transaktion) |
+| AK-23 | Plan zuordnen und Plan ändern schreiben `tenant_plan_changed` bzw. `plan_changed`; ein Nicht-Admin erhält `403`; die Verwaltung eines Mandanten kann `plan_key` über keine Route setzen. | A `test_plan_and_entitlement_routes.py`, U `test_tenant_quotas_follow_the_plan.py` | umgesetzt (#2142) |
+| AK-24 | `GET /tenants/{slug}/entitlements` liefert Plan, Limits und Verbrauch; `ai_calls_per_user_day.used` ist der eigene Verbrauch; `service_accounts` und `ai_tokens_per_tenant_day` fehlen für Nicht-Leitung; ein gesperrter Mandant antwortet wie ein unbekannter. | A `test_plan_and_entitlement_routes.py` | umgesetzt (#2142; der gesperrte Mandant über den Resolver `get_current_tenant`, AK-02) |
+| AK-25 | Fehlt der referenzierte Plan, gelten die Limits des Default-Plans und `entitlement.plan_missing` wird geloggt; es wird nie unbegrenzt. | U `test_entitlement_service.py` | umgesetzt (#2142) |
 
 ### 16.4 Export und Import
 
@@ -681,7 +682,7 @@ Status: **umgesetzt** (mit Testbeleg) oder **nicht implementiert**. Testart: U =
 | AK | Kriterium | Test | Stand |
 |---|---|---|---|
 | AK-42 | Kontolöschantrag der letzten Verwaltung: dienstälteste Leitung übernimmt, sonst `orphaned` mit Löschfrist; eine verwaiste Organisation ist nicht abbrechbar (`422`). | U `test_erasure_settles_organisations_at_request.py`, I `test_erasure_orphaned_organisations.py` | umgesetzt |
-| AK-43 | Im Light-Modus sind Plan- und Import-Routen nicht eingebunden; die Grenzen entsprechen den Instanzwerten. | U | nicht implementiert |
+| AK-43 | Im Light-Modus sind Plan- und Import-Routen nicht eingebunden; die Grenzen entsprechen den Instanzwerten. | A `test_plan_routes_follow_the_mode.py` | umgesetzt für die Plan-Routen (#2142; Import-Routen gibt es noch nicht, #2138) |
 
 ### 16.7 Ergänzungen zu Export und Frontend
 
@@ -772,7 +773,7 @@ Status: **umgesetzt** (mit Testbeleg) oder **nicht implementiert**. Testart: U =
 | 1 | Abbruch stellt vorherigen Zustand her (§4.3) — Sicherheitsdefekt, unabhängig vom Rest | AK-05, AK-06 | neues Issue |
 | 2 | Beat-Klassifikation und Lückenschluss (§5.2), API-Key-Negativtest | AK-04, AK-07 … AK-09 | neues Issue |
 | 3 | Sperrgrund und Mitglieder-Mail | AK-10, AK-11 | neues Issue |
-| 4 | Plan-Collection, Migration, `EntitlementService`, Organisationslimit-Setting | AK-14 … AK-25 | #2142 |
+| 4 | Plan-Collection, Migration, `EntitlementService`, Organisationslimit-Setting | AK-14 … AK-25 | #2142 (umgesetzt bis auf das Frontend, v1.1) |
 | 5 | Eigentümerwechsel, Billing-Kontakt, Eigentum bei Kontolöschung | AK-37 … AK-41 | neues Issue |
 | 6 | Export (Inventar-Deckung, Archiv, Ablauf) | AK-26 … AK-30, AK-35, AK-36, AK-44 | #2138 |
 | 7 | Import mit Schlüssel-Neuvergabe | AK-31 … AK-34 | #2138 |

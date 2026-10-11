@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -5,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from app.api.v1.auth.schemas import CredentialStepUp
 from app.common.enums import (
     AdminScope,
+    EntitlementDimension,
     InvitationStatus,
     InvitationType,
     TenantRole,
@@ -12,6 +15,7 @@ from app.common.enums import (
     TenantType,
 )
 from app.domain.models.invitation import INVITATION_MAX_USES_LIMIT
+from app.domain.models.plan import TenantEntitlements
 from app.domain.models.tenant_erasure import (
     TenantDeletionConfirmation,
     TenantErasureCancelConfirmation,
@@ -187,6 +191,8 @@ class TenantResponse(BaseModel):
     max_members: int
     created_at: datetime | None
     updated_at: datetime | None
+    #: REQ-056 §7.1 (#2142) — the plan whose quotas apply; set by a platform admin only.
+    plan_key: str = "standard"
 
 
 class TenantWithRoleResponse(BaseModel):
@@ -338,3 +344,50 @@ class AssignmentResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class EntitlementUsageResponse(BaseModel):
+    """One dimension of a tenant's quotas (REQ-056 §7.7): ``limit`` null = unlimited, ``used`` null = not counted."""
+
+    dimension: EntitlementDimension
+    limit: int | None
+    used: int | None
+
+
+class EntitlementPlanRef(BaseModel):
+    key: str
+    name: str
+
+
+class TenantEntitlementsResponse(BaseModel):
+    """A tenant's plan and, per dimension, the effective limit and the usage (REQ-056 §7.7)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "plan": {"key": "standard", "name": "Standard"},
+                    "limits": [
+                        {"dimension": "members", "limit": 50, "used": 12},
+                        {"dimension": "storage_mb", "limit": 2048, "used": 731},
+                        {"dimension": "photos_per_instance", "limit": 50, "used": None},
+                        {"dimension": "ai_calls_per_user_day", "limit": 50, "used": 3},
+                        {"dimension": "ai_calls_per_tenant_day", "limit": 500, "used": 41},
+                    ],
+                }
+            ]
+        }
+    )
+
+    plan: EntitlementPlanRef
+    limits: list[EntitlementUsageResponse]
+
+    @classmethod
+    def from_domain(cls, entitlements: TenantEntitlements) -> TenantEntitlementsResponse:
+        return cls(
+            plan=EntitlementPlanRef(key=entitlements.plan_key, name=entitlements.plan_name),
+            limits=[
+                EntitlementUsageResponse(dimension=row.dimension, limit=row.limit, used=row.used)
+                for row in entitlements.limits
+            ],
+        )

@@ -35,8 +35,23 @@ Im Bereich **Admin > Mandanten** kannst du:
 - Einzelne Mandanten deaktivieren oder löschen
 - Mitglieder eines Mandanten stellvertretend verwalten
 
+### Pläne und Kontingente
+
+Jeder Mandant hat einen **Plan**. Ein Plan legt fest, wie viel ein Mandant nutzen darf: aktive Mitglieder, Service Accounts, Speicherplatz in MB, Fotos je Pflanze und die drei KI-Tagesbudgets (Anfragen je Konto, Anfragen des ganzen Mandanten, Tokens des Mandanten). Ein leeres Kontingent bedeutet „wie die Server-Einstellung“ — es gilt dann der Wert, den der Betreiber per Umgebungsvariable setzt.
+
+- Jeder Mandant startet mit dem Plan **Standard**. Bei ihm sind alle Kontingente leer, er verhält sich also genau wie eine Installation ohne Pläne. Du kannst ihn umbenennen und ändern, aber nicht löschen.
+- Weitere Pläne legst nur du als Plattform-Admin an, und nur du ordnest einem Mandanten einen Plan zu. Die Verwaltung eines Mandanten kann ihren Plan nicht selbst wählen.
+- Ein niedrigeres Kontingent entfernt nichts: Ein Mandant über seiner neuen Grenze behält Mitglieder, Dateien und Fotos; erst die nächste Anlage wird abgelehnt. Ein Planwechsel wirkt ab der nächsten Prüfung.
+- Das Mitgliederkontingent bleibt durch `TENANT_MAX_MEMBERS_CEILING` gedeckelt; alle anderen Kontingente dürfen über der Server-Einstellung liegen.
+- **Vorsicht mit `0`:** Bei Speicher und Fotos je Pflanze heißt `0` „unbegrenzt“, bei den KI-Budgets „Budget aus“ — in beiden Fällen gibt es dann keine Grenze, nicht etwa „nichts erlaubt“.
+- Der Mandant `platform` folgt immer den Server-Einstellungen und bekommt keinen Plan zugeordnet, damit du jederzeit weitere Plattform-Admins hinzufügen kannst.
+- Zuordnen und Ändern brauchen keine Passwort-Bestätigung, landen aber im Sicherheitsprotokoll (`tenant_plan_changed`, `plan_created`, `plan_changed`, `plan_deleted`).
+- Jedes Mitglied sieht Plan und Verbrauch seines Mandanten über `GET /api/v1/tenants/{slug}/entitlements`; Service Accounts und Token-Verbrauch sieht nur, wer Leitung ist.
+
+Wie viele Organisationen ein Konto selbst gründen darf, ist kein Plan-Kontingent, sondern die Server-Einstellung `TENANT_MAX_ORGANIZATIONS_PER_USER` (Standard `10`; `0` heißt: Organisationen legt nur der Betreiber an).
+
 !!! warning "Noch nicht implementiert"
-    Eine Übersicht über Kontingente und Verbrauch eines Mandanten gibt es im Admin-Bereich noch nicht. Geplant ist, dass du Pläne mit eigenen Kontingenten anlegst — Mitglieder, Speicherplatz, Fotos je Pflanze, KI-Anfragen pro Tag — und jedem Mandanten einen Plan zuordnest; die Seite eines Mandanten wird dann seinen Plan und den Verbrauch je Kontingent zeigen. Bis dahin gelten für alle Mandanten dieselben Grenzen, die der Betreiber auf dem Server einstellt. <!-- REQ-056, Issue #2142 -->
+    Pläne pflegst du bisher nur über die API (`/api/v1/admin/platform/plans`, Zuordnung mit `PATCH /api/v1/admin/platform/tenants/{key}` und `plan_key`); eine Seite dafür gibt es im Admin-Bereich noch nicht, und die Mandantenseite zeigt Plan und Verbrauch noch nicht an (interne Referenz: REQ-056 §15). Die Felder und Codes beschreibt die [API-Referenz](../reference/api-reference.md#plaene-und-kontingente). <!-- REQ-056 AK-45, Issue #2142 -->
 
 !!! info "Ein deaktivierter Mandant sperrt alle Mitglieder aus"
     Deaktivierst du einen Mandanten, erreicht ihn kein Mitglied mehr — weder in der App noch über einen API-Schlüssel oder einen MCP-Client. Für die Mitglieder sieht er dann aus wie ein Mandant, den es nicht gibt. War es ihr persönlicher Garten, sehen sie nur noch den gemeinsamen Pflanzenkatalog. Die Mitgliedschaften und alle Daten bleiben erhalten: Reaktivierst du den Mandanten, haben alle Mitglieder sofort wieder ihren bisherigen Zugriff mit derselben Rolle. Du selbst verwaltest einen deaktivierten Mandanten weiterhin hier im Admin-Bereich. Pflege-Erinnerungen, Gieß- und Wartungsaufgaben entstehen für ihn nicht mehr; einige automatische Abläufe laufen derzeit aber noch weiter — Tank-Warnungen, das Abholen von Home-Assistant-Messwerten und Wetterdaten, der InvenTree-Abgleich und der tägliche Benachrichtigungs-Digest. <!-- Issue #2105, #2166, REQ-056 -->

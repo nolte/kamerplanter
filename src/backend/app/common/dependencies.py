@@ -182,6 +182,7 @@ if TYPE_CHECKING:
     from app.domain.interfaces.personal_data_repository import IPersonalTimeSeriesRepository
     from app.domain.interfaces.pest_media_source import PestMediaSource
     from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
+    from app.domain.interfaces.plan_repository import IPlanRepository
     from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
     from app.domain.models.species import Species
     from app.domain.models.substrate import SubstrateBatch
@@ -200,6 +201,7 @@ if TYPE_CHECKING:
     from app.domain.services.dashboard_service import DashboardService
     from app.domain.services.data_subject_service import DataSubjectService
     from app.domain.services.diagnose_service import DiagnoseService
+    from app.domain.services.entitlement_service import EntitlementService
     from app.domain.services.environment_snapshot_service import EnvironmentSnapshotService
     from app.domain.services.favorites_service import FavoritesService
     from app.domain.services.glossary_service import GlossaryService
@@ -221,6 +223,7 @@ if TYPE_CHECKING:
     from app.domain.services.pest_prototype_orphan_sweep import PestPrototypeOrphanSweepService
     from app.domain.services.phase_sequence_binder import PhaseSequenceBinder
     from app.domain.services.phase_sequence_service import PhaseSequenceService
+    from app.domain.services.plan_service import PlanService
     from app.domain.services.plant_diary_service import PlantDiaryService
     from app.domain.services.plant_photo_service import PlantPhotoService
     from app.domain.services.print_service import PrintService
@@ -515,6 +518,8 @@ def get_plant_photo_service() -> PlantPhotoService:
         attachment_service=get_attachment_service(),
         settings=settings,
         identification_service=get_identification_service(),
+        # REQ-056 §7.4 (#2142) — the gallery limit is the tenant's plan's (``null`` = the instance setting).
+        entitlements=get_entitlement_service(),
         species_repo=get_species_repo(),
     )
 
@@ -1293,11 +1298,55 @@ def get_tenant_service() -> TenantService:
         invitation_emails_per_day=settings.tenant_invitation_emails_per_day,
         # #2226 review SEC-001 — a membership that ends deletes the member's iCal feeds in the tenant.
         calendar_feed_repo=get_calendar_feed_repo(),
-        # #2133 (REQ-024 AK-64) — no tenant's member limit exceeds the platform ceiling.
-        max_members_ceiling=settings.tenant_max_members_ceiling,
-        # #2137 (MT-041, REQ-023 §5b) — the tenant's service accounts: their keys and the per-tenant quota.
+        # #2137 (MT-041, REQ-023 §5b) — the keys of the tenant's service accounts.
         api_key_repo=get_api_key_repo(),
-        max_service_accounts=settings.tenant_max_service_accounts,
+        # REQ-056 §7.4 (#2142) — the member limit (#2133, under TENANT_MAX_MEMBERS_CEILING) and the
+        # service-account quota (#2137) are the tenant's plan's; ``null`` in the plan = the instance setting.
+        entitlements=get_entitlement_service(),
+        # REQ-056 §6.2 (#2142) — organisations one account may own; an account limit, not a plan dimension.
+        max_organizations_per_user=settings.tenant_max_organizations_per_user,
+    )
+
+
+def get_plan_repo() -> IPlanRepository:
+    """REQ-056 §7 (#2142) — the global plan catalogue."""
+    from app.data_access.arango.plan_repository import ArangoPlanRepository
+
+    return ArangoPlanRepository(get_db())
+
+
+def get_entitlement_service() -> EntitlementService:
+    """REQ-056 §7.4 (#2142, MT-049) — the one source of every tenant quota.
+
+    Each quota check (member limit, service accounts, storage, gallery photos, KI budgets) asks this
+    service; it resolves the tenant's plan and falls back to the instance setting for every limit the plan
+    leaves ``null``. Settings are read per call, so a changed setting needs no restart.
+    """
+    from app.domain.services.entitlement_service import EntitlementService, EntitlementUsageSources
+
+    # The usage counters are resolved when the usage view reads them, not for every quota check.
+    return EntitlementService(
+        plan_repo=get_plan_repo(),
+        tenant_repo=get_tenant_repo(),
+        usage_sources=EntitlementUsageSources(
+            active_members=lambda tenant_key: get_membership_repo().count_active_members(tenant_key=tenant_key),
+            active_service_accounts=lambda tenant_key: len(
+                get_membership_repo().active_service_account_memberships(tenant_key=tenant_key)
+            ),
+            stored_bytes=lambda tenant_key: get_attachment_repo().sum_bytes_by_tenant(tenant_key),
+            ai_usage=get_ai_call_budget,
+        ),
+    )
+
+
+def get_plan_service() -> PlanService:
+    """REQ-056 §7.6 (#2142) — the platform admin's plan catalogue: list, create, change, delete, default."""
+    from app.domain.services.plan_service import PlanService
+
+    return PlanService(
+        plan_repo=get_plan_repo(),
+        entitlements=get_entitlement_service(),
+        security_audit=get_security_audit_service(),
     )
 
 
@@ -2290,16 +2339,11 @@ def get_ai_call_budget() -> AiCallBudget:
     request path. One budget for every LLM-calling service: a call spent on a
     chat message and one spent on a diagnosis come out of the same day.
     """
-    from app.domain.services.ai_call_budget import AiBudgetLimits, AiCallBudget
+    from app.domain.services.ai_call_budget import AiCallBudget
 
-    return AiCallBudget(
-        _get_redis_client(),
-        AiBudgetLimits(
-            user_calls_per_day=settings.ai_budget_user_calls_per_day,
-            tenant_calls_per_day=settings.ai_budget_tenant_calls_per_day,
-            tenant_tokens_per_day=settings.ai_budget_tenant_tokens_per_day,
-        ),
-    )
+    # REQ-056 §7.4 (#2142) — the three budgets are the tenant's plan's (``null`` = the AI_BUDGET_* setting),
+    # resolved per charge.
+    return AiCallBudget(_get_redis_client(), get_entitlement_service().ai_budget_limits)
 
 
 def get_ai_assistant_service() -> AiAssistantService:
@@ -2504,6 +2548,8 @@ def get_attachment_service() -> AttachmentService:
         attachment_repo=get_attachment_repo(),
         settings=settings,
         rendition_claims=get_rendition_dispatch_claims(),
+        # REQ-056 §7.4 (#2142) — the storage quota is the tenant's plan's (``null`` = STORAGE_TENANT_QUOTA_MB).
+        entitlements=get_entitlement_service(),
     )
 
 

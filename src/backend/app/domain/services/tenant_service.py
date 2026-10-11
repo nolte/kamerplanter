@@ -15,6 +15,7 @@ from app.common.datetimes import ensure_aware_utc
 from app.common.decoys import email_digest
 from app.common.enums import (
     AdminScope,
+    EntitlementDimension,
     InvitationStatus,
     InvitationType,
     SecurityAuditAction,
@@ -30,8 +31,8 @@ from app.common.exceptions import (
     InvalidStatusTransitionError,
     MemberLimitReachedError,
     NotFoundError,
+    OrganizationLimitReachedError,
     RateLimitError,
-    ServiceAccountLimitReachedError,
     TenantErasureClaimLostError,
     TenantErasureIncompleteError,
     ValidationError,
@@ -99,6 +100,7 @@ from app.domain.models.tenant_erasure import (
     TenantErasureRecord,
 )
 from app.domain.models.user import User, allows_interactive_auth
+from app.domain.services.entitlement_service import EntitlementService
 from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_location
 from app.domain.services.security_audit_service import SecurityAuditService
 from app.domain.services.step_up_service import StepUpVerifier, default_step_up_verifier, echo_matches
@@ -134,6 +136,9 @@ _SCHEDULED_DELETION_STATUSES = frozenset({TenantStatus.PENDING_DELETION, TenantS
 #: moves only through the step-up paths that own it (#2009, #2123).
 _LIFECYCLE_FIELDS = frozenset({"is_active", "status", "deletion_scheduled_at"})
 
+#: REQ-056 §7.6 (#2142) — the tenant's plan; assigned only on the platform-admin path, never by its management.
+_PLAN_FIELD = "plan_key"
+
 
 class TenantService:
     def __init__(
@@ -163,33 +168,38 @@ class TenantService:
         tenant_erasure_grace_days: int | None = None,
         email_service: IEmailService | None = None,
         user_repo: IUserRepository | None = None,
-        max_members_ceiling: int = 50,
+        max_members_ceiling: int | None = None,
         api_key_repo: IApiKeyRepository | None = None,
-        max_service_accounts: int = 20,
+        max_service_accounts: int | None = None,
         frontend_url: str = "",
         invitation_emails_per_day: int = 50,
         calendar_feed_repo: ICalendarFeedRepository | None = None,
+        entitlements: EntitlementService | None = None,
+        max_organizations_per_user: int = 10,
     ) -> None:
         # #2226 review SEC-001 — the iCal feeds a membership that ends takes with it. ``None`` only where no
         # membership is ever ended (doubles); ``get_tenant_service`` wires it. The public feed route checks the
         # owner's membership itself, so a leftover feed answers 404 - this delete is the tidy-up.
         self._calendar_feed_repo = calendar_feed_repo
-        # #2137 (MT-041, REQ-023 §5b) — the keys of the tenant's service accounts and how many such accounts
-        # a tenant may hold (``TENANT_MAX_SERVICE_ACCOUNTS``); ``get_tenant_service`` wires both.
-        if max_service_accounts < 1:
-            raise ValueError("max_service_accounts must be at least 1")
+        # #2137 (MT-041, REQ-023 §5b) — the keys of the tenant's service accounts; ``get_tenant_service``
+        # wires them. How many such accounts a tenant may hold is a plan dimension (below).
         self._api_key_repo = api_key_repo
-        self._max_service_accounts = max_service_accounts
+        # REQ-056 §7.4 (#2142) — the member limit (REQ-024 AK-64, #2133) and the service-account quota
+        # (#2137) are decided by the tenant's plan: ``get_tenant_service`` wires the plan resolution, and
+        # ``test_quota_checks_reach_the_entitlement_service`` holds that every check asks it. Built without
+        # one, every tenant gets the instance settings - with ``max_members_ceiling`` /
+        # ``max_service_accounts`` replacing them when given (a test double's explicit limit).
+        self._entitlements = entitlements or self._instance_entitlements(
+            tenant_repo, max_members_ceiling=max_members_ceiling, max_service_accounts=max_service_accounts
+        )
+        # REQ-056 §6.2 (#2142) — how many organisations one account may own (``TENANT_MAX_ORGANIZATIONS_PER_USER``).
+        if max_organizations_per_user < 0:
+            raise ValueError("max_organizations_per_user must not be negative")
+        self._max_organizations_per_user = max_organizations_per_user
         # #2162 review W-1 — e-mail invitations one account may issue per 24 h (``TENANT_INVITATION_EMAILS_PER_DAY``).
         if invitation_emails_per_day < 1:
             raise ValueError("invitation_emails_per_day must be at least 1")
         self._invitation_emails_per_day = invitation_emails_per_day
-        # REQ-024 AK-64 (#2133) — the platform ceiling of every tenant's member limit
-        # (``TENANT_MAX_MEMBERS_CEILING``); ``get_tenant_service`` passes the setting, and the class guard
-        # ``test_membership_mutations_write_the_security_audit`` holds that it does.
-        if max_members_ceiling < 1:
-            raise ValueError("max_members_ceiling must be at least 1")
-        self._max_members_ceiling = max_members_ceiling
         # #2123 (MT-027, REQ-024 AK-52) — how long an accepted tenant deletion stays
         # cancellable. ``None`` reads ``RETENTION_TENANT_ERASURE_GRACE_DAYS`` (default 90):
         # an unwired construction schedules rather than erases at once. ``0`` keeps the
@@ -263,6 +273,27 @@ class TenantService:
         # #1816 — the one throttled step-up every irreversible account action passes.
         self._step_up_verifier = step_up_verifier or default_step_up_verifier(self._password_engine)
 
+    @staticmethod
+    def _instance_entitlements(
+        tenant_repo: ITenantRepository, *, max_members_ceiling: int | None, max_service_accounts: int | None
+    ) -> EntitlementService:
+        """The quota resolution of a service built without the plan catalogue: the instance settings."""
+        overrides: dict[EntitlementDimension, int] = {}
+        if max_members_ceiling is not None:
+            if max_members_ceiling < 1:
+                raise ValueError("max_members_ceiling must be at least 1")
+            overrides[EntitlementDimension.MEMBERS] = max_members_ceiling
+        if max_service_accounts is not None:
+            if max_service_accounts < 1:
+                raise ValueError("max_service_accounts must be at least 1")
+            overrides[EntitlementDimension.SERVICE_ACCOUNTS] = max_service_accounts
+        return EntitlementService(plan_repo=None, tenant_repo=tenant_repo, instance_overrides=overrides)
+
+    @property
+    def entitlements(self) -> EntitlementService:
+        """The quota resolution this service decides its member and service-account limits with."""
+        return self._entitlements
+
     # --- Tenant CRUD ---
 
     def create_personal_tenant(self, user_key: str, display_name: str) -> Tenant:
@@ -276,6 +307,8 @@ class TenantService:
             tenant_type=TenantType.PERSONAL,
             owner_user_key=user_key,
             max_members=1,
+            # REQ-056 §6.1 / §7.1 (#2142) — a new tenant gets the plan currently marked default.
+            plan_key=self._entitlements.default_plan_key(),
         )
         tenant = self._found_tenant(tenant, user_key, via=SecurityAuditVia.REGISTRATION)
 
@@ -300,12 +333,15 @@ class TenantService:
         errors = self._tenant_engine.validate_tenant_name(name)
         if errors:
             raise ValidationError(errors[0])
-        member_limit = self._max_members_ceiling if max_members is None else max_members
+        member_limit = self._entitlements.members_ceiling() if max_members is None else max_members
         self._refuse_limit_above_ceiling(member_limit)
 
+        # REQ-056 §6.2 (#2142) — an account limit (``TENANT_MAX_ORGANIZATIONS_PER_USER``), counted over the
+        # organisations it owns in every state but ``deleted``; ``0`` = no self-service founding at all.
         org_count = self._tenant_repo.count_organizations_by_owner(user_key)
-        if not self._tenant_engine.can_create_organization(org_count):
-            raise ValidationError("Maximum number of organizations reached")
+        if not self._tenant_engine.can_create_organization(org_count, max_orgs=self._max_organizations_per_user):
+            logger.info("organization_limit_reached", subject=log_subject(user_key))
+            raise OrganizationLimitReachedError(self._max_organizations_per_user)
 
         slug = self._tenant_engine.generate_slug(name)
         slug = self._ensure_unique_slug(slug)
@@ -317,6 +353,7 @@ class TenantService:
             description=description,
             owner_user_key=user_key,
             max_members=member_limit,
+            plan_key=self._entitlements.default_plan_key(),
         )
         tenant = self._found_tenant(tenant, user_key, via=SecurityAuditVia.TENANT_CREATION)
 
@@ -443,6 +480,9 @@ class TenantService:
                 "lifecycle changes go through admin_update_tenant / delete_tenant / cancel_tenant_erasure, "
                 "which verify the step-up (#2009, #2123)"
             )
+        if _PLAN_FIELD in data:
+            # REQ-056 §7.6 (#2142) — a tenant's management never chooses its own plan.
+            raise ValueError("a tenant's plan is assigned by a platform admin through admin_update_tenant (#2142)")
         return self._apply_tenant_update(tenant_key, data)
 
     def admin_update_tenant(
@@ -481,12 +521,23 @@ class TenantService:
         writes the security-audit row ``tenant_suspended`` / ``tenant_reactivated``
         (MT-014, #2111) after the store; a rename or a member-limit edit writes none
         (no account gains or loses access through it).
+
+        **Plan assignment (REQ-056 §7.6, #2142).** ``plan_key`` gives the tenant another plan:
+        an unknown plan is 422, a tenant in ``deleted`` is 422, a suspended one may be
+        assigned. No step-up (REQ-056 E-07: it locks nobody out and deletes nothing - a lower
+        limit removes nothing, §7.5); an actual change writes ``tenant_plan_changed`` with the
+        previous and the new plan key. A re-sent current plan writes nothing.
         """
         current = self._tenant_repo.get_by_key(tenant_key)
         if current is None:
             raise NotFoundError("Tenant", tenant_key)
         if (_LIFECYCLE_FIELDS - {"is_active"}) & set(data):
             raise ValueError("status changes go through delete_tenant / cancel_tenant_erasure (#2123)")
+        wanted_plan = data.get(_PLAN_FIELD)
+        changes_plan = wanted_plan is not None and wanted_plan != current.plan_key
+        if changes_plan:
+            self._refuse_plan_assignment(current, str(wanted_plan))
+        data = {k: v for k, v in data.items() if k != _PLAN_FIELD}
         wanted = data.get("is_active")
         changes_active = wanted is not None and bool(wanted) != bool(current.is_active)
         if changes_active and not wanted and current.is_platform:
@@ -515,9 +566,31 @@ class TenantService:
         if changes_active:
             # #2123 — the bool of the request is the admin's suspension switch on the status model.
             data["status"] = TenantStatus.ACTIVE if wanted else TenantStatus.SUSPENDED
-        if not data:
+        if changes_plan and not self._entitlements.assign_plan(tenant_key, str(wanted_plan)):
+            # SEC-004 — one statement that writes only while the plan exists: a plan deleted after the
+            # check above (or a tenant whose erasure started meanwhile) is 422 and nothing is written.
+            raise ValidationError(
+                "The plan cannot be assigned: it no longer exists or the tenant is being erased.",
+                details=[{"field": _PLAN_FIELD, "reason": "Plan gone or tenant erased.", "code": "unknown_plan"}],
+            )
+        if changes_plan:
+            # REQ-056 §7.6 / §11 (#2142) — what was booked when: the hook a future billing module reads.
+            # Written right after the assignment, so a later refusal of another field of the same request
+            # cannot leave a plan change without its row.
+            self._audit_tenant(
+                SecurityAuditAction.TENANT_PLAN_CHANGED,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=requester.key or "",
+                tenant_key=tenant_key,
+                old_plan_key=current.plan_key,
+                plan_key=str(wanted_plan),
+            )
+            logger.info("tenant_plan_changed", tenant=log_tenant(tenant_key), plan_key=wanted_plan)
+        if not data and not changes_plan:
             return current
-        updated = self._apply_tenant_update(tenant_key, data)
+        updated = self._apply_tenant_update(tenant_key, data) if data else self._tenant_repo.get_by_key(tenant_key)
+        if updated is None:
+            raise NotFoundError("Tenant", tenant_key)
         if changes_active:
             # MT-014 (#2111) — a suspension locks every member out with one request; written after the store.
             self._audit_tenant(
@@ -527,6 +600,28 @@ class TenantService:
                 tenant_key=tenant_key,
             )
         return updated
+
+    def _refuse_plan_assignment(self, tenant: Tenant, plan_key: str) -> None:
+        """422 for a plan that does not exist, a tenant whose erasure is running or the platform tenant.
+
+        The platform tenant stays on its plan (SEC-006): its quotas are the instance settings whatever plan
+        it names (``EntitlementService.plan_of``), so a plan on it would only be a stored value that lies.
+        """
+        if tenant.is_platform:
+            raise ValidationError(
+                "The platform tenant is held to the instance settings and takes no plan.",
+                details=[{"field": _PLAN_FIELD, "reason": "Platform tenant.", "code": "platform_tenant"}],
+            )
+        if tenant.status == TenantStatus.DELETED:
+            raise ValidationError(
+                "The plan of a tenant that is being erased cannot be changed.",
+                details=[{"field": _PLAN_FIELD, "reason": "The tenant is being erased.", "code": "tenant_deleted"}],
+            )
+        if self._entitlements.get_plan(plan_key) is None:
+            raise ValidationError(
+                "Unknown plan.",
+                details=[{"field": _PLAN_FIELD, "reason": "No plan has this key.", "code": "unknown_plan"}],
+            )
 
     def _apply_tenant_update(self, tenant_key: str, data: dict) -> Tenant:
         """The write both update paths share: the #1021 guard, the slug on rename, the store.
@@ -760,7 +855,14 @@ class TenantService:
         return SecurityAuditVia.PLATFORM_ADMIN if origin == "platform_admin" else SecurityAuditVia.TENANT_ADMIN
 
     def _audit_tenant(
-        self, action: SecurityAuditAction, *, via: SecurityAuditVia, actor_user_key: str, tenant_key: str
+        self,
+        action: SecurityAuditAction,
+        *,
+        via: SecurityAuditVia,
+        actor_user_key: str,
+        tenant_key: str,
+        old_plan_key: str | None = None,
+        plan_key: str | None = None,
     ) -> None:
         """Write the persistent security-audit row of one change of a tenant's lifecycle (MT-014, #2111).
 
@@ -771,7 +873,12 @@ class TenantService:
         if self._security_audit is None:
             return
         self._security_audit.record_tenant_change(
-            action=action, via=via, actor_user_key=actor_user_key, tenant_key=tenant_key
+            action=action,
+            via=via,
+            actor_user_key=actor_user_key,
+            tenant_key=tenant_key,
+            old_plan_key=old_plan_key,
+            plan_key=plan_key,
         )
 
     # --- Tenant lifecycle: grace and cancellation (REQ-024 AK-52, MT-027 #2123) ---
@@ -1831,19 +1938,16 @@ class TenantService:
         self._settle_join_against_member_limit(created, limit)
         return created
 
-    def _member_limit(self, tenant: Tenant) -> int:
-        """The effective member limit: the tenant's own, never above the platform ceiling (REQ-024 AK-65)."""
-        return min(tenant.max_members, self._max_members_ceiling)
-
     def _refuse_limit_above_ceiling(self, max_members: int) -> None:
         """422 for a ``max_members`` above the platform ceiling (REQ-024 AK-65, #2133)."""
-        if max_members > self._max_members_ceiling:
+        ceiling = self._entitlements.members_ceiling()
+        if max_members > ceiling:
             raise ValidationError(
-                f"max_members may not exceed the platform ceiling of {self._max_members_ceiling}.",
+                f"max_members may not exceed the platform ceiling of {ceiling}.",
                 details=[
                     {
                         "field": "max_members",
-                        "reason": f"At most {self._max_members_ceiling}.",
+                        "reason": f"At most {ceiling}.",
                         "code": "max_members_above_ceiling",
                     }
                 ],
@@ -1852,18 +1956,19 @@ class TenantService:
     def _refuse_beyond_member_limit(self, tenant_key: str) -> int:
         """422 ``MEMBER_LIMIT_REACHED`` when the tenant's active memberships reached its limit; else the limit.
 
-        REQ-024 AK-64 (#2133). Counts *active* memberships against the effective limit
-        (:meth:`_member_limit`). Applies to a new membership only: a tenant that already
+        REQ-024 AK-64 (#2133). Counts *active* memberships against the effective limit -
+        ``min(max_members, plan.members ?? ceiling, ceiling)``, decided by the tenant's plan
+        (REQ-056 §7.3, #2142). Applies to a new membership only: a tenant that already
         holds more members than its limit - written before the limit was enforced, or
-        after it was lowered - keeps all of them and refuses the next join.
+        after it was lowered (also by a plan change, REQ-056 §7.5) - keeps all of them and
+        refuses the next join. An unknown tenant is 404.
         """
-        tenant = self._tenant_repo.get_by_key(tenant_key)
-        if tenant is None:
-            raise NotFoundError("Tenant", tenant_key)
-        limit = self._member_limit(tenant)
-        if self._membership_repo.count_active_members(tenant_key=tenant_key) >= limit:
-            logger.info("member_limit_reached", tenant=log_tenant(tenant_key), limit=limit)
-            raise MemberLimitReachedError(limit)
+        limit = self._entitlements.require(
+            tenant_key,
+            EntitlementDimension.MEMBERS,
+            projected=self._membership_repo.count_active_members(tenant_key=tenant_key) + 1,
+        )
+        assert limit is not None  # the member dimension is always bounded by the platform ceiling
         return limit
 
     def _settle_join_against_member_limit(self, created: Membership, limit: int) -> None:
@@ -2569,11 +2674,12 @@ class TenantService:
             is_own_membership=False,
         )
         self._refuse_while_erasing(tenant_key)
-        if len(self._membership_repo.active_service_account_memberships(tenant_key=tenant_key)) >= (
-            self._max_service_accounts
-        ):
-            logger.info("service_account_limit_reached", tenant=log_tenant(tenant_key))
-            raise ServiceAccountLimitReachedError(self._max_service_accounts)
+        # REQ-056 §7.2 (#2142) — the tenant's plan decides the quota (``null`` = TENANT_MAX_SERVICE_ACCOUNTS).
+        self._entitlements.require(
+            tenant_key,
+            EntitlementDimension.SERVICE_ACCOUNTS,
+            projected=len(self._membership_repo.active_service_account_memberships(tenant_key=tenant_key)) + 1,
+        )
         self._refuse_beyond_member_limit(tenant_key)
 
         self._step_up_verifier.verify(

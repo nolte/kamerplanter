@@ -39,11 +39,10 @@ from datetime import UTC, datetime
 import httpx
 import structlog
 
-from app.common.enums import AttachmentCategory, CaptureDevice
+from app.common.enums import AttachmentCategory, CaptureDevice, EntitlementDimension
 from app.common.exceptions import (
     FileTooLargeError,
     InvalidFileTypeError,
-    StorageQuotaExceededError,
     ValidationError,
     VirusScanRejectedError,
 )
@@ -64,6 +63,7 @@ from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
 from app.domain.models.attachment import Attachment
+from app.domain.services.entitlement_service import EntitlementService
 
 logger = structlog.get_logger()
 
@@ -100,10 +100,15 @@ class AttachmentService:
         thumbnail_generator: ThumbnailGenerator | None = None,
         key_builder: StorageKeyBuilder | None = None,
         rendition_claims: IRenditionDispatchClaims | None = None,
+        entitlements: EntitlementService | None = None,
     ) -> None:
         self._storage = storage
         self._repo = attachment_repo
         self._settings = settings
+        # REQ-056 §7.4 (#2142) — the tenant's storage quota comes from its plan (``null`` = the instance
+        # setting ``STORAGE_TENANT_QUOTA_MB``). ``get_attachment_service`` wires the plan resolution; a service
+        # built without one holds every tenant to the instance setting of ``settings``, as before #2142.
+        self._entitlements = entitlements or EntitlementService(plan_repo=None, tenant_repo=None, settings=settings)
         self._magic = magic_validator or MagicByteValidator()
         self._exif = exif_stripper or ExifStripper()
         self._thumbnails = thumbnail_generator or ThumbnailGenerator()
@@ -361,13 +366,16 @@ class AttachmentService:
         return True
 
     def _enforce_quota(self, tenant_key: str, *, incoming_bytes: int) -> None:
-        quota_mb = self._settings.storage_tenant_quota_mb
-        if quota_mb <= 0:
-            return
-        quota_bytes = quota_mb * 1024 * 1024
-        used = self._repo.sum_bytes_by_tenant(tenant_key)
-        if used + incoming_bytes > quota_bytes:
-            raise StorageQuotaExceededError(tenant_key, float(quota_mb))
+        """409 ``STORAGE_QUOTA_EXCEEDED`` when the upload would take the tenant past its storage quota.
+
+        The quota is the tenant's plan's (REQ-056 §7.2 ``storage_mb``); ``0`` = unlimited, and then no sum
+        is read. Counted before the write, as before #2142.
+        """
+        self._entitlements.require(
+            tenant_key,
+            EntitlementDimension.STORAGE_MB,
+            projected=lambda: self._repo.sum_bytes_by_tenant(tenant_key) + incoming_bytes,
+        )
 
     async def _virus_scan(self, data: bytes) -> None:
         """Scan ``data`` via the configured scanner — fail-closed (SEC-006).

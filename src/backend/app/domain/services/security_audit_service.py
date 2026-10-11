@@ -28,6 +28,7 @@ import structlog
 from app.common.enums import SecurityAuditAction, SecurityAuditVia
 from app.common.log_privacy import log_subject, log_tenant
 from app.domain.interfaces.security_audit_repository import ISecurityAuditRepository
+from app.domain.models.plan import PlanLimitChange
 from app.domain.models.security_audit import SecurityAuditEntry
 
 logger = structlog.get_logger()
@@ -155,14 +156,49 @@ class SecurityAuditService:
         via: SecurityAuditVia,
         actor_user_key: str,
         tenant_key: str,
+        old_plan_key: str | None = None,
+        plan_key: str | None = None,
     ) -> SecurityAuditEntry:
-        """Append the row of one change of a whole tenant's lifecycle (#2111); it names no target account."""
+        """Append the row of one change of a whole tenant's lifecycle (#2111) or plan (#2142).
+
+        It names no target account. A plan assignment carries the previous and the new plan key.
+        """
         return self._write(
             SecurityAuditEntry(
                 action=action,
                 via=via,
                 actor_user_key=actor_user_key,
                 tenant_key=tenant_key,
+                old_plan_key=old_plan_key,
+                plan_key=plan_key,
+                request_id=_current_request_id(),
+                created_at=datetime.now(UTC),
+            )
+        )
+
+    def record_plan_change(
+        self,
+        *,
+        action: SecurityAuditAction,
+        actor_user_key: str,
+        plan_key: str,
+        changed_fields: list[str] | None = None,
+        limit_changes: list[PlanLimitChange] | None = None,
+    ) -> SecurityAuditEntry:
+        """Append the row of one change of the plan catalogue (REQ-056 §7.6, #2142).
+
+        Names the plan and, for a change, the fields that changed. A changed limit also carries its old
+        and new value and flags a change that lifts the limit (SEC-005); a name or description change
+        carries no value. Never a tenant.
+        """
+        return self._write(
+            SecurityAuditEntry(
+                action=action,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=actor_user_key,
+                plan_key=plan_key,
+                changed_fields=changed_fields,
+                limit_changes=limit_changes,
                 request_id=_current_request_id(),
                 created_at=datetime.now(UTC),
             )

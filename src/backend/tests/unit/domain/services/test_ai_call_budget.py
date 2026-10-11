@@ -163,3 +163,32 @@ def test_the_cost_of_a_tenant_is_countable() -> None:
 )
 def test_token_counts_reads_the_knowledge_service_usage_shape(usage, expected) -> None:
     assert token_counts(usage) == expected
+
+
+def test_a_budget_that_cannot_be_resolved_is_the_documented_503_not_a_500() -> None:
+    """#2142 review I-1: the tenant's plan resolution failing (database down) refuses fail-closed."""
+
+    def unresolvable(tenant_key: str) -> AiBudgetLimits:
+        raise ConnectionError("database down")
+
+    store = FakeValkey()
+    budget = AiCallBudget(store, unresolvable, clock=_FixedClock(_NOON))
+
+    with pytest.raises(AiBudgetUnavailableError):
+        budget.charge(tenant_key="t-1", user_key="u-1")
+    assert store.values == {}
+
+
+def test_the_budget_is_resolved_per_tenant() -> None:
+    """#2142 — production passes the plan resolution; each tenant gets its own limits."""
+    limits = {
+        "t-small": AiBudgetLimits(user_calls_per_day=1, tenant_calls_per_day=0, tenant_tokens_per_day=0),
+        "t-big": AiBudgetLimits(user_calls_per_day=5, tenant_calls_per_day=0, tenant_tokens_per_day=0),
+    }
+    budget = AiCallBudget(FakeValkey(), limits.__getitem__, clock=_FixedClock(_NOON))
+
+    budget.charge(tenant_key="t-small", user_key="u")
+    with pytest.raises(AiBudgetExceededError):
+        budget.charge(tenant_key="t-small", user_key="u")
+    budget.charge(tenant_key="t-big", user_key="u")
+    budget.charge(tenant_key="t-big", user_key="u")

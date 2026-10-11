@@ -213,9 +213,14 @@ class TestTheRouteOperand:
         again after it had been deleted in March 2026 while ``ical_url`` kept pointing at it.
         Its consumers are calendar apps holding the subscription URL, not the frontend
         (a reported candidate).
+
+        +6: ``/admin/platform/plans`` GET/POST, ``…/{plan_key}`` PATCH/DELETE,
+        ``GET /admin/platform/tenants/{key}`` and ``GET /tenants/{tenant_slug}/entitlements``
+        (#2142, REQ-056 §7.6/§7.7) — the plan catalogue and a tenant's quotas; API-only until the
+        frontend of REQ-056 §15 (AK-45) is built, so all six are reported candidates.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 816
+        assert len(checker.collect_operations(app)) == 822
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

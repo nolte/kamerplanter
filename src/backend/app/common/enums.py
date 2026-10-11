@@ -1071,6 +1071,34 @@ class TenantStatus(StrEnum):
     DELETED = "deleted"
 
 
+class EntitlementDimension(StrEnum):
+    """A quota a plan can set for a tenant (REQ-056 §7.2, #2142).
+
+    Every dimension is decided by :class:`~app.domain.services.entitlement_service.EntitlementService`
+    and nothing else (REQ-056 AK-19). A plan's ``null`` for a dimension means "the instance setting".
+    Each dimension keeps the refusal it had before plans existed (code and status, REQ-056 E-06).
+
+    * ``MEMBERS`` — active memberships of a tenant, service accounts included (``TENANT_MAX_MEMBERS_CEILING``,
+      ``422 MEMBER_LIMIT_REACHED``); also bounded by the tenant's own ``max_members`` and the ceiling.
+    * ``SERVICE_ACCOUNTS`` — active service accounts of a tenant (``TENANT_MAX_SERVICE_ACCOUNTS``,
+      ``422 SERVICE_ACCOUNT_LIMIT_REACHED``).
+    * ``STORAGE_MB`` — attachment bytes of a tenant (``STORAGE_TENANT_QUOTA_MB``, ``0`` = unlimited,
+      ``409 STORAGE_QUOTA_EXCEEDED``).
+    * ``PHOTOS_PER_INSTANCE`` — gallery photos of one plant (``STORAGE_MAX_PHOTOS_PER_INSTANCE``,
+      ``0`` = unlimited, ``409 PHOTO_QUOTA_EXCEEDED``).
+    * ``AI_CALLS_PER_USER_DAY`` / ``AI_CALLS_PER_TENANT_DAY`` / ``AI_TOKENS_PER_TENANT_DAY`` — the daily
+      KI budgets of REQ-031 §3 (``AI_BUDGET_*``, ``0`` = budget off, ``429 AI_BUDGET_EXCEEDED``).
+    """
+
+    MEMBERS = "members"
+    SERVICE_ACCOUNTS = "service_accounts"
+    STORAGE_MB = "storage_mb"
+    PHOTOS_PER_INSTANCE = "photos_per_instance"
+    AI_CALLS_PER_USER_DAY = "ai_calls_per_user_day"
+    AI_CALLS_PER_TENANT_DAY = "ai_calls_per_tenant_day"
+    AI_TOKENS_PER_TENANT_DAY = "ai_tokens_per_tenant_day"
+
+
 class TenantRole(StrEnum):
     """Axis 1 of the REQ-049 role model: the domain role, exactly one per membership.
 
@@ -1811,6 +1839,13 @@ class SecurityAuditAction(StrEnum):
     TENANT_REACTIVATED = "tenant_reactivated"
     TENANT_DELETION_REQUESTED = "tenant_deletion_requested"
     TENANT_DELETION_CANCELLED = "tenant_deletion_cancelled"
+    # REQ-056 §7.6 (#2142) — the plan catalogue: a tenant was given another plan (``old_plan_key`` →
+    # ``plan_key``), or a plan was created, changed (``changed_fields`` names what, never the values of
+    # other fields) or deleted. A plan row names no tenant; a tenant's plan row names no target account.
+    TENANT_PLAN_CHANGED = "tenant_plan_changed"
+    PLAN_CREATED = "plan_created"
+    PLAN_CHANGED = "plan_changed"
+    PLAN_DELETED = "plan_deleted"
 
 
 class SecurityAuditVia(StrEnum):

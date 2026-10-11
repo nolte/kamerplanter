@@ -244,6 +244,8 @@ ANCHOR_TARGETS: dict[str, str | None] = {
     "user_key": None,  # an account; spans every tenant it is a member of
     "oidc_config_key": None,  # a platform-wide sign-in provider configuration (#1987); tenants do not own it
     "owner_user_key": None,
+    "plan_key": None,  # REQ-056 §7 (#2142): the global plan catalogue; tenants point at a plan, no plan names a tenant
+    "old_plan_key": None,  # the plan a tenant left, on a security-audit row (#2142)
     "default_tenant_key": None,  # a tenant id, not a document of one
     "personal_tenant_keys": None,  # tenant ids an account erasure recorded (#1788), not documents of one
     "gbif_taxon_key": None,  # external taxonomy id
