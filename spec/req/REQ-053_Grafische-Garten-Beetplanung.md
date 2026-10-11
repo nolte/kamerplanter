@@ -19,7 +19,7 @@ Wird benötigt von: REQ-054 (Automatische Anbauplanung — liest Beete, Historie
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
-| 1.3 | 2026-10-11 | **Editor-Interaktion, Standortmerkmale, Import/Export** nach zwei neuen Reviews (`spec/analysis/frontend-design-review-req-053-v1.3.md`, `outdoor-garden-planner-review-req-053-v1.3.md`). Neu: **§9.7 Interaktionsregeln** (Auswahl/Hit-Priorität, Touch-Gesten und Zeichnen ohne Maus, Zoom-Definition in px/m und LOD, Eltern-Kind-Verhalten, Snap-Priorität, Undo-Granularität, Fehlbedienungsschutz, Tastatur/WCAG 2.1.4, Fokusmodell, Labels, Leerzustände, Live-Validierung, Export-/Import-UI); **§10.2 Standortmerkmale des Beets** (Sonnenprofil, Mikroklima, Wind, Hang, Erreichbarkeit, Eignungs-Ampel `site_fit` gegen `Species.shade_tolerance`); **§23.1 Import/Export-Erweiterungen** (Vorjahres-Kopie, Teil-Export, CSV-Import, Vorlagen-Austausch, Spaltenauswahl). Widersprüche bereinigt (Long-Press, Pfeiltasten, Redo, Beschriftungs-Zoom, „2 s destruktiv", Doppelklick, GP-NFR-028). **Offene Betreiberentscheidungen O-16…O-21 (§32.1)**; die davon abhängigen Zeilen tragen den Vermerk „Vorschlag". Noch nicht in Roadmap/Anhang A und Akzeptanzkriterien-Zählung (§8) nachgezogen. |
+| 1.3 | 2026-10-11 | **Editor-Interaktion, Standortmerkmale, Import/Export** nach zwei neuen Reviews (`spec/analysis/frontend-design-review-req-053-v1.3.md`, `outdoor-garden-planner-review-req-053-v1.3.md`). Neu: **§9.7 Interaktionsregeln** (Auswahl/Hit-Priorität, Touch-Gesten und Zeichnen ohne Maus, Zoom-Definition in px/m und LOD, Eltern-Kind-Verhalten, Snap-Priorität, Undo-Granularität, Fehlbedienungsschutz, Tastatur/WCAG 2.1.4, Fokusmodell, Labels, Leerzustände, Live-Validierung, Export-/Import-UI); **§10.2 Standortmerkmale des Beets** (Sonnenprofil, Mikroklima, Wind, Hang, Erreichbarkeit, Eignungs-Ampel `site_fit` gegen `Species.shade_tolerance`); **§23.1 Import/Export-Erweiterungen** (Vorjahres-Kopie, Teil-Export, CSV-Import, Vorlagen-Austausch, Spaltenauswahl). Widersprüche bereinigt (Long-Press, Pfeiltasten, Redo, Beschriftungs-Zoom, „2 s destruktiv", Doppelklick, GP-NFR-028). **Betreiberentscheidungen O-16…O-22 (§32.1)**: `deep_shade` ergänzt, `replace`-Import + Snapshot im MVP, Hintergrund-Unterlage SHOULD, Saison-Kopie in REQ-053, GeoJSON bleibt COULD, Schwellenprüfung später, Indoor-Grundriss (§9.8) SHOULD und nicht MVP. Roadmap (§34), Anhang A (außer Issue 44), Akzeptanzkriterien (§30) und Zählung (§8) noch nachzuziehen. |
 | 1.2b | 2026-10-04 | **Pre-Merge-Review (PR #2091, 10 Findings):** Migrationsnummern v0072–v0077 waren auf `develop` bereits vergeben → logische Platzhalter M1…M6 (GP-NFR-015); bbox-Beispiele in §20.3/§21.3 auf die Rotationskonvention korrigiert; GP-ACC-015 nutzt `retired` statt des mit W-014 entfallenen `fallow`-Status; Rückgängig im Feldmodus braucht Void auf eigene Ereignisse ≤ 10 min (GP-API-037); Nacherfassung der Vorjahre bekommt einen Datenpfad GP-API-042 (V-11-Ausnahme serverseitig); `trigger`-Enum in GP-FR-100 vervollständigt; CSV-Pfad vereinheitlicht; GP-ACC-028/GP-FR-133 auf `nutrient_demand`/`plan_role` umgestellt. Nicht übernommen: die Behauptung „TaskCategory hat 18 Werte" — `common/enums.py` hat 16. |
 | 1.2a | 2026-10-04 | Querverweis: §29 verweist für die automatische Anbauplanung auf das neue **REQ-054**; „Wird benötigt von" ergänzt. Keine inhaltliche Änderung. |
 | 1.2 | 2026-10-04 | **Drei Reviews eingearbeitet** (`spec/analysis/agrobiology-review-req-053.md`, `outdoor-garden-planner-review-req-053.md`, `security-review-req-053.md`) mit Betreiberentscheidungen: **O-07 revidiert** (K-001) — Zehrerstufe (3 Werte) und `nitrogen_fixing` (Bool) getrennt, `PlanRole` für den Rotationsplan (§16.3); **`tenant_key` auf Location und Slot** in M1 (SR-022, §20.13, §22.3); **Fruchtfolge- und Mischkultur-Hinweis sowie Vorjahresanzeige in den MVP** (F-12, GP-FR-131/132 → MUST); **Plan-Revision nur für Struktur** — Slot-Korrekturen und Quick-Planting laufen außerhalb (F-09, D-06); Retention `care_events` 5 Jahre (SR-005, NFR-011); `performed_by`-Filter für alle Rollen (SR-020); **Slot-Reservierung mit Zeitfenster** und UC „Beet räumen" (F-01/F-02); **Beetstatus = Lebenszyklus, Saisonzustand abgeleitet** (W-014). Dazu: Bodenmodell neu (K-002/K-003: `soil_texture`, `growing_medium_kind`, `conditions[]`, Messwerte mit Methode/Einheit), Anbaupausen je Familie (K-004), Layout-Semantik präzisiert (W-002/W-003: `grid`, `triangular`, Rand quer/längs, Reihenrichtung, Kapazität mit Reihenabstand), Steckbrief-Felder statt Duplikat (W-001), Pflegekatalog erweitert (W-006/F-03), Tasks an Kompost/Wasserquelle (W-008), Zeltregeln (W-016), Schattenfelder vorbereitet (§29), Security: Batch-Rollenprüfung je Op (SR-001), Referenzauflösung GP-NFR-058 (SR-002/003), Quoten (SR-004), Redaktion GP-FR-109 (SR-006), Kaskade/Export (SR-007/008), `trigger` serverseitig (SR-009), Matrix bereinigt (SR-010), Pflicht-Audit (SR-011), Komplexitäts-/Zeitbudget (SR-012), Prüfreihenfolge (SR-013), HA-Entität (SR-014), `url_fetcher`/SVG-Allowlist (SR-015), CSV (SR-016), Rate-Limits (SR-017), Import (SR-018), Sentry/Cache (SR-019). Feldmodus: Sofortspeichern, Schnellprotokoll-Chips, Rückgängig-Snackbar, Stepper als Standard (F-13/F-16/F-18). MoSCoW/MVP-Widersprüche bereinigt (F-06). 11 neue Akzeptanzkriterien (GP-ACC-039…049). |
@@ -80,7 +80,7 @@ Der Nutzer bildet seine reale Gartenanlage **maßstäblich oder zumindest metris
 ### 2.3 Nicht im Scope
 
 - Ein allgemeiner CAD-/GIS-Editor (keine Layer-Verwaltung jenseits der fachlichen Objektklassen, keine Höhenmodelle, kein Georeferenzieren von Luftbildern im MVP).
-- Ein zweites Positionsmodell für Indoor: Growzelte, Regale und Beete laufen auf **demselben** Slot-Geometriemodell (§9.2a, Entscheidung O-01). Ebenen-Stapel eines Regals und Topfgrößen-Raster bleiben außerhalb; ein Zelt ist eine Location mit Rechteck-Geometrie und Punkt-Slots. **Ab v1.3** gibt es zusätzlich einen Wohnungs-/Raum-Grundriss mit denselben Zeichenfunktionen wie der Garten (§9.8, Umfang O-22).
+- Ein zweites Positionsmodell für Indoor: Growzelte, Regale und Beete laufen auf **demselben** Slot-Geometriemodell (§9.2a, Entscheidung O-01). Ebenen-Stapel eines Regals und Topfgrößen-Raster bleiben außerhalb; ein Zelt ist eine Location mit Rechteck-Geometrie und Punkt-Slots. **Ab v1.3** gibt es zusätzlich einen Wohnungs-/Raum-Grundriss mit denselben Zeichenfunktionen wie der Garten (§9.8, SHOULD, O-22).
 - Automatische Bewässerungssteuerung (REQ-018 bleibt zuständig; hier nur Zonen-Modell und Verknüpfung).
 - Sonnen-/Schattenberechnung, KI-Pflanzplanung, Ertragsplanung (§29).
 - Änderungen am Tenant-, Rollen- oder Rechtemodell (REQ-024/REQ-049 gelten unverändert).
@@ -154,7 +154,7 @@ Der Auftrag nennt als Zielarchitektur „Go Backend, Vue.js, Tailwind". **Das tr
 | Marktgärtner | `UZG-002` | Sekundär. Reihenkulturen, Sukzession, Flächenertrag. |
 | Bildungseinrichtungen | `UZG-003` | Sekundär. Schulgarten, viele Lesende, wenige Schreibende. |
 | Casual-Hobby-Nutzer | `UZG-001` | Tertiär. Balkon/Terrasse mit Kübeln; profitiert vom Plan nur, wenn er in Minuten entsteht (Vorlagen, §10.4). |
-| Cannabis-Indoor-Grower | `ZG-001` | Zelt/Regal laufen auf demselben Geometriemodell (§9.2a); Wohnungs-Grundriss §9.8 (O-22). |
+| Cannabis-Indoor-Grower | `ZG-001` | Zelt/Regal laufen auf demselben Geometriemodell (§9.2a); Wohnungs-Grundriss §9.8 (SHOULD). |
 
 ---
 
@@ -497,9 +497,9 @@ Diese Regeln präzisieren §9.4 und §17. Wo sie einer älteren Zeile widersprec
 **Messprofile.** GP-NFR-071 (SHOULD, MVP nein): INP ≤ 200 ms für Auswahl, Drag-Start und Zoom; Pinch-Zoom-Frametime ≤ 33 ms auf Smartphone; Low-End-Android-Profil (CPU 4× gedrosselt) für den Feldmodus. Ergänzt GP-NFR-033/-034.
 
 
-### 9.8 Indoor-/Wohnungs-Grundriss (v1.3, Betreiberwunsch, Umfang O-22)
+### 9.8 Indoor-/Wohnungs-Grundriss (v1.3, O-22 entschieden: SHOULD, nicht MVP)
 
-Wer Zimmerpflanzen, Fensterbänke, Regale und Zelte in der Wohnung hält, soll **dieselben Zeichen- und Planungsfunktionen** nutzen wie im Garten. Grundlage ist bereits entschieden (O-01, O-08): ein Positionsmodell für alle Site-Typen, `V-18` entfällt. Neu ist nur, was einem Wohnungsplan fehlt. Vorschlag: SHOULD, nicht MVP, bis O-22 entschieden ist; die Zeilen gelten für den **Indoor-Plan**, die Editor-Regeln aus §9.7 gelten unverändert mit.
+Wer Zimmerpflanzen, Fensterbänke, Regale und Zelte in der Wohnung hält, soll **dieselben Zeichen- und Planungsfunktionen** nutzen wie im Garten. Grundlage ist bereits entschieden (O-01, O-08): ein Positionsmodell für alle Site-Typen, `V-18` entfällt. Neu ist nur, was einem Wohnungsplan fehlt. Entschieden (O-22, 2026-10-11): SHOULD, nicht MVP; die Zeilen gelten für den **Indoor-Plan**, die Editor-Regeln aus §9.7 gelten unverändert mit.
 
 | Aspekt | Regelung |
 |--------|----------|
@@ -1818,7 +1818,7 @@ Alle Punkte wurden vom Betreiber entschieden; die Tabelle bleibt als Protokoll s
 | F-01/F-02 | Reservierung ohne Zeitfenster, kein Saisonwechsel (Review Persona) | **Modellkorrektur eingearbeitet.** | GP-FR-055/065, V-06/V-08, GP-ACC-039/040 |
 | W-014 | Beetstatus mischt Lebenszyklus und Saison (Review Agrobiologie) | **Getrennt.** | §7.4, D-19 |
 
-Es gibt (Stand v1.2) keine offenen Fragen mehr, die die Implementierung des MVP blockieren; die Fragen aus v1.3 stehen in §32.1 (O-22 offen). Neue Fragen, die während der Umsetzung entstehen, werden als Issue mit Label `spec:REQ-053` erfasst, nicht hier nachgetragen.
+Es gibt (Stand v1.2) keine offenen Fragen mehr, die die Implementierung des MVP blockieren; die Fragen aus v1.3 stehen in §32.1 (alle entschieden). Neue Fragen, die während der Umsetzung entstehen, werden als Issue mit Label `spec:REQ-053` erfasst, nicht hier nachgetragen.
 
 ### 32.1 Fragen aus v1.3 (2026-10-11)
 
@@ -1830,7 +1830,7 @@ Es gibt (Stand v1.2) keine offenen Fragen mehr, die die Implementierung des MVP 
 | O-19 | Hintergrund-Unterlage als SHOULD? | **Ja**; Georeferenzierung bleibt COULD. | GP-FR-033 |
 | O-20 | „Neue Saison aus Vorjahr“ | **Datenkopie in REQ-053**, Belegungsvorschläge in REQ-054; gilt auch für Indoor. | GP-FR-171 |
 | O-21 | GeoJSON-Export streichen? | **Nein, bleibt COULD** (nicht gestrichen). | GP-FR-146 |
-| O-22 | Umfang des Indoor-/Wohnungs-Grundrisses (§9.8) und seine MVP-Zugehörigkeit | **Offen.** Betreiberwunsch: dieselben Zeichenfunktionen wie für den Garten auch für Wohnung/Indoor. Vorschlag: §9.8 SHOULD, nicht MVP. | §9.8 |
+| O-22 | Umfang des Indoor-/Wohnungs-Grundrisses (§9.8) und seine MVP-Zugehörigkeit | **SHOULD, nicht MVP.** Dieselben Zeichenfunktionen wie im Garten auch für Wohnung/Indoor, aber erst nach dem MVP. | §9.8 |
 
 ---
 
