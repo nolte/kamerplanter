@@ -24,7 +24,7 @@ def client():
 
 
 class TestGetState:
-    @patch("app.data_access.external.ha_client.httpx.get")
+    @patch("app.data_access.external.ha_client.HomeAssistantClient._get")
     def test_success(self, mock_get, client):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -46,13 +46,11 @@ class TestGetState:
         assert result["entity_id"] == "sensor.tank_ec"
         assert result["last_changed"] == "2026-03-01T10:00:00+00:00"
         assert result["unit"] == "mS/cm"
-        mock_get.assert_called_once_with(
-            "http://ha.local:8123/api/states/sensor.tank_ec",
-            headers={"Authorization": "Bearer test-token"},
-            timeout=5,
-        )
+        # The bearer token and the pinned connection are ``_get``'s; it is exercised
+        # against a real socket in tests/unit/common/test_url_safety_pinned_connection.py.
+        mock_get.assert_called_once_with("http://ha.local:8123/api/states/sensor.tank_ec", timeout=5)
 
-    @patch("app.data_access.external.ha_client.httpx.get")
+    @patch("app.data_access.external.ha_client.HomeAssistantClient._get")
     def test_not_found(self, mock_get, client):
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -61,7 +59,7 @@ class TestGetState:
         result = client.get_state("sensor.nonexistent")
         assert result is None
 
-    @patch("app.data_access.external.ha_client.httpx.get")
+    @patch("app.data_access.external.ha_client.HomeAssistantClient._get")
     def test_unavailable_entity(self, mock_get, client):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -77,7 +75,7 @@ class TestGetState:
         assert result is not None
         assert result["value"] is None
 
-    @patch("app.data_access.external.ha_client.httpx.get")
+    @patch("app.data_access.external.ha_client.HomeAssistantClient._get")
     def test_unknown_entity(self, mock_get, client):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -93,7 +91,7 @@ class TestGetState:
         assert result is not None
         assert result["value"] is None
 
-    @patch("app.data_access.external.ha_client.httpx.get")
+    @patch("app.data_access.external.ha_client.HomeAssistantClient._get")
     def test_trailing_slash_stripped(self, mock_get, client):
         client_with_slash = HomeAssistantClient("http://ha.local:8123/", "token")
         mock_response = MagicMock()
@@ -147,7 +145,7 @@ class TestConstructorSsrfGuard:
 
 
 class TestGetStateExtra:
-    @patch("app.data_access.external.ha_client.httpx.get")
+    @patch("app.data_access.external.ha_client.HomeAssistantClient._get")
     def test_non_numeric_state(self, mock_get, client):
         mock_response = MagicMock()
         mock_response.status_code = 200

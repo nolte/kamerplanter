@@ -83,6 +83,19 @@ def _is_bounded(call: ast.Call, function: ast.AST) -> bool:
     return False
 
 
+#: Modules whose ``ConnectionPool`` is an HTTP pool, not a Valkey one (#2249: the pinned
+#: SSRF transport in ``common/url_safety.py`` builds ``httpcore.ConnectionPool``).
+_NON_VALKEY_MODULES = frozenset({"httpcore"})
+
+
+def _is_non_valkey_receiver(call: ast.Call) -> bool:
+    return (
+        isinstance(call.func, ast.Attribute)
+        and isinstance(call.func.value, ast.Name)
+        and call.func.value.id in _NON_VALKEY_MODULES
+    )
+
+
 def _clients(source: str, label: str) -> dict[str, bool]:
     """``{"<label>:<function>": bounded}`` for every client construction in ``source``."""
     out: dict[str, bool] = {}
@@ -91,7 +104,7 @@ def _clients(source: str, label: str) -> dict[str, bool]:
         if not isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
         for node in ast.walk(function):
-            if isinstance(node, ast.Call) and _callee_name(node) in _CONSTRUCTORS:
+            if isinstance(node, ast.Call) and _callee_name(node) in _CONSTRUCTORS and not _is_non_valkey_receiver(node):
                 # The innermost enclosing function owns the call; ast.walk over an outer
                 # function revisits it, so keep the most specific (last-visited) owner only
                 # when it is bounded or not yet recorded.
@@ -198,3 +211,15 @@ def test_selftest_a_name_not_assigned_from_the_factory_is_flagged() -> None:
 
 def test_selftest_a_function_without_a_client_is_no_member() -> None:
     assert _clients("def f():\n    return 1\n", "x.py") == {}
+
+
+def test_selftest_an_httpcore_pool_is_no_member() -> None:
+    http_pool = "def __init__(self):\n    self._pool = httpcore.ConnectionPool(network_backend=backend)\n"
+
+    assert _clients(http_pool, "x.py") == {}
+
+
+def test_selftest_a_redis_pool_is_still_a_member() -> None:
+    valkey_pool = "def build():\n    return redis.ConnectionPool.from_url(url)\n"
+
+    assert _clients(valkey_pool, "x.py") == {"x.py:build": False}
