@@ -509,7 +509,7 @@ flowchart TD
 
 ### Kann ich später auf ein größeres Profil wechseln?
 
-Ja. Alle Profile nutzen dieselbe Datenbank. Du kannst jederzeit Komponenten hinzufügen (z.B. Ollama aktivieren, TimescaleDB starten, von Light auf Full wechseln), ohne Daten zu verlieren. Beim Wechsel von Light auf Full registrierst du auf dem Anmeldebildschirm ein neues Konto; das System-Konto des Light-Modus selbst kann kein Passwort bekommen (siehe [Light-Modus](../user-guide/light-mode.md#upgrade-light-full)).
+Ja. Alle Profile nutzen dieselbe Datenbank. Du kannst jederzeit Komponenten hinzufügen (z.B. Ollama aktivieren, TimescaleDB starten, von Light auf Full wechseln), ohne Daten zu verlieren. Beim Wechsel von Light auf Full registrierst du auf dem Anmeldebildschirm ein neues Konto; der erste Start im Full-Modus sperrt das System-Konto des Light-Modus und macht seine API-Schlüssel ungültig, und das erste Konto kann den Garten aus dem Light-Modus in einem Dialog übernehmen (siehe [Light-Modus](../user-guide/light-mode.md#upgrade-light-full)).
 
 ### Kann ich Ollama auf einem Raspberry Pi ausführen?
 

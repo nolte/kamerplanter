@@ -219,7 +219,10 @@ def members(
 #: create_service_account / remove_service_account through the membership audit), 4 helpers, 10 exempt.
 #: 21 at REQ-056: the store of the tenant update split from its checks (_write_tenant_update) and the
 #: lifecycle compare-and-set (_transition_tenant_status replaces _set_tenant_status) - 5 helpers.
-EXPECTED_MEMBERS = 21
+#: 24 at #1855 (REQ-027 light-to-full): three audited members - ModeSwitchService.seal_system_account and
+#: _restore_system_account (the start toggling the system account's is_active, via mode_switch) and
+#: TenantService.take_over_light_mode_tenant (owner_user_key, via light_mode_takeover).
+EXPECTED_MEMBERS = 24
 
 
 def test_every_trust_or_lifecycle_mutation_writes_the_audit_or_is_classified() -> None:

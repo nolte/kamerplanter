@@ -187,6 +187,22 @@ _MEMBERSHIP_CLASSIFIED[("tenant_service.py", "TenantService.join_provider_defaul
     "one just created and chooses nothing; always viewer, never platform or a personal tenant, and written "
     "to the security audit (via oidc_auto_join)"
 )
+_MEMBERSHIP_CLASSIFIED[("tenant_service.py", "TenantService.take_over_light_mode_tenant")] = (
+    "the light-to-full take-over (REQ-027 §7a.2, #1855): the account acts on itself in its own session (an API "
+    "key is refused at the route), only on a pending take-over the start opened and claimed atomically, and only "
+    "as the platform admin or the instance's earliest person account (ModeSwitchService.may_decide_takeover); "
+    "the membership it ends belongs to the sealed light-mode system account, which no person holds; audited "
+    "(via light_mode_takeover)"
+)
+_MEMBERSHIP_CLASSIFIED[("tenant_service.py", "TenantService.grant_first_platform_admin")] = (
+    "the bootstrap of an instance without any platform admin (REQ-027 Szenario 5 step 7e / 6 step 9, #1855): "
+    "there is no holder of the role whose step-up could confirm it; it refuses as soon as one active admin exists "
+    "and is reached only from the take-over decision above; audited (via light_mode_takeover)"
+)
+_MEMBERSHIP_CLASSIFIED[("tenant_service.py", "TenantService.restore_light_mode_membership")] = (
+    "the start of a light-mode instance (REQ-027 Szenario 7, #1855): no request, no person; it reactivates the "
+    "system account's own membership in its own tenant, the state light mode runs in; audited (via mode_switch)"
+)
 _CLASSIFIED.update(_MEMBERSHIP_CLASSIFIED)
 
 #: Known members without a step-up yet -> the follow-up issue tracking each. Emptied
@@ -353,7 +369,9 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
 EXPECTED_MEMBERS = (
-    41  # +1 with #2182: join_provider_default_tenant (classified, the OIDC auto-join via the insert helper);
+    44  # +3 with #1855: take_over_light_mode_tenant, grant_first_platform_admin, restore_light_mode_membership
+    # (all classified, the light-to-full switch of REQ-027 §7a);
+    # +1 with #2182: join_provider_default_tenant (classified, the OIDC auto-join via the insert helper);
     # unchanged by MT-045.2 (#2144): change_member_scopes stays a member, it moved from classified to gated;
     # +3 with #2137: create_service_account (constructs a User, joins it, mints its key),
     # rotate_service_account_key (mints a key) and remove_service_account (deletes a membership) - all gated

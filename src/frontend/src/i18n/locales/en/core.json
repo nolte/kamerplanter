@@ -615,6 +615,27 @@
       "searchHelper": "Search by plant name or ID",
       "noResults": "No plant found",
       "loading": "Loading plants…"
+    },
+    "lightModeTakeover": {
+      "title": "Take over the data from light mode?",
+      "intro": "Kamerplanter used to run in light mode without sign-in. The garden “{{name}}” from that time is still here:",
+      "counts": {
+        "plants_one": "{{count}} plant",
+        "plants_other": "{{count}} plants",
+        "sites_one": "{{count}} site",
+        "sites_other": "{{count}} sites",
+        "planting_runs_one": "{{count}} planting run",
+        "planting_runs_other": "{{count}} planting runs",
+        "nutrient_plans_one": "{{count}} own nutrient plan",
+        "nutrient_plans_other": "{{count}} own nutrient plans",
+        "tasks_one": "{{count}} task",
+        "tasks_other": "{{count}} tasks"
+      },
+      "acceptExplanation": "If you take it over, the garden is yours: you become its lead and can invite others. Your data stay exactly as they are.",
+      "declineExplanation": "If you decline, you start with your own empty garden. The old garden is kept and can be found in the admin area.",
+      "accept": "Yes, take it over",
+      "decline": "No, start fresh",
+      "later": "Decide later"
     }
   },
   "tankAlerts": {

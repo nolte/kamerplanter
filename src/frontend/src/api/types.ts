@@ -4095,6 +4095,34 @@ export interface RegisterRequest {
 /** Who may create an account (#2132, REQ-023 §3.2d). `closed` admits nobody, not even with an invitation. */
 export type RegistrationMode = 'open' | 'invite_only' | 'closed';
 
+/** Size of the light-mode garden shown in the take-over dialog (REQ-027 §7a.4, #1855). */
+export interface TakeoverResourceCounts {
+  plants: number;
+  sites: number;
+  planting_runs: number;
+  nutrient_plans: number;
+  tasks: number;
+}
+
+/**
+ * `GET /system/takeover-status` (REQ-027 §7a.4, #1855) — whether the data of a former light-mode
+ * installation wait to be taken over. Tenant and counts only when `eligible`.
+ */
+export interface TakeoverStatus {
+  pending: boolean;
+  eligible: boolean;
+  tenant_name: string | null;
+  tenant_slug: string | null;
+  resource_counts: TakeoverResourceCounts | null;
+}
+
+/** `POST /system/takeover` (REQ-027 §7a.2, #1855) — the decided take-over. */
+export interface TakeoverResult {
+  accepted: boolean;
+  tenant_slug: string | null;
+  platform_admin_granted: boolean;
+}
+
 /** `GET /mode` (REQ-027) — the deployment mode, its feature flags and the registration mode (#2132). */
 export interface ModeResponse {
   mode: 'light' | 'full';

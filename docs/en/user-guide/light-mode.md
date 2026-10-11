@@ -84,26 +84,36 @@ A restart of the services is required after every change. Existing data is prese
 
 Want to share Kamerplanter with others or use multiple accounts? You can upgrade to Full Mode at any time.
 
-<!-- diagram-source: user-described — upgrade flow from Light Mode to Full Mode with optional takeover of existing data -->
+<!-- diagram-source: src/backend/app/domain/services/mode_switch_service.py — upgrade flow from Light Mode to Full Mode with the take-over dialog -->
 ```mermaid
 flowchart TD
-    A["KAMERPLANTER_MODE=light<br/>App running, data present"] --> B["Set variable to 'full'<br/>Restart services"]
-    B --> C["Login screen appears"]
-    C --> D["Register first account"]
+    A["KAMERPLANTER_MODE=light<br/>App running, data present"] --> B["Set both variables to 'full'<br/>Restart services"]
+    B --> S["First start: system account locked,<br/>its API keys revoked"]
+    S --> C["Login screen appears"]
+    C --> D["Register the first account<br/>(own empty garden)"]
     D --> E{"Take over<br/>existing data?"}
-    E -- "Yes, take over" --> F["Your account takes ownership<br/>of the system garden with<br/>all existing data"]
-    E -- "No, start fresh" --> G["Empty personal<br/>garden is created"]
+    E -- "Yes, take over" --> F["You lead the old garden,<br/>all data unchanged"]
+    E -- "No, start fresh" --> G["Old garden stays,<br/>visible in the admin area"]
+    E -- "Decide later" --> D
     F --> H["Dashboard with<br/>existing data"]
     G --> H
 ```
 
-After restarting in Full Mode you see the login screen. Register an account — a dialog will appear:
+1. Set `KAMERPLANTER_MODE=full` (backend) and `VITE_KAMERPLANTER_MODE=full` (frontend) and restart both services.
+2. On the first start in Full Mode, Kamerplanter locks the Light Mode system account. It can no longer be signed into, and everything issued for it without sign-in in Light Mode stops working: API keys (`kp_…`) and calendar subscription links. Your plants, locations, and plans stay exactly as they are.
+3. You see the login screen. Register — like every new account, yours gets its own empty garden.
+4. After signing in, a dialog shows what the old garden holds, for example "30 plants, 3 sites".
 
-> "There is existing data (X plants, Y locations). Would you like to take it over into your account?"
+**Yes, take over:** The old garden is now yours. You become its lead with all management rights, it carries your name, and Kamerplanter switches straight into it. The data themselves are neither changed nor copied, and the garden's address stays the same. You can then invite additional members.
 
-**Yes, take over:** Your new account takes ownership of the system garden with all plants, locations, and nutrient plans. You can then invite additional members.
+**No, start fresh:** You keep working in your own empty garden. The old garden stays with all its data and can be found in the admin area under tenants.
 
-**No, start fresh:** An empty personal garden is created for your account. The old data remains in the database and can be viewed or deleted via the admin panel.
+**Decide later:** The dialog closes. It appears again the next time you sign in.
+
+Who sees the dialog: the **first registered account** — or, if a platform admin exists already, only that admin. Other accounts do not see it. If there is no platform admin yet, your decision makes you one, whether you take over or decline. <!-- REQ-027 Szenario 5/6, Issue #1855 -->
+
+!!! warning "Set up external access again"
+    Home Assistant, an MCP client, or any other program that used an API key of the system account in Light Mode gets `401` after the upgrade. Create a new key in Full Mode, for example for a service account, and enter it there. Create a calendar subscription again in the calendar settings.
 
 !!! tip "Tip"
     If you are unsure, choose "Yes, take over". You can always delete data afterwards — but you won't lose anything.
@@ -115,11 +125,14 @@ Want to switch back from Full Mode to Light Mode?
 !!! warning "Attention: Only the System Garden is Visible"
     In Light Mode only the system garden is accessible. If you created multiple gardens or user accounts in Full Mode, they are not visible in Light Mode. The data is **not lost** — it is fully accessible again when you next upgrade to Full.
 
-Change the environment variable to `light` and restart the services. The system automatically reactivates the system user and system garden. You land directly on the dashboard without login.
+Change both environment variables to `light` and restart the services. Kamerplanter unlocks the system account and gives it its garden back. You land directly on the dashboard without login. If you took the garden over in Full Mode, it keeps its new name.
+
+!!! warning "Not yet implemented"
+    Kamerplanter will reactivate or recreate a system garden that an admin suspended or deleted in Full Mode on the downgrade, and assign all master data to it. Until then, reactivate a suspended garden yourself in the admin area before the downgrade. <!-- REQ-027 AK-23, AK-24, Issue #1855 -->
 
 ### Round Trip: Light → Full → Light → Full
 
-A full back-and-forth switch is possible and safe. All data remains in the database. When you next upgrade to Full you see the take-over dialog again — you can take over the existing data once more.
+A full back-and-forth switch is possible. All data remains in the database. When you next upgrade to Full, Kamerplanter locks the system account again and the take-over dialog appears again — you can take the garden over once more.
 
 ---
 

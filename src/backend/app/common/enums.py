@@ -1846,6 +1846,9 @@ class SecurityAuditAction(StrEnum):
     PLAN_CREATED = "plan_created"
     PLAN_CHANGED = "plan_changed"
     PLAN_DELETED = "plan_deleted"
+    # REQ-027 §7a.2 (#1855) — after the switch from light to full mode an account took the light-mode
+    # system tenant over: the row names the tenant and the account that now owns it.
+    TENANT_TAKEN_OVER = "tenant_taken_over"
 
 
 class SecurityAuditVia(StrEnum):
@@ -1863,6 +1866,12 @@ class SecurityAuditVia(StrEnum):
     #: A new account's first sign-in through an OIDC provider with ``default_tenant_key`` placed
     #: it in that tenant (REQ-024 AK-09, #2182). The platform admin who configured it is the decision.
     OIDC_AUTO_JOIN = "oidc_auto_join"
+    #: REQ-027 §7a (#1855): the backend start found the deployment mode switched and sealed or restored
+    #: the light-mode system account. No person acted; the row names the system account as actor.
+    MODE_SWITCH = "mode_switch"
+    #: REQ-027 §7a.2 (#1855): the first account of a full-mode instance took the light-mode data over
+    #: (or declined it) through ``POST /system/takeover``.
+    LIGHT_MODE_TAKEOVER = "light_mode_takeover"
 
 
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {

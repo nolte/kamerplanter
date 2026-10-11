@@ -157,6 +157,10 @@ SYSTEM_SETTINGS = "system_settings"
 # NFR-016 Schema-migration tracking (versioned migration framework)
 SCHEMA_MIGRATIONS = "schema_migrations"
 
+# REQ-027 §7a (#1855) — installation-wide bookkeeping of the deployment mode: the mode the last
+# start ran in (``deployment_mode``) and an open light-to-full take-over (``pending_takeover``).
+SYSTEM_META = "system_meta"
+
 # Home Assistant publish selection (per-tenant, per-entity opt-in)
 HA_PUBLISH_SETTINGS = "ha_publish_settings"
 
@@ -335,6 +339,7 @@ DOCUMENT_COLLECTIONS = [
     SENSORS,
     SYSTEM_SETTINGS,
     SCHEMA_MIGRATIONS,
+    SYSTEM_META,
     HA_PUBLISH_SETTINGS,
     LOCATION_TYPES,
     WATERING_LOGS,

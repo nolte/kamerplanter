@@ -39,12 +39,13 @@ DECIDED: dict[tuple[str, str, str], str] = {
     ("create_api_key", "POST", "/api/v1/auth/api-keys"): (
         "REQ-033 §4.3: API-key management is mounted in light mode on purpose — MCP accepts "
         "nothing but a kp_ key, so a light instance could not use its MCP interface otherwise. "
-        "What happens to such keys on the switch to full mode is #1855."
+        "Since #1855 the first full-mode start revokes every key of the system account and deactivates "
+        "it (ModeSwitchService.seal_system_account, REQ-027 AK-35), so such a key does not survive the switch."
     ),
     ("<endpoint>", "POST", "/api/v1/t/{tenant_slug}/calendar/feeds"): (
         "A calendar feed is a light-mode feature (subscribing an external calendar). Its token "
         "grants read access to the feed only, and no route redeems it yet (feed.ics is not mounted). "
-        "Its survival into full mode belongs to the upgrade path of #1855."
+        "Since #1855 the full-mode start deletes the system account's feeds (ModeSwitchService.seal_system_account)."
     ),
     ("<endpoint>", "PUT", "/api/v1/t/{tenant_slug}/calendar/feeds/{key}"): (
         "Same feed document as the POST above (a regenerated token); same reasoning."

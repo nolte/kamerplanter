@@ -615,6 +615,27 @@
       "searchHelper": "Suche nach Pflanzenname oder Kennung",
       "noResults": "Keine Pflanze gefunden",
       "loading": "Pflanzen werden geladen…"
+    },
+    "lightModeTakeover": {
+      "title": "Daten aus dem Light-Modus übernehmen?",
+      "intro": "Kamerplanter lief bisher im Light-Modus ohne Anmeldung. Der Garten „{{name}}“ aus dieser Zeit ist noch da:",
+      "counts": {
+        "plants_one": "{{count}} Pflanze",
+        "plants_other": "{{count}} Pflanzen",
+        "sites_one": "{{count}} Standort",
+        "sites_other": "{{count}} Standorte",
+        "planting_runs_one": "{{count}} Pflanzdurchlauf",
+        "planting_runs_other": "{{count}} Pflanzdurchläufe",
+        "nutrient_plans_one": "{{count}} eigener Nährstoffplan",
+        "nutrient_plans_other": "{{count}} eigene Nährstoffpläne",
+        "tasks_one": "{{count}} Aufgabe",
+        "tasks_other": "{{count}} Aufgaben"
+      },
+      "acceptExplanation": "Wenn du übernimmst, gehört dir dieser Garten: Du wirst seine Leitung und kannst andere einladen. Deine Daten bleiben unverändert erhalten.",
+      "declineExplanation": "Wenn du ablehnst, startest du mit deinem eigenen leeren Garten. Der alte Garten bleibt erhalten und ist im Admin-Bereich zu finden.",
+      "accept": "Ja, übernehmen",
+      "decline": "Nein, neu starten",
+      "later": "Später entscheiden"
     }
   },
   "tankAlerts": {

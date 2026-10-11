@@ -141,6 +141,7 @@ if TYPE_CHECKING:
     from app.data_access.arango.legal_retention_repository import ArangoLegalRetentionRepository
     from app.data_access.arango.location_type_repository import ArangoLocationTypeRepository
     from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository, ArangoMcpIdempotencyRepository
+    from app.data_access.arango.mode_switch_repository import ArangoModeSwitchRepository
     from app.data_access.arango.notification_preference_repository import ArangoNotificationPreferenceRepository
     from app.data_access.arango.notification_repository import ArangoNotificationRepository
     from app.data_access.arango.onboarding_state_repository import ArangoOnboardingStateRepository
@@ -212,6 +213,7 @@ if TYPE_CHECKING:
     from app.domain.services.import_service import ImportService
     from app.domain.services.inventree_service import InvenTreeService
     from app.domain.services.location_type_service import LocationTypeService
+    from app.domain.services.mode_switch_service import ModeSwitchService
     from app.domain.services.notification_propagation_service import NotificationPropagationService
     from app.domain.services.notification_service import NotificationService
     from app.domain.services.oidc_provider_admin_service import OidcProviderAdminService
@@ -1476,6 +1478,29 @@ def get_onboarding_service() -> OnboardingService:
         get_starter_kit_service(),
         favorites_service=get_favorites_service(),
         user_preference_service=get_user_preference_service(),
+    )
+
+
+def get_mode_switch_repo() -> ArangoModeSwitchRepository:
+    """REQ-027 §7a (#1855) — the deployment-mode bookkeeping in ``system_meta``."""
+    from app.data_access.arango.mode_switch_repository import ArangoModeSwitchRepository
+
+    return ArangoModeSwitchRepository(get_db())
+
+
+def get_mode_switch_service() -> ModeSwitchService:
+    """REQ-027 §7a (#1855) — the light/full switch: sealing the system account and the data take-over."""
+    from app.domain.services.mode_switch_service import ModeSwitchService
+
+    return ModeSwitchService(
+        repo=get_mode_switch_repo(),
+        user_repo=get_user_repo(),
+        tenant_service=get_tenant_service(),
+        api_key_repo=get_api_key_repo(),
+        refresh_token_repo=get_refresh_token_repo(),
+        calendar_feed_repo=get_calendar_feed_repo(),
+        security_audit=get_security_audit_service(),
+        onboarding_service=get_onboarding_service(),
     )
 
 

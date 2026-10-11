@@ -4149,6 +4149,229 @@ class TenantService:
             raise NotFoundError("LocationAssignment", assignment_key)
         return self._assignment_repo.delete(assignment_key)
 
+    # --- Light-to-full take-over (REQ-027 §7a.2, #1855) ---
+
+    def take_over_light_mode_tenant(self, *, tenant_key: str, system_user_key: str, new_owner: User) -> Tenant:
+        """Hand the light-mode tenant to *new_owner* in place: no resource document is rewritten.
+
+        Every resource of the light-mode installation carries ``tenant_key = tenant_key``; access to
+        it is decided by the membership, so the take-over is three writes, not a data migration
+        (measured: no read path keys a tenant resource on the system account):
+
+        1. the system account's membership is ended - kept with ``is_active = false`` so a later
+           switch back to light mode can restore it (REQ-027 Szenario 7);
+        2. *new_owner* becomes ``lead`` with both administrative scopes (REQ-049 §6), through the one
+           join door (:meth:`_create_membership_unless_erasing`), or, already a member (a second
+           upgrade after a roundtrip, Szenario 8), is raised to that;
+        3. the tenant names *new_owner* as its owner and carries their display name. The slug stays,
+           so links and bookmarks into the garden keep working.
+
+        Authorisation is the caller's (``ModeSwitchService``: a claimed pending take-over and a platform
+        admin or the earliest person account). Refused before anything is written: a service account
+        (403), an unknown tenant (404), a tenant that is not active or is being erased (422/403). When
+        the second step fails, the first is undone, so the tenant is never left without a manager.
+        Every change is recorded in the security audit after it stood.
+        """
+        self._refuse_service_account(new_owner, "A service account cannot take over the light-mode data.")
+        owner_key = new_owner.key or ""
+        tenant = self.get_tenant(tenant_key)
+        if not tenant.is_active:
+            raise ValidationError("The light-mode tenant is not active and cannot be taken over.")
+        self._refuse_while_erasing(tenant_key)
+
+        system_membership = self._membership_repo.get_by_user_and_tenant(system_user_key, tenant_key)
+        ended: Membership | None = None
+        if system_membership is not None and system_membership.is_active and system_membership.key:
+            ended = self._membership_repo.update_fields(system_membership.key, {"is_active": False})
+
+        lead_scopes = [AdminScope.MANAGEMENT, AdminScope.TECHNICAL]
+        existing = self._membership_repo.get_by_user_and_tenant(owner_key, tenant_key)
+        try:
+            if existing is None or not existing.key:
+                granted = self._create_membership_unless_erasing(
+                    Membership(
+                        user_key=owner_key,
+                        tenant_key=tenant_key,
+                        role=TenantRole.LEAD,
+                        admin_scopes=lead_scopes,
+                        is_active=True,
+                        joined_at=datetime.now(UTC).isoformat(),
+                    )
+                )
+            else:
+                granted = (
+                    self._membership_repo.update_fields(
+                        existing.key, {"role": TenantRole.LEAD, "admin_scopes": lead_scopes, "is_active": True}
+                    )
+                    or existing
+                )
+        except Exception:
+            if ended is not None and ended.key:
+                self._membership_repo.update_fields(ended.key, {"is_active": True})
+            raise
+
+        if ended is not None:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_REMOVED,
+                via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                actor_user_key=owner_key,
+                target_user_key=system_user_key,
+                tenant_key=tenant_key,
+                membership=ended,
+            )
+        if existing is None or not existing.key:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_ADDED,
+                via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                actor_user_key=owner_key,
+                target_user_key=owner_key,
+                tenant_key=tenant_key,
+                membership=granted,
+            )
+        else:
+            self._audit_raised_membership(existing, granted, actor_user_key=owner_key)
+
+        fields: dict[str, Any] = {"owner_user_key": owner_key}
+        if not self._tenant_engine.validate_tenant_name(new_owner.display_name):
+            fields["name"] = new_owner.display_name
+        updated = self._tenant_repo.update_fields(tenant_key, fields)
+        if updated is None:
+            raise NotFoundError("Tenant", tenant_key)
+        self._audit_tenant(
+            SecurityAuditAction.TENANT_TAKEN_OVER,
+            via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+            actor_user_key=owner_key,
+            tenant_key=tenant_key,
+        )
+        logger.info("light_mode_tenant_taken_over", subject=log_subject(owner_key), tenant=log_tenant(tenant_key))
+        return updated
+
+    def _audit_raised_membership(self, before: Membership, after: Membership, *, actor_user_key: str) -> None:
+        """The audit rows of an existing membership the take-over raised to ``lead`` with both scopes."""
+        if before.role != after.role or not before.is_active:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_ROLE_CHANGED,
+                via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                actor_user_key=actor_user_key,
+                target_user_key=after.user_key,
+                tenant_key=after.tenant_key,
+                membership=after,
+                old_role=str(before.role),
+            )
+        if list(before.admin_scopes) != list(after.admin_scopes):
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_SCOPES_CHANGED,
+                via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                actor_user_key=actor_user_key,
+                target_user_key=after.user_key,
+                tenant_key=after.tenant_key,
+                membership=after,
+                old_scopes=list(before.admin_scopes),
+            )
+
+    def has_platform_admin(self) -> bool:
+        """Whether any active account holds the platform role (an active ``lead`` membership in ``platform``)."""
+        return any(
+            membership.role == TenantRole.LEAD
+            for membership in self._membership_repo.active_memberships_of(tenant_key=_PLATFORM_TENANT_KEY)
+        )
+
+    def grant_first_platform_admin(self, account: User) -> bool:
+        """Make *account* the platform administrator of an instance that has none (REQ-027 §7a.2, #1855).
+
+        A light-mode installation has no platform tenant: its system account is the operator because
+        ``is_platform_admin`` is always true there (REQ-027 AK-12). After the switch to full mode the
+        instance has no administrator at all until the first account decides the pending take-over;
+        that decision - accepted or declined (Szenario 5 step 7e, Szenario 6 step 9) - hands it the role.
+
+        Returns ``False`` without writing when an active platform administrator exists already: the role
+        is never handed out by this path beside one. Creates the platform tenant (resolved by slug, as
+        ``seed_auth`` does - the stored row cannot carry the literal key) when it is missing. The new
+        membership is recorded in the security audit.
+        """
+        self._refuse_service_account(account, "A service account cannot become the platform administrator.")
+        if self.has_platform_admin():
+            return False
+        account_key = account.key or ""
+        if self._tenant_repo.get_by_slug(_PLATFORM_TENANT_KEY) is None:
+            self._tenant_repo.create(
+                Tenant(
+                    name="Kamerplanter Platform",
+                    slug=_PLATFORM_TENANT_KEY,
+                    tenant_type=TenantType.ORGANIZATION,
+                    owner_user_key=account_key,
+                    is_platform=True,
+                    max_members=self._entitlements.members_ceiling(),
+                )
+            )
+            logger.info("platform_tenant_created", subject=log_subject(account_key))
+        lead_scopes = [AdminScope.MANAGEMENT, AdminScope.TECHNICAL]
+        existing = self._membership_repo.get_by_user_and_tenant(account_key, _PLATFORM_TENANT_KEY)
+        if existing is not None and existing.key:
+            raised = (
+                self._membership_repo.update_fields(
+                    existing.key, {"role": TenantRole.LEAD, "admin_scopes": lead_scopes, "is_active": True}
+                )
+                or existing
+            )
+            self._audit_raised_membership(existing, raised, actor_user_key=account_key)
+            return True
+        created = self._membership_repo.create(
+            Membership(
+                user_key=account_key,
+                tenant_key=_PLATFORM_TENANT_KEY,
+                role=TenantRole.LEAD,
+                admin_scopes=lead_scopes,
+                is_active=True,
+                joined_at=datetime.now(UTC).isoformat(),
+            )
+        )
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+            actor_user_key=account_key,
+            target_user_key=account_key,
+            tenant_key=_PLATFORM_TENANT_KEY,
+            membership=created,
+        )
+        logger.info("first_platform_admin_granted", subject=log_subject(account_key))
+        return True
+
+    def restore_light_mode_membership(self, *, tenant_key: str, system_user_key: str) -> bool:
+        """Reactivate the system account's membership a take-over ended (REQ-027 Szenario 7, #1855).
+
+        Called by the start that finds the instance back in light mode. The membership is raised back to
+        ``lead`` with both scopes - light mode resolves every request to the system account, which has to
+        be able to manage its tenant. ``False`` when there was nothing to restore (active already, or no
+        membership - the light-mode seed writes it together with the account). Recorded in the audit.
+        """
+        membership = self._membership_repo.get_by_user_and_tenant(system_user_key, tenant_key)
+        if membership is None or not membership.key:
+            logger.warning("light_mode_system_membership_missing", tenant=log_tenant(tenant_key))
+            return False
+        if membership.is_active:
+            return False
+        restored = (
+            self._membership_repo.update_fields(
+                membership.key,
+                {
+                    "role": TenantRole.LEAD,
+                    "admin_scopes": [AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
+                    "is_active": True,
+                },
+            )
+            or membership
+        )
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.MODE_SWITCH,
+            actor_user_key=system_user_key,
+            target_user_key=system_user_key,
+            tenant_key=tenant_key,
+            membership=restored,
+        )
+        return True
+
     # --- Helpers ---
 
     def get_membership(self, user_key: str, tenant_key: str) -> Membership | None:

@@ -1024,6 +1024,10 @@ _NOT_INSTALLATION_WIDE: dict[str, str] = {
     "auth": "session lifecycle; a caller reaches login/register/reset before having one",
     "users": "the caller's own account, sessions and federated identities",
     "privacy": "DSGVO Art. 15-21 self-service; the rows belong to the user",
+    "system": (
+        "REQ-027 §7a light-to-full take-over (#1855): the caller takes the light-mode tenant over or declines it; "
+        "ModeSwitchService admits only the platform admin or, without one, the earliest person account"
+    ),
     "tenants": "tenant lifecycle and membership, gated on require_admin_scope",
     "mcp": "REQ-033 protocol surface, gated on get_mcp_principal",
     "ki_assistent": (
