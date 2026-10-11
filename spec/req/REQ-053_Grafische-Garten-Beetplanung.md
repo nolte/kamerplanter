@@ -8,8 +8,8 @@ Fokus: Nutzpflanze (Outdoor, Gewächshaus, Hochbeet, Kübel); Zierpflanze mitged
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, React 19, TypeScript 6, MUI 9, Redux Toolkit, WeasyPrint
 Status: Entwurf
 Priorität: Hoch
-Version: 1.2 (drei Reviews eingearbeitet: Agrobiologie, Outdoor-Persona, Security)
-Datum: 2026-10-04
+Version: 1.3 (Editor-Interaktion, Beet-Standortmerkmale, Import/Export nach Frontend-Design- und Outdoor-Persona-Review)
+Datum: 2026-10-11
 Tags: [garden-plan, bed, geometry, canvas, planting-layout, maintenance, care-log, irrigation-zone, mobile, mvp]
 Abhängigkeit: REQ-002 v4.4 (Standort-Hierarchie Site → Location → Slot, LocationTypes, `adjacent_to`), REQ-013 v2.7 (Pflanzdurchlauf, `PlantingRunEntry.spacing_cm`, `run_at_location`), REQ-006 (Task-Modell, `entity_type`/`entity_key`, `has_task`), REQ-022 (Pflegeerinnerungen, `care_confirmations`), ADR-008 (einheitlicher Abschluss-Übergang), REQ-014 (`watering_events`), REQ-004 (Flächendosierung, Bodenanalyse-Felder), REQ-019 (Substratchargen, `filled_with`), REQ-028 (Mischkultur-Graph, Nachbarschafts-Check), REQ-001 (Fruchtfolge-Kategorien, `rotation_after`), REQ-007 (Ernte-Batches), REQ-018 (Aktorik, `irrigation_valve`), REQ-037 (ET0-Bewässerungsbedarf), REQ-034/REQ-052/NFR-013 (Fotos, Attachments), REQ-032 (Druck/PDF, `LOCATION_OVERVIEW`), REQ-024 v1.7 (Mandant), REQ-049 v1.4 (Rollenvokabular), REQ-042 (Modul-Sichtbarkeit), REQ-025/NFR-011 (DSGVO), NFR-006 (Fehlerformat), NFR-016 (Migrationen), UI-NFR-001/002/003/012/019/022
 Wird benötigt von: REQ-054 (Automatische Anbauplanung — liest Beete, Historie, `season_state`, schreibt geplante Runs mit Zeitfenster), REQ-032 (visueller Grundriss im Beetplan-Druck), REQ-028 §7.3 (Beetplan-Visualisierung), REQ-047 (Überwinterungsorte auf dem Plan), künftige Sonnen-/Schattenberechnung
@@ -19,6 +19,7 @@ Wird benötigt von: REQ-054 (Automatische Anbauplanung — liest Beete, Historie
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.3 | 2026-10-11 | **Editor-Interaktion, Standortmerkmale, Import/Export** nach zwei neuen Reviews (`spec/analysis/frontend-design-review-req-053-v1.3.md`, `outdoor-garden-planner-review-req-053-v1.3.md`). Neu: **§9.7 Interaktionsregeln** (Auswahl/Hit-Priorität, Touch-Gesten und Zeichnen ohne Maus, Zoom-Definition in px/m und LOD, Eltern-Kind-Verhalten, Snap-Priorität, Undo-Granularität, Fehlbedienungsschutz, Tastatur/WCAG 2.1.4, Fokusmodell, Labels, Leerzustände, Live-Validierung, Export-/Import-UI); **§10.2 Standortmerkmale des Beets** (Sonnenprofil, Mikroklima, Wind, Hang, Erreichbarkeit, Eignungs-Ampel `site_fit` gegen `Species.shade_tolerance`); **§23.1 Import/Export-Erweiterungen** (Vorjahres-Kopie, Teil-Export, CSV-Import, Vorlagen-Austausch, Spaltenauswahl). Widersprüche bereinigt (Long-Press, Pfeiltasten, Redo, Beschriftungs-Zoom, „2 s destruktiv", Doppelklick, GP-NFR-028). **Offene Betreiberentscheidungen O-16…O-21 (§32.1)**; die davon abhängigen Zeilen tragen den Vermerk „Vorschlag". Noch nicht in Roadmap/Anhang A und Akzeptanzkriterien-Zählung (§8) nachgezogen. |
 | 1.2b | 2026-10-04 | **Pre-Merge-Review (PR #2091, 10 Findings):** Migrationsnummern v0072–v0077 waren auf `develop` bereits vergeben → logische Platzhalter M1…M6 (GP-NFR-015); bbox-Beispiele in §20.3/§21.3 auf die Rotationskonvention korrigiert; GP-ACC-015 nutzt `retired` statt des mit W-014 entfallenen `fallow`-Status; Rückgängig im Feldmodus braucht Void auf eigene Ereignisse ≤ 10 min (GP-API-037); Nacherfassung der Vorjahre bekommt einen Datenpfad GP-API-042 (V-11-Ausnahme serverseitig); `trigger`-Enum in GP-FR-100 vervollständigt; CSV-Pfad vereinheitlicht; GP-ACC-028/GP-FR-133 auf `nutrient_demand`/`plan_role` umgestellt. Nicht übernommen: die Behauptung „TaskCategory hat 18 Werte" — `common/enums.py` hat 16. |
 | 1.2a | 2026-10-04 | Querverweis: §29 verweist für die automatische Anbauplanung auf das neue **REQ-054**; „Wird benötigt von" ergänzt. Keine inhaltliche Änderung. |
 | 1.2 | 2026-10-04 | **Drei Reviews eingearbeitet** (`spec/analysis/agrobiology-review-req-053.md`, `outdoor-garden-planner-review-req-053.md`, `security-review-req-053.md`) mit Betreiberentscheidungen: **O-07 revidiert** (K-001) — Zehrerstufe (3 Werte) und `nitrogen_fixing` (Bool) getrennt, `PlanRole` für den Rotationsplan (§16.3); **`tenant_key` auf Location und Slot** in M1 (SR-022, §20.13, §22.3); **Fruchtfolge- und Mischkultur-Hinweis sowie Vorjahresanzeige in den MVP** (F-12, GP-FR-131/132 → MUST); **Plan-Revision nur für Struktur** — Slot-Korrekturen und Quick-Planting laufen außerhalb (F-09, D-06); Retention `care_events` 5 Jahre (SR-005, NFR-011); `performed_by`-Filter für alle Rollen (SR-020); **Slot-Reservierung mit Zeitfenster** und UC „Beet räumen" (F-01/F-02); **Beetstatus = Lebenszyklus, Saisonzustand abgeleitet** (W-014). Dazu: Bodenmodell neu (K-002/K-003: `soil_texture`, `growing_medium_kind`, `conditions[]`, Messwerte mit Methode/Einheit), Anbaupausen je Familie (K-004), Layout-Semantik präzisiert (W-002/W-003: `grid`, `triangular`, Rand quer/längs, Reihenrichtung, Kapazität mit Reihenabstand), Steckbrief-Felder statt Duplikat (W-001), Pflegekatalog erweitert (W-006/F-03), Tasks an Kompost/Wasserquelle (W-008), Zeltregeln (W-016), Schattenfelder vorbereitet (§29), Security: Batch-Rollenprüfung je Op (SR-001), Referenzauflösung GP-NFR-058 (SR-002/003), Quoten (SR-004), Redaktion GP-FR-109 (SR-006), Kaskade/Export (SR-007/008), `trigger` serverseitig (SR-009), Matrix bereinigt (SR-010), Pflicht-Audit (SR-011), Komplexitäts-/Zeitbudget (SR-012), Prüfreihenfolge (SR-013), HA-Entität (SR-014), `url_fetcher`/SVG-Allowlist (SR-015), CSV (SR-016), Rate-Limits (SR-017), Import (SR-018), Sentry/Cache (SR-019). Feldmodus: Sofortspeichern, Schnellprotokoll-Chips, Rückgängig-Snackbar, Stepper als Standard (F-13/F-16/F-18). MoSCoW/MVP-Widersprüche bereinigt (F-06). 11 neue Akzeptanzkriterien (GP-ACC-039…049). |
@@ -29,7 +30,7 @@ Wird benötigt von: REQ-054 (Automatische Anbauplanung — liest Beete, Historie
 
 ## Inhalt
 
-1. Executive Summary · 2. Ziel und Scope · 3. Ausgangssituation · 4. Benutzergruppen · 5. Personas · 6. Use Cases · 7. Fachliches Domänenmodell · 8. Funktionale Anforderungen (Übersicht) · 9. Grafischer Garteneditor · 10. Beetverwaltung · 11. Pflanzplanung · 12. Beetpflege · 13. Pflegehistorie · 14. Bewässerung · 15. Boden/Nährstoffe · 16. Fruchtfolge/Mischkultur · 17. UX/UI · 18. Mobile Nutzung · 19. Technische Architektur · 20. Datenmodell · 21. API · 22. Validierung · 23. Import/Export · 24. Accessibility · 25. Performance · 26. Sicherheit · 27. Observability · 28. MVP · 29. Future Features · 30. Akzeptanzkriterien · 31. Risiken · 32. Offene Fragen · 33. Entscheidungsvorlagen · 34. Implementierungs-Roadmap · Anhang A: GitHub-Issue-Kandidaten
+1. Executive Summary · 2. Ziel und Scope · 3. Ausgangssituation · 4. Benutzergruppen · 5. Personas · 6. Use Cases · 7. Fachliches Domänenmodell · 8. Funktionale Anforderungen (Übersicht) · 9. Grafischer Garteneditor · 10. Beetverwaltung · 11. Pflanzplanung · 12. Beetpflege · 13. Pflegehistorie · 14. Bewässerung · 15. Boden/Nährstoffe · 16. Fruchtfolge/Mischkultur · 17. UX/UI · 18. Mobile Nutzung · 19. Technische Architektur · 20. Datenmodell · 21. API · 22. Validierung · 23. Import/Export (23.1 Erweiterungen) · 24. Accessibility · 25. Performance · 26. Sicherheit · 27. Observability · 28. MVP · 29. Future Features · 30. Akzeptanzkriterien · 31. Risiken · 32. Offene Fragen · 33. Entscheidungsvorlagen · 34. Implementierungs-Roadmap · Anhang A: GitHub-Issue-Kandidaten
 
 **ID-Schema dieses Dokuments.** Anforderungen tragen das Präfix `GP-` (Garden Planner), damit sie nicht mit den Repository-weiten Dokument-IDs kollidieren (`spec/nfr/NFR-012` ist ein Dokument, `GP-NFR-012` eine Anforderung in diesem Dokument):
 
@@ -326,8 +327,8 @@ Die Transformation Beet-Rahmen → Plan-Rahmen ist `p_plan = origin + R(rotation
 | GP-FR-006 | MUST | `area_m2` wird für `rect`, `circle`, `polygon` serverseitig berechnet (Shoelace für Polygon) und in `Location.area_m2` geschrieben, sobald eine Geometrie vorliegt. Ohne Geometrie bleibt `area_m2` manuell pflegbar (Bestandsverhalten). Die Berechnung ist in einem reinen Modul (`domain/calculators/geometry_calculator.py`) ohne I/O. | ja |
 | GP-FR-007 | MUST | Jedes Objekt besitzt eine serverseitig berechnete **Bounding Box** (`bbox: [min_x, min_y, max_x, max_y]` im Plan-Rahmen, nach Rotation), die für Containment-Prüfung, Viewport-Culling und die Mini-Map verwendet wird. | ja |
 | GP-FR-008 | MUST | Rotation wird in Grad gespeichert (`rotation_deg`, 0 ≤ r < 360, gegen den Uhrzeigersinn, bezogen auf `+x`). Die UI bietet Drehgriff, Eingabefeld und Schritte 15°/45°/90°. | ja |
-| GP-FR-009 | MUST | Zoom: stufenlos per Mausrad/Pinch, feste Stufen (25 %, 50 %, 100 %, 200 %, 400 %) per Schaltfläche/Tastatur, „An Fläche anpassen". Ein Maßstabsbalken (1 m / 5 m / 10 m je nach Zoom) ist immer sichtbar. | ja |
-| GP-FR-010 | MUST | Pan: Mittelklick/Space+Drag/Zwei-Finger-Pan; Tastatur: Pfeile scrollen, Shift+Pfeile scrollen um das Zehnfache. | ja |
+| GP-FR-009 | MUST | Zoom: stufenlos per Mausrad/Pinch, feste Stufen (25 %, 50 %, 100 %, 200 %, 400 %; Definition und Grenzen GP-FR-150) per Schaltfläche/Tastatur, „An Fläche anpassen". Ein Maßstabsbalken (1 m / 5 m / 10 m je nach Zoom) ist immer sichtbar. | ja |
+| GP-FR-010 | MUST | Pan: Mittelklick/Space+Drag/Zwei-Finger-Pan; Tastatur: Pfeile scrollen, Shift+Pfeile scrollen um das Zehnfache — **nur wenn kein Objekt ausgewählt ist**; bei Auswahl verschieben die Pfeile das Objekt (GP-UX-044). | ja |
 | GP-FR-011 | MUST | Raster: Standardgrößen **1 cm, 5 cm, 10 cm, 25 cm, 50 cm, 1 m**. Standardwert 10 cm. Das Raster ist ein-/ausschaltbar (Schalter + Taste `G`); die Rasterlinien werden nur gezeichnet, wenn ihr Bildschirmabstand ≥ 8 px ist (sonst nächstgrößere Stufe), das Snap-Raster bleibt unabhängig davon aktiv. | ja |
 | GP-FR-012 | MUST | Snap-to-Grid gilt für Verschieben, Zeichnen und Griffe; es ist mit gehaltener `Alt`-Taste bzw. per Schalter temporär abschaltbar. Zusätzlich SHOULD: Snap an Kanten/Ecken benachbarter Objekte (Toleranz 10 px). | ja (Grid), SHOULD (Objekt-Snap) |
 | GP-FR-013 | MUST | Der Plan-Rahmen erlaubt Längen bis 1 000 m je Achse (Streuobstwiese, Gemeinschaftsgarten). Darüber lehnt die API ab (§22). | ja |
@@ -372,17 +373,17 @@ Abgenommen wird der Editor weiterhin primär mit Outdoor-Szenarien (§30), aber 
 | GP-FR-020 | MUST | Auswahl: Klick; Mehrfachauswahl per Shift+Klick und Rahmen-Auswahl (Drag auf leerer Fläche im Auswahlwerkzeug); `Ctrl/Cmd+A` wählt alle sichtbaren Objekte der aktiven Ebene. | ja |
 | GP-FR-021 | MUST | Verschieben per Drag oder Pfeiltasten (1 Rasterschritt; Shift = 10 Schritte); Mehrfachauswahl verschiebt gemeinsam. | ja |
 | GP-FR-022 | MUST | Skalieren über 8 Griffe (Rect) bzw. Radiusgriff (Circle); Shift hält das Seitenverhältnis. Polygon-Skalierung über die Bounding-Box-Griffe (SHOULD). | ja (rect/circle), SHOULD (polygon) |
-| GP-FR-023 | MUST | Polygon-Punkte: Punkt ziehen, Punkt hinzufügen (Doppelklick auf Kante), Punkt löschen (Entf bei selektiertem Punkt, min. 3 Punkte bleiben). | ja |
+| GP-FR-023 | MUST | Polygon-Punkte: Punkt ziehen, Punkt hinzufügen (Mitten-Handle „+“ auf der Kante; Schaltfläche „Punkt einfügen“), Punkt löschen (Entf bzw. Schaltfläche „Punkt löschen“ bei selektiertem Punkt, min. 3 Punkte bleiben); Doppelklick ist **nicht** belegt (GP-UX-040). Touch-Entsprechungen: GP-UX-036…038. | ja |
 | GP-FR-024 | MUST | Löschen (Entf/Backspace, Kontextmenü, Panel). Beete mit aktiven Pflanzen oder offenen Tasks verlangen eine Bestätigung mit Nennung der Anzahl; die API verweigert das Löschen eines Beets mit `removed_on = null`-Pflanzen (409, §22). | ja |
 | GP-FR-025 | MUST | Duplizieren (`Ctrl/Cmd+D`): kopiert Geometrie und Stammfelder mit Versatz um einen Rasterschritt; bei Beeten werden Slots mitkopiert, Pflanzen und Tasks nicht. **Mehrfach duplizieren** (SHOULD, F-10): Anzahl, Richtung, Abstand und Namensschema (`Parzelle {n}`) für Gemeinschaftsgärten mit 30 Parzellen. | ja (einfach), SHOULD (mehrfach) |
-| GP-FR-026 | MUST | Undo/Redo (`Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z`) als clientseitiger Operationsstapel (mind. 50 Schritte) über alle Plan-Operationen; nach erfolgreichem Speichern bleibt der Stapel erhalten, bei Konflikt (409) wird er geleert und der Nutzer informiert. | ja |
-| GP-FR-027 | MUST | Kontextmenü (Rechtsklick / Long-Press 500 ms) mit Bearbeiten, Duplizieren, Löschen, „Bepflanzen" (Beet), „Aufgabe anlegen", „In Vordergrund/Hintergrund" (z-Order). | ja |
+| GP-FR-026 | MUST | Undo/Redo (`Ctrl/Cmd+Z`; Redo `Ctrl/Cmd+Shift+Z` **und** `Ctrl+Y`) als clientseitiger Operationsstapel (mind. 50 Schritte, Granularität GP-FR-155) über alle Plan-Operationen; nach erfolgreichem Speichern bleibt der Stapel erhalten, bei Konflikt (409) wird er geleert und der Nutzer informiert. | ja |
+| GP-FR-027 | MUST | Kontextmenü (Rechtsklick bzw. Long-Press **nur mit Maus/Stift**; auf Touch über die Schaltfläche „⋯“ im Panel/Sheet, GP-UX-040) mit Bearbeiten, Duplizieren, Löschen, „Bepflanzen" (Beet), „Aufgabe anlegen", „In Vordergrund/Hintergrund" (z-Order). | ja |
 | GP-FR-028 | MUST | Eigenschaftenpanel (Desktop: rechte Seitenleiste; Mobil: Bottom Sheet) zeigt für das ausgewählte Objekt Name, Typ, Position (x, y), Maße, Rotation, Fläche und typspezifische Felder; Werte sind direkt editierbar (Tastatur-Alternative zum Drag, UI-NFR-002 R-024). | ja |
 | GP-FR-029 | SHOULD | Ausrichten/Verteilen für Mehrfachauswahl (links/rechts/oben/unten/zentriert, gleichmäßig verteilen). | nein |
 | GP-FR-030 | WON'T | Persistente Gruppen (Gruppenobjekt mit eigenem Dokument). Begründung: Die Hierarchie Location → Location leistet fachliches Gruppieren bereits; ein rein grafisches Gruppenobjekt erzeugt ein zweites Containment-Modell. Mehrfachauswahl deckt den Bedienfall ab. | — |
 | GP-FR-031 | MUST | Ebenen-Sichtbarkeit: Schalter für Raster, Pflanzen, Beschriftungen (MVP) sowie Gartenobjekte, Beete, Zonen, „zuletzt gegossen" (SHOULD). Die Sichtbarkeit ist nutzerbezogen (localStorage). | ja |
 | GP-FR-032 | MUST | Sperren eines Objekts gegen versehentliches Verschieben (`locked: true`, persistiert, Schloss-Symbol). Gartengrenze ist nach dem ersten Speichern standardmäßig gesperrt. | ja |
-| GP-FR-033 | COULD | Hintergrundbild (Luftbild/Skizze) als georeferenzierte Unterlage mit Maßstab und Deckkraft. Nur Darstellung, nie Datenquelle. | nein |
+| GP-FR-033 | SHOULD | Hintergrundbild (Foto/Skizze/Luftbild) als **Unterlage zum Abzeichnen** mit Zwei-Punkt-Eichung (zwei Punkte + bekannte Distanz → Maßstab) und Deckkraft. Nur Darstellung, nie Datenquelle, nicht im Export (GP-FR-140) und nicht im PDF, außer ausdrücklich gewählt; Dateigröße begrenzt (Quote GP-NFR-017), Lagerung als Attachment (NFR-013); Luftbilder können Wohnort verraten → §26. Georeferenzierung/Kacheln bleiben COULD (GP-FR-033b). *Vorschlag O-19.* | nein |
 | GP-FR-034 | COULD | Messwerkzeug (Abstand zwischen zwei Punkten, Fläche eines temporären Polygons). | nein |
 
 ### 9.5 Objektklassen und ihre Darstellung
@@ -423,6 +424,79 @@ Gewächshaus-Darstellung: Eine Location `greenhouse` wird mit Glasrand gezeichne
 
 Die Mini-Map ist nur sinnvoll, wenn der Plan größer als der Viewport ist; sie ist daher bedingt (Schwelle oben), nicht permanent.
 
+### 9.7 Interaktionsregeln (v1.3)
+
+Diese Regeln präzisieren §9.4 und §17. Wo sie einer älteren Zeile widersprechen, gilt §9.7 (die Zeilen sind entsprechend angepasst). Alle Zeilen: MUST, MVP ja, sofern nicht anders angegeben. Quelle der Befunde: `spec/analysis/frontend-design-review-req-053-v1.3.md`.
+
+**Auswahl und Fokus**
+
+| ID | Prio | Anforderung | MVP |
+|----|------|-------------|-----|
+| GP-UX-032 | MUST | **Hit-Priorität** bei überlappenden Objekten, von oben nach unten: Pflanze/Slot-Marker → Beet/Gartenobjekt → Weg → Bereich → Gartengrenze. Innerhalb einer Klasse gilt die z-Order, danach die kleinere Fläche. Gesperrte Objekte (GP-FR-032) sind trefferbar, aber nicht verschiebbar. | ja |
+| GP-UX-033 | MUST | **Stapelauswahl:** Wiederholter Klick/Tipp auf dieselbe Stelle (Alt+Klick auf Desktop) wählt das nächste Objekt darunter; das Panel/Sheet zeigt „Objekte an dieser Stelle (n)" als Liste. SHOULD (MVP nein): Objektbaum-Panel mit Mehrfachauswahl. | ja |
+| GP-UX-034 | MUST | **Dichte Pflanzen auf Touch:** Ist der Bildschirmabstand benachbarter Marker kleiner als das Zielmaß (48 px, Feldmodus 64 px), öffnet ein Tipp die Liste „Pflanzen in der Nähe" (Bottom Sheet, Einträge ≥ 64 px, Spezies + Slot-Nummer) — Pflanzen werden nie per Direkttreffer „geraten". | ja |
+| GP-UX-035 | MUST | Im Feldmodus „Vorherige/Nächste Pflanze" (Reihenfolge der Reihen) als Einstieg in den Positions-Stepper (§18.1 Schritt 9). | ja |
+| GP-NFR-065 | MUST | `PlanRenderer.hitTestAll` (siehe GP-NFR-009) liefert den vollständigen Stapel; `hitTest` ist dessen erstes Element. | ja |
+| GP-UX-037 | MUST | **Mehrfachauswahl auf Touch:** Umschalter „Mehrfachauswahl“ in der Werkzeugleiste (jeder Tipp fügt hinzu/entfernt), „Alle auswählen“ im Menü. **Rahmenauswahl** wählt nur Objekte, die **vollständig** im Rahmen liegen; gesperrte Objekte, die Gartengrenze und (außer bei aktiver Ebene) Slots/Pflanzen sind ausgenommen. Rahmenauswahl auf Touch nur im Mehrfachauswahl-Modus (sonst Pan). | ja |
+
+**Zeichnen, Gesten, Tastatur**
+
+| ID | Prio | Anforderung | MVP |
+|----|------|-------------|-----|
+| GP-UX-036 | MUST | **Zeichenmodus auf Touch:** Aktionsleiste „Punkt setzen · Rückgängig · Fertig · Abbrechen“ (je ≥ 48 px). Rechteck: Drag oder Tipp–Tipp (zwei Ecken); Kreis: Mittelpunkt, dann Radius. Im Zeichenwerkzeug gilt **kein** Long-Press-Zwang. Snap-Umschalter als Schaltfläche (ersetzt `Alt`, GP-FR-012). | ja |
+| GP-UX-038 | MUST | **Polygonpunkte ohne Tastatur:** Punkt wählen → Schaltflächen „Punkt löschen“ und „Punkt einfügen“ (Kantenmitte); ersetzt Doppelklick/Entf auf Touch. | ja |
+| GP-UX-040 | MUST | **Verbindliche Gestentabelle (Touch):** Tipp = auswählen + Sheet (Info-Blase nur Hover/Desktop); Long-Press 500 ms (Fortschrittsring, `navigator.vibrate` wo verfügbar) = Verschiebe-Griff; Kontextmenü über „⋯“ im Sheet; Details nur über die Schaltfläche „Details öffnen“. Auf Maus/Stift: Rechtsklick/Long-Press = Kontextmenü, Doppelklick = Details. Kein Doppelklick-Shortcut auf Polygonkanten (GP-FR-023). | ja |
+| GP-NFR-066 | MUST | `touch-action: none` nur auf der Zeichenfläche, `-webkit-touch-callout: none`, `user-select: none` und Unterdrückung des `contextmenu`-Ereignisses auf Touch dort (keine Lupe/Callout beim Long-Press). | ja |
+| GP-UX-041 | SHOULD | Phantom-Touch-Filter (nasse Finger): weitere Pointer innerhalb 50 ms und Kontaktflächen über Schwellwert ignorieren. | ja |
+| GP-UX-044 | MUST | Pfeile verschieben das ausgewählte Objekt, sonst scrollen sie (GP-FR-010); die Statuszeile nennt den aktiven Modus. Ohne Raster: 1 cm (Shift 10 cm). Redo: `Ctrl/Cmd+Shift+Z` und `Ctrl+Y`. | ja |
+| GP-UX-045 | MUST | Einzeltasten-Shortcuts (`G`, `R`, `+`, `-`, `?`) sind nur aktiv, wenn die Zeichenfläche den Fokus hat, und in den Einstellungen abschaltbar (WCAG 2.1.4). | ja |
+| GP-UX-046 | MUST | **„Hinzufügen mit Maßen“:** Dialog (Typ, Form, Breite × Länge bzw. Radius, Position, Rotation; Polygon per Punktliste; optional Abstand zu einem Referenzobjekt wie Haus/Zaun) als Tastatur- und Touch-Alternative zum Zeichnen; Platzierung danach per Drag oder Panel. Ersetzt für die Anlage nicht die Zeichenwerkzeuge. | ja |
+
+**Maßstab, Darstellung, Raster**
+
+| ID | Prio | Anforderung | MVP |
+|----|------|-------------|-----|
+| GP-FR-150 | MUST | **Zoom ist `px_per_m`:** 100 % = 100 px/m (bei devicePixelRatio 1). Mindestzoom = „An Fläche anpassen“, Höchstzoom so, dass 1 cm ≥ 8 px. Die festen Stufen aus GP-FR-009 gelten relativ dazu und werden bei großen Plänen (> 100 m) durch den Mindestzoom begrenzt. | ja |
+| GP-NFR-067 | MUST | **LOD-Tabelle (ersetzt „Marker ab 50 %, Beschriftung ab 100 %“):** Beetname ab ≥ 60 px Bildschirmbreite des Beets; Gartenobjekt-Icons ab ≥ 24 px; Pflanzen-Marker ab ≥ 10 px Markerabstand, darunter Cluster mit Zähler je Beet; Maßangaben nur bei Auswahl. Schrift bildschirmkonstant (12 px, Feldmodus ≥ 16 px), skaliert nicht mit dem Zoom. | ja |
+| GP-UX-047 | MUST | **Label-Platzierung:** Name in der Objektmitte (Polygon: Pol der Unzugänglichkeit), mit „…“ gekürzt; unter 60 px Breite entfällt das Label zugunsten des Typ-Icons; bei Überlappung gewinnt das größere Objekt. Maßangaben stehen außerhalb über der Kante und weichen Griffen aus. PDF: bei Platzmangel Nummer + Beetliste auf Seite 2 (SHOULD, MVP nein). | ja |
+| GP-UX-048 | MUST | **Griffe an kleinen Objekten:** sichtbar 12–16 px, Hit-Area 48 px. Objekt < 3 × 48 px Bildschirmgröße → nur vier Eckgriffe; < 2 × 48 px → keine Griffe, stattdessen „Zum Bearbeiten heranzoomen“ (Auto-Zoom) und Panel-Eingabe. Trefferpriorität: Verschiebefläche → Kantengriff → Eckgriff; Rotationsgriff ≥ 32 px außerhalb der Kante. | ja |
+| GP-FR-154 | MUST | **Snap-Reihenfolge:** Objekt-Eckpunkt → Objekt-Kante → Raster. Slots snappen auf das Beet-lokale (gedrehte) Raster, Beete/Objekte auf das Plan-Raster. Toleranz 10 px (Maus), 24 px (Touch/Stift). Sichtbare Hilfslinie + Marker; Rasterstufe in der Kopfzeile. Winkel-Snap immer an (außer `Alt`). Objekt-Snap bleibt SHOULD (MVP nein), ist aber Teil der Reihenfolge. | ja |
+
+**Eltern-Kind, Undo, Schutz**
+
+| ID | Prio | Anforderung | MVP |
+|----|------|-------------|-----|
+| GP-FR-151 | MUST | **Bereich verschieben/drehen** bewegt alle enthaltenen Locations und GardenObjects mit (eine Plan-Operation je Kind im Batch, ein Undo-Schritt). | ja |
+| GP-FR-152 | MUST | **Beet mit Slots skalieren:** Dialog mit Vorschau „Positionen mitskalieren“ oder „Positionen beibehalten“; Slots außerhalb der neuen Form werden rot markiert und blockieren „Übernehmen“ (V-Regeln unverändert). | ja |
+| GP-FR-153 | MUST | **Löschdialog** nennt die Zahl betroffener Kinder (Beete, Objekte, Slots, Pflanzen, Tasks); Kaskade ist explizit, nie implizit. | ja |
+| GP-UX-043 | MUST | Bestätigung bei jedem Löschen eines Objekts mit Kindern und bei Mehrfachauswahl ≥ 3 Objekten, mit Zählung; Fokus startet auf „Abbrechen“, Bestätigen-Button ≥ 64 px im Feldmodus. | ja |
+| GP-FR-155 | MUST | **Undo-Granularität:** ein Undo-Schritt = eine Nutzeraktion (ganzer Drag, Rahmen-Skalierung, Panel-Feld nach `blur`/Enter, Mehrfachauswahl-Move, „n-mal duplizieren“, Entsperren). Undo einer noch ungespeicherten Operation entfernt sie aus `pending`; nach dem Speichern erzeugt Undo eine Gegenoperation (wieder Dirty). Undo/Redo-Schaltflächen auch auf sm/xs; Tooltip nennt die Aktion. Das Löschen eines Beets mit Pflanzen ist nach dem Speichern nicht undo-bar (im Dialog genannt). | ja |
+| GP-FR-156 | MUST | **Gesperrte Objekte** sind von Rahmenauswahl, „Alle auswählen“, Pfeiltasten und Panel-Eingabe ausgenommen; Schloss-Symbol mit Tooltip „Entsperren“. | ja |
+
+**Fokus und Screenreader**
+
+| ID | Prio | Anforderung | MVP |
+|----|------|-------------|-----|
+| GP-NFR-068 | MUST | **Roving-Tabindex:** Die Zeichenfläche ist **ein** Tab-Stopp (`role="group"`, `aria-roledescription="Gartenplan"`); innerhalb navigieren Pfeile/Tab zwischen den Objekten der aktuellen Ebene, Enter betritt ein Beet (Pflanzenebene), Esc geht zurück. Auswahl per `aria-selected`. Ersetzt „jedes Objekt `tabindex=0`“ (GP-NFR-020). | ja |
+| GP-NFR-069 | MUST | Fokusziele hängen am Modell, nicht am gerenderten Ausschnitt: Culling entfernt kein Fokusziel; fokussierte Objekte außerhalb des Viewports scrollen hinein. | ja |
+| GP-NFR-070 | MUST | Skip-Links „Zur Objektliste“ / „Zum Eigenschaftenpanel“; nach Dialog, Löschen und Undo wandert der Fokus auf ein Nachbarobjekt, nie auf `body`. Live-Region meldet nur das Endergebnis einer Aktion, nicht jede Zwischenposition. | ja |
+
+**Dialoge, Leerzustände, Validierung**
+
+| ID | Prio | Anforderung | MVP |
+|----|------|-------------|-----|
+| GP-UX-049 | MUST | **Leerzustände** je mit beschreibendem Text und genau einer Handlung: leeres Beet („Dieses Beet ist leer. [Bepflanzen]“), Plan ohne Grenze, Feldmodus-Liste ohne Fälligkeit („Heute ist nichts fällig. [Alle Beete anzeigen]“), leere Historie, keine Pflegeaufgaben, Offline ohne Cache, Ladefehler, leere Objektsuche; Skeleton beim Laden (UI-NFR-003). | ja |
+| GP-UX-050 | MUST | **Export-Dialog** (Menü „Exportieren“ in der Kopfzeile, auf xs im Überlauf): Format, Seitengröße, Maßstab (automatisch, überschreibbar), Ebenen, Option „Zuweisungen anzeigen“ (Standard aus, Hinweis SR-024), Vorschau, Fortschritt und Fehler nach UI-NFR-004. Auf xs nur JSON/PDF mit Standardoptionen. | ja |
+| GP-UX-051 | SHOULD | **Import-Assistent** in drei Schritten: Datei wählen → Prüfbericht (`dry_run`: Zähler, Warnungen, `dropped_references[]`, Quotenverletzungen) → Modus; `replace` verlangt die Eingabe des Site-Namens und nennt den Pflicht-Snapshot (SR-011). Import/Export sind im Feldmodus ausgeblendet (mit Begründung im Menü). | nein |
+| GP-UX-052 | MUST | **Kopfzeile/Sheet unter md:** Speichern-Status und Undo/Redo bleiben sichtbar, Raster, Zoom-Stufen und Exportieren liegen im „⋯“-Überlauf (Einträge ≥ 48 px). Werkzeuge tragen unter md eine Textbeschriftung (Tooltips gibt es auf Touch nicht). Bei Auswahl pannt der Viewport, sodass das Objekt oberhalb des Sheets sichtbar bleibt; das Sheet ist nicht modal, schließbar per Schaltfläche; Zahlenfelder `inputmode="decimal"`, Sheet-Höhe folgt `visualViewport`. | ja |
+| GP-UX-053 | SHOULD | **Live-Validierung im Client** (Containment, einfaches Polygon, Slot-Überlappung) mit dem Frontend-Port der Calculators (§19.1) während Zeichnen/Drag: roter Rand + Hinweis im Panel, Loslassen im ungültigen Zustand = Snap-Back mit Meldung. Der Server bleibt maßgeblich (GP-UX-017). | ja |
+| GP-UX-054 | SHOULD | Panelfelder tragen Achsen-/Drehrichtungssymbole („x →, y ↑“, Drehpfeil) und bei Slots den Bezugsrahmen „in Beet-Koordinaten“ (mathematische Rotation vs. Kompass-Nordwinkel, GP-FR-015). | ja |
+| GP-UX-055 | COULD | Feldmodus: Plan wahlweise an der Blickrichtung ausrichten (nur flüchtiger Gerätezustand, vgl. GP-UX-026). | nein |
+| GP-UX-056 | SHOULD | Kiosk (UI-NFR-019): nur Feldmodus lesend + Schnellprotokoll; Editier- und Export-Funktionen ausgeblendet. | nein |
+
+**Messprofile.** GP-NFR-071 (SHOULD, MVP nein): INP ≤ 200 ms für Auswahl, Drag-Start und Zoom; Pinch-Zoom-Frametime ≤ 33 ms auf Smartphone; Low-End-Android-Profil (CPU 4× gedrosselt) für den Feldmodus. Ergänzt GP-NFR-033/-034.
+
+
 ---
 
 ## 10. Beetverwaltung
@@ -459,6 +533,47 @@ Die Mini-Map ist nur sinnvoll, wenn der Plan größer als der Viewport ist; sie 
 | GP-FR-053 | MUST | Beet umbenennen ändert nur `name`; `slot_id` und alle Keys bleiben unverändert (Historie hängt per `placed_in` an Slots, F-07). | ja |
 | GP-FR-054 | COULD | Beet teilen / zusammenlegen (`POST /locations/{key}/split`, `POST /locations/merge`): Slots werden anhand ihrer Geometrie dem neuen Beet zugeordnet, Historie folgt dem Slot; Tasks am Beet werden dem Nutzer zur Zuordnung vorgelegt. | nein |
 | GP-FR-055 | MUST | **Beet räumen / Saisonende** (F-02): Aktion „Beet räumen" beendet alle aktiven Runs des Beets in einem Schritt (je Pflanze `removed_on`, `termination_type` wählbar: `harvested`, `senesced`, `died`, `cancelled`), schreibt einen `care_event(category = clearing)` und gibt die Slots frei. Slots abgeschlossener Runs bleiben als Historie erhalten (`archived_at` gesetzt) und blockieren weder V-06 noch V-08 (nur aktive und geplante Slots zählen). Der nächste Run im Beet darf dieselben Positionen neu belegen oder neue erzeugen. | ja |
+
+### 10.2 Standortmerkmale des Beets (v1.3)
+
+`sun_exposure` mit vier Werten (§10.1) reicht für die Pflanzenwahl nicht: Ein Beet mit Morgensonne ist für Salat etwas anderes als eines mit Nachmittagssonne, ein Beet unter einem Obstbaum ist im April sonnig und im Juli schattig. Alle Felder sind **optional, Standard `unknown`**, manuell erfassbar und zwingen den Bepflanzen-Dialog zu nichts. Quelle der Befunde: `spec/analysis/outdoor-garden-planner-review-req-053-v1.3.md`. Fachliche Zahlen sind bis zur Prüfung durch den Agrobiologie-Reviewer **unverifiziert** (O-17).
+
+```yaml
+Location.site_conditions:                     # neu, eingebetteter Werttyp
+  sun_profile:
+    sun_window: morning | midday | afternoon | all_day | mixed | unknown
+    direct_sun_hours_summer: float | null     # optional, manuell oder berechnet
+    foliage_shade_in_summer: bool             # Laubschatten: Frühjahr sonnig, Sommer schattig
+    source: manual | computed                 # §29, bestehendes sun_exposure_source
+  microclimate:
+    frost_risk: low | normal | high | unknown
+    cold_air_pocket: bool
+    heat_retention: none | wall | building | unknown
+  wind_exposure: sheltered | normal | exposed | unknown
+  slope_deg: float | null                     # optional, sonst Site.plan.terrain geerbt
+  aspect_deg: float | null
+  access_sides: list[N|E|S|W]                 # optional, Zugangsseiten für die Pflege
+  flags: list[root_competition | allelopathy_risk]   # Wurzeldruck/Gehölzkonkurrenz
+```
+
+`Location.sun_exposure` bleibt als **Grobwert** erhalten (aus `sun_profile` abgeleitet, wenn `computed`; sonst manuell). Das bestehende `frost_exposed` (Bool, §20.3) wird durch `microclimate.frost_risk` ersetzt und migriert (`true` → `high`).
+
+| ID | Prio | Anforderung | MVP |
+|----|------|-------------|-----|
+| GP-FR-157 | MUST | **Sonne/Schatten als Kachelauswahl** mit Icon + Text (nicht Dropdown): ☀ Volle Sonne · ⛅ Halbschatten · ☁ Schatten · ? Unbekannt (Standard). Jede Kachel trägt einen Hilfetext mit Definition („Volle Sonne: mehr als 6 Stunden direktes Sonnenlicht an einem Sommertag“, Glossar UI-NFR-011; Schwellen konfigurierbar, GP-FR-164). Eingabeort: Anlegedialog, Eigenschaftenpanel/Beet-Sheet, Beet-Zusammenfassung (GP-FR-047); im Feldmodus lesend, Ändern über „Bearbeiten“; Kacheln ≥ 64 px. **Stapel-Zuweisung:** „Sonne für alle gewählten Beete setzen“ (30 Parzellen). Ob die Skala um `deep_shade` erweitert wird, entscheidet O-16. | ja |
+| GP-FR-158 | SHOULD | **Sonnenprofil:** `sun_window` als Chip-Auswahl „Morgen / Mittag / Nachmittag / ganztägig“ (Stundenzahl optional, kein Zählen nötig); Eingabe auch im Feldmodus als Beet-Sheet mit 3–4 Chips (GP-UX-057). | nein |
+| GP-FR-159 | SHOULD | **Laubschatten:** Schalter „Laubschatten im Sommer“ (`foliage_shade_in_summer`) belegt die Saisonwerte vor (Frühjahr sonnig, Sommer schattig); die Berechnung bleibt §29. | nein |
+| GP-FR-160 | MUST | **Eignungs-Ampel `site_fit`** im Bepflanzen-Dialog (§11): Beetmerkmal gegen Anspruch der Art, Werte `ok / marginal / poor / unknown`, Begründung im Klartext („Beet: Halbschatten — Tomate braucht Vollsonne“). **Nicht blockierend**, analog zu Fruchtfolge-/Mischkultur-Hinweisen. `unknown` auf einer Seite ergibt keinen Hinweis. Grundlage: `Species.shade_tolerance` (REQ-001; vier Stufen) gegen `sun_exposure`; das Mapping ist als Tabelle im Code und hier zu dokumentieren, **bevor** die Ampel gebaut wird, weil die Semantik von `shade_tolerance` (Toleranz vs. Anspruch) in REQ-001 nicht eindeutig ist (O-16). Der Baustein ist generisch (`site_suitability`: Beetmerkmal ↔ Artanspruch) und wird von REQ-054 als Kriterium wiederverwendet. | ja |
+| GP-FR-161 | SHOULD | `site_fit` berücksichtigt zusätzlich `microclimate.frost_risk` ↔ Frostempfindlichkeit/Winterhärte, `wind_exposure` ↔ `Species.support_required` und `soil_profile.drainage` ↔ `waterlogging_tolerance`. | nein |
+| GP-FR-162 | SHOULD | **Mikroklima/Frostrisiko** (`microclimate`): manuell; `frost_risk` fließt in die Frost-Frühwarnung (REQ-046/REQ-392) **beetgenau** statt gartenweit ein. Ableitung der Senke aus `Site.plan.terrain` bleibt §29. | nein |
+| GP-FR-163 | SHOULD | `wind_exposure` manuell; später Ableitung aus `Site.plan.prevailing_wind_deg` und Hindernissen (`fence`/`wall`/`shrub` mit `height_m`/`opacity`) — jetzt nur das Feld, kein Algorithmus. | nein |
+| GP-FR-164 | SHOULD | Schwellen und Referenzdatum der Sonnenklassen (H-006) sind **Konfiguration** am Tenant/Site, nicht fest; Standard bis zur Prüfung (O-17): `full_sun` ≥ 6 h, `partial_shade` 3–6 h, `shade` < 3 h direkter Sonne am 21. Juni (statt Äquinoktium). | nein |
+| GP-FR-165 | COULD | `flags` `root_competition`, `allelopathy_risk` (z. B. unter Walnuss/Birke) als Auswahl; keine Berechnung. | nein |
+| GP-FR-166 | SHOULD | **Erreichbarkeit:** Hinweis `bed.reach_too_wide`, wenn die kürzeste Seite die konfigurierbare Schwelle übersteigt und kein Weg angrenzt (aus Geometrie ableitbar wie `adjacent_to`, GP-FR-130); nur Hinweis, nie Fehler. Richtwerte 1,2 m bei beidseitigem, 0,6 m bei einseitigem Zugang sind **unverifiziert**. Optional `access_sides` manuell. | nein |
+| GP-FR-167 | COULD | Abgeleitet, nur lesend: `nearest_water_source_m` (Luftlinie im Plan-Rahmen) als optionale Spalte der Beetliste (GP-FR-042). | nein |
+| GP-FR-168 | COULD | Hang pro Beet (`slope_deg`/`aspect_deg`, vom Site-Wert geerbt, überschreibbar); `orientation` wird bei gesetztem `aspect_deg` abgeleitet (GP-FR-017, Abgleich mit §20.8). | nein |
+| GP-FR-169 | SHOULD | **Karten-Ebenen** „Sonne“, „Feuchte/Drainage“, „Frostrisiko“ (Muster + Icon, nie nur Farbe; Schalter wie GP-FR-031); GP-FR-047 (Beet-Zusammenfassung) zeigt zusätzlich Drainage und Wasserregime. | nein |
+| GP-UX-057 | SHOULD | Beet-Sheet im Feldmodus mit Kurzbefragung: Chips „Sonne: Morgen/Mittag/Nachmittag/ganztägig“, „Feucht/Normal/Trocken“, „Windig“; passt zu GP-UX-029. Kein Formular mit acht Feldern je Beet. | nein |
 
 ---
 
@@ -754,14 +869,14 @@ Die Rotationslogik (Starkzehrer → Mittelzehrer → Schwachzehrer → Gründün
 | GP-UX-005 | MUST | Legende (ein-/ausblendbar) mit allen auf dem Plan vorkommenden Objektklassen und Phasenfarben; Legende ist Teil des PDF. | ja |
 | GP-UX-006 | MUST | Hover (Desktop) / Tipp (Touch) auf ein Objekt zeigt eine Info-Blase: Name, Typ, Maße, bei Beeten aktive Pflanzen, offene Aufgaben, **Vorjahr** (GP-FR-077) und zuletzt gegossen; Doppelklick/zweiter Tipp öffnet die Detailseite. | ja |
 | GP-UX-007 | MUST | Drag & Drop mit Vorschau (Geisterobjekt), Snap-Markierung (Hilfslinie), Abbruch per Esc; während des Drags werden Position und Maß live angezeigt (GP-FR-014). | ja |
-| GP-UX-008 | MUST | Touch: Ein-Finger-Drag auf Objekt = Verschieben nur nach **Long-Press 500 ms** (sonst Pan) — verhindert versehentliches Verschieben beim Scrollen; Zwei-Finger = Pan/Zoom/Rotate-Geste (Rotate SHOULD). Touch-Ziele für Griffe ≥ 48 px (UI-NFR-001 R-011), auf Beeten ohne Griffe: ganze Fläche. | ja |
+| GP-UX-008 | MUST | Touch: Ein-Finger-Drag auf Objekt = Verschieben nur nach **Long-Press 500 ms mit sichtbarem Fortschrittsring** (sonst Pan); verbindliche Gestentabelle GP-UX-040 — verhindert versehentliches Verschieben beim Scrollen; Zwei-Finger = Pan/Zoom/Rotate-Geste (Rotate SHOULD). Touch-Ziele für Griffe ≥ 48 px (UI-NFR-001 R-011), auf Beeten ohne Griffe: ganze Fläche. | ja |
 | GP-UX-009 | MUST | Tastatursteuerung vollständig (§24): Tab durch Objekte in DOM-Reihenfolge (Zeile, dann Spalte, UI-NFR-002 R-026), Pfeile verschieben, `R` rotiert 15°, `+/-` Zoom, `G` Raster, `Entf`, `Ctrl+D`, `Ctrl+Z/Y`, `Esc`. Hilfe-Overlay mit `?`. | ja |
 | GP-UX-010 | MUST | Beschreibende Texte (Feedback-Memory „Beschreibende Texte in der UI"): Leerzustand des Plans erklärt in zwei Sätzen, was zuerst zu tun ist („Zeichne die Umrisse deines Gartens. Du kannst sie später jederzeit anpassen."); jedes Werkzeug hat einen Tooltip mit Verb. | ja |
 | GP-UX-011 | MUST | Fachbegriffe (Pflanzabstand, Reihenabstand, Randabstand, Fruchtfolge) mit Glossar-Erklärung nach UI-NFR-011. | ja |
 | GP-UX-012 | MUST | `data-testid` nach UI-NFR-022: `garden-plan-page`, `garden-plan-canvas`, `plan-tool-<name>`, `plan-object-<key>`, `plan-handle-<position>`, `plan-properties-panel`, `form-field-<name>`, `save-plan-button`, `plan-conflict-dialog`, `bed-detail-page`, `bed-plan-tab`, `care-event-row-<key>`. Neue Muster werden vor Verwendung in UI-NFR-022 registriert (R-020). | ja |
 | GP-UX-013 | MUST | i18n-Schlüssel unter `pages.gardenPlanner.*`, Enums unter `enums.gardenObjectType.*`, `enums.bedStatus.*`, `enums.careEventCategory.*`, `enums.irrigationType.*`, `enums.layoutStrategy.*`; DE und EN vollständig (NFR-017). | ja |
 | GP-UX-014 | SHOULD | Mini-Map rechts unten (120 × 120 px), bedingt sichtbar (§9.6), zeigt Viewport-Rechteck, Klick springt. | nein |
-| GP-UX-015 | MUST | Phasenfarben und Icons der Pflanzen folgen UI-NFR-016; die Farbe ist nie der einzige Informationsträger (Icon + Beschriftung bei Zoom ≥ 100 %). | ja |
+| GP-UX-015 | MUST | Phasenfarben und Icons der Pflanzen folgen UI-NFR-016; die Farbe ist nie der einzige Informationsträger (Icon + Beschriftung nach der LOD-Regel GP-NFR-067, nicht an einen Zoom-Prozentwert gebunden). | ja |
 | GP-UX-016 | MUST | Dark Mode: Plan-Palette hat eigene Tokens (Boden, Rasen, Weg, Wasser) mit Kontrast ≥ 3:1 gegen den Hintergrund in beiden Themes (UI-NFR-006). | ja |
 | GP-UX-017 | MUST | Fehler-Feedback nach UI-NFR-004: Validierungsfehler der API (§22) werden am betroffenen Objekt markiert (roter Rand) und im Panel erklärt; ein 409-Konflikt öffnet einen Dialog mit „Neu laden" / „Meine Änderungen als Kopie behalten (JSON herunterladen)". | ja |
 
@@ -792,7 +907,7 @@ Der Nutzer steht mit Smartphone oder Tablet im Garten, Hände feucht oder versch
 | GP-UX-020 | MUST | Feldmodus ist die Standardansicht auf xs (< 600 px) und per Schalter auf allen Breiten verfügbar (`?mode=field`); er blendet Zeichenwerkzeuge, Raster und Griffe aus und vergrößert Touch-Ziele auf 64 px (Kiosk-Theme-Konstanten `KIOSK_TOUCH_TARGET` wiederverwenden). | ja |
 | GP-UX-021 | MUST | Kontrast im Feldmodus ≥ 7:1 für Text und ≥ 4,5:1 für Objektgrenzen (UI-NFR-019 R-040 sinngemäß, Sonnenlicht); Phasenfarben bekommen Umriss. | ja |
 | GP-UX-022 | MUST | Keine reine Swipe-Bedienung (UI-NFR-019 R-028); jede Geste hat eine Schaltflächen-Alternative. | ja |
-| GP-UX-023 | MUST | Debounce 300 ms auf „Erledigt" (R-029), Long-Press 500 ms für Verschieben, 2 s für destruktive Aktionen (Löschen ist im Feldmodus nicht verfügbar); nach dem ersten Tipp auf „Erledigt" ist der Button bis zur Server-Antwort gesperrt (Doppeltipp, F-16). | ja |
+| GP-UX-023 | MUST | Debounce 300 ms auf „Erledigt" (R-029), Long-Press 500 ms für Verschieben; destruktive Aktionen sind im Feldmodus nicht verfügbar (Löschen, Beet räumen nur im Planungsmodus); nach dem ersten Tipp auf „Erledigt" ist der Button bis zur Server-Antwort gesperrt (Doppeltipp, F-16). | ja |
 | GP-UX-024 | SHOULD | Offline-Lesen des Plans (UI-NFR-012 R-020: Standorte offline lesbar): letzter geladener Plan je Site im IndexedDB-Cache (TTL 15 min, R-012); Erledigen/Notiz/Foto werden als Offline-Einträge gepuffert (R-015, max. 500, R-019) und bei Verbindung mit `performed_at` aus dem Erfassungszeitpunkt gesendet. Geometrie-Änderungen bleiben online-only (Konfliktrisiko). Cache-Schlüssel enthält `user_key` und `tenant_key`; Logout und Tenant-Wechsel leeren Plan-Cache und Offline-Puffer (SR-019). Bis dahin zeigt der Feldmodus bei fehlender Verbindung einen sichtbaren Offline-Hinweis und sperrt „Erledigt" statt still zu verlieren (F-17, MVP). | nein (Puffer), ja (Offline-Hinweis) |
 | GP-UX-025 | MUST | Der Feldmodus funktioniert ohne Hover: alle Infos erscheinen per Tipp; Tooltips werden durch Sheet-Inhalte ersetzt. | ja |
 | GP-UX-026 | SHOULD | GPS-Hilfe: Ist `Site.gps_coordinates` + `north_angle_deg` gesetzt und erlaubt der Nutzer die Ortung (REQ-002 Opt-in-Muster), markiert ein Punkt die ungefähre eigene Position auf dem Plan (Genauigkeitskreis ≥ 3 m). **Die Eigenposition verlässt das Gerät nie** (SR-019): kein API-Request, keine URL, kein Redux-Persist, kein IndexedDB, kein Log, kein Sentry-Event — nur flüchtiger Komponentenzustand. | nein |
@@ -882,8 +997,8 @@ type PlanOperation =
 
 | ID | Prio | Anforderung |
 |----|------|-------------|
-| GP-NFR-009 | MUST | `PlanRenderer`-Interface: `render(model, viewport, selection, options) → ReactNode`, `hitTest(point_px) → key \| null`, `toScreen(p_m)`, `toModel(p_px)`. Editor-Logik (Werkzeuge, Griffe, Snap, Undo) importiert **keine** Renderer-Bibliothek. Ein ESLint-`no-restricted-imports`-Eintrag erzwingt das für `features/gardenPlanner/editor/**`. |
-| GP-NFR-010 | MUST | Viewport-Culling: nur Objekte, deren `bbox` den Viewport schneidet (± 20 % Rand), werden gerendert; Pflanzen-Marker erst ab Zoom ≥ 50 %, Beschriftungen ab 100 %. |
+| GP-NFR-009 | MUST | `PlanRenderer`-Interface: `render(model, viewport, selection, options) → ReactNode`, `hitTest(point_px) → key \| null`, `hitTestAll(point_px) → key[]` (Stapel, oberstes zuerst; GP-UX-033), `toScreen(p_m)`, `toModel(p_px)`. Editor-Logik (Werkzeuge, Griffe, Snap, Undo) importiert **keine** Renderer-Bibliothek. Ein ESLint-`no-restricted-imports`-Eintrag erzwingt das für `features/gardenPlanner/editor/**`. |
+| GP-NFR-010 | MUST | Viewport-Culling: nur Objekte, deren `bbox` den Viewport schneidet (± 20 % Rand), werden gerendert; Detailstufen (Marker, Beschriftung, Icons) nach der LOD-Tabelle GP-NFR-067. |
 | GP-NFR-011 | MUST | Drag-Rendering nutzt eine CSS-Transformation des bewegten `<g>` (kein Re-Render des Modells je Mausbewegung); das Modell wird erst beim Loslassen aktualisiert. |
 
 ### 19.5 Backend
@@ -1381,7 +1496,22 @@ Mit M1 tragen auch Locations und Slots `tenant_key` (SR-022); Repositories filte
 | GP-FR-145 | SHOULD | **CSV** | Beetliste (`GET /locations?…&format=csv`): Name, Typ, Fläche, Status, Bodenart, Zone, aktive Pflanzen; Historie (GP-FR-104) (gleiche CSV-Härtung wie GP-FR-104) | Export | nein |
 | GP-FR-146 | COULD | **GeoJSON** | Nur wenn `gps_coordinates` + `north_angle_deg` gesetzt: affine Transformation Plan-Meter → WGS84 (lokale ENU-Näherung, ausreichend für < 1 km); `FeatureCollection` mit `properties {kind, key, name, location_type}`; Import GeoJSON WON'T (Georeferenzierung nicht Ziel); Export der WGS84-Koordinaten (= Wohnort) **nur Leitung** (SR-024) | Export | nein |
 | GP-FR-147 | MUST | JSON | Sicherung und Wiederherstellung: JSON-Export ist in der DSGVO-Datenexport-Kaskade (`DataExportEngine`, REQ-025) enthalten; Import in dieselbe Site stellt Geometrien vollständig wieder her (AC in §30) | beide | ja (Export), SHOULD (Import) |
-| GP-FR-148 | SHOULD (vor Import `replace`: MUST, SR-011) | JSON | Automatischer Snapshot je Saison (`garden_plan_snapshots`, 1. Januar / vor `replace`-Import) mit Wiederherstellung | beide | nein |
+| GP-FR-148 | SHOULD (vor Import `replace`: MUST, SR-011; Rückholung: GP-FR-170) | JSON | Automatischer Snapshot je Saison (`garden_plan_snapshots`, 1. Januar / vor `replace`-Import) mit Wiederherstellung | beide | nein |
+
+### 23.1 Erweiterungen (v1.3, Vorschläge — Entscheidungen O-18…O-21 in §32.1)
+
+| ID | Prio | Format | Inhalt | Richtung | MVP |
+|----|------|--------|--------|----------|-----|
+| GP-FR-170 | MUST | JSON | **Wiederherstellung in den MVP:** Eine Sicherung, die sich nicht zurückspielen lässt, ist keine. Import `replace` auf dieselbe Site mit `dry_run`-Prüfbericht und **Pflicht-Snapshot** (SR-011) wird MVP; die Grenzen aus GP-FR-141/SR-018 gelten unverändert. Löst den Widerspruch GP-FR-147 (MUST) ↔ GP-FR-141 (SHOULD) auf. Erst die Rückholfunktion macht den Snapshot (GP-FR-148) wertvoll. *Vorschlag O-18.* | beide | ja |
+| GP-FR-171 | SHOULD | Aktion | **„Neue Saison aus Vorjahr“:** übernimmt Beete, Slots und Zonen, legt **keine** Pflanzen an; Historie bleibt an den Slots (§13), Fruchtfolge-/Mischkultur-Hinweise (GP-FR-131/132) nutzen die Vorjahresbelegung; optional Anzeige „Hier stand: Tomate“ als Planentwurf. Abstimmung mit REQ-054 vor Umsetzung. | Kopie | nein |
+| GP-FR-172 | SHOULD | JSON | **Teil-Export und Zielwahl:** Export `scope ∈ {site, selection, subtree}` (nur diese Beete / ein Bereich mit Unterbeeten); Import `target ∈ {same_site, other_site, other_tenant}` für Umzug und Parzellenübergabe. Referenzregeln wie GP-FR-141 (externe Verweise → `null`, Bericht `dropped_references[]`); Rolle: Leitung beider Seiten. | beide | nein |
+| GP-FR-173 | COULD | JSON | **Vorlagen-Austausch:** Beet-Vorlage (GP-FR-044) einzeln als JSON exportieren/importieren, ohne Mandanten-Keys, Notizen, Personenbezüge; Härtungen wie GP-FR-141. Eine kuratierte Vereinsbibliothek gehört nicht hierher. | beide | nein |
+| GP-FR-174 | SHOULD | **CSV** | **Beetlisten-Import** zur Massenanlage: Spalten `Name; Typ; Breite_m; Länge_m` (optional Sonne, Bodenart, Zone); Prüfbericht mit Zeilenfehlern (`dry_run`), UTF-8, Semikolon (deutsches Excel), Formel-Injektions-Härtung wie GP-FR-104/145. Legt Beete ohne Layout an (zunächst in einer Reihe); die Anordnung erfolgt im Editor. Export zusätzlich als Excel-Variante (Semikolon, BOM). | Import | nein |
+| GP-FR-175 | SHOULD | CSV | **Spaltenauswahl im Export:** Standardspalten wie GP-FR-145; wählbar zusätzlich Standortmerkmale (§10.2) und Zuweisung (nur mit Opt-in, SR-024). | Export | nein |
+| GP-FR-176 | COULD | PDF | Optionale Zusatzseite **Parzellenliste** (Beetnummer, Fläche, bei Opt-in Zuweisung) für Vorstand/Verpächter; ergänzt die Beetliste aus GP-FR-142. | Export | nein |
+| GP-NFR-072 | SHOULD | JSON | **Schema-Rückwärtskompatibilität:** Import migriert mindestens die letzten zwei `schema_version`-Stände; ein Januar-Export muss im Dezember lesbar sein (ergänzt GP-NFR-004). | Import | nein |
+
+Anpassungen an bestehenden Zeilen: PNG-Wasserzeichen (GP-FR-144) ist **Option**, nicht Standard; SVG-Download (GP-FR-143) bleibt MUST als Zwischenformat, der eigenständige Download wird SHOULD; die zwölf PDF-Maßstabsstufen (GP-FR-142) stehen im Dialog unter „erweitert“, Standard bleibt „automatisch“. GeoJSON-Export (GP-FR-146) ist Streichkandidat (O-21).
 
 ---
 
@@ -1397,7 +1527,7 @@ Mit M1 tragen auch Locations und Slots `tenant_key` (SR-022); Repositories filte
 | GP-NFR-025 | MUST | 200 % Browser-Zoom ohne Funktionsverlust (R-019): Werkzeugleiste umbricht, Panel wird Bottom Sheet. | ja |
 | GP-NFR-026 | MUST | `prefers-reduced-motion`: keine Zoom-Animation, kein Geisterobjekt-Fading (R-022). | ja |
 | GP-NFR-027 | MUST | Touch-Bedienung ohne Hover (GP-UX-025), Ziele ≥ 48 px, im Feldmodus ≥ 64 px. | ja |
-| GP-NFR-028 | SHOULD | `vitest-axe` auf Editor und Beetansicht; E2E-a11y-Lauf (bestehende Nightly-Kontrolle) enthält den Plan. | ja |
+| GP-NFR-028 | MUST | `vitest-axe` auf Editor und Beetansicht; E2E-a11y-Lauf (bestehende Nightly-Kontrolle) enthält den Plan. | ja |
 | GP-NFR-029 | SHOULD | SVG-Export trägt `<title>`/`<desc>` je Objekt; PDF ist Tagged PDF mit Lesereihenfolge (REQ-032). | nein |
 
 ---
@@ -1668,7 +1798,20 @@ Alle Punkte wurden vom Betreiber entschieden; die Tabelle bleibt als Protokoll s
 | F-01/F-02 | Reservierung ohne Zeitfenster, kein Saisonwechsel (Review Persona) | **Modellkorrektur eingearbeitet.** | GP-FR-055/065, V-06/V-08, GP-ACC-039/040 |
 | W-014 | Beetstatus mischt Lebenszyklus und Saison (Review Agrobiologie) | **Getrennt.** | §7.4, D-19 |
 
-Es gibt keine offenen Fragen mehr, die die Implementierung des MVP blockieren. Neue Fragen, die während der Umsetzung entstehen, werden als Issue mit Label `spec:REQ-053` erfasst, nicht hier nachgetragen.
+Es gibt (Stand v1.2) keine offenen Fragen mehr, die die Implementierung des MVP blockieren; die Fragen aus v1.3 stehen in §32.1. Neue Fragen, die während der Umsetzung entstehen, werden als Issue mit Label `spec:REQ-053` erfasst, nicht hier nachgetragen.
+
+### 32.1 Neue offene Fragen (v1.3, 2026-10-11)
+
+Aus den Reviews v1.3. Bis zur Entscheidung gelten die jeweils markierten „Vorschlag“-Zeilen als nicht freigegeben und sind **nicht** in Roadmap (§34), Anhang A und Akzeptanzkriterien (§30) eingerechnet.
+
+| ID | Frage | Empfehlung | Betrifft |
+|----|-------|------------|----------|
+| O-16 | Skala `Location.sun_exposure` um `deep_shade` erweitern, damit sie zu `Species.shade_tolerance` (4 Stufen) passt, oder nur dokumentiertes Mapping? Und: ist `shade_tolerance` ein Anspruch oder eine Toleranz? | `deep_shade` ergänzen (Feld neu, keine Migration nötig); Semantik in REQ-001 klären, bevor `site_fit` gebaut wird. | GP-FR-157/160 |
+| O-17 | Fachliche Prüfung der Sonnenklassen-Schwellen (6 h / 3–6 h / < 3 h) und des Bezugsdatums (Äquinoktium vs. Sommersonnenwende), der Reichweite 1,2/0,6 m | `agrobiology-requirements-reviewer` beauftragen; bis dahin konfigurierbar. | GP-FR-164/166 |
+| O-18 | Import `replace` + Pflicht-Snapshot in den MVP ziehen (Erweiterung des MVP-Umfangs, Issue 44/GP-FR-148)? | Ja — sonst ist „Sicherung“ im MVP ein leeres Versprechen. | GP-FR-170 |
+| O-19 | Hintergrund-Unterlage (Foto/Skizze, Zwei-Punkt-Eichung) von COULD auf SHOULD? | Ja; Georeferenzierung bleibt COULD. | GP-FR-033 |
+| O-20 | „Neue Saison aus Vorjahr“ in REQ-053 oder in REQ-054? | Datenkopie in REQ-053, Belegungsvorschläge in REQ-054. | GP-FR-171 |
+| O-21 | GeoJSON-Export (Wohnort-Koordinaten in einer Datei, kaum Nutzen für Gartenplaner) streichen? | Streichen oder auf spätere Version verschieben. | GP-FR-146 |
 
 ---
 
