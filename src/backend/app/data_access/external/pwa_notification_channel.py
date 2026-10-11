@@ -27,7 +27,9 @@ from __future__ import annotations
 import asyncio
 import json
 from functools import partial
+from typing import Any
 
+import requests
 import structlog
 
 from app.common.log_privacy import loggable_endpoint_host
@@ -40,6 +42,10 @@ logger = structlog.get_logger(__name__)
 # HTTP status codes the push service returns for a subscription that no
 # longer exists and must be removed by the application.
 _EXPIRED_STATUS_CODES: frozenset[int] = frozenset({404, 410})
+
+#: Seconds one push POST may take (connect + read). pywebpush passes ``None`` on
+#: to ``requests`` when no timeout is given, which waits without bound (#2249).
+PUSH_TIMEOUT_SECONDS = 10.0
 
 
 class PwaNotificationChannel(INotificationChannel):
@@ -122,68 +128,79 @@ class PwaNotificationChannel(INotificationChannel):
         expired_endpoints: list[str] = []
 
         loop = asyncio.get_running_loop()
-        for subscription in subscriptions:
-            endpoint = subscription.get("endpoint", "")
-            # SEC-001 — defence in depth: stored subscriptions may predate the
-            # subscribe-time SSRF validation. Never dial an unsafe endpoint.
-            if not is_safe_push_endpoint(endpoint):
-                errors.append(f"{loggable_endpoint_host(endpoint)}: rejected (unsafe endpoint)")
-                logger.warning("pwa_endpoint_skipped_unsafe", endpoint_host=loggable_endpoint_host(endpoint))
-                continue
-            subscription_info = {
-                "endpoint": endpoint,
-                "keys": {
-                    "p256dh": subscription.get("p256dh", ""),
-                    "auth": subscription.get("auth", ""),
-                },
-            }
-            try:
-                await loop.run_in_executor(
-                    None,
-                    partial(
-                        webpush,
-                        subscription_info=subscription_info,
-                        data=payload,
-                        vapid_private_key=self._vapid_private_key,
-                        vapid_claims=dict(vapid_claims),
-                    ),
-                )
-                delivered += 1
-                logger.debug(
-                    "pwa_notification_sent",
-                    notification_key=notification.key,
-                    endpoint_host=loggable_endpoint_host(endpoint),
-                )
-            except web_push_exception as exc:
-                status_code = _extract_status_code(exc)
-                if status_code in _EXPIRED_STATUS_CODES:
-                    expired_endpoints.append(endpoint)
-                    logger.info(
-                        "pwa_subscription_expired",
-                        endpoint_host=loggable_endpoint_host(endpoint),
-                        status_code=status_code,
+        # A push service answers 201; a 3xx is not followed (#2249). ``requests``
+        # follows redirects by default, and the ``Location`` is a target nobody
+        # validated: an endpoint host the subscriber controls could bounce the POST
+        # to 169.254.169.254 or an in-cluster service.
+        with _no_redirect_session() as session:
+            for subscription in subscriptions:
+                endpoint = subscription.get("endpoint", "")
+                # SEC-001 — defence in depth: stored subscriptions may predate the
+                # subscribe-time SSRF validation. Never dial an unsafe endpoint.
+                if not is_safe_push_endpoint(endpoint):
+                    errors.append(f"{loggable_endpoint_host(endpoint)}: rejected (unsafe endpoint)")
+                    logger.warning("pwa_endpoint_skipped_unsafe", endpoint_host=loggable_endpoint_host(endpoint))
+                    continue
+                subscription_info = {
+                    "endpoint": endpoint,
+                    "keys": {
+                        "p256dh": subscription.get("p256dh", ""),
+                        "auth": subscription.get("auth", ""),
+                    },
+                }
+                try:
+                    await loop.run_in_executor(
+                        None,
+                        partial(
+                            webpush,
+                            subscription_info=subscription_info,
+                            data=payload,
+                            vapid_private_key=self._vapid_private_key,
+                            vapid_claims=dict(vapid_claims),
+                            timeout=PUSH_TIMEOUT_SECONDS,
+                            requests_session=session,
+                        ),
                     )
-                else:
-                    errors.append(f"{loggable_endpoint_host(endpoint)}: {type(exc).__name__} {status_code}")
-                    logger.warning(
-                        "pwa_notification_failed",
+                    delivered += 1
+                    logger.debug(
+                        "pwa_notification_sent",
+                        notification_key=notification.key,
                         endpoint_host=loggable_endpoint_host(endpoint),
-                        status_code=status_code,
+                    )
+                except web_push_exception as exc:
+                    status_code = _extract_status_code(exc)
+                    if status_code in _EXPIRED_STATUS_CODES:
+                        expired_endpoints.append(endpoint)
+                        logger.info(
+                            "pwa_subscription_expired",
+                            endpoint_host=loggable_endpoint_host(endpoint),
+                            status_code=status_code,
+                        )
+                    else:
+                        errors.append(f"{loggable_endpoint_host(endpoint)}: {type(exc).__name__} {status_code}")
+                        logger.warning(
+                            "pwa_notification_failed",
+                            endpoint_host=loggable_endpoint_host(endpoint),
+                            status_code=status_code,
+                            error_type=type(exc).__name__,
+                        )
+                # Never the exception text, never a traceback (review SEC-002): a
+                # requests/urllib3 error names the endpoint as a *bare path*
+                # (``Max retries exceeded with url: /fcm/send/<token>``), which no
+                # URL masking recognises, and the traceback would render it again.
+                # The ``errors`` detail is logged by the engine and can reach the
+                # subscriber, so it carries the host and a generic class only: the
+                # exception type (ConnectTimeout vs. ConnectionError vs. SSLError) would
+                # tell a subscriber who rebinds their endpoint's name whether an
+                # internal address:port is open (#2249 review SEC-002). The type stays
+                # in the operator log below.
+                except Exception as exc:  # noqa: BLE001 — never abort the batch
+                    errors.append(f"{loggable_endpoint_host(endpoint)}: delivery failed")
+                    logger.error(
+                        "pwa_notification_error",
+                        endpoint_host=loggable_endpoint_host(endpoint),
                         error_type=type(exc).__name__,
                     )
-            # Never the exception text, never a traceback (review SEC-002): a
-            # requests/urllib3 error names the endpoint as a *bare path*
-            # (``Max retries exceeded with url: /fcm/send/<token>``), which no
-            # URL masking recognises, and the traceback would render it again.
-            # The ``errors`` detail is logged by the engine, so it carries the
-            # host and the type only.
-            except Exception as exc:  # noqa: BLE001 — never abort the batch
-                errors.append(f"{loggable_endpoint_host(endpoint)}: {type(exc).__name__}")
-                logger.error(
-                    "pwa_notification_error",
-                    endpoint_host=loggable_endpoint_host(endpoint),
-                    error_type=type(exc).__name__,
-                )
 
         return self._build_result(delivered, errors, expired_endpoints)
 
@@ -242,6 +259,30 @@ def _import_pywebpush():  # noqa: ANN202 — third-party objects are untyped
     from pywebpush import WebPushException, webpush  # noqa: PLC0415
 
     return webpush, WebPushException
+
+
+class _NoRedirectSession(requests.Session):
+    """A ``requests`` session that never follows a redirect (#2249).
+
+    pywebpush posts through ``requests``, whose ``post`` follows 3xx answers to any
+    ``Location``. Here a 3xx comes back as the response; pywebpush turns every
+    status above 202 into a ``WebPushException``, so it is reported as a failed
+    delivery and the target it names is never dialed.
+    """
+
+    def request(self, method: str, url: str | bytes, *args: Any, **kwargs: Any) -> requests.Response:
+        kwargs["allow_redirects"] = False
+        return super().request(method, url, *args, **kwargs)
+
+
+def _no_redirect_session() -> requests.Session:
+    """A fresh :class:`_NoRedirectSession`, one per delivery batch.
+
+    Not ``max_redirects = 0``: with ``allow_redirects=False`` requests still walks the
+    redirect generator once to fill ``Response.next`` (without sending), and a zero
+    cap turns every 3xx into ``TooManyRedirects`` instead of a reportable status.
+    """
+    return _NoRedirectSession()
 
 
 def _extract_status_code(exc: Exception) -> int | None:

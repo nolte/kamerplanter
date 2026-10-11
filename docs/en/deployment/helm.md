@@ -289,6 +289,10 @@ The frontend nginx accepts request bodies up to `storage.maxFileSizeMb` + 1 MiB 
 
 The chart sets the same limit on the ingress `main` as the annotation `nginx.ingress.kubernetes.io/proxy-body-size`, because ingress-nginx would otherwise cut at 1 MiB too. Both follow `storage.maxFileSizeMb`: when you raise the upload limit, nginx and the ingress grow with it. Traefik and Contour/Envoy do not read the annotation and set no body limit of their own; there the frontend nginx's limit applies, as long as `/` and `/api` go through the frontend. If you use an ingress under another key than `main` or your own `HTTPProxy`, set the limit there yourself to the same value.
 
+The backend enforces the same limit again before it reads an upload. That matters when a request bypasses the frontend nginx — via `kubectl port-forward`, from inside the cluster or through an ingress without a body limit. An upload with a larger `Content-Length` gets `413` (`REQUEST_BODY_TOO_LARGE`) without the backend reading a byte; an upload without a declared length is cut off at the limit. Every other request (JSON, forms) may be at most 1 MiB.
+
+While reading, the backend keeps uploads above 1 MiB in `/tmp`, a memory volume of 64 MiB in the chart. So that concurrent uploads cannot fill it, they share a budget of 52 MiB (`UPLOAD_SPOOL_BUDGET_MB`). It counts the bytes that already arrived: at the default limit two full uploads run at the same time, a further one waits up to 30 seconds (`UPLOAD_SPOOL_WAIT_SECONDS`) and then gets `503` with `Retry-After`. If you raise `storage.maxFileSizeMb` above 51, the chart sets the budget to one full upload, so only one large upload runs at a time. The size of `/tmp` does not follow automatically: from an upload limit of about 60 MiB you must raise `persistence.backend-tmp.sizeLimit` yourself.
+
 ### Valkey (Redis-compatible cache)
 
 ```yaml
@@ -613,6 +617,16 @@ The chart therefore already restricts egress for `backend` and `celery-worker` (
 
 !!! warning "A LAN Gotify or ntfy needs two opt-ins"
     Kamerplanter refuses a Gotify or ntfy on your home network (`192.168.x.x`) in `full` mode, and the chart's default egress blocks it as well. Set `APPRISE_ALLOW_PRIVATE_TARGETS=true` in the environment of `backend` and `celery-worker`, and add an egress rule for exactly that address and port to `networkpolicies.backend.rules.egress` and `networkpolicies.celery-worker.rules.egress` in your `valuesObject`. The opt-in applies to every user and every private address, pod IPs in the cluster included; the egress rule is then the actual barrier. Without a cluster NetworkPolicy (Docker Compose) no egress limit applies; only the backend check remains.
+
+### Outbound connections to Home Assistant and InvenTree
+
+Kamerplanter does not only check the Home Assistant and InvenTree URL when it is saved: every connection checks the addresses it opens to and connects only to one of them. A DNS answer that changes between the check and the connection (DNS rebinding) therefore does not lead to an internal address. Cloud metadata and link-local stay refused in every case, private addresses only with `HA_ALLOW_PRIVATE_ENDPOINT` or `INVENTREE_ALLOW_PRIVATE_ENDPOINT`. None of these connections follows a redirect, and neither does Web Push.
+
+!!! warning "Web Push is not pinned"
+    Kamerplanter checks the push endpoint when it is saved and before every send, but the name is resolved again when connecting. A name that then points at an internal address fails at the TLS certificate before any HTTP request is sent; the TCP connection to it is opened, though. The chart's egress rule (excluding `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`) is the actual barrier here.
+
+!!! note "No HTTP proxy for these connections"
+    `HTTP_PROXY` and `HTTPS_PROXY` do not apply to Home Assistant and InvenTree: a proxy would resolve the name itself, which is exactly what the connection must not hand over. If your cluster needs a proxy for outbound traffic, allow Home Assistant and InvenTree directly through an egress rule.
 
 ### Virus Scanning (optional)
 

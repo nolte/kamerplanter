@@ -27,10 +27,24 @@ MULTIPART_ENVELOPE_BYTES = 64 * 1024
 
 def declared_content_length(request: Request) -> int | None:
     """Return the request ``Content-Length`` as an int, or ``None`` if absent/invalid."""
-    raw = request.headers.get("content-length")
-    if raw is None or not raw.strip().isdigit():
+    return parse_content_length(request.headers.get("content-length"))
+
+
+def parse_content_length(raw: str | None) -> int | None:
+    """A ``Content-Length`` value as an int, or ``None`` unless it is a plain ASCII decimal.
+
+    ``str.isdigit`` admitted superscripts and other Unicode digits that ``int``
+    then rejects with ``ValueError`` — a 500 from every upload route (#2254).
+    """
+    if raw is None:
         return None
-    return int(raw)
+    return _ascii_decimal(raw.strip())
+
+
+def _ascii_decimal(text: str) -> int | None:
+    if not (text.isascii() and text.isdecimal()):
+        return None
+    return int(text)
 
 
 def declared_body_exceeds(request: Request, max_file_bytes: int) -> bool:

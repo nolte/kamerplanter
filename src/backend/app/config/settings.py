@@ -1165,6 +1165,35 @@ class Settings(BaseSettings):
     #: A ``Literal`` since #1887: an unknown backend stopped at first use only; now at start.
     storage_backend: Literal["local-fs", "s3"] = "local-fs"
     storage_max_file_size_mb: int = 25
+    #: #2254 — byte budget shared by concurrent multipart bodies in one process.
+    #: Starlette spools every file part above 1 MiB into ``/tmp`` before the route
+    #: runs; the chart mounts a memory-backed ``/tmp`` of 64 MiB, so the default
+    #: holds two bodies at the default ceiling (25 + 1 MiB each) with room left.
+    #: Keep it below the backend's ``/tmp`` size when you raise either value.
+    #: Counted in bytes actually received, not in announced lengths.
+    upload_spool_budget_mb: int = Field(default=52, ge=1)
+    #: #2254 — how long an upload waits for spool budget before it gets ``503``.
+    upload_spool_wait_seconds: int = Field(default=30, ge=0)
+
+    @field_validator("upload_spool_budget_mb")
+    @classmethod
+    def _spool_budget_holds_one_full_upload(cls, value: int, info: ValidationInfo) -> int:
+        """Refuse a budget below one full-size multipart body at load (#2254).
+
+        A smaller budget could never admit an upload of the configured maximum:
+        every such upload would wait and end in ``503``. Field validator (not a
+        model validator) so the error echoes only this number, never the
+        environment.
+        """
+        max_file_mb = info.data.get("storage_max_file_size_mb")
+        if isinstance(max_file_mb, int) and value < max_file_mb + 1:
+            msg = (
+                f"UPLOAD_SPOOL_BUDGET_MB ({value}) must be at least STORAGE_MAX_FILE_SIZE_MB + 1 "
+                f"({max_file_mb + 1}): one full-size upload plus its multipart framing"
+            )
+            raise ValueError(msg)
+        return value
+
     storage_presign_ttl_seconds: int = 900
     storage_virus_scan_enabled: bool = False
     storage_virus_scan_endpoint: str = ""

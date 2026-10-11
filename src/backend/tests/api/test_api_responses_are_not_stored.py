@@ -6,9 +6,9 @@ shared proxy or the browser's back/forward and disk cache was then free to keep
 a copy of a member's view after logout or a tenant switch.
 
 The rule is a default, not an override: a route that decides its own caching
-keeps it. The attachment downloads answer ``private, max-age=86400`` on purpose
-(images re-used across pages), the pest reference images ``public`` and the SSE
-stream ``no-cache`` — the middleware only fills in a header that is absent.
+keeps it. The attachment and pest-image downloads answer ``private, no-cache``
+with an ETag (revalidated on every reuse, #2254), the token download ``no-store``
+and the SSE stream ``no-cache`` — the middleware only fills in a header that is absent.
 """
 
 from __future__ import annotations
@@ -54,8 +54,8 @@ async def test_an_api_v1_answer_without_a_directive_gets_no_store() -> None:
 
 @pytest.mark.parametrize(
     "directive",
-    ["private, max-age=86400", "public, max-age=86400", "no-cache"],
-    ids=["attachment", "pest-image", "sse"],
+    ["private, no-cache", "no-cache"],
+    ids=["attachment-and-pest-image", "sse"],
 )
 async def test_a_route_that_chose_its_own_directive_keeps_it(directive: str) -> None:
     answered = await _answer("/api/v1/t/a/attachments/x/download", Response(b"x", headers={"Cache-Control": directive}))

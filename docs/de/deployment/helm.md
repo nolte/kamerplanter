@@ -290,6 +290,10 @@ Das Frontend-nginx nimmt Request-Bodys bis `storage.maxFileSizeMb` + 1 MiB an (S
 
 Das Chart setzt am Ingress `main` dieselbe Grenze als Annotation `nginx.ingress.kubernetes.io/proxy-body-size`, weil ingress-nginx sonst ebenfalls bei 1 MiB abschneidet. Beides folgt `storage.maxFileSizeMb`: Wenn du die Upload-Grenze anhebst, wachsen nginx und Ingress mit. Traefik und Contour/Envoy werten die Annotation nicht aus und setzen von sich aus keine Body-Grenze; dort greift die Grenze des Frontend-nginx, solange `/` und `/api` über das Frontend laufen. Nutzt du einen Ingress unter einem anderen Schlüssel als `main` oder einen eigenen `HTTPProxy`, setze die Grenze dort selbst auf denselben Wert.
 
+Das Backend setzt dieselbe Grenze noch einmal selbst, bevor es einen Upload liest. Das greift, wenn ein Request am Frontend-nginx vorbeikommt — über `kubectl port-forward`, aus dem Cluster oder über einen Ingress ohne Body-Grenze. Ein Upload mit größerer `Content-Length` bekommt `413` (`REQUEST_BODY_TOO_LARGE`), ohne dass das Backend ein Byte liest; ein Upload ohne Längenangabe wird an der Grenze abgebrochen. Alle anderen Requests (JSON, Formulare) dürfen höchstens 1 MiB groß sein.
+
+Uploads über 1 MiB legt das Backend während des Lesens in `/tmp` ab, im Chart ein Speicher-Volume mit 64 MiB. Damit gleichzeitige Uploads es nicht füllen, teilen sie sich ein Budget von 52 MiB (`UPLOAD_SPOOL_BUDGET_MB`). Es zählt die Bytes, die schon angekommen sind: Bei der Standardgrenze laufen zwei volle Uploads gleichzeitig, ein weiterer wartet bis zu 30 Sekunden (`UPLOAD_SPOOL_WAIT_SECONDS`) und bekommt danach `503` mit `Retry-After`. Hebst du `storage.maxFileSizeMb` über 51 an, setzt das Chart das Budget auf eine volle Upload-Größe, also läuft nur noch ein großer Upload zur Zeit. Die Größe von `/tmp` folgt nicht automatisch: Ab etwa 60 MiB Upload-Grenze musst du `persistence.backend-tmp.sizeLimit` selbst anheben.
+
 ### Valkey (Redis-kompatibler Cache)
 
 ```yaml
@@ -614,6 +618,16 @@ Das Chart schränkt den Egress von `backend` und `celery-worker` deshalb bereits
 
 !!! warning "LAN-Gotify oder -ntfy braucht zwei Freigaben"
     Ein Gotify oder ntfy im Heimnetz (`192.168.x.x`) lehnt Kamerplanter im `full`-Modus ab, und der Standard-Egress des Charts blockiert es zusätzlich. Setze `APPRISE_ALLOW_PRIVATE_TARGETS=true` in der Umgebung von `backend` und `celery-worker` und ergänze in deinem `valuesObject` eine Egress-Regel für genau diese Adresse und diesen Port in `networkpolicies.backend.rules.egress` und `networkpolicies.celery-worker.rules.egress`. Die Freigabe gilt für alle Nutzer und alle privaten Adressen, also auch für Pod-IPs im Cluster; die Egress-Regel ist dann die eigentliche Schranke. Ohne Cluster-NetworkPolicy (Docker Compose) gilt keine Egress-Schranke; dann bleibt nur die Prüfung im Backend.
+
+### Ausgehende Verbindungen zu Home Assistant und InvenTree
+
+Kamerplanter prüft die URL von Home Assistant und InvenTree nicht nur beim Speichern: Jede Verbindung prüft die Adressen, zu denen sie aufgebaut wird, und verbindet sich nur mit einer davon. Eine DNS-Antwort, die sich zwischen Prüfung und Verbindung ändert (DNS-Rebinding), führt deshalb nicht an eine interne Adresse. Cloud-Metadaten und Link-Local bleiben immer gesperrt, private Adressen nur mit `HA_ALLOW_PRIVATE_ENDPOINT` bzw. `INVENTREE_ALLOW_PRIVATE_ENDPOINT`. Weiterleitungen folgt keine dieser Verbindungen, Web-Push ebenfalls nicht.
+
+!!! warning "Web-Push ist nicht angeheftet"
+    Den Push-Endpunkt prüft Kamerplanter beim Speichern und vor jedem Senden, beim Verbinden wird der Name aber erneut aufgelöst. Ein Name, der dann auf eine interne Adresse zeigt, scheitert am TLS-Zertifikat, bevor ein HTTP-Request gesendet wird; die TCP-Verbindung dorthin wird aber geöffnet. Die Egress-Regel des Charts (ohne `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`) ist hier die eigentliche Schranke.
+
+!!! note "Kein HTTP-Proxy für diese Verbindungen"
+    Für Home Assistant und InvenTree gelten `HTTP_PROXY` und `HTTPS_PROXY` nicht: Ein Proxy würde den Namen selbst auflösen, und genau das soll die Verbindung nicht aus der Hand geben. Braucht dein Cluster für ausgehenden Verkehr einen Proxy, gib Home Assistant und InvenTree über eine Egress-Regel direkt frei.
 
 ### Virenscan (optional)
 
