@@ -85,6 +85,11 @@ class TankService:
         *,
         tenant_key: str,
     ) -> Tank:
+        # Stamped here, not trusted from the caller, and an empty tenant refused:
+        # ``_require_owned_location`` skips a tank without one (#2107 review, S1).
+        if not tenant_key:
+            raise ValueError("create_tank is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        tank.tenant_key = tenant_key
         self._require_owned_location(tank.location_key, tenant_key)
         # Validate assignment if location has irrigation info
         if irrigation_system is not None:

@@ -68,6 +68,8 @@ def _service():
         plant_repo=plant_repo,
         engine=PlantingRunEngine(),
         site_repo=sites,
+        # The template's plan is readable by the tenant (#2107 review, S3).
+        nutrient_plan_repo=MagicMock(),
         substrate_batch_resolver=lambda key, *, tenant_key: None,
         species_resolver=lambda key, *, tenant_key: None,
     )

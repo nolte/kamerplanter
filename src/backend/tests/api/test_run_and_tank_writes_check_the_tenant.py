@@ -15,6 +15,8 @@ control proves each route reaches its write for the caller's own row.
 
 from __future__ import annotations
 
+from datetime import date
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -28,7 +30,9 @@ from app.common.auth import get_current_tenant
 from app.common.dependencies import get_planting_run_service, get_tank_service
 from app.common.enums import PlantingRunStatus, PlantingRunType, TankType, TenantRole
 from app.common.exceptions import KamerplanterError
+from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_run import PlantingRun
+from app.domain.models.site import Location, Site, Slot
 from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.planting_run_service import PlantingRunService
@@ -85,7 +89,57 @@ def _assert_refused(resp, repo: MagicMock, entity: str) -> None:
 # ── Planting runs ───────────────────────────────────────────────────────────
 
 
-def _run_client(owner: str, status: PlantingRunStatus) -> tuple[TestClient, MagicMock]:
+def _plant(key: str, tenant_key: str) -> PlantInstance:
+    return PlantInstance(
+        _key=key, instance_id=key.upper(), species_key="sp_tomato", planted_on=date(2026, 1, 1), tenant_key=tenant_key
+    )
+
+
+class _Sites:
+    """Site anchors as the write path stores them: ``site_own`` is OWN's, ``site_b`` FOREIGN's."""
+
+    def __init__(self) -> None:
+        self.sites = {
+            "site_own": Site(_key="site_own", tenant_key=OWN, name="Zuhause", type="indoor"),
+            "site_b": Site(_key="site_b", tenant_key=FOREIGN, name="Woanders", type="indoor"),
+        }
+        self.locations = {
+            "loc_own": Location(_key="loc_own", site_key="site_own", name="Zelt", location_type_key="tent", area_m2=1),
+            "loc_b": Location(_key="loc_b", site_key="site_b", name="Fremd", location_type_key="tent", area_m2=1),
+        }
+        self.slots = {
+            "slot_own": Slot(_key="slot_own", slot_id="TENT01_A1", location_key="loc_own"),
+            "slot_b": Slot(_key="slot_b", slot_id="TENT02_B1", location_key="loc_b", currently_occupied=True),
+        }
+        self.slot_updates: list[str] = []
+
+    def get_site_by_key(self, key: str) -> Site | None:
+        return self.sites.get(key)
+
+    def get_location_by_key(self, key: str) -> Location | None:
+        return self.locations.get(key)
+
+    def get_slot_by_key(self, key: str) -> Slot | None:
+        return self.slots.get(key)
+
+    def get_slots_by_location(self, location_key: str) -> list[Slot]:
+        return [slot for slot in self.slots.values() if slot.location_key == location_key]
+
+    def update_slot(self, key: str, slot: Slot) -> Slot:
+        self.slot_updates.append(key)
+        return slot
+
+
+def _run_world(
+    owner: str,
+    status: PlantingRunStatus,
+    *,
+    location_key: str | None = None,
+    plants: dict[str, PlantInstance] | None = None,
+    attached: tuple[dict, ...] = ({"_key": "p1"},),
+    sites: _Sites | None = None,
+    nutrient_plan_repo: object | None = None,
+) -> SimpleNamespace:
     run_repo = MagicMock()
     run_repo.get_by_key.side_effect = lambda key: (
         PlantingRun(
@@ -94,25 +148,38 @@ def _run_client(owner: str, status: PlantingRunStatus) -> tuple[TestClient, Magi
             name="Tomaten",
             run_type=PlantingRunType.MONOCULTURE,
             status=status,
+            location_key=location_key,
+            current_phase_key="ph_veg",
         )
         if key == KEY
         else None
     )
     wire_get_or_raise(run_repo, "PlantingRun")
     run_repo.get_entries.return_value = []
-    run_repo.get_run_plants.return_value = []
+    run_repo.get_run_plants.side_effect = lambda key, include_detached=False: [dict(p) for p in attached]
     run_repo.update.side_effect = lambda key, run: run
     run_repo.create_entry.side_effect = lambda entry: entry.model_copy(update={"key": "e1"})
+    plant_repo = MagicMock()
+    known = plants if plants is not None else {"p1": _plant("p1", owner)}
+    plant_repo.get_by_key.side_effect = known.get
+    plant_repo.get.side_effect = known.get
     service = PlantingRunService(
         run_repo=run_repo,
-        plant_repo=MagicMock(),
+        plant_repo=plant_repo,
         engine=MagicMock(),
         phase_repo=MagicMock(),
+        site_repo=sites,
+        nutrient_plan_repo=nutrient_plan_repo,
         species_resolver=lambda key, *, tenant_key: None,
     )
     app = _app()
     app.dependency_overrides[get_planting_run_service] = lambda: service
-    return TestClient(app), run_repo
+    return SimpleNamespace(client=TestClient(app), run_repo=run_repo, plant_repo=plant_repo, service=service)
+
+
+def _run_client(owner: str, status: PlantingRunStatus) -> tuple[TestClient, MagicMock]:
+    world = _run_world(owner, status)
+    return world.client, world.run_repo
 
 
 _ENTRY = {"species_key": "sp_tomato", "quantity": 1, "id_prefix": "TOM"}
@@ -280,3 +347,154 @@ def test_a_clone_of_a_foreign_run_is_refused_and_nothing_is_stored() -> None:
         service.create_run(run, [], tenant_key=OWN)
     assert exc.value.status_code == 404
     assert _writes_called(run_repo) == []
+
+
+# ── #2107 review W1: detach resolves the plant before any write ─────────────
+
+_DETACH = f"{_BASE}/planting-runs/{KEY}/plants/{{plant}}/detach"
+
+
+@pytest.mark.parametrize(
+    ("plant_key", "plants", "attached"),
+    [
+        pytest.param("p_unknown", {}, (), id="unknown"),
+        pytest.param("p_b", {"p_b": _plant("p_b", FOREIGN)}, (), id="foreign"),
+        pytest.param("p_own", {"p_own": _plant("p_own", OWN)}, (), id="own-but-not-in-the-run"),
+        pytest.param("p_b", {"p_b": _plant("p_b", FOREIGN)}, ({"_key": "p_b"},), id="foreign-but-attached-legacy"),
+    ],
+)
+def test_detach_answers_one_404_for_every_plant_that_is_not_the_runs(plant_key, plants, attached) -> None:
+    world = _run_world(OWN, PlantingRunStatus.ACTIVE, plants=plants, attached=attached)
+    resp = world.client.post(_DETACH.format(plant=plant_key), json={"reason": "weg"})
+    assert resp.status_code == 404, resp.text
+    assert resp.json()["details"][0]["entity"] == "plant_instance", resp.text
+    assert resp.json()["message"] == f"PlantInstance with key '{plant_key}' not found."
+    world.run_repo.detach_plant.assert_not_called()
+    world.plant_repo.update.assert_not_called()
+
+
+def test_detach_of_the_runs_own_plant_goes_through() -> None:
+    world = _run_world(OWN, PlantingRunStatus.ACTIVE)
+    resp = world.client.post(_DETACH.format(plant="p1"), json={"reason": "weg"})
+    assert resp.status_code == 200, resp.text
+    world.run_repo.detach_plant.assert_called_once_with(KEY, "p1", "weg")
+
+
+# ── #2107 review W2: the stored location is re-checked at action time ───────
+
+
+def test_create_plants_refuses_a_legacy_run_at_a_foreign_location() -> None:
+    sites = _Sites()
+    world = _run_world(OWN, PlantingRunStatus.PLANNED, location_key="loc_b", sites=sites)
+    resp = world.client.post(f"{_BASE}/planting-runs/{KEY}/create-plants")
+    assert resp.status_code == 404, resp.text
+    assert resp.json()["details"][0]["entity"] == "location", resp.text
+    world.run_repo.get_existing_ids_at_location.assert_not_called()
+    world.plant_repo.create.assert_not_called()
+    assert sites.slot_updates == []
+
+
+def test_create_plants_at_the_tenants_own_location_passes_the_check() -> None:
+    sites = _Sites()
+    world = _run_world(OWN, PlantingRunStatus.PLANNED, location_key="loc_own", sites=sites)
+    # Past the location check: the double has no entries, so the service stops there.
+    with pytest.raises(ValueError, match="no entries"):
+        world.service.create_plants(KEY, tenant_key=OWN)
+    world.run_repo.get_entries.assert_called_with(KEY)
+
+
+def test_repointing_a_legacy_run_frees_only_the_tenants_own_slots() -> None:
+    """A legacy run at a foreign location whose plant sits on a foreign slot is moved home.
+
+    The plant's own ``slot_key`` is cleared and the new own slot occupied, but the
+    foreign slot is not written: freeing it would change another tenant's bed.
+    """
+    sites = _Sites()
+    world = _run_world(
+        OWN,
+        PlantingRunStatus.ACTIVE,
+        location_key="loc_b",
+        sites=sites,
+        attached=({"_key": "p1", "slot_key": "slot_b"},),
+    )
+    resp = world.client.put(f"{_BASE}/planting-runs/{KEY}", json={"location_key": "loc_own"})
+    assert resp.status_code == 200, resp.text
+    assert sites.slot_updates == ["slot_own"]
+    assert sites.slots["slot_b"].currently_occupied is True
+
+
+def test_reassigning_slots_resolves_the_new_location_under_the_tenant() -> None:
+    sites = _Sites()
+    world = _run_world(OWN, PlantingRunStatus.ACTIVE, sites=sites)
+    with pytest.raises(KamerplanterError) as exc:
+        world.service._reassign_plant_slots(KEY, "loc_b", tenant_key=OWN)
+    assert exc.value.status_code == 404
+    assert sites.slot_updates == []
+    world.plant_repo.update.assert_not_called()
+
+
+# ── #2107 review S1: create_tank stamps and requires the tenant ─────────────
+
+
+def _new_tank(tenant_key: str = "") -> Tank:
+    return Tank(tenant_key=tenant_key, name="Neu", tank_type=TankType.NUTRIENT, volume_liters=20)
+
+
+def test_create_tank_refuses_an_empty_tenant() -> None:
+    _client, tank_repo = _tank_client(OWN)
+    service = TankService(tank_repo, MagicMock())
+    with pytest.raises(ValueError, match="tenant_key"):
+        service.create_tank(_new_tank(), create_default_schedules=False, tenant_key="")
+    tank_repo.create.assert_not_called()
+
+
+def test_create_tank_stamps_the_callers_tenant_over_the_models() -> None:
+    _client, tank_repo = _tank_client(OWN)
+    tank_repo.create.side_effect = lambda tank: tank.model_copy(update={"key": "t_new"})
+    service = TankService(tank_repo, MagicMock())
+    created = service.create_tank(_new_tank(FOREIGN), create_default_schedules=False, tenant_key=OWN)
+    assert created.tenant_key == OWN
+    (stored,) = [args[0] for name, args, _ in tank_repo.method_calls if name == "create"]
+    assert stored.tenant_key == OWN
+
+
+# ── #2107 review S3: an inherited plan reference is resolved under the tenant ─
+
+
+def _clone_world(plan_repo: object | None) -> SimpleNamespace:
+    world = _run_world(OWN, PlantingRunStatus.COMPLETED, nutrient_plan_repo=plan_repo)
+    template = world.run_repo.get_by_key(KEY).model_copy(update={"nutrient_plan_key": "plan_b"})
+    world.run_repo.get_by_key.side_effect = lambda key: template if key == KEY else None
+    return world
+
+
+def _clone() -> PlantingRun:
+    return PlantingRun(name="Klon", run_type=PlantingRunType.MONOCULTURE, clone_from_run_key=KEY)
+
+
+def test_a_clone_cannot_inherit_a_plan_the_tenant_may_not_read() -> None:
+    from app.common.exceptions import NotFoundError
+
+    plans = MagicMock()
+    plans.get_readable_or_raise.side_effect = NotFoundError("NutrientPlan", "plan_b")
+    world = _clone_world(plans)
+    with pytest.raises(NotFoundError):
+        world.service.create_run(_clone(), [], tenant_key=OWN)
+    plans.get_readable_or_raise.assert_called_once_with("plan_b", tenant_key=OWN)
+    assert _writes_called(world.run_repo) == []
+
+
+def test_without_a_plan_repository_an_inherited_plan_is_refused() -> None:
+    world = _clone_world(None)
+    with pytest.raises(KamerplanterError) as exc:
+        world.service.create_run(_clone(), [], tenant_key=OWN)
+    assert exc.value.status_code == 404
+    assert _writes_called(world.run_repo) == []
+
+
+def test_a_clone_with_a_readable_plan_is_created() -> None:
+    plans = MagicMock()
+    world = _clone_world(plans)
+    world.run_repo.create.side_effect = lambda run: run.model_copy(update={"key": "new"})
+    created = world.service.create_run(_clone(), [], tenant_key=OWN)
+    assert created.nutrient_plan_key == "plan_b"

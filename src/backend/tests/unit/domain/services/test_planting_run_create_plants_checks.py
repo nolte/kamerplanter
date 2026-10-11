@@ -56,6 +56,9 @@ def _build_service(*, slots: list, plant_specs: list[dict], run: PlantingRun | N
 
     site_repo = MagicMock()
     site_repo.get_slots_by_location.return_value = slots
+    # The run's stored location is re-resolved under its tenant (#2107 review, W2).
+    site_repo.get_location_by_key.side_effect = lambda key: SimpleNamespace(key=key, site_key="site_own")
+    site_repo.get_site_by_key.side_effect = lambda key: SimpleNamespace(key=key, tenant_key=TENANT_KEY)
 
     engine = MagicMock()
     engine.validate_run_type_constraints.return_value = None
@@ -178,6 +181,9 @@ class TestCreatePlantsChecks:
 
         site_repo = MagicMock()
         site_repo.get_slots_by_location.return_value = [_fake_slot("A1", "slot_a1")]
+        # The run's stored location is re-resolved under its tenant (#2107 review, W2).
+        site_repo.get_location_by_key.side_effect = lambda key: SimpleNamespace(key=key, site_key="site_own")
+        site_repo.get_site_by_key.side_effect = lambda key: SimpleNamespace(key=key, tenant_key=TENANT_KEY)
 
         engine = MagicMock()
         engine.validate_run_type_constraints.return_value = None
