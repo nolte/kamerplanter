@@ -499,6 +499,14 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 - **Casual-first:** Profil in 3 Schritten mit Vorschau und „Link kopieren" ohne Social-Begriffe (verbindliche Begriffsliste Anhang M), Tabs „Profil"/„Verlauf" für alle sichtbar, Mastodon-Teil hinter Modul `social`.
 - **v1.5:** IT-Security-Review (1 kritisch: sitzungsungebundener OAuth-Callback → Sitzungsbindung + Bestätigung) und Casual-User-Review eingearbeitet, zwei Pre-Merge-Reviews (20 Konsistenzbefunde) aufgelöst, alle 20 offenen Punkte und 4 Kern-ADRs entschieden, 85 Akzeptanzkriterien, 28 Abuse Cases, 12 ADR-Kandidaten, TC-REQ-055 mit 45 Browser-Testfällen, 41 Issue-Kandidaten in 7 Wellen.
 
+## 🏷️ REQ-056: Mandanten-Lebenszyklus & Kontingente
+**Fokus:** Ein Ort für Zustände, Sperre, Registrierung, Kontingente, Export und Verantwortung eines Mandanten · **Führt zusammen:** REQ-023 §3.2d/§5a.5, REQ-024 AK-52/AK-56/AK-64/AK-65, REQ-025 §3.1.3 Regel 4, REQ-031 §3 · **Quelle:** Multi-Tenant-/SaaS-Audit 2026-10-04, MT-050 (MT-007, MT-027, MT-036, MT-038, MT-042, MT-049)
+- **Zustände** `active`/`suspended`/`pending_deletion`/`orphaned`/`deleted` (umgesetzt) mit neuer Regel: Der Abbruch einer Löschung stellt den Zustand **vor** der Löschung her — gemessen war eine Sperre über Löschen-und-Abbrechen umgehbar.
+- **Sperre wirkt auch im Hintergrund:** Jeder Beat ist als mandantenschreibend oder mandantenunabhängig eingeordnet (Guard); sechs Beats ohne Prüfung gemessen. Sperrgrund mit festen Codes, Mitglieder-Mail ohne Grund.
+- **Plan-Katalog ohne Billing:** Default-Plan `standard` = heutige Grenzen (alle Werte `null` = Instanz-Setting), weitere Pläne nur durch den Plattform-Admin, ein `EntitlementService` für Mitglieder, Dienstkonten, Speicher, Fotos je Pflanze und KI-Budgets; Ablehnungscodes unverändert.
+- **Mandanten-Export und -Import** über das Löschinventar, ohne E-Mail-Adressen und Geheimnisse, Import nur als neuer Mandant mit Schlüssel-Neuvergabe (Roundtrip- und Isolations-AK).
+- **Eigentümerwechsel mit Annahme, Billing-Kontakt** mit Step-up; Billing selbst nur als dokumentierter Anknüpfungspunkt. 45 Abnahmekriterien, 10 überstimmbare Entscheidungen, 3 offene Punkte. Folgeänderungen in NFR-011 (R-39/R-40), NFR-012 §10.3, NFR-013 O-03.
+
 ---
 
 ## Technologie-Stack

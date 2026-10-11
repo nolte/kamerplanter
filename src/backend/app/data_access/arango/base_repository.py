@@ -242,6 +242,17 @@ class BaseArangoRepository[TModel: BaseModel]:
     #: and a model that carries one writes back the value it was read with.
     _update_is_full_replace: ClassVar[bool] = False
 
+    #: How :meth:`update_fields` writes a field whose value is an object.
+    #:
+    #: ``True`` (default, the ArangoDB ``mergeObjects`` default) - the object is
+    #: merged into the stored one, so a sub-key the stored object carries and the
+    #: new one does not survives. ``False`` - the object named in ``fields``
+    #: replaces the stored one whole; fields ``fields`` does not name are still
+    #: left alone (the update stays partial at the top level). A repository whose
+    #: objects are value types - a filter set, where a sub-key nobody wrote any
+    #: more must go - sets ``False`` (#2226 re-review SEC-S1).
+    _update_fields_merges_objects: ClassVar[bool] = True
+
     def __init__(
         self,
         db: StandardDatabase,
@@ -897,8 +908,13 @@ class BaseArangoRepository[TModel: BaseModel]:
         """
         data = {field: value for field, value in fields.items() if field not in _RESERVED_DOC_ATTRIBUTES}
         data["updated_at"] = self._now()
+        # ``merge`` is passed only to switch merging off: every merging repository
+        # keeps the exact call it made before ``_update_fields_merges_objects``.
+        options: dict[str, Any] = {"return_new": True, "keep_none": True}
+        if not self._update_fields_merges_objects:
+            options["merge"] = False
         try:
-            result = self.collection.update({**data, "_key": key}, return_new=True, keep_none=True)
+            result = self.collection.update({**data, "_key": key}, **options)
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
                 # The entity, not the collection: ``details[0].entity`` is a contract

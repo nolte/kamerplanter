@@ -138,7 +138,31 @@ Der Worker verarbeitet drei Warteschlangen (Issue #2128):
 
 Der Chart startet den Worker mit `-Q critical,celery,bulk`. **Eine Queue, die kein Worker liest, behält ihre Aufgaben für immer in Valkey** — ohne Fehlermeldung. Wenn du die Worker-`args` in deinen Values überschreibst, übernimm die Queue-Liste vollständig oder lass `-Q` ganz weg (dann liest der Worker alle Queues, die die Anwendung deklariert).
 
-Willst du `bulk` in einem eigenen Worker laufen lassen, gib diesem `-Q bulk` und dem bestehenden `-Q critical,celery` — nie eine Queue bei beiden weglassen. Ein zusätzlicher Worker braucht dieselbe Umgebung, dieselben Secrets und dieselbe NetworkPolicy wie `celery-worker`.
+##### Ein Worker pro Queue {#celery-worker-pro-queue}
+
+Mit einem Schalter bekommt jede Queue ihren eigenen Worker:
+
+```yaml
+celeryWorkers:
+  dedicatedQueues: true
+```
+
+| Deployment | Queue |
+|---|---|
+| `celery-worker` | `critical` |
+| `celery-worker-default` | `celery` |
+| `celery-worker-bulk` | `bulk` |
+
+Ohne den Schalter (Standard) liest der eine `celery-worker` alle drei Queues. Ein langer Lauf in `bulk` belegt dann einen seiner zwei Prozesse; der zweite arbeitet weiter. Mit dem Schalter kann eine Datensatz- oder Bilderfassung eine Erinnerung, eine Löschung oder eine Frostwarnung gar nicht mehr aufhalten.
+
+Die beiden zusätzlichen Worker sind Kopien von `celery-worker`: Der Chart erzeugt sie beim Rendern aus den **zusammengeführten** Values. Alles, was du in einem Overlay, per `--set` oder im ArgoCD-`valuesObject` an `controllers.celery-worker` setzt (Image, Umgebung, `securityContext`, Probes, Ressourcen, Pod-Optionen) und an `networkpolicies.celery-worker` (Egress), gilt damit auch für die Kopien. Jede Policy, die `celery-worker` als Gegenstelle zulässt (ArangoDB, Valkey, inference-service), lässt auch die Kopien zu, und jedes Volume des Workers wird auch in die Kopien gemountet. Nur die Queue unterscheidet sich. Eine einzelne Kopie stimmst du über `controllers.<kopie>.<schlüssel>` ab, z. B. `controllers.celery-worker-bulk.containers.main.resources`; der Schlüssel wird über die Kopie gelegt. Ohne den Schalter gibt es keine Kopien, solche Schlüssel bleiben dann wirkungslos.
+
+!!! warning "Zwei Pods mehr auf dem Node des Backends"
+    Jeder zusätzliche Worker fordert wie `celery-worker` 100m CPU und 512 Mi Speicher an (Limit 2 Gi). Mit dem Standard-Volume `ReadWriteOnce` laufen alle Pods, die die Anhänge mounten, auf **einem** Node — dem des Backends. Plane dessen Speicher dafür ein, oder stelle auf [S3](#storage-konfiguration-nfr-013) um; dann verteilen sich die Worker frei.
+
+Schaltet ein Profil `celery-worker` ab (die `ki`- und `recognition`-Overlays), entstehen auch keine Kopien. Überschreibst du die Worker-`args` selbst, gilt weiter: Jede Queue braucht mindestens einen Worker, der sie liest.
+
+**Bestätigung erst nach dem Lauf.** Aufräumläufe, deren zweiter Durchlauf nichts mehr findet (abgelaufene Tokens, Einwilligungen, Audit-Einträge, Löschnachweise, IP-Anonymisierung, abgelaufene Overrides), bestätigen ihre Nachricht erst, wenn sie fertig sind. Verschwindet ein Worker-Pod mitten im Lauf, vergibt Valkey die Nachricht nach der Sichtbarkeitsfrist (gut vier Stunden) neu, statt den Lauf bis zum nächsten Tag zu verlieren. Benachrichtigungen, der Aktor-Regelkreis und Löschläufe bestätigen weiter beim Start — ein zweiter Lauf würde dort doppelt benachrichtigen oder schalten.
 
 **Bereitschaft (Issue #2154).** Der Worker gilt erst als bereit, wenn er Aufgaben annimmt: Mit `WORKER_READY_FILE` prüft er beim Start seine ArangoDB-Anmeldung (bis zu 60 Sekunden), schreibt die Datei, sobald sein Consumer läuft, und Startup- und Readiness-Probe testen sie (`test -f`, kostet praktisch nichts). Kann sich ein neuer Worker nach einem Upgrade nicht anmelden — falsches Passwort, Anwendungskonto nicht angelegt —, beendet er sich, wird nie bereit, und der Rollout behält den alten Worker. Die Liveness-Probe fragt mit `inspect ping -d "celery@${HOSTNAME}"` gezielt den eigenen Worker; ein `inspect ping` ohne Ziel gelingt, solange irgendein Worker antwortet.
 

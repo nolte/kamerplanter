@@ -11,6 +11,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tests.support.care_reminder_store import CareReminderStore
+
 
 @pytest.fixture(autouse=True)
 def _mock_dependencies(monkeypatch):
@@ -39,11 +41,21 @@ def _mock_dependencies(monkeypatch):
     yield mock_deps
 
 
+def _given(deps: ModuleType, *docs: dict) -> CareReminderStore:
+    """The task rows the beat reads through ``list_open_care_reminders_due`` (MT-032, #2128).
+
+    The tenant repository pages one active tenant per ``tenant_key`` the rows carry.
+    """
+    store = CareReminderStore(docs)
+    deps.get_task_repo.return_value = store  # type: ignore[attr-defined]
+    tenants = store.tenant_rows()
+    deps.get_tenant_repo.return_value.get_all.return_value = (tenants, len(tenants))  # type: ignore[attr-defined]
+    return store
+
+
 class TestDispatchDueCareNotifications:
     def test_no_due_tasks(self, _mock_dependencies):
-        mock_repo = MagicMock()
-        mock_repo.get_all.return_value = ([], 0)
-        _mock_dependencies.get_task_repo.return_value = mock_repo
+        _given(_mock_dependencies)
         _mock_dependencies.get_notification_service.return_value = MagicMock()
 
         from app.tasks.notification_tasks import dispatch_due_care_notifications
@@ -55,23 +67,19 @@ class TestDispatchDueCareNotifications:
 
     def test_dispatches_due_tasks(self, _mock_dependencies):
         today = datetime.now(UTC)
-        mock_repo = MagicMock()
-        mock_repo.get_all.return_value = (
-            [
-                {
-                    "category": "care_reminder",
-                    "status": "pending",
-                    "due_date": today.isoformat(),
-                    "priority": "medium",
-                    "name": "Monstera \u2014 watering",
-                    "plant_key": "p1",
-                    "assigned_to": "user_1",
-                    "tenant_key": "tenant_1",
-                },
-            ],
-            1,
+        _given(
+            _mock_dependencies,
+            {
+                "category": "care_reminder",
+                "status": "pending",
+                "due_date": today.isoformat(),
+                "priority": "medium",
+                "name": "Monstera \u2014 watering",
+                "plant_key": "p1",
+                "assigned_to": "user_1",
+                "tenant_key": "tenant_1",
+            },
         )
-        _mock_dependencies.get_task_repo.return_value = mock_repo
 
         mock_service = MagicMock()
         _mock_dependencies.get_notification_service.return_value = mock_service
@@ -93,20 +101,16 @@ class TestDispatchDueCareNotifications:
 
     def test_skips_non_care_tasks(self, _mock_dependencies):
         today = datetime.now(UTC)
-        mock_repo = MagicMock()
-        mock_repo.get_all.return_value = (
-            [
-                {
-                    "category": "manual",
-                    "status": "pending",
-                    "due_date": today.isoformat(),
-                    "name": "Some manual task",
-                    "tenant_key": "tenant_1",
-                },
-            ],
-            1,
+        _given(
+            _mock_dependencies,
+            {
+                "category": "manual",
+                "status": "pending",
+                "due_date": today.isoformat(),
+                "name": "Some manual task",
+                "tenant_key": "tenant_1",
+            },
         )
-        _mock_dependencies.get_task_repo.return_value = mock_repo
         _mock_dependencies.get_notification_service.return_value = MagicMock()
 
         from app.tasks.notification_tasks import dispatch_due_care_notifications
@@ -117,20 +121,16 @@ class TestDispatchDueCareNotifications:
 
     def test_skips_completed_tasks(self, _mock_dependencies):
         today = datetime.now(UTC)
-        mock_repo = MagicMock()
-        mock_repo.get_all.return_value = (
-            [
-                {
-                    "category": "care_reminder",
-                    "status": "completed",
-                    "due_date": today.isoformat(),
-                    "name": "Monstera \u2014 watering",
-                    "tenant_key": "tenant_1",
-                },
-            ],
-            1,
+        _given(
+            _mock_dependencies,
+            {
+                "category": "care_reminder",
+                "status": "completed",
+                "due_date": today.isoformat(),
+                "name": "Monstera \u2014 watering",
+                "tenant_key": "tenant_1",
+            },
         )
-        _mock_dependencies.get_task_repo.return_value = mock_repo
         _mock_dependencies.get_notification_service.return_value = MagicMock()
 
         from app.tasks.notification_tasks import dispatch_due_care_notifications
@@ -207,9 +207,7 @@ class TestEscalateOverdueNotifications:
 
 class TestSendDailySummary:
     def test_no_tasks(self, _mock_dependencies):
-        mock_repo = MagicMock()
-        mock_repo.get_all.return_value = ([], 0)
-        _mock_dependencies.get_task_repo.return_value = mock_repo
+        _given(_mock_dependencies)
         _mock_dependencies.get_notification_service.return_value = MagicMock()
 
         from app.tasks.notification_tasks import send_daily_summary
@@ -226,21 +224,17 @@ class TestSendDailySummary:
         )
 
         today = datetime.now(UTC)
-        mock_repo = MagicMock()
-        mock_repo.get_all.return_value = (
-            [
-                {
-                    "category": "care_reminder",
-                    "status": "pending",
-                    "due_date": today.isoformat(),
-                    "name": "Monstera \u2014 watering",
-                    "assigned_to": "user_1",
-                    "tenant_key": "tenant_1",
-                },
-            ],
-            1,
+        _given(
+            _mock_dependencies,
+            {
+                "category": "care_reminder",
+                "status": "pending",
+                "due_date": today.isoformat(),
+                "name": "Monstera \u2014 watering",
+                "assigned_to": "user_1",
+                "tenant_key": "tenant_1",
+            },
         )
-        _mock_dependencies.get_task_repo.return_value = mock_repo
 
         mock_service = MagicMock()
         mock_service.get_preferences.return_value = NotificationPreferences(
@@ -266,21 +260,17 @@ class TestSendDailySummary:
         )
 
         today = datetime.now(UTC)
-        mock_repo = MagicMock()
-        mock_repo.get_all.return_value = (
-            [
-                {
-                    "category": "care_reminder",
-                    "status": "pending",
-                    "due_date": today.isoformat(),
-                    "name": "Monstera \u2014 watering",
-                    "assigned_to": "user_1",
-                    "tenant_key": "tenant_1",
-                },
-            ],
-            1,
+        _given(
+            _mock_dependencies,
+            {
+                "category": "care_reminder",
+                "status": "pending",
+                "due_date": today.isoformat(),
+                "name": "Monstera \u2014 watering",
+                "assigned_to": "user_1",
+                "tenant_key": "tenant_1",
+            },
         )
-        _mock_dependencies.get_task_repo.return_value = mock_repo
 
         mock_service = MagicMock()
         mock_service.get_preferences.return_value = NotificationPreferences(

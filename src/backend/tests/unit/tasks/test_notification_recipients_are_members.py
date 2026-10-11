@@ -17,6 +17,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.support.care_reminder_store import CareReminderStore
+
 TODAY = datetime.now(UTC).isoformat()
 
 
@@ -73,12 +75,13 @@ def world(monkeypatch):
     deps = ModuleType("app.common.dependencies")
     notifier = _Notifier()
     memberships = _Memberships()
-    tasks = MagicMock()
+    tasks = CareReminderStore()
     deps.get_task_repo = MagicMock(return_value=tasks)  # type: ignore[attr-defined]
     deps.get_notification_service = MagicMock(return_value=notifier)  # type: ignore[attr-defined]
     deps.get_membership_repo = MagicMock(return_value=memberships)  # type: ignore[attr-defined]
     # #2166 — every tenant here is active; the tenant gate has its own test (test_care_beats_skip_closed_tenants).
-    deps.get_tenant_repo = MagicMock(return_value=MagicMock(get_by_key=lambda key: MagicMock(is_active=True)))  # type: ignore[attr-defined]
+    tenant_repo = MagicMock(get_by_key=lambda key: MagicMock(is_active=True))
+    deps.get_tenant_repo = MagicMock(return_value=tenant_repo)  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", deps)
 
     class World:
@@ -88,7 +91,9 @@ def world(monkeypatch):
     w.notifier, w.memberships, w.tasks = notifier, memberships, tasks  # type: ignore[attr-defined]
 
     def given(*docs: dict) -> None:
-        tasks.get_all.return_value = (list(docs), len(docs))
+        tasks.rows = list(docs)
+        tenants = tasks.tenant_rows()
+        tenant_repo.get_all.return_value = (tenants, len(tenants))
 
     w.given = given  # type: ignore[attr-defined]
     return w

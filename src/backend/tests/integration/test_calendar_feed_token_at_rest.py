@@ -25,7 +25,7 @@ import pytest
 from arango import ArangoClient
 
 from app.common.enums import TenantRole
-from app.common.exceptions import ValidationError
+from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.calendar_feed_repository import ArangoCalendarFeedRepository
 from app.data_access.arango.calendar_source_repository import ArangoCalendarSourceRepository
@@ -33,6 +33,7 @@ from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEn
 from app.domain.models.calendar import CalendarFeed
 from app.domain.services.calendar_service import CalendarService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.calendar_feed_owner import every_owner_stands
 
 TEST_DATABASE = run_database_name("calendar_feed_token_at_rest")
 TENANT = "tenant-feed"
@@ -68,6 +69,7 @@ def _service(db) -> CalendarService:
         ArangoCalendarFeedRepository(db),
         CalendarAggregationEngine(),
         ArangoCalendarSourceRepository(db),
+        **every_owner_stands(),
     )
 
 
@@ -105,7 +107,7 @@ def test_the_stored_hash_is_not_itself_a_working_feed_token(db) -> None:
     service.create_feed(_new_feed())
     stored = _stored(db)
 
-    with pytest.raises(ValidationError, match="Invalid feed token"):
+    with pytest.raises(NotFoundError):
         service.generate_ical_for_feed(stored["_key"], stored["token_hash"])
 
 
@@ -120,7 +122,7 @@ def test_a_rotation_stores_only_the_new_hash_and_retires_the_old_url(db) -> None
     assert rotated.token and rotated.token != old.token
     assert rotated.token not in json.dumps(stored) and old.token not in json.dumps(stored)
     assert stored["token_hash"] == _sha256(rotated.token)
-    with pytest.raises(ValidationError, match="Invalid feed token"):
+    with pytest.raises(NotFoundError):
         service.generate_ical_for_feed(key, old.token)
     assert service.generate_ical_for_feed(key, rotated.token).startswith("BEGIN:VCALENDAR")
 
@@ -160,9 +162,35 @@ def test_an_update_racing_a_rotation_does_not_restore_the_retired_url(db) -> Non
 
     assert stored["name"] == "Umbenannt"
     assert stored["token_hash"] == _sha256(rotated.token)
-    with pytest.raises(ValidationError, match="Invalid feed token"):
+    with pytest.raises(NotFoundError):
         service.generate_ical_for_feed(key, old.token)
     assert service.generate_ical_for_feed(key, rotated.token).startswith("BEGIN:VCALENDAR")
+
+
+def test_an_update_removes_the_retired_site_filter_of_a_legacy_feed(db) -> None:
+    """#2226 re-review SEC-S1: the next ``PUT`` drops a stored ``filters.site_key``.
+
+    Measured before the change: ``update_fields`` let ArangoDB merge the new
+    ``filters`` object into the stored one, so the legacy ``site_key`` survived
+    every update while the model docstring said the update dropped it.
+    """
+    service = _service(db)
+    service.create_feed(_new_feed())
+    key = _stored(db)["_key"]
+    db.collection(col.CALENDAR_FEEDS).update({"_key": key, "filters": {"categories": [], "site_key": "site-legacy"}})
+    assert _stored(db)["filters"]["site_key"] == "site-legacy"
+
+    service.update_feed(
+        key,
+        CalendarFeed(name="Garten", is_active=True, filters={"categories": ["harvest"]}),
+        tenant_key=TENANT,
+        **OWNER,
+    )
+    stored = _stored(db)
+
+    assert stored["filters"] == {"categories": ["harvest"]}
+    assert stored["user_key"] == "owner"
+    assert stored["tenant_key"] == TENANT
 
 
 def test_two_feeds_can_be_created_one_after_the_other(db) -> None:

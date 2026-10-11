@@ -41,6 +41,7 @@ from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEn
 from app.domain.models.calendar import CalendarEventsQuery, CalendarFeed
 from app.domain.services.calendar_service import CalendarService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.calendar_feed_owner import every_owner_stands
 
 pytestmark = pytest.mark.usefixtures("arango_db")
 
@@ -162,6 +163,7 @@ def _service(db) -> CalendarService:
         ArangoCalendarFeedRepository(db),
         CalendarAggregationEngine(),
         ArangoCalendarSourceRepository(db),
+        **every_owner_stands(),
     )
 
 
@@ -206,6 +208,33 @@ class TestTheIcalFeedIsScopedToTheFeedsTenant:
         assert _SEED[TENANT_A]["tank_action"] in ics
         assert _SEED[TENANT_B]["plant_name"] not in ics
         assert _SEED[TENANT_B]["tank_action"] not in ics
+
+
+class TestTheFeedStoreReadsAndDeletesWithinOneTenant:
+    """#2226 review SEC-001 — the lead's list and the membership-end delete, on the real repository."""
+
+    def test_list_by_tenant_names_every_member_of_that_tenant_only(self, db) -> None:
+        repo = ArangoCalendarFeedRepository(db)
+        for tenant, owner in (("t-list", "u1"), ("t-list", "u2"), ("t-list-other", "u1")):
+            repo.save(CalendarFeed(name=f"{tenant}/{owner}", tenant_key=tenant, user_key=owner))
+
+        names = sorted(f.name for f in repo.list_by_tenant(tenant_key="t-list"))
+
+        assert names == ["t-list/u1", "t-list/u2"]
+        assert repo.list_by_tenant(tenant_key="") == []
+
+    def test_delete_by_user_removes_that_members_feeds_in_that_tenant_only(self, db) -> None:
+        repo = ArangoCalendarFeedRepository(db)
+        for tenant, owner in (("t-del", "leaver"), ("t-del", "leaver"), ("t-del", "stays"), ("t-del-other", "leaver")):
+            repo.save(CalendarFeed(name=f"{tenant}/{owner}", tenant_key=tenant, user_key=owner))
+
+        deleted = repo.delete_by_user("leaver", tenant_key="t-del")
+
+        assert deleted == 2
+        assert [f.user_key for f in repo.list_by_tenant(tenant_key="t-del")] == ["stays"]
+        assert [f.user_key for f in repo.list_by_tenant(tenant_key="t-del-other")] == ["leaver"]
+        assert repo.delete_by_user("", tenant_key="t-del") == 0
+        assert repo.delete_by_user("stays", tenant_key="") == 0
 
 
 class TestTheRouteIsScopedToTheCallersTenant:

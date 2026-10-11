@@ -22,6 +22,7 @@ import pytest
 from app.common.enums import TaskCategory, TaskStatus
 from app.domain.models.task import Task
 from app.domain.models.tenant import Tenant
+from tests.support.care_reminder_store import CareReminderStore
 from tests.support.ha_entity_grants import EverythingGrantedTo
 
 
@@ -261,22 +262,42 @@ def _care_tasks(n: int, *, user: str = "user1") -> list[Task]:
     ]
 
 
+def _tenant_repo(keys: list[str]) -> PagingRepo:
+    """Active tenants that page like the real listing and answer ``get_by_key`` (the #2166 gate)."""
+    tenants = {k: Tenant(_key=k, name=k, slug=k, owner_user_key="u1") for k in keys}
+    return PagingRepo(list(tenants.values()), tenant_scoped=False, get_by_key=tenants.get)
+
+
+def _care_world(n: int) -> tuple[CareReminderStore, PagingRepo]:
+    """``n`` active tenants with one care reminder due today each (task ``i`` in tenant ``i``)."""
+    rows = [t.model_copy(update={"tenant_key": f"tenant{i:05d}"}) for i, t in enumerate(_care_tasks(n))]
+    return CareReminderStore(rows), _tenant_repo(_keys(n, "tenant"))
+
+
 class TestNotificationTasks:
     def test_due_care_reminder_beyond_the_first_page_is_sent(self, monkeypatch, deps):
         import app.tasks.notification_tasks as module
 
+        # MT-032 (#2128): the beat walks the tenants page by page and asks the store for each tenant's due
+        # reminders, so the row that must not fall off is a tenant beyond the first page of 1000.
+        tasks, tenants = _care_world(1001)
         service = MagicMock()
         service.send_care_notifications = AsyncMock(return_value={"users_notified": 1, "total_sent": 1})
         _repoint(
-            monkeypatch, module, deps, get_task_repo=PagingRepo(_care_tasks(501)), get_notification_service=service
+            monkeypatch,
+            module,
+            deps,
+            get_task_repo=tasks,
+            get_tenant_repo=tenants,
+            get_notification_service=service,
         )
 
         result = module.dispatch_due_care_notifications()
 
         sent = [t for call in service.send_care_notifications.await_args_list for t in call.args[1]]
-        assert result["tasks_found"] == 501
-        assert len(sent) == 501
-        assert {t["plant_key"] for t in sent} >= {"plant0", "plant500"}
+        assert result["tasks_found"] == 1001
+        assert len(sent) == 1001
+        assert {t["plant_key"] for t in sent} >= {"plant0", "plant1000"}
         assert {t["user_key"] for t in sent} == {"user1"}
 
     def test_daily_summary_counts_every_open_task(self, monkeypatch, deps):
@@ -285,16 +306,22 @@ class TestNotificationTasks:
         service = MagicMock()
         service.get_preferences.return_value = SimpleNamespace(daily_summary=SimpleNamespace(enabled=True))
         service.send_notification = AsyncMock()
+        tasks, tenants = _care_world(1001)
         _repoint(
-            monkeypatch, module, deps, get_task_repo=PagingRepo(_care_tasks(1001)), get_notification_service=service
+            monkeypatch,
+            module,
+            deps,
+            get_task_repo=tasks,
+            get_tenant_repo=tenants,
+            get_notification_service=service,
         )
 
         module.send_daily_summary()
 
-        # One summary per (user, tenant) since #2114; every open task beyond the first page is in one of them.
+        # One summary per (user, tenant) since #2114; the tenant beyond the first page is summarised too.
         summaries = [call.kwargs for call in service.send_notification.await_args_list]
         assert sum(s["data"]["due_today_count"] for s in summaries) == 1001
-        assert len({s["tenant_key"] for s in summaries}) == len(summaries) > 1
+        assert len({s["tenant_key"] for s in summaries}) == len(summaries) == 1001
 
     def test_escalation_visits_every_tenant(self, monkeypatch, deps):
         import app.tasks.notification_tasks as module
@@ -362,7 +389,14 @@ def test_a_task_due_date_stored_without_an_offset_does_not_abort_the_dispatch(mo
     task = _care_tasks(1)[0].model_copy(update={"due_date": naive_due})
     service = MagicMock()
     service.send_care_notifications = AsyncMock(return_value={"users_notified": 1, "total_sent": 1})
-    _repoint(monkeypatch, module, deps, get_task_repo=PagingRepo([task]), get_notification_service=service)
+    _repoint(
+        monkeypatch,
+        module,
+        deps,
+        get_task_repo=CareReminderStore([task]),
+        get_tenant_repo=_tenant_repo(["tenant0"]),
+        get_notification_service=service,
+    )
 
     result = module.dispatch_due_care_notifications()
 

@@ -470,7 +470,7 @@ export default function CalendarPage() {
       const issued = await dispatch(
         createCalendarFeed({
           name: newFeedName.trim(),
-          filters: { categories: [...selectedCategories], site_key: null },
+          filters: { categories: [...selectedCategories] },
         }),
       ).unwrap();
       notification.success(t('common.saved'));
