@@ -97,6 +97,10 @@ _CLASSIFIED: dict[tuple[str, str], tuple[str, str]] = {
     ),
     ("GET", f"{_V1}/admin/oidc-providers"): ("tenant-config", "OIDC providers configured by a platform admin"),
     ("GET", f"{_V1}/admin/platform/security-audit"): ("capped-query", "newest rows first, ?limit ≤ MAX_READ_LIMIT"),
+    ("GET", f"{_V1}/admin/platform/plans"): (
+        "tenant-config",
+        "the plan catalogue, created plan by plan by a platform admin (REQ-056 §7.6, #2142)",
+    ),
     ("GET", f"{_V1}/admin/platform/users/{{user_key}}/memberships"): (
         "per-parent",
         "the memberships of one user — one per tenant the user belongs to",

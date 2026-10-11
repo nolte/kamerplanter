@@ -103,6 +103,11 @@ _SITES: dict[str, tuple[str, str, str]] = {
     f"{_TS}:TenantService.get_personal_tenant": (_DECIDED, "", "returns the document; its callers are sites"),
     # -- platform administration: must reach a deactivated tenant (#2105 decision) -------
     f"{_ADMIN}:update_tenant": (_DECIDED, "", "platform admin; reactivating needs the deactivated tenant"),
+    f"{_ADMIN}:get_tenant_detail": (
+        _DECIDED,
+        "",
+        "platform admin views any tenant's plan and usage, a suspended one too (REQ-056 §7.7, #2142)",
+    ),
     f"{_ADMIN}:list_tenant_members": (_DECIDED, "", "platform admin administers a deactivated tenant"),
     f"{_ADMIN}:add_user_to_tenant": (_DECIDED, "", "platform admin; the membership resolves only once active"),
     f"{_ADMIN}:change_user_membership_role": (_DECIDED, "", "platform admin administers a deactivated tenant"),
@@ -151,11 +156,6 @@ _SITES: dict[str, tuple[str, str, str]] = {
     ),
     f"{_TS}:TenantService.personal_tenant_erasure_preview": (_DECIDED, "", "erasure preview of the owner's tenants"),
     f"{_TS}:TenantService._refuse_invitation_while_owner_erasing": (_DECIDED, "", "erasure-freeze check only"),
-    f"{_TS}:TenantService._refuse_beyond_member_limit": (
-        _DECIDED,
-        "",
-        "member-limit check of a join (#2133); a membership in a deactivated tenant resolves for nobody",
-    ),
     f"{_TS}:TenantService._refuse_role_grant": (_DECIDED, "", "escalation check inside a resolved context"),
     f"{_TS}:TenantService._ensure_unique_slug": (_DECIDED, "", "slug collision probe; no tenant is resolved"),
     # -- migrations: no request, no principal --------------------------------------------

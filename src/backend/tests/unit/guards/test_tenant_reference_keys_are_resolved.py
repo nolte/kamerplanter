@@ -322,6 +322,9 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "security_audit.SecurityAuditEntry.actor_user_key": _A,  # #2111: proof of who acted, never read back as a reference
     "security_audit.SecurityAuditEntry.target_user_key": _A,
     "security_audit.SecurityAuditEntry.membership_key": _I,
+    # REQ-056 §7.6 (#2142) — the plan a row is about: a key of the global plan catalogue.
+    "security_audit.SecurityAuditEntry.plan_key": _G,
+    "security_audit.SecurityAuditEntry.old_plan_key": _G,
     "membership.Membership.user_key": _I,
     "membership.UserMembershipInfo.membership_key": _N,
     "notification.Notification.user_key": _I,  # derived from a verified assignee (#1871 B9)

@@ -309,6 +309,7 @@ class TenantErasureEngine:
         # Platform.
         "oidc_provider_configs": _PLATFORM,
         "system_settings": _PLATFORM,
+        "plans": _PLATFORM + " (REQ-056 plan catalogue; a tenant points at a plan, no plan names a tenant)",
         "schema_migrations": _PLATFORM,
     }
 

@@ -160,6 +160,9 @@ class TestRedisClaims:
         monkeypatch.setattr(dependencies, "_get_redis_client", lambda: redis)
         monkeypatch.setattr(dependencies, "get_object_storage", lambda: object())
         monkeypatch.setattr(dependencies, "get_attachment_repo", lambda: object())
+        # #2142 — the storage quota is resolved through the plan catalogue: its two repository leaves.
+        monkeypatch.setattr(dependencies, "get_plan_repo", lambda: object())
+        monkeypatch.setattr(dependencies, "get_tenant_repo", lambda: object())
 
         service = dependencies.get_attachment_service()
 

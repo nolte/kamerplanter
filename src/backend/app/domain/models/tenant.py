@@ -4,6 +4,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.common.enums import AdminScope, TenantRole, TenantStatus, TenantType
+from app.domain.models.plan import DEFAULT_PLAN_KEY
 
 
 class TenantSettings(BaseModel):
@@ -46,6 +47,11 @@ class Tenant(BaseModel):
     deletion_scheduled_at: datetime | None = None
     is_platform: bool = False
     max_members: int = Field(default=1, ge=1)
+    #: REQ-056 §7.1 / §13.1 (#2142) — the plan whose quotas apply (collection ``plans``). Every new tenant
+    #: gets the default plan ``standard`` (all limits = the instance settings), v0091 stamps it on every
+    #: stored tenant. Set only by a platform admin (``PATCH /admin/platform/tenants/{key}``); deliberately
+    #: **not** inside the schemaless ``settings`` (audit MT-056).
+    plan_key: str = Field(default=DEFAULT_PLAN_KEY, min_length=1, max_length=40)
     #: Settings sub-object (REQ-024), typed since MT-056 (#2144): the REQ-031 §3.1
     #: KI toggle block plus any key an older document carries (see TenantSettings).
     settings: TenantSettings = Field(default_factory=TenantSettings)

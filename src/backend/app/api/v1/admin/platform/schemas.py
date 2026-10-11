@@ -1,10 +1,12 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.api.v1.auth.schemas import CredentialStepUp
+from app.api.v1.tenants.schemas import TenantEntitlementsResponse
 from app.common.enums import TenantRole, TenantStatus, TenantType
 from app.common.validators import DisplayName
+from app.domain.models.plan import PLAN_KEY_PATTERN, PlanLimitChange, PlanLimits
 
 
 class AdminTenantResponse(BaseModel):
@@ -24,6 +26,87 @@ class AdminTenantResponse(BaseModel):
     is_platform: bool
     max_members: int
     member_count: int
+    created_at: datetime | None
+    updated_at: datetime | None
+    #: REQ-056 §7.1 (#2142) — the plan whose quotas apply; assigned with ``PATCH .../tenants/{key}``.
+    plan_key: str = "standard"
+
+
+class AdminTenantDetailResponse(AdminTenantResponse):
+    """One tenant for the platform admin, with its plan's limits and the usage of every dimension (#2142)."""
+
+    entitlements: TenantEntitlementsResponse
+
+
+class PlanLimitsRequest(PlanLimits):
+    """The limits of a plan in a request body: as :class:`PlanLimits`, but an unknown dimension is 422.
+
+    The stored read model ignores unknown fields (SEC-001: a plan document a newer build wrote must not
+    fail every quota decision); a request naming a dimension that does not exist (``sensors``) is a client
+    error and refused. **``0`` means unlimited** for ``storage_mb`` and ``photos_per_instance`` and
+    **budget off** for the three KI budgets (REQ-056 §7.2).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class PlanCreateRequest(BaseModel):
+    """A new plan (REQ-056 §7.6). It is never created as the default; mark it with ``PATCH`` afterwards."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {"key": "community", "name": "Community garden", "limits": {"members": 30, "storage_mb": 5120}}
+            ]
+        },
+    )
+
+    key: str = Field(pattern=PLAN_KEY_PATTERN, description="Immutable key: a-z, 0-9, '_' or '-', 2-40 characters.")
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    #: A limit left out or ``null`` follows the instance setting (REQ-056 §7.2).
+    limits: PlanLimitsRequest = Field(default_factory=PlanLimitsRequest)
+
+
+class PlanUpdateRequest(BaseModel):
+    """A partial change of a plan; only the fields sent change (inside ``limits`` too, ``null`` = instance setting)."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"examples": [{"limits": {"storage_mb": 10240}}, {"is_default": True}]},
+    )
+
+    name: str | None = Field(default=None, min_length=1, max_length=100, description="Omitted = unchanged; never null.")
+    description: str | None = Field(default=None, max_length=500)
+    limits: PlanLimitsRequest | None = None
+    is_default: bool | None = Field(
+        default=None, description="true makes this the one default plan of new tenants; false is refused."
+    )
+
+    @field_validator("name")
+    @classmethod
+    def _name_is_not_cleared(cls, value: str | None) -> str | None:
+        """A plan always has a name: an explicit ``null`` is 422, not a 500 further down (review I-3)."""
+        if value is None:
+            raise ValueError("name cannot be null; omit it to keep the current name")
+        return value
+
+
+class PlanResponse(BaseModel):
+    key: str
+    name: str
+    description: str | None
+    limits: PlanLimits
+    #: SEC-002 — the dimensions this plan sets to ``0``, which means **unlimited** (storage, photos) or
+    #: **budget off** (KI), not "nothing allowed". Listed so a reader of the response cannot miss it.
+    unlimited: list[str] = Field(
+        default_factory=list,
+        description="Dimensions set to 0 in this plan: 0 means UNLIMITED (storage, photos) or budget OFF (AI).",
+    )
+    is_default: bool
+    #: How many tenants point at the plan.
+    tenant_count: int
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -66,11 +149,14 @@ class AdminTenantUpdate(CredentialStepUp):
     description: str | None = None
     max_members: int | None = Field(default=None, ge=1)
     is_active: bool | None = None
+    #: REQ-056 §7.6 (#2142) — assign another plan (422 when unknown). No step-up; written to the audit.
+    plan_key: str | None = Field(default=None, pattern=PLAN_KEY_PATTERN)
 
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
                 {"name": "Community garden"},
+                {"plan_key": "community"},
                 {"is_active": False, "current_password": "<the admin's own current password>"},
             ]
         },
@@ -209,5 +295,11 @@ class SecurityAuditEntryResponse(BaseModel):
     new_role: str | None = None
     old_scopes: list[str] | None = None
     new_scopes: list[str] | None = None
+    #: REQ-056 §7.6 (#2142) — plan rows: the plan concerned, the tenant's previous plan, the changed fields.
+    plan_key: str | None = None
+    old_plan_key: str | None = None
+    changed_fields: list[str] | None = None
+    #: SEC-005 — the old and new value of each changed limit, flagged when it lifts the limit.
+    limit_changes: list[PlanLimitChange] | None = None
     request_id: str | None = None
     created_at: datetime | None = None

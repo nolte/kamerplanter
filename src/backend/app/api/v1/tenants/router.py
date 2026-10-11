@@ -19,6 +19,7 @@ from app.api.v1.tenants.schemas import (
     TenantCreateRequest,
     TenantDeleteRequest,
     TenantDeletionAcceptedResponse,
+    TenantEntitlementsResponse,
     TenantErasureCancelRequest,
     TenantResponse,
     TenantUpdateRequest,
@@ -32,8 +33,8 @@ from app.common.auth import (
     require_account_principal,
     require_admin_scope,
 )
-from app.common.dependencies import get_tenant_service
-from app.common.enums import AdminScope
+from app.common.dependencies import get_entitlement_service, get_tenant_service
+from app.common.enums import AdminScope, TenantRole
 from app.common.openapi_responses import AUTH_CRUD_RESPONSES, STEP_UP_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
 from app.common.request_ip import resolve_client_ip
@@ -42,6 +43,7 @@ from app.domain.models.auth import api_key_scope_admits
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
+from app.domain.services.entitlement_service import EntitlementService
 from app.domain.services.tenant_service import TenantService
 
 router = APIRouter(prefix="/tenants", tags=["tenants"], responses=AUTH_CRUD_RESPONSES)
@@ -61,6 +63,7 @@ def _tenant_response(t: Tenant) -> TenantResponse:
         max_members=t.max_members,
         created_at=t.created_at,
         updated_at=t.updated_at,
+        plan_key=t.plan_key,
     )
 
 
@@ -129,6 +132,24 @@ def get_tenant(
     """Get tenant details."""
     tenant = service.get_tenant(ctx.tenant_key)
     return _tenant_response(tenant)
+
+
+@router.get("/{tenant_slug}/entitlements", response_model=TenantEntitlementsResponse)
+def get_tenant_entitlements(
+    ctx: TenantContext = Depends(get_current_tenant),
+    entitlement_service: EntitlementService = Depends(get_entitlement_service),
+) -> TenantEntitlementsResponse:
+    """The tenant's plan and, per quota dimension, the effective limit and the usage (REQ-056 §7.7, #2142).
+
+    Open to every member (reading is, REQ-024 §1a). ``ai_calls_per_user_day.used`` is the caller's own
+    count, never another member's. ``service_accounts`` and ``ai_tokens_per_tenant_day`` are listed for a
+    ``lead`` only. ``limit: null`` = unlimited; ``used: null`` = counted per plant (photos) or not readable
+    right now (the KI counters). A tenant that is not active answers like an unknown slug (the resolver).
+    """
+    entitlements = entitlement_service.usage(
+        ctx.tenant_key, user_key=ctx.user_key, include_lead_only=ctx.role == TenantRole.LEAD
+    )
+    return TenantEntitlementsResponse.from_domain(entitlements)
 
 
 @router.patch("/{tenant_slug}", response_model=TenantResponse)

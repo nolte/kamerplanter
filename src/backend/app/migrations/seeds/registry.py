@@ -107,6 +107,7 @@ def _build_jobs() -> list[SeedJob]:
     from app.migrations.seed_overwintering_profiles import run_seed_overwintering_profiles
     from app.migrations.seed_phase_sequences import run_seed_phase_sequences
     from app.migrations.seed_plagron import run_seed_plagron
+    from app.migrations.seed_plans import run_seed_plans
     from app.migrations.seed_plant_info import run_seed_plant_info
     from app.migrations.seed_plant_info_extended import run_seed_plant_info_extended
     from app.migrations.seed_starter_kits import run_seed_starter_kits
@@ -115,6 +116,8 @@ def _build_jobs() -> list[SeedJob]:
     jobs: list[SeedJob] = [
         # Structurally required: location types are referenced by site/location setup.
         SeedJob("location_types", lambda db: seed_location_types(db), fatal=True),
+        # REQ-056 §7.1 (#2142) — every tenant points at a plan; the default plan must exist.
+        SeedJob("plans", lambda db: run_seed_plans(db), fatal=True),
         SeedJob("core_data", lambda db: run_seed()),
         SeedJob("starter_kits", lambda db: run_seed_starter_kits()),
         SeedJob("adventskalender", lambda db: run_seed_adventskalender()),
