@@ -534,6 +534,9 @@ describe('AccountSettingsPage — platform tab', () => {
     // #1906 — the way into the OIDC provider page sits with the other admin surfaces.
     expect(screen.getByTestId('admin-oidc-card')).toBeInTheDocument();
     expect(screen.getByTestId('admin-oidc-open')).toBeEnabled();
+    // REQ-056 AK-45 — and so does the way into the plan catalogue.
+    expect(screen.getByTestId('admin-plans-card')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-plans-open')).toBeEnabled();
   });
 
   it('hides admin data when the stats request is forbidden', async () => {
@@ -561,6 +564,7 @@ describe('AccountSettingsPage — platform tab', () => {
     expect(screen.queryByText('Active Users')).not.toBeInTheDocument();
     // …and neither does the way into the platform-admin-only provider page (#1906).
     expect(screen.queryByTestId('admin-oidc-card')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('admin-plans-card')).not.toBeInTheDocument();
   });
 });
 

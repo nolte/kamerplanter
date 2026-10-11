@@ -1204,7 +1204,16 @@
       "scheduledDeletionCancelled": "Löschung abgebrochen: „{{name}}“ ist wieder aktiv",
       "scheduledDeletionsLoadFailed": "Die zur Löschung vorgemerkten Gärten ließen sich gerade nicht laden. Versuche es erneut – bleibt der Fehler, lade die Seite neu.",
       "noActiveTenantHint": "Wähle oben in der Gartenauswahl einen Garten, um seine Mitglieder und Einladungen zu verwalten.",
-      "gardenSettings": "Garten-Einstellungen"
+      "gardenSettings": "Garten-Einstellungen",
+      "tabQuota": "Kontingente",
+      "quota": {
+        "title": "Kontingente",
+        "planChip": "Plan: {{name}}",
+        "introLead": "Was dieser Garten nutzen darf und wie viel davon schon belegt ist. Den Plan legt der Betreiber der Installation fest; brauchst du mehr, wende dich an ihn.",
+        "introMember": "Was dieser Garten nutzen darf und wie viel davon schon belegt ist. Bei den KI-Aufrufen siehst du nur deinen eigenen Verbrauch; Dienstkonten und KI-Tokens sieht nur die Leitung.",
+        "loadFailed": "Die Kontingente konnten nicht geladen werden.",
+        "footnote": "Ein Limit, das gesenkt wurde, entfernt nichts – abgelehnt wird erst die nächste Anlage. KI-Zähler laufen je UTC-Tag."
+      }
     },
     "dashboard": {
       "title": "Dashboard",
@@ -4983,6 +4992,142 @@
       "revertConflict": "Deine bisherige Adresse wird inzwischen von einem anderen Konto verwendet und kann deshalb nicht wiederhergestellt werden. Wende dich bitte an den Betreiber dieser Kamerplanter-Instanz.",
       "revertFailed": "Die Wiederherstellung ist fehlgeschlagen. Bitte versuche es später erneut.",
       "emailFieldHint": "Deine Anmeldeadresse änderst du weiter unten unter „E-Mail-Adresse ändern“."
+    },
+    "plans": {
+      "title": "Pläne",
+      "intro": "Ein Plan legt die Kontingente einer Organisation fest: wie viele Mitglieder und Dienstkonten, wie viel Speicher, wie viele Fotos je Pflanze und wie viele KI-Aufrufe am Tag. Jede Organisation hat genau einen Plan; neue Organisationen bekommen den Standard-Plan. Organisationen selbst können ihren Plan nicht wählen – du ordnest ihn auf der Seite der Organisation zu.",
+      "valueLegend": "So liest du die Werte: Ein leerer Wert („wie Instanz-Einstellung“) folgt der Umgebungsvariable der Installation. „Unbegrenzt“ und „Budget aus“ stehen für den Wert 0 – er hebt die Grenze auf und bedeutet nie „nichts erlaubt“. Ein niedrigeres Limit entfernt nichts; abgelehnt wird erst die nächste Anlage.",
+      "add": "Plan anlegen",
+      "back": "Zurück zu den Plattform-Einstellungen",
+      "emptyTitle": "Noch keine Pläne",
+      "emptyDescription": "Lege einen Plan an, um Organisationen andere Kontingente zu geben als die Instanz-Einstellungen.",
+      "navCardTitle": "Pläne und Kontingente",
+      "navCardDescription": "Lege Pläne mit eigenen Grenzen für Mitglieder, Speicher, Fotos und KI-Aufrufe an und bestimme den Standard-Plan neuer Organisationen.",
+      "navCardOpen": "Pläne verwalten",
+      "list": {
+        "name": "Plan",
+        "default": "Standard",
+        "tenants": "Organisationen",
+        "tenantsChip_one": "{{count}} Organisation",
+        "tenantsChip_other": "{{count}} Organisationen",
+        "actions": "Aktionen"
+      },
+      "actions": {
+        "edit": "Plan „{{name}}“ bearbeiten",
+        "delete": "Plan „{{name}}“ löschen"
+      },
+      "delete": {
+        "title": "Plan löschen?",
+        "message": "Der Plan „{{name}}“ ({{key}}) wird endgültig gelöscht. Das lässt sich nicht rückgängig machen. Keine Organisation nutzt ihn gerade.",
+        "confirm": "Plan löschen",
+        "conflict": "Der Plan lässt sich nicht löschen: Inzwischen nutzt ihn eine Organisation, oder er ist der Standard-Plan. Die Liste wurde neu geladen.",
+        "blockedDefault": "Der Standard-Plan lässt sich nicht löschen. Lege zuerst einen anderen Plan als Standard fest.",
+        "blockedInUse_one": "{{count}} Organisation nutzt diesen Plan. Ordne ihr zuerst einen anderen Plan zu.",
+        "blockedInUse_other": "{{count}} Organisationen nutzen diesen Plan. Ordne ihnen zuerst einen anderen Plan zu."
+      },
+      "snack": {
+        "created": "Plan „{{name}}“ angelegt.",
+        "saved": "Plan „{{name}}“ gespeichert. Die Grenzen gelten ab der nächsten Prüfung für alle Organisationen mit diesem Plan.",
+        "deleted": "Plan „{{name}}“ gelöscht."
+      },
+      "value": {
+        "instanceSetting": "wie Instanz-Einstellung",
+        "unlimited": "unbegrenzt",
+        "budgetOff": "Budget aus (unbegrenzt)"
+      },
+      "unit": {
+        "members": "Mitglieder",
+        "service_accounts": "Dienstkonten",
+        "storage_mb": "MB",
+        "photos_per_instance": "Fotos",
+        "ai_calls_per_user_day": "Aufrufe",
+        "ai_calls_per_tenant_day": "Aufrufe",
+        "ai_tokens_per_tenant_day": "Tokens"
+      },
+      "usage": {
+        "usedOfLimit": "{{used}} von {{limit}} {{unit}}",
+        "usedUnlimited": "{{used}} {{unit}} – unbegrenzt",
+        "perPlant": "je Pflanze gezählt – höchstens {{limit}} {{unit}}",
+        "perPlantUnlimited": "je Pflanze gezählt – unbegrenzt",
+        "unreadable": "Verbrauch gerade nicht lesbar – Grenze {{limit}} {{unit}}",
+        "unreadableUnlimited": "Verbrauch gerade nicht lesbar – unbegrenzt",
+        "ownAiCalls": {
+          "member": "Deine KI-Aufrufe heute",
+          "admin": "KI-Aufrufe je Konto und Tag (Verbrauch: dein eigener in dieser Organisation)"
+        }
+      },
+      "form": {
+        "createTitle": "Plan anlegen",
+        "editTitle": "Plan „{{name}}“ bearbeiten",
+        "intro": "Gib dem Plan einen Namen und setze nur die Grenzen, die von der Instanz abweichen sollen. Änderungen gelten ab der nächsten Prüfung für alle Organisationen mit diesem Plan.",
+        "key": "Schlüssel",
+        "keyHelper": "Kleinbuchstaben, Ziffern, „_“ oder „-“, 2–40 Zeichen, beginnt mit einem Buchstaben. Lässt sich später nicht ändern.",
+        "keyLocked": "Der Schlüssel lässt sich nicht ändern.",
+        "keyInvalid": "Kleinbuchstaben, Ziffern, „_“ oder „-“, 2–40 Zeichen, beginnend mit einem Buchstaben.",
+        "keyTaken": "Diesen Schlüssel hat schon ein anderer Plan.",
+        "name": "Name",
+        "nameHelper": "So erscheint der Plan in der Plan-Auswahl und in den Kontingenten der Organisationen.",
+        "nameTooLong": "Höchstens 100 Zeichen.",
+        "description": "Beschreibung",
+        "descriptionHelper": "Optional: wofür der Plan gedacht ist (nur für Plattform-Admins sichtbar).",
+        "descriptionTooLong": "Höchstens 500 Zeichen.",
+        "limitRules": "Leeres Feld = wie Instanz-Einstellung (die Umgebungsvariable entscheidet). 0 = unbegrenzt bei Speicher und Fotos, Budget aus bei den KI-Budgets – 0 heißt nie „nichts erlaubt“. Mitglieder und Dienstkonten brauchen mindestens 1.",
+        "groups": {
+          "people": {
+            "title": "Personen",
+            "description": "Wie viele aktive Mitgliedschaften (Dienstkonten eingeschlossen) und Dienstkonten eine Organisation haben darf."
+          },
+          "storage": {
+            "title": "Speicher und Fotos",
+            "description": "Wie viel Platz Anhänge einer Organisation belegen dürfen und wie viele Fotos eine Pflanze haben darf."
+          },
+          "ai": {
+            "title": "KI-Budgets",
+            "description": "Tagesbudgets für KI-Aufrufe und -Tokens, gezählt je UTC-Tag. Ein Planwechsel setzt den Zähler des laufenden Tages nicht zurück."
+          }
+        },
+        "fieldHelp": {
+          "members": "Leer = wie Instanz; höchstens die Plattform-Obergrenze.",
+          "service_accounts": "Leer = wie Instanz; mindestens 1.",
+          "storage_mb": "In Megabyte. Leer = wie Instanz, 0 = unbegrenzt.",
+          "photos_per_instance": "Leer = wie Instanz, 0 = unbegrenzt.",
+          "ai_calls_per_user_day": "Je Konto. Leer = wie Instanz, 0 = Budget aus.",
+          "ai_calls_per_tenant_day": "Alle Mitglieder zusammen. Leer = wie Instanz, 0 = Budget aus.",
+          "ai_tokens_per_tenant_day": "LLM-Tokens aller Mitglieder. Leer = wie Instanz, 0 = Budget aus."
+        },
+        "appliesAs": "Gilt als: {{value}}.",
+        "wholeNumber": "Bitte eine ganze Zahl eingeben.",
+        "min": "Mindestens {{min}}.",
+        "max": "Höchstens {{max}}.",
+        "membersAboveCeiling": "Mehr Mitglieder, als die Plattform-Obergrenze (TENANT_MAX_MEMBERS_CEILING) erlaubt.",
+        "isDefaultInfo": "Dies ist der Standard-Plan: Neue Organisationen bekommen ihn. Um das zu ändern, lege einen anderen Plan als Standard fest.",
+        "makeDefault": "Als Standard-Plan festlegen",
+        "makeDefaultHelper": "Neue Organisationen bekommen dann diesen Plan. Bestehende Organisationen behalten ihren Plan; der bisherige Standard verliert die Markierung. Zurücknehmen lässt sich das nur, indem du einen anderen Plan zum Standard machst.",
+        "createDefaultHint": "Ein neuer Plan ist nie sofort der Standard. Das legst du danach beim Bearbeiten fest.",
+        "submitCreate": "Plan anlegen",
+        "inUseWarning_one": "Diese Änderung betrifft {{count}} Organisation, die diesen Plan nutzt – ihre Grenzen ändern sich sofort mit dem Speichern.",
+        "inUseWarning_other": "Diese Änderung betrifft {{count}} Organisationen, die diesen Plan nutzen – ihre Grenzen ändern sich sofort mit dem Speichern.",
+        "emptyPlaceholder": "wie Instanz",
+        "resetToInstance": "„{{field}}“ leeren: wie Instanz-Einstellung"
+      },
+      "tenant": {
+        "title": "Plan und Verbrauch",
+        "intro": "Der Plan bestimmt die Grenzen dieser Organisation. Ein niedrigeres Limit entfernt nichts – abgelehnt wird erst die nächste Anlage. Die Zuordnung gilt ab der nächsten Prüfung und wird im Sicherheitsprotokoll vermerkt.",
+        "loadFailed": "Plan und Verbrauch konnten nicht geladen werden.",
+        "platformInfo": "Die Plattform-Organisation folgt immer den Instanz-Einstellungen und nimmt keinen Plan an. Die Werte unten sind die Instanz-Einstellungen.",
+        "deletedInfo": "Diese Organisation wird gerade gelöscht; ihr Plan lässt sich nicht mehr ändern.",
+        "plan": "Plan",
+        "planHelper": "Wähle den Plan und bestätige mit „Plan zuordnen“. Auch eine gesperrte Organisation kann einen anderen Plan bekommen.",
+        "catalogueFailed": "Die Pläne konnten nicht geladen werden; lade die Seite neu.",
+        "optionDefault": "{{name}} (Standard)",
+        "assign": "Plan zuordnen",
+        "assigned": "Plan „{{name}}“ zugeordnet.",
+        "currentPlan": "Plan: {{name}}",
+        "usageTitle": "Verbrauch je Kontingent",
+        "owner": "Eigentümer",
+        "ownerHelper": "Das Konto, das die Organisation besitzt.",
+        "ownerNotMember": "Kein aktives Mitglied dieser Organisation"
+      }
     }
   }
 }

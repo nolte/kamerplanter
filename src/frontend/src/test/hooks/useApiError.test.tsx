@@ -200,3 +200,26 @@ describe('useApiError', () => {
     expect(result.current.handleError).toBe(first.handleError);
   });
 });
+
+describe('useApiError — quota refusals (REQ-056 §6.2/§7.2, AK-45)', () => {
+  beforeEach(async () => {
+    mockEnqueue.mockClear();
+    const i18n = (await import('i18next')).default;
+    await i18n.changeLanguage('de');
+  });
+
+  it.each([
+    ['ORGANIZATION_LIMIT_REACHED', 422, 'keine weitere Organisation'],
+    ['MEMBER_LIMIT_REACHED', 422, 'Höchstzahl an Mitgliedern'],
+    ['SERVICE_ACCOUNT_LIMIT_REACHED', 422, 'Höchstzahl an Dienstkonten'],
+    ['STORAGE_QUOTA_EXCEEDED', 409, 'Speicherplatz des Gartens'],
+    ['PHOTO_QUOTA_EXCEEDED', 409, 'Höchstzahl an Fotos'],
+  ])('explains %s in German instead of the English message or a generic conflict', (code, status, text) => {
+    const { result } = renderHook(() => useApiError(), { wrapper });
+    result.current.handleError(makeApiError(code, 'English backend message', [], status));
+    expect(mockEnqueue).toHaveBeenCalledTimes(1);
+    const [message] = mockEnqueue.mock.calls[0];
+    expect(message).toContain(text);
+    expect(message).not.toContain('English backend message');
+  });
+});

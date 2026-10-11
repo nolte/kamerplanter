@@ -1051,6 +1051,15 @@
       "moderate": "moderately certain",
       "high": "rather likely",
       "veryHigh": "very likely"
+    },
+    "entitlementDimension": {
+      "members": "Members",
+      "service_accounts": "Service accounts",
+      "storage_mb": "Storage",
+      "photos_per_instance": "Photos per plant",
+      "ai_calls_per_user_day": "AI calls per account and day",
+      "ai_calls_per_tenant_day": "AI calls of the garden per day",
+      "ai_tokens_per_tenant_day": "AI tokens of the garden per day"
     }
   }
 }

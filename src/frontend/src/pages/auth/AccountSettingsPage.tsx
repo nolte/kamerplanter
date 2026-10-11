@@ -61,6 +61,7 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import PeopleIcon from '@mui/icons-material/People';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import DataUsageIcon from '@mui/icons-material/DataUsage';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -1844,6 +1845,29 @@ export default function AccountSettingsPage() {
                     data-testid="admin-oidc-open"
                   >
                     {t('pages.admin.oidc.navCardOpen')}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* REQ-056 §15 (AK-45): the plan catalogue — its own page, platform admin only */}
+              <Card variant="outlined" data-testid="admin-plans-card">
+                <CardContent
+                  sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { sm: 'center' }, gap: 2 }}
+                >
+                  <DataUsageIcon color="primary" aria-hidden />
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="h6" component="h3">{t('pages.plans.navCardTitle')}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {t('pages.plans.navCardDescription')}
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="outlined"
+                    onClick={() => navigate('/admin/plans')}
+                    sx={{ minHeight: { xs: 48, sm: 36 } }}
+                    data-testid="admin-plans-open"
+                  >
+                    {t('pages.plans.navCardOpen')}
                   </Button>
                 </CardContent>
               </Card>

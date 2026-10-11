@@ -28,7 +28,7 @@ from fastapi.testclient import TestClient
 from app.api.v1.admin.platform import router as mod
 from app.common.auth import require_platform_admin
 from app.common.dependencies import get_tenant_service
-from app.common.enums import AdminScope, TenantRole
+from app.common.enums import AdminScope, TenantRole, TenantStatus
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError
 from app.data_access.arango.tenant_repository import ArangoTenantRepository
@@ -117,13 +117,15 @@ class _FakeCollection:
         document: dict[str, Any],
         return_new: bool = False,
         keep_none: bool = True,
+        merge: bool = True,
     ) -> dict[str, Any]:
         key = document["_key"]
         stored = self._store[key]
         patch = {field: value for field, value in document.items() if field != "_key"}
-        if not keep_none:
-            patch = {field: value for field, value in patch.items() if value is not None}
         stored.update(patch)
+        if not keep_none:  # ArangoDB ``keepNull: false``: an attribute set to null is removed
+            for field in [field for field, value in patch.items() if value is None]:
+                stored.pop(field, None)
         return {"new": dict(stored)} if return_new else {"_key": key}
 
 
@@ -136,6 +138,25 @@ class _FakeAql:
 
     def execute(self, query: str, bind_vars: dict[str, Any] | None = None):
         bind_vars = bind_vars or {}
+        if "FILTER current IN @expected" in query:
+            # ``ArangoTenantRepository.transition_status`` — the compare-and-set, over the store (REQ-056).
+            from app.domain.models.tenant import Tenant
+            from tests.support.tenant_transitions import apply_transition
+
+            doc = self._store.get(bind_vars["key"])
+            moved = apply_transition(
+                Tenant.model_validate(doc) if doc is not None else None,
+                expected={TenantStatus(value) for value in bind_vars["expected"]},
+                status=TenantStatus(bind_vars["status"]) if bind_vars["status"] else None,
+                deletion_scheduled_at=bind_vars["at"] if bind_vars["set_at"] else "keep",
+                previous=bind_vars["previous"],
+                restore_fallback=TenantStatus(bind_vars["fallback"]) if bind_vars["fallback"] else None,
+            )
+            if moved is None:
+                return iter([])
+            assert doc is not None
+            doc.update(moved.model_dump(mode="json", by_alias=True, exclude_none=True))
+            return iter([dict(doc)])
         if "RETURN doc" in query:
             # AQLBuilder list query — the repository's get_by_slug lookup.
             wanted = bind_vars.get("v0")

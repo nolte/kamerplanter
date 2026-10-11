@@ -490,6 +490,31 @@ class TestTenantPartialUpdateIsNamedForWhatItIs:
         assert [detail["field"] for detail in excinfo.value.details] == ["max_members"]
         coll.update.assert_not_called()
 
+    def test_an_allowlisted_none_is_removed_in_the_one_write(self, mock_db):
+        """REQ-056 SEC-005 — ``None`` clears only an allowlisted field, in the same single write."""
+        repo = ArangoTenantRepository(mock_db)
+        coll = mock_db.collection.return_value
+        coll.get.return_value = _doc_of(_tenant(), "t1")
+        coll.update.return_value = {"new": _doc_of(_tenant(), "t1")}
+
+        repo.update_fields("t1", {"description": None, "name": "Renamed"})
+
+        coll.update.assert_called_once()
+        written = coll.update.call_args.args[0]
+        assert written["description"] is None and written["name"] == "Renamed"
+        assert coll.update.call_args.kwargs["keep_none"] is False  # ``keepNull: false`` removes the attribute
+
+    @pytest.mark.parametrize("field", ["name", "slug", "owner_user_key", "max_members", "settings"])
+    def test_none_for_any_other_field_is_refused_before_anything_is_written(self, mock_db, field):
+        repo = ArangoTenantRepository(mock_db)
+        coll = mock_db.collection.return_value
+        coll.get.return_value = _doc_of(_tenant(), "t1")
+
+        with pytest.raises(ValueError, match="cannot be cleared"):
+            repo.update_fields("t1", {field: None})
+
+        coll.update.assert_not_called()
+
     def test_a_missing_tenant_returns_none_rather_than_raising(self, mock_db):
         repo = ArangoTenantRepository(mock_db)
         mock_db.collection.return_value.get.return_value = None

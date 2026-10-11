@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { isApiError, getFieldViolations, parseApiError, type FieldViolation } from '@/api/errors';
+import { quotaErrorKey } from '@/utils/entitlements';
 import { useNotification } from './useNotification';
 
 /**
@@ -43,6 +44,14 @@ export function useApiError() {
               mappedFieldError = true;
             }
           }
+        }
+
+        // REQ-056 §6.2/§7.2 — a quota refusal keeps its own code per dimension (E-06); say which
+        // limit was hit in the reader's language instead of the backend's English message.
+        const quotaKey = quotaErrorKey(error);
+        if (quotaKey) {
+          notification.error(t(quotaKey));
+          return;
         }
 
         // Map error codes to i18n messages

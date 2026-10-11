@@ -9,7 +9,8 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import { useAppDispatch } from '@/store/hooks';
-import { createOrganization } from '@/store/slices/tenantSlice';
+import { createOrganization, type CreateOrganizationRejection } from '@/store/slices/tenantSlice';
+import { quotaErrorKeyForCode } from '@/utils/entitlements';
 import PageTitle from '@/components/layout/PageTitle';
 import { parseApiError } from '@/api/errors';
 import Form from '@/components/form/Form';
@@ -34,7 +35,10 @@ export default function TenantCreatePage() {
       enqueueSnackbar(t('pages.tenants.created'), { variant: 'success' });
       navigate('/dashboard');
     } catch (err) {
-      setError(parseApiError(err));
+      // REQ-056 §6.2 — the organisation limit has its own code; say it in the reader's language.
+      const code = (err as Partial<CreateOrganizationRejection> | null)?.errorCode ?? null;
+      const quotaKey = quotaErrorKeyForCode(code);
+      setError(quotaKey ? t(quotaKey) : parseApiError(err));
     } finally {
       setLoading(false);
     }

@@ -5223,6 +5223,79 @@ export interface AdminTenant {
   member_count: number;
   created_at: string | null;
   updated_at: string | null;
+  /** REQ-056 §7.1 (#2142) — the plan whose quotas apply; absent only from a backend older than #2142. */
+  plan_key?: string;
+}
+
+/**
+ * `GET /admin/platform/tenants/{key}` (REQ-056 §7.7, #2142): one tenant with its plan and, per quota
+ * dimension, the effective limit and the usage — the lead-only dimensions included.
+ */
+export interface AdminTenantDetail extends AdminTenant {
+  entitlements: TenantEntitlements;
+}
+
+// ── Plan catalogue and quotas (REQ-056 §7) ──────────────────────────
+
+/** A quota a plan can set for a tenant (REQ-056 §7.2), mirrors the backend `EntitlementDimension`. */
+export type EntitlementDimension =
+  | 'members'
+  | 'service_accounts'
+  | 'storage_mb'
+  | 'photos_per_instance'
+  | 'ai_calls_per_user_day'
+  | 'ai_calls_per_tenant_day'
+  | 'ai_tokens_per_tenant_day';
+
+/**
+ * The limits of a plan. `null` (or absent) = **the instance setting**; `0` = **unlimited** for
+ * `storage_mb` / `photos_per_instance` and **budget off** (no limit) for the three AI budgets —
+ * never "nothing allowed". `members` and `service_accounts` are at least 1.
+ */
+export type PlanLimits = Partial<Record<EntitlementDimension, number | null>>;
+
+/** `GET/POST/PATCH /admin/platform/plans` (REQ-056 §7.6). */
+export interface Plan {
+  key: string;
+  name: string;
+  description: string | null;
+  limits: PlanLimits;
+  /** The dimensions this plan sets to `0` — unlimited (storage, photos) or budget off (AI). */
+  unlimited: EntitlementDimension[];
+  is_default: boolean;
+  /** How many tenants point at the plan; a plan in use cannot be deleted (409). */
+  tenant_count: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+/** `POST /admin/platform/plans`. A new plan is never the default; mark it with `PATCH` afterwards. */
+export interface PlanCreate {
+  key: string;
+  name: string;
+  description?: string | null;
+  limits?: PlanLimits;
+}
+
+/** `PATCH /admin/platform/plans/{plan_key}` — only the fields sent change; `is_default: false` is refused. */
+export interface PlanUpdate {
+  name?: string;
+  description?: string | null;
+  limits?: PlanLimits;
+  is_default?: true;
+}
+
+/** One dimension of a tenant's quotas: `limit: null` = unlimited, `used: null` = not counted per tenant. */
+export interface EntitlementUsage {
+  dimension: EntitlementDimension;
+  limit: number | null;
+  used: number | null;
+}
+
+/** `GET /tenants/{slug}/entitlements` (REQ-056 §7.7). */
+export interface TenantEntitlements {
+  plan: { key: string; name: string };
+  limits: EntitlementUsage[];
 }
 
 export interface AdminUserTenantRole {
@@ -5262,6 +5335,8 @@ export interface AdminTenantUpdate extends CredentialStepUp {
   description?: string;
   max_members?: number;
   is_active?: boolean;
+  /** REQ-056 §7.6 (#2142) — assign another plan; no step-up. 422 for the platform tenant or an unknown plan. */
+  plan_key?: string;
 }
 
 /**

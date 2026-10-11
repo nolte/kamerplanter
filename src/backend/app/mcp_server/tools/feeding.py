@@ -149,7 +149,7 @@ class RecordFeedingEvent(WriteToolBase):
             runoff_volume_liters=args.runoff_volume_liters,
             notes=args.notes,
         )
-        created = ctx.feeding_service.create_event(event)
+        created = ctx.feeding_service.create_event(event, tenant_key=ctx.tenant_key)
 
         return self._response(
             summary=(

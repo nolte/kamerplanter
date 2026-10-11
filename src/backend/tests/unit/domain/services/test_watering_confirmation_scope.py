@@ -14,6 +14,7 @@ task and run documents the stores hold.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -46,6 +47,13 @@ class _Runs:
         return [{"_key": f"plant_{run_key}", "slot_key": f"slot_{run_key}"}]
 
 
+class _Plants:
+    """Each run's plant belongs to the run's tenant (``plant_run_a`` → t_a)."""
+
+    def get_by_key(self, key: str):
+        return SimpleNamespace(key=key, tenant_key="t_a" if key.endswith("run_a") else "t_b")
+
+
 class _Tasks:
     def __init__(self) -> None:
         self.tasks = {
@@ -72,12 +80,20 @@ class _Store:
 
 def _event_service(tasks: _Tasks, store: _Store) -> WateringService:
     return WateringService(
-        repo=store, engine=MagicMock(), site_repo=MagicMock(), run_repo=_Runs(), task_repo=tasks, feeding_repo=_Store()
+        repo=store,
+        engine=MagicMock(),
+        site_repo=MagicMock(),
+        run_repo=_Runs(),
+        task_repo=tasks,
+        feeding_repo=_Store(),
+        plant_repo=_Plants(),
     )  # type: ignore[arg-type]
 
 
 def _log_service(tasks: _Tasks, store: _Store) -> WateringLogService:
-    return WateringLogService(store, WateringEngine(), site_repo=MagicMock(), run_repo=_Runs(), task_repo=tasks)  # type: ignore[arg-type]
+    return WateringLogService(
+        store, WateringEngine(), site_repo=MagicMock(), run_repo=_Runs(), task_repo=tasks, plant_repo=_Plants()
+    )  # type: ignore[arg-type]
 
 
 _FACTORIES = {"events": _event_service, "logs": _log_service}

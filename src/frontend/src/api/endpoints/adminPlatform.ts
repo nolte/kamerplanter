@@ -8,6 +8,7 @@ import type {
   AdminAddUserToTenantRequest,
   AdminPlatformStats,
   AdminTenant,
+  AdminTenantDetail,
   AdminTenantMember,
   AdminTenantUpdate,
   AdminUser,
@@ -36,6 +37,15 @@ export async function fetchAdminTenants(): Promise<AdminTenant[]> {
     });
     return data;
   });
+}
+
+/**
+ * GET /admin/platform/tenants/{key} — one tenant with its plan and, per quota dimension, the
+ * effective limit and the usage, the lead-only dimensions included (REQ-056 §7.7, #2142).
+ */
+export async function fetchAdminTenantDetail(key: string): Promise<AdminTenantDetail> {
+  const { data } = await apiClient.get<AdminTenantDetail>(`/admin/platform/tenants/${encodeURIComponent(key)}`);
+  return data;
 }
 
 /**

@@ -33,6 +33,8 @@ def _task_module(monkeypatch):
     mock_deps.get_observation_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_sensor_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_observation_service = MagicMock()  # type: ignore[attr-defined]
+    # REQ-056 §5.2: every tenant here is active (a MagicMock tenant reads ``is_active``).
+    mock_deps.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_ha_entity_grant_service = lambda: grant_service(GRANTS)  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 

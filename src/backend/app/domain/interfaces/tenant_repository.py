@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Collection
+from datetime import datetime
+from typing import Literal
 
+from app.common.enums import TenantStatus
 from app.domain.models.membership import Membership
 from app.domain.models.security_audit import SecurityAuditEntry
 from app.domain.models.tenant import Tenant
@@ -49,6 +52,32 @@ class ITenantRepository(ABC):
         schema's ``model_dump()``, never from a raw request body.
 
         Returns ``None`` when no tenant carries ``key``.
+        """
+
+    @abstractmethod
+    def transition_status(
+        self,
+        key: str,
+        *,
+        expected: Collection[TenantStatus],
+        status: TenantStatus | None,
+        deletion_scheduled_at: datetime | None | Literal["keep"],
+        previous: Literal["remember", "clear", "keep"],
+        restore_fallback: TenantStatus | None = None,
+    ) -> Tenant | None:
+        """Move one tenant's lifecycle state **only if** it is still in *expected* (compare-and-set, REQ-056 §4.3).
+
+        One conditional write: the state, ``deletion_scheduled_at`` and ``status_before_deletion``
+        change together, or nothing changes. Returns the stored tenant after the write, or ``None``
+        when no document matched — no such tenant, or its state is no longer in *expected* (the
+        caller's snapshot is stale; services answer 409).
+
+        * ``status`` — the new state; ``None`` restores ``status_before_deletion`` when it is
+          ``active`` or ``suspended``, else ``restore_fallback``; with neither nothing matches.
+        * ``deletion_scheduled_at`` — the new date, ``None`` removes it, ``"keep"`` leaves it.
+        * ``previous`` — ``"remember"`` stores the state the document had *before* this write
+          (when it is ``active`` or ``suspended``; read inside the write, never from a snapshot),
+          ``"clear"`` removes the field, ``"keep"`` leaves it.
         """
 
     @abstractmethod

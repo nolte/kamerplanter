@@ -63,7 +63,7 @@ def create_log(
     # purpose: a ``ValidationError`` from here would now mean *we* built the model
     # wrongly, and that is a genuine 500 which must reach error tracking (#970).
     log = WateringLog(**body.model_dump(), tenant_key=ctx.tenant_key)
-    result = service.create_log(log)
+    result = service.create_log(log, tenant_key=ctx.tenant_key)
     created = result["log"]
     fert_keys = list({fu.fertilizer_key for fu in created.fertilizers_used})
     fert_map = service.resolve_fertilizer_names(fert_keys, tenant_key=ctx.tenant_key) if fert_keys else {}
@@ -110,8 +110,7 @@ def update_log(
     service: WateringLogService = Depends(get_watering_log_service),
 ):
     """Update a watering log."""
-    service.get_log(key, tenant_key=ctx.tenant_key)
-    updated = service.update_log(key, body.model_dump(exclude_unset=True))
+    updated = service.update_log(key, body.model_dump(exclude_unset=True), tenant_key=ctx.tenant_key)
     name_map = service.resolve_plant_names(updated.plant_keys, tenant_key=ctx.tenant_key) if updated.plant_keys else {}
     fert_keys = list({fu.fertilizer_key for fu in updated.fertilizers_used})
     fert_map = service.resolve_fertilizer_names(fert_keys, tenant_key=ctx.tenant_key) if fert_keys else {}
@@ -125,8 +124,7 @@ def delete_log(
     service: WateringLogService = Depends(get_watering_log_service),
 ):
     """Delete a watering log."""
-    service.get_log(key, tenant_key=ctx.tenant_key)
-    service.delete_log(key)
+    service.delete_log(key, tenant_key=ctx.tenant_key)
 
 
 @router.get(

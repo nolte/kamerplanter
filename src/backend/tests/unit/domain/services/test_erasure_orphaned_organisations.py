@@ -33,6 +33,7 @@ from app.domain.models.membership import Membership
 from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
 from tests.support.tenant_erasure_doubles import FakeTenantErasureRepository, tenant_service_for_deletion
+from tests.support.tenant_transitions import attach_transition
 
 NOW = datetime(2026, 10, 5, 9, 0, tzinfo=UTC)
 SUBJECT = "subject-1"
@@ -220,6 +221,7 @@ class _World:
             return self.tenants[key]
 
         tenant_repo.update_fields.side_effect = update_tenant
+        attach_transition(tenant_repo, self.tenants)
         membership_repo = MagicMock()
         membership_repo.list_by_user.side_effect = lambda user_key: [
             m for m in self.memberships.values() if m.user_key == user_key

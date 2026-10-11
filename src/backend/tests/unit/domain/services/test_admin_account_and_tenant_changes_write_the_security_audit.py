@@ -36,6 +36,7 @@ from app.domain.services.security_audit_service import SecurityAuditService
 from app.domain.services.user_service import UserService
 from tests.support.step_up import STEP_UP_PASSED, PassedStepUpVerifier
 from tests.support.tenant_erasure_doubles import AUTHORIZED_REQUESTER, authorized, tenant_service_for_deletion
+from tests.support.tenant_transitions import apply_transition
 
 NOW = datetime(2026, 10, 10, 9, 0, tzinfo=UTC)
 KEY = "t-1"
@@ -202,7 +203,14 @@ class _TenantStore:
             self.doc = Tenant.model_validate({**self.doc.model_dump(by_alias=True), **fields})
             return self.doc
 
+        def transition_status(key: str, **kwargs: Any) -> Tenant | None:
+            moved = apply_transition(self.doc if key == self.doc.key else None, **kwargs)
+            if moved is not None:
+                self.doc = moved
+            return moved
+
         repo.update_fields.side_effect = update_fields
+        repo.transition_status.side_effect = transition_status
         return repo
 
 

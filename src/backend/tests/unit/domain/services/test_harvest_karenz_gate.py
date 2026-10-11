@@ -95,7 +95,7 @@ def test_create_harvest_batch_blocked_by_active_karenz_raises_422():
     batch = HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY)
 
     with pytest.raises(KarenzViolationError) as exc_info:
-        service.create_harvest_batch("plant-1", batch)
+        service.create_harvest_batch("plant-1", batch, tenant_key=TENANT_KEY)
 
     assert exc_info.value.status_code == 422
     assert exc_info.value.error_code == "KARENZ_VIOLATION"
@@ -114,7 +114,7 @@ def test_create_harvest_batch_allowed_when_karenz_expired():
     service, harvest_repo = _build_harvest_service(karenz_periods)
     batch = HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY)
 
-    result = service.create_harvest_batch("plant-1", batch)
+    result = service.create_harvest_batch("plant-1", batch, tenant_key=TENANT_KEY)
 
     assert result.plant_key == "plant-1"
     assert len(harvest_repo.created) == 1
@@ -126,7 +126,7 @@ def test_blank_batch_id_is_generated_deterministically():
     harvest_date = datetime(2026, 7, 24, 10, 0, tzinfo=UTC)
     batch = HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY, harvest_date=harvest_date)
 
-    result = service.create_harvest_batch("plant-1", batch)
+    result = service.create_harvest_batch("plant-1", batch, tenant_key=TENANT_KEY)
 
     assert result.batch_id == "HARVEST-20260724-plant-1"
 
@@ -137,13 +137,19 @@ def test_second_blank_batch_same_plant_same_day_gets_suffix():
     harvest_date = datetime(2026, 7, 24, 10, 0, tzinfo=UTC)
 
     first = service.create_harvest_batch(
-        "plant-1", HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY, harvest_date=harvest_date)
+        "plant-1",
+        HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY, harvest_date=harvest_date),
+        tenant_key=TENANT_KEY,
     )
     second = service.create_harvest_batch(
-        "plant-1", HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY, harvest_date=harvest_date)
+        "plant-1",
+        HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY, harvest_date=harvest_date),
+        tenant_key=TENANT_KEY,
     )
     third = service.create_harvest_batch(
-        "plant-1", HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY, harvest_date=harvest_date)
+        "plant-1",
+        HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY, harvest_date=harvest_date),
+        tenant_key=TENANT_KEY,
     )
 
     assert first.batch_id == "HARVEST-20260724-plant-1"
@@ -156,7 +162,7 @@ def test_explicit_batch_id_is_never_overwritten():
     service, _ = _build_harvest_service([])
     batch = HarvestBatch(plant_key="plant-1", tenant_key=TENANT_KEY, batch_id="HARVEST-2026-001")
 
-    result = service.create_harvest_batch("plant-1", batch)
+    result = service.create_harvest_batch("plant-1", batch, tenant_key=TENANT_KEY)
 
     assert result.batch_id == "HARVEST-2026-001"
 
@@ -167,7 +173,9 @@ def test_a_batch_without_a_harvest_date_is_stored_with_the_date_the_gate_checked
     service, repo = _build_harvest_service([])
     before = datetime.now(UTC)
 
-    service.create_harvest_batch("plant-1", HarvestBatch(tenant_key=TENANT_KEY, harvest_type="final"))
+    service.create_harvest_batch(
+        "plant-1", HarvestBatch(tenant_key=TENANT_KEY, harvest_type="final"), tenant_key=TENANT_KEY
+    )
 
     stored = repo.created[0].harvest_date
     assert stored is not None

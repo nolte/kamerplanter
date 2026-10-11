@@ -20,6 +20,7 @@ its own body
 * calls ``update_fields`` on a **tenant receiver** (ending in ``tenant_repo`` or the name ``tenants``)
   with a payload naming ``is_active``, ``status``, ``deletion_scheduled_at``, ``is_platform``,
   ``owner_user_key`` or ``tenant_type`` - or an opaque payload;
+* calls ``transition_status`` on a tenant receiver (the lifecycle compare-and-set, REQ-056);
 * calls ``delete`` on an account or a tenant receiver; or
 * calls ``self.<helper>(...)`` where ``<helper>`` is a member of the same class classified as a
   **helper** (:data:`_HELPERS`): a helper writes no row itself, so whoever calls it is in the class.
@@ -59,9 +60,14 @@ _HELPERS: dict[tuple[str, str], str] = {
         "the store both tenant update paths share: admin_update_tenant records the suspension or reactivation "
         "after it returned, update_tenant refuses every lifecycle field before it is reached"
     ),
-    ("tenant_service.py", "TenantService._set_tenant_status"): (
-        "the lifecycle write the deletion and cancellation paths share; the person-initiated ones record "
-        "their row after it returned"
+    ("tenant_service.py", "TenantService._write_tenant_update"): (
+        "the non-lifecycle store both tenant update paths share (REQ-056 split it from the checks): "
+        "update_tenant refuses every lifecycle field before it is reached, admin_update_tenant moves the "
+        "state through _transition_tenant_status and records the row itself"
+    ),
+    ("tenant_service.py", "TenantService._transition_tenant_status"): (
+        "the compare-and-set of the lifecycle state (REQ-056) the suspension switch, deletion and "
+        "cancellation paths share; the person-initiated ones record their row after it returned"
     ),
     ("tenant_service.py", "TenantService._schedule_tenant_erasure"): (
         "freezes a tenant for its deletion grace; delete_tenant records the accepted deletion after it returned"
@@ -147,6 +153,9 @@ def _direct_reasons(function: ast.FunctionDef | ast.AsyncFunctionDef) -> list[st
             reasons.append(f"{receiver}.update_fields(account trust)")
         elif attr == "update_fields" and _is_tenant(receiver) and _names_a_field(_payload(node), _TENANT_FIELDS):
             reasons.append(f"{receiver}.update_fields(tenant lifecycle)")
+        elif attr == "transition_status" and _is_tenant(receiver):
+            # REQ-056 SEC-002 — the compare-and-set of the lifecycle state: always a lifecycle write.
+            reasons.append(f"{receiver}.transition_status(tenant lifecycle)")
         elif attr == "delete" and (_is_account(receiver) or _is_tenant(receiver)):
             reasons.append(f"{receiver}.delete(...)")
     return reasons
@@ -208,7 +217,9 @@ def members(
 #: predicate went blind.
 #: 20 at #2111: 6 audited (admin_update_user, admin_update_tenant, delete_tenant, cancel_tenant_erasure, and
 #: create_service_account / remove_service_account through the membership audit), 4 helpers, 10 exempt.
-EXPECTED_MEMBERS = 20
+#: 21 at REQ-056: the store of the tenant update split from its checks (_write_tenant_update) and the
+#: lifecycle compare-and-set (_transition_tenant_status replaces _set_tenant_status) - 5 helpers.
+EXPECTED_MEMBERS = 21
 
 
 def test_every_trust_or_lifecycle_mutation_writes_the_audit_or_is_classified() -> None:

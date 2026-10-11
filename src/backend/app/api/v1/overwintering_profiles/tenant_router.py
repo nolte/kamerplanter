@@ -79,7 +79,7 @@ def create_overwintering_profile(
 ) -> OverwinteringProfileResponse:
     """Create an overwintering profile for the tenant."""
     profile = OverwinteringProfile(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_profile(profile, ctx.tenant_key)
+    created = service.create_profile(profile, tenant_key=ctx.tenant_key)
     return _profile_response(created)
 
 
@@ -124,7 +124,7 @@ def auto_generate_overwintering_profile(
             site_zone = getattr(site, "hardiness_zone", None) or site.climate_zone or None
 
     created = service.auto_generate_profile(
-        ctx.tenant_key,
+        tenant_key=ctx.tenant_key,
         plant_key=body.plant_key,
         planting_run_key=body.planting_run_key,
         frost_sensitivity=frost_sensitivity,
@@ -151,7 +151,7 @@ def link_shared_template(
 ) -> OverwinteringTemplateResponse:
     """Point a plant / planting run at the reusable species template (N:1)."""
     template = service.link_shared_template(
-        ctx.tenant_key,
+        tenant_key=ctx.tenant_key,
         plant_key=body.plant_key,
         planting_run_key=body.planting_run_key,
         template_key=body.template_key,
@@ -185,7 +185,7 @@ def unlink_shared_template(
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> None:
     """Detach a plant or planting run from its shared species template."""
-    service.unlink_shared_template(ctx.tenant_key, plant_key=plant_key, planting_run_key=planting_run_key)
+    service.unlink_shared_template(tenant_key=ctx.tenant_key, plant_key=plant_key, planting_run_key=planting_run_key)
 
 
 @router.get("/{key}", response_model=OverwinteringProfileResponse)
@@ -208,7 +208,7 @@ def update_overwintering_profile(
 ) -> OverwinteringProfileResponse:
     """Update an overwintering profile."""
     updates = body.model_dump(exclude_unset=True)
-    updated = service.update_profile(key, ctx.tenant_key, updates)
+    updated = service.update_profile(key, updates, tenant_key=ctx.tenant_key)
     return _profile_response(updated)
 
 
@@ -219,4 +219,4 @@ def delete_overwintering_profile(
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> None:
     """Delete an overwintering profile."""
-    service.delete_profile(key, ctx.tenant_key)
+    service.delete_profile(key, tenant_key=ctx.tenant_key)

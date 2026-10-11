@@ -28,9 +28,11 @@ def ingest_ha_readings() -> dict:
         get_observation_repo,
         get_observation_service,
         get_sensor_repo,
+        get_tenant_repo,
     )
     from app.common.exceptions import NotFoundError
     from app.domain.models.observation import SensorReading
+    from app.tasks.tenant_gate import ActiveTenants
 
     ha_client = get_ha_client()
     if ha_client is None:
@@ -44,6 +46,8 @@ def ingest_ha_readings() -> dict:
     observation_service = get_observation_service()
     # One read of every tenant's grants for the whole run.
     grants = get_ha_entity_grant_service().snapshot()
+    # REQ-056 §5.2 — a tenant that is not ``active`` gets no readings: its entities are not read.
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     if not obs_repo.is_available():
         logger.warning("sensor_ingest_timescaledb_unavailable")
@@ -62,6 +66,7 @@ def ingest_ha_readings() -> dict:
     errors: list[dict] = []
     skipped = 0
     not_granted = 0
+    closed_tenant = 0
     inserted = 0
     now = datetime.now(tz=UTC)
 
@@ -70,6 +75,9 @@ def ingest_ha_readings() -> dict:
             tenant_key = observation_service.owning_tenant_key(doc["_key"])
             if tenant_key is None:
                 skipped += 1  # no parent, or its delete began: nobody to store a reading for
+                continue
+            if not tenant_is_active(tenant_key):
+                closed_tenant += 1  # suspended, pending deletion, orphaned or erased (REQ-056 §5.2)
                 continue
             if not grants.is_granted(tenant_key, doc["ha_entity_id"]):
                 not_granted += 1  # MT-015: the tenant may not read this entity of the operator's instance
@@ -94,7 +102,12 @@ def ingest_ha_readings() -> dict:
             errors.append({"entity_id": doc.get("ha_entity_id"), "error": str(exc)})
 
     logger.info(
-        "sensor_ingest_complete", inserted=inserted, errors=len(errors), skipped=skipped, not_granted=not_granted
+        "sensor_ingest_complete",
+        inserted=inserted,
+        errors=len(errors),
+        skipped=skipped,
+        not_granted=not_granted,
+        closed_tenant=closed_tenant,
     )
     return {
         "status": "ok",

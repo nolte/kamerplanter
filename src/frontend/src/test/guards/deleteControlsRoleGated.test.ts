@@ -164,6 +164,7 @@ const NOT_LEAD_ONLY: Record<string, string> = {
   removeTenantMember: 'admin/platform/router.py — require_platform_admin',
   removeUserFromTenant: 'admin/platform/router.py — require_platform_admin',
   deleteOidcProvider: 'admin/oidc_providers/router.py — require_platform_admin',
+  deletePlan: 'admin/platform/router.py DELETE /plans/{plan_key} — require_platform_admin; page sits behind the platform-admin route guard (REQ-056 AK-45)',
   deleteHomeAssistantSettings: 'admin/settings/router.py — require_platform_admin',
   deletePlantIdentificationSettings: 'admin/settings/router.py — require_platform_admin',
   deleteStorageSettings: 'admin/settings/router.py — require_platform_admin',

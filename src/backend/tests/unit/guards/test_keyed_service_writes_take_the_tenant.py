@@ -154,14 +154,13 @@ def _not_strict() -> set[str]:
 
 #: Measured 2026-10-05 after the first slices of #2107 (activity-plan apply, site,
 #: nutrient plan): 150 entries. Re-measured 2026-10-11 after the planting-run and
-#: tank slices: 136. Each line is a keyed write that can still be called
+#: tank slices: 136. Re-measured 2026-10-11 after the harvest, feeding,
+#: watering, succession, import, post-harvest, activity-plan and
+#: overwintering slice: 106. Each line is a keyed write that can still be called
 #: without a tenant, or with a defaulted / positional one. Convert the method to
 #: ``*, tenant_key: str`` (and drop the router's pre-check), then delete the line.
 _REMAINING: frozenset[str] = frozenset(
     {
-        "ActivityPlanService.generate_plan",
-        "ActivityPlanService.get_or_generate_for_species",
-        "ActivityPlanService.regenerate_for_species",
         "ActuatorService.apply_profile",
         "ActuatorService.clear_override",
         "ActuatorService.create_rule",
@@ -201,17 +200,9 @@ _REMAINING: frozenset[str] = frozenset(
         "CareReminderService.reset_profile",
         "CareReminderService.snooze_reminder",
         "CareReminderService.update_profile",
-        "FeedingService.delete_event",
-        "FeedingService.update_event",
         "HaPublishService.bulk_set_published",
         "HaPublishService.set_published",
         "HardinessZoneService.resolve_for_site",
-        "HarvestService.complete_harvest",
-        "HarvestService.complete_harvest_for_run",
-        "HarvestService.create_quality_assessment",
-        "HarvestService.create_yield_metric",
-        "HarvestService.update_batch",
-        "ImportService.confirm",
         "InvenTreeService.delete_connection",
         "InvenTreeService.delete_equipment",
         "InvenTreeService.health_check",
@@ -226,12 +217,6 @@ _REMAINING: frozenset[str] = frozenset(
         "IpmService.update_disease",
         "IpmService.update_pest",
         "IpmService.update_treatment",
-        "OverwinteringProfileService.auto_generate_profile",
-        "OverwinteringProfileService.create_profile",
-        "OverwinteringProfileService.delete_profile",
-        "OverwinteringProfileService.link_shared_template",
-        "OverwinteringProfileService.unlink_shared_template",
-        "OverwinteringProfileService.update_profile",
         "PestImageService.set_active",
         "PestImageService.set_promotion",
         "PhaseSequenceService.clone_sequence",
@@ -260,11 +245,6 @@ _REMAINING: frozenset[str] = frozenset(
         "PlantPhotoService.link_photo",
         "PlantPhotoService.set_cover",
         "PlantPhotoService.update_photo_metadata",
-        "PostHarvestService.advance_stage",
-        "PostHarvestService.delete_batch",
-        "PostHarvestService.record_drying_progress",
-        "PostHarvestService.record_observation",
-        "PostHarvestService.start_drying",
         "PropagationService.create_batch",
         "PropagationService.finalize_batch",
         "QuarterClimateService.evaluate_plant",
@@ -282,19 +262,11 @@ _REMAINING: frozenset[str] = frozenset(
         "SubstrateService.delete_substrate",
         "SubstrateService.update_batch",
         "SubstrateService.update_substrate",
-        "SuccessionPlanService.delete_plan",
-        "SuccessionPlanService.generate_next_run",
-        "SuccessionPlanService.generate_runs",
-        "SuccessionPlanService.update_plan",
         "TaskService.activate_dormant_tasks_for_phase",
         "TaskService.create_workflow_phase",
         "TaskService.delete_workflow_phase",
         "TaskService.duplicate_workflow_template",
         "TaskService.update_workflow_phase",
-        "WateringLogService.create_log",
-        "WateringLogService.delete_log",
-        "WateringLogService.update_log",
-        "WateringService.create_event",
     }
 )
 

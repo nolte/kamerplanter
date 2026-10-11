@@ -226,6 +226,7 @@ def test_confirm_watering_stamps_tenant_key_and_is_visible_in_both_views() -> No
         site_repo=MagicMock(),
         run_repo=run_repo,
         task_repo=task_repo,
+        plant_repo=MagicMock(get_by_key=MagicMock(return_value=SimpleNamespace(tenant_key=TENANT))),
     )
 
     service.confirm_watering(run_key="run-1", task_key="task-1", tenant_key=TENANT)

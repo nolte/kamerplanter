@@ -27,6 +27,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import { parseApiError } from '@/api/errors';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import ScheduledTenantDeletionsCard from '@/components/tenants/ScheduledTenantDeletionsCard';
+import TenantQuotaCard from '@/components/tenants/TenantQuotaCard';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { useStepUpResume } from '@/hooks/useStepUpReauth';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
@@ -60,11 +61,17 @@ export default function TenantSettingsPage() {
   // REQ-049: member and invitation management hangs off the `management`
   // scope, not off the domain rank — a lead is not automatically an admin.
   const { canManageMembers: isAdmin } = useTenantPermissions();
+  // REQ-056 §15 (AK-45): the quota tab is for every member — reading the plan and the usage is open
+  // to all of them (REQ-024 §1a); the backend trims what a member who is not a lead may see.
   const tabSlugs = useMemo(
-    () => (isAdmin ? (['members', 'invitations'] as const) : (['members'] as const)),
+    () =>
+      isAdmin
+        ? (['members', 'invitations', 'quota'] as const)
+        : (['members', 'quota'] as const),
     [isAdmin],
   );
   const [tab, setTab] = useTabUrl(tabSlugs);
+  const activeTab = tabSlugs[tab] ?? 'members';
   const [members, setMembers] = useState<Membership[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -356,9 +363,10 @@ export default function TenantSettingsPage() {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label={t('pages.tenants.tabMembers')} />
         {isAdmin && <Tab label={t('pages.tenants.tabInvitations')} />}
+        <Tab label={t('pages.tenants.tabQuota')} data-testid="tenant-tab-quota" />
       </Tabs>
 
-      {tab === 0 && (
+      {activeTab === 'members' && (
         <DataTable
           columns={memberColumns}
           rows={members}
@@ -407,7 +415,7 @@ export default function TenantSettingsPage() {
         />
       )}
 
-      {tab === 1 && isAdmin && (
+      {activeTab === 'invitations' && isAdmin && (
         <Card>
           <CardContent>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -568,6 +576,10 @@ export default function TenantSettingsPage() {
             />
           </CardContent>
         </Card>
+      )}
+
+      {activeTab === 'quota' && (
+        <TenantQuotaCard slug={activeTenant.slug} isLead={activeTenant.role === 'lead'} />
       )}
 
       {isAdmin && (

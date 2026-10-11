@@ -29,16 +29,20 @@ def fetch_weather_forecasts(self) -> dict:  # noqa: ANN001 — Celery bound-task
         get_ha_client,
         get_ha_entity_grant_service,
         get_site_repo,
+        get_tenant_repo,
         get_weather_forecast_repo,
         get_weather_source_config_repo,
     )
     from app.data_access.arango.collections import WEATHER_SOURCE_CONFIGS
     from app.domain.models.weather import WeatherSourceConfig
     from app.domain.services.weather_source_resolver import WeatherSourceResolver
+    from app.tasks.tenant_gate import ActiveTenants
 
     config_repo = get_weather_source_config_repo()
     forecast_repo = get_weather_forecast_repo()
     site_repo = get_site_repo()
+    # REQ-056 §5.2 — a tenant that is not ``active`` gets no weather: no provider call, no write.
+    tenant_is_active = ActiveTenants(get_tenant_repo())
     # Inject the DB-backed effective provider config so the fetch honours the
     # central admin overrides (base URL, timeout, enable flags, global OWM key).
     resolver = WeatherSourceResolver(
@@ -75,6 +79,9 @@ def fetch_weather_forecasts(self) -> dict:  # noqa: ANN001 — Celery bound-task
                 config_tenant=log_tenant(config.tenant_key),
                 site_tenant=log_tenant(site.tenant_key),
             )
+            skipped += 1
+            continue
+        if not tenant_is_active(site.tenant_key):
             skipped += 1
             continue
         try:

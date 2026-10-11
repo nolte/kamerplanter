@@ -52,6 +52,7 @@ from app.domain.services.tenant_service import TenantService
 from tests.conftest import wire_get_or_raise
 from tests.support.privacy_doubles import FakeErasureRepo, RecordingErasureExecutor, step_up
 from tests.support.tenant_erasure_doubles import FakeTenantErasureRepository
+from tests.support.tenant_transitions import apply_transition
 
 SALT = "s" * 32
 LOG_SALT = "log-pseudonym-test-salt-not-a-secret-01234"
@@ -98,6 +99,13 @@ class FakeTenantRepo:
         merged = Tenant.model_validate({**current.model_dump(by_alias=True), **fields})
         self.stored[key] = merged
         return merged
+
+    def transition_status(self, key: str, **kwargs: Any) -> Tenant | None:
+        """The real compare-and-set (``ArangoTenantRepository.transition_status``, REQ-056)."""
+        moved = apply_transition(self.stored.get(key), **kwargs)
+        if moved is not None:
+            self.stored[key] = moved
+        return moved
 
     def personal_tenant_keys_by_owner(self, user_key: str) -> list[str]:
         """The real query: by owner **and** type."""

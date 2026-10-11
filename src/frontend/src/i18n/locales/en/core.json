@@ -458,7 +458,14 @@
     "tenantsLoadFailed": "Failed to load tenants.",
     "onboardingStateLoadFailed": "Failed to load onboarding state.",
     "starterKitsLoadFailed": "Failed to load starter kits.",
-    "preferencesLoadFailed": "Failed to load preferences."
+    "preferencesLoadFailed": "Failed to load preferences.",
+    "quota": {
+      "organizationLimitReached": "You cannot found another organisation: your account has reached the maximum number of organisations on this installation – or organisations are created by the operator only. Ask the operator if you need another one.",
+      "memberLimitReached": "The garden has reached its member limit. Remove a member before someone new joins, or ask the operator for a larger plan.",
+      "serviceAccountLimitReached": "The garden has reached the service account limit of its plan. Delete a service account you no longer use or ask the operator for a larger plan.",
+      "storageQuotaExceeded": "The garden's storage is used up. Delete photos or attachments you no longer need or ask the operator for more storage.",
+      "photoQuotaExceeded": "This plant has reached its photo limit. Delete older photos before you upload new ones."
+    }
   },
   "validation": {
     "required": "This field is required.",

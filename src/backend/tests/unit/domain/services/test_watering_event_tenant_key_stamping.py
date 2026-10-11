@@ -79,7 +79,7 @@ def _service() -> tuple[WateringService, FakeWateringRepo, FakeFeedingRepo]:
     run_repo.get_run_plants.return_value = [{"_key": PLANT_KEY, "slot_key": "slot-1"}]
 
     plan_repo = MagicMock()
-    plan_repo.get_by_key.return_value = NutrientPlan(_key="plan-1", tenant_key=TENANT, name="Plan")
+    plan_repo.get_readable_or_raise.return_value = NutrientPlan(_key="plan-1", tenant_key=TENANT, name="Plan")
 
     # The confirmed run and task are the confirming tenant's: #1864 (L8)
     # resolves both before anything is written.
@@ -95,6 +95,7 @@ def _service() -> tuple[WateringService, FakeWateringRepo, FakeFeedingRepo]:
         task_repo=task_repo,
         feeding_repo=feeding_repo,
         nutrient_plan_repo=plan_repo,
+        plant_repo=MagicMock(get_by_key=MagicMock(return_value=SimpleNamespace(tenant_key=TENANT))),
     )
     return service, watering_repo, feeding_repo
 

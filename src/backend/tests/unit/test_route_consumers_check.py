@@ -216,8 +216,9 @@ class TestTheRouteOperand:
 
         +6: ``/admin/platform/plans`` GET/POST, ``…/{plan_key}`` PATCH/DELETE,
         ``GET /admin/platform/tenants/{key}`` and ``GET /tenants/{tenant_slug}/entitlements``
-        (#2142, REQ-056 §7.6/§7.7) — the plan catalogue and a tenant's quotas; API-only until the
-        frontend of REQ-056 §15 (AK-45) is built, so all six are reported candidates.
+        (#2142, REQ-056 §7.6/§7.7) — the plan catalogue and a tenant's quotas; consumed since
+        REQ-056 AK-45 by ``src/frontend/src/api/endpoints/adminPlans.ts``, ``fetchAdminTenantDetail``
+        in ``adminPlatform.ts`` and ``getTenantEntitlements`` in ``tenants.ts`` (no longer candidates).
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
         assert len(checker.collect_operations(app)) == 822

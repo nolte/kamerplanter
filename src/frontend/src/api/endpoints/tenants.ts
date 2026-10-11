@@ -12,6 +12,7 @@ import type {
   TenantCreate,
   TenantDeleteRequest,
   TenantDeletionAccepted,
+  TenantEntitlements,
   TenantUpdate,
   TenantWithRole,
 } from '../types';
@@ -55,6 +56,16 @@ export async function createOrganization(data: TenantCreate): Promise<Tenant> {
 
 export async function getTenant(slug: string): Promise<Tenant> {
   const res = await client.get<Tenant>(`${BASE}/${slug}`);
+  return res.data;
+}
+
+/**
+ * The garden's plan and, per quota dimension, the effective limit and the usage (REQ-056 §7.7, #2142).
+ * Open to every member; `service_accounts` and `ai_tokens_per_tenant_day` come for a `lead` only, and
+ * `ai_calls_per_user_day.used` is always the caller's own count.
+ */
+export async function getTenantEntitlements(slug: string): Promise<TenantEntitlements> {
+  const res = await client.get<TenantEntitlements>(`${BASE}/${slug}/entitlements`);
   return res.data;
 }
 
