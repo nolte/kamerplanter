@@ -172,9 +172,8 @@ def consumed_queues(args: list[str]) -> set[str] | None:
     return selected
 
 
-#: The one template a worker's queue selection or ``enabled`` may carry (MT-032, #2128): the switch
-#: between one worker for every queue and one worker per queue (``celeryWorkers.dedicatedQueues``).
-_SWITCH = ".Values.celeryWorkers.dedicatedQueues"
+#: The one template a worker's queue selection may carry (MT-032, #2128): the switch between one
+#: worker for every queue and one worker per queue (``celeryWorkers.dedicatedQueues``).
 _QUEUE_SWITCH = re.compile(
     r"^\{\{ if \.Values\.celeryWorkers\.dedicatedQueues \}\}(?P<on>[^{}]*)\{\{ else \}\}(?P<off>[^{}]*)\{\{ end \}\}$"
 )
@@ -189,40 +188,54 @@ def _resolve_arg(arg: str, dedicated: bool) -> str:
     return match["on"] if dedicated else match["off"]
 
 
-def _is_enabled(name: str, controller: dict[str, Any], controllers: dict[str, Any], dedicated: bool) -> bool:
-    """``enabled`` of a worker controller under one state of the switch.
-
-    A templated ``enabled`` is only accepted in the dedicated-copy form: on with the switch, unless
-    ``celery-worker`` itself is off. ``scripts/ci/assert_chart_contracts.sh`` renders the real templates
-    in both states; this mirrors them so the guard runs without ``helm``.
-    """
-    enabled = controller.get("enabled", True)
-    if isinstance(enabled, bool):
-        return enabled
-    text = str(enabled)
-    assert _SWITCH in text, f"controllers.{name}.enabled is a template this guard cannot evaluate: {text!r}"
-    return dedicated and (controllers.get("celery-worker") or {}).get("enabled", True) is not False
+def _with_queue(args: list[str], queue: str) -> list[str]:
+    """``templates/_celery_workers.tpl``'s rule: the copy's ``-Q``/``--queues`` value is its queue."""
+    out: list[str] = []
+    replace_next = found = False
+    for arg in args:
+        if replace_next:
+            out.append(queue)
+            replace_next = False
+        elif arg.startswith("--queues="):
+            out.append(f"--queues={queue}")
+            found = True
+        else:
+            out.append(arg)
+            if arg in {"-Q", "--queues"}:
+                replace_next = found = True
+    return out if found else [*out, "-Q", queue]
 
 
 def _worker_commands(dedicated: bool) -> list[tuple[str, str, list[str]]]:
+    """Every worker command line per values profile; with ``dedicated`` also the render-time copies.
+
+    The copies exist only in the render (``templates/_celery_workers.tpl`` derives them from
+    ``controllers.celery-worker`` and ``celeryWorkers.copies``); ``scripts/ci/assert_chart_contracts.sh``
+    holds the real render, this mirrors it so the guard runs without ``helm``.
+    """
     files = sorted(_CHART.glob("values*.yaml"))
     assert _BASE in files
     found = []
     for path in files:
         values = _load(_BASE) if path == _BASE else _helm_merge(_load(_BASE), _load(path))
         controllers = values.get("controllers") or {}
+        copies = (values.get("celeryWorkers") or {}).get("copies") or {}
+        assert not set(copies) & set(controllers), f"{path.name}: copies are derived, not declared: {sorted(copies)}"
         for name, controller in controllers.items():
-            if not name.startswith(_WORKER_CONTROLLERS_PREFIX):
-                continue
-            if not _is_enabled(name, controller, controllers, dedicated):
+            if not name.startswith(_WORKER_CONTROLLERS_PREFIX) or controller.get("enabled", True) is False:
                 continue
             for container_name, container in (controller.get("containers") or {}).items():
                 args = [
                     _resolve_arg(str(arg), dedicated)
                     for arg in (container.get("command") or []) + (container.get("args") or [])
                 ]
-                if "worker" in args:
-                    found.append((path.name, f"{name}/{container_name}", args))
+                if "worker" not in args:
+                    continue
+                found.append((path.name, f"{name}/{container_name}", args))
+                if dedicated and name == "celery-worker" and container_name == "main":
+                    found.extend(
+                        (path.name, f"{copy}/main", _with_queue(args, queue)) for copy, queue in sorted(copies.items())
+                    )
     return found
 
 

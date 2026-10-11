@@ -142,3 +142,22 @@ def test_a_tenant_is_sent_before_the_next_tenant_is_read(world, beat: str) -> No
     getattr(module, beat)()
 
     assert journal.events == [("read", "t-a"), ("send", "t-a"), ("read", "t-b"), ("send", "t-b")]
+
+
+@pytest.mark.parametrize("beat", ["dispatch_due_care_notifications", "send_daily_summary"])
+def test_a_tenant_whose_read_fails_does_not_silence_the_tenants_after_it(world, beat: str) -> None:
+    """Security review SEC-003: one bad tenant (an unreadable row, a failing query) is skipped, not fatal."""
+    store, journal = world
+    import app.tasks.notification_tasks as module
+
+    def failing_for_t_a(**kwargs):  # noqa: ANN003, ANN202
+        journal.events.append(("read", kwargs["tenant_key"]))
+        if kwargs["tenant_key"] == "t-a":
+            raise ValueError("a stored task the model refuses")
+        return store.list_open_care_reminders_due(**kwargs)
+
+    journal.list_open_care_reminders_due = failing_for_t_a
+
+    getattr(module, beat)()
+
+    assert journal.events == [("read", "t-a"), ("read", "t-b"), ("send", "t-b")]

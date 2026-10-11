@@ -14,6 +14,7 @@ from app.common.enums import TenantStatus
 from app.common.log_privacy import log_subject, log_tenant
 from app.data_access.arango.base_repository import get_all_pages
 from app.domain.interfaces.membership_repository import IMembershipRepository
+from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.tasks import celery_app
 from app.tasks.tenant_gate import ActiveTenants
@@ -116,6 +117,50 @@ def _today_window() -> tuple[date, datetime, datetime]:
     return today, start, end
 
 
+def _due_care_entries(
+    task_repo: ITaskRepository,
+    tenant_key: str,
+    is_active_member: _ActiveMembers,
+    today_start: datetime,
+    today_end: datetime,
+) -> list[dict]:
+    """One tenant's care reminders due today, as the batch ``send_care_notifications`` takes."""
+    rows = task_repo.list_open_care_reminders_due(tenant_key=tenant_key, due_from=today_start, due_until=today_end)
+    tenant_tasks: list[dict] = []
+    for task_doc in (_as_doc(row) for row in rows):
+        due_dt = _parse_due(task_doc)
+        # The store selected the window; the instant is re-read here only to report it.
+        if due_dt is None or due_dt < today_start or due_dt > today_end:
+            continue
+
+        # #2114 — only an active member of the task's tenant is notified of its plants and due dates.
+        if not is_active_member(task_doc.get("assigned_to", ""), tenant_key):
+            continue
+
+        # Determine urgency from priority
+        urgency = "overdue" if task_doc.get("priority", "medium") == "high" else "due_today"
+
+        # Extract reminder type from task name (format: "PlantName -- type")
+        task_name = task_doc.get("name", "")
+        reminder_type = "watering"
+        if " — " in task_name:
+            reminder_type = task_name.split(" — ")[-1].strip()
+        plant_name = task_name.split(" — ")[0].strip() if " — " in task_name else task_name
+
+        tenant_tasks.append(
+            {
+                "user_key": task_doc.get("assigned_to", ""),
+                "plant_key": task_doc.get("plant_key", ""),
+                "plant_name": plant_name,
+                "reminder_type": reminder_type,
+                "urgency": urgency,
+                "due_date": due_dt.isoformat(),
+                "tenant_key": tenant_key,
+            }
+        )
+    return tenant_tasks
+
+
 @celery_app.task(name="notifications.dispatch_due_care")
 def dispatch_due_care_notifications() -> dict:
     """Dispatch notifications for due care tasks.
@@ -146,40 +191,13 @@ def dispatch_due_care_notifications() -> dict:
     total_sent = 0
 
     for tenant_key in _active_tenant_keys(tenant_repo):
-        rows = task_repo.list_open_care_reminders_due(tenant_key=tenant_key, due_from=today_start, due_until=today_end)
-        tenant_tasks: list[dict] = []
-        for task_doc in (_as_doc(row) for row in rows):
-            due_dt = _parse_due(task_doc)
-            # The store selected the window; the instant is re-read here only to report it.
-            if due_dt is None or due_dt < today_start or due_dt > today_end:
-                continue
-
-            # #2114 — only an active member of the task's tenant is notified of its plants and due dates.
-            if not is_active_member(task_doc.get("assigned_to", ""), tenant_key):
-                continue
-
-            # Determine urgency from priority
-            urgency = "overdue" if task_doc.get("priority", "medium") == "high" else "due_today"
-
-            # Extract reminder type from task name (format: "PlantName -- type")
-            task_name = task_doc.get("name", "")
-            reminder_type = "watering"
-            if " — " in task_name:
-                reminder_type = task_name.split(" — ")[-1].strip()
-            plant_name = task_name.split(" — ")[0].strip() if " — " in task_name else task_name
-
-            tenant_tasks.append(
-                {
-                    "user_key": task_doc.get("assigned_to", ""),
-                    "plant_key": task_doc.get("plant_key", ""),
-                    "plant_name": plant_name,
-                    "reminder_type": reminder_type,
-                    "urgency": urgency,
-                    "due_date": due_dt.isoformat(),
-                    "tenant_key": tenant_key,
-                }
-            )
-
+        # Per tenant (security review SEC-003): a tenant whose read or rows fail is logged and skipped; it does
+        # not suppress the reminders of every tenant after it.
+        try:
+            tenant_tasks = _due_care_entries(task_repo, tenant_key, is_active_member, today_start, today_end)
+        except Exception:
+            logger.exception("notification_dispatch_tenant_read_failed", tenant=log_tenant(tenant_key))
+            continue
         if not tenant_tasks:
             continue
         tasks_found += len(tenant_tasks)
@@ -302,17 +320,21 @@ def send_daily_summary() -> dict:
     summaries_sent = 0
 
     for tenant_key in _active_tenant_keys(tenant_repo):
-        rows = task_repo.list_open_care_reminders_due(tenant_key=tenant_key, due_until=today_end)
-
         # Group by user within this tenant (#2114): one summary per tenant the user is an active member of. It
         # used to group by user alone and file the whole lot under the tenant of the FIRST task document, so a
         # user in two tenants got one notification with both tenants' tasks, under the wrong tenant.
         by_user: dict[str, list[dict]] = {}
-        for task_doc in (_as_doc(row) for row in rows):
-            user_key = task_doc.get("assigned_to", "")
-            if not user_key or not is_active_member(user_key, tenant_key):
-                continue
-            by_user.setdefault(user_key, []).append(task_doc)
+        # Per tenant (security review SEC-003): a failing read skips this tenant, not every tenant after it.
+        try:
+            rows = task_repo.list_open_care_reminders_due(tenant_key=tenant_key, due_until=today_end)
+            for task_doc in (_as_doc(row) for row in rows):
+                user_key = task_doc.get("assigned_to", "")
+                if not user_key or not is_active_member(user_key, tenant_key):
+                    continue
+                by_user.setdefault(user_key, []).append(task_doc)
+        except Exception:
+            logger.exception("daily_summary_tenant_read_failed", tenant=log_tenant(tenant_key))
+            continue
 
         for user_key, user_tasks in by_user.items():
             users_with_tasks.add(user_key)
