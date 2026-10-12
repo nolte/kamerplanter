@@ -2176,7 +2176,7 @@ class TenantService:
         return self._tenant_erasure_repo
 
     def _claim_tenant_erasure(self, record_key: str, now: datetime) -> TenantErasureRecord | None:
-        stale_before = now - timedelta(hours=TenantErasureEngine.STALE_AFTER_HOURS)
+        stale_before: datetime = now - timedelta(hours=TenantErasureEngine.STALE_AFTER_HOURS)
         return self._require_tenant_erasure_repo().claim_for_run(
             record_key, now_iso=now.isoformat(), stale_before_iso=stale_before.isoformat()
         )
@@ -3790,7 +3790,8 @@ class TenantService:
         invitations (any tenant, any status) over the last 24 hours - durable across replicas and
         restarts - and asked before anything is stored or mailed.
         """
-        since = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+        day_ago: datetime = datetime.now(UTC) - timedelta(days=1)
+        since = day_ago.isoformat()
         issued = int(self._invitation_repo.count_email_invitations_issued_since(invited_by_user_key, since))
         if issued >= self._invitation_emails_per_day:
             logger.warning("email_invitation_budget_exhausted", subject=log_subject(invited_by_user_key))
