@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Nuclei (ProjectDiscovery), GitHub Actions, SARIF, OpenAPI
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.2
+Version: 1.3
 Autor: QA / Security Engineering
 Datum: 2026-04-28
 Tags: [security, dast, nuclei, vulnerability-scanning, cve, misconfiguration, exposures, ci-gate, sarif]
@@ -19,6 +19,7 @@ Betroffene Module: [src/backend, src/frontend, helm, .github/workflows]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.3 | 2026-10-12 | §4.2: Hinweis auf die angehobenen Rate-Limits im gemeinsamen Scan-Stack (#2248, NFR-015 §4.2). `RATE_LIMIT_DEVICE_PAIRING_REDEEM` bleibt bewusst auf Produktionswert, weil das Template `kamerplanter-device-pairing-bruteforce` dessen 429 auf diesem Stack prüft. |
 | 1.2 | 2026-09-19 | §3.3 auf den Ist-Zustand gebracht (#1543): Der operative Pin ist der Commit-Digest `nuclei_templates_commit` in `.github/renovate-pins.yaml`, das Tag `nuclei_templates_version` ist nur noch sein Label; der Renovate-Custom-Manager fängt beide in einem Match. Die Tag-Auflösungs-Zusicherung entfällt in allen drei Scan-Lanes (unter einem Digest-Pin nur noch Fehlalarm) und wird auf der Pull-Request-Lane durch die Existenzprüfung des Digests ersetzt. Die frühere Beschreibung über eine Repository-Variable `vars.NUCLEI_TEMPLATES_SHA` entsprach der Implementierung nie. |
 | 1.1 | 2026-04-28 | Spec-Followup nach PR-#115-Review: Pinning-Logik in §3.3 auf `git clone` + `git checkout SHA` korrigiert (vorher bestand das `.git`-Verzeichnis bei `-update-templates` nicht zuverlässig). Nightly-Cron in §4.2 von `0 1 * * *` auf `0 0 * * *` vorgezogen, damit das schnellere Tool zuerst gegen Staging läuft (ZAP folgt 60 Min später). Frontend-Storage-Check in `kamerplanter-jwt-leak.yaml` (§3.2) ergänzt. |
 | 1.0 | 2026-04-28 | Erstversion — Template-basiertes Security-Scanning für Frontend, Backend und exponierte Infrastruktur. Pflicht-Template-Sets, CI-Gate, SARIF-Reporting, Triage-Workflow und Akzeptanzkriterien definiert. |
@@ -422,6 +423,8 @@ stiller Dauerverstoß.
 > **Warum nicht Staging.** Die ursprüngliche Fassung dieses Abschnitts verlangte einen Scan gegen eine Staging-Umgebung und las das Ziel aus `vars.STAGING_BASE_URL`. Diese Variable wurde nie konfiguriert und es existiert keine Staging-Umgebung, gegen die sie zeigen könnte. Folge: von der Einführung des Workflows bis zum 2026-08-01 scheiterte **jeder** geplante Lauf am ersten Step, und es wurde nie ein einziger Scan ausgeführt. Der Meldeweg für Findings — der Issue-Step — meldet in genau diesem Fehlermodus Erfolg, weil er ohne `results.jsonl` nur eine Notice absetzt. Eine Anforderung, deren Erfüllung von einer Umgebung abhängt, die es nicht gibt, ist keine Abdeckung, sondern deren Anschein.
 >
 > Der ephemere Stack wird aus dem gescannten Commit gebaut und danach abgeräumt. Er ist damit reproduzierbar und an den Commit gebunden, hat aber eine bewusste Grenze: er prüft **nicht** die Reverse-Proxy-/Ingress-Schicht aus der Tabelle in §2.4, weil die im Compose-Stack nicht existiert. Diese Zeile bleibt offen, bis eine deployte Umgebung existiert.
+
+> **Rate-Limits im Stack (#2248).** `docker-compose.security.override.yml` hebt die Budgets der anonym erreichbaren Routen an (Login, Registrierung, Passwort-Reset, Refresh, E-Mail-Wechsel-Bestätigung/-Rücknahme, Kalender-Feed, `/api/health`), damit ZAPs differenzielle Regeln keinen 401/429-Wechsel als Befund lesen (NFR-015 §4.2). Nuclei sieht auf diesen Routen deshalb kein 429. `RATE_LIMIT_DEVICE_PAIRING_REDEEM` bleibt ausdrücklich auf dem Produktionswert: das Template `kamerplanter-device-pairing-bruteforce` prüft genau dieses 429. Ein neues Template, das ein anderes Rate-Limit auf diesem Stack prüfen soll, muss dessen Eintrag in `src/backend/tests/unit/guards/test_scan_stack_rate_limits.py` nach `_LEFT_AT_PRODUCTION` verschieben.
 
 **KANN**: Der `workflow_dispatch`-Input `target` überschreibt das Ziel mit einer externen URL. Er ist bewusst **nicht** an eine Repository-Variable gebunden: eine Variable, die im Hintergrund umlenkt, was gescannt wird, ist derselbe Fehlermodus wie der oben beschriebene.
 
