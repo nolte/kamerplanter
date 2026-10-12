@@ -41,6 +41,7 @@ from unittest.mock import MagicMock
 import pytest
 from arango import ArangoClient
 
+from app.common.enums import TenantRole
 from app.data_access.arango import collections as col
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.data_access.arango.harvest_repository import ArangoHarvestRepository
@@ -535,7 +536,10 @@ class TestSynonymInheritanceStaysInsideTheTenant:
         )
 
         created = self._service(db).create_species(
-            Species(scientific_name="Alicea nova", tenant_key=TENANT_A, synonyms=["Bobus secretus"])
+            Species(scientific_name="Alicea nova", synonyms=["Bobus secretus"]),
+            tenant_key=TENANT_A,
+            caller_role=TenantRole.LEAD,
+            is_platform_admin=False,
         )
 
         assert created.description == "", f"foreign species content inherited: {created.description!r}"
@@ -548,7 +552,10 @@ class TestSynonymInheritanceStaysInsideTheTenant:
         )
 
         created = self._service(db).create_species(
-            Species(scientific_name="Alicea altera", tenant_key=TENANT_A, synonyms=["Globa communis"])
+            Species(scientific_name="Alicea altera", synonyms=["Globa communis"]),
+            tenant_key=TENANT_A,
+            caller_role=TenantRole.LEAD,
+            is_platform_admin=False,
         )
 
         assert created.description == "Public notes"

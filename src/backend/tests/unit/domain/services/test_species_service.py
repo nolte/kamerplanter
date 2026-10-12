@@ -7,9 +7,14 @@ only differs by the hybrid marker (× vs x), casing or whitespace.
 
 from __future__ import annotations
 
+from app.common.enums import TenantRole
 from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.models.species import Species
 from app.domain.services.species_service import SpeciesService
+
+#: The light-mode operator curating the global catalogue (#2107: the service no longer
+#: offers a defaulted system context; the stored rows here are global, ``""``).
+_GLOBAL_CURATOR = {"tenant_key": "", "caller_role": TenantRole.VIEWER, "is_platform_admin": True}
 
 
 class _FakeSpeciesRepo:
@@ -59,7 +64,7 @@ def _service(repo: _FakeSpeciesRepo) -> SpeciesService:
 
 def test_create_new_species_inserts():
     repo = _FakeSpeciesRepo()
-    created = _service(repo).create_species(Species(scientific_name="Solanum lycopersicum"))
+    created = _service(repo).create_species(Species(scientific_name="Solanum lycopersicum"), **_GLOBAL_CURATOR)
     assert len(repo.inserted) == 1
     assert created.key == "species_1"
 
@@ -68,7 +73,7 @@ def test_create_hybrid_marker_duplicate_returns_existing():
     existing = Species(_key="species_fragaria", scientific_name="Fragaria x ananassa")
     repo = _FakeSpeciesRepo([existing])
 
-    result = _service(repo).create_species(Species(scientific_name="Fragaria × ananassa"))
+    result = _service(repo).create_species(Species(scientific_name="Fragaria × ananassa"), **_GLOBAL_CURATOR)
 
     # Idempotent: the existing record is returned, nothing new is inserted.
     assert result.key == "species_fragaria"
@@ -80,7 +85,7 @@ def test_create_casing_and_whitespace_duplicate_returns_existing():
     existing = Species(_key="species_tomato", scientific_name="Solanum lycopersicum")
     repo = _FakeSpeciesRepo([existing])
 
-    result = _service(repo).create_species(Species(scientific_name="solanum   LYCOPERSICUM"))
+    result = _service(repo).create_species(Species(scientific_name="solanum   LYCOPERSICUM"), **_GLOBAL_CURATOR)
 
     assert result.key == "species_tomato"
     assert repo.inserted == []
@@ -96,8 +101,8 @@ def test_repeated_variant_creates_do_not_duplicate():
     repo = _FakeSpeciesRepo()
     service = _service(repo)
 
-    first = service.create_species(Species(scientific_name="Fragaria × ananassa"))
-    second = service.create_species(Species(scientific_name="Fragaria x ananassa"))
+    first = service.create_species(Species(scientific_name="Fragaria × ananassa"), **_GLOBAL_CURATOR)
+    second = service.create_species(Species(scientific_name="Fragaria x ananassa"), **_GLOBAL_CURATOR)
 
     assert len(repo.inserted) == 1
     assert first.key == second.key
@@ -131,7 +136,7 @@ def test_update_preserves_cultivation_flexible_master_data():
     service = SpeciesService(repo, graph_repo=None)  # type: ignore[arg-type]
 
     incoming = Species(scientific_name="Solanum lycopersicum")  # flag defaults False
-    result = service.update_species("sp-1", incoming)
+    result = service.update_species("sp-1", incoming, **_GLOBAL_CURATOR)
 
     assert result.cultivation_flexible is True
     assert repo.updated is not None
