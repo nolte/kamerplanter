@@ -1,5 +1,7 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 
@@ -7,7 +9,7 @@ from app.common.enums import TransitionTrigger
 from app.common.exceptions import NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PhaseKey, PlantID
-from app.domain.engines.phase_key_resolver import PhaseKeyResolver
+from app.domain.engines.phase_key_resolver import PhaseKeyResolver, ResolvedPhase
 from app.domain.engines.phase_role_map import core_phase
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
@@ -299,14 +301,7 @@ class PhaseService:
         history = self._repo.get_phase_history(plant_key)
         active = next((h for h in history if h.exited_at is None), None)
 
-        phase_key = active.phase_key if active else plant.current_phase_key
-        phase_started_at = active.entered_at if active else plant.current_phase_started_at
-        cycle_number = active.cycle_number if active else 1
-
-        days_in_phase = 0
-        if phase_started_at:
-            delta = datetime.now(UTC) - phase_started_at
-            days_in_phase = delta.days
+        phase_key, days_in_phase, cycle_number = self._phase_position(plant, active)
 
         next_phase = None
         if phase_key:
@@ -375,6 +370,59 @@ class PhaseService:
             "source": current_source,
             "is_terminal": current_is_terminal,
         }
+
+    @staticmethod
+    def _phase_position(plant: PlantInstance, active: PhaseHistory | None) -> tuple[str | None, int, int]:
+        """``(phase_key, days_in_phase, cycle_number)`` of a plant.
+
+        The open phase-history entry is the source of truth for phase key, start time
+        and cycle; the plant's own ``current_phase_*`` fields stand in when it has none.
+        """
+        phase_key = active.phase_key if active else plant.current_phase_key
+        phase_started_at = active.entered_at if active else plant.current_phase_started_at
+        cycle_number = active.cycle_number if active else 1
+
+        days_in_phase = 0
+        if phase_started_at:
+            delta = datetime.now(UTC) - phase_started_at
+            days_in_phase = delta.days
+        return phase_key, days_in_phase, cycle_number
+
+    def get_current_phases(self, plants: Sequence[PlantInstance]) -> dict[PlantID, dict[str, Any]]:
+        """The phase position of a page of plants, without one read per plant (MT-032, #2128).
+
+        Returns, per plant key, the fields of :meth:`get_current_phase` the
+        auto-transition scan reads — ``phase``, ``phase_key``, ``days_in_phase``,
+        ``cycle_number``, ``source`` and ``is_terminal`` — computed exactly as there.
+        The cost is one history read for the whole page plus one phase resolution per
+        *distinct* phase key, so it does not grow with the number of plants that share
+        a phase. The display-only fields (``next_phase``, ``cycle_type``,
+        ``has_harvest_phase``) are not part of it.
+
+        The plants are taken as handed in (the scan read them a moment ago) rather
+        than re-read by key.
+        """
+        active_by_plant = self._repo.get_active_phase_histories([p.key for p in plants if p.key])
+        resolved: dict[str, ResolvedPhase | None] = {}
+        positions: dict[PlantID, dict[str, Any]] = {}
+        for plant in plants:
+            if not plant.key:
+                continue
+            phase_key, days_in_phase, cycle_number = self._phase_position(plant, active_by_plant.get(plant.key))
+            phase = None
+            if phase_key:
+                if phase_key not in resolved:
+                    resolved[phase_key] = self._resolver.resolve(phase_key)
+                phase = resolved[phase_key]
+            positions[plant.key] = {
+                "phase": phase.name if phase else "",
+                "phase_key": phase_key,
+                "days_in_phase": days_in_phase,
+                "cycle_number": cycle_number,
+                "source": phase.source if phase else None,
+                "is_terminal": phase.is_terminal if phase else False,
+            }
+        return positions
 
     def resolve_sequence_auto_target(
         self,

@@ -220,6 +220,9 @@ ANCHOR_TARGETS: dict[str, str | None] = {
     "tank_key": col.TANKS,
     "source_tank_key": col.TANKS,
     "plant_key": col.PLANT_INSTANCES,
+    # The plural, like ``run_keys`` / ``task_keys``: a page of plant documents (the auto-transition
+    # scan's batched history read, MT-032 #2128) — each one the caller's own, read by a tenant walk.
+    "plant_keys": col.PLANT_INSTANCES,
     "plant_instance_key": col.PLANT_INSTANCES,
     "mother_key": col.PLANT_INSTANCES,
     "site_key": col.SITES,

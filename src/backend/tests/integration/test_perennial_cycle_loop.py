@@ -14,6 +14,7 @@ the auto-transition path, not only exercised in unit tests.
 from __future__ import annotations
 
 import sys
+from collections.abc import Collection
 from datetime import UTC, datetime, timedelta
 from types import ModuleType, SimpleNamespace
 
@@ -127,6 +128,15 @@ class _FakePhaseRepo:
 
     def get_phase_history(self, plant_key: str) -> list[PhaseHistory]:
         return [h for h in self._histories if h.plant_instance_key == plant_key]
+
+    def get_active_phase_histories(self, plant_keys: Collection[str]) -> dict[str, PhaseHistory]:
+        """The batched read the scan uses (MT-032, #2128): the earliest open entry per plant."""
+        active: dict[str, PhaseHistory] = {}
+        for key in plant_keys:
+            open_entries = [h for h in self.get_phase_history(key) if h.exited_at is None]
+            if open_entries:
+                active[key] = min(open_entries, key=lambda h: h.entered_at)
+        return active
 
     def create_phase_history(self, history: PhaseHistory) -> PhaseHistory:
         self._seq += 1
