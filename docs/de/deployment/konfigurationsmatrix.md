@@ -179,10 +179,10 @@ Instanzweite Freischaltung (`AI_FEATURES_ENABLED=true`) reicht allein nicht: Ein
 |---|---|---|---|---|---|
 | Manuelle Messwerte | Backend + ArangoDB | Immer aktiv, kein Schalter | — | — | Nein |
 | Home-Assistant-Anbindung (semi-automatisch, live) | Backend | `HA_URL` + `HA_ACCESS_TOKEN` gesetzt | `HA_ACCESS_TOKEN` | — | Nein |
-| Zeitreihen-Speicherung mit Downsampling | `timescaledb`-Controller (in `values.yaml` auskommentiert) | `TIMESCALEDB_ENABLED=true` **und** Controller manuell ergänzt (siehe Hinweis) | `TIMESCALEDB_PASSWORD` | ~250m/1 CPU, 512Mi/1Gi RAM (Chart-Default-Kommentar) + 10Gi PVC | Ja — `timescaledb_password`-Default-Check (nur wenn `TIMESCALEDB_ENABLED=true`) |
+| Zeitreihen-Speicherung mit Downsampling | `timescaledb`-Controller (standardmäßig aus) | `controllers.timescaledb.enabled: true` (setzt auch `TIMESCALEDB_ENABLED=true` bei Backend, Worker und Beat) | `TIMESCALEDB_PASSWORD` | ~250m/1 CPU, 512Mi/1Gi RAM + 10Gi PVC | Ja — `timescaledb_password`-Default-Check (nur wenn `TIMESCALEDB_ENABLED=true`) |
 
-!!! note "TimescaleDB-Controller ist im Chart auskommentiert"
-    `helm/kamerplanter/values.yaml` enthält den `timescaledb`-Controller nur als **auskommentierten** Block (Docker-Compose hat dagegen ein eigenes `timescaledb`-Profil: `docker-compose --profile timescaledb up`). In Kubernetes muss der Operator den Block per `valuesObject` aktivieren.
+!!! note "TimescaleDB mit einem Schalter"
+    Im Chart schaltet `controllers.timescaledb.enabled: true` die Datenbank, ihren Service, ihre NetworkPolicy und `TIMESCALEDB_ENABLED` bei Backend, Worker und Beat gemeinsam ein; `TIMESCALEDB_PASSWORD` legst du vorher in `kamerplanter-secrets` an (siehe [TimescaleDB](helm.md#timescaledb)). Docker-Compose hat dafür ein eigenes Profil: `docker-compose --profile timescaledb up`.
 
 ---
 

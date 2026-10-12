@@ -179,10 +179,10 @@ Unlocking the instance (`AI_FEATURES_ENABLED=true`) is not sufficient on its own
 |---|---|---|---|---|---|
 | Manual readings | Backend + ArangoDB | Always active, no switch | — | — | No |
 | Home Assistant connection (semi-automatic, live) | Backend | `HA_URL` + `HA_ACCESS_TOKEN` set | `HA_ACCESS_TOKEN` | — | No |
-| Time-series storage with downsampling | `timescaledb` controller (commented out in `values.yaml`) | `TIMESCALEDB_ENABLED=true` **and** the controller manually added (see note) | `TIMESCALEDB_PASSWORD` | ~250m/1 CPU, 512Mi/1Gi RAM (chart-default comment) + 10Gi PVC | Yes — `timescaledb_password` default check (only when `TIMESCALEDB_ENABLED=true`) |
+| Time-series storage with downsampling | `timescaledb` controller (off by default) | `controllers.timescaledb.enabled: true` (also sets `TIMESCALEDB_ENABLED=true` on backend, worker and beat) | `TIMESCALEDB_PASSWORD` | ~250m/1 CPU, 512Mi/1Gi RAM + 10Gi PVC | Yes — `timescaledb_password` default check (only when `TIMESCALEDB_ENABLED=true`) |
 
-!!! note "TimescaleDB controller is commented out in the chart"
-    `helm/kamerplanter/values.yaml` only contains the `timescaledb` controller as a **commented-out** block (Docker Compose, by contrast, has its own `timescaledb` profile: `docker-compose --profile timescaledb up`). In Kubernetes, the operator must enable the block via `valuesObject`.
+!!! note "TimescaleDB with one switch"
+    In the chart, `controllers.timescaledb.enabled: true` switches on the database, its Service, its NetworkPolicy and `TIMESCALEDB_ENABLED` on backend, worker and beat together; add `TIMESCALEDB_PASSWORD` to `kamerplanter-secrets` first (see [TimescaleDB](helm.md#timescaledb)). Docker Compose has its own profile for it: `docker-compose --profile timescaledb up`.
 
 ---
 

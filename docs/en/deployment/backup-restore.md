@@ -14,7 +14,7 @@ For Docker Compose see [Docker Compose permanent operation](docker-dauerbetrieb.
 | Attachments (photos, exports) with `storage.backend: s3` | Bucket versioning or replication | Configure on the bucket, not in the chart |
 | Attachments with `storage.backend: local-fs` | **not** by the chart | VolumeSnapshot of the `backend-attachments` PVC through your CSI driver |
 | `kamerplanter-secrets` | **not** by the chart | Back it up separately, e.g. in the secret store of the External Secrets Operator |
-| TimescaleDB | **not** by the chart | Not part of the chart's production values |
+| TimescaleDB (optional, `controllers.timescaledb.enabled`) | **not** by the chart | VolumeSnapshot of the volume `data-kamerplanter-timescaledb-0` through your CSI driver, or `pg_dump` |
 | Valkey | not needed | Cache and task queue, no domain data |
 
 !!! danger "Without the old secrets a restore is incomplete"
