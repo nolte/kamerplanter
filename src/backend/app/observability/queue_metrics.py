@@ -114,7 +114,7 @@ class BrokerQueueLengths:
 
     def __init__(self, client: redis.Redis, keys_by_queue: Mapping[str, Sequence[str]]) -> None:
         self._client = client
-        self._keys_by_queue = {queue: tuple(keys) for queue, keys in keys_by_queue.items()}
+        self._keys_by_queue: dict[str, tuple[str, ...]] = {queue: tuple(keys) for queue, keys in keys_by_queue.items()}
 
     def __call__(self) -> dict[str, int]:
         pipeline = self._client.pipeline(transaction=False)
@@ -124,7 +124,7 @@ class BrokerQueueLengths:
                 pipeline.llen(key)
                 order.append(queue)
         results = pipeline.execute()
-        lengths = dict.fromkeys(self._keys_by_queue, 0)
+        lengths: dict[str, int] = {queue: 0 for queue in self._keys_by_queue}
         for queue, size in zip(order, results, strict=True):
             if isinstance(size, int):
                 lengths[queue] += size
@@ -142,10 +142,10 @@ class QueueLengthCollector(Collector):
         cache_seconds: float = CACHE_SECONDS,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        self._read = read
+        self._read: LengthReader = read
         self._queues = tuple(queues)
         self._cache_seconds = cache_seconds
-        self._clock = clock
+        self._clock: Callable[[], float] = clock
         self._lock = threading.Lock()
         self._read_at: float | None = None
         self._lengths: dict[str, int] | None = None
@@ -168,13 +168,18 @@ class QueueLengthCollector(Collector):
         yield GaugeMetricFamily(BROKER_UP_METRIC, _BROKER_UP_HELP, value=1.0 if lengths is not None else 0.0)
 
     def _current(self) -> dict[str, int] | None:
+        # Plain callables, not methods: bound to typed locals so the call is on a
+        # name with a declared type (tests/unit/api/_write_call_graph.py counts an
+        # attribute call it cannot resolve as an annotation gap).
+        clock: Callable[[], float] = self._clock
+        read: LengthReader = self._read
         with self._lock:
-            now = self._clock()
+            now = clock()
             if self._read_at is not None and now - self._read_at < self._cache_seconds:
                 return self._lengths
             self._read_at = now
             try:
-                raw = self._read()
+                raw = read()
                 self._lengths = {queue: max(0, int(raw.get(queue, 0))) for queue in self._queues}
             except Exception as exc:  # noqa: BLE001 — any failure to read the broker means "no value", never a failed scrape
                 self._lengths = None
