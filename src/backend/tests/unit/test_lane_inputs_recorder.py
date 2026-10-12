@@ -892,6 +892,176 @@ class TestAnActionPinIsNotPartOfTheJobSpec:
         assert recorder.hash_job_spec(local) != recorder.hash_job_spec(call), "the called workflow's name counts"
 
 
+# ------------------------------- #1683: the job hash ignores env image pins
+
+
+#: Two digests no real image carries, for a planted bump.
+_OTHER_DIGEST = "sha256:" + "1" * 64
+_THIRD_DIGEST = "sha256:" + "2" * 64
+
+#: The real jobs whose `env:` carries a digest-pinned image Renovate bumps (operator decision 2026-10-12).
+_PINNED_ENV = [
+    ("security-zap-postmerge.yml", "zap-scan", "ZAP_IMAGE"),
+    ("security-zap-postmerge.yml", "zap-scan", "CURL_IMAGE"),
+    ("docker-lint-build.yml", "changes", "HADOLINT_IMAGE"),
+]
+
+
+def _live_job(workflow: str, job: str) -> dict:
+    _path, document = recorder.load_workflow(workflow)
+    return document["jobs"][job]
+
+
+def _live_pin(job: dict, key: str) -> tuple[str, str, str]:
+    """``(name, tag, digest)`` of the job's live pin — read, never copied, so the next Renovate bump keeps it true."""
+    value = job["env"][key]
+    reference, _, digest = value.partition("@")
+    name, _, tag = reference.rpartition(":")
+    assert digest.startswith("sha256:") and name and tag, f"{key}={value!r} is no longer <name>:<tag>@sha256:<digest>"
+    return name, tag, digest
+
+
+def _with_env(job: dict, key: str, value: str) -> dict:
+    return {**job, "env": {**job["env"], key: value}}
+
+
+class TestAnEnvImagePinIsNotPartOfTheJobSpec:
+    """A Renovate bump of an image pinned in a job's `env:` stales no manifest (#1683, operator decision 2026-10-12).
+
+    The `uses:` precedent (#1747) drops an action's whole ref — a tag (`@v4`) as
+    well as a SHA — and keeps its name. An env image pin is reduced the same
+    way: tag and digest go, the repository name stays. The tag is not kept,
+    because Renovate moves `ZAP_IMAGE`'s tag (`20261008-stable`) with its
+    digest; keeping it would leave every such bump a weekly bot PR.
+    """
+
+    @pytest.mark.parametrize(("workflow", "job_id", "key"), _PINNED_ENV)
+    def test_a_digest_only_bump_keeps_the_hash(self, guard: ModuleType, workflow: str, job_id: str, key: str) -> None:
+        live = _live_job(workflow, job_id)
+        name, tag, digest = _live_pin(live, key)
+        bumped = _with_env(live, key, f"{name}:{tag}@{_OTHER_DIGEST}")
+        assert digest != _OTHER_DIGEST
+        assert recorder.hash_job_spec(bumped) == recorder.hash_job_spec(live)
+        assert guard.job_spec_hash(bumped) == guard.job_spec_hash(live) == recorder.hash_job_spec(live)
+
+    @pytest.mark.parametrize(("workflow", "job_id", "key"), _PINNED_ENV)
+    def test_a_tag_and_digest_bump_keeps_the_hash(
+        self, guard: ModuleType, workflow: str, job_id: str, key: str
+    ) -> None:
+        live = _live_job(workflow, job_id)
+        name, _tag, _digest = _live_pin(live, key)
+        bumped = _with_env(live, key, f"{name}:99.0.0-renovate@{_OTHER_DIGEST}")
+        assert recorder.hash_job_spec(bumped) == recorder.hash_job_spec(live)
+        assert guard.job_spec_hash(bumped) == recorder.hash_job_spec(live)
+
+    def test_a_pin_in_a_step_env_is_normalised_too(self, guard: ModuleType) -> None:
+        job = {"steps": [{"run": 'docker run "$IMG"', "env": {"IMG": f"ghcr.io/o/r:1@{_OTHER_DIGEST}"}}]}
+        bumped = {"steps": [{"run": 'docker run "$IMG"', "env": {"IMG": f"ghcr.io/o/r:2@{_THIRD_DIGEST}"}}]}
+        assert recorder.hash_job_spec(job) == recorder.hash_job_spec(bumped) == guard.job_spec_hash(bumped)
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            "image-name",  # another image is another job
+            "unpinned",  # dropping the digest pin is a real change
+            "other-env",  # any other env value
+            "new-env",
+            "run",
+            "runs-on",
+        ],
+    )
+    def test_every_other_job_byte_still_changes_the_hash(self, guard: ModuleType, change: str) -> None:
+        live = _live_job("security-zap-postmerge.yml", "zap-scan")
+        name, tag, digest = _live_pin(live, "ZAP_IMAGE")
+        if change == "image-name":
+            changed = _with_env(live, "ZAP_IMAGE", f"{name}-fork:{tag}@{digest}")
+        elif change == "unpinned":
+            changed = _with_env(live, "ZAP_IMAGE", f"{name}:{tag}")
+        elif change == "other-env":
+            # a step's env value that is not an image pin (`COMPOSE_PROJECT_NAME` of the tear-down step)
+            steps = list(live["steps"])
+            index, key = next(
+                (i, k)
+                for i, step in enumerate(steps)
+                for k, v in (step.get("env") or {}).items()
+                if recorder.image_pin_name(str(v)) is None and "${{" not in str(v)
+            )
+            steps[index] = {**steps[index], "env": {**steps[index]["env"], key: steps[index]["env"][key] + "-x"}}
+            changed = {**live, "steps": steps}
+        elif change == "new-env":
+            changed = _with_env(live, "LANE_INPUTS_PROBE", "1")
+        elif change == "run":
+            steps = list(live["steps"])
+            index = next(i for i, step in enumerate(steps) if isinstance(step.get("run"), str))
+            steps[index] = {**steps[index], "run": steps[index]["run"] + "\necho changed"}
+            changed = {**live, "steps": steps}
+        else:
+            changed = {**live, "runs-on": "ubuntu-changed"}
+        assert recorder.hash_job_spec(changed) != recorder.hash_job_spec(live)
+        assert guard.job_spec_hash(changed) == recorder.hash_job_spec(changed)
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("ghcr.io/zaproxy/zaproxy:20261008-stable@" + "sha256:" + "a" * 64, "ghcr.io/zaproxy/zaproxy@<pinned>"),
+            ("arangodb@" + "sha256:" + "a" * 64, "arangodb@<pinned>"),
+            ("localhost:5000/team/img:1.2@" + "sha256:" + "a" * 64, "localhost:5000/team/img@<pinned>"),
+            ("localhost:5000/team/img@" + "sha256:" + "a" * 64, "localhost:5000/team/img@<pinned>"),
+            ("curlimages/curl:8.22.0", None),  # a tag alone is not a digest pin: it stays as written
+            ("img@sha256:" + "a" * 63, None),  # not a digest
+            ("docker run img@sha256:" + "a" * 64, None),  # a command line, not one reference
+            ("a:b:c@sha256:" + "a" * 64, None),
+            ("${{ env.X }}@sha256:" + "a" * 64, None),
+            ("localhost", None),
+        ],
+    )
+    def test_what_counts_as_a_pin_is_the_same_in_both_files(
+        self, guard: ModuleType, value: str, expected: str | None
+    ) -> None:
+        assert recorder.image_pin_name(value) == expected
+        assert guard._image_pin_name(value) == (value if expected is None else expected)
+
+
+class TestCompareDoesNotTreatAnEnvImagePinBumpAsDrift:
+    """The replay hands the leg the LIVE pin and the recording writes it down; `compare` normalises it (#1683)."""
+
+    @staticmethod
+    def _with_invocation_env(entries: list[str]) -> dict:
+        manifest = _committed()
+        manifest["invocations"] = [{**manifest["invocations"][0], "env": entries}]
+        return manifest
+
+    def test_a_digest_bump_in_the_recorded_env_is_no_finding(self, tmp_path: Path) -> None:
+        committed = self._with_invocation_env([f"ZAP_IMAGE=ghcr.io/zaproxy/zaproxy:1@{_OTHER_DIGEST}", "A=1"])
+        recorded = self._with_invocation_env([f"ZAP_IMAGE=ghcr.io/zaproxy/zaproxy:2@{_THIRD_DIGEST}", "A=1"])
+        _write(tmp_path / "committed", "w--j.yaml", committed)
+        _write(tmp_path / "recorded", "w--j.yaml", recorded)
+        findings, _ = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")
+        assert findings == []
+
+    @pytest.mark.parametrize(
+        "recorded_env",
+        [
+            [f"ZAP_IMAGE=ghcr.io/zaproxy/other:2@{_THIRD_DIGEST}", "A=1"],  # another image
+            ["ZAP_IMAGE=ghcr.io/zaproxy/zaproxy:2", "A=1"],  # no longer pinned
+            [f"ZAP_IMAGE=ghcr.io/zaproxy/zaproxy:1@{_OTHER_DIGEST}", "A=2"],  # another value elsewhere
+        ],
+    )
+    def test_any_other_env_change_is_still_a_finding(self, tmp_path: Path, recorded_env: list[str]) -> None:
+        committed = self._with_invocation_env([f"ZAP_IMAGE=ghcr.io/zaproxy/zaproxy:1@{_OTHER_DIGEST}", "A=1"])
+        _write(tmp_path / "committed", "w--j.yaml", committed)
+        _write(tmp_path / "recorded", "w--j.yaml", self._with_invocation_env(recorded_env))
+        (finding,) = recorder.compare_manifests(tmp_path / "committed", tmp_path / "recorded")[0]
+        assert finding.startswith("w--j.yaml: invocations[0] committed ")
+
+    def test_the_replay_still_hands_the_leg_the_live_pin(self) -> None:
+        live = f"ghcr.io/o/r:2@{_THIRD_DIGEST}"
+        document = {"jobs": {"j": {"env": {"IMG": live}, "steps": [{"run": "task test"}]}}}
+        invocation = {"command": "task test", "cwd": ".", "env": [f"IMG=ghcr.io/o/r:1@{_OTHER_DIGEST}"]}
+        env, _unresolved = recorder.replay_env(document, "j", invocation)
+        assert env == [f"IMG={live}"], "the normalisation is for the hash and compare only, never for what runs"
+
+
 # ------------------------ #1683: a replay does not run the guard against itself
 
 
