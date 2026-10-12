@@ -232,7 +232,10 @@ def admin_import_tenant(
     (``IMPORT_CHECKSUM_MISMATCH``), that every row and edge belongs to the archived tenant, every
     reference field declared (``IMPORT_UNDECLARED_REFERENCE``), every object key and type, every global
     catalogue entry present (``IMPORT_MISSING_CATALOG_ENTRIES``, listed) and every mapped address an
-    existing account with a valid role (``IMPORT_MEMBER_NOT_FOUND``). ``verified`` in the response says
+    existing account with a valid role (``IMPORT_MEMBER_NOT_FOUND``). The archive must fit the quotas of
+    the plan the new tenant is founded on (REQ-056 §8.4 step 6): the mapped accounts and the owner
+    (``422 MEMBER_LIMIT_REACHED``), the attachment bytes (``409 STORAGE_QUOTA_EXCEEDED``) and the gallery
+    photos of each plant (``409 PHOTO_QUOTA_EXCEEDED``). ``verified`` in the response says
     whether this installation signed the archive; a foreign or unsigned archive is imported unverified.
     Every document gets a new key. ``202 Accepted``; poll ``GET /admin/platform/tenant-imports/{import_key}``
     for the report. ``413`` above ``TENANT_IMPORT_MAX_UPLOAD_MB``.

@@ -27,17 +27,23 @@ from app.common.enums import AdminScope, EntitlementDimension, SecurityAuditActi
 from app.common.exceptions import (
     ExportAlreadyRunningError,
     ForbiddenError,
+    MemberLimitReachedError,
     NotFoundError,
+    PhotoQuotaExceededError,
     RateLimitError,
+    StorageQuotaExceededError,
     TenantImportRefusedError,
     UnauthorizedError,
 )
 from app.domain.models.membership import Membership
+from app.domain.models.plan import Plan, PlanLimits
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_erasure import TenantErasureEntry
 from app.domain.models.tenant_export import TenantExportRequest, TenantImportRequest
 from app.domain.models.user import User
+from app.domain.services.entitlement_service import EntitlementService
 from app.domain.services.tenant_export_service import StepUpFactors, TenantExportService
+from tests.support.entitlement_doubles import InMemoryPlanRepository, standard_plan
 
 NOW = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 LEAD = User.model_validate({"_key": "u-lead", "email": "lead@example.com", "display_name": "Lead"})
@@ -141,6 +147,12 @@ class _Imports:
 
     def get(self, key: str) -> TenantImportRequest | None:
         return self.rows.get(key)
+
+    def claim(self, key: str, now: datetime) -> TenantImportRequest | None:
+        row = self.rows.get(key)
+        if row is None or row.status != "pending":
+            return None
+        return self.update_fields(key, {"status": "validating", "updated_at": now})
 
     def update_fields(self, key: str, fields: dict[str, Any]) -> TenantImportRequest | None:
         if key not in self.rows:
@@ -249,6 +261,12 @@ class _Entitlements:
 
     def default_plan_key(self) -> str:
         return "standard"
+
+    def require_for_new_tenant(
+        self, plan_key: str, dimension: EntitlementDimension, *, projected: Any, subject: str | None = None
+    ) -> int | None:
+        """Unlimited: the quota of the target plan is measured with the real service (``TestTheTargetPlan…``)."""
+        return None
 
     #: An attribute, not a method: the double-signature guard (#1145) pairs methods by name with every
     #: service, and ``NutrientPlanService.get_plan`` is no relative of ``EntitlementService.get_plan``.
@@ -566,6 +584,7 @@ def _archive_bytes(
     members: list[dict[str, Any]] | None = None,
     attachments: list[dict[str, Any]] | None = None,
     objects: dict[str, bytes] | None = None,
+    plants: list[dict[str, Any]] | None = None,
 ) -> bytes:
     from app.domain.engines.tenant_export_engine import TenantArchiveWriter
 
@@ -575,6 +594,8 @@ def _archive_bytes(
     writer.write_lines("collections/sites.jsonl", [[{"_key": "s1", "tenant_key": "t-src"}]])
     if attachments:
         writer.write_lines("collections/attachments.jsonl", [attachments])
+    if plants:
+        writer.write_lines("collections/plant_instances.jsonl", [plants])
     writer.write_lines(
         "members.jsonl",
         [
@@ -595,7 +616,7 @@ def _import(service: TenantExportService, data: bytes, mapping: dict[str, Any] |
         requester=ADMIN,
         authenticated_with_api_key=False,
         member_mapping=mapping if mapping is not None else {},
-        plan_key=None,
+        plan_key=kw.pop("plan_key", None),
         factors=StepUpFactors(password=kw.pop("password", "right")),
         client_ip=None,
     )
@@ -899,3 +920,137 @@ class TestOneLongLineIsNotOneCheapRow:
             _import(world.build(), _archive_with_sites_part(rows, compression=0))
 
         assert "too many JSON values" in str(refused.value)
+
+
+# ── REQ-056 §8.4 step 6 (AK-46): the target plan's quotas before anything is written ──
+
+MIB = 1024 * 1024
+JPEG = "image/jpeg"
+
+
+def _quota_service(world, **limits: int | None) -> tuple[TenantExportService, InMemoryPlanRepository]:
+    """The export service on the real ``EntitlementService``; the plan ``small`` carries *limits*."""
+    plans = InMemoryPlanRepository([standard_plan(), Plan(_key="small", name="Small", limits=PlanLimits(**limits))])
+    service = world.build(allowed_mime_types=lambda category: [JPEG])
+    service._entitlements = EntitlementService(
+        plan_repo=plans,
+        tenant_repo=None,
+        # The instance settings of the default plan: room for everything the archives below hold.
+        instance_overrides={
+            EntitlementDimension.MEMBERS: 50,
+            EntitlementDimension.STORAGE_MB: 100,
+            EntitlementDimension.PHOTOS_PER_INSTANCE: 50,
+        },
+    )
+    return service, plans
+
+
+def _photo(key: str, *, data: bytes | None = None, byte_size: int = 10, storage: str | None = None) -> dict[str, Any]:
+    return {
+        "_key": key,
+        "tenant_key": "t-src",
+        "storage_key": f"t/t-src/plant/2026/10/{storage or key}.jpg",
+        "mime_type": JPEG,
+        "category": "plant",
+        "byte_size": byte_size,
+    }
+
+
+def _plant(key: str, photos: list[str]) -> dict[str, Any]:
+    return {"_key": key, "tenant_key": "t-src", "photo_refs": photos, "cover_photo_ref": photos[0] if photos else None}
+
+
+#: The archive's member confirmed lead + management: the owner is the mapped account, not the acting admin.
+OWNER_MAPPING = {"old-lead": {"email": "lead@example.com", "role": "lead", "admin_scopes": ["management"]}}
+#: The same member as a viewer: the acting admin becomes the owner as well — two accounts.
+VIEWER_MAPPING = {"old-lead": {"email": "lead@example.com", "role": "viewer", "admin_scopes": []}}
+
+
+class TestTheTargetPlansQuotasAreCheckedBeforeTheWrite:
+    """The new tenant does not exist yet; the archive is held against the plan the import founds it on."""
+
+    def _refused(self, world, service: TenantExportService, data: bytes, mapping: dict[str, Any], error: type) -> Any:
+        with pytest.raises(error) as refused:
+            _import(service, data, mapping, plan_key="small")
+        # Nothing is written: no request, no stored upload; the refusal is audited with the dimension's code.
+        assert world.imports.rows == {}
+        assert world.storage.objects == {}
+        assert world.audit.rows[-1]["outcome"] == f"refused:{refused.value.error_code}"
+        return refused.value
+
+    def test_more_accounts_than_the_plan_admits_are_refused_with_member_limit_reached(self, world) -> None:
+        service, _ = _quota_service(world, members=1)
+
+        refused = self._refused(world, service, _archive_bytes(), VIEWER_MAPPING, MemberLimitReachedError)
+
+        assert (refused.error_code, refused.status_code) == ("MEMBER_LIMIT_REACHED", 422)
+
+    def test_the_owner_from_the_archive_is_one_account_the_plan_admits(self, world) -> None:
+        service, _ = _quota_service(world, members=1)
+
+        created = _import(service, _archive_bytes(), OWNER_MAPPING, plan_key="small")
+
+        assert created.plan_key == "small"
+
+    def test_more_bytes_than_the_plan_holds_are_refused_with_storage_quota_exceeded(self, world) -> None:
+        # The archive claims 10 bytes; the object it carries is what the quota counts (I7).
+        data = _archive_bytes(attachments=[_photo("a1")], objects={"plant/2026/10/a1.jpg": os.urandom(MIB + 1)})
+        service, _ = _quota_service(world, storage_mb=1)
+
+        refused = self._refused(world, service, data, {}, StorageQuotaExceededError)
+
+        assert (refused.error_code, refused.status_code) == ("STORAGE_QUOTA_EXCEEDED", 409)
+
+    def test_exactly_the_plans_bytes_are_admitted_and_shared_bytes_are_charged_once(self, world) -> None:
+        # Two records on one deduplicated object (#1770) are one charge, as the storage quota counts them.
+        rows = [_photo("a1"), _photo("a2", storage="a1")]
+        data = _archive_bytes(attachments=rows, objects={"plant/2026/10/a1.jpg": os.urandom(MIB)})
+        service, _ = _quota_service(world, storage_mb=1)
+
+        assert _import(service, data, {}, plan_key="small").plan_key == "small"
+
+    def test_a_record_without_its_object_is_charged_its_stated_size(self, world) -> None:
+        data = _archive_bytes(attachments=[_photo("a1", byte_size=2 * MIB)])
+        service, _ = _quota_service(world, storage_mb=1)
+
+        self._refused(world, service, data, {}, StorageQuotaExceededError)
+
+    def test_a_plant_with_more_photos_than_the_plan_admits_is_refused_with_photo_quota_exceeded(self, world) -> None:
+        photos = [_photo(f"a{i}") for i in range(3)]
+        data = _archive_bytes(attachments=photos, plants=[_plant("p-big", ["a0", "a1", "a2"]), _plant("p-1", ["a0"])])
+        service, _ = _quota_service(world, photos_per_instance=2)
+
+        refused = self._refused(world, service, data, {}, PhotoQuotaExceededError)
+
+        assert (refused.error_code, refused.status_code) == ("PHOTO_QUOTA_EXCEEDED", 409)
+        assert "p-big" in refused.details[0]["reason"]
+
+    def test_a_gallery_as_long_as_the_plan_admits_is_imported(self, world) -> None:
+        photos = [_photo(f"a{i}") for i in range(3)]
+        data = _archive_bytes(attachments=photos, plants=[_plant("p-big", ["a0", "a1", "a2"])])
+        service, _ = _quota_service(world, photos_per_instance=3)
+
+        assert _import(service, data, {}, plan_key="small").plan_key == "small"
+
+    @pytest.mark.parametrize(
+        ("limits", "mapping", "code"),
+        [
+            ({"members": 1}, VIEWER_MAPPING, "MEMBER_LIMIT_REACHED"),
+            ({"storage_mb": 1}, {}, "STORAGE_QUOTA_EXCEEDED"),
+        ],
+    )
+    def test_a_plan_lowered_after_the_request_ends_the_run_before_the_tenant_is_founded(
+        self, world, limits: dict[str, int], mapping: dict[str, Any], code: str
+    ) -> None:
+        """The run checks again: the plan may have changed since the request; nothing is founded or written."""
+        data = _archive_bytes(attachments=[_photo("a1")], objects={"plant/2026/10/a1.jpg": os.urandom(MIB + 1)})
+        service, plans = _quota_service(world)
+        accepted = _import(service, data, mapping, plan_key="small")
+        plans.plans["small"] = Plan(_key="small", name="Small", limits=PlanLimits(**limits))
+
+        finished = run_async(service.run_import(accepted.key or ""))
+
+        assert finished is not None
+        assert (finished.status, finished.failure_reason, finished.target_tenant_key) == ("failed", code, None)
+        assert not any(key.startswith("t/") for key in world.storage.objects)
+        assert world.audit.rows[-1]["outcome"] == f"failed:{code}"

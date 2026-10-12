@@ -52,7 +52,7 @@ import pytest
 from arango import ArangoClient
 
 from app.common.async_bridge import run_async
-from app.common.exceptions import TenantImportRefusedError
+from app.common.exceptions import MemberLimitReachedError, TenantImportRefusedError
 from app.data_access.arango.invitation_repository import ArangoInvitationRepository
 from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
@@ -1052,33 +1052,59 @@ def test_the_rollback_also_removes_what_its_lists_do_not_know(source, target, tm
     assert target.collection("tenants").get(tenant) is None
 
 
-def test_the_target_plans_member_limit_counts_the_inactive_imported_members(source, target, tmp_path) -> None:
-    """I3 of round 3 — the memberships are written inactive; the join-time check counts active ones only."""
+def _plan_bound_service(target, tmp_path):
     from app.data_access.arango.plan_repository import ArangoPlanRepository
     from app.data_access.arango.tenant_repository import ArangoTenantRepository as _Tenants
 
-    _seed_tenant(source, A)
-    archive = _export(_service(source, tmp_path / "src"), source, A)
-    mapping = _two_members(target)
-    target.collection("plans").insert({"_key": "tiny", "name": "Tiny", "limits": {"members": 1}})
     dst = _service(target, tmp_path / "dst")
     entitlements = EntitlementService(plan_repo=ArangoPlanRepository(target), tenant_repo=_Tenants(target))
     dst._entitlements = entitlements
     dst._tenant_service._entitlements = entitlements
+    return dst
 
-    accepted = dst.request_import(
+
+def _request_on_plan(dst, archive: bytes, mapping, plan_key: str):
+    return dst.request_import(
         io.BytesIO(archive),
         size_bytes=len(archive),
         requester=_person(ADMIN),
         authenticated_with_api_key=False,
         member_mapping=mapping,
-        plan_key="tiny",
+        plan_key=plan_key,
         factors=StepUpFactors(password="pw"),
         client_ip=None,
     )
+
+
+def test_the_target_plans_member_limit_refuses_the_request_before_anything_is_written(source, target, tmp_path) -> None:
+    """REQ-056 §8.4 step 6 (AK-46) — the mapped accounts are counted against the plan before the upload is stored."""
+    _seed_tenant(source, A)
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    mapping = _two_members(target)
+    target.collection("plans").insert({"_key": "tiny", "name": "Tiny", "limits": {"members": 1}})
+    dst = _plan_bound_service(target, tmp_path)
+
+    with pytest.raises(MemberLimitReachedError):
+        _request_on_plan(dst, archive, mapping, "tiny")
+
+    assert list(target.collection("tenant_import_requests").all()) == []
+    assert _importing_tenants(target) == []
+
+
+def test_the_target_plans_member_limit_counts_the_inactive_imported_members(source, target, tmp_path) -> None:
+    """I3 of round 3 and §8.4 step 6 — a plan lowered after the request ends the run before the founding."""
+    _seed_tenant(source, A)
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    mapping = _two_members(target)
+    target.collection("plans").insert({"_key": "tiny", "name": "Tiny", "limits": {"members": 5}})
+    dst = _plan_bound_service(target, tmp_path)
+    accepted = _request_on_plan(dst, archive, mapping, "tiny")
+    target.collection("plans").update({"_key": "tiny", "limits": {"members": 1}})
+
     finished = run_async(dst.run_import(accepted.key or ""))
 
     assert finished is not None and (finished.status, finished.failure_reason) == ("failed", "MEMBER_LIMIT_REACHED")
+    assert finished.target_tenant_key is None
     assert _importing_tenants(target) == []
 
 

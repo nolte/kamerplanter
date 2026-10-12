@@ -101,6 +101,9 @@ LEAD_ONLY_DIMENSIONS: frozenset[EntitlementDimension] = frozenset(
 
 _BYTES_PER_MB = 1024 * 1024
 
+#: How a refusal names a tenant an import has not founded yet (REQ-056 §8.4 step 6).
+_NEW_TENANT = "new tenant"
+
 
 class AiUsageReader(Protocol):
     """The read side of the KI counters (``AiCallBudget``) the usage view needs."""
@@ -181,14 +184,16 @@ class EntitlementService:
         if self._plans is None or (tenant is not None and tenant.is_platform):
             return _standard_plan()
         wanted = tenant.plan_key if tenant is not None else DEFAULT_PLAN_KEY
+        return self._plan_named(wanted, tenant_key=tenant.key if tenant is not None else None)
+
+    def _plan_named(self, wanted: str, *, tenant_key: str | None) -> Plan:
+        """The stored plan *wanted*; missing, the default plan (logged, REQ-056 AK-25); then ``standard``."""
+        if self._plans is None:
+            return _standard_plan()
         plan = self._plans.get(wanted)
         if plan is not None:
             return plan
-        logger.warning(
-            "entitlement.plan_missing",
-            tenant=log_tenant(tenant.key if tenant is not None else None),
-            plan_key=wanted,
-        )
+        logger.warning("entitlement.plan_missing", tenant=log_tenant(tenant_key), plan_key=wanted)
         default = self._plans.get_default()
         return default if default is not None else _standard_plan()
 
@@ -265,7 +270,43 @@ class EntitlementService:
         """
         if dimension in _AI_DIMENSIONS:
             raise ValueError(f"{dimension} is charged by AiCallBudget against ai_budget_limits(), not require()")
-        limit = self.limit(tenant_key, dimension)
+        return self._refuse_above(
+            self.limit(tenant_key, dimension), dimension, projected=projected, tenant_key=tenant_key, subject=subject
+        )
+
+    def require_for_new_tenant(
+        self,
+        plan_key: str,
+        dimension: EntitlementDimension,
+        *,
+        projected: int | Callable[[], int],
+        subject: str | None = None,
+    ) -> int | None:
+        """:meth:`require` for a tenant that does not exist yet, on the plan *plan_key* (REQ-056 §8.4 step 6).
+
+        An import checks the quotas of the plan it founds the new tenant on **before** it writes anything,
+        so there is no tenant to resolve. The limit is the one that tenant will have: the plan's own value,
+        else the instance setting; ``members`` additionally capped by ``TENANT_MAX_MEMBERS_CEILING`` (the
+        ``max_members`` an imported tenant is founded with). A plan that has meanwhile disappeared resolves
+        like a tenant's missing plan — the default plan, logged (AK-25), never unlimited. Same refusals and
+        codes as :meth:`require`.
+        """
+        if dimension in _AI_DIMENSIONS:
+            raise ValueError(f"{dimension} is charged by AiCallBudget against ai_budget_limits(), not require()")
+        plan = self._plan_named(plan_key, tenant_key=None)
+        limit = self._effective(None, dimension, plan)
+        return self._refuse_above(limit, dimension, projected=projected, tenant_key=_NEW_TENANT, subject=subject)
+
+    @staticmethod
+    def _refuse_above(
+        limit: int | None,
+        dimension: EntitlementDimension,
+        *,
+        projected: int | Callable[[], int],
+        tenant_key: str,
+        subject: str | None,
+    ) -> int | None:
+        """Raise the dimension's refusal when *projected* exceeds *limit* (bytes against MB for storage)."""
         if limit is None:
             return None
         if callable(projected):

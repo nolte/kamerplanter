@@ -416,3 +416,50 @@ def test_the_seed_schema_bounds_are_the_model_bounds() -> None:  # SEC-006: one 
 
 def test_the_read_model_ignores_an_unknown_limit_field() -> None:  # SEC-001
     assert PlanLimits.model_validate({"storage_mb": 7, "sensors": 3}).storage_mb == 7
+
+
+# ── a tenant an import has not founded yet (REQ-056 §8.4 step 6, AK-46) ──
+
+
+@pytest.mark.parametrize(
+    ("dimension", "limit", "projected", "error"),
+    [
+        (EntitlementDimension.MEMBERS, 3, 4, MemberLimitReachedError),
+        (EntitlementDimension.STORAGE_MB, 5, 5 * MB + 1, StorageQuotaExceededError),
+        (EntitlementDimension.PHOTOS_PER_INSTANCE, 4, 5, PhotoQuotaExceededError),
+    ],
+)
+def test_a_new_tenant_is_held_to_the_named_plan_before_it_exists(
+    dimension: EntitlementDimension, limit: int, projected: int, error: type[KamerplanterError]
+) -> None:
+    """No tenant to resolve: the plan the import founds it on decides, with the dimension's own refusal."""
+    service = _service(standard_plan(), _plan(**{dimension.value: limit}))
+
+    assert service.require_for_new_tenant("small", dimension, projected=projected - 1) == limit
+    with pytest.raises(error):
+        service.require_for_new_tenant("small", dimension, projected=projected, subject="p-1")
+    # The default plan (the instance settings) admits the same count: it is the named plan that refused.
+    assert service.require_for_new_tenant("standard", dimension, projected=projected) is not None
+
+
+def test_the_member_limit_of_a_new_tenant_is_capped_by_the_ceiling() -> None:
+    """A plan cannot lie above ``TENANT_MAX_MEMBERS_CEILING`` — the ``max_members`` an import founds with."""
+    service = _service(standard_plan(), _plan(members=40), settings=_settings(tenant_max_members_ceiling=3))
+
+    with pytest.raises(MemberLimitReachedError):
+        service.require_for_new_tenant("small", EntitlementDimension.MEMBERS, projected=4)
+
+
+def test_a_vanished_plan_holds_a_new_tenant_to_the_default_plan_not_to_unlimited() -> None:
+    """AK-25 for a tenant that does not exist yet: the plan deleted between request and run."""
+    default = Plan(_key="basic", name="Basic", limits=PlanLimits(storage_mb=1), is_default=True)
+    service = _service(default)
+
+    with structlog.testing.capture_logs() as logs, pytest.raises(StorageQuotaExceededError):
+        service.require_for_new_tenant("gone", EntitlementDimension.STORAGE_MB, projected=MB + 1)
+    assert [entry["event"] for entry in logs if entry["log_level"] == "warning"] == ["entitlement.plan_missing"]
+
+
+def test_the_ki_budgets_of_a_new_tenant_are_not_decided_here() -> None:
+    with pytest.raises(ValueError, match="AiCallBudget"):
+        _service().require_for_new_tenant("standard", EntitlementDimension.AI_CALLS_PER_TENANT_DAY, projected=1)

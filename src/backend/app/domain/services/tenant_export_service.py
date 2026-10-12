@@ -34,9 +34,17 @@ installation's HMAC signature; a foreign or unsigned archive is imported as *unv
 request says so). Roles never come from the archive: the admin confirms each mapped member's
 role and scopes.
 
-Not part of this slice (REQ-056 AK Stand, #2138): TimescaleDB readings, the quota checks of
-the target plan before the write, the per-document validation against the domain models,
-and the frontend.
+**Quotas of the target plan** (REQ-056 §8.4 step 6, AK-46): the new tenant does not exist yet, so
+the archive is held against the plan the import founds it on (``EntitlementService.require_for_new_tenant``)
+— the members it will have (the mapped accounts and the owner), the bytes its attachments will hold
+(one charge per storage key, the object's own size, as the storage quota counts them) and the gallery
+photos of each plant. The request refuses with the dimension's own code (``422 MEMBER_LIMIT_REACHED``,
+``409 STORAGE_QUOTA_EXCEEDED``, ``409 PHOTO_QUOTA_EXCEEDED``) before the upload is stored; the run checks
+again before the tenant is founded (the plan may have changed in between) and ends ``failed`` with that
+code without having written anything.
+
+Not part of this slice (REQ-056 AK Stand, #2138): TimescaleDB readings, the per-document validation
+against the domain models, and the frontend.
 """
 
 from __future__ import annotations
@@ -68,7 +76,9 @@ from app.common.exceptions import (
     MemberLimitReachedError,
     NotFoundError,
     PayloadTooLargeError,
+    PhotoQuotaExceededError,
     RateLimitError,
+    StorageQuotaExceededError,
     TenantImportRefusedError,
     ValidationError,
 )
@@ -157,6 +167,9 @@ _NEVER_IMPORTED_TYPES = frozenset({"image/svg+xml", "text/html", "application/xh
 _IMPORT_ACTIVE_STATES = ("pending", "validating", "running")
 
 _CHUNK = 1024 * 1024
+
+#: The refusals of the target plan's quotas (REQ-056 §8.4 step 6): an import ends with the dimension's code.
+_QUOTA_REFUSALS = (MemberLimitReachedError, StorageQuotaExceededError, PhotoQuotaExceededError)
 
 
 @dataclass
@@ -705,11 +718,12 @@ class TenantExportService:
             chosen_plan = plan_key or self._entitlements.default_plan_key()
             if self._entitlements.get_plan(chosen_plan) is None:
                 raise ValidationError(f"Plan '{chosen_plan}' does not exist.")
+            self._require_plan_quotas(archive, member_grants, plan_key=chosen_plan, actor_user_key=requester.key or "")
             if self._storage is None:
                 raise ValidationError("This installation has no object storage to hold the upload.")
-        except (TenantImportRefusedError, ValidationError) as exc:
+        except (TenantImportRefusedError, ValidationError, *_QUOTA_REFUSALS) as exc:
             # I9 — a refused archive leaves a trace: who tried which archive, and why it was refused.
-            code = exc.error_code if isinstance(exc, TenantImportRefusedError) else "VALIDATION_ERROR"
+            code = "VALIDATION_ERROR" if isinstance(exc, ValidationError) else exc.error_code
             self._audit_import_refused(requester, digest, code)
             raise
         now = self._now()
@@ -932,9 +946,10 @@ class TenantExportService:
             return self._fail_import(claimed, exc.code, cleanup_pending_tenant=exc.tenant_key)
         except TenantImportRefusedError as exc:
             return self._fail_import(claimed, exc.error_code, missing=_reasons(exc))
-        except MemberLimitReachedError:
-            # I3 of review round 3 — the target plan admits fewer members than the admin mapped.
-            return self._fail_import(claimed, "MEMBER_LIMIT_REACHED")
+        except _QUOTA_REFUSALS as exc:
+            # §8.4 step 6 — the target plan admits fewer members, bytes or photos than the archive holds
+            # (checked before the founding; the members once more after it, I3 of review round 3).
+            return self._fail_import(claimed, exc.error_code)
         except Exception as exc:  # noqa: BLE001 - recorded as failed; the rollback removed what the run wrote
             logger.error("tenant_import.failed", error_type=type(exc).__name__)
             return self._fail_import(claimed, "IMPORT_FAILED")
@@ -1044,6 +1059,7 @@ class TenantExportService:
         the new tenant with both scopes — the documented fallback, so the tenant is never stranded
         without a member who can manage it.
         """
+        self._require_plan_quotas(archive, member_grants, plan_key=plan_key, actor_user_key=actor_user_key)
         owner_grant = self._owner_of(archive, member_grants)
         owner = owner_grant.account_key if owner_grant is not None else actor_user_key
         joined = {member.user_key: member.joined_at for member in archive.members}
@@ -1144,6 +1160,34 @@ class TenantExportService:
             report=report,
             key_mapping=engine.mapping,
             nulled_references=engine.nulled_references,
+        )
+
+    def _require_plan_quotas(
+        self,
+        archive: TenantArchive,
+        member_grants: dict[str, TenantImportMemberGrant],
+        *,
+        plan_key: str,
+        actor_user_key: str,
+    ) -> None:
+        """Refuse an archive the target plan cannot hold, before anything is written (REQ-056 §8.4 step 6).
+
+        Members are the accounts the new tenant is founded with — every mapped account and the owner
+        (the acting admin when no mapped member is lead + management), as :meth:`import_archive` founds it.
+        Bytes are what the storage quota will count once the rows are written; photos the longest
+        gallery of one plant. Each refusal is the dimension's own (``MEMBER_LIMIT_REACHED``,
+        ``STORAGE_QUOTA_EXCEEDED``, ``PHOTO_QUOTA_EXCEEDED``).
+        """
+        owner_grant = self._owner_of(archive, member_grants)
+        owner = owner_grant.account_key if owner_grant is not None else actor_user_key
+        accounts = {grant.account_key for grant in member_grants.values()} | {owner}
+        self._entitlements.require_for_new_tenant(plan_key, EntitlementDimension.MEMBERS, projected=len(accounts))
+        self._entitlements.require_for_new_tenant(
+            plan_key, EntitlementDimension.STORAGE_MB, projected=lambda: _stored_bytes(archive)
+        )
+        plant, photos = _longest_gallery(archive)
+        self._entitlements.require_for_new_tenant(
+            plan_key, EntitlementDimension.PHOTOS_PER_INSTANCE, projected=photos, subject=plant
         )
 
     @staticmethod
@@ -1315,6 +1359,44 @@ def _object_facts(row: dict[str, Any], objects: dict[str, bytes], tenant_key: st
     if data is None:
         return row
     return {**row, "sha256": hashlib.sha256(data).hexdigest(), "byte_size": len(data)}
+
+
+def _stored_bytes(archive: TenantArchive) -> int:
+    """The bytes the new tenant's attachments will be charged with (REQ-056 §8.4 step 6).
+
+    Counted like ``sum_bytes_by_tenant`` counts them once written: one charge per storage key (records
+    that share deduplicated bytes are charged once), the larger size of the records sharing it. A record
+    whose object the archive carries is charged the object's length — what :func:`_object_facts` writes;
+    one without keeps the archive's ``byte_size`` (never below zero).
+    """
+    prefix = f"t/{archive.source_tenant_key}/"
+    sizes: dict[object, int] = {}
+    for row in archive.collections.get("attachments", []):
+        document: dict[str, Any] = row
+        key = document.get("storage_key")
+        data = archive.objects.get(key[len(prefix) :]) if isinstance(key, str) and key.startswith(prefix) else None
+        stated = document.get("byte_size")
+        if data is not None:
+            size = len(data)
+        elif isinstance(stated, int) and not isinstance(stated, bool):
+            size = max(stated, 0)
+        else:
+            size = 0
+        group = key if isinstance(key, str) else None
+        sizes[group] = max(sizes.get(group, 0), size)
+    return sum(sizes.values())
+
+
+def _longest_gallery(archive: TenantArchive) -> tuple[str | None, int]:
+    """``(source key, photo count)`` of the plant with the most gallery photos in the archive (``(None, 0)``)."""
+    longest: tuple[str | None, int] = (None, 0)
+    for row in archive.collections.get("plant_instances", []):
+        document: dict[str, Any] = row
+        refs = document.get("photo_refs")
+        count = len(refs) if isinstance(refs, list) else 0
+        if count > longest[1]:
+            longest = (str(document.get("_key") or ""), count)
+    return longest
 
 
 def _split_id(document_id: str) -> tuple[str, str, str]:
