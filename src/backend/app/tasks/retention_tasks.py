@@ -201,17 +201,23 @@ async def expire_data_exports() -> dict:
 
     The order is the point (#1767 GDPR-005): a bundle whose delete failed keeps
     its record unexpired and is retried on the next hourly run.
+
+    REQ-056 §8.3 (#2138) — the tenant archives share the rule and the beat (NFR-011 R-05):
+    the same run deletes the archives past their window, ends export runs whose heartbeat
+    is older than six hours, and purges export/import request records past R-40.
     """
 
-    from app.common.dependencies import get_privacy_service
+    from app.common.dependencies import get_privacy_service, get_tenant_export_service
 
     service = get_privacy_service()
     expired = await service.expire_data_exports(now=datetime.now(UTC))
+    tenant_exports = await get_tenant_export_service().expire()
     logger.info(
         "retention.expire_data_exports.completed",
         expired=expired,
+        tenant_exports=tenant_exports,
     )
-    return {"expired": expired}
+    return {"expired": expired, "tenant_exports": tenant_exports}
 
 
 @run_async_task(  # type: ignore[misc]

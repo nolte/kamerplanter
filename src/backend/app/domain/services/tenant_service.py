@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import hmac
 import html
@@ -366,6 +367,168 @@ class TenantService:
         logger.info("organization_created", subject=log_subject(user_key), tenant=log_tenant(tenant.key))
         return tenant
 
+    def found_imported_tenant(
+        self,
+        *,
+        actor_user_key: str,
+        name: str,
+        slug_hint: str,
+        description: str | None,
+        settings: dict[str, Any],
+        plan_key: str,
+        owner_user_key: str,
+        members: list[Membership],
+        founder_scopes: list[AdminScope] | None = None,
+        tenant_key: str | None = None,
+    ) -> Tenant:
+        """Found the new tenant of an import (REQ-056 §8.4 step 2 and 4, #2138) — always a new one.
+
+        Called by :class:`~app.domain.services.tenant_export_service.TenantExportService` only, behind
+        the platform admin's step-up. An import never merges into an existing tenant: the slug of the
+        archive is taken when free, otherwise suffixed. The tenant is always an **organisation** — a
+        personal tenant belongs to exactly one account, which already has its own in the target
+        installation. The owner gets the founder's lead membership with *founder_scopes* — the scopes the
+        admin confirmed for that member (SEC-R2-02); ``None`` (the fallback where the acting admin becomes
+        the owner because no mapped member was confirmed as lead + management) gives both scopes, like
+        every founding. Every other mapped member gets the role and scopes **the admin confirmed** (never
+        the archive's, SEC-003). Each membership, the founder's included, is audited
+        (``membership_added`` via ``platform_admin``) with the acting admin as the actor, like a membership
+        a platform admin adds by hand.
+
+        *tenant_key* is the key the tenant is written under: the import records it on its request before
+        this call, so no moment exists in which the tenant exists and the request does not name it (a run
+        that dies right after the founding is still swept). The tenant and the owner's membership are one
+        transaction; every further membership is its own write, so a failure part-way leaves an
+        ``importing`` tenant — the caller calls this inside its rollback, and a request never lets go of a
+        tenant still ``importing`` (R3-01).
+
+        The target plan's member limit is checked once the tenant exists, against every mapped account
+        (``422 MEMBER_LIMIT_REACHED``): the memberships are written inactive, and the join-time check
+        counts active ones only, so it would admit any number of them (I3 of review round 3).
+
+        The tenant is founded ``importing`` and every membership inactive (SEC-007): nobody reaches it
+        until :meth:`activate_imported_tenant` runs after the last row is written.
+        """
+        ceiling = self._entitlements.members_ceiling()
+        if len({member.user_key for member in members} | {owner_user_key}) > ceiling:
+            raise MemberLimitReachedError(ceiling)
+        errors = self._tenant_engine.validate_tenant_name(name)
+        if errors:
+            raise ValidationError(errors[0])
+        slug = self._ensure_unique_slug(self._tenant_engine.generate_slug(slug_hint or name))
+        tenant = Tenant(
+            name=name,
+            slug=slug,
+            tenant_type=TenantType.ORGANIZATION,
+            description=description,
+            owner_user_key=owner_user_key,
+            max_members=ceiling,
+            plan_key=plan_key,
+            settings=settings,
+            status=TenantStatus.IMPORTING,
+        )
+        founded = self._found_tenant(
+            tenant,
+            owner_user_key,
+            via=SecurityAuditVia.PLATFORM_ADMIN,
+            founder_active=False,
+            founder_scopes=founder_scopes,
+            actor_user_key=actor_user_key,
+            tenant_key=tenant_key,
+        )
+        tenant_key = founded.key or ""
+        self._entitlements.require(
+            tenant_key,
+            EntitlementDimension.MEMBERS,
+            projected=len({member.user_key for member in members} | {owner_user_key}),
+        )
+        for member in members:
+            if member.user_key == owner_user_key:
+                continue
+            created = self._create_membership_unless_erasing(
+                Membership(
+                    user_key=member.user_key,
+                    tenant_key=tenant_key,
+                    role=member.role,
+                    admin_scopes=member.admin_scopes,
+                    is_active=False,
+                    joined_at=member.joined_at,
+                )
+            )
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_ADDED,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=actor_user_key,
+                target_user_key=member.user_key,
+                tenant_key=tenant_key,
+                membership=created,
+            )
+        logger.info("tenant_import.tenant_founded", tenant=log_tenant(tenant_key), members=len(members))
+        return founded
+
+    def activate_imported_tenant(self, tenant_key: str) -> Tenant:
+        """Open an imported tenant once every row is written: memberships active, then ``importing`` → ``active``.
+
+        Both writes are conditional on the tenant still being ``importing``: a tenant the stale
+        sweep has meanwhile taken for erasure is not reopened (409).
+        """
+        self._membership_repo.activate_all_for_importing_tenant(tenant_key)
+        moved = self._transition_tenant_status(
+            tenant_key,
+            expected=frozenset({TenantStatus.IMPORTING}),
+            status=TenantStatus.ACTIVE,
+            deletion_scheduled_at="keep",
+            previous="keep",
+        )
+        assert moved is not None  # conflict_ok is False: a conflict raised
+        logger.info("tenant_import.tenant_activated", tenant=log_tenant(tenant_key))
+        return moved
+
+    def erase_abandoned_import(self, tenant_key: str, *, now: datetime) -> bool:
+        """Erase the half tenant of an import whose run died (REQ-056 §8.4 step 5, #2138 SEC-007).
+
+        Only a tenant that is still ``importing``: nobody ever reached it, so there is no grace and
+        no notice. It runs through the tenant-erasure inventory, the record and the residue check
+        like every other deletion (``origin: abandoned_import``); a partial run is retried by
+        :meth:`resume_tenant_erasures`. ``False`` when the tenant is not (or no longer) importing.
+        """
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        if tenant is None or tenant.status != TenantStatus.IMPORTING:
+            return False
+        configuration_error = self._tenant_erasure_configuration_error()
+        if configuration_error is not None:
+            # Nothing changes: the tenant stays ``importing`` (unreachable) and the next sweep tries again.
+            logger.error("tenant_import.abandoned_tenant_not_erasable", tenant=log_tenant(tenant_key))
+            return False
+        record_key = TenantErasureEngine.record_key(tenant_key)
+        # An earlier sweep may have opened the record already: claim and retry it below.
+        with contextlib.suppress(DuplicateError, WriteConflictError):
+            self._require_tenant_erasure_repo().create_with_key(
+                TenantErasureRecord(
+                    tenant_key=tenant_key,
+                    tenant_type=str(tenant.tenant_type),
+                    origin="abandoned_import",
+                    step_up="abandoned_import_no_interactive_step_up",
+                    requested_at=now,
+                ),
+                record_key,
+            )
+        claimed = self._claim_tenant_erasure(record_key, now)
+        if claimed is None:
+            return False
+        self._transition_tenant_status(
+            tenant_key,
+            expected=frozenset({TenantStatus.IMPORTING}),
+            status=TenantStatus.DELETED,
+            deletion_scheduled_at="keep",
+            previous="keep",
+            conflict_ok=True,
+        )
+        self._membership_repo.deactivate_all_for_tenant(tenant_key)
+        self._run_tenant_erasure(claimed, now, raise_on_failure=False)
+        logger.warning("tenant_import.abandoned_tenant_erased", tenant=log_tenant(tenant_key))
+        return True
+
     @staticmethod
     def _refuse_service_account(account: User, message: str) -> None:
         """403 for a service account on a door meant for a person (#2137, REQ-023 §5b).
@@ -376,7 +539,17 @@ class TenantService:
         if not allows_interactive_auth(account):
             raise ForbiddenError(message)
 
-    def _found_tenant(self, tenant: Tenant, user_key: str, *, via: SecurityAuditVia) -> Tenant:
+    def _found_tenant(
+        self,
+        tenant: Tenant,
+        user_key: str,
+        *,
+        via: SecurityAuditVia,
+        founder_active: bool = True,
+        founder_scopes: list[AdminScope] | None = None,
+        actor_user_key: str | None = None,
+        tenant_key: str | None = None,
+    ) -> Tenant:
         """Write a new tenant, its founder's lead membership, both edges and the audit row atomically (#2118).
 
         REQ-049 §6: the founder gets the top domain role and both administrative scopes - a tenant whose
@@ -386,13 +559,19 @@ class TenantService:
         slug taken. The one gate of the audit for a founding (the class guard
         ``test_membership_mutations_write_the_security_audit`` holds that every membership-creating method
         reaches it).
+
+        An import (#2138) passes the scopes the admin confirmed for the owner (*founder_scopes*), the acting
+        admin as the audit's actor (*actor_user_key*; otherwise the founder founds their own tenant) and the
+        key it already recorded (*tenant_key*).
         """
         membership = Membership(
             user_key=user_key,
             tenant_key="",  # the tenant's own key, set by the repository once the tenant exists
             role=TenantRole.LEAD,
-            admin_scopes=[AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
-            is_active=True,
+            admin_scopes=list(founder_scopes)
+            if founder_scopes is not None
+            else [AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
+            is_active=founder_active,
             joined_at=datetime.now(UTC).isoformat(),
         )
         written: list[SecurityAuditEntry] = []
@@ -403,7 +582,7 @@ class TenantService:
             entry = audit.membership_entry(
                 action=SecurityAuditAction.MEMBERSHIP_ADDED,
                 via=via,
-                actor_user_key=user_key,
+                actor_user_key=actor_user_key or user_key,
                 target_user_key=user_key,
                 tenant_key=stored_tenant.key or "",
                 membership_key=stored_membership.key,
@@ -413,8 +592,10 @@ class TenantService:
             written.append(entry)
             return entry
 
+        # Only an import names the key; every other founding leaves it to the database.
+        preset: dict[str, str] = {"tenant_key": tenant_key} if tenant_key else {}
         stored_tenant, _founder = self._tenant_repo.create_with_lead_membership(
-            tenant, membership, audit=build_audit_row if audit is not None else None
+            tenant, membership, audit=build_audit_row if audit is not None else None, **preset
         )
         for entry in written:
             audit.announce(entry)  # type: ignore[union-attr]  # ``written`` is only filled when audit is wired

@@ -51,6 +51,11 @@ class SecurityAuditEntry(BaseModel):
     #: SEC-005 — of a ``plan_changed`` row: each changed limit with its old and new value, flagged when the
     #: change lifts the limit (to ``0`` = unlimited, or to ``null`` = the instance setting).
     limit_changes: list[PlanLimitChange] | None = None
+    #: #2138 — of a ``tenant_import_requested`` / ``tenant_imported`` row: the archive's SHA-256 (hex).
+    archive_sha256: str | None = None
+    #: #2138 — of a ``tenant_import_requested`` row: ``accepted``, ``refused:<code>``, ``failed:<code>`` or
+    #: ``cleanup_pending:<code>`` (a code, never an exception text).
+    outcome: str | None = None
     #: #1855 SEC-005 — of a ``takeover_accepted`` / ``takeover_declined`` row: whether the decision made the
     #: actor the instance's first platform admin.
     platform_admin_granted: bool | None = None

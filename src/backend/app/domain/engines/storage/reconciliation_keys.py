@@ -24,6 +24,9 @@ from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_
 #: lifecycle and its own record (``data_exports``) and is never touched here.
 TENANT_NAMESPACE = "t/"
 
+#: The category segment of tenant archives (``t/<tenant>/tenant_export/<export_key>.zip``), held elsewhere.
+TENANT_EXPORT_CATEGORY = "tenant_export"
+
 _RENDITION = re.compile(r"^(?P<stem>.+)_t(?P<size>\d+)\.webp$")
 
 #: Extensions an original can have whose MIME type the generator renders.
@@ -57,4 +60,9 @@ def is_reconcilable(storage_key: str) -> bool:
     """
     if not storage_key.startswith(TENANT_NAMESPACE) or storage_key.endswith("/") or "\\" in storage_key:
         return False
-    return all(segment not in ("", ".", "..") for segment in storage_key.split("/"))
+    segments = storage_key.split("/")
+    if len(segments) > 2 and segments[2] == TENANT_EXPORT_CATEGORY:
+        # REQ-056 §8.3 (#2138) — a tenant archive has no attachment record; its request record
+        # (``tenant_export_requests``) holds it and ``retention.expire_data_exports`` removes it.
+        return False
+    return all(segment not in ("", ".", "..") for segment in segments)

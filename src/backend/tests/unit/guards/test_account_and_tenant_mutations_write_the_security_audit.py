@@ -108,6 +108,15 @@ _EXEMPT: dict[tuple[str, str], str] = {
         "the daily beat running a deletion whose acceptance was recorded (delete_tenant) or that an account "
         "erasure decided (the erasure request is the proof); nobody acts here"
     ),
+    ("tenant_service.py", "TenantService.activate_imported_tenant"): (
+        "#2138 — opens a tenant an import founded (importing -> active) once its rows are written; the import "
+        "is audited as tenant_import_requested and tenant_imported by TenantExportService, each membership as "
+        "membership_added when it was founded"
+    ),
+    ("tenant_service.py", "TenantService.erase_abandoned_import"): (
+        "#2138 SEC-007 — the hourly sweep erases a tenant that never left 'importing' (nobody reached it); "
+        "the import request (IMPORT_ABANDONED) and the tenant-erasure record (origin abandoned_import) are the proof"
+    ),
     ("tenant_service.py", "TenantService._erase_tenant_for_account_erasure"): (
         "a personal tenant going with its erased owner: the account erasure decided it, its erasure request "
         "and the tenant-erasure record (origin account_erasure) are the proof"
@@ -219,11 +228,12 @@ def members(
 #: create_service_account / remove_service_account through the membership audit), 4 helpers, 10 exempt.
 #: 21 at REQ-056: the store of the tenant update split from its checks (_write_tenant_update) and the
 #: lifecycle compare-and-set (_transition_tenant_status replaces _set_tenant_status) - 5 helpers.
+#: +2 with #2138 (activate_imported_tenant, erase_abandoned_import).
 #: 24 at #1855 (REQ-027 light-to-full): three audited members - ModeSwitchService.seal_system_account and
 #: _restore_system_account (the start toggling the system account's is_active, via mode_switch) and
 #: TenantService.take_over_light_mode_tenant (owner_user_key, via light_mode_takeover).
 #: 25 with #1855 SEC-004: TenantService.undo_light_mode_takeover restores owner_user_key (audited, takeover_reverted).
-EXPECTED_MEMBERS = 25
+EXPECTED_MEMBERS = 27
 
 
 def test_every_trust_or_lifecycle_mutation_writes_the_audit_or_is_classified() -> None:

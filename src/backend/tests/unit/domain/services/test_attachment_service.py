@@ -17,6 +17,7 @@ from PIL import Image
 
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import (
+    AttachmentNotFoundError,
     FileTooLargeError,
     InvalidFileTypeError,
     StorageQuotaExceededError,
@@ -660,3 +661,51 @@ class TestDelete:
 
     async def test_delete_is_idempotent(self, service):
         assert await service.delete("does-not-exist", "t-1") is False
+
+
+class TestARecordNeverReachesAnotherTenantsObject:
+    """#2138 review SEC-004 (second defence) — a record whose key leaves ``t/<its tenant>/`` serves nothing.
+
+    Every key the service builds lies under the record's own tenant. A record written by
+    anything else — a crafted tenant import above all — could otherwise stream, sign or
+    delete another tenant's object through the record's own routes.
+    """
+
+    def _foreign(self, repo: _FakeAttachmentRepo, storage_key: str) -> Attachment:
+        record = Attachment(
+            key="foreign",
+            tenant_key="t-a",
+            mime_type="image/jpeg",
+            byte_size=4,
+            sha256="x",
+            original_filename="x.jpg",
+            created_by="u-1",
+            category=AttachmentCategory.PLANT,
+            storage_key=storage_key,
+        )
+        repo._store["foreign"] = record
+        return record
+
+    @pytest.mark.parametrize("storage_key", ["t/t-b/plant/2026/10/x.jpg", "t/t-a/../t-b/plant/x.jpg"])
+    async def test_download_stream_and_presign_are_refused(self, service, repo, adapter, storage_key) -> None:
+        record = self._foreign(repo, storage_key)
+        await adapter.put_object("t/t-b/plant/2026/10/x.jpg", _one_chunk(b"B's!"), "image/jpeg")
+        with pytest.raises(AttachmentNotFoundError):
+            service.get_download("foreign", "t-a")
+        with pytest.raises(AttachmentNotFoundError):
+            service.presign_download("foreign", "t-a")
+        with pytest.raises(AttachmentNotFoundError):
+            await service.open_stream(record)
+
+    async def test_delete_removes_the_record_but_not_the_foreign_object(self, service, repo, adapter) -> None:
+        self._foreign(repo, "t/t-b/plant/2026/10/x.jpg")
+        await adapter.put_object("t/t-b/plant/2026/10/x.jpg", _one_chunk(b"B's!"), "image/jpeg")
+
+        assert await service.delete("foreign", "t-a") is True
+
+        assert repo.get("foreign", "t-a") is None
+        assert await _collect(await adapter.get_object("t/t-b/plant/2026/10/x.jpg")) == b"B's!"
+
+
+async def _one_chunk(data: bytes):
+    yield data

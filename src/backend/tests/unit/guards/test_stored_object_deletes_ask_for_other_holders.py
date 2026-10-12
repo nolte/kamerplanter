@@ -37,6 +37,23 @@ HOLDER_QUESTIONS = frozenset({HOLDER_QUESTION, "held_storage_keys"})
 #: ``(path relative to app/, function)`` → why the objects it deletes are never an
 #: object another attachment record could share.
 NOT_SHARED: dict[tuple[str, str], str] = {
+    ("domain/services/tenant_export_service.py", "expire"): (
+        "#2138 — a tenant archive (t/{tenant}/tenant_export/{export_key}.zip) is held by its one export "
+        "request and by no attachment record; the key embeds the request key"
+    ),
+    ("domain/services/tenant_export_service.py", "_delete_partial_archive"): (
+        "#2138 I4 — the archive of a dead export run (t/{tenant}/tenant_export/{export_key}.zip), held by its one "
+        "export request and by no attachment record; the key embeds the request key"
+    ),
+    ("domain/services/tenant_export_service.py", "run_import"): (
+        "#2138 — the uploaded import archive (tenant-imports/{import_key}.zip) is held by its one import request"
+    ),
+    ("domain/services/tenant_export_service.py", "_sweep_abandoned_import"): (
+        "#2138 SEC-007 — the upload of a dead import (tenant-imports/{import_key}.zip), held by its one request"
+    ),
+    ("domain/services/tenant_export_service.py", "_rollback"): (
+        "#2138 — removes only the objects this failed import run itself wrote under the new tenant's prefix"
+    ),
     ("data_access/storage/s3_adapter.py", "_delete_sync"): (
         "the adapter's own implementation of delete_object; callers decide what to delete"
     ),

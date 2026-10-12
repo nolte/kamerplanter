@@ -875,7 +875,8 @@
       "suspended": "Suspended",
       "pending_deletion": "Deletion scheduled",
       "orphaned": "Orphaned",
-      "deleted": "Being deleted"
+      "deleted": "Being deleted",
+      "importing": "Being imported"
     },
     "invitationType": {
       "email": "Email",

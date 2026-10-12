@@ -301,6 +301,9 @@ class SecurityAuditEntryResponse(BaseModel):
     changed_fields: list[str] | None = None
     #: SEC-005 — the old and new value of each changed limit, flagged when it lifts the limit.
     limit_changes: list[PlanLimitChange] | None = None
+    #: #2138 — tenant-import rows: the archive's SHA-256 and the outcome (``accepted``, ``refused:<code>`` …).
+    archive_sha256: str | None = None
+    outcome: str | None = None
     #: #1855 SEC-005 — a take-over decision: whether it made the actor the first platform admin.
     platform_admin_granted: bool | None = None
     #: #1855 SEC-005 — a sealed light-mode system account: what the start revoked (counts only).

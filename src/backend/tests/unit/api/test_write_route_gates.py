@@ -808,6 +808,10 @@ _NOT_AUTHORISATION: dict[str, str] = {
     "require_ai_tenant_enabled": "REQ-031 feature flag, not a caller check",
     "require_ai_feature_flag": "REQ-031 operator flag, not a caller check",
     "get_is_platform_admin": "returns a bool for the caller to branch on; refuses nobody",
+    "get_tenant_export_service": (
+        "builds TenantExportService (#2138); the service decides from the stored membership and the step-up, "
+        "the provider itself refuses nobody"
+    ),
     "get_authenticated_with_api_key": (
         "returns a bool (key vs session) the tenant deletion hands its service (#1791); refuses nobody"
     ),
@@ -1029,6 +1033,10 @@ _NOT_INSTALLATION_WIDE: dict[str, str] = {
         "ModeSwitchService admits only the platform admin or, without one, the earliest person account"
     ),
     "tenants": "tenant lifecycle and membership, gated on require_admin_scope",
+    "tenant_exports": (
+        "REQ-056 §8 (#2138): export requests of one tenant (lead + management from the stored membership, or "
+        "require_platform_admin) and imports that found a NEW tenant (require_platform_admin); no shared row"
+    ),
     "mcp": "REQ-033 protocol surface, gated on get_mcp_principal",
     "ki_assistent": (
         "REQ-031 §5.3 light-mode knowledge question: answers the system user from the knowledge base, "

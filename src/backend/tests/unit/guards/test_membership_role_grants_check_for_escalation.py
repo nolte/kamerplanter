@@ -53,6 +53,20 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "ceiling - and never in the platform tenant (refused before the membership is built), so there is "
         "nothing to escalate; the platform admin's step-up confirmed the configuration (#1883)"
     ),
+    ("tenant_export_service.py", "TenantExportService._members_of"): (
+        "#2138 — writes the role into an archive line (members.jsonl), a description of a stored membership; "
+        "nothing is granted"
+    ),
+    ("tenant_export_service.py", "TenantExportService.import_archive"): (
+        "#2138 (REQ-056 §8.4) — platform-admin path behind require_platform_admin and the admin's tenant_import "
+        "step-up: the memberships of a NEW tenant, as the archive recorded them, only for accounts the admin "
+        "mapped; never the platform tenant and no existing membership to raise"
+    ),
+    ("tenant_service.py", "TenantService.found_imported_tenant"): (
+        "#2138 (REQ-056 §8.4) — called only by TenantExportService.import_archive behind require_platform_admin "
+        "and the admin's tenant_import step-up: founds a NEW organisation (never the platform tenant) and writes "
+        "the roles the admin confirmed for the accounts the admin mapped; there is no existing membership to raise"
+    ),
     ("tenant_service.py", "TenantService.take_over_light_mode_tenant"): (
         "the light-to-full take-over (REQ-027 §7a.2, #1855): lead with both scopes in the light-mode tenant - never "
         "the platform tenant - for the platform admin or the earliest person account only "
@@ -153,9 +167,10 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: vanished one may mean the predicate went blind.
 #: +1 with #2137: create_service_account (viewer/grower, checked).
 #: +1 with #2182: join_provider_default_tenant (constant viewer, classified).
+#: +3 with #2138 (the archive line, the import of a new tenant, the founding of that tenant).
 #: +3 with #1855: take_over_light_mode_tenant, grant_first_platform_admin, restore_light_mode_membership (classified).
 #: +1 with #1855 SEC-004: undo_light_mode_takeover (classified).
-EXPECTED_MEMBERS = 13  # 8 until #2118 merged the two founding functions into ``_found_tenant``
+EXPECTED_MEMBERS = 16  # 8 until #2118 merged the two founding functions into ``_found_tenant``
 
 
 def test_every_role_grant_checks_for_escalation_or_is_classified() -> None:

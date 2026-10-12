@@ -5026,9 +5026,10 @@ export interface TaskTemplateUpdateRequest {
 /**
  * Lifecycle state of a tenant (REQ-024 AK-65, #2123) — mirrors `TenantStatus` in the
  * backend. Only `active` resolves for its members; `orphaned` marks an organization an
- * account deletion left without anybody who can administer it (#2134).
+ * account deletion left without anybody who can administer it (#2134); `importing` is a tenant a
+ * platform admin's import is still writing (#2138).
  */
-export type TenantStatus = 'active' | 'suspended' | 'pending_deletion' | 'orphaned' | 'deleted';
+export type TenantStatus = 'active' | 'suspended' | 'pending_deletion' | 'orphaned' | 'deleted' | 'importing';
 
 /**
  * Response of `DELETE /tenants/{slug}` and `DELETE /admin/platform/tenants/{key}`.
@@ -5167,6 +5168,11 @@ export type StepUpAction =
   // #2137 — a tenant's lead (technical scope) creating, re-keying or removing a service account
   // (bound to the tenant's key, or to `<tenant_key>|<service_account_key>`).
   | 'service_account_change'
+  // #2138 — a tenant's management (or a platform admin) exporting a tenant (bound to the tenant's key).
+  | 'tenant_export'
+  // #2138 — a platform admin importing a tenant archive as a new tenant
+  // (bound to `archive:<first 32 hex of the upload's SHA-256>`).
+  | 'tenant_import'
   // #1855 — deciding the take-over of the former light-mode garden (bound to its key).
   | 'light_mode_takeover';
 

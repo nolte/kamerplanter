@@ -110,6 +110,9 @@ BULK_TASKS: Final = frozenset(
         "ai.knowledge_service_ingest",
         "app.tasks.storage_tasks.migrate_storage",
         "app.tasks.storage_tasks.migrate_photo_refs",
+        # REQ-056 §8 (#2138) — a tenant archive reads or writes every row and object of a tenant.
+        "app.tasks.tenant_export_tasks.run_tenant_export",
+        "app.tasks.tenant_export_tasks.run_tenant_import",
     }
 )
 
@@ -162,6 +165,8 @@ LONG_RUNNING_TASKS: Final = frozenset(
         "retention.run_account_erasure",
         "app.tasks.tenant_tasks.run_tenant_erasure",
         "app.tasks.tenant_tasks.resume_tenant_erasures",
+        "app.tasks.tenant_export_tasks.run_tenant_export",
+        "app.tasks.tenant_export_tasks.run_tenant_import",
     }
 )
 

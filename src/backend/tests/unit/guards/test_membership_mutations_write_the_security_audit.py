@@ -147,10 +147,11 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: vanished one may mean the predicate went blind.
 #: +2 with #2137: create_service_account (joins) and remove_service_account (removes).
 #: +1 with #2182: join_provider_default_tenant (audited, via oidc_auto_join).
+#: +1 with #2138: found_imported_tenant (audited, via platform_admin).
 #: +3 with #1855 (REQ-027 light-to-full): take_over_light_mode_tenant, grant_first_platform_admin and
 #: restore_light_mode_membership - all audited (via light_mode_takeover / mode_switch).
 #: +1 with #1855 SEC-004: undo_light_mode_takeover (audited, via light_mode_takeover).
-EXPECTED_MEMBERS = 20  # +1 with #2134: _hand_management_to (the account erasure's INV-1 handover); +1 with #2133
+EXPECTED_MEMBERS = 21  # +1 with #2134: _hand_management_to (the account erasure's INV-1 handover); +1 with #2133
 
 
 def test_every_membership_mutation_writes_the_audit_or_is_classified() -> None:
@@ -527,6 +528,8 @@ def test_the_creation_predicate_sees_the_class() -> None:
         ("tenant_service.py", "TenantService.create_service_account"): "helper",
         # #2182 - the OIDC auto-join takes a seat through the same limited door.
         ("tenant_service.py", "TenantService.join_provider_default_tenant"): "helper",
+        # #2138 - the mapped members of an imported tenant take their seats through the same door.
+        ("tenant_service.py", "TenantService.found_imported_tenant"): "helper",
         # #1855 - the light-to-full take-over joins the light-mode tenant through the limited door; the first
         # platform admin is a classified raw insert (_CREATION_CLASSIFIED).
         ("tenant_service.py", "TenantService.take_over_light_mode_tenant"): "helper",

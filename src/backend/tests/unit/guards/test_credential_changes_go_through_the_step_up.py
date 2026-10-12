@@ -155,6 +155,11 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
 }
 
 _MEMBERSHIP_CLASSIFIED: dict[tuple[str, str], str] = {
+    ("tenant_service.py", "TenantService.found_imported_tenant"): (
+        "#2138 (REQ-056 §8.4) — the memberships of a NEW tenant an import founds; its only caller is "
+        "TenantExportService.import_archive, run for an import request the platform admin confirmed with the "
+        "tenant_import step-up (TenantExportService.request_import passes the verifier)"
+    ),
     ("tenant_service.py", "TenantService.leave_tenant"): (
         "a person leaving on their own: the act is the member's own, nobody is locked out by someone else, "
         "and INV-1 refuses the last management holder; the session that leaves is the person's"
@@ -372,7 +377,8 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: direction is a signal to read, not to update blindly: a new member needs a
 #: step-up or a classification, a vanished one may mean the predicate went blind.
 EXPECTED_MEMBERS = (
-    45  # +1 with #1855 SEC-004: undo_light_mode_takeover (classified);
+    46  # +1 with #2138: found_imported_tenant (classified, the import's founding);
+    # +1 with #1855 SEC-004: undo_light_mode_takeover (classified);
     # +3 with #1855: take_over_light_mode_tenant, grant_first_platform_admin, restore_light_mode_membership
     # (all classified, the light-to-full switch of REQ-027 §7a);
     # +1 with #2182: join_provider_default_tenant (classified, the OIDC auto-join via the insert helper);
@@ -579,6 +585,11 @@ _IRREVERSIBLE_CALLERS: dict[tuple[str, str], str] = {
         "the body of the Celery task delete_tenant dispatches (#1792): runs a record that exists only because "
         "delete_tenant created it behind the step-up (the task takes a record key, never a tenant to erase)"
     ),
+    ("domain/services/tenant_service.py", "TenantService.erase_abandoned_import"): (
+        "#2138 SEC-007 — the hourly sweep of retention.expire_data_exports: erases only a tenant still "
+        "'importing' (founded behind the platform admin's tenant_import step-up, never reached by anybody) "
+        "whose import run died"
+    ),
     ("tasks/auth_tasks.py", "cleanup_unverified_accounts"): (
         "Celery: erases registrations never verified past their deadline — no person, no session"
     ),
@@ -646,7 +657,7 @@ def irreversible_callers(root: Path = APP) -> dict[tuple[str, str], tuple[set[st
 
 #: Measured when the second class was added (review SEC-004 d); +2 by #1949 (request_account_erasure_by_admin
 #: dispatches the worker, run_account_erasure_task is the worker body).
-EXPECTED_IRREVERSIBLE_CALLERS = 14
+EXPECTED_IRREVERSIBLE_CALLERS = 15  # +1 with #2138: erase_abandoned_import (the dead-import sweep)
 
 
 def test_every_caller_of_an_irreversible_core_reaches_the_step_up_or_is_classified() -> None:

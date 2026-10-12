@@ -262,6 +262,11 @@ PLANS = "plans"
 #: Counting a plan's tenants (listing, refusing to delete a plan in use) reads by this field.
 TENANT_PLAN_INDEX_FIELDS = ["plan_key"]
 
+# REQ-056 §8 (#2138) — tenant export requests (tenant-scoped, deleted with the tenant) and tenant
+# import requests (global: the target tenant only comes into being during the run).
+TENANT_EXPORT_REQUESTS = "tenant_export_requests"
+TENANT_IMPORT_REQUESTS = "tenant_import_requests"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -388,6 +393,9 @@ DOCUMENT_COLLECTIONS = [
     TENANT_HA_ENTITY_GRANTS,
     # REQ-056 plan catalogue (#2142)
     PLANS,
+    # REQ-056 tenant export / import (#2138)
+    TENANT_EXPORT_REQUESTS,
+    TENANT_IMPORT_REQUESTS,
     # REQ-026 Aquaponics
     FISH_SPECIES,
     FISH_STOCKS,
@@ -2330,6 +2338,15 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     memberships_col = db.collection(MEMBERSHIPS)
     memberships_col.add_persistent_index(fields=["user_key", "tenant_key"], unique=True)
+
+    # REQ-056 §8.2 (#2138) — the daily limit and the one-running-export rule read a tenant's requests.
+    db.collection(TENANT_EXPORT_REQUESTS).add_persistent_index(
+        fields=["tenant_key", "requested_at"], unique=False, in_background=True
+    )
+    db.collection(TENANT_EXPORT_REQUESTS).add_persistent_index(
+        fields=["status", "expires_at"], unique=False, in_background=True
+    )
+    db.collection(TENANT_IMPORT_REQUESTS).add_persistent_index(fields=["status"], unique=False, in_background=True)
     # REQ-049 INV-1: every write that removes or demotes a membership first counts
     # the tenant's remaining ``management`` holders. Without this index that is a
     # full collection scan on the hot path of member management.

@@ -391,6 +391,18 @@ class Settings(BaseSettings):
     #: stored or mailed. The per-minute burst is ``rate_limit_invitation_email``.
     tenant_invitation_emails_per_day: int = Field(default=50, ge=1)
 
+    #: REQ-056 §8.2 / §13.6 (#2138) — tenant exports one tenant may request in 24 hours, every state
+    #: counted (a failed one too). The next request answers ``429 RATE_LIMIT_EXCEEDED``. An export moves
+    #: the data of every member; the limit bounds what a hijacked management session can pull.
+    tenant_exports_per_day: int = Field(default=3, ge=1)
+
+    #: REQ-056 §8.4 (#2138) — the largest tenant archive a platform admin may upload for an import, in MB
+    #: (compressed upload). Above it ``413``. The unpacked size is bounded independently of this — 1 GiB, of which
+    #: at most 128 MiB documents, plus a compression-ratio and row bound (``tenant_export_engine``, SEC-R2-01).
+    #: Effective only up to the general multipart body ceiling (``storage_max_file_size_mb`` + 1 MiB,
+    #: ``RequestBodyLimitMiddleware``), which runs before any route.
+    tenant_import_max_upload_mb: int = Field(default=512, ge=1)
+
     #: E2E only (#1155) — email of a second, platform-admin account to seed.
     #:
     #: The full-mode E2E suite needs an account that may mutate the global
@@ -857,6 +869,9 @@ class Settings(BaseSettings):
     #: below ``rate_limit_auth`` (an interactive retry surface): a download is
     #: neither.
     rate_limit_export_download: str = "10/hour"
+    #: ``POST /api/v1/admin/platform/tenant-imports`` (REQ-056 §8.4, #2138), per account: each call reads,
+    #: verifies and stores an archive of up to ``TENANT_IMPORT_MAX_UPLOAD_MB``.
+    rate_limit_tenant_import: str = "10/hour"
     #: ``POST /api/v1/auth/refresh``, per client IP (#1131).
     #:
     #: **Why its own setting and not ``rate_limit_auth``.** That budget's own

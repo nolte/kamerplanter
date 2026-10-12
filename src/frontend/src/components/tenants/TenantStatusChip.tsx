@@ -9,6 +9,7 @@ const STATUS_COLOR: Record<TenantStatus, ChipProps['color']> = {
   pending_deletion: 'warning',
   orphaned: 'warning',
   deleted: 'error',
+  importing: 'info',
 };
 
 interface TenantStatusChipProps {

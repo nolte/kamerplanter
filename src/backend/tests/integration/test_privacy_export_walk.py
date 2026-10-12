@@ -178,6 +178,33 @@ def _legacy_documents(source, *, tenant: str = TENANTS[0]) -> list[dict]:
     return [stamped_stranger, stamped_named, unstamped]
 
 
+def _is_user_key_expr(node: ast.AST) -> bool:
+    """Whether *node* is a user key (see :func:`_user_key_writers` for how narrow that is)."""
+    if isinstance(node, ast.Name):
+        return node.id.endswith(("user_key", "account_key"))
+    if isinstance(node, ast.Attribute):
+        return node.attr in {"user_key", "account_key", "key"} or node.attr.endswith("user_key")
+    if isinstance(node, ast.IfExp):
+        # #1700 — ``promoted_by=admin_user_key if promote else None``: a key
+        # or nothing. A branch that is anything else (a string, a call) is
+        # not a key and does not count.
+        branches = (node.body, node.orelse)
+        return any(_is_user_key_expr(b) for b in branches) and all(
+            _is_user_key_expr(b) or (isinstance(b, ast.Constant) and b.value is None) for b in branches
+        )
+    if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or):
+        # #2138 — ``requested_by_user_key=requester.key or ""``: the key, or an empty
+        # placeholder for a model that types the field ``str``. Same rule as the
+        # conditional above: at least one operand is a key, every other one is a
+        # key or an empty constant (``""`` / ``None``). ``x.strip() or f"mcp:…"``
+        # still does not count — neither operand is a key.
+        operands = node.values
+        return any(_is_user_key_expr(v) for v in operands) and all(
+            _is_user_key_expr(v) or (isinstance(v, ast.Constant) and v.value in ("", None)) for v in operands
+        )
+    return False
+
+
 def _user_key_writers(field: str) -> list[str]:
     """Production sites that assign *field* from something that is a user key.
 
@@ -188,21 +215,6 @@ def _user_key_writers(field: str) -> list[str]:
     **not** a user key (it is a prefixed string that never equals one), and a
     scan that accepted it would certify exactly the defect this guard exists for.
     """
-
-    def _is_user_key_expr(node: ast.AST) -> bool:
-        if isinstance(node, ast.Name):
-            return node.id.endswith(("user_key", "account_key"))
-        if isinstance(node, ast.Attribute):
-            return node.attr in {"user_key", "account_key", "key"} or node.attr.endswith("user_key")
-        if isinstance(node, ast.IfExp):
-            # #1700 — ``promoted_by=admin_user_key if promote else None``: a key
-            # or nothing. A branch that is anything else (a string, a call) is
-            # not a key and does not count.
-            branches = (node.body, node.orelse)
-            return any(_is_user_key_expr(b) for b in branches) and all(
-                _is_user_key_expr(b) or (isinstance(b, ast.Constant) and b.value is None) for b in branches
-            )
-        return False
 
     hits: list[str] = []
     for path in _APP.rglob("*.py"):
@@ -630,3 +642,18 @@ async def test_an_expired_export_stops_pointing_at_a_deleted_object(db, tmp_path
     assert stored.file_path is None, "the record still points at a bundle that no longer exists"
     assert stored.file_size_bytes is None
     assert not on_disk.exists(), "the Art. 15 disclosure is still in object storage"
+
+
+@pytest.mark.parametrize(
+    ("expression", "is_key"),
+    [
+        ('requester.key or ""', True),
+        ("admin_user_key or None", True),
+        ('args.inspector.strip() or f"mcp:{ctx.principal.account_key}"', False),
+        ('requester.display_name or ""', False),
+        ('requester.key or "anonymous"', False),
+    ],
+)
+def test_a_key_or_an_empty_placeholder_is_a_key_and_nothing_else_is(expression: str, is_key: bool) -> None:
+    """#2138 — the ``x or ""`` spelling is a writer only when every operand is a key or empty."""
+    assert _is_user_key_expr(ast.parse(expression, mode="eval").body) is is_key

@@ -1507,6 +1507,22 @@ Every quota has an upper bound (e.g. `storage_mb` at most 10,000,000, `ai_tokens
 
 `key` matches `^[a-z][a-z0-9_-]{1,39}$` and is immutable. None of these actions asks for a password confirmation; each writes a security-audit entry (`plan_created`, `plan_changed` with `changed_fields` and — for quotas — `limit_changes` with old and new value, `plan_deleted`, `tenant_plan_changed` with `old_plan_key` and `plan_key`). Light mode has none of these routes.
 
+### Exporting and importing a tenant <!-- REQ-056 §8 / Issue #2138 --> {#mandanten-export-import}
+
+Steps, archive content and refusals are described in the runbook [Exporting and importing a tenant](../deployment/tenant-export-import.md). All routes exist in full mode only; none accepts an API key or a service account (`403`).
+
+| Method | Path | Who | Effect |
+|---|---|---|---|
+| `POST` | `/api/v1/tenants/{slug}/exports` | lead ∧ management + confirmation (`tenant_export`) | request an export (`202`); in `active` and `pending_deletion`. `409 EXPORT_ALREADY_RUNNING` while one runs; `429` from the `TENANT_EXPORTS_PER_DAY`+1st in 24 h; an unknown slug and a missing permission are the same `403` |
+| `GET` | `/api/v1/tenants/{slug}/exports` | lead ∧ management | own exports, newest first (paginated) |
+| `GET` | `/api/v1/tenants/{slug}/exports/{export_key}/download` | whoever requested it | the archive as ZIP; `404` after expiry (`RETENTION_EXPORT_FILE_RETENTION_HOURS`) |
+| `POST` | `/api/v1/admin/platform/tenants/{key}/exports` | platform admin + confirmation | export in every state but `deleted` |
+| `GET` | `/api/v1/admin/platform/tenants/{key}/exports` (`…/{export_key}/download`) | platform admin | own exports or the archive |
+| `POST` | `/api/v1/admin/platform/tenant-imports` | platform admin + confirmation (`tenant_import`, target `archive:<the first 32 hex digits of the file's SHA-256>`, checked before the file is read) | the archive as `multipart/form-data` (`archive`, optional `member_mapping` as JSON `{"<old user_key>": {"email": "…", "role": "lead\|grower\|viewer", "admin_scopes": […]}}`, `plan_key`, confirmation fields); `202`, `verified` says whether this installation signed the archive. Refused before any write with `422` and the codes `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_CHECKSUM_MISMATCH`, `IMPORT_UNDECLARED_REFERENCE`, `IMPORT_MISSING_CATALOG_ENTRIES` (listed in `details`), `IMPORT_MEMBER_NOT_FOUND`; `413` above `TENANT_IMPORT_MAX_UPLOAD_MB` |
+| `GET` | `/api/v1/admin/platform/tenant-imports/{import_key}` | platform admin | state and report (`report`: count per collection), `target_tenant_key`, `verified` |
+
+The body carries the confirmation as for a deletion (`current_password`, `step_up_code` or `step_up_token`). An export request (`status`: `pending` → `running` → `completed` / `failed` with `failure_reason` `too_large`, `internal_error`, `storage_unavailable`, `tenant_not_exportable` → `expired`) names its size (`size_bytes`), rows per archive part (`counts`) and `expires_at`. Security log: `tenant_export_requested`, `tenant_export_downloaded` (every download), `tenant_import_requested`, `tenant_imported`. An imported tenant is in the state `importing` until its last row is written and reachable for nobody.
+
 ### Organizations per account
 
 `POST /api/v1/tenants` refuses once the account owns `TENANT_MAX_ORGANIZATIONS_PER_USER` organizations (counted in every state but `deleted`): `422 ORGANIZATION_LIMIT_REACHED` (until now `422 VALIDATION_ERROR`). This is a limit of the account, not a plan quota.

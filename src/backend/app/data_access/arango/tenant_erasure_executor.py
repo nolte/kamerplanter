@@ -109,7 +109,11 @@ class TenantErasurePlanError(ValueError):
 
 
 def _match(
-    entry: TenantErasureEntry, parent_keys: dict[str, list[str]], tenant_collection: str
+    entry: TenantErasureEntry,
+    parent_keys: dict[str, list[str]],
+    tenant_collection: str,
+    *,
+    honour_grants: bool = True,
 ) -> tuple[str, dict[str, Any]]:
     """The FILTER that selects the tenant's rows of *entry*, and its bind variables.
 
@@ -136,7 +140,7 @@ def _match(
         binds[f"keys{index}"] = keys
         binds[f"where{index}"] = parent.where
     match = "(" + " OR ".join(clauses) + ")"
-    if entry.keep_if_granted_via is not None:
+    if honour_grants and entry.keep_if_granted_via is not None:
         # A grant from any tenant but this one: that tenant's rows point here.
         match += (
             " AND LENGTH(FOR grant IN @@grants FILTER grant._to == doc._id"
@@ -145,6 +149,18 @@ def _match(
         binds["@grants"] = entry.keep_if_granted_via
         binds["tenant_collection"] = tenant_collection
     return match, binds
+
+
+def tenant_row_filter(
+    entry: TenantErasureEntry, parent_keys: dict[str, list[str]], tenant_collection: str
+) -> tuple[str, dict[str, Any]]:
+    """The predicate that selects the tenant's rows of *entry* — the one the erasure deletes by.
+
+    The tenant export (REQ-056 §8.3, #2138) reads with the same predicate, so what an archive
+    holds is exactly what the deletion would reach. ``keep_if_granted_via`` is dropped: a row
+    another tenant was granted access to is still this tenant's row to export.
+    """
+    return _match(entry, parent_keys, tenant_collection, honour_grants=False)
 
 
 class ArangoTenantErasureExecutor(ITenantErasureExecutor):

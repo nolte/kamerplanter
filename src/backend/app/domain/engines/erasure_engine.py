@@ -250,6 +250,27 @@ class ErasureEngine:
             ),
         ),
         AnonymizationRule(
+            # REQ-056 §12.3 (#2138) — the requester of a tenant export. The request documents what left
+            # the installation and stays for NFR-011 R-40; its archive is no longer downloadable by anyone.
+            collection="tenant_export_requests",
+            user_field="requested_by_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-056 section 12.3: an export request of a tenant is the tenant's record (R-40, 30 days); "
+                "the requester reference is removed, and with it the only account that could download the archive."
+            ),
+        ),
+        AnonymizationRule(
+            # REQ-056 §12.3 (#2138) — the platform admin who imported an archive.
+            collection="tenant_import_requests",
+            user_field="requested_by_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-056 section 12.3: an import request documents which tenant an archive founded (R-40, "
+                "30 days); the admin reference is removed."
+            ),
+        ),
+        AnonymizationRule(
             # ``imports/router.py`` stamps ``uploaded_by=ctx.user_key``. The
             # import job records what entered the tenant's master data.
             collection="import_jobs",

@@ -276,6 +276,9 @@ You can leave a tenant as long as you are not the only member with the **Managem
 
     If not everything could be removed immediately, the deletion stays recorded and is retried automatically every day until it is complete. Your personal tenant and your memberships in other tenants are not affected by such a deletion.
 
+??? question "Can we back up or move our whole garden?"
+    Yes. A member with lead and management can export the whole garden as an archive — even while it is scheduled for deletion. Every member with management gets an e-mail when that happens. The archive holds no e-mail addresses and no credentials. Only a platform admin can bring it back, and always as a new garden; the admin decides by e-mail address who becomes a member again. There is no button for it in the garden settings yet; [Exporting and importing a tenant](../deployment/tenant-export-import.md) describes the way through the API. <!-- REQ-056 §8 / Issue #2138 -->
+
 ??? question "Can the lead of a community garden see my personal houseplants?"
     No. Your personal tenant is completely isolated from all other tenants. Even if someone is lead or holds scopes in the community garden, they can never see data in your personal tenant.
 

@@ -179,6 +179,10 @@ type StepUpAction = Literal[
     "tenant_erasure_cancel",
     # #2137 — a tenant's lead with the technical scope creating, re-keying or removing a service account.
     "service_account_change",
+    # #2138 (REQ-056 §12.1) — a tenant's management (lead + management) or a platform admin exporting a tenant.
+    "tenant_export",
+    # #2138 (REQ-056 §12.1) — a platform admin importing a tenant archive (``archive:<sha256 prefix>``).
+    "tenant_import",
     # #1855 SEC-003 — deciding the take-over of a former light-mode installation's garden (bound to its key).
     "light_mode_takeover",
 ]
@@ -201,7 +205,9 @@ type StepUpAction = Literal[
 #: target; the same pair whichever of the two admin views adds) — and, since #2123, the tenant's
 #: key of ``tenant_erasure_cancel`` — and, since #2137, ``service_account_change``: the tenant's key
 #: for a creation (the account does not exist yet) and ``<tenant_key>|<service_account_key>`` for a
-#: rotation or a removal. Every other act acts on the
+#: rotation or a removal — and, since #2138, the tenant's key of ``tenant_export`` and
+#: ``archive:<first 32 hex of the upload's SHA-256>`` of ``tenant_import`` (the tenant does not exist
+#: yet; the archive is named by its content). Every other act acts on the
 #: requester's own account, which the digest already binds; it carries no target.
 TARGETED_ACTIONS: frozenset[str] = frozenset(
     {
@@ -218,6 +224,8 @@ TARGETED_ACTIONS: frozenset[str] = frozenset(
         "admin_membership_add",
         "tenant_erasure_cancel",
         "service_account_change",
+        "tenant_export",
+        "tenant_import",
         "light_mode_takeover",
     }
 )
@@ -278,6 +286,8 @@ CODE_PURPOSES: dict[str, str] = {
     "admin_membership_add": "add an account to a garden (tenant) as a platform administrator",
     "tenant_erasure_cancel": "cancel the scheduled deletion of a garden (tenant)",
     "service_account_change": "create, re-key or remove a service account of your garden (tenant)",
+    "tenant_export": "export all data of a garden (tenant)",
+    "tenant_import": "import a garden (tenant) archive as a platform administrator",
     "light_mode_takeover": "take over or decline the garden of the former light-mode installation",
 }
 

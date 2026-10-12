@@ -1507,6 +1507,22 @@ Jedes Kontingent hat eine Obergrenze (z. B. `storage_mb` höchstens 10 000 000, 
 
 `key` folgt `^[a-z][a-z0-9_-]{1,39}$` und ist unveränderlich. Keine der Aktionen verlangt eine Passwort-Bestätigung; jede schreibt einen Eintrag ins Sicherheitsprotokoll (`plan_created`, `plan_changed` mit `changed_fields` und — für Kontingente — `limit_changes` mit altem und neuem Wert, `plan_deleted`, `tenant_plan_changed` mit `old_plan_key` und `plan_key`). Im Light-Modus gibt es diese Routen nicht.
 
+### Mandanten exportieren und importieren <!-- REQ-056 §8 / Issue #2138 --> {#mandanten-export-import}
+
+Ablauf, Inhalt des Archivs und Ablehnungen beschreibt das Runbook [Mandanten exportieren und importieren](../deployment/tenant-export-import.md). Alle Routen gibt es nur im Full-Modus; keine nimmt einen API-Schlüssel oder einen Service Account an (`403`).
+
+| Methode | Pfad | Wer | Wirkung |
+|---|---|---|---|
+| `POST` | `/api/v1/tenants/{slug}/exports` | Leitung ∧ Verwaltung + Bestätigung (`tenant_export`) | Export anfordern (`202`); in `active` und `pending_deletion`. `409 EXPORT_ALREADY_RUNNING`, solange einer läuft; `429` ab dem `TENANT_EXPORTS_PER_DAY`+1-ten in 24 h; unbekannter Kurzname und fehlende Berechtigung dieselbe `403` |
+| `GET` | `/api/v1/tenants/{slug}/exports` | Leitung ∧ Verwaltung | eigene Exporte, neueste zuerst (paginiert) |
+| `GET` | `/api/v1/tenants/{slug}/exports/{export_key}/download` | wer ihn angefordert hat | Archiv als ZIP; `404` nach Ablauf (`RETENTION_EXPORT_FILE_RETENTION_HOURS`) |
+| `POST` | `/api/v1/admin/platform/tenants/{key}/exports` | Plattform-Admin + Bestätigung | Export in jedem Zustand außer `deleted` |
+| `GET` | `/api/v1/admin/platform/tenants/{key}/exports` (`…/{export_key}/download`) | Plattform-Admin | eigene Exporte bzw. Archiv |
+| `POST` | `/api/v1/admin/platform/tenant-imports` | Plattform-Admin + Bestätigung (`tenant_import`, Ziel `archive:<die ersten 32 Hex-Zeichen des SHA-256 der Datei>`, geprüft bevor die Datei gelesen wird) | Archiv als `multipart/form-data` (`archive`, optional `member_mapping` als JSON `{"<alter user_key>": {"email": "…", "role": "lead\|grower\|viewer", "admin_scopes": […]}}`, `plan_key`, Bestätigungsfelder); `202`, `verified` sagt, ob diese Installation das Archiv signiert hat. Ablehnung vor jedem Schreiben mit `422` und den Codes `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_CHECKSUM_MISMATCH`, `IMPORT_UNDECLARED_REFERENCE`, `IMPORT_MISSING_CATALOG_ENTRIES` (Liste in `details`), `IMPORT_MEMBER_NOT_FOUND`; `413` über `TENANT_IMPORT_MAX_UPLOAD_MB` |
+| `GET` | `/api/v1/admin/platform/tenant-imports/{import_key}` | Plattform-Admin | Zustand und Bericht (`report`: Anzahl je Collection), `target_tenant_key`, `verified` |
+
+Die Bestätigung trägt der Body wie beim Löschen (`current_password`, `step_up_code` oder `step_up_token`). Ein Export-Antrag (`status`: `pending` → `running` → `completed` / `failed` mit `failure_reason` `too_large`, `internal_error`, `storage_unavailable`, `tenant_not_exportable` → `expired`) nennt Größe (`size_bytes`), Zeilen je Archivteil (`counts`) und `expires_at`. Sicherheitsprotokoll: `tenant_export_requested`, `tenant_export_downloaded` (jeder Download), `tenant_import_requested`, `tenant_imported`. Ein importierter Mandant steht bis zum letzten geschriebenen Datensatz im Zustand `importing` und ist für niemanden erreichbar.
+
 ### Organisationen je Konto
 
 `POST /api/v1/tenants` lehnt ab, sobald das Konto `TENANT_MAX_ORGANIZATIONS_PER_USER` Organisationen besitzt (gezählt in jedem Zustand außer `deleted`): `422 ORGANIZATION_LIMIT_REACHED` (bisher `422 VALIDATION_ERROR`). Das ist eine Grenze des Kontos, kein Plan-Kontingent.

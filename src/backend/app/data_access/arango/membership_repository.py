@@ -6,7 +6,7 @@ from arango.database import StandardDatabase
 from arango.exceptions import AQLQueryExecuteError
 
 from app.common.datetimes import ensure_aware_utc
-from app.common.enums import AdminScope
+from app.common.enums import AdminScope, TenantStatus
 from app.common.exceptions import WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -367,6 +367,31 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
               RETURN affected
             """,
             bind_vars={"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key},
+        )
+        return int(next(cursor, 0))
+
+    def activate_all_for_importing_tenant(self, tenant_key: str) -> int:
+        if not tenant_key:
+            raise ValueError("activate_all_for_importing_tenant needs a tenant key")
+        cursor = cast(
+            Cursor,
+            self._db.aql.execute(
+                """
+            LET tenant = DOCUMENT(@@tenants, @tenant_key)
+            FOR m IN @@collection
+              FILTER tenant != null AND tenant.status == @importing
+              FILTER m.tenant_key == @tenant_key AND m.is_active == false
+              UPDATE m WITH { is_active: true } IN @@collection
+              COLLECT WITH COUNT INTO affected
+              RETURN affected
+            """,
+                bind_vars={
+                    "@collection": col.MEMBERSHIPS,
+                    "@tenants": col.TENANTS,
+                    "tenant_key": tenant_key,
+                    "importing": TenantStatus.IMPORTING.value,
+                },
+            ),
         )
         return int(next(cursor, 0))
 

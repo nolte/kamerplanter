@@ -563,6 +563,10 @@ _UPDATE_FIELDS_NOT_FULL_MODEL = frozenset(
         # Drives `collection.update` itself; python-arango's `keep_none` default is True.
         "watering_log_repository.ArangoWateringLogRepository",
         "plant_diary_repository.ArangoPlantDiaryRepository",
+        # #2138 — an AQL `UPDATE … OPTIONS { keepNull: false }`: a None removes the attribute, which the
+        # model reads back as its default None, so a clear (storage_key, failure_reason) lands.
+        "tenant_export_store.ArangoTenantExportRequestRepository",
+        "tenant_export_store.ArangoTenantImportRequestRepository",
     }
 )
 

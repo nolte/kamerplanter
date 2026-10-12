@@ -451,13 +451,34 @@ class AttachmentService:
             raise AttachmentNotFoundError(attachment_id)
         return attachment
 
+    @staticmethod
+    def in_own_namespace(attachment: Attachment) -> bool:
+        """Whether the record's object lies under ``t/<its tenant>/`` (#2138 review SEC-004).
+
+        Every key the service builds does (:class:`StorageKeyBuilder`). A record whose key points
+        elsewhere — written by anything but this service, an import above all — must never serve,
+        sign or delete another tenant's object.
+        """
+        tenant_key = attachment.tenant_key
+        key = attachment.storage_key
+        prefix = f"t/{tenant_key}/"
+        return bool(tenant_key) and key.startswith(prefix) and ".." not in key[len(prefix) :].split("/")
+
+    def _require_own_namespace(self, attachment: Attachment) -> Attachment:
+        from app.common.exceptions import AttachmentNotFoundError
+
+        if not self.in_own_namespace(attachment):
+            logger.warning("attachment_outside_namespace", tenant=log_tenant(attachment.tenant_key))
+            raise AttachmentNotFoundError(attachment.key or "")
+        return attachment
+
     def get_download(self, attachment_id: str, tenant_key: str) -> DownloadTarget:
         """Resolve the serving strategy for a download.
 
         For presign-capable backends (S3) returns a ``redirect_url``; otherwise
         signals proxy-streaming (caller uses :meth:`open_stream`).
         """
-        attachment = self.get_attachment(attachment_id, tenant_key)
+        attachment = self._require_own_namespace(self.get_attachment(attachment_id, tenant_key))
         if self._storage.capabilities.supports_presigned_download:
             url = self._storage.presign_download_url(
                 attachment.storage_key,
@@ -471,7 +492,7 @@ class AttachmentService:
 
     def presign_download(self, attachment_id: str, tenant_key: str) -> str | None:
         """Return an explicit presign/token download URL, or ``None`` if unsupported."""
-        attachment = self.get_attachment(attachment_id, tenant_key)
+        attachment = self._require_own_namespace(self.get_attachment(attachment_id, tenant_key))
         # local-fs reports supports_presigned_download=False but still emits a
         # usable signed token URL — surface it so the FE has a direct link. The
         # token is bound to its tenant + attachment (SEC-001).
@@ -504,7 +525,8 @@ class AttachmentService:
         )
 
     async def open_stream(self, attachment: Attachment) -> AsyncIterator[bytes]:
-        """Return an async byte iterator for proxy-streaming the object."""
+        """Return an async byte iterator for proxy-streaming the object (only from the record's own namespace)."""
+        self._require_own_namespace(attachment)
         return await self._storage.get_object(attachment.storage_key)
 
     async def open_thumbnail_stream(self, attachment: Attachment, size: int) -> AsyncIterator[bytes]:
@@ -513,6 +535,7 @@ class AttachmentService:
         Raises ``NotFoundError`` (from the adapter) when the rendition does not
         exist yet — the API layer translates that into a lazy-regeneration 202.
         """
+        self._require_own_namespace(attachment)
         key = thumbnail_key(attachment.storage_key, size)
         return await self._storage.get_object(key)
 
@@ -537,6 +560,10 @@ class AttachmentService:
         attachment = self._repo.get(attachment_id, tenant_key)
         if attachment is None:
             return False
+        if not self.in_own_namespace(attachment):
+            # #2138 review SEC-004 — the record goes, an object outside its tenant's namespace stays.
+            logger.warning("attachment_outside_namespace", tenant=log_tenant(tenant_key))
+            return self._repo.delete(attachment_id, tenant_key)
 
         shared = attachment.storage_key in self._repo.storage_keys_held_elsewhere(
             tenant_key=tenant_key, storage_keys=[attachment.storage_key], excluding=[attachment_id]

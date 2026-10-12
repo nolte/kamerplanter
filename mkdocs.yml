@@ -175,6 +175,7 @@ plugins:
             Kubernetes: Kubernetes
             Helm Charts: Helm Charts
             Backup & Wiederherstellung: Backup & Restore
+            Mandanten exportieren und importieren: Exporting and Importing a Tenant
             ArgoCD: ArgoCD
             CI/CD: CI/CD
             Bilderkennung (Inferenz-Service): Setting Up Plant Identification
@@ -389,6 +390,7 @@ nav:
       - Kubernetes: de/deployment/kubernetes.md
       - Helm Charts: de/deployment/helm.md
       - Backup & Wiederherstellung: de/deployment/backup-restore.md
+      - Mandanten exportieren und importieren: de/deployment/tenant-export-import.md
       - ArgoCD: de/deployment/argocd.md
       - CI/CD: de/deployment/ci-cd.md
       - Bilderkennung (Inferenz-Service): de/deployment/inference-service.md

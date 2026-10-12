@@ -158,10 +158,13 @@ class SecurityAuditService:
         tenant_key: str,
         old_plan_key: str | None = None,
         plan_key: str | None = None,
+        archive_sha256: str | None = None,
+        outcome: str | None = None,
     ) -> SecurityAuditEntry:
         """Append the row of one change of a whole tenant's lifecycle (#2111) or plan (#2142).
 
-        It names no target account. A plan assignment carries the previous and the new plan key.
+        It names no target account. A plan assignment carries the previous and the new plan key; a tenant
+        import the archive's SHA-256 and its outcome (#2138).
         """
         return self._write(
             SecurityAuditEntry(
@@ -171,6 +174,8 @@ class SecurityAuditService:
                 tenant_key=tenant_key,
                 old_plan_key=old_plan_key,
                 plan_key=plan_key,
+                archive_sha256=archive_sha256,
+                outcome=outcome,
                 request_id=_current_request_id(),
                 created_at=datetime.now(UTC),
             )

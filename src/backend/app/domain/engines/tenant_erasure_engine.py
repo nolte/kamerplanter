@@ -228,6 +228,9 @@ class TenantErasureEngine:
         # tenant may use. Meaningless without the tenant; a re-created tenant of
         # the same key must not inherit them.
         _delete("tenant_ha_entity_grants"),
+        # REQ-056 §13.5 (#2138) — the tenant's export requests go with it; the archives
+        # themselves live under ``t/<tenant>/tenant_export/`` and go with the storage prefix.
+        _delete("tenant_export_requests"),
         # ── Audit logs with their own retention purge ──
         TenantErasureEntry(
             collection="ai_audit_log",
@@ -311,6 +314,11 @@ class TenantErasureEngine:
         "system_settings": _PLATFORM,
         "plans": _PLATFORM + " (REQ-056 plan catalogue; a tenant points at a plan, no plan names a tenant)",
         "schema_migrations": _PLATFORM,
+        "tenant_import_requests": _PLATFORM
+        + (
+            " (REQ-056 §13.5, #2138: a platform admin's import request; the tenant it founds does not exist "
+            "when the request is written, and the record names it only once the run founded it)"
+        ),
         "system_meta": _PLATFORM + " (REQ-027 deployment-mode bookkeeping, #1855)",
     }
 

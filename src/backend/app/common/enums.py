@@ -1062,6 +1062,9 @@ class TenantStatus(StrEnum):
     * ``DELETED`` — the grace has passed and the erasure has claimed it; no
       longer cancellable. The tenant document itself is removed by the erasure,
       so the state is seen only while the inventory runs (or is retried).
+    * ``IMPORTING`` — founded by a tenant import (REQ-056 §8.4, #2138) and still being
+      written; resolves for nobody and its memberships are inactive until the import
+      activates it. An import whose run died is erased by the hourly sweep.
     """
 
     ACTIVE = "active"
@@ -1069,6 +1072,7 @@ class TenantStatus(StrEnum):
     PENDING_DELETION = "pending_deletion"
     ORPHANED = "orphaned"
     DELETED = "deleted"
+    IMPORTING = "importing"
 
 
 class EntitlementDimension(StrEnum):
@@ -1846,6 +1850,12 @@ class SecurityAuditAction(StrEnum):
     PLAN_CREATED = "plan_created"
     PLAN_CHANGED = "plan_changed"
     PLAN_DELETED = "plan_deleted"
+    # REQ-056 §8 / §12.4 (#2138) — a tenant export was requested (by its management or a platform admin)
+    # and a platform admin imported an archive as a new tenant. The rows name the tenant, no target account.
+    TENANT_EXPORT_REQUESTED = "tenant_export_requested"
+    TENANT_EXPORT_DOWNLOADED = "tenant_export_downloaded"
+    TENANT_IMPORT_REQUESTED = "tenant_import_requested"
+    TENANT_IMPORTED = "tenant_imported"
     # REQ-027 §7a.2 (#1855) — after the switch from light to full mode an account took the light-mode
     # system tenant over: the row names the tenant and the account that now owns it.
     TENANT_TAKEN_OVER = "tenant_taken_over"
