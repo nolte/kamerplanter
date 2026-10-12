@@ -239,12 +239,21 @@ class PropagationService:
 
     # ── Batches ────────────────────────────────────────────────────────────────
 
-    def create_batch(self, batch: PropagationBatch) -> PropagationBatch:
+    def create_batch(self, batch: PropagationBatch, *, tenant_key: str) -> PropagationBatch:
+        """Create ``batch`` in ``tenant_key``.
+
+        ``tenant_key`` is keyword-only without a default (#2107) and stamped onto the
+        batch: the run check below used the model's own ``tenant_key`` field, which a
+        caller that built the model without it left empty.
+        """
+        if not tenant_key:
+            raise ValueError("create_batch is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        batch.tenant_key = tenant_key
         prop = self._require_prop()
         # The run the batch will hand its plants to, under the tenant (#1872 C3):
         # finalize checked it, create stored it as given.
         if batch.target_planting_run_key:
-            self._require_owned_run(batch.target_planting_run_key, batch.tenant_key)
+            self._require_owned_run(batch.target_planting_run_key, tenant_key)
         if batch.started_at is None:
             batch.started_at = _now()
         return prop.create_batch(batch)
@@ -302,11 +311,15 @@ class PropagationService:
             batch.notes = notes
         return self._require_prop().update_batch(key, batch)
 
-    def finalize_batch(self, key: str, tenant_key: str, target_planting_run_key: str) -> PropagationBatch:
+    def finalize_batch(self, key: str, target_planting_run_key: str, *, tenant_key: str) -> PropagationBatch:
         """Complete a batch and hand its result plants over to a PlantingRun.
 
         The batch is marked ``completed`` and linked to the run; the aggregate
         survivor count is rolled up from the batch's events.
+
+        ``tenant_key`` is keyword-only (#2107): it sat positionally between two
+        ``str`` keys, where a swapped batch and tenant key is invisible to the type
+        checker.
         """
         batch = self.get_batch(key, tenant_key)
         if batch.status == PropagationBatchStatus.COMPLETED:

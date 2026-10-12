@@ -64,7 +64,7 @@ class TestRefreshSiteHardinessZones:
         result = module.refresh_site_hardiness_zones()
 
         assert result == {"status": "ok", "resolved": 1, "skipped": 0, "errors": 0}
-        service.resolve_for_site.assert_called_once_with("site1", "t1")
+        service.resolve_for_site.assert_called_once_with("site1", tenant_key="t1")
 
     def test_skips_site_without_normals(self, task_module, monkeypatch):
         module, deps = task_module
@@ -102,7 +102,7 @@ class TestRefreshSiteHardinessZones:
         result = module.refresh_site_hardiness_zones()
 
         assert result == {"status": "ok", "resolved": 1, "skipped": 0, "errors": 0}
-        service.resolve_for_site.assert_called_once_with("site1", "t1")
+        service.resolve_for_site.assert_called_once_with("site1", tenant_key="t1")
 
     def test_error_isolated_across_tenants(self, task_module, monkeypatch):
         module, deps = task_module

@@ -300,7 +300,7 @@ class OnboardingService:
                     tenant_key=tenant_key,
                 )
                 try:
-                    created = plant_service.create_plant(plant, skip_validation=True)
+                    created = plant_service.create_plant(plant, skip_validation=True, tenant_key=tenant_key)
                 except NotFoundError as exc:
                     # The expected refusal: the species (or another reference the
                     # wizard carries) does not resolve under this tenant. Named

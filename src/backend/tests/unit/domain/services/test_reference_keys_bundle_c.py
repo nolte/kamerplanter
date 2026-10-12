@@ -123,7 +123,8 @@ def test_a_batch_cannot_target_another_tenants_run() -> None:
 
     with pytest.raises(NotFoundError):
         service.create_batch(
-            PropagationBatch(tenant_key=OWN, name="B", method="cutting", target_planting_run_key="r_foreign")
+            PropagationBatch(tenant_key=OWN, name="B", method="cutting", target_planting_run_key="r_foreign"),
+            tenant_key=OWN,
         )
 
     prop.create_batch.assert_not_called()
@@ -136,7 +137,7 @@ def test_finalize_refuses_a_run_it_cannot_look_up() -> None:
     service = PropagationService(propagation_repo=prop, species_resolver=_species)
 
     with pytest.raises(NotFoundError):
-        service.finalize_batch("b1", OWN, "r_own")
+        service.finalize_batch("b1", "r_own", tenant_key=OWN)
 
     prop.update_batch.assert_not_called()
 

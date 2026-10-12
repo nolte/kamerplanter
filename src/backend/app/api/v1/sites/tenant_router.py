@@ -186,7 +186,7 @@ def resolve_site_hardiness_zone(
     State-changing (mutates ``Site.hardiness_zone``), so it requires at least the
     ``grower`` role — a ``viewer`` cannot trigger a zone derivation (SEC-001).
     """
-    site = service.resolve_for_site(key, ctx.tenant_key, force=force, fetch_if_missing=True)
+    site = service.resolve_for_site(key, tenant_key=ctx.tenant_key, force=force, fetch_if_missing=True)
     return _hardiness_response(site, service.catalog_entry(site.hardiness_zone))
 
 

@@ -198,7 +198,7 @@ async def test_set_plant_location_updates_fields():
     updated = {}
     verified = {}
 
-    def _update(key, p):
+    def _update(key, p, *, tenant_key):
         updated["location_key"] = p.location_key
         return p
 
@@ -232,7 +232,7 @@ async def test_set_plant_location_rejects_foreign_destination():
     plant = SimpleNamespace(key="pl-1", site_key="s0", location_key="l0", slot_key=None)
     updated = {"called": False}
 
-    def _update(key, p):
+    def _update(key, p, *, tenant_key):
         updated["called"] = True
         return p
 

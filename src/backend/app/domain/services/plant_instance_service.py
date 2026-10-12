@@ -149,6 +149,17 @@ class PlantInstanceService:
             verify_tenant_ownership(plant, tenant_key, "PlantInstance")
         return plant
 
+    def _get_owned_plant(self, key: PlantID, tenant_key: str) -> PlantInstance:
+        """Load a plant ``tenant_key`` owns, for a write (#2107).
+
+        Unconditional, unlike :meth:`get_plant`'s ``if tenant_key``: an empty tenant
+        is refused by :func:`verify_tenant_ownership` like a foreign one, so a write
+        path can never skip the check by passing nothing.
+        """
+        plant = self._repo.get_or_raise(key)
+        verify_tenant_ownership(plant, tenant_key, "PlantInstance")
+        return plant
+
     def _verify_site_ownership(self, plant: PlantInstance) -> None:
         """Re-verify a client-supplied ``site_key`` belongs to the plant's tenant (#719).
 
@@ -160,11 +171,11 @@ class PlantInstanceService:
         ownership is anchored directly on the resolved site here and the guard is not
         inert. Raises :class:`NotFoundError` (via ``get_site_or_raise`` for an unknown
         site, via ``verify_tenant_ownership`` for a foreign one) so the write path is
-        never reached. Skipped when the plant carries no ``tenant_key`` (internal
-        callers / tests) or no ``site_key`` — matching the ``if tenant_key`` gate used
-        by ``get_plant``/``remove_plant``.
+        never reached. Skipped only when the plant has no ``site_key``: both write
+        paths stamp the caller's tenant onto the plant first (#2107), so a plant
+        without a tenant reaching this point is refused like a foreign one.
         """
-        if not plant.tenant_key or not plant.site_key:
+        if not plant.site_key:
             return
         site = self._site_repo.get_site_by_key(plant.site_key)
         if site is None:
@@ -318,9 +329,10 @@ class PlantInstanceService:
         schemas reject it at the boundary with 422 (``min_length=1``); this half
         catches the same value arriving from any other caller.
 
-        Skipped entirely for a plant with no ``tenant_key`` (seeds, migrations, light
-        mode): there is nothing to anchor against, matching the ``if tenant_key`` gate
-        on :meth:`get_plant` and :meth:`_verify_site_ownership`.
+        Skipped for a plant with no ``tenant_key``: there is nothing to anchor
+        against. Neither write path reaches that state any more — :meth:`create_plant`
+        refuses an empty tenant and :meth:`update_plant` verifies the stored plant
+        against the caller's (#2107) — so the skip is a fail-safe, not an escape.
         """
         if not plant.tenant_key:
             return
@@ -484,7 +496,17 @@ class PlantInstanceService:
         except Exception:  # noqa: BLE001 — never fail plant creation for this
             logger.error("care_profile_bootstrap_failed", plant_key=created.key, exc_info=True)
 
-    def create_plant(self, plant: PlantInstance, skip_validation: bool = False) -> PlantInstance:
+    def create_plant(self, plant: PlantInstance, skip_validation: bool = False, *, tenant_key: str) -> PlantInstance:
+        """Create ``plant`` in ``tenant_key``.
+
+        ``tenant_key`` is keyword-only without a default (#2107) and stamped onto the
+        plant before anything is resolved, so every reference check below — site,
+        species, substrate, slot — runs against the caller's tenant rather than
+        against whatever the model happened to carry.
+        """
+        if not tenant_key:
+            raise ValueError("create_plant is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        plant.tenant_key = tenant_key
         # SEC (#719): reject a foreign/unknown site_key before any write, mirroring the
         # location create path — a client must not create a plant on another tenant's site.
         self._verify_site_ownership(plant)
@@ -843,11 +865,20 @@ class PlantInstanceService:
 
         return False
 
-    def update_plant(self, key: PlantID, plant: PlantInstance) -> PlantInstance:
+    def update_plant(self, key: PlantID, plant: PlantInstance, *, tenant_key: str) -> PlantInstance:
+        """Write ``plant`` over ``tenant_key``'s stored plant ``key``.
+
+        The stored plant is verified against ``tenant_key`` here (#2107), not only by
+        the route that loaded it for the merge: until then this method re-read it
+        without a tenant, and a caller that skipped the route's pre-read wrote any
+        tenant's plant. The tenant is stamped onto ``plant`` too, so the body cannot
+        hand the plant to another tenant.
+        """
         # Read the persisted state *before* the write so a genuine site change can be
         # detected (REQ-047 §3.4): the caller has already mutated ``plant`` in memory,
         # so the DB copy still carries the old site_key.
-        existing = self.get_plant(key)
+        existing = self._get_owned_plant(key, tenant_key)
+        plant.tenant_key = tenant_key
         old_site_key = existing.site_key
         # SEC (#719): re-verify the (possibly changed) client-supplied site_key against
         # the plant's tenant before persisting — closes the same IDOR as #717 did for
@@ -951,7 +982,7 @@ class PlantInstanceService:
         *,
         termination_type: TerminationType | None = None,
         termination_cause: TerminationCause | None = None,
-        tenant_key: str = "",
+        tenant_key: str,
     ) -> PlantInstance:
         """Soft-remove a plant, optionally classifying how its lifecycle ended (E5).
 
@@ -962,12 +993,12 @@ class PlantInstanceService:
         and ``termination_cause`` is recorded for failure analytics. ``termination_cause``
         is only valid together with ``died``.
 
-        ``tenant_key`` re-verifies ownership inside the service (SEC-001, defence in
-        depth): the isolation invariant must not depend solely on the router fetching
-        the plant first. Empty (the default) preserves the pre-existing behaviour for
-        internal callers and tests.
+        ``tenant_key`` verifies ownership inside the service (SEC-001): the isolation
+        invariant must not depend on the router fetching the plant first. It is
+        required (#2107) — the ``""`` default it had skipped the check for any caller
+        that left it out.
         """
-        plant = self.get_plant(key, tenant_key=tenant_key)
+        plant = self._get_owned_plant(key, tenant_key)
 
         # E5: a cause only makes sense for an unplanned death.
         if termination_cause is not None and termination_type != TerminationType.DIED:

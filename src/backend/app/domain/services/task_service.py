@@ -344,7 +344,7 @@ class TaskService:
             raise ForbiddenError(SHARED_WORKFLOW_REFUSAL)
         return self._repo.delete_workflow_template(key)
 
-    def duplicate_workflow_template(self, key: str, new_name: str, tenant_key: str = "") -> WorkflowTemplate:
+    def duplicate_workflow_template(self, key: str, new_name: str, *, tenant_key: str) -> WorkflowTemplate:
         """Duplicate a workflow template including all its task templates.
 
         The clone is owned by ``tenant_key`` (the duplicating tenant), never by
@@ -358,6 +358,10 @@ class TaskService:
         decisions that differ there: the user-chosen name, and ``auto_generated``
         cleared — an explicit duplicate is an authored workflow from that point
         on, and must not answer the generated-plan lookup.
+
+        ``tenant_key`` is keyword-only without a default (#2107): with the old
+        ``""`` default the read admission below was skipped and the copy was
+        stamped with no owner — a globally visible template.
         """
         source = self.get_workflow_template(key, tenant_key=tenant_key)
         clone, _ = self._copy_workflow_template(
@@ -454,27 +458,49 @@ class TaskService:
     def get_workflow_phase(self, key: str) -> WorkflowPhase:
         return self._repo.get_phase_or_raise(key)
 
-    def create_workflow_phase(self, phase: WorkflowPhase) -> WorkflowPhase:
-        _refuse_system_workflow(self.get_workflow_template(phase.workflow_template_key))
+    def _require_writable_parent_workflow(self, workflow_template_key: str, tenant_key: str) -> WorkflowTemplate:
+        """Resolve a phase's parent workflow for a write by ``tenant_key`` (#2107).
+
+        A phase carries no tenant of its own; its parent ``WorkflowTemplate`` is the
+        only anchor. The parent is resolved through :meth:`get_workflow_template`
+        under the caller's tenant — a foreign or unknown parent, and a phase with no
+        parent at all, answer ``NotFoundError`` (404, no cross-tenant oracle) — and a
+        system or shared parent then refuses the write (:func:`_refuse_system_workflow`).
+
+        Until #2107 the tenant half of this lived in the router: ``get_workflow_phase``
+        and ``get_workflow_template(..., tenant_key=...)`` ran there, and the service
+        method that wrote resolved the parent again without a tenant.
+        """
+        if not workflow_template_key:
+            raise NotFoundError("WorkflowTemplate", workflow_template_key)
+        workflow = self.get_workflow_template(workflow_template_key, tenant_key=tenant_key)
+        _refuse_system_workflow(workflow)
+        return workflow
+
+    def create_workflow_phase(self, phase: WorkflowPhase, *, tenant_key: str) -> WorkflowPhase:
+        """Add ``phase`` to its workflow, which ``tenant_key`` must own (#2107)."""
+        self._require_writable_parent_workflow(phase.workflow_template_key, tenant_key)
         return self._repo.create_phase(phase)
 
-    def update_workflow_phase(self, key: str, data: dict) -> WorkflowPhase:
+    def update_workflow_phase(self, key: str, data: dict, *, tenant_key: str) -> WorkflowPhase:
         """Apply an allow-listed partial edit to a workflow phase (#965).
 
         Same shape as :meth:`update_task_template`: the phase carries no tenant
         of its own and is anchored on ``workflow_template_key``, which the
         allow-list keeps out of reach — re-pointing it is how a phase would move
-        into another tenant's workflow.
+        into another tenant's workflow. The parent is verified against
+        ``tenant_key`` here, not in the calling route (#2107).
         """
         phase = self.get_workflow_phase(key)
-        self._refuse_writing_into_a_system_workflow(phase.workflow_template_key)
+        self._require_writable_parent_workflow(phase.workflow_template_key, tenant_key)
         for field, value in _allowed(data, WORKFLOW_PHASE_UPDATABLE_FIELDS).items():
             setattr(phase, field, value)
         return self._repo.update_phase(key, phase)
 
-    def delete_workflow_phase(self, key: str) -> bool:
+    def delete_workflow_phase(self, key: str, *, tenant_key: str) -> bool:
+        """Delete a phase of a workflow ``tenant_key`` owns (#2107)."""
         phase = self.get_workflow_phase(key)
-        self._refuse_writing_into_a_system_workflow(phase.workflow_template_key)
+        self._require_writable_parent_workflow(phase.workflow_template_key, tenant_key)
         return self._repo.delete_phase(key)
 
     def _refuse_writing_into_a_system_workflow(self, workflow_template_key: str | None) -> None:

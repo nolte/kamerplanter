@@ -174,7 +174,7 @@ def test_finalize_batch_rolls_up_survivors_and_links_run() -> None:
     planting_run_repo.get_by_key.return_value = run
     service = PropagationService(propagation_repo=repo, planting_run_repo=planting_run_repo)
 
-    result = service.finalize_batch("batch-1", "tenant-a", "run-1")
+    result = service.finalize_batch("batch-1", "run-1", tenant_key="tenant-a")
 
     assert result.status == PropagationBatchStatus.COMPLETED
     assert result.total_survived == 13
@@ -189,7 +189,7 @@ def test_finalize_batch_foreign_run_is_404() -> None:
     service = PropagationService(propagation_repo=repo, planting_run_repo=planting_run_repo)
 
     with pytest.raises(NotFoundError):
-        service.finalize_batch("batch-1", "tenant-a", "foreign-run")
+        service.finalize_batch("batch-1", "foreign-run", tenant_key="tenant-a")
 
 
 def test_finalize_batch_run_without_tenant_key_is_rejected_fail_closed() -> None:
@@ -204,7 +204,7 @@ def test_finalize_batch_run_without_tenant_key_is_rejected_fail_closed() -> None
     service = PropagationService(propagation_repo=repo, planting_run_repo=planting_run_repo)
 
     with pytest.raises(NotFoundError):
-        service.finalize_batch("batch-1", "tenant-a", "run-1")
+        service.finalize_batch("batch-1", "run-1", tenant_key="tenant-a")
     repo.update_batch.assert_not_called()
 
 
@@ -218,7 +218,7 @@ def test_finalize_batch_run_with_none_tenant_key_is_rejected() -> None:
     service = PropagationService(propagation_repo=repo, planting_run_repo=planting_run_repo)
 
     with pytest.raises(NotFoundError):
-        service.finalize_batch("batch-1", "tenant-a", "run-1")
+        service.finalize_batch("batch-1", "run-1", tenant_key="tenant-a")
     repo.update_batch.assert_not_called()
 
 
@@ -234,7 +234,7 @@ def test_finalize_already_completed_is_422() -> None:
     service = PropagationService(propagation_repo=repo)
 
     with pytest.raises(ValidationError):
-        service.finalize_batch("batch-1", "tenant-a", "run-1")
+        service.finalize_batch("batch-1", "run-1", tenant_key="tenant-a")
 
 
 # ── Protocols ──────────────────────────────────────────────────────────────────
@@ -325,8 +325,31 @@ def test_create_batch_stamps_started_at() -> None:
     repo = _prop_repo()
     repo.create_batch.side_effect = lambda b: b
     service = PropagationService(propagation_repo=repo)
-    batch = service.create_batch(PropagationBatch(tenant_key="tenant-a", name="B", method="cutting"))
+    batch = service.create_batch(
+        PropagationBatch(tenant_key="tenant-a", name="B", method="cutting"), tenant_key="tenant-a"
+    )
     assert batch.started_at is not None
+
+
+def test_create_batch_checks_the_target_run_against_the_callers_tenant_not_the_models() -> None:
+    """#2107: the run was checked against ``batch.tenant_key``, a model field defaulting to ``""``.
+
+    The batch here carries a forged tenant that owns the run; the caller's tenant
+    does not. The argument decides, so the foreign run is refused and nothing is
+    written.
+    """
+    repo = _prop_repo()
+    runs = MagicMock()
+    runs.get_by_key.return_value = MagicMock(tenant_key="tenant-b")
+    service = PropagationService(propagation_repo=repo, planting_run_repo=runs)
+
+    with pytest.raises(NotFoundError):
+        service.create_batch(
+            PropagationBatch(tenant_key="tenant-b", name="B", method="cutting", target_planting_run_key="run-b"),
+            tenant_key="tenant-a",
+        )
+
+    repo.create_batch.assert_not_called()
 
 
 def test_list_events_and_batches_delegate() -> None:

@@ -182,7 +182,6 @@ def duplicate_workflow(
     service: TaskService = Depends(get_task_service),
 ):
     """Duplicate a workflow template under a new name."""
-    service.get_workflow_template(key, tenant_key=ctx.tenant_key)
     duplicated = service.duplicate_workflow_template(key, name, tenant_key=ctx.tenant_key)
     return _wf_response(duplicated)
 
@@ -249,9 +248,8 @@ def create_workflow_phase(
     service: TaskService = Depends(get_task_service),
 ):
     """Create a phase within a workflow template."""
-    service.get_workflow_template(wf_key, tenant_key=ctx.tenant_key)
     phase = WorkflowPhase(**body.model_dump(), workflow_template_key=wf_key)
-    return _phase_response(service.create_workflow_phase(phase))
+    return _phase_response(service.create_workflow_phase(phase, tenant_key=ctx.tenant_key))
 
 
 @router.get("/phases/suggestions", response_model=list[WorkflowPhaseSuggestion])
@@ -282,9 +280,9 @@ def update_workflow_phase(
     service: TaskService = Depends(get_task_service),
 ):
     """Update a workflow phase."""
-    phase = service.get_workflow_phase(key)
-    service.get_workflow_template(phase.workflow_template_key, tenant_key=ctx.tenant_key)
-    return _phase_response(service.update_workflow_phase(key, body.model_dump(exclude_none=True)))
+    return _phase_response(
+        service.update_workflow_phase(key, body.model_dump(exclude_none=True), tenant_key=ctx.tenant_key)
+    )
 
 
 @router.delete("/phases/{key}", status_code=204)
@@ -294,9 +292,7 @@ def delete_workflow_phase(
     service: TaskService = Depends(get_task_service),
 ):
     """Delete a workflow phase."""
-    phase = service.get_workflow_phase(key)
-    service.get_workflow_template(phase.workflow_template_key, tenant_key=ctx.tenant_key)
-    service.delete_workflow_phase(key)
+    service.delete_workflow_phase(key, tenant_key=ctx.tenant_key)
     return Response(status_code=204)
 
 

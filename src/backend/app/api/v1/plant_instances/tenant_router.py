@@ -119,8 +119,8 @@ def create_plant(
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
     """Create a plant instance for the tenant."""
-    plant = PlantInstance(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_plant(plant)
+    plant = PlantInstance(**body.model_dump())
+    created = service.create_plant(plant, tenant_key=ctx.tenant_key)
     return _to_response(created, service, ctx.tenant_key)
 
 
@@ -167,7 +167,7 @@ def update_plant(
     existing.substrate_type_override = update_data.get("substrate_type_override")
     # ADR-006 E1 — per-instance cultivation cycle override (None = same as the species).
     existing.cultivation_cycle_type = update_data.get("cultivation_cycle_type")
-    updated = service.update_plant(key, existing)
+    updated = service.update_plant(key, existing, tenant_key=ctx.tenant_key)
     return _to_response(updated, service, ctx.tenant_key)
 
 
@@ -193,7 +193,7 @@ def patch_plant(
     existing = service.get_plant(key, tenant_key=ctx.tenant_key)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(existing, field, value)
-    updated = service.update_plant(key, existing)
+    updated = service.update_plant(key, existing, tenant_key=ctx.tenant_key)
     return _to_response(updated, service, ctx.tenant_key)
 
 
