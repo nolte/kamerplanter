@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: helm
 status: measured
-measured_on: '2026-10-05'
-measured_at_commit: b84592b0423e8106218d048d4b3fd5b83cf83226
-replay_seconds: 2
+measured_on: '2026-10-12'
+measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
+replay_seconds: 3
 job_spec_sha256: cfa02745b53b25a9832ef566db0161995a81fc1e5ccae3a3d8df94ef7ce170e4
 invocations:
 - command: scripts/ci/determine_chart_version.sh
@@ -63,6 +63,7 @@ reads:
 - helm/kamerplanter/Chart.lock
 - helm/kamerplanter/Chart.yaml
 - helm/kamerplanter/templates/
+- helm/kamerplanter/templates/_celery_workers.tpl
 - helm/kamerplanter/templates/common.yaml
 - helm/kamerplanter/values-dev-ki.yaml
 - helm/kamerplanter/values-dev-recognition.yaml

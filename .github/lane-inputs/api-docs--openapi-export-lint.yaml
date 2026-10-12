@@ -9,9 +9,9 @@ job: openapi-export-lint
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-05'
-measured_at_commit: b84592b0423e8106218d048d4b3fd5b83cf83226
-replay_seconds: 42
+measured_on: '2026-10-12'
+measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
+replay_seconds: 55
 job_spec_sha256: 2f1bff7392a716c560eae9f1f5f5609f163c03d53b2487ffac5fe2ecd62284d4
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
@@ -19,7 +19,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2871
+  untracked_reads_dropped: 2896
 - command: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -125,6 +125,7 @@ reads:
 - src/backend/app/api/v1/calculations/schemas.py
 - src/backend/app/api/v1/calendar/
 - src/backend/app/api/v1/calendar/__init__.py
+- src/backend/app/api/v1/calendar/feed_router.py
 - src/backend/app/api/v1/calendar/schemas.py
 - src/backend/app/api/v1/calendar/tenant_router.py
 - src/backend/app/api/v1/care_reminders/
@@ -331,6 +332,10 @@ reads:
 - src/backend/app/api/v1/season/__init__.py
 - src/backend/app/api/v1/season/schemas.py
 - src/backend/app/api/v1/season/tenant_router.py
+- src/backend/app/api/v1/service_accounts/
+- src/backend/app/api/v1/service_accounts/__init__.py
+- src/backend/app/api/v1/service_accounts/schemas.py
+- src/backend/app/api/v1/service_accounts/tenant_router.py
 - src/backend/app/api/v1/sites/
 - src/backend/app/api/v1/sites/__init__.py
 - src/backend/app/api/v1/sites/schemas.py
@@ -356,6 +361,10 @@ reads:
 - src/backend/app/api/v1/succession_plans/__init__.py
 - src/backend/app/api/v1/succession_plans/schemas.py
 - src/backend/app/api/v1/succession_plans/tenant_router.py
+- src/backend/app/api/v1/system/
+- src/backend/app/api/v1/system/__init__.py
+- src/backend/app/api/v1/system/router.py
+- src/backend/app/api/v1/system/schemas.py
 - src/backend/app/api/v1/tanks/
 - src/backend/app/api/v1/tanks/__init__.py
 - src/backend/app/api/v1/tanks/schemas.py
@@ -365,6 +374,10 @@ reads:
 - src/backend/app/api/v1/tasks/photo_router.py
 - src/backend/app/api/v1/tasks/schemas.py
 - src/backend/app/api/v1/tasks/tenant_router.py
+- src/backend/app/api/v1/tenant_exports/
+- src/backend/app/api/v1/tenant_exports/__init__.py
+- src/backend/app/api/v1/tenant_exports/router.py
+- src/backend/app/api/v1/tenant_exports/schemas.py
 - src/backend/app/api/v1/tenant_scoped/
 - src/backend/app/api/v1/tenant_scoped/__init__.py
 - src/backend/app/api/v1/tenant_scoped/cv_diagnosis/
@@ -400,6 +413,7 @@ reads:
 - src/backend/app/common/__init__.py
 - src/backend/app/common/async_bridge.py
 - src/backend/app/common/auth.py
+- src/backend/app/common/body_limit.py
 - src/backend/app/common/datetimes.py
 - src/backend/app/common/decoys.py
 - src/backend/app/common/dependencies.py
@@ -421,6 +435,7 @@ reads:
 - src/backend/app/common/request_ip.py
 - src/backend/app/common/tenant_guard.py
 - src/backend/app/common/types.py
+- src/backend/app/common/upload_bounds.py
 - src/backend/app/common/url_safety.py
 - src/backend/app/common/validators.py
 - src/backend/app/config/
@@ -621,6 +636,8 @@ reads:
 - src/backend/app/domain/engines/tank_engine.py
 - src/backend/app/domain/engines/tenant_engine.py
 - src/backend/app/domain/engines/tenant_erasure_engine.py
+- src/backend/app/domain/engines/tenant_export_engine.py
+- src/backend/app/domain/engines/tenant_import_engine.py
 - src/backend/app/domain/engines/token_engine.py
 - src/backend/app/domain/engines/water_mix_engine.py
 - src/backend/app/domain/engines/watering_engine.py
@@ -673,6 +690,7 @@ reads:
 - src/backend/app/domain/interfaces/location_assignment_repository.py
 - src/backend/app/domain/interfaces/location_type_repository.py
 - src/backend/app/domain/interfaces/membership_repository.py
+- src/backend/app/domain/interfaces/mode_switch_repository.py
 - src/backend/app/domain/interfaces/notification_channel.py
 - src/backend/app/domain/interfaces/notification_preference_repository.py
 - src/backend/app/domain/interfaces/notification_repository.py
@@ -689,6 +707,7 @@ reads:
 - src/backend/app/domain/interfaces/pest_prototype_store.py
 - src/backend/app/domain/interfaces/phase_repository.py
 - src/backend/app/domain/interfaces/phase_sequence_repository.py
+- src/backend/app/domain/interfaces/plan_repository.py
 - src/backend/app/domain/interfaces/plant_diagnosis_repository.py
 - src/backend/app/domain/interfaces/plant_diary_repository.py
 - src/backend/app/domain/interfaces/plant_identification_adapter.py
@@ -712,6 +731,7 @@ reads:
 - src/backend/app/domain/interfaces/task_repository.py
 - src/backend/app/domain/interfaces/tenant_erasure_executor.py
 - src/backend/app/domain/interfaces/tenant_erasure_repository.py
+- src/backend/app/domain/interfaces/tenant_export_store.py
 - src/backend/app/domain/interfaces/tenant_repository.py
 - src/backend/app/domain/interfaces/unknown_account_store.py
 - src/backend/app/domain/interfaces/user_repository.py
@@ -751,6 +771,7 @@ reads:
 - src/backend/app/domain/models/location_type.py
 - src/backend/app/domain/models/mcp.py
 - src/backend/app/domain/models/membership.py
+- src/backend/app/domain/models/mode_switch.py
 - src/backend/app/domain/models/notification.py
 - src/backend/app/domain/models/nutrient_plan.py
 - src/backend/app/domain/models/observation.py
@@ -763,6 +784,7 @@ reads:
 - src/backend/app/domain/models/pest_taxonomy.py
 - src/backend/app/domain/models/phase.py
 - src/backend/app/domain/models/phase_sequence.py
+- src/backend/app/domain/models/plan.py
 - src/backend/app/domain/models/plant_diagnosis_request.py
 - src/backend/app/domain/models/plant_diary_entry.py
 - src/backend/app/domain/models/plant_instance.py
@@ -774,6 +796,7 @@ reads:
 - src/backend/app/domain/models/season_state.py
 - src/backend/app/domain/models/security_audit.py
 - src/backend/app/domain/models/sensor.py
+- src/backend/app/domain/models/service_account.py
 - src/backend/app/domain/models/site.py
 - src/backend/app/domain/models/species.py
 - src/backend/app/domain/models/starter_kit.py
@@ -787,6 +810,7 @@ reads:
 - src/backend/app/domain/models/tenant.py
 - src/backend/app/domain/models/tenant_context.py
 - src/backend/app/domain/models/tenant_erasure.py
+- src/backend/app/domain/models/tenant_export.py
 - src/backend/app/domain/models/user.py
 - src/backend/app/domain/models/user_preference.py
 - src/backend/app/domain/models/watering_event.py
@@ -810,17 +834,20 @@ reads:
 - src/backend/app/domain/services/care_reminder_service.py
 - src/backend/app/domain/services/catalogue_authorization.py
 - src/backend/app/domain/services/climate_normal_fetcher.py
+- src/backend/app/domain/services/companion_edge_service.py
 - src/backend/app/domain/services/cv_diagnosis_service.py
 - src/backend/app/domain/services/dashboard_service.py
 - src/backend/app/domain/services/dashboard_widget_catalog.py
 - src/backend/app/domain/services/diagnose_service.py
 - src/backend/app/domain/services/enrichment_service.py
+- src/backend/app/domain/services/entitlement_service.py
 - src/backend/app/domain/services/environment_snapshot_service.py
 - src/backend/app/domain/services/favorites_service.py
 - src/backend/app/domain/services/feeding_references.py
 - src/backend/app/domain/services/feeding_service.py
 - src/backend/app/domain/services/fertilizer_references.py
 - src/backend/app/domain/services/fertilizer_service.py
+- src/backend/app/domain/services/fields_kept_on_edit.py
 - src/backend/app/domain/services/glossary_service.py
 - src/backend/app/domain/services/ha_entity_grant_service.py
 - src/backend/app/domain/services/ha_publish_service.py
@@ -836,6 +863,7 @@ reads:
 - src/backend/app/domain/services/ipm_service.py
 - src/backend/app/domain/services/location_ownership.py
 - src/backend/app/domain/services/location_type_service.py
+- src/backend/app/domain/services/mode_switch_service.py
 - src/backend/app/domain/services/notification_propagation_service.py
 - src/backend/app/domain/services/notification_service.py
 - src/backend/app/domain/services/nutrient_plan_service.py
@@ -849,6 +877,7 @@ reads:
 - src/backend/app/domain/services/phase_sequence_binder.py
 - src/backend/app/domain/services/phase_sequence_service.py
 - src/backend/app/domain/services/phase_service.py
+- src/backend/app/domain/services/plan_service.py
 - src/backend/app/domain/services/plant_diary_service.py
 - src/backend/app/domain/services/plant_instance_service.py
 - src/backend/app/domain/services/plant_photo_service.py
@@ -878,6 +907,7 @@ reads:
 - src/backend/app/domain/services/tank_service.py
 - src/backend/app/domain/services/task_entity_guard.py
 - src/backend/app/domain/services/task_service.py
+- src/backend/app/domain/services/tenant_export_service.py
 - src/backend/app/domain/services/tenant_service.py
 - src/backend/app/domain/services/user_preference_service.py
 - src/backend/app/domain/services/user_service.py
