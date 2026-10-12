@@ -12,7 +12,10 @@ name: Lane inputs
 #            invocations, plus one per `covered_by` delegation target that has
 #            no manifest yet (its invocations are that job's own `run:` lines).
 #            There is no second list of lanes in this file.
-#   record   replays ONE leg's invocations exactly as the manifest states them,
+#   record   starts the measured job's own `services:` and replays ONE leg's
+#            invocations as the manifest states them — with the job's literal
+#            `env:` laid over the recorded one, so the leg runs with what the
+#            job runs with —
 #            under `strace -ff -y -z` (`scripts/ci/lane_inputs.py replay`), and
 #            uploads the manifest it wrote — including how long the replay took
 #            (`replay_seconds`), from which the next `plan` sizes this leg's
@@ -92,13 +95,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # The SAME image and digest as the integration lane in backend-guards.yml, so
-  # a recording of that lane runs against the server it runs against. An env
-  # value rather than a `services:` entry because only the legs that need it
-  # start it; the `{{depName}} image` group in renovate.json5 matches on package
-  # identity across managers, so this pin moves with the others.
-  # renovate: datasource=docker depName=arangodb
-  ARANGODB_IMAGE: arangodb:3.12@sha256:4bc086d5050ca7ea11c6d00a36d8b910c838bb54ad553f8c1b715769d3499bcf
+  # No database image here (#1683). A leg starts the `services:` of the job it
+  # measures, read from that job's own workflow by `lane_inputs.py services`
+  # (the step "Start the measured job's service containers" below). The copy of
+  # the ArangoDB digest that stood here moved with Renovate, but the lane kept
+  # its own LIST of servers too: when backend-guards.yml's integration job gained
+  # a TimescaleDB service (#1943), the leg never started one and every Timescale
+  # test ERRORed in the recording.
   # The image docker-lint-build.yml runs hadolint from; the binary is copied out
   # of it so the recorder can trace the process that actually opens the files.
   # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
@@ -221,28 +224,27 @@ jobs:
           docker cp "$container:/bin/hadolint" "$RUNNER_TEMP/bin/hadolint"
           docker rm "$container"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-      - name: Start ArangoDB
-        if: matrix.arangodb
-        run: |
-          # Loopback (#1750): the same command under `act` runs on a workstation.
-          docker run -d --name arangodb -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword "$ARANGODB_IMAGE"
-          for attempt in $(seq 1 60); do
-            if curl -fsS --max-time 5 -u root:rootpassword http://localhost:8529/_api/version >/dev/null; then
-              echo "ArangoDB answered after ${attempt} attempt(s)."
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "::error::ArangoDB did not answer on localhost:8529 within 120 s."
-          docker logs arangodb | tail -50
-          exit 1
+      - name: Start the measured job's service containers
+        # Every `services:` entry of the job this leg measures — image and
+        # digest, env, ports (loopback, #1750) and health options exactly as
+        # that job declares them, waited on until healthy. Unconditional: a job
+        # without services starts nothing. The leg's replay below hands each
+        # invocation the job's own literal `env:` the same way (#1683). The
+        # guard test_record_legs_provide_the_measured_jobs_environment.py holds
+        # every planned leg to both.
+        timeout-minutes: 15
+        env:
+          LANE: ${{ matrix.lane }}
+        run: python3 scripts/ci/lane_inputs.py services "$LANE"
 
       - name: Replay the manifest's invocations under the recorder
         # Per leg, from the duration this leg's last recording measured
         # (`replay_seconds` in its manifest): 3x that, at least 10 and at most
         # 90 minutes; 90 for a leg never measured. `plan` computes it
         # (`leg_timeout_minutes`), so a hung 2-minute leg is cut off after 10
-        # minutes instead of holding the run for the job's 90 (#1683).
+        # minutes instead of holding the run for the job's 90 (#1683). A leg
+        # whose job changed since that recording gets the 90: its old duration
+        # measured another job, and a replay cut off records no new one.
         timeout-minutes: ${{ matrix.timeout_minutes }}
         env:
           OUT_DIR: ${{ runner.temp }}/lane-inputs-recorded

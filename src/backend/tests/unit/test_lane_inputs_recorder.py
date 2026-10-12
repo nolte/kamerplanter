@@ -263,6 +263,17 @@ def _unmeasured(**overrides: object) -> dict:
     return manifest
 
 
+#: A real job of this tree, so `plan` can hold a planted measurement against its live hash.
+_LIVE_JOB = {"workflow": "backend-guards.yml", "job": "integration"}
+
+
+def _measured_live(**overrides: object) -> dict:
+    """``_committed`` against a real job, carrying that job's live ``job_spec_sha256``."""
+    _path, document = recorder.load_workflow(_LIVE_JOB["workflow"])
+    live = recorder.job_spec_hash(document, _LIVE_JOB["job"])
+    return _committed(**{**_LIVE_JOB, "job_spec_sha256": live, **overrides})
+
+
 def _write(directory: Path, name: str, manifest: dict) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     (directory / name).write_text(yaml.safe_dump(manifest, sort_keys=False))
@@ -525,7 +536,8 @@ class TestBootstrap:
             leg["name"] for leg in legs if not leg["lane"].endswith(".yaml")
         }
         integration = next(leg for leg in legs if leg["name"] == "backend-guards--integration")
-        assert integration["arangodb"] and integration["backend"]
+        assert integration["backend"]
+        assert "arangodb" not in integration, "a database is the measured job's service, not a flag of the leg (#1683)"
 
     def test_held_commands_select_what_the_guards_rule_5_holds(self, guard: ModuleType) -> None:
         """The bootstrap derives invocations from the same commands rule 5 holds a manifest against."""
@@ -631,6 +643,8 @@ class TestThePlanSizesEachLegsTimeoutFromItsMeasuredReplay:
     Asserted through ``plan_matrix`` — the function ``plan --github-output``
     serialises into the matrix the ``record`` job reads — over a planted
     manifest directory, so the arithmetic is reached the way production reaches it.
+    The planted manifests name a REAL job with its live hash: a measurement of a
+    job that changed since (or does not exist) is no measurement (#1683).
     """
 
     @pytest.mark.parametrize(
@@ -649,13 +663,13 @@ class TestThePlanSizesEachLegsTimeoutFromItsMeasuredReplay:
     def test_three_times_the_recorded_duration_between_floor_and_cap(
         self, tmp_path: Path, seconds: int, minutes: int
     ) -> None:
-        _write(tmp_path, "w--j.yaml", _committed(replay_seconds=seconds))
+        _write(tmp_path, "w--j.yaml", _measured_live(replay_seconds=seconds))
         (leg,) = recorder.plan_matrix(tmp_path)
         assert leg["timeout_minutes"] == minutes
 
     @pytest.mark.parametrize("value", [None, 0, -5, "600", True, 12.5, 5401])
     def test_a_leg_without_a_usable_measurement_gets_the_job_level_bound(self, tmp_path: Path, value: object) -> None:
-        manifest = _unmeasured() if value is None else _committed(replay_seconds=value)
+        manifest = _unmeasured(**_LIVE_JOB) if value is None else _measured_live(replay_seconds=value)
         _write(tmp_path, "w--j.yaml", manifest)
         (leg,) = recorder.plan_matrix(tmp_path)
         assert leg["timeout_minutes"] == recorder.TIMEOUT_CAP_MINUTES == 90
@@ -664,7 +678,7 @@ class TestThePlanSizesEachLegsTimeoutFromItsMeasuredReplay:
         _write(
             tmp_path,
             "w--j.yaml",
-            _committed(
+            _measured_live(
                 replay_seconds=60,
                 accepted_gaps=[{"pattern": "x", "reason": "r" * 50, "covered_by": "backend-guards.yml/guards"}],
             ),
@@ -672,6 +686,23 @@ class TestThePlanSizesEachLegsTimeoutFromItsMeasuredReplay:
         legs = {leg["name"]: leg for leg in recorder.plan_matrix(tmp_path)}
         assert legs["w--j"]["timeout_minutes"] == 10
         assert legs["backend-guards--guards"]["timeout_minutes"] == recorder.TIMEOUT_CAP_MINUTES
+
+    def test_a_leg_whose_job_changed_since_its_measurement_gets_the_job_level_bound(self, tmp_path: Path) -> None:
+        """Runs 37298982533 / 38241685935: 474 s measured, then the job gained a service; replays cut off at 24 min."""
+        _write(tmp_path, "w--j.yaml", _measured_live(replay_seconds=474, job_spec_sha256="b" * 64))
+        (leg,) = recorder.plan_matrix(tmp_path)
+        assert leg["timeout_minutes"] == recorder.TIMEOUT_CAP_MINUTES
+
+    def test_the_same_measurement_of_the_unchanged_job_keeps_its_bound(self, tmp_path: Path) -> None:
+        """The counterpart: only the hash differs between this test and the one above."""
+        _write(tmp_path, "w--j.yaml", _measured_live(replay_seconds=474))
+        (leg,) = recorder.plan_matrix(tmp_path)
+        assert leg["timeout_minutes"] == 24
+
+    def test_a_leg_whose_job_does_not_resolve_gets_the_job_level_bound(self, tmp_path: Path) -> None:
+        _write(tmp_path, "w--j.yaml", _committed(replay_seconds=474))
+        (leg,) = recorder.plan_matrix(tmp_path)
+        assert leg["timeout_minutes"] == recorder.TIMEOUT_CAP_MINUTES
 
     def test_the_cap_is_the_record_jobs_own_bound_and_the_replay_step_reads_the_leg(self) -> None:
         """The cap equals the job-level `timeout-minutes`, and the replay step is bounded by the matrix value."""
@@ -1431,3 +1462,164 @@ def test_a_read_two_overlapping_gaps_leave_undelegated_is_counted_once(tmp_path:
         "w--j.yaml: 1 new read(s) fall under an accepted gap whose covered_by lane did not read them in this "
         "run: docs/x/new.md (covered_by g.yml/guards)"
     ]
+
+
+# ------------------------------------- the measured job's services and env (#1683)
+
+
+def _planted_workflow(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, document: dict) -> str:
+    """Point the recorder's workflow directory at *tmp_path* holding *document* as ``w.yml``."""
+    (tmp_path / "w.yml").write_text(yaml.safe_dump(document, sort_keys=False))
+    monkeypatch.setattr(recorder, "WORKFLOW_DIR", tmp_path)
+    return "w.yml"
+
+
+class TestTheLegStartsTheMeasuredJobsServices:
+    """`services` reads the measured job's `services:`; no copy of an image lives in the lane (#1683)."""
+
+    def test_the_integration_jobs_services_are_read_from_its_own_workflow(self) -> None:
+        _path, document = recorder.load_workflow("backend-guards.yml")
+        declared = document["jobs"]["integration"]["services"]
+        started = {s.name: s for s in recorder.service_containers("backend-guards.yml", "integration")}
+        assert set(started) == set(declared) >= {"arangodb", "timescaledb"}
+        for name, service in started.items():
+            argv = service.run_argv()
+            assert argv[-1] == declared[name]["image"], "the image and digest come from the job, not from a copy"
+            assert argv[:5] == ["docker", "run", "--detach", "--name", f"lane-inputs-service-{name}"]
+
+    def test_the_options_are_passed_verbatim_before_the_image(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        workflow = _planted_workflow(
+            monkeypatch,
+            tmp_path,
+            {
+                "jobs": {
+                    "j": {
+                        "services": {
+                            "db": {
+                                "image": "postgres:16@sha256:" + "c" * 64,
+                                "credentials": {"username": "${{ vars.U }}", "password": "${{ secrets.P }}"},
+                                "env": {"POSTGRES_PASSWORD": "pw"},
+                                "ports": ["127.0.0.1:5432:5432"],
+                                "options": '--health-cmd "pg_isready -U postgres" --health-retries 3',
+                            }
+                        },
+                        "steps": [],
+                    }
+                }
+            },
+        )
+        (service,) = recorder.service_containers(workflow, "j")
+        assert service.run_argv() == [
+            "docker", "run", "--detach", "--name", "lane-inputs-service-db",
+            "--publish", "127.0.0.1:5432:5432", "--env", "POSTGRES_PASSWORD=pw",
+            "--health-cmd", "pg_isready -U postgres", "--health-retries", "3",
+            "postgres:16@sha256:" + "c" * 64,
+        ]  # fmt: skip
+
+    @pytest.mark.parametrize(
+        ("spec", "message"),
+        [
+            ({"image": "x", "volumes": ["/a:/a"]}, "does not reproduce"),
+            ({"image": "x", "env": {"P": "${{ secrets.P }}"}}, "run-time values"),
+            ({"image": "${{ matrix.image }}"}, "run-time values"),
+            ({"env": {"A": "b"}}, "no `image:`"),
+        ],
+    )
+    def test_what_the_lane_cannot_reproduce_is_refused(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, spec: dict, message: str
+    ) -> None:
+        workflow = _planted_workflow(monkeypatch, tmp_path, {"jobs": {"j": {"services": {"s": spec}, "steps": []}}})
+        with pytest.raises(recorder.LaneInputsError, match=message):
+            recorder.service_containers(workflow, "j")
+
+    def test_a_job_without_services_starts_nothing(self, capsys: pytest.CaptureFixture[str]) -> None:
+        assert recorder.main(["services", ".github/lane-inputs/frontend--coverage.yaml"]) == recorder.EXIT_OK
+        assert "declares no services" in capsys.readouterr().err
+
+
+class TestTheServicesAreWaitedOn:
+    """`start_services` returns only when every container is healthy, and names the one that is not."""
+
+    def _service(self, *options: str) -> object:
+        return recorder.ServiceContainer(name="db", image="img", env=(), ports=(), options=options)
+
+    def _docker(self, monkeypatch: pytest.MonkeyPatch, states: list[str], calls: list[list[str]]) -> None:
+        pending = iter(states)
+
+        def run(argv: list[str], **_kwargs: object) -> object:
+            calls.append(argv)
+            stdout = next(pending) if argv[1] == "inspect" else ""
+            return recorder.subprocess.CompletedProcess(argv, 0, stdout=stdout, stderr="")
+
+        monkeypatch.setattr(recorder.subprocess, "run", run)
+        monkeypatch.setattr(recorder.time, "sleep", lambda _seconds: None)
+
+    def test_a_starting_container_is_polled_until_healthy(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[list[str]] = []
+        self._docker(monkeypatch, ["starting", "starting", "healthy"], calls)
+        recorder.start_services([self._service("--health-cmd", "true")])
+        assert [argv[1] for argv in calls] == ["run", "inspect", "inspect", "inspect"]
+
+    def test_an_unhealthy_container_fails_the_leg_with_its_logs(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._docker(monkeypatch, ["unhealthy"], [])
+        with pytest.raises(recorder.LaneInputsError, match="'db' is unhealthy"):
+            recorder.start_services([self._service("--health-cmd", "true")])
+
+    def test_running_is_enough_only_without_a_health_check(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._docker(monkeypatch, ["running"], [])
+        recorder.start_services([self._service()])
+        self._docker(monkeypatch, ["running", "running"], [])
+        clock = iter([0.0, 0.0, 999.0])
+        monkeypatch.setattr(recorder.time, "monotonic", lambda: next(clock))
+        with pytest.raises(recorder.LaneInputsError, match="not healthy within 5 s"):
+            recorder.start_services([self._service("--health-cmd", "true")], healthy_seconds=5)
+
+
+class TestTheReplayHandsOverTheJobsEnv:
+    """The job's literal env wins over the recorded one; a run-time value keeps the manifest's stand-in (#1683)."""
+
+    _DOCUMENT = {
+        "env": {"WF": "w", "PREFIX": "ghcr.io/${{ github.repository_owner }}"},
+        "jobs": {
+            "j": {
+                "env": {"DB_HOST": "localhost", "DB_PORT": "5432", "REF": "${{ github.ref }}"},
+                "steps": [
+                    {"run": "task test", "working-directory": "src/backend", "env": {"STEP": "s", "DB_PORT": "6543"}},
+                    {"run": "task other", "env": {"OTHER": "o"}},
+                ],
+            }
+        },
+    }
+
+    def test_the_integration_leg_gets_the_timescale_env_its_manifest_never_recorded(self, tmp_path: Path) -> None:
+        plan = recorder.replay_plan(".github/lane-inputs/backend-guards--integration.yaml", tmp_path)
+        _path, document = recorder.load_workflow("backend-guards.yml")
+        job_env = {f"{k}={v}" for k, v in document["jobs"]["integration"]["env"].items()}
+        for argv in plan.argvs:
+            passed = {argv[i + 1] for i, token in enumerate(argv[: argv.index("--")]) if token == "--env"}
+            assert job_env <= passed
+        assert any(entry.startswith("TIMESCALEDB_HOST=") for entry in job_env)
+
+    def test_workflow_job_and_matching_step_env_are_layered(self) -> None:
+        invocation = {"command": "task test", "cwd": "src/backend", "env": ["DB_PORT=1", "REF=refs/heads/develop"]}
+        env, unresolved = recorder.replay_env(self._DOCUMENT, "j", invocation)
+        assert env == [
+            "DB_HOST=localhost",
+            "DB_PORT=6543",  # the step's value over the job's over the recorded one
+            "REF=refs/heads/develop",  # a run-time value: the manifest's stand-in survives
+            "STEP=s",
+            "WF=w",
+        ]
+        assert unresolved == ["PREFIX"], "a run-time value without a stand-in is reported, never invented"
+
+    def test_an_invocation_no_step_runs_gets_the_workflow_and_job_env_only(self) -> None:
+        invocation = {"command": "task appended", "cwd": "src/backend", "env": []}
+        env, _unresolved = recorder.replay_env(self._DOCUMENT, "j", invocation)
+        assert env == ["DB_HOST=localhost", "DB_PORT=5432", "WF=w"]
+
+    def test_the_step_is_matched_in_its_own_working_directory(self) -> None:
+        invocation = {"command": "task test", "cwd": ".", "env": []}
+        env, _unresolved = recorder.replay_env(self._DOCUMENT, "j", invocation)
+        assert "STEP=s" not in env

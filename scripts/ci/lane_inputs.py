@@ -95,13 +95,17 @@ Where the manifests are actually recorded (#1683)
 
 The commands above are the instrument; the place it is meant to run is the
 advisory CI lane ``.github/workflows/lane-inputs.yml``, where the environment
-is the real one (Linux, ``strace``, Docker, an ArangoDB service). That lane
-does not keep a second list of what to run. It reads every manifest's own
-``invocations`` and replays them::
+is the real one (Linux, ``strace``, Docker, the measured job's own service
+containers). That lane does not keep a second list of what to run. It reads
+every manifest's own ``invocations`` and replays them::
 
     # the matrix: one leg per manifest with invocations, plus one per
     # `covered_by` delegation target that has no manifest yet (bootstrap)
     python3 scripts/ci/lane_inputs.py plan --github-output "$GITHUB_OUTPUT"
+
+    # one leg: start the containers of the measured job's `services:`, read
+    # from that job's workflow (no-op for a job without services)
+    python3 scripts/ci/lane_inputs.py services .github/lane-inputs/<name>.yaml
 
     # one leg: re-run the manifest's invocations under the recorder, writing a
     # fresh manifest into --out-dir; hand-written fields (gate, accepted_gaps,
@@ -133,8 +137,19 @@ replay maps each to ``SCRATCH_DIR/<basename>`` and ``compare`` normalises both
 sides the same way, so a manifest recorded on a workstation and one recorded in
 CI agree on the command when they agree on everything else.
 
-Two things a replay reproduces from the real job rather than from a list kept
-here. ``PATH``: a step that runs ``echo "$PWD/<dir>" >> "$GITHUB_PATH"`` (the
+Four things a replay reproduces from the real job rather than from a list kept
+here. SERVICES: ``services`` starts every container of the measured job's
+``services:`` — image and digest, ``env``, ``ports``, ``options`` read from that
+job's workflow (:func:`service_containers`), so no second copy of a pin can
+drift. Until #1683 the lane started ArangoDB from its own copy of the digest and
+nothing else; #1943 gave the integration job a TimescaleDB service, the leg
+never got one, and every Timescale test ERRORed in the recording. ENVIRONMENT:
+the literal ``env:`` of the workflow, the job and the step that runs the
+invocation is laid over the manifest's recorded ``env`` (:func:`replay_env`),
+for the same reason — the job's ``TIMESCALEDB_*`` never reached the leg because
+the replay handed over only what an older recording had written down. The
+manifest keeps what the job cannot hand over: a stand-in for a run-time
+``${{ }}`` value. ``PATH``: a step that runs ``echo "$PWD/<dir>" >> "$GITHUB_PATH"`` (the
 side-services and backend installs put their venv on ``PATH`` that way, and the
 job's later ``python -m pytest`` resolves to it) is read from the workflow by
 :func:`job_path_additions` and prepended for the replay — without it the replay
@@ -323,13 +338,38 @@ def replay_seconds_problem(manifest: dict[str, Any]) -> str | None:
     return None
 
 
+def measurement_describes_the_live_job(manifest: dict[str, Any]) -> bool:
+    """Whether *manifest*'s ``job_spec_sha256`` is still the hash of the job it names.
+
+    A recorded duration is a measurement of ONE job definition. When the job
+    changed since (another service, another step), the duration describes a job
+    that no longer exists — exactly as a re-recorded invocation discards it
+    (:func:`with_replay_seconds`). A workflow or job that cannot be resolved is
+    no evidence for the measurement either.
+    """
+    try:
+        _path, document = load_workflow(str(manifest.get("workflow", "")))
+        live = job_spec_hash(document, str(manifest.get("job", "")))
+    except LaneInputsError:
+        return False
+    return manifest.get("job_spec_sha256") == live
+
+
 def leg_timeout_minutes(manifest: dict[str, Any] | None) -> int:
     """The replay step's bound for one leg: TIMEOUT_FACTOR × the measured replay, floored and capped.
 
     ``None`` (a bootstrap leg, no manifest yet) and a manifest without a usable
     measurement get the cap — the bound every leg had before it was measured.
+    So does a manifest whose job changed since it was measured (#1683, runs
+    37298982533 and 38241685935): the integration job gained a TimescaleDB
+    service and its suite grew from ~6 to ~33 minutes, the leg kept the
+    24-minute bound of its 474-second recording, every replay was cut off
+    before it could finish — and a replay cut off writes no new
+    ``replay_seconds``, so the stale bound could never correct itself.
     """
     if manifest is None or replay_seconds_problem(manifest) is not None:
+        return TIMEOUT_CAP_MINUTES
+    if not measurement_describes_the_live_job(manifest):
         return TIMEOUT_CAP_MINUTES
     minutes = math.ceil(TIMEOUT_FACTOR * int(manifest["replay_seconds"]) / 60)
     return min(TIMEOUT_CAP_MINUTES, max(TIMEOUT_FLOOR_MINUTES, minutes))
@@ -1208,21 +1248,12 @@ def _step_cwd(document: dict[str, Any], job: dict[str, Any], step: dict[str, Any
 
 def held_commands(document: dict[str, Any], job_id: str) -> list[tuple[list[str], str, dict[str, str]]]:
     """``(tokens, cwd, env)`` for every held ``run:`` command of *job_id*, env = job env + step env."""
-    job = (document.get("jobs") or {}).get(job_id)
-    if not isinstance(job, dict):
-        raise LaneInputsError(f"job {job_id!r} is not defined in this workflow")
+    job = _job(document, job_id)
     job_env = job.get("env") if isinstance(job.get("env"), dict) else {}
-    out: list[tuple[list[str], str, dict[str, str]]] = []
-    for step in job.get("steps") or []:
-        if not isinstance(step, dict) or not isinstance(step.get("run"), str):
-            continue
-        step_env = step.get("env") if isinstance(step.get("env"), dict) else {}
-        env = {str(key): str(value) for key, value in {**job_env, **step_env}.items()}
-        cwd = _step_cwd(document, job, step)
-        for tokens in split_script(step["run"]):
-            if _is_held(tokens):
-                out.append((tokens, cwd, env))
-    return out
+    return [
+        (tokens, cwd, {str(key): str(value) for key, value in {**job_env, **step_env}.items()})
+        for tokens, cwd, step_env in _held_steps(document, job_id)
+    ]
 
 
 _GITHUB_PATH_LINE = re.compile(
@@ -1318,6 +1349,266 @@ def bootstrap_invocations(workflow: str, job: str) -> list[dict[str, Any]]:
     if not invocations:
         raise LaneInputsError(f"{workflow}/{job} runs no held command (task/pytest/python/npx/scripts)")
     return invocations
+
+
+# ------------------------------------------------- the measured job's environment
+#
+# #1683 (runs 37298982533, 38241685935): the integration leg replayed
+# `task test:backend:integration` with ArangoDB and without the TimescaleDB
+# service #1943 had given the measured job, and with the four ARANGODB_* the
+# manifest had been recorded under but not the job's TIMESCALEDB_*. Every
+# Timescale test ERRORed. Both gaps had one cause: the lane kept its OWN
+# description of what a leg's job runs with — an `ARANGODB_IMAGE` copy, a
+# "Start ArangoDB" step, a flag derived from the manifest's env — and the job
+# moved on without it. What a leg runs with is therefore read from the measured
+# job itself, here, at replay time. The guard
+# `tests/unit/guards/test_record_legs_provide_the_measured_jobs_environment.py`
+# holds every leg the plan emits to it.
+
+_EXPRESSION = "${{"
+
+#: The keys of a ``services.<name>`` entry the lane reproduces. ``credentials``
+#: is the lane's own concern — lane-inputs.yml logs in to Docker Hub before any
+#: leg pulls, and the job's ``${{ secrets }}`` values cannot be resolved here.
+#: Any other key (``volumes``, …) is refused rather than dropped: a service
+#: started without it is another service.
+_SERVICE_KEYS = frozenset({"image", "env", "ports", "options", "credentials"})
+
+#: The container name prefix of a started service, so a re-run on the same host
+#: (``act``) names what it left behind.
+SERVICE_CONTAINER_PREFIX = "lane-inputs-service-"
+
+#: How long one ``docker run`` (including the pull) may take.
+SERVICE_START_SECONDS = 600
+
+#: How long ``services`` waits for every container to report healthy. The job's
+#: own health options allow 12 retries x 10 s after a 10-20 s start period
+#: (~140 s); this leaves room for a slow runner without holding a leg whose
+#: container never comes up for its whole replay bound.
+SERVICE_HEALTHY_SECONDS = 300
+
+
+@dataclass(frozen=True)
+class ServiceContainer:
+    """One ``services.<name>`` entry of a measured job, as ``docker run`` starts it."""
+
+    name: str
+    image: str
+    env: tuple[tuple[str, str], ...]
+    ports: tuple[str, ...]
+    options: tuple[str, ...]
+
+    @property
+    def container(self) -> str:
+        return f"{SERVICE_CONTAINER_PREFIX}{self.name}"
+
+    def run_argv(self) -> list[str]:
+        """What GitHub does with a service entry: ``options`` verbatim before the image (``docker create``)."""
+        argv = ["docker", "run", "--detach", "--name", self.container]
+        for port in self.ports:
+            argv += ["--publish", port]
+        for key, value in self.env:
+            argv += ["--env", f"{key}={value}"]
+        return [*argv, *self.options, self.image]
+
+
+def lane_job(lane: str) -> tuple[str, str]:
+    """``(workflow, job)`` of a leg: a manifest path, or ``WORKFLOW/JOB`` for a bootstrap leg."""
+    if lane.endswith((".yaml", ".yml")):
+        source = Path(lane) if Path(lane).is_absolute() else REPO_ROOT / lane
+        manifest = load_manifest(source)
+        return str(manifest.get("workflow", "")), str(manifest.get("job", ""))
+    workflow, _, job = lane.partition("/")
+    return workflow, job
+
+
+def _job(document: dict[str, Any], job_id: str) -> dict[str, Any]:
+    job = (document.get("jobs") or {}).get(job_id)
+    if not isinstance(job, dict):
+        raise LaneInputsError(f"job {job_id!r} is not defined in this workflow")
+    return job
+
+
+def service_containers(workflow: str, job_id: str) -> list[ServiceContainer]:
+    """Every ``services:`` entry of *workflow*/*job_id*, read from that workflow — no copy of any pin.
+
+    A value carrying a ``${{ }}`` expression (other than in ``credentials``)
+    cannot be resolved off the runner that runs the job and is refused, not
+    guessed at; so is a key this function does not reproduce.
+    """
+    _path, document = load_workflow(workflow)
+    services = _job(document, job_id).get("services") or {}
+    if not isinstance(services, dict):
+        raise LaneInputsError(f"{workflow}/{job_id}: `services` is not a mapping")
+    out: list[ServiceContainer] = []
+    for name, spec in services.items():
+        where = f"{workflow}/{job_id} service {name!r}"
+        if not isinstance(spec, dict) or not isinstance(spec.get("image"), str) or not spec["image"]:
+            raise LaneInputsError(f"{where} has no `image:` the lane could start")
+        unknown = sorted(set(spec) - _SERVICE_KEYS)
+        if unknown:
+            raise LaneInputsError(
+                f"{where} sets {unknown}, which the lane does not reproduce — teach service_containers"
+            )
+        env = spec.get("env") or {}
+        ports = spec.get("ports") or []
+        options = spec.get("options") or ""
+        if not isinstance(env, dict) or not isinstance(ports, list) or not isinstance(options, str):
+            raise LaneInputsError(f"{where}: `env` must be a mapping, `ports` a list, `options` a string")
+        values = [spec["image"], options, *(str(value) for value in env.values()), *(str(port) for port in ports)]
+        unresolved = [value for value in values if _EXPRESSION in value]
+        if unresolved:
+            raise LaneInputsError(f"{where} carries run-time values {unresolved}; the lane cannot resolve them")
+        out.append(
+            ServiceContainer(
+                name=str(name),
+                image=spec["image"],
+                env=tuple((str(key), str(value)) for key, value in env.items()),
+                ports=tuple(str(port) for port in ports),
+                options=tuple(shlex.split(options)),
+            )
+        )
+    return out
+
+
+def _container_state(container: str) -> str:
+    """``healthy``/``starting``/``unhealthy`` for a container with a health check, else its run state."""
+    template = "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}"
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "--format", template, container],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return "unknown"
+    return result.stdout.strip() if result.returncode == 0 else "missing"
+
+
+def _container_logs(container: str) -> str:
+    try:
+        result = subprocess.run(
+            ["docker", "logs", "--tail", "50", container], check=False, capture_output=True, text=True, timeout=30
+        )
+    except subprocess.TimeoutExpired:
+        return "(docker logs timed out)"
+    return (result.stdout + result.stderr).strip()
+
+
+def start_services(containers: list[ServiceContainer], *, healthy_seconds: int = SERVICE_HEALTHY_SECONDS) -> None:
+    """Start every container, then wait until each reports healthy (or running, without a health check)."""
+    for service in containers:
+        print(f"lane-inputs: starting service {service.name!r} from {service.image}", file=sys.stderr)
+        try:
+            result = subprocess.run(
+                service.run_argv(), check=False, capture_output=True, text=True, timeout=SERVICE_START_SECONDS
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise LaneInputsError(
+                f"service {service.name!r}: `docker run` did not return within {SERVICE_START_SECONDS} s"
+            ) from exc
+        if result.returncode != 0:
+            raise LaneInputsError(
+                f"service {service.name!r}: `docker run` exited {result.returncode}: {result.stderr.strip()[-800:]}"
+            )
+    deadline = time.monotonic() + healthy_seconds
+    pending = list(containers)
+    while pending:
+        for service in list(pending):
+            state = _container_state(service.container)
+            if state == "healthy" or (state == "running" and not _declares_health_check(service)):
+                print(f"lane-inputs: service {service.name!r} is {state}", file=sys.stderr)
+                pending.remove(service)
+            elif state in ("unhealthy", "exited", "dead", "missing"):
+                raise LaneInputsError(f"service {service.name!r} is {state}:\n{_container_logs(service.container)}")
+        if pending and time.monotonic() >= deadline:
+            names = ", ".join(repr(service.name) for service in pending)
+            logs = "\n".join(f"--- {s.name}\n{_container_logs(s.container)}" for s in pending)
+            raise LaneInputsError(f"service(s) {names} not healthy within {healthy_seconds} s:\n{logs}")
+        if pending:
+            time.sleep(2)
+
+
+def _declares_health_check(service: ServiceContainer) -> bool:
+    return any(option == "--health-cmd" or option.startswith("--health-cmd=") for option in service.options)
+
+
+def command_services(args: argparse.Namespace) -> int:
+    workflow, job = lane_job(args.lane)
+    containers = service_containers(workflow, job)
+    if not containers:
+        print(f"lane-inputs: {workflow}/{job} declares no services — nothing to start", file=sys.stderr)
+        return EXIT_OK
+    if args.dry_run:
+        for service in containers:
+            print(shlex.join(service.run_argv()))
+        return EXIT_OK
+    start_services(containers)
+    return EXIT_OK
+
+
+def _held_steps(document: dict[str, Any], job_id: str) -> list[tuple[list[str], str, dict[str, Any]]]:
+    """``(tokens, cwd, step env)`` for every held ``run:`` command of *job_id* — the step's OWN env only."""
+    job = _job(document, job_id)
+    out: list[tuple[list[str], str, dict[str, Any]]] = []
+    for step in job.get("steps") or []:
+        if not isinstance(step, dict) or not isinstance(step.get("run"), str):
+            continue
+        raw_env = step.get("env")
+        step_env: dict[str, Any] = raw_env if isinstance(raw_env, dict) else {}
+        cwd = _step_cwd(document, job, step)
+        for tokens in split_script(step["run"]):
+            if _is_held(tokens):
+                out.append((tokens, cwd, step_env))
+    return out
+
+
+def job_environment(document: dict[str, Any], job_id: str, invocation: dict[str, Any]) -> dict[str, str]:
+    """The ``env`` the job declares for *invocation*: workflow, then job, then the step that runs it.
+
+    Values as written, ``${{ }}`` expressions included — the caller decides what
+    a run-time value means. The step is the first held command with the same
+    command (scratch paths normalised) and working directory; an invocation no
+    step of the job runs (a stand-in recorded with ``--append``) gets the
+    workflow and job env, which apply to every step.
+    """
+    job = _job(document, job_id)
+    env: dict[str, str] = {}
+    for layer in (document.get("env"), job.get("env")):
+        if isinstance(layer, dict):
+            env.update({str(key): str(value) for key, value in layer.items()})
+    command = normalise_scratch(str(invocation.get("command", "")))
+    cwd = str(invocation.get("cwd") or ".")
+    for tokens, step_cwd, step_env in _held_steps(document, job_id):
+        if step_cwd == cwd and normalise_scratch(shlex.join(tokens)) == command:
+            env.update({str(key): str(value) for key, value in step_env.items()})
+            break
+    return env
+
+
+def replay_env(document: dict[str, Any], job_id: str, invocation: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """``(env, unresolved)``: what the replay hands *invocation*, and the job's keys it cannot hand over.
+
+    The job's literal values win over the manifest's recorded ``env`` (the job
+    is what is measured; the manifest says what it was measured under last
+    time). A key whose job value is a ``${{ }}`` expression keeps the manifest's
+    stand-in (``REF=refs/heads/develop`` for ``${{ github.ref }}``); without one
+    it is returned in *unresolved*, never invented.
+    """
+    recorded: dict[str, str] = {}
+    for entry in invocation.get("env") or []:
+        key, _, value = str(entry).partition("=")
+        recorded[key] = value
+    merged = dict(recorded)
+    unresolved: list[str] = []
+    for key, value in job_environment(document, job_id, invocation).items():
+        if _EXPRESSION not in value:
+            merged[key] = value
+        elif key not in recorded:
+            unresolved.append(key)
+    return sorted(f"{key}={value}" for key, value in merged.items()), sorted(unresolved)
 
 
 # --------------------------------------------------------------------- replay
@@ -1428,8 +1719,21 @@ def replay_argv(invocation: dict[str, Any], *, workflow: str, job: str, out_dir:
     return [*argv, "--", *shlex.split(command)]
 
 
-def command_replay(args: argparse.Namespace) -> int:
-    lane = args.lane
+@dataclass(frozen=True)
+class ReplayPlan:
+    """What one leg's ``replay`` runs: the record argv per invocation, with the env the job hands it."""
+
+    name: str
+    workflow: str
+    job: str
+    invocations: list[dict[str, Any]]
+    base: dict[str, Any]
+    argvs: list[list[str]]
+    unresolved_env: dict[int, list[str]]
+
+
+def replay_plan(lane: str, out_dir: Path) -> ReplayPlan:
+    """The replay of *lane* (a manifest path or ``WORKFLOW/JOB``), as ``command_replay`` runs it."""
     if lane.endswith((".yaml", ".yml")):
         source = Path(lane) if Path(lane).is_absolute() else REPO_ROOT / lane
         committed = load_manifest(source)
@@ -1452,8 +1756,37 @@ def command_replay(args: argparse.Namespace) -> int:
         base = _bootstrap_base(workflow, job)
         name = f"{manifest_stem(workflow, job)}.yaml"
 
+    _path, document = load_workflow(workflow)
+    argvs: list[list[str]] = []
+    unresolved_env: dict[int, list[str]] = {}
+    for index, entry in enumerate(invocations):
+        if _is_derived(entry):
+            argvs.append(replay_argv(entry, workflow=workflow, job=job, out_dir=out_dir))
+            continue
+        env, unresolved = replay_env(document, job, entry)
+        if unresolved:
+            unresolved_env[index] = unresolved
+        argvs.append(replay_argv({**entry, "env": env}, workflow=workflow, job=job, out_dir=out_dir))
+    return ReplayPlan(name, workflow, job, invocations, base, argvs, unresolved_env)
+
+
+def command_replay(args: argparse.Namespace) -> int:
     out_dir = Path(args.out_dir).resolve()
-    argvs = [replay_argv(entry, workflow=workflow, job=job, out_dir=out_dir) for entry in invocations]
+    plan = replay_plan(args.lane, out_dir)
+    name, workflow, job, invocations, base, argvs = (
+        plan.name,
+        plan.workflow,
+        plan.job,
+        plan.invocations,
+        plan.base,
+        plan.argvs,
+    )
+    for index, keys in sorted(plan.unresolved_env.items()):
+        print(
+            f"lane-inputs: replay → invocations[{index}]: the job sets {keys} from run-time values and the manifest "
+            f"carries no stand-in, so the replay runs without them",
+            file=sys.stderr,
+        )
     _path, document = load_workflow(workflow)
     path_additions = job_path_additions(document, job)
     for directory in path_additions:
@@ -1516,7 +1849,11 @@ def command_replay(args: argparse.Namespace) -> int:
 #: Environment the recorder lane provides only where a leg needs it; everything
 #: else (Python, uv, Task, Node, strace, Docker, yq) is in every leg. Decided per
 #: manifest from its own invocations, so the workflow carries no list of lanes.
-_ENV_FLAGS = ("backend", "frontend", "helm", "skaffold", "nuclei", "hadolint", "arangodb")
+#: A database is not a flag: the leg starts the measured job's own ``services:``
+#: (``services``, :func:`service_containers`) — the flag that stood here for
+#: ArangoDB was derived from the manifest's env and never saw the TimescaleDB
+#: service the job gained (#1683).
+_ENV_FLAGS = ("backend", "frontend", "helm", "skaffold", "nuclei", "hadolint")
 
 
 def environment_flags(invocations: list[dict[str, Any]]) -> dict[str, bool]:
@@ -1536,7 +1873,6 @@ def environment_flags(invocations: list[dict[str, Any]]) -> dict[str, bool]:
         flags["helm"] |= head == "helm" or "skaffold" in command
         flags["nuclei"] |= head == "nuclei"
         flags["hadolint"] |= head == "hadolint"
-        flags["arangodb"] |= any(str(entry).startswith("ARANGODB_HOST=") for entry in invocation.get("env") or [])
     return flags
 
 
@@ -2172,6 +2508,13 @@ def _parser() -> argparse.ArgumentParser:
     replay.add_argument("--out-dir", required=True, help="where the re-recorded manifest is written")
     replay.add_argument("--dry-run", action="store_true", help="print the record commands, run nothing")
     replay.set_defaults(func=command_replay)
+
+    services = sub.add_parser(
+        "services", help="start the measured job's own service containers for one leg (the CI lane, #1683)"
+    )
+    services.add_argument("lane", help="a manifest path, or WORKFLOW/JOB for a delegation target with no manifest yet")
+    services.add_argument("--dry-run", action="store_true", help="print the docker commands, run nothing")
+    services.set_defaults(func=command_services)
 
     plan = sub.add_parser("plan", help="the CI lane's matrix: one leg per lane to record")
     plan.add_argument("--github-output", default=None, help="append `matrix=<json>` to this file")
