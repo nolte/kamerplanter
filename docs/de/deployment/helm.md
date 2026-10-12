@@ -294,23 +294,22 @@ Das Backend setzt dieselbe Grenze noch einmal selbst, bevor es einen Upload lies
 
 Uploads über 1 MiB legt das Backend während des Lesens in `/tmp` ab, im Chart ein Speicher-Volume mit 64 MiB. Damit gleichzeitige Uploads es nicht füllen, teilen sie sich ein Budget von 52 MiB (`UPLOAD_SPOOL_BUDGET_MB`). Es zählt die Bytes, die schon angekommen sind: Bei der Standardgrenze laufen zwei volle Uploads gleichzeitig, ein weiterer wartet bis zu 30 Sekunden (`UPLOAD_SPOOL_WAIT_SECONDS`) und bekommt danach `503` mit `Retry-After`. Hebst du `storage.maxFileSizeMb` über 51 an, setzt das Chart das Budget auf eine volle Upload-Größe, also läuft nur noch ein großer Upload zur Zeit. Die Größe von `/tmp` folgt nicht automatisch: Ab etwa 60 MiB Upload-Grenze musst du `persistence.backend-tmp.sizeLimit` selbst anheben.
 
-### Valkey (Redis-kompatibler Cache)
+### Valkey (Redis-kompatibler Cache) {#valkey}
 
-```yaml
+Valkey ist zugleich Cache und Celery-Broker: In ihm warten die Aufgaben auf den Worker. Das Chart bringt dafür diese Standardwerte mit:
+
+```yaml title="values.yaml (Standard)"
 valkey:
+  deploymentStrategy: Recreate
   dataStorage:
     enabled: true
-    size: 1Gi
-```
-
-Valkey ist zugleich Cache und Celery-Broker: In ihm warten die Aufgaben auf den Worker. Das Chart setzt dafür weder eine Speichergrenze noch Ressourcen-Limits noch das Append-Only-Log (AOF) — Valkey schreibt nur seine Standard-Snapshots auf das Volume. Für einen Dauerbetrieb empfehlen wir, das in deinen Values zu ergänzen:
-
-```yaml title="values-production.yaml (Ausschnitt)"
-valkey:
+    requestedSize: 1Gi
+    keepPvc: true
   valkeyConfig: |
     maxmemory 256mb
     maxmemory-policy noeviction
     appendonly yes
+    appendfsync everysec
   resources:
     requests:
       cpu: 50m
@@ -319,11 +318,14 @@ valkey:
       memory: 512Mi    # mindestens das Doppelte von maxmemory
 ```
 
-- `noeviction` statt einer Verdrängungsstrategie: Ist der Speicher voll, lehnt Valkey neue Schreibzugriffe ab, statt still wartende Aufgaben zu löschen. Ein voller Speicher fällt so als Fehler auf.
-- `appendonly yes` schreibt jede Änderung mit; nach einem Neustart sind auch die Aufgaben der letzten Sekunden wieder da.
-- Setze das Speicherlimit des Containers auf mindestens das Doppelte von `maxmemory`. Für das Umschreiben des Append-Only-Logs und für Snapshots startet Valkey einen Kindprozess, der den Datenbestand kopiert; jede Seite, die sich währenddessen ändert, belegt den Speicher doppelt. Liegt das Limit zu knapp, beendet Kubernetes Valkey, bevor Valkey selbst ablehnen kann.
+- **Eigenes Volume:** Valkey legt seine Daten auf ein `PersistentVolumeClaim` (`kamerplanter-valkey`, 1 GiB, `ReadWriteOnce`). Es bleibt bei `helm uninstall` erhalten. Die Größe heißt im Valkey-Chart `requestedSize` — einen Schlüssel `size` liest es nicht.
+- **`Recreate`:** Der alte Valkey-Pod endet, bevor der neue startet. Ein `ReadWriteOnce`-Volume hängt an einem Node; ein neuer Pod daneben käme auf einem anderen Node nicht an das Volume.
+- **`noeviction` statt einer Verdrängungsstrategie:** Ist der Speicher voll, lehnt Valkey neue Schreibzugriffe ab, statt still wartende Aufgaben zu löschen. Ein voller Speicher fällt so als Fehler auf.
+- **`appendonly yes`** schreibt jede Änderung mit (einmal pro Sekunde auf die Platte); nach einem Neustart sind auch die Aufgaben der letzten Sekunden wieder da.
+- **Speicherlimit mindestens doppelt so groß wie `maxmemory`:** Für das Umschreiben des Append-Only-Logs und für Snapshots startet Valkey einen Kindprozess, der den Datenbestand kopiert; jede Seite, die sich währenddessen ändert, belegt den Speicher doppelt. Liegt das Limit zu knapp, beendet Kubernetes Valkey, bevor Valkey selbst ablehnen kann. Hebst du `maxmemory` an, hebe `resources.limits.memory` mit an.
 
-Die Werte gelten erst nach einem Neustart des Valkey-Pods. Der Chart-Standard bleibt unverändert, damit ein Upgrade bestehende Installationen nicht umstellt.
+!!! info "Beim Upgrade"
+    Bis zu dieser Version lag `/data` von Valkey auf einem flüchtigen `emptyDir`: Das Chart setzte `valkey.dataStorage.size`, einen Schlüssel, den das Valkey-Chart nicht kennt, und legte deshalb kein Volume an. Jeder Neustart von Valkey verlor die wartenden Aufgaben. Das Upgrade legt das Volume neu an und startet Valkey einmal neu; Aufgaben, die in diesem Moment warten, gehen dabei verloren, wie bei jedem Neustart bisher. Geplante Aufgaben stellt Celery Beat beim nächsten Termin wieder ein. Dein Cluster braucht dafür eine Standard-StorageClass, oder du nennst eine in `valkey.dataStorage.className`.
 
 !!! warning "Valkey ohne Passwort und ohne TLS"
     Backend, Worker und Beat verbinden sich über `REDIS_URL` (`redis://kamerplanter-valkey:6379/0`) ohne Passwort und ohne Verschlüsselung; der Valkey-Chart läuft mit seinem Standard ohne Anmeldung (`auth.enabled: false`) und ohne TLS. Geschützt ist Valkey nur durch die NetworkPolicies des Charts: Nur Backend, Worker und Beat dürfen den Valkey-Pod erreichen. Schalte die NetworkPolicies deshalb nicht ab, und betreibe Kamerplanter nur in einem Cluster, dessen CNI NetworkPolicies durchsetzt.
@@ -757,7 +759,7 @@ Das Chart verweigert die Darstellung (`helm template`, `helm upgrade`, ArgoCD) m
 | Einstellung | Warum abgelehnt |
 |-------------|-----------------|
 | Backend oder Celery-Worker mit mehr als einem Pod (`replicas` oder `maxReplicas`) auf dem Standard-Volume `ReadWriteOnce` | Ein zweiter Pod auf einem anderen Node startet nie (`Multi-Attach error`). Lösung: [S3](#storage-konfiguration-nfr-013) oder `ReadWriteMany`. |
-| Mehr als ein Pod oder ein Autoscaler für `celery-beat`, `arangodb` oder `vectordb` | Zwei Beat-Pods führen jede geplante Aufgabe doppelt aus, auch Lösch- und Aufbewahrungsläufe. Zwei ArangoDB- oder VectorDB-Pods sind zwei getrennte Datenbanken, kein Cluster. |
+| Mehr als ein Pod oder ein Autoscaler für `celery-beat`, `arangodb`, `vectordb` oder `timescaledb` | Zwei Beat-Pods führen jede geplante Aufgabe doppelt aus, auch Lösch- und Aufbewahrungsläufe. Zwei ArangoDB-, VectorDB- oder TimescaleDB-Pods sind zwei getrennte Datenbanken, kein Cluster. |
 | `podDisruptionBudget.minAvailable` gleich oder größer als die Pod-Zahl, auch als Prozentwert (`"100%"`; Kubernetes rundet auf ganze Pods auf, `"50%"` von einem Pod ist dieser Pod), oder `maxUnavailable: 0` bzw. `"0%"` | Kubernetes darf dann keinen Pod verdrängen; jedes Leeren eines Nodes und jedes Cluster-Upgrade bleibt hängen. Prozentwerte, die mindestens einen Pod verdrängbar lassen (`minAvailable: "50%"` bei zwei Pods, `maxUnavailable: "25%"`), sind erlaubt. |
 
 Der Celery-Beat bleibt immer ein einzelner Pod mit der Strategie `Recreate`: Der alte Pod endet, bevor der neue startet.
@@ -789,6 +791,32 @@ externalSecrets:
     Mit `creationPolicy: Owner` (Standard) übernimmt der Operator ein bereits vorhandenes, von Hand angelegtes `kamerplanter-secrets` nicht ohne Weiteres. Lösche das alte Secret im selben Schritt (laufende Pods behalten ihre Werte bis zum nächsten Neustart), oder setze `externalSecrets.app.target.creationPolicy: Merge` — dann schreibt der Operator die Schlüssel in das vorhandene Secret.
 
 Weitere Secrets — die S3-Zugangsdaten (`storage.s3.credentialsRef`), das Backup (`backup.s3.credentialsRef`) und das Root-Passwort der Datenbank (`database.arangodb.rootPasswordSecret`) — legst du auf dieselbe Weise als weitere Einträge unter `externalSecrets` an.
+
+## TimescaleDB (Sensordaten) {#timescaledb}
+
+TimescaleDB speichert Sensor-Zeitreihen. Sie ist optional und standardmäßig aus; ohne sie arbeitet Kamerplanter ohne Messreihen-Speicher. Du schaltest sie mit einem einzigen Wert ein:
+
+```yaml title="values-production.yaml (Ausschnitt)"
+controllers:
+  timescaledb:
+    enabled: true
+```
+
+Damit rendert das Chart die Datenbank (StatefulSet, ein Pod, 10 GiB Volume), ihren Service und ihre NetworkPolicy, und Backend, Worker und Beat erhalten `TIMESCALEDB_ENABLED=true` samt Adresse. Nur Backend und Worker dürfen die Datenbank auf Port 5432 erreichen.
+
+Vorher ergänzt du in `kamerplanter-secrets` den Schlüssel `TIMESCALEDB_PASSWORD`:
+
+```bash
+kubectl patch secret kamerplanter-secrets -n kamerplanter --type merge \
+  -p "{\"stringData\":{\"TIMESCALEDB_PASSWORD\":\"$(openssl rand -hex 24)\"}}"
+```
+
+- Die Datenbank liest nur diesen einen Schlüssel aus dem Secret; Backend und Worker erhalten ihn wie alle anderen über `envFrom`.
+- Fehlt der Schlüssel, startet der Datenbank-Pod nicht (`CreateContainerConfigError`). Das Backend verweigert den Start mit dem eingebauten Standardpasswort, sobald `DEBUG=false` gilt.
+- Mit `externalSecrets.app` legst du den Schlüssel in denselben Store-Eintrag wie die übrigen Pflicht-Schlüssel.
+- Die Datenbank läuft ohne Root-Rechte (Benutzer `postgres`, uid 70) mit schreibgeschütztem Dateisystem; beschreibbar sind nur das Daten-Volume, das Socket-Verzeichnis und `/tmp`.
+- Mehr als ein Pod ist nicht möglich: Ein zweiter Pod wäre eine zweite, getrennte Datenbank. Das Chart verweigert `replicas` über 1 und einen Autoscaler.
+- Das Volume bleibt bei `helm uninstall` erhalten. Eine Sicherung der Messreihen bringt das Chart nicht mit (siehe [Backup und Wiederherstellung](backup-restore.md)).
 
 ## Externe Datenbanken {#externe-datenbanken}
 

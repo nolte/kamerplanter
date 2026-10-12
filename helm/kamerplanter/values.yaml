@@ -176,17 +176,18 @@ renderChecks:
   # Two mistakes would render cleanly and only show up in the cluster:
   #  * a second pod of a singleton — celery-beat schedules every periodic task
   #    once per replica (duplicate retention and deletion runs), and every
-  #    arangodb / vectordb replica is an independent database on its own claim;
+  #    arangodb / vectordb / timescaledb replica is an independent database on
+  #    its own claim;
   #  * a PodDisruptionBudget that admits no eviction (minAvailable >= the
   #    smallest replica count, a percentage minAvailable that rounds up to it,
   #    or maxUnavailable 0 / "0%"): every node drain and cluster upgrade then
   #    hangs.
   scaling: >-
-    {{- range $name := list "celery-beat" "arangodb" "vectordb" -}}
+    {{- range $name := list "celery-beat" "arangodb" "vectordb" "timescaledb" -}}
     {{- $controller := index $.Values.controllers $name | default dict -}}
     {{- if ne (toString $controller.enabled) "false" -}}
     {{- if or $controller.horizontalPodAutoscaler (ne (int (default 1 $controller.replicas)) 1) -}}
-    {{- fail (printf "controllers.%s runs exactly one pod: no horizontalPodAutoscaler, and replicas stays 1 (celery-beat would run every periodic task once per replica; arangodb and vectordb replicas are independent databases, not a cluster). See docs/deployment/helm.md#skalierung (#2127)." $name) -}}
+    {{- fail (printf "controllers.%s runs exactly one pod: no horizontalPodAutoscaler, and replicas stays 1 (celery-beat would run every periodic task once per replica; arangodb, vectordb and timescaledb replicas are independent databases, not a cluster). See docs/deployment/helm.md#skalierung (#2127)." $name) -}}
     {{- end -}}
     {{- end -}}
     {{- end -}}
@@ -513,6 +514,13 @@ controllers:
           # `app-user` container; see `database.arangodb.appUsername`.
           ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
           REDIS_URL: redis://kamerplanter-valkey:6379/0
+          # #2127 — follows controllers.timescaledb.enabled (the one switch);
+          # TIMESCALEDB_PASSWORD arrives through envFrom of kamerplanter-secrets.
+          TIMESCALEDB_ENABLED: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ else }}false{{ end }}'
+          TIMESCALEDB_HOST: kamerplanter-timescaledb
+          TIMESCALEDB_PORT: "5432"
+          TIMESCALEDB_DATABASE: kamerplanter_sensors
+          TIMESCALEDB_USERNAME: postgres
           # How many proxy addresses this deployment's own infrastructure appends
           # to X-Forwarded-For, counted from the right (#1151). Only the backend
           # needs it — the Celery controllers serve no requests.
@@ -781,6 +789,14 @@ controllers:
             value: ""
           SENTRY_SAMPLE_RATE:
             value: "1.0"
+        # #2127 — every container carries a limit (NFR-002 §11); a heredoc
+        # into an emptyDir needs next to nothing.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            memory: 64Mi
     containers:
       main:
         image:
@@ -1206,6 +1222,13 @@ controllers:
           # `app-user` container; see `database.arangodb.appUsername`.
           ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
           REDIS_URL: redis://kamerplanter-valkey:6379/0
+          # #2127 — follows controllers.timescaledb.enabled (the one switch);
+          # TIMESCALEDB_PASSWORD arrives through envFrom of kamerplanter-secrets.
+          TIMESCALEDB_ENABLED: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ else }}false{{ end }}'
+          TIMESCALEDB_HOST: kamerplanter-timescaledb
+          TIMESCALEDB_PORT: "5432"
+          TIMESCALEDB_DATABASE: kamerplanter_sensors
+          TIMESCALEDB_USERNAME: postgres
           # #777 — optional Sentry-protocol error tracking. Empty DSN => the SDK
           # is never initialised and the process is unchanged, so this block is
           # safe to ship enabled-by-absence. Set SENTRY_DSN in the ArgoCD
@@ -1353,6 +1376,13 @@ controllers:
           # `app-user` container; see `database.arangodb.appUsername`.
           ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
           REDIS_URL: redis://kamerplanter-valkey:6379/0
+          # #2127 — follows controllers.timescaledb.enabled (the one switch);
+          # TIMESCALEDB_PASSWORD arrives through envFrom of kamerplanter-secrets.
+          TIMESCALEDB_ENABLED: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ else }}false{{ end }}'
+          TIMESCALEDB_HOST: kamerplanter-timescaledb
+          TIMESCALEDB_PORT: "5432"
+          TIMESCALEDB_DATABASE: kamerplanter_sensors
+          TIMESCALEDB_USERNAME: postgres
           # #777 — optional Sentry-protocol error tracking. Empty DSN => the SDK
           # is never initialised and the process is unchanged, so this block is
           # safe to ship enabled-by-absence. Set SENTRY_DSN in the ArgoCD
@@ -1584,123 +1614,99 @@ controllers:
             cpu: "2"
             memory: 2Gi
 
-  # -- TimescaleDB (optional — disabled by default, enable via values override)
-  # timescaledb:
-  #   type: statefulset
-  #   replicas: 1
-  #   pod:
-  #     securityContext:
-  #       runAsUser: 999
-  #       runAsGroup: 999
-  #       fsGroup: 999
-  #   containers:
-  #     main:
-  #       image:
-  #         repository: timescale/timescaledb
-  #         tag: "2.17.2-pg16"
-  #         pullPolicy: IfNotPresent
-  #       securityContext:
-  #         allowPrivilegeEscalation: false
-  #         capabilities:
-  #           drop: ["ALL"]
-  #       env:
-  #         POSTGRES_DB: kamerplanter_sensors
-  #         POSTGRES_USER: postgres
-  #         POSTGRES_PASSWORD: changeme
-  #       probes:
-  #         liveness:
-  #           enabled: true
-  #           custom: true
-  #           spec:
-  #             exec:
-  #               command: ["pg_isready", "-U", "postgres"]
-  #             initialDelaySeconds: 30
-  #             periodSeconds: 10
-  #             timeoutSeconds: 5
-  #             failureThreshold: 5
-  #         readiness:
-  #           enabled: true
-  #           custom: true
-  #           spec:
-  #             exec:
-  #               command: ["pg_isready", "-U", "postgres"]
-  #             initialDelaySeconds: 15
-  #             periodSeconds: 5
-  #             timeoutSeconds: 3
-  #             failureThreshold: 5
-  #       resources:
-  #         requests:
-  #           cpu: 250m
-  #           memory: 512Mi
-  #         limits:
-  #           cpu: "1"
-  #           memory: 1Gi
-  #   statefulset:
-  #     volumeClaimTemplates:
-  #       - name: data
-  #         accessMode: ReadWriteOnce
-  #         size: 10Gi
-  #         globalMounts:
-  #           - path: /var/lib/postgresql/data
-
-  # -- VectorDB (optional — PostgreSQL + pgvector for AI/RAG, disabled by default)
-  # vectordb:
-  #   type: statefulset
-  #   replicas: 1
-  #   pod:
-  #     securityContext:
-  #       runAsUser: 999
-  #       runAsGroup: 999
-  #       fsGroup: 999
-  #   containers:
-  #     main:
-  #       image:
-  #         repository: kamerplanter-vectordb
-  #         tag: latest
-  #         pullPolicy: IfNotPresent
-  #       securityContext:
-  #         allowPrivilegeEscalation: false
-  #         capabilities:
-  #           drop: ["ALL"]
-  #       env:
-  #         POSTGRES_DB: kamerplanter_vectors
-  #         POSTGRES_USER: postgres
-  #         POSTGRES_PASSWORD: changeme
-  #       probes:
-  #         liveness:
-  #           enabled: true
-  #           custom: true
-  #           spec:
-  #             exec:
-  #               command: ["pg_isready", "-U", "postgres"]
-  #             initialDelaySeconds: 30
-  #             periodSeconds: 10
-  #             timeoutSeconds: 5
-  #             failureThreshold: 5
-  #         readiness:
-  #           enabled: true
-  #           custom: true
-  #           spec:
-  #             exec:
-  #               command: ["pg_isready", "-U", "postgres"]
-  #             initialDelaySeconds: 15
-  #             periodSeconds: 5
-  #             timeoutSeconds: 3
-  #             failureThreshold: 5
-  #       resources:
-  #         requests:
-  #           cpu: 50m
-  #           memory: 128Mi
-  #         limits:
-  #           cpu: 500m
-  #           memory: 512Mi
-  #   statefulset:
-  #     volumeClaimTemplates:
-  #       - name: data
-  #         accessMode: ReadWriteOnce
-  #         size: 2Gi
-  #         globalMounts:
-  #           - path: /var/lib/postgresql/data
+  # -- TimescaleDB (REQ-005 sensor time series, #2127 MT-031). OFF by default.
+  #
+  # `controllers.timescaledb.enabled: true` is the ONE switch: the Service, the
+  # NetworkPolicy, the two scratch volumes below and TIMESCALEDB_ENABLED on
+  # backend, celery-worker and celery-beat all follow it at render time, so the
+  # database never runs unreachable and the application never looks for a
+  # database that is not there.
+  #
+  # The password is NEVER inlined: the operator adds the key TIMESCALEDB_PASSWORD
+  # to kamerplanter-secrets. The database reads it by secretKeyRef (that one key,
+  # no envFrom of the whole Secret); backend and worker receive it through their
+  # existing envFrom, under the very name their settings read. A missing key
+  # stops the database pod (CreateContainerConfigError), and the backend refuses
+  # to start on the built-in default password (`changeme`) once DEBUG is false.
+  #
+  # Non-root as the image's own `postgres` user (uid/gid 70, Alpine image) with
+  # a read-only root filesystem: only the data volume, the socket directory and
+  # /tmp are writable (measured: initdb, the TimescaleDB extension and a restart
+  # on the existing volume all succeed with `--read-only -u 70:70 --cap-drop ALL`).
+  # PGDATA is a subdirectory because a fresh volume's root can carry
+  # `lost+found`, which initdb refuses.
+  #
+  # Singleton: a second replica is an independent database on its own claim,
+  # not a replica — renderChecks.scaling refuses it, like arangodb/vectordb.
+  timescaledb:
+    enabled: false
+    type: statefulset
+    replicas: 1
+    pod:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+    containers:
+      main:
+        image:
+          repository: timescale/timescaledb
+          tag: "2.30.2-pg16"
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        env:
+          POSTGRES_DB: kamerplanter_sensors
+          POSTGRES_USER: postgres
+          PGDATA: /var/lib/postgresql/data/pgdata
+          POSTGRES_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kamerplanter-secrets
+                key: TIMESCALEDB_PASSWORD
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["pg_isready", "-U", "postgres"]
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["pg_isready", "-U", "postgres"]
+              initialDelaySeconds: 15
+              periodSeconds: 5
+              timeoutSeconds: 3
+              failureThreshold: 5
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+    statefulset:
+      volumeClaimTemplates:
+        - name: data
+          accessMode: ReadWriteOnce
+          size: 10Gi
+          annotations:
+            helm.sh/resource-policy: keep
+          globalMounts:
+            - path: /var/lib/postgresql/data
 
   # -- Embedding Service (optional — sentence-transformers CPU inference, disabled by default)
   # embedding-service:
@@ -1892,6 +1898,14 @@ service:
     ports:
       http:
         port: 8000
+
+  # -- #2127 follows controllers.timescaledb.enabled (see the controller).
+  timescaledb:
+    enabled: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ end }}'
+    controller: timescaledb
+    ports:
+      postgresql:
+        port: 5432
 
 persistence:
   nginx-config:
@@ -2113,6 +2127,30 @@ persistence:
     sizeLimit: 64Mi
     advancedMounts:
       inference-service:
+        main:
+          - path: /tmp
+
+  # -- #2127 TimescaleDB under readOnlyRootFilesystem: the socket directory and
+  # /tmp are the only writable paths besides the data volume. Both follow the
+  # controller's switch (bjw-s refuses a persistence item whose controller is
+  # disabled).
+  timescaledb-run:
+    enabled: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ end }}'
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 1Mi
+    advancedMounts:
+      timescaledb:
+        main:
+          - path: /var/run/postgresql
+
+  timescaledb-tmp:
+    enabled: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ end }}'
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      timescaledb:
         main:
           - path: /tmp
 
@@ -2695,11 +2733,88 @@ networkpolicies:
             - protocol: TCP
               port: 53
 
+  # -- #2127 TimescaleDB: accept from backend + celery-worker on 5432 (the
+  # backend and worker egress rules above already name it), no egress beyond
+  # DNS. Follows controllers.timescaledb.enabled; without it the default-deny
+  # baseline would leave the database unreachable.
+  timescaledb:
+    enabled: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ end }}'
+    controller: timescaledb
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: backend
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker
+          ports:
+            - protocol: TCP
+              port: 5432
+      egress:
+        # DNS only (for cluster-internal resolution)
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+# -- Valkey (subchart): Celery broker AND cache — the queued tasks live here.
+#
+# #2127 (MT-031) hardening, measured against valkey-helm 0.12.0:
+#  * Persistence. The chart set `dataStorage.size`, a key the subchart does not
+#    know; its PVC template needs `requestedSize`, so NO claim was rendered and
+#    /data was an emptyDir — every Valkey restart lost the queued tasks, and
+#    the snapshots the docs promised went nowhere. `requestedSize` renders the
+#    claim; `keepPvc` keeps it through `helm uninstall`.
+#  * `deploymentStrategy: Recreate`: the claim is ReadWriteOnce and the
+#    subchart runs a Deployment — a RollingUpdate would start the new pod while
+#    the old one still holds the volume (Multi-Attach on another node).
+#  * `maxmemory` + `noeviction`: a full Valkey refuses writes (a visible error at
+#    the producer) instead of evicting queued tasks or keys without notice.
+#    Every key the backend writes carries a TTL, so the cache does not grow
+#    without bound.
+#  * `appendonly yes` (fsync every second): a restart replays the tasks of the
+#    last seconds instead of falling back to the last snapshot.
+#  * The memory limit is twice `maxmemory`: an AOF rewrite or snapshot forks
+#    the process, and pages written meanwhile are held twice. Too tight a limit
+#    and Kubernetes kills Valkey before Valkey can refuse a write.
+# The subchart already runs non-root (uid 1000), read-only root filesystem, all
+# capabilities dropped, RuntimeDefault seccomp.
 valkey:
   enabled: true
+  deploymentStrategy: Recreate
   dataStorage:
     enabled: true
-    size: 1Gi
+    requestedSize: 1Gi
+    keepPvc: true
+  valkeyConfig: |
+    maxmemory 256mb
+    maxmemory-policy noeviction
+    appendonly yes
+    appendfsync everysec
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  # The init container only writes valkey.conf (a few lines of shell).
+  initResources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
 
 # -- Ollama subchart (optional — local LLM inference, disabled by default)
 ollama:

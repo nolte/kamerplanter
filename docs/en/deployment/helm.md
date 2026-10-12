@@ -293,23 +293,22 @@ The backend enforces the same limit again before it reads an upload. That matter
 
 While reading, the backend keeps uploads above 1 MiB in `/tmp`, a memory volume of 64 MiB in the chart. So that concurrent uploads cannot fill it, they share a budget of 52 MiB (`UPLOAD_SPOOL_BUDGET_MB`). It counts the bytes that already arrived: at the default limit two full uploads run at the same time, a further one waits up to 30 seconds (`UPLOAD_SPOOL_WAIT_SECONDS`) and then gets `503` with `Retry-After`. If you raise `storage.maxFileSizeMb` above 51, the chart sets the budget to one full upload, so only one large upload runs at a time. The size of `/tmp` does not follow automatically: from an upload limit of about 60 MiB you must raise `persistence.backend-tmp.sizeLimit` yourself.
 
-### Valkey (Redis-compatible cache)
+### Valkey (Redis-compatible cache) {#valkey}
 
-```yaml
+Valkey is both cache and Celery broker: the tasks wait in it for the worker. The chart ships these defaults for it:
+
+```yaml title="values.yaml (default)"
 valkey:
+  deploymentStrategy: Recreate
   dataStorage:
     enabled: true
-    size: 1Gi
-```
-
-Valkey is both cache and Celery broker: the tasks wait in it for the worker. The chart sets neither a memory bound nor resource limits nor the append-only file (AOF) for it — Valkey writes only its default snapshots to the volume. For long-term operation we recommend adding this to your values:
-
-```yaml title="values-production.yaml (excerpt)"
-valkey:
+    requestedSize: 1Gi
+    keepPvc: true
   valkeyConfig: |
     maxmemory 256mb
     maxmemory-policy noeviction
     appendonly yes
+    appendfsync everysec
   resources:
     requests:
       cpu: 50m
@@ -318,11 +317,14 @@ valkey:
       memory: 512Mi    # at least twice maxmemory
 ```
 
-- `noeviction` rather than an eviction policy: when memory is full, Valkey refuses new writes instead of silently dropping waiting tasks. A full memory thus shows up as an error.
-- `appendonly yes` records every change; after a restart the tasks of the last seconds are back too.
-- Set the container's memory limit to at least twice `maxmemory`. To rewrite the append-only file and to take snapshots, Valkey forks a child process that copies the data set; every page that changes meanwhile occupies memory twice. With a tight limit, Kubernetes kills Valkey before Valkey itself can refuse.
+- **Own volume:** Valkey keeps its data on a `PersistentVolumeClaim` (`kamerplanter-valkey`, 1 GiB, `ReadWriteOnce`). It survives `helm uninstall`. The Valkey chart calls the size `requestedSize` — it does not read a `size` key.
+- **`Recreate`:** the old Valkey pod ends before the new one starts. A `ReadWriteOnce` volume attaches to one node; a new pod next to the old one could not reach the volume from another node.
+- **`noeviction` rather than an eviction policy:** when memory is full, Valkey refuses new writes instead of silently dropping waiting tasks. A full memory thus shows up as an error.
+- **`appendonly yes`** records every change (written to disk once per second); after a restart the tasks of the last seconds are back too.
+- **Memory limit at least twice `maxmemory`:** to rewrite the append-only file and to take snapshots, Valkey forks a child process that copies the data set; every page that changes meanwhile occupies memory twice. With a tight limit, Kubernetes kills Valkey before Valkey itself can refuse. If you raise `maxmemory`, raise `resources.limits.memory` with it.
 
-The values take effect after the Valkey pod restarts. The chart default stays unchanged, so an upgrade does not switch existing installations over.
+!!! info "On upgrade"
+    Up to this version Valkey's `/data` sat on an ephemeral `emptyDir`: the chart set `valkey.dataStorage.size`, a key the Valkey chart does not know, so no volume was created. Every Valkey restart lost the waiting tasks. The upgrade creates the volume and restarts Valkey once; tasks waiting at that moment are lost, as with every restart so far. Celery Beat queues scheduled tasks again at their next run. Your cluster needs a default StorageClass for this, or you name one in `valkey.dataStorage.className`.
 
 !!! warning "Valkey without password and without TLS"
     Backend, worker and beat connect through `REDIS_URL` (`redis://kamerplanter-valkey:6379/0`) without a password and without encryption; the Valkey chart runs with its default of no authentication (`auth.enabled: false`) and no TLS. Valkey is protected only by the chart's NetworkPolicies: only backend, worker and beat may reach the Valkey pod. So do not switch the NetworkPolicies off, and run Kamerplanter only in a cluster whose CNI enforces NetworkPolicies.
@@ -756,7 +758,7 @@ The chart refuses to render (`helm template`, `helm upgrade`, ArgoCD) with a mes
 | Setting | Why refused |
 |---------|-------------|
 | Backend or Celery worker with more than one pod (`replicas` or `maxReplicas`) on the default `ReadWriteOnce` volume | A second pod on another node never starts (`Multi-Attach error`). Fix: [S3](#storage-configuration-nfr-013) or `ReadWriteMany`. |
-| More than one pod or an autoscaler for `celery-beat`, `arangodb` or `vectordb` | Two beat pods run every scheduled task twice, deletion and retention runs included. Two ArangoDB or VectorDB pods are two separate databases, not a cluster. |
+| More than one pod or an autoscaler for `celery-beat`, `arangodb`, `vectordb` or `timescaledb` | Two beat pods run every scheduled task twice, deletion and retention runs included. Two ArangoDB, VectorDB or TimescaleDB pods are two separate databases, not a cluster. |
 | `podDisruptionBudget.minAvailable` equal to or above the pod count, also as a percentage (`"100%"`; Kubernetes rounds up to whole pods, `"50%"` of one pod is that pod), or `maxUnavailable: 0` or `"0%"` | Kubernetes may then evict no pod; every node drain and every cluster upgrade hangs. Percentages that still let at least one pod be evicted (`minAvailable: "50%"` with two pods, `maxUnavailable: "25%"`) are allowed. |
 
 Celery beat always stays a single pod with the `Recreate` strategy: the old pod ends before the new one starts.
@@ -788,6 +790,32 @@ externalSecrets:
     With `creationPolicy: Owner` (the default) the operator does not simply adopt an existing, hand-made `kamerplanter-secrets`. Delete the old Secret in the same step (running pods keep their values until their next restart), or set `externalSecrets.app.target.creationPolicy: Merge` — the operator then writes the keys into the existing Secret.
 
 Further Secrets — the S3 credentials (`storage.s3.credentialsRef`), the backup (`backup.s3.credentialsRef`) and the database root password (`database.arangodb.rootPasswordSecret`) — are added the same way as further entries under `externalSecrets`.
+
+## TimescaleDB (sensor data) {#timescaledb}
+
+TimescaleDB stores sensor time series. It is optional and off by default; without it Kamerplanter runs without a time-series store. You switch it on with a single value:
+
+```yaml title="values-production.yaml (excerpt)"
+controllers:
+  timescaledb:
+    enabled: true
+```
+
+The chart then renders the database (StatefulSet, one pod, 10 GiB volume), its Service and its NetworkPolicy, and backend, worker and beat receive `TIMESCALEDB_ENABLED=true` together with the address. Only backend and worker may reach the database on port 5432.
+
+Before that, add the key `TIMESCALEDB_PASSWORD` to `kamerplanter-secrets`:
+
+```bash
+kubectl patch secret kamerplanter-secrets -n kamerplanter --type merge \
+  -p "{\"stringData\":{\"TIMESCALEDB_PASSWORD\":\"$(openssl rand -hex 24)\"}}"
+```
+
+- The database reads only this one key from the Secret; backend and worker receive it like every other key through `envFrom`.
+- Without the key the database pod does not start (`CreateContainerConfigError`). The backend refuses to start on the built-in default password as soon as `DEBUG=false`.
+- With `externalSecrets.app` you put the key into the same store entry as the other mandatory keys.
+- The database runs without root privileges (user `postgres`, uid 70) on a read-only file system; only the data volume, the socket directory and `/tmp` are writable.
+- More than one pod is not possible: a second pod would be a second, separate database. The chart refuses `replicas` above 1 and an autoscaler.
+- The volume survives `helm uninstall`. The chart does not back up the time series (see [Backup and restore](backup-restore.md)).
 
 ## External databases {#external-databases}
 

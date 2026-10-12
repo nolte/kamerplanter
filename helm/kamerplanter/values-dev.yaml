@@ -344,31 +344,32 @@ controllers:
             cpu: 500m
             memory: 256Mi
 
-  # -- TimescaleDB (dev only — StatefulSet like ArangoDB)
+  # -- TimescaleDB (switched on here; off by default in values.yaml, #2127)
   timescaledb:
+    enabled: true
     type: statefulset
     replicas: 1
-    pod:
-      securityContext:
-        # See backend: override base runAsNonRoot: true for dev root/hot-reload.
-        # Not strictly required today (base values.yaml sets no runAsNonRoot for
-        # timescaledb) but future-proofs against a later base hardening.
-        runAsNonRoot: false
-        runAsUser: 0
-        runAsGroup: 0
-        fsGroup: 0
+    # Runs with the base hardening (uid 70, read-only root filesystem, no
+    # capabilities, #2127) — nothing here hot-reloads. The dev volume was
+    # initialised by the image's root entrypoint, which hands PGDATA to the
+    # same uid 70 (measured: a volume initialised that way starts as uid 70
+    # with the base securityContext).
     containers:
       main:
         image:
           repository: timescale/timescaledb
           tag: "2.30.2-pg16"
           pullPolicy: IfNotPresent
-        securityContext:
-          readOnlyRootFilesystem: false
         env:
           POSTGRES_DB: kamerplanter_sensors
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: devpassword
+          # Dev literal instead of the base's secretKeyRef (null drops it).
+          POSTGRES_PASSWORD:
+            value: devpassword
+            valueFrom: null
+          # The base moved PGDATA into a subdirectory (#2127); the existing dev
+          # volume holds its cluster at the volume root, so keep that here.
+          PGDATA: /var/lib/postgresql/data
         probes:
           liveness:
             enabled: true
