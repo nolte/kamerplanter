@@ -5,7 +5,7 @@ Mit dem Mandanten-Export sicherst du **einen** Garten (Mandanten) als Archiv, oh
 Diese Seite richtet sich an Betreiber und Plattform-Admins. Die Datenbank-Sicherung der ganzen Installation beschreibt [Backup & Wiederherstellung](backup-restore.md).
 
 !!! warning "Noch nicht implementiert"
-    Eine Oberfläche dafür wird es in den Garten-Einstellungen und im Admin-Bereich geben; bis dahin nutzt du die API (interne Referenz: REQ-056 §15). Sensor-Messwerte aus TimescaleDB werden noch nicht mitgenommen. <!-- REQ-056 / Issue #2138 -->
+    Eine Oberfläche dafür wird es in den Garten-Einstellungen und im Admin-Bereich geben; bis dahin nutzt du die API (interne Referenz: REQ-056 §15). Sensor-Messwerte aus TimescaleDB stehen im Archiv, der Import spielt sie aber noch nicht ein. <!-- REQ-056 / Issue #2138 -->
 
 ---
 
@@ -21,6 +21,9 @@ Das Archiv ist eine ZIP-Datei im Format `kamerplanter-tenant-export/1`. Es enth�
 | `edges/<name>.jsonl` | die Verbindungen zwischen diesen Datensätzen und zu globalen Katalogeinträgen (Arten, Familien, Schädlinge …) |
 | `members.jsonl` | je Mitglied: interne Kontokennung, Anzeigename, Rolle, Zusatzberechtigungen, Beitrittsdatum — **keine** E-Mail-Adresse |
 | `objects/…` | die Originale der Fotos und Anhänge; Vorschaubilder entstehen nach dem Import beim ersten Aufruf neu |
+| `timeseries/readings.csv` | nur mit TimescaleDB und nur, wenn der Garten Messwerte hat: die Sensor-Messwerte des Gartens — Rohwerte der letzten 90 Tage und die Stunden- und Tageswerte, soweit sie noch aufbewahrt werden (Spalte `series`: `raw`, `hourly`, `daily`) |
+
+**Messwerte im Archiv:** `timeseries/readings.csv` ist eine CSV-Datei mit Kopfzeile, eine Zeile je Messwert bzw. je Stunden- oder Tageswert. Die Spalten stehen in `manifest.json` unter `timeseries.readings.columns`; leere Zellen heißen „kein Wert“. Beginnt ein Text mit `=`, `+`, `-` oder `@`, steht ein `'` davor, damit eine Tabellenkalkulation ihn nicht als Formel ausführt. Die Datei zählt zum Archiv wie jeder andere Teil: Sie hat ihre Prüfsumme im Manifest, die Signatur deckt sie ab, und sie zählt gegen die Größengrenze des Exports. Der Import liest sie **nicht** ein — er prüft nur, dass sie im Manifest steht, und meldet im Bericht, wie viele Zeilen er übergangen hat (`not_imported:timeseries/readings.csv`). Ohne TimescaleDB (`TIMESCALEDB_ENABLED=false`) fehlt die Datei; das Archiv ist trotzdem vollständig.
 
 **Nicht** im Archiv: Konten und Anmeldedaten, Sitzungen, API-Schlüssel, Einladungen, verschlüsselte Zugangsdaten von Integrationen (KI-Anbieter, InvenTree), die Freigaben der Home-Assistant-Entitäten, das Sicherheitsprotokoll und die anderen Audit-Protokolle, Benachrichtigungen, iCal-Abonnements, KI-Gespräche und Caches, Parzellen-Zuordnungen, Export-Anträge und Erkennungsvektoren.
 
@@ -71,7 +74,7 @@ Beide bestätigen mit dem eigenen Passwort (oder, ohne lokales Passwort, mit ein
 
 ### Signatur
 
-Deine Installation signiert jedes Archiv, das sie schreibt (`manifest.json`, Feld `signature`). Beim Import in **dieselbe** Installation meldet der Import `verified: true`: Das Archiv ist genau das hier geschriebene. Ein Archiv aus einer anderen Installation, ein unsigniertes oder ein nach dem Export verändertes wird mit `verified: false` importiert — sein Inhalt ist dann nur so vertrauenswürdig wie die Person, die es dir gegeben hat. Der Signaturschlüssel ist aus `JWT_SECRET_KEY` abgeleitet; wechselst du ihn, gelten ältere Archive als nicht verifiziert.
+Deine Installation signiert jedes Archiv, das sie schreibt (`manifest.json`, Feld `signature`). Beim Import in **dieselbe** Installation meldet der Import `verified: true`: Das Archiv ist genau das hier geschriebene. Ein Archiv aus einer anderen Installation, ein unsigniertes oder ein nach dem Export verändertes wird mit `verified: false` importiert — sein Inhalt ist dann nur so vertrauenswürdig wie die Person, die es dir gegeben hat. Der Signaturschlüssel kommt aus `TENANT_EXPORT_SIGNING_SECRET`; ist das leer, wird er wie bisher aus `JWT_SECRET_KEY` abgeleitet (siehe [Signaturschlüssel](#signaturschlussel)).
 
 !!! warning "Nicht im Archiv"
     Die Schlüssel von Integrationen (zum Beispiel der OpenWeatherMap-Schlüssel einer Wetterquelle) werden aus dem Archiv entfernt. Richte sie in der Zielinstallation neu ein.
@@ -123,7 +126,7 @@ Den Stand liest du wie den Import selbst nur angemeldet als Person, nicht mit ei
 | `422 MEMBER_LIMIT_REACHED` | der Zielplan lässt weniger Mitglieder zu, als der neue Garten hätte — gezählt werden alle zugeordneten Konten und der Eigentümer (bestätigst du kein Mitglied als Leitung mit Verwaltung, bist das du) | weniger Mitglieder zuordnen oder einen Plan mit mehr Mitgliedern wählen (`plan_key`) |
 | `409 STORAGE_QUOTA_EXCEEDED` | die Dateien des Archivs sind größer als das Speicherkontingent des Zielplans (gezählt wie im laufenden Garten: jede Datei einmal) | einen Plan mit mehr Speicher wählen |
 | `409 PHOTO_QUOTA_EXCEEDED` | eine Pflanze im Archiv hat mehr Galeriefotos, als der Zielplan je Pflanze zulässt; `details` nennt sie | einen Plan mit mehr Fotos je Pflanze wählen |
-| `413` | größer als `TENANT_IMPORT_MAX_UPLOAD_MB` — oder als die allgemeine Upload-Grenze (siehe unten) | Grenze anheben oder Garten verkleinern |
+| `413` | größer als die Upload-Grenze des Imports — `TENANT_IMPORT_MAX_UPLOAD_MB`, höchstens aber `UPLOAD_SPOOL_BUDGET_MB` (siehe [Archivgröße und /tmp](#archivgrosse-und-tmp)) | beide Grenzen anheben oder Garten verkleinern |
 
 Scheitert der Import erst während des Schreibens, entfernt er alles, was er bis dahin angelegt hat — zuerst die Datensätze, die er kennt, dann über die reguläre Gartenlöschung alles, was dem neuen Garten gehört (auch einen Schreibvorgang, dessen Ausgang unklar war), samt aller Dateien unter seinem Speicherpfad — und meldet `failed`. Die Kontingente des Zielplans prüft der Import schon beim Antrag (siehe Tabelle) und im Lauf noch einmal, bevor er den Garten anlegt: Hat jemand den Plan inzwischen verkleinert, endet er mit `failed` und dem Code der Dimension (zum Beispiel `MEMBER_LIMIT_REACHED`), ohne etwas geschrieben zu haben. Gelingt das Entfernen nicht vollständig (zum Beispiel weil die Datenbank gerade nicht erreichbar ist), meldet er `cleanup_pending`: Der halbe Garten bleibt im Zustand **Wird importiert** und damit unerreichbar, `target_tenant_key` nennt ihn, und der nächste stündliche Aufbewahrungsjob löscht ihn über die reguläre Gartenlöschung; danach steht der Import auf `failed`. Bricht sein Lauf ab (zum Beispiel bei einem Neustart des Workers), löscht der stündliche Aufbewahrungsjob den halben Garten nach sechs Stunden ohne Fortschritt über die reguläre Gartenlöschung und meldet `failed` mit `IMPORT_ABANDONED`. Ein halber Garten bleibt nicht stehen; nur die Protokolleinträge der angelegten Mitgliedschaften bleiben als Nachweis.
 
@@ -140,15 +143,39 @@ Scheitert der Import erst während des Schreibens, entfernt er alles, was er bis
 | Variable | Standard | Wirkung |
 |---|---|---|
 | `TENANT_EXPORTS_PER_DAY` | `3` | Exporte je Garten in 24 Stunden |
-| `TENANT_IMPORT_MAX_UPLOAD_MB` | `512` | größtes Archiv, das ein Import annimmt; entpackt darf es unabhängig davon höchstens 1 GiB groß werden |
+| `TENANT_IMPORT_MAX_UPLOAD_MB` | `512` | größtes Archiv in MiB, das ein Import annimmt — gilt nur für die Import-Route, höchstens bis `UPLOAD_SPOOL_BUDGET_MB`; entpackt darf es unabhängig davon höchstens 1 GiB groß werden (die Messwerte nicht mitgezählt) |
+| `TENANT_EXPORT_SIGNING_SECRET` | leer | Geheimnis, mit dem die Archive signiert und geprüft werden (mindestens 32 Zeichen); leer = aus `JWT_SECRET_KEY` abgeleitet |
 | `RATE_LIMIT_TENANT_IMPORT` | `10/hour` | Import-Anfragen je Konto |
 | `RETENTION_EXPORT_FILE_RETENTION_HOURS` | `72` | wie lange ein Archiv ladbar bleibt (gilt auch für den persönlichen Datenexport) |
 
-!!! warning "Die allgemeine Upload-Grenze gilt auch für den Import"
-    Jeder Upload an das Backend ist auf `STORAGE_MAX_FILE_SIZE_MB` plus 1 MiB begrenzt (Standard: 26 MiB) — vor jeder Route, also auch vor dem Import. Ein größeres Archiv lehnt das Backend mit `413` ab, auch wenn `TENANT_IMPORT_MAX_UPLOAD_MB` höher steht. Für größere Archive musst du `STORAGE_MAX_FILE_SIZE_MB`, `UPLOAD_SPOOL_BUDGET_MB` und die Upload-Grenze deines Ingress gemeinsam anheben — das gilt dann für jeden Upload.
+### Archivgröße und /tmp { #archivgrosse-und-tmp }
 
-!!! info "Signaturschlüssel"
-    Die Signatur der Archive wird aus `JWT_SECRET_KEY` abgeleitet. Wechselst du dieses Geheimnis, gelten ältere Archive beim Import als nicht verifiziert (`verified: false`); sie lassen sich weiter importieren.
+Die Import-Route hat ihre **eigene** Upload-Grenze: `TENANT_IMPORT_MAX_UPLOAD_MB` plus 1 MiB für die Formular-Daten. Jeder andere Upload bleibt bei `STORAGE_MAX_FILE_SIZE_MB` plus 1 MiB. Das Backend schreibt den Upload in sein `/tmp`, bevor es prüft, wer anfragt — darum begrenzt es die Import-Grenze zusätzlich auf `UPLOAD_SPOOL_BUDGET_MB` (das Budget, das alle gleichzeitigen Uploads in `/tmp` teilen) und schreibt beim Start `upload_route_ceiling_lowered_to_spool_budget` ins Log, wenn es das tut. Ein Archiv darüber lehnt es sofort mit `413` ab, statt `/tmp` zu füllen.
+
+Mit den Standardwerten nimmt der Import deshalb Archive bis etwa **51 MiB** an (Budget 52 MiB). Für größere Archive bis N MiB:
+
+1. `TENANT_IMPORT_MAX_UPLOAD_MB=N` setzen (im Helm-Chart `tenantExport.importMaxUploadMb: N`; das setzt auch die Grenzen von Frontend-nginx und Ingress für genau diesen Pfad).
+2. `UPLOAD_SPOOL_BUDGET_MB` auf mindestens N + 1 anheben (im Chart `controllers.backend.containers.main.env.UPLOAD_SPOOL_BUDGET_MB`).
+3. `/tmp` des Backends größer als das Budget machen (im Chart `persistence.backend-tmp.sizeLimit`; das Chart kann `sizeLimit` nicht aus Werten berechnen). Im Chart liegt `/tmp` im Arbeitsspeicher: Hebe das Speicherlimit des Backends um denselben Betrag an.
+4. Der Worker schreibt das Archiv beim Export und liest es beim Import über eine temporäre Datei (ab 32 MiB in `/tmp`): Mache auch `persistence.celery-worker-tmp.sizeLimit` und das Speicherlimit des Workers so groß wie das größte Archiv, das du exportierst oder importierst. Sonst endet ein großer Export mit `failed` und `internal_error`.
+
+Solange ein großer Import hochlädt, belegt er das gemeinsame Budget: Andere Uploads warten bis zu `UPLOAD_SPOOL_WAIT_SECONDS` und bekommen danach `503`. Plane große Importe deshalb außerhalb der Hauptnutzungszeit. Plattform-Admin-Recht und Bestätigung prüft das Backend wie bisher erst nach dem Hochladen; vorher gilt für jede Anfrage an diesen Pfad nur die Größengrenze.
+
+Docker Compose: Das nginx des Frontend-Images lässt auf dem Import-Pfad 513 MiB durch; die wirksame Grenze setzen dort `TENANT_IMPORT_MAX_UPLOAD_MB` und `UPLOAD_SPOOL_BUDGET_MB` des Backends.
+
+### Signaturschlüssel
+
+Ohne `TENANT_EXPORT_SIGNING_SECRET` wird der Signaturschlüssel aus `JWT_SECRET_KEY` abgeleitet. Wechselst du dieses Geheimnis, gelten ältere Archive beim Import als nicht verifiziert (`verified: false`); sie lassen sich weiter importieren.
+
+Mit einem eigenen Geheimnis hängen Archiv-Signatur und Anmelde-Tokens nicht mehr am selben Schlüssel: Ein Wechsel des JWT-Geheimnisses lässt die Archive verifiziert, und wer das JWT-Geheimnis kennt, kann kein verifiziertes Archiv fälschen. Erzeuge es mit `openssl rand -hex 32` (mindestens 32 Zeichen, sonst startet das Backend nicht) und lege es ins Kubernetes-Secret:
+
+```bash
+kubectl -n <namespace> patch secret kamerplanter-secrets --type merge \
+  -p "{\"stringData\": {\"TENANT_EXPORT_SIGNING_SECRET\": \"$(openssl rand -hex 32)\"}}"
+kubectl -n <namespace> rollout restart deploy/kamerplanter-backend deploy/kamerplanter-celery-worker
+```
+
+Mit `celeryWorkers.dedicatedQueues: true` startest du zusätzlich `deploy/kamerplanter-celery-worker-bulk` neu — dort laufen Export und Import. Backend (prüft Importe) und Celery-Worker (signiert Exporte) lesen den Schlüssel `TENANT_EXPORT_SIGNING_SECRET` aus dem Secret, das `tenantExport.signingSecret.secretName` nennt (Standard `kamerplanter-secrets`, mit External Secrets aus deinem Secret-Store). Fehlt der Schlüssel dort, bleibt es bei der Ableitung aus `JWT_SECRET_KEY`. Wer das Geheimnis getrennt halten will, nennt ein eigenes Secret: `tenantExport.signingSecret.secretName: kp-archive-signing`. Setzt du es zum ersten Mal oder wechselst es, gelten die bis dahin geschriebenen Archive als nicht verifiziert — exportiere einen Garten, den du gerade umziehst, danach neu. Nie in `values.yaml` eintragen.
 
 ---
 
