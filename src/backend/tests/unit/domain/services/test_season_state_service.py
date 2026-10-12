@@ -91,7 +91,9 @@ class TestApplySideEffects:
         service._apply_side_effects(_site(), _transition(SeasonPhase.PRE_WINTER))
 
         materializer.materialize.assert_called_once()
-        care_service.ensure_seasonal_winter_tasks.assert_called_once_with("plant-1", SeasonPhase.PRE_WINTER)
+        care_service.ensure_seasonal_winter_tasks.assert_called_once_with(
+            "plant-1", SeasonPhase.PRE_WINTER, tenant_key="tenant-1"
+        )
 
     def test_pre_spring_leaves_dormancy_and_creates_spring_task(self) -> None:
         care_service = MagicMock()
@@ -101,7 +103,9 @@ class TestApplySideEffects:
         service._apply_side_effects(_site(), _transition(SeasonPhase.PRE_SPRING))
 
         dormancy.deactivate.assert_called_once_with("plant-1")
-        care_service.ensure_seasonal_winter_tasks.assert_called_once_with("plant-1", SeasonPhase.PRE_SPRING)
+        care_service.ensure_seasonal_winter_tasks.assert_called_once_with(
+            "plant-1", SeasonPhase.PRE_SPRING, tenant_key="tenant-1"
+        )
 
     def test_growing_leaves_dormancy_without_winter_tasks(self) -> None:
         care_service = MagicMock()
@@ -610,7 +614,9 @@ class TestReadingTheSeasonStateDoesNotPersist:
         service._repo.upsert.assert_called_once()
         assert state is service._repo.upsert.return_value
         materializer.materialize.assert_called_once()
-        care_service.ensure_seasonal_winter_tasks.assert_called_once_with("plant-1", SeasonPhase.PRE_WINTER)
+        care_service.ensure_seasonal_winter_tasks.assert_called_once_with(
+            "plant-1", SeasonPhase.PRE_WINTER, tenant_key="tenant-1"
+        )
 
 
 class TestTheOverviewAgreesWithTheDetailRead:

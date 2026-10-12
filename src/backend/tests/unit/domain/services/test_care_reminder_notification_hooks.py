@@ -96,7 +96,7 @@ def test_interval_change_upserts_care_notification(service, care_repo, task_repo
     care_repo.get_profile_by_plant_key.return_value = _profile()
     task_repo.find_open_care_task.return_value = _pending_task()
 
-    service.update_profile("plant-1", {"watering_interval_days": 14}, user_key="user-a")
+    service.update_profile("plant-1", {"watering_interval_days": 14}, tenant_key="tenant-A", user_key="user-a")
 
     propagation.sync_care_notification.assert_called_once()
     _, kwargs = propagation.sync_care_notification.call_args
@@ -132,7 +132,7 @@ def test_no_interval_change_does_not_propagate(service, care_repo, task_repo, pr
     task_repo.find_open_care_task.return_value = _pending_task()
 
     # Editing an unrelated field is not an interval change → no reschedule.
-    service.update_profile("plant-1", {"notes": "hi"}, user_key="user-a")
+    service.update_profile("plant-1", {"notes": "hi"}, tenant_key="tenant-A", user_key="user-a")
 
     propagation.sync_care_notification.assert_not_called()
 
@@ -155,7 +155,7 @@ def test_service_without_propagation_is_safe(care_repo, task_repo, plant_repo):
     care_repo.get_profile_by_plant_key.return_value = _profile()
     task_repo.find_open_care_task.return_value = _pending_task()
     # Must not crash without the coupling wired.
-    service.update_profile("plant-1", {"watering_interval_days": 14})
+    service.update_profile("plant-1", {"watering_interval_days": 14}, tenant_key="tenant-A")
 
 
 def test_watering_log_marks_the_care_note_handled(service, care_repo, task_repo, propagation):

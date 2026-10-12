@@ -49,6 +49,7 @@ gate (#1432).
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -67,8 +68,14 @@ from app.domain.services.care_reminder_service import (
 PLANT = "522789"
 
 
+TENANT = "tenant-1"
+
+
 def _service(care_repo) -> CareReminderService:
-    return CareReminderService(care_repo, CareReminderEngine())
+    # The plant belongs to TENANT: the tenant predicate (#2107) runs before the race logic.
+    plant_repo = MagicMock()
+    plant_repo.get_by_key.return_value = SimpleNamespace(key=PLANT, tenant_key=TENANT)
+    return CareReminderService(care_repo, CareReminderEngine(), plant_repo=plant_repo)
 
 
 def _losing_repo(*, winner: CareProfile | None, rejection: Exception | None = None) -> MagicMock:
@@ -92,7 +99,7 @@ class TestLostProfileCreationRace:
         winner = CareProfile(key="theirs", plant_key=PLANT)
         repo = _losing_repo(winner=winner)
 
-        result = _service(repo).get_or_create_profile(PLANT, may_create=True)
+        result = _service(repo).get_or_create_profile(PLANT, may_create=True, tenant_key=TENANT)
 
         assert result is winner
         repo.get_linked_profile.assert_called_once_with(PLANT)
@@ -110,7 +117,7 @@ class TestLostProfileCreationRace:
         """
         repo = _losing_repo(winner=CareProfile(key="theirs", plant_key=PLANT))
 
-        _service(repo).get_or_create_profile(PLANT, may_create=True)
+        _service(repo).get_or_create_profile(PLANT, may_create=True, tenant_key=TENANT)
 
         assert not hasattr(repo, "delete_profile"), (
             "the repository offers a profile delete again; deleting the document while the edge "
@@ -131,7 +138,7 @@ class TestLostProfileCreationRace:
         stored = CareProfile(key="mine", plant_key=PLANT)
         repo.create_linked_profile.return_value = stored
 
-        result = _service(repo).get_or_create_profile(PLANT, may_create=True)
+        result = _service(repo).get_or_create_profile(PLANT, may_create=True, tenant_key=TENANT)
 
         assert result is stored
         written, linked_to = repo.create_linked_profile.call_args.args
@@ -155,7 +162,7 @@ class TestLostProfileCreationRace:
         repo = _losing_repo(winner=None)
 
         with pytest.raises(WriteConflictError):
-            _service(repo).get_or_create_profile(PLANT, may_create=True)
+            _service(repo).get_or_create_profile(PLANT, may_create=True, tenant_key=TENANT)
 
     def test_the_other_rejection_code_resolves_the_same_way(self):
         """ArangoDB answers this index with ``1210`` as well as with ``1200``.
@@ -172,7 +179,7 @@ class TestLostProfileCreationRace:
         winner = CareProfile(key="theirs", plant_key=PLANT)
         repo = _losing_repo(winner=winner, rejection=DuplicateError("has_care_profile", "_from", PLANT))
 
-        result = _service(repo).get_or_create_profile(PLANT, may_create=True)
+        result = _service(repo).get_or_create_profile(PLANT, may_create=True, tenant_key=TENANT)
 
         assert result is winner
 
@@ -181,7 +188,7 @@ class TestLostProfileCreationRace:
         repo = _losing_repo(winner=None, rejection=DuplicateError("has_care_profile", "_from", PLANT))
 
         with pytest.raises(DuplicateError):
-            _service(repo).get_or_create_profile(PLANT, may_create=True)
+            _service(repo).get_or_create_profile(PLANT, may_create=True, tenant_key=TENANT)
 
     def test_a_1200_loser_re_reads_until_the_winner_commits(self):
         """SCR-001: one read is not enough for ``1200``, and the transaction made it worse.
@@ -200,7 +207,7 @@ class TestLostProfileCreationRace:
         repo = _losing_repo(winner=None)
         repo.get_linked_profile.side_effect = [None, None, winner]
 
-        result = _service(repo).get_or_create_profile(PLANT, may_create=True)
+        result = _service(repo).get_or_create_profile(PLANT, may_create=True, tenant_key=TENANT)
 
         assert result is winner
         assert repo.get_linked_profile.call_count == 3, (
@@ -217,7 +224,7 @@ class TestLostProfileCreationRace:
         repo = _losing_repo(winner=None)
 
         with pytest.raises(WriteConflictError):
-            _service(repo).get_or_create_profile(PLANT, may_create=True)
+            _service(repo).get_or_create_profile(PLANT, may_create=True, tenant_key=TENANT)
 
         assert repo.get_linked_profile.call_count == _RACE_REREAD_ATTEMPTS
 
@@ -236,7 +243,7 @@ class TestLostProfileCreationRace:
             mock.patch("app.domain.services.care_reminder_service.time.sleep", slept.append),
             pytest.raises(WriteConflictError),
         ):
-            _service(repo).get_or_create_profile(PLANT, may_create=True)
+            _service(repo).get_or_create_profile(PLANT, may_create=True, tenant_key=TENANT)
 
         assert slept == [_RACE_REREAD_INTERVAL_SECONDS] * (_RACE_REREAD_ATTEMPTS - 1), (
             "a sleep per gap between reads, and none after the last one"
@@ -251,7 +258,7 @@ class TestLostProfileCreationRace:
         repo = _losing_repo(winner=None, rejection=DuplicateError("has_care_profile", "_from", PLANT))
 
         with pytest.raises(DuplicateError):
-            _service(repo).get_or_create_profile(PLANT, may_create=True)
+            _service(repo).get_or_create_profile(PLANT, may_create=True, tenant_key=TENANT)
 
         assert repo.get_linked_profile.call_count == 1
 
@@ -259,6 +266,6 @@ class TestLostProfileCreationRace:
         """``may_create=False`` still writes nothing — the #1422 boundary stays put."""
         repo = _losing_repo(winner=CareProfile(key="theirs", plant_key=PLANT))
 
-        _service(repo).get_or_create_profile(PLANT, may_create=False)
+        _service(repo).get_or_create_profile(PLANT, may_create=False, tenant_key=TENANT)
 
         repo.create_linked_profile.assert_not_called()

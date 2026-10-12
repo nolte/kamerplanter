@@ -22,5 +22,5 @@ def get_care_dashboard(
     Tenant isolation is enforced via ``get_current_tenant``; only plants of the
     authenticated tenant are considered (removed plants are excluded).
     """
-    entries = service.get_care_dashboard_for_tenant(ctx.tenant_key, hemisphere)
+    entries = service.get_care_dashboard_for_tenant(hemisphere, tenant_key=ctx.tenant_key)
     return [CareDashboardEntryResponse(**e.model_dump()) for e in entries]

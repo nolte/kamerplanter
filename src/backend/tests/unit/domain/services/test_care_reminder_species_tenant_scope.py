@@ -130,8 +130,8 @@ def test_the_winter_gate_of_a_foreign_species_plant_gets_no_frost_data() -> None
 
     service._engine.should_generate_reminder = _spy
 
-    service.ensure_seasonal_winter_tasks("plant-a", SeasonPhase.PRE_WINTER)
-    service.ensure_seasonal_winter_tasks("plant-b", SeasonPhase.PRE_WINTER)
+    service.ensure_seasonal_winter_tasks("plant-a", SeasonPhase.PRE_WINTER, tenant_key=TENANT_A)
+    service.ensure_seasonal_winter_tasks("plant-b", SeasonPhase.PRE_WINTER, tenant_key=TENANT_B)
 
     assert seen["plant-b"] == FrostTolerance.SENSITIVE, "the owning tenant keeps its species' frost data"
     assert seen["plant-a"] is None, "a foreign species' frost data must not reach tenant A's reminders"

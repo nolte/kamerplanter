@@ -270,27 +270,13 @@ _NOT_TENANT_ADDRESSED: dict[str, str] = {
 #: excused per method in :data:`_GLOBAL_CATALOGUE_WRITES` /
 #: :data:`_NOT_TENANT_ADDRESSED`: 15 (both slices merged). Re-measured
 #: 2026-10-12 after the Home Assistant publish slice (``HaPublishService``
-#: set/bulk-set keyword-only, ownership checked in the service): 13. Each line is
-#: a keyed write that can still be called without a tenant, or with a defaulted /
-#: positional one. Convert the method to ``*, tenant_key: str`` (and drop the
-#: router's pre-check), then delete the line.
-_REMAINING: frozenset[str] = frozenset(
-    {
-        "CareReminderService.advance_watering_task_after_log",
-        "CareReminderService.complete_care_task_with_log",
-        "CareReminderService.confirm_reminder",
-        "CareReminderService.ensure_next_watering_task",
-        "CareReminderService.ensure_seasonal_winter_tasks",
-        "CareReminderService.get_care_dashboard",
-        "CareReminderService.get_care_dashboard_for_tenant",
-        "CareReminderService.get_or_create_profile",
-        "CareReminderService.record_care_task_completion",
-        "CareReminderService.record_care_task_skip",
-        "CareReminderService.reset_profile",
-        "CareReminderService.snooze_reminder",
-        "CareReminderService.update_profile",
-    }
-)
+#: set/bulk-set keyword-only, ownership checked in the service): 13. Re-measured
+#: 2026-10-12 after the care-reminder slice (all 13 ``CareReminderService``
+#: methods keyword-only, the plant verified in the service by ``_owned_plant``,
+#: the beats passing the tenant they iterate): 0. The list is empty and stays
+#: empty: a new keyed write takes ``*, tenant_key: str`` and checks ownership in
+#: the method from the start (:func:`test_every_keyed_service_write_takes_the_tenant_keyword_only`).
+_REMAINING: frozenset[str] = frozenset()
 
 
 def test_every_keyed_service_write_takes_the_tenant_keyword_only() -> None:

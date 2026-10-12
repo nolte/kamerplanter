@@ -2,6 +2,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 
@@ -15,9 +16,8 @@ from app.common.enums import (
     TaskPriority,
     TaskStatus,
 )
-from app.common.exceptions import DuplicateError, WriteConflictError
+from app.common.exceptions import DuplicateError, NotFoundError, WriteConflictError
 from app.common.log_privacy import log_tenant
-from app.common.tenant_guard import verify_tenant_ownership
 from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.recurrence_engine import RecurrenceEngine
@@ -42,6 +42,7 @@ from app.domain.models.care_reminder import (
 )
 from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
+from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.species import Cultivar, Species, WateringGuide
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
@@ -459,13 +460,67 @@ class CareReminderService:
                     cultivar = self._species_repo.get_cultivar_by_key(plant.cultivar_key)
         return resolve_care_inputs(species, cultivar, resolve_family_name=self._family_name)
 
+    # ── the tenant predicate (#2107, MT-010) ───────────────────────────────────
+
+    def _owned_plant(self, plant_key: str, tenant_key: str) -> PlantInstance | None:
+        """The plant behind *plant_key* when *tenant_key* owns it, else ``None``.
+
+        The single ownership predicate of every care write (#2107, SEC-001). A
+        ``CareProfile`` carries no tenant of its own — it is anchored on its plant,
+        as ``Location``/``Slot`` are on their site — so the plant document is the
+        only authority, and it is read here rather than trusted from a caller.
+
+        Fails **closed** on every way the answer could be unknown: an unknown
+        plant, a plant of another tenant, an empty ``tenant_key`` (the
+        :func:`~app.common.tenant_guard.verify_tenant_ownership` rule — ``""`` means
+        "no tenant", never "every tenant"), and a service built without a
+        ``plant_repo``, which cannot verify anything and therefore owns nothing.
+        Until #2107 the last two *skipped* the check — the inert-guard shape this
+        predicate replaces.
+        """
+        if not tenant_key or self._plant_repo is None:
+            return None
+        plant = self._plant_repo.get_by_key(plant_key)
+        if plant is None or plant.tenant_key != tenant_key:
+            return None
+        return plant
+
+    def _require_owned_plant(self, plant_key: str, tenant_key: str) -> PlantInstance:
+        """:meth:`_owned_plant` for a request-driven write: refuse with ``NotFoundError``.
+
+        404, never 403 — a foreign key is answered exactly like an unknown one, so
+        the existence of another tenant's plant is not disclosed (REQ-049 §2.4).
+        """
+        plant = self._owned_plant(plant_key, tenant_key)
+        if plant is None:
+            raise NotFoundError("PlantInstance", plant_key)
+        return plant
+
     def get_or_create_profile(
         self,
         plant_key: str,
         *,
         may_create: bool,
+        tenant_key: str,
     ) -> CareProfile:
         """Return the plant's care profile, persisting a generated one only if allowed.
+
+        ``tenant_key`` is keyword-only without a default (#2107): the plant is
+        verified to belong to it first (:meth:`_require_owned_plant`), and a foreign
+        or unknown plant answers ``NotFoundError`` before anything is read or
+        written. The body lives in :meth:`_get_or_create_profile`, which the
+        callers inside this service reach after they ran the predicate themselves.
+        """
+        self._require_owned_plant(plant_key, tenant_key)
+        return self._get_or_create_profile(plant_key, may_create=may_create)
+
+    def _get_or_create_profile(
+        self,
+        plant_key: str,
+        *,
+        may_create: bool,
+    ) -> CareProfile:
+        """Return the care profile of an already verified plant, persisting only if allowed.
 
         **``may_create`` is keyword-only and has no default**, so every call site
         states whether it is a read or a write. A default would have been an opt-in,
@@ -610,8 +665,13 @@ class CareReminderService:
 
             structlog.get_logger().warning("care_notification_propagation_failed")
 
-    def update_profile(self, plant_key: str, updates: dict, *, user_key: str = "") -> CareProfile:
+    def update_profile(self, plant_key: str, updates: dict, *, tenant_key: str, user_key: str = "") -> CareProfile:
         """Persist care-profile edits and re-terminate the affected pending tasks.
+
+        The plant must belong to ``tenant_key`` (keyword-only, no default, #2107);
+        a foreign or unknown plant answers ``NotFoundError`` before anything is
+        written. Until #2107 that check lived only in the router's
+        ``require_owned_plant`` dependency.
 
         Beyond writing the fields, an edit to any task-interval field
         (``watering_interval_days`` and its fertilizing/pest/humidity/repotting
@@ -629,9 +689,10 @@ class CareReminderService:
         # been confirmed or snoozed has no stored profile, and this path used to
         # answer 404 for it. That is a write path: creating what it is about to edit
         # is exactly what it may do, and it is what the read path may not.
+        self._require_owned_plant(plant_key, tenant_key)
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
-            profile = self.get_or_create_profile(plant_key, may_create=True)
+            profile = self._get_or_create_profile(plant_key, may_create=True)
 
         # Which task-interval fields actually change (a no-op write is not a change).
         changed_reminders = {
@@ -670,12 +731,12 @@ class CareReminderService:
         saved = self._repo.update_profile(profile.key or "", updated)
 
         for reminder_type in changed_reminders:
-            self._reschedule_pending_care_task(saved, reminder_type, user_key=user_key)
+            self._reschedule_pending_care_task(saved, reminder_type, tenant_key=tenant_key, user_key=user_key)
 
         return saved
 
     def _reschedule_pending_care_task(
-        self, profile: CareProfile, reminder_type: ReminderType, *, user_key: str = ""
+        self, profile: CareProfile, reminder_type: ReminderType, *, tenant_key: str, user_key: str = ""
     ) -> None:
         """Re-terminate the plant's pending care task after an interval edit (#622).
 
@@ -693,7 +754,6 @@ class CareReminderService:
             return
 
         plant_key = profile.plant_key
-        tenant_key = self._resolve_tenant_key(plant_key)
         task = self._task_repo.find_open_care_task(
             plant_key,
             reminder_type,
@@ -724,7 +784,9 @@ class CareReminderService:
         # a duplicate when a task was already completed today.
         if reminder_type == ReminderType.WATERING and profile.auto_create_watering_task:
             phase_interval = self._get_phase_watering_interval(plant_key)
-            created = self.ensure_next_watering_task(profile, phase_watering_interval=phase_interval)
+            created = self.ensure_next_watering_task(
+                profile, phase_watering_interval=phase_interval, tenant_key=tenant_key
+            )
             if created is not None:
                 # A brand-new occurrence, not a retiming — it must reach the badge (#769).
                 self._propagate_care_reschedule(
@@ -838,35 +900,34 @@ class CareReminderService:
         fertilizers_used: list[dict] | None = None,
         measured_ec: float | None = None,
         measured_ph: float | None = None,
-        tenant_key: str = "",
+        tenant_key: str,
         user_key: str = "",
     ) -> CareConfirmation:
-        # SEC-001 defense-in-depth (mirrors the #517 shared-guard pattern): when a
-        # caller passes its ``tenant_key`` (the MCP path always does), re-verify
-        # the plant belongs to that tenant before mutating any care state. A
-        # foreign/missing key fails closed with NotFoundError (→ HTTP 404), never
-        # a 403, so a plant's existence is never disclosed across the boundary.
-        if tenant_key and self._plant_repo is not None:
-            plant = self._plant_repo.get_or_raise(plant_key)
-            verify_tenant_ownership(plant, tenant_key, "PlantInstance")
+        """Confirm a care reminder for a plant ``tenant_key`` owns.
+
+        SEC-001 / #2107: the plant is verified against ``tenant_key`` (keyword-only,
+        no default) before any care state is touched. A foreign or unknown key
+        fails closed with ``NotFoundError`` (404, never 403), so a plant's
+        existence is not disclosed across the boundary. Until #2107 the check ran
+        only ``if tenant_key`` — an opt-in the REST route did not opt into for months.
+        """
+        self._require_owned_plant(plant_key, tenant_key)
 
         # #1713: the fertilizer lines are request values and end up on the
         # WateringLog below. Checked against the tenant the log will carry, and
         # before the care profile may be created, so a refusal writes nothing.
-        log_tenant_key = tenant_key
         if reminder_type in (ReminderType.WATERING, ReminderType.FERTILIZING) and self._watering_log_repo is not None:
-            log_tenant_key = tenant_key or self._resolve_tenant_key(plant_key)
             assert_fertilizers_visible(
                 self._fertilizer_repo,
                 (f.get("fertilizer_key") for f in (fertilizers_used or [])),
-                tenant_key=log_tenant_key,
+                tenant_key=tenant_key,
                 field="fertilizers_used",
                 owner="CareReminderService",
             )
 
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
-            profile = self.get_or_create_profile(plant_key, may_create=True)
+            profile = self._get_or_create_profile(plant_key, may_create=True)
 
         now = datetime.now(UTC)
         watering_log_key: str | None = None
@@ -886,9 +947,8 @@ class CareReminderService:
             watering_log = WateringLog(
                 # Stamp the tenant so the confirmation's log is visible in the
                 # global Gießprotokoll view, which filters strictly on tenant_key
-                # (#580). Prefer the caller-supplied tenant (MCP path); otherwise
-                # resolve it from the plant so the REST care path is also bound.
-                tenant_key=log_tenant_key,
+                # (#580). The tenant was verified to own the plant above.
+                tenant_key=tenant_key,
                 logged_at=now,
                 application_method=ApplicationMethod.DRENCH,
                 volume_liters=effective_volume,
@@ -937,13 +997,12 @@ class CareReminderService:
                     )
 
         # Auto-complete matching pending task
-        closed_task = self._complete_pending_care_task(plant_key, reminder_type)
+        closed_task = self._complete_pending_care_task(plant_key, reminder_type, tenant_key=tenant_key)
 
         # #742 — mark the plant's in-app care notification done (badge drops).
-        resolved_tenant = tenant_key or self._resolve_tenant_key(plant_key)
         self._propagate(
             lambda p: p.on_care_confirmed(
-                tenant_key=resolved_tenant,
+                tenant_key=tenant_key,
                 plant_key=plant_key,
                 reminder_type=reminder_type,
             )
@@ -955,6 +1014,7 @@ class CareReminderService:
                 profile,
                 created,
                 just_completed_task=closed_task,
+                tenant_key=tenant_key,
             )
             # The confirmation closed the current note; if a next watering task was
             # scheduled, surface it as the fresh, correctly-terminated care note.
@@ -964,7 +1024,7 @@ class CareReminderService:
                 self._propagate_care_reschedule(
                     profile,
                     reminder_type,
-                    resolved_tenant,
+                    tenant_key,
                     user_key,
                     next_task.due_date,
                     next_task.key,
@@ -972,26 +1032,6 @@ class CareReminderService:
                 )
 
         return created
-
-    def _is_foreign_plant(self, plant_key: str, tenant_key: str) -> bool:
-        """Return whether *plant_key* must not be touched on behalf of *tenant_key*.
-
-        The single cross-tenant write guard of the care paths (SEC-001): a plant
-        that is unknown or belongs to another tenant is *foreign*, and every write
-        derived from it (confirmation + graph edges, watering log, follow-up care
-        task) must be refused. Fails **closed** — an unresolvable plant counts as
-        foreign — and stays silent (``True``, caller returns ``None``) instead of
-        raising, so a foreign key's existence is never disclosed (no cross-tenant
-        oracle, SEC-B4).
-
-        An empty ``tenant_key`` is the system context (Celery producers, MCP): it
-        carries no tenant to verify against, so the check is skipped exactly as it
-        is for a service built without a ``plant_repo``.
-        """
-        if not tenant_key or self._plant_repo is None:
-            return False
-        plant = self._plant_repo.get_by_key(plant_key)
-        return plant is None or plant.tenant_key != tenant_key
 
     def _resolve_care_task_context(
         self,
@@ -1008,7 +1048,7 @@ class CareReminderService:
         * the task is a ``care_reminder`` on a ``plant_instance`` and names a plant;
         * the task itself belongs to ``tenant_key`` (defence in depth: the router
           already verifies it, but the service must not depend on that);
-        * the plant belongs to ``tenant_key`` (:meth:`_is_foreign_plant`) — the
+        * the plant belongs to ``tenant_key`` (:meth:`_owned_plant`) — the
           check the completion bridge was missing (SEC-001): ``entity_key`` is
           caller-supplied at task creation and is *not* validated against the
           creating tenant, so a task in tenant A can point at a plant in tenant B;
@@ -1020,9 +1060,9 @@ class CareReminderService:
         plant_key = task.entity_key
         if not plant_key:
             return None
-        if tenant_key and task.tenant_key != tenant_key:
+        if task.tenant_key != tenant_key:
             return None
-        if self._is_foreign_plant(plant_key, tenant_key):
+        if self._owned_plant(plant_key, tenant_key) is None:
             return None
 
         profile = self._repo.get_profile_by_plant_key(plant_key)
@@ -1039,7 +1079,7 @@ class CareReminderService:
         plant_key: str,
         last_confirmation: CareConfirmation | None = None,
         *,
-        tenant_key: str = "",
+        tenant_key: str,
     ) -> Task | None:
         """Advance the watering care-reminder task after an out-of-band watering log.
 
@@ -1049,9 +1089,9 @@ class CareReminderService:
         the queue (#548): it completes the plant's still-open watering
         care-reminder task and schedules the next occurrence.
 
-        Tenant-scoped and idempotent: when ``tenant_key`` is supplied the plant is
-        verified to belong to that tenant first and a foreign/unknown plant is left
-        untouched (``None``). Both the completion and the next-occurrence check
+        Tenant-scoped and idempotent: the plant is verified to belong to
+        ``tenant_key`` (keyword-only, no default, #2107) first and a foreign/unknown
+        plant is left untouched (``None``). Both the completion and the next-occurrence check
         route through the single tenant-aware dedup helper
         (:meth:`ITaskRepository.find_open_care_task`), so logging watering twice can
         neither double-complete an already-closed task nor leave more than one
@@ -1064,7 +1104,7 @@ class CareReminderService:
         or ``None`` when no profile exists, auto-scheduling is disabled, or
         another task already satisfies the reminder.
         """
-        if self._is_foreign_plant(plant_key, tenant_key):
+        if self._owned_plant(plant_key, tenant_key) is None:
             return None
 
         profile = self._repo.get_profile_by_plant_key(plant_key)
@@ -1073,7 +1113,7 @@ class CareReminderService:
 
         # Close the still-open watering task for the plant's own tenant (idempotent:
         # a task already completed earlier is not reopened/re-completed).
-        closed_task = self._complete_pending_care_task(plant_key, ReminderType.WATERING)
+        closed_task = self._complete_pending_care_task(plant_key, ReminderType.WATERING, tenant_key=tenant_key)
 
         # The notification world has to be told, exactly as on the confirmation
         # path (#813). Without this the care note kept its *old* due date after a
@@ -1089,10 +1129,9 @@ class CareReminderService:
         # service stamps `watered_at=log.logged_at` and the accompanying
         # `CareConfirmation` with `confirmed_at=now`. A log is always a
         # present-tense confirmation on this path.
-        resolved_tenant = tenant_key or self._resolve_tenant_key(plant_key)
         self._propagate(
             lambda p: p.on_care_confirmed(
-                tenant_key=resolved_tenant,
+                tenant_key=tenant_key,
                 plant_key=plant_key,
                 reminder_type=ReminderType.WATERING,
             )
@@ -1102,6 +1141,7 @@ class CareReminderService:
             profile,
             last_confirmation,
             just_completed_task=closed_task,
+            tenant_key=tenant_key,
         )
 
         # `on_care_confirmed` above stamped the plant's single care row read, so
@@ -1111,7 +1151,7 @@ class CareReminderService:
             self._propagate_care_reschedule(
                 profile,
                 ReminderType.WATERING,
-                resolved_tenant,
+                tenant_key,
                 "",
                 next_task.due_date,
                 next_task.key,
@@ -1126,6 +1166,7 @@ class CareReminderService:
         last_confirmation: CareConfirmation | None,
         *,
         just_completed_task: Task | None,
+        tenant_key: str,
     ) -> Task | None:
         """Schedule the follow-up watering task of a complete-then-schedule operation.
 
@@ -1148,13 +1189,14 @@ class CareReminderService:
             last_confirmation,
             phase_watering_interval=phase_interval,
             just_completed_task=just_completed_task,
+            tenant_key=tenant_key,
         )
 
     def record_care_task_completion(
         self,
         task: Task,
         *,
-        tenant_key: str = "",
+        tenant_key: str,
     ) -> Task | None:
         """Mirror a completed care-reminder task into the plant's care state (REQ-022).
 
@@ -1199,13 +1241,15 @@ class CareReminderService:
 
         # ``TaskService.complete_task`` has already stamped ``completed_at=now`` on
         # this very task, so it must not satisfy the follow-up dedup lookup (#768).
-        return self._schedule_next_watering_after_completion(profile, None, just_completed_task=task)
+        return self._schedule_next_watering_after_completion(
+            profile, None, just_completed_task=task, tenant_key=tenant_key
+        )
 
     def record_care_task_skip(
         self,
         task: Task,
         *,
-        tenant_key: str = "",
+        tenant_key: str,
     ) -> CareConfirmation | None:
         """Mirror a skipped care-reminder task into the plant's care state (REQ-022).
 
@@ -1280,28 +1324,19 @@ class CareReminderService:
             return [plant.slot_key]
         return []
 
-    def _resolve_tenant_key(self, plant_key: str) -> str:
-        """Resolve a plant's ``tenant_key`` so care-task lookups stay tenant-scoped.
-
-        Returns ``""`` when the plant can't be resolved (no plant repo / unknown
-        key); the tenant-aware dedup helper then scopes to the empty-tenant slice
-        rather than scanning across tenants (#509).
-        """
-        if self._plant_repo is None:
-            return ""
-        plant = self._plant_repo.get_by_key(plant_key)
-        return plant.tenant_key if plant is not None else ""
-
     def _complete_pending_care_task(
         self,
         plant_key: str,
         reminder_type: ReminderType,
+        *,
+        tenant_key: str,
     ) -> Task | None:
         """Auto-complete the matching *due* pending care task; return it (#761/#768).
 
         Routes through the single tenant-aware dedup helper
         (:meth:`ITaskRepository.find_open_care_task`) so it can only ever complete
-        a still-open task belonging to the plant's own tenant (#509). A task that
+        a still-open task of ``tenant_key`` — the tenant the caller verified to own
+        the plant (#509, #2107). A task that
         was already completed earlier today is intentionally excluded here
         (``include_completed_today=False``): only an open task is completed.
 
@@ -1319,7 +1354,6 @@ class CareReminderService:
         """
         if self._task_repo is None:
             return None
-        tenant_key = self._resolve_tenant_key(plant_key)
         task = self._task_repo.find_open_care_task(
             plant_key,
             reminder_type,
@@ -1338,25 +1372,29 @@ class CareReminderService:
         task_key: str,
         plant_key: str,
         reminder_type: ReminderType,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
     ) -> None:
         """Create a WateringLog when a watering/fertilizing task is completed via task queue.
 
         ``tenant_key`` (the completing request's tenant, #580) is stamped onto the
         log so the task-queue completion path — like the dashboard-confirmation
         path — yields a tenant-bound log the global Gießprotokoll view surfaces
-        instead of dropping as an empty-tenant orphan. When the caller omits it the
-        tenant is resolved from the plant so the log is never left unbound.
+        instead of dropping as an empty-tenant orphan. It is keyword-only without a
+        default and verified to own the plant first (#2107): a foreign or unknown
+        plant gets no log (silent no-op, no existence oracle).
         """
         if self._watering_log_repo is None:
             return
         if reminder_type not in (ReminderType.WATERING, ReminderType.FERTILIZING):
             return
+        if self._owned_plant(plant_key, tenant_key) is None:
+            return
 
         now = datetime.now(UTC)
         slot_keys = self._resolve_slot_keys(plant_key)
         watering_log = WateringLog(
-            tenant_key=tenant_key or self._resolve_tenant_key(plant_key),
+            tenant_key=tenant_key,
             logged_at=now,
             application_method=ApplicationMethod.DRENCH,
             volume_liters=1.0,
@@ -1371,10 +1409,14 @@ class CareReminderService:
         plant_key: str,
         reminder_type: ReminderType,
         snooze_days: int = 1,
+        *,
+        tenant_key: str,
     ) -> CareConfirmation:
+        """Snooze a care reminder of a plant ``tenant_key`` owns (404 otherwise, #2107)."""
+        self._require_owned_plant(plant_key, tenant_key)
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
-            profile = self.get_or_create_profile(plant_key, may_create=True)
+            profile = self._get_or_create_profile(plant_key, may_create=True)
 
         confirmation = CareConfirmation(
             plant_key=plant_key,
@@ -1393,8 +1435,15 @@ class CareReminderService:
         self,
         plant_data: list[dict],
         hemisphere: str = "north",
+        *,
+        tenant_key: str,
     ) -> list[CareDashboardEntry]:
         """Build care dashboard from plant data.
+
+        ``plant_data`` is caller-supplied, so every ``plant_key`` in it is verified
+        against ``tenant_key`` (keyword-only, no default, #2107); a row naming a
+        foreign or unknown plant is dropped — a list read answers with less, not
+        with a 404 that would tell which key exists.
 
         plant_data: list of dicts with keys: plant_key, plant_name, species_name,
                     current_phase, has_nutrient_plan, frost_sensitivity,
@@ -1405,6 +1454,11 @@ class CareReminderService:
         supplied. The presets are resolved from the plant now, so the key is gone
         rather than kept as a slot nobody fills.
         """
+        owned = [p for p in plant_data if self._owned_plant(p["plant_key"], tenant_key) is not None]
+        return self._dashboard_entries(owned, hemisphere)
+
+    def _dashboard_entries(self, plant_data: list[dict[str, Any]], hemisphere: str) -> list[CareDashboardEntry]:
+        """The dashboard rows of plants the caller has already verified for its tenant."""
         entries: list[CareDashboardEntry] = []
 
         for plant in plant_data:
@@ -1415,7 +1469,7 @@ class CareReminderService:
             # and it thereby also pre-empted the narrower route's refusal by making the
             # profile exist. The generated presets are what the dashboard needs; storing
             # them was never part of that.
-            profile = self.get_or_create_profile(plant_key, may_create=False)
+            profile = self._get_or_create_profile(plant_key, may_create=False)
 
             # REQ-022 §3.2 — the winter-protection reminder types are gated by the
             # plant's OverwinteringProfile + frost sensitivity; without these the
@@ -1469,8 +1523,9 @@ class CareReminderService:
 
     def get_care_dashboard_for_tenant(
         self,
-        tenant_key: str,
         hemisphere: str = "north",
+        *,
+        tenant_key: str,
     ) -> list[CareDashboardEntry]:
         """Build the care dashboard for all active plants of a tenant.
 
@@ -1479,10 +1534,13 @@ class CareReminderService:
         nutrient-plan assignment) and delegates to :meth:`get_care_dashboard`.
 
         Tenant isolation is enforced by passing ``tenant_key`` to the plant
-        repository; plants of other tenants are never loaded.
+        repository; plants of other tenants are never loaded, which is why the rows
+        go straight to :meth:`_dashboard_entries` without a second plant read each.
+        ``tenant_key`` is keyword-only without a default (#2107): an empty tenant
+        lists nothing (:meth:`_build_plant_data_for_tenant`).
         """
         plant_data = self._build_plant_data_for_tenant(tenant_key)
-        return self.get_care_dashboard(plant_data, hemisphere)
+        return self._dashboard_entries(plant_data, hemisphere)
 
     def _build_plant_data_for_tenant(self, tenant_key: str) -> list[dict]:
         """Assemble ``plant_data`` dicts for the tenant's active plants.
@@ -1492,7 +1550,7 @@ class CareReminderService:
         ``has_nutrient_plan``. Missing context resolves to
         ``None``/``False`` so a single broken record never aborts the dashboard.
         """
-        if self._plant_repo is None:
+        if self._plant_repo is None or not tenant_key:
             return []
 
         plants = get_all_pages(self._plant_repo, tenant_key=tenant_key)  # every plant, not the first 500 (#2015)
@@ -1559,7 +1617,7 @@ class CareReminderService:
         """
         return self._resolve_overwintering_profile(plant_key)
 
-    def ensure_seasonal_winter_tasks(self, plant_key: str, season_phase: SeasonPhase) -> list[Task]:
+    def ensure_seasonal_winter_tasks(self, plant_key: str, season_phase: SeasonPhase, *, tenant_key: str) -> list[Task]:
         """REQ-047 §3.2 — create the winter/spring tasks a SeasonState transition owns.
 
         Primary trigger for ``winter_protection`` / ``tuber_dig`` (on ``pre_winter``)
@@ -1567,6 +1625,10 @@ class CareReminderService:
         the calendar month. Idempotent — an equivalent active/recent task is never
         duplicated. The month-based path in the engine stays the fallback for sites
         without a SeasonState. Returns the tasks that were created.
+
+        ``tenant_key`` is keyword-only without a default (#2107): the season beat
+        passes the tenant of the site it evaluates, and a plant that tenant does not
+        own gets no task (``[]``, silently — a beat has no one to answer a 404 to).
         """
         if self._task_repo is None or self._plant_repo is None:
             return []
@@ -1574,11 +1636,11 @@ class CareReminderService:
         if not reminder_types:
             return []
 
-        plant = self._plant_repo.get_by_key(plant_key)
+        plant = self._owned_plant(plant_key, tenant_key)
         if plant is None or plant.removed_on is not None:
             return []
 
-        profile = self._repo.get_profile_by_plant_key(plant_key) or self.get_or_create_profile(
+        profile = self._repo.get_profile_by_plant_key(plant_key) or self._get_or_create_profile(
             plant_key, may_create=True
         )
         overwintering_profile = self._resolve_overwintering_profile(plant_key)
@@ -1661,7 +1723,7 @@ class CareReminderService:
             return False
         return self._nutrient_plan_repo.get_plant_plan(plant_key, tenant_key=tenant_key) is not None
 
-    def reset_profile(self, plant_key: str) -> CareProfile:
+    def reset_profile(self, plant_key: str, *, tenant_key: str) -> CareProfile:
         """Reset the profile to the species/family defaults, resolved from the plant.
 
         The two client-supplied values this used to take (``species_name``,
@@ -1683,15 +1745,19 @@ class CareReminderService:
         ``dormancy_watering`` survived only by accident, because the merge-mode
         repository dropped the ``None``. Making the repository honest would have made
         the overwrite complete; excluding the set makes all three deliberate.
+
+        The plant must belong to ``tenant_key`` (keyword-only, no default, #2107);
+        a foreign or unknown plant answers ``NotFoundError`` before anything is written.
         """
         # Bootstrap rather than refuse. `GET .../profile` stopped materialising a
         # profile in #1422 round 2 — reads do not write — so a plant that has never
         # been confirmed or snoozed has no stored profile, and this path used to
         # answer 404 for it. That is a write path: creating what it is about to edit
         # is exactly what it may do, and it is what the read path may not.
+        self._require_owned_plant(plant_key, tenant_key)
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
-            profile = self.get_or_create_profile(plant_key, may_create=True)
+            profile = self._get_or_create_profile(plant_key, may_create=True)
 
         inputs = self.care_inputs_for_plant(plant_key)
         new_profile = self._engine.auto_generate_profile(
@@ -1718,6 +1784,7 @@ class CareReminderService:
         hemisphere: str = "north",
         phase_watering_interval: int | None = None,
         *,
+        tenant_key: str,
         just_completed_task: Task | None = None,
     ) -> Task | None:
         """Ensure exactly one pending watering task exists for this plant.
@@ -1730,6 +1797,9 @@ class CareReminderService:
                 looked up when omitted.
             hemisphere: Hemisphere used for the seasonal interval.
             phase_watering_interval: Growth-phase override of the interval.
+            tenant_key: The tenant that must own the profile's plant (#2107,
+                keyword-only, no default). A foreign or unknown plant gets no
+                task; the daily producer passes the tenant of the plant it loaded.
             just_completed_task: The watering task the *calling operation itself*
                 closed a moment ago (dashboard confirmation, watering log, task
                 queue). Its presence narrows the dedup question to "is another
@@ -1759,15 +1829,13 @@ class CareReminderService:
 
         plant_key = profile.plant_key
 
-        # Resolve the plant's display name + tenant up front: the tenant_key scopes
-        # the dedup lookup, so it must be known before the idempotency check (#509).
-        plant_label = plant_key
-        plant_tenant_key = ""
-        if self._plant_repo is not None:
-            plant = self._plant_repo.get_by_key(plant_key)
-            if plant is not None:
-                plant_label = plant.plant_name or plant.instance_id or plant_key
-                plant_tenant_key = plant.tenant_key
+        # The tenant predicate (#2107) up front: the tenant_key scopes the dedup
+        # lookup and stamps the task, so it must be verified before the
+        # idempotency check (#509). An unverifiable plant gets no task.
+        plant = self._owned_plant(plant_key, tenant_key)
+        if plant is None:
+            return None
+        plant_label = plant.plant_name or plant.instance_id or plant_key
 
         # Single tenant-aware dedup: skip when an equivalent watering task is
         # already open or was completed today (#509 recency rule).
@@ -1783,7 +1851,7 @@ class CareReminderService:
         existing = self._task_repo.find_open_care_task(
             plant_key,
             ReminderType.WATERING,
-            plant_tenant_key,
+            tenant_key,
             include_completed_today=just_completed_task is None,
         )
         if existing is not None:
@@ -1810,7 +1878,7 @@ class CareReminderService:
         task = build_care_reminder_task(
             plant_key=plant_key,
             plant_label=plant_label,
-            tenant_key=plant_tenant_key,
+            tenant_key=tenant_key,
             reminder_type=ReminderType.WATERING,
             due_date=due_dt,
             instruction=f"Water {plant_label} (every {interval} days).",

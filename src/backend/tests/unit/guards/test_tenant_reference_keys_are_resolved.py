@@ -90,9 +90,6 @@ _PATH_KEYS_VERIFIED_ELSEWHERE: dict[tuple[str, str, str], str] = {
         "the run is resolved under the tenant; plant_diary_service.create_entry requires the plant to be one of "
         "that run's plants"
     ),
-    ("PATCH", "/api/v1/care-reminders/plants/{plant_key}/profile", "plant_key"): _REQUIRE_OWNED_PLANT,
-    ("POST", "/api/v1/care-reminders/plants/{plant_key}/snooze", "plant_key"): _REQUIRE_OWNED_PLANT,
-    ("POST", "/api/v1/care-reminders/plants/{plant_key}/reset-profile", "plant_key"): _REQUIRE_OWNED_PLANT,
 }
 
 
