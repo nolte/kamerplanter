@@ -10,19 +10,24 @@ fresh:
 * ``expire_manual_overrides`` (hourly) — deactivate overrides past ``expires_at``.
 * ``sync_actuator_states`` (5 min) — refresh online/offline status from HA.
 
-All tasks are guarded by the ``actuator_control_loop_enabled`` kill-switch and
-iterate across tenants in the data-access layer (NFR-001). Each actuator is
-processed defensively so one bad document never aborts the run.
+All tasks are guarded by the ``actuator_control_loop_enabled`` kill-switch. The
+two that walk actuators select the rows of the tenants they may touch in AQL and
+read them one page at a time (MT-032, #2128). Each actuator is processed
+defensively so one bad document never aborts the run: a document that fails
+validation is skipped by the walk itself (logged with its key), and an error while
+processing one actuator is caught per actuator.
 """
 
 from __future__ import annotations
 
+import itertools
+
 import structlog
 
+from app.common.enums import TenantStatus
 from app.common.exceptions import NotFoundError
 from app.common.log_privacy import loggable_error
 from app.config.settings import settings
-from app.data_access.arango.base_repository import get_all_pages
 from app.domain.services.ha_entity_grant_service import HaEntityGate
 from app.tasks import celery_app
 
@@ -75,7 +80,7 @@ def evaluate_control_rules(self) -> dict:  # noqa: ANN001 — Celery bound-task 
         get_sensor_repo,
         get_tenant_repo,
     )
-    from app.tasks.tenant_gate import CLOSED_WITH_HARDWARE, ActiveTenants
+    from app.tasks.tenant_gate import CLOSED_WITH_HARDWARE
 
     repo = get_actuator_repo()
     service = get_actuator_service()
@@ -85,21 +90,28 @@ def evaluate_control_rules(self) -> dict:  # noqa: ANN001 — Celery bound-task 
     grants = get_ha_entity_grant_service().snapshot()
     # REQ-056 §5.2 — the control loop of a tenant that is not ``active`` runs no schedule, no override
     # and no sensor rule. SEC-003: its hardware is not left latched either — a suspended, pending-deletion
-    # or orphaned tenant's devices are driven to a safe state (safety rules, then off) instead.
-    tenant_states = ActiveTenants(get_tenant_repo())
+    # or orphaned tenant's devices are driven to a safe state (safety rules, then off) instead. A
+    # ``deleted`` or vanished tenant is not walked at all: its erasure removes the devices.
+    # MT-032 (#2128): the walk selects those tenants' actuators in AQL, one page at a time, every 30 s.
+    tenant_states = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE, *CLOSED_WITH_HARDWARE})
 
-    actuators = get_all_pages(repo, all_tenants=True)  # system task: all tenants
     evaluated = 0
     dispatched = 0
     errors = 0
     closed_tenant = 0
+    tenantless = 0
     safe_state = 0
     readings_cache: dict[tuple[str, str], dict[str, float]] = {}
-    for actuator in actuators:
-        closed = bool(actuator.tenant_key) and not tenant_states(actuator.tenant_key)
-        if closed and tenant_states.status(actuator.tenant_key) not in CLOSED_WITH_HARDWARE:
-            closed_tenant += 1  # ``deleted`` or gone: the erasure removes the device
-            continue
+    # A device without a tenant (``tenant_key`` empty or missing) belongs to nobody who could open it —
+    # the situation of a closed tenant — but its hardware may still be on. It gets the same fail-safe
+    # treatment, deliberately (#2128 review W1): a firing safety rule still decides, otherwise a device
+    # that an emergency switches off is switched off once; no schedule, no override, no fallback task.
+    # Before #2128 it ran through ``evaluate_actuator`` like an active tenant's device, so a schedule or
+    # override could keep it on; silently dropping it from the walk would have latched it.
+    walk = itertools.chain(repo.iter_for_tenants(tenant_states), repo.iter_without_tenant())
+    for actuator in walk:
+        has_tenant = bool(actuator.tenant_key)
+        closed = not has_tenant or tenant_states.get(actuator.tenant_key) != TenantStatus.ACTIVE
         try:
             cache_key = (actuator.tenant_key, actuator.location_key)
             if cache_key not in readings_cache:
@@ -107,7 +119,10 @@ def evaluate_control_rules(self) -> dict:  # noqa: ANN001 — Celery bound-task 
                     sensor_repo, ha_client, actuator.location_key, tenant_key=actuator.tenant_key, grants=grants
                 )
             if closed:
-                closed_tenant += 1
+                if has_tenant:
+                    closed_tenant += 1
+                else:
+                    tenantless += 1
                 if service.drive_to_safe_state(actuator, readings_cache[cache_key]) is not None:
                     safe_state += 1
                 continue
@@ -119,12 +134,15 @@ def evaluate_control_rules(self) -> dict:  # noqa: ANN001 — Celery bound-task 
             errors += 1
             logger.warning("actuator_evaluation_failed", actuator=actuator.key, error=loggable_error(exc))
 
+    if tenantless:
+        logger.warning("actuator_control_tenantless_devices", count=tenantless)
     logger.info(
         "actuator_control_rules_evaluated",
         evaluated=evaluated,
         dispatched=dispatched,
         errors=errors,
         closed_tenant=closed_tenant,
+        tenantless=tenantless,
         safe_state_commands=safe_state,
     )
     return {"status": "ok", "evaluated": evaluated, "dispatched": dispatched, "errors": errors}
@@ -155,7 +173,6 @@ def sync_actuator_states(self) -> dict:  # noqa: ANN001 — Celery bound-task se
     from datetime import UTC, datetime
 
     from app.common.dependencies import get_actuator_repo, get_ha_client, get_ha_entity_grant_service, get_tenant_repo
-    from app.tasks.tenant_gate import ActiveTenants
 
     repo = get_actuator_repo()
     ha_client = get_ha_client()
@@ -163,17 +180,15 @@ def sync_actuator_states(self) -> dict:  # noqa: ANN001 — Celery bound-task se
         return {"status": "skipped", "reason": "ha_not_configured"}
     # MT-015 (#2112): an ungranted entity is not polled on the tenant's behalf.
     grants = get_ha_entity_grant_service().snapshot()
-    # REQ-056 §5.2 — nor is one of a tenant that is not ``active``.
-    tenant_is_active = ActiveTenants(get_tenant_repo())
+    # REQ-056 §5.2 — nor is one of a tenant that is not ``active``. MT-032 (#2128): the active tenants'
+    # actuators with an entity are selected in AQL and read one page at a time.
+    active_tenants = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE})
 
-    actuators = get_all_pages(repo, all_tenants=True)  # system task: all tenants
     synced = 0
     offline = 0
     not_granted = 0
-    for actuator in actuators:
+    for actuator in repo.iter_for_tenants(active_tenants, filters=[("ha_entity_id", "!=", None)]):
         if actuator.ha_entity_id is None:
-            continue
-        if actuator.tenant_key and not tenant_is_active(actuator.tenant_key):
             continue
         if not grants.is_granted(actuator.tenant_key, actuator.ha_entity_id):
             not_granted += 1

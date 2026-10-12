@@ -53,7 +53,9 @@ CLOSED_WITH_HARDWARE = frozenset({TenantStatus.SUSPENDED, TenantStatus.PENDING_D
 #: Every periodic task that writes **into** a tenant (tasks, readings, weather, stock,
 #: actuator events, site attributes) or notifies **about** one (REQ-056 §5.2). Each asks
 #: :class:`ActiveTenants` — or, for ``notifications.escalate_overdue``, which walks the
-#: tenants themselves, compares their ``status`` with ``active`` — and leaves every tenant
+#: tenants themselves, compares their ``status`` with ``active``; the actuator, tank and
+#: quarter-climate beats walk only the tenants ``ITenantRepository.keys_in_status`` names
+#: (MT-032, #2128) — and leaves every tenant
 #: that is not ``active`` alone — except that ``evaluate_control_rules`` drives the devices of a
 #: suspended, pending-deletion or orphaned tenant to a safe state (SEC-003, ``ActuatorService.
 #: drive_to_safe_state``) instead of leaving the last command latched.

@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from tests.support.ha_entity_grants import EverythingGrantedTo
+from tests.support.tenant_walk import TenantRows, active
 
 
 class _Actuator(SimpleNamespace):
@@ -24,8 +25,12 @@ class _ReplacingActuatorRepo:
     def __init__(self, doc: dict):
         self.doc = doc
 
-    def get_all(self, offset=0, limit=50, *, all_tenants=False):
-        return [_Actuator(**self.doc)], 1
+    def rows(self):
+        return [_Actuator(**self.doc)]
+
+    def iter_for_tenants(self, tenant_keys, *, filters=None, page_size=1000):
+        """The tenant walk (MT-032, #2128): snapshots of the given tenants' rows."""
+        return TenantRows(self.rows()).iter_for_tenants(tenant_keys, filters=filters, page_size=page_size)
 
     def update_actuator(self, key, actuator):
         self.doc = dict(vars(actuator))  # replaces, like the real repository
@@ -40,8 +45,8 @@ def deps(monkeypatch):
     module = ModuleType("app.common.dependencies")
     module.get_actuator_repo = MagicMock()  # type: ignore[attr-defined]
     module.get_ha_client = MagicMock()  # type: ignore[attr-defined]
-    # REQ-056 §5.2: t1 is active (a MagicMock tenant reads ``is_active``).
-    module.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]
+    # REQ-056 §5.2: t1 is active; the task walks it (MT-032, #2128).
+    module.get_tenant_repo = MagicMock(return_value=active("t1"))  # type: ignore[attr-defined]
     # MT-015 (#2112): every actuator here is t1's and its entity granted to t1.
     module.get_ha_entity_grant_service = lambda: SimpleNamespace(snapshot=lambda: EverythingGrantedTo("t1"))  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", module)
@@ -76,11 +81,11 @@ def test_an_actuator_deleted_during_the_poll_does_not_abort_the_run(deps):
     from app.common.exceptions import NotFoundError
 
     class _Repo(_ReplacingActuatorRepo):
-        def get_all(self, offset=0, limit=50, *, all_tenants=False):
+        def rows(self):
             return [
                 _Actuator(key="gone", tenant_key="t1", ha_entity_id="switch.a", is_online=True),
                 _Actuator(**self.doc),
-            ], 2
+            ]
 
         def update_fields(self, key, fields):
             if key == "gone":

@@ -11,10 +11,9 @@ duplicates side effects.
 
 import structlog
 
-from app.common.enums import OVERWINTERING_SITE_TYPES
+from app.common.enums import OVERWINTERING_SITE_TYPES, TenantStatus
 from app.common.log_privacy import loggable_error
 from app.config.settings import settings
-from app.data_access.arango.base_repository import get_all_pages
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -93,21 +92,19 @@ def evaluate_quarter_climate(self) -> dict:  # noqa: ANN001 — Celery bound-tas
         return {"status": "skipped", "reason": "season_state_eval_disabled"}
 
     from app.common.dependencies import get_plant_repo, get_quarter_climate_service, get_tenant_repo
-    from app.tasks.tenant_gate import ActiveTenants
 
     plant_repo = get_plant_repo()
     service = get_quarter_climate_service()
     # REQ-056 §5.2 — no quarter-climate task is written into a tenant that is not ``active``.
-    tenant_is_active = ActiveTenants(get_tenant_repo())
+    # MT-032 (#2128): the tenant and the removal are filtered in AQL and the plants come one page at a
+    # time, so the worker never holds the installation's plants, nor reads a closed tenant's.
+    active_tenants = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE})
 
-    plants = get_all_pages(plant_repo, all_tenants=True)  # system task: all tenants
     evaluated = 0
     warnings = 0
     errors = 0
-    for plant in plants:
-        if plant.removed_on is not None or not plant.key:
-            continue
-        if plant.tenant_key and not tenant_is_active(plant.tenant_key):
+    for plant in plant_repo.iter_for_tenants(active_tenants, filters=[("removed_on", "==", None)]):
+        if not plant.key:
             continue
         evaluated += 1
         try:
