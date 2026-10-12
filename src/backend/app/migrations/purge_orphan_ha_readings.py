@@ -73,7 +73,7 @@ class _ArangoSensorDirectory:
         from app.data_access.arango.tank_repository import ArangoTankRepository
         from app.domain.services.observation_service import ObservationService
 
-        client = ArangoClient(hosts=f"http://{settings.arangodb_host}:{settings.arangodb_port}")
+        client = ArangoClient(hosts=settings.arangodb_url)
         db = client.db(
             settings.arangodb_database, username=settings.arangodb_username, password=settings.arangodb_password
         )

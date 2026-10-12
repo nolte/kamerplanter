@@ -595,7 +595,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--subject", required=True)
     args = parser.parse_args(argv)
 
-    client = ArangoClient(hosts=f"http://{settings.arangodb_host}:{settings.arangodb_port}")
+    client = ArangoClient(hosts=settings.arangodb_url)
     database = client.db(
         settings.arangodb_database,
         username=settings.arangodb_username,

@@ -785,6 +785,133 @@ render all-workloads --set controllers.timescaledb.enabled=true \
 expect all-workloads "every container has a memory limit" \
   'select(.kind == "Deployment" or .kind == "StatefulSet" or .kind == "CronJob") | (.spec.template.spec // .spec.jobTemplate.spec.template.spec) | ((.containers // []) + (.initContainers // []))[] | select((.resources.limits.memory // "") == "") | .name' '[]'
 
+# ---------------------------------------------------------------------------
+# #2127 (MT-031) — external ArangoDB and Valkey.
+#
+# `database.arangodb.external.enabled` is the one ArangoDB switch: the bundled
+# StatefulSet, its Service, NetworkPolicy and volumes go, and every client
+# (backend, workers, beat, backup) connects to scheme://host:port. Valkey is
+# switched by the subchart's `valkey.enabled: false`, and REDIS_URL becomes
+# `database.valkey.external.url`. Half a switch fails silently in the cluster:
+# a client still pointed at a Service that is gone, a backend on http against a
+# TLS-only server, or — under default-deny — no egress to the external address,
+# so each client gets an egress policy to `cidr` on literal ports.
+# Off (the default) everything renders as before, plus ARANGODB_SCHEME=http,
+# which is the backend's own default.
+# ---------------------------------------------------------------------------
+db_clients=(backend celery-worker celery-beat)
+for controller in "${db_clients[@]}"; do
+  expect storage-default "${controller} connects to the bundled ArangoDB by default" \
+    "$(main_of "${controller}") | .env[] | select(.name | test(\"^ARANGODB_(HOST|PORT|SCHEME)$\")) | .name + \"=\" + .value" \
+    '["ARANGODB_HOST=kamerplanter-arangodb","ARANGODB_PORT=8529","ARANGODB_SCHEME=http"]'
+  expect storage-default "${controller} uses the bundled Valkey by default" \
+    "$(env_of "${controller}" REDIS_URL)" '["redis://kamerplanter-valkey:6379/0"]'
+done
+expect_set storage-default "the bundled ArangoDB and Valkey render by default" \
+  'select(.metadata.name == "kamerplanter-arangodb" or .metadata.name == "kamerplanter-valkey") | .kind + "/" + .metadata.name' \
+  '["Deployment/kamerplanter-valkey","NetworkPolicy/kamerplanter-arangodb","NetworkPolicy/kamerplanter-valkey","PersistentVolumeClaim/kamerplanter-valkey","Service/kamerplanter-arangodb","Service/kamerplanter-valkey","ServiceAccount/kamerplanter-valkey","StatefulSet/kamerplanter-arangodb"]'
+external_policies='select(.kind == "NetworkPolicy" and (.metadata.name | test("-external$"))) | .metadata.name'
+expect storage-default "no external-database policy renders by default" "${external_policies}" '[]'
+for profile in "${CHART}"/values-*.yaml; do
+  expect "profile-$(basename "${profile}" .yaml)" "no profile renders an external-database policy" "${external_policies}" '[]'
+done
+expect backup "the backup dumps over tcp:// from the bundled database by default" \
+  "${backup_pod} | .initContainers[] | select(.name == \"dump\") | .env[] | select(.name | test(\"^ARANGODB_(HOST|SCHEME)$\")) | .name + \"=\" + .value" \
+  '["ARANGODB_HOST=kamerplanter-arangodb","ARANGODB_SCHEME=http"]'
+
+external_db=(--set database.arangodb.external.enabled=true
+  --set database.arangodb.external.host=arango.example.test
+  --set database.arangodb.external.scheme=https
+  --set database.arangodb.external.cidr=203.0.113.10/32
+  --set valkey.enabled=false
+  --set-string 'database.valkey.external.url=rediss://:$(VALKEY_PASSWORD)@valkey.example.test:6380/0'
+  --set database.valkey.external.cidr=203.0.113.20/32)
+render external-db "${external_db[@]}" --set backup.enabled=true --set backup.s3.bucket=kp-backup-render \
+  --set celeryWorkers.dedicatedQueues=true
+expect external-db "no bundled ArangoDB or Valkey object renders" \
+  'select(.metadata.name | test("^kamerplanter-(arangodb|valkey)(-config)?$")) | .kind + "/" + .metadata.name' '[]'
+expect external-db "no volume of the bundled ArangoDB is mounted anywhere" \
+  'select(.kind == "Deployment" or .kind == "StatefulSet" or .kind == "CronJob") | (.spec.template.spec // .spec.jobTemplate.spec.template.spec) | (.volumes // [])[] | select(.name | test("^arangodb-(apps|app-user-tmp)$")) | .name' '[]'
+for controller in "${db_clients[@]}" celery-worker-default celery-worker-bulk; do
+  expect external-db "${controller} connects to the external ArangoDB over https" \
+    "$(main_of "${controller}") | .env[] | select(.name | test(\"^ARANGODB_(HOST|PORT|SCHEME)$\")) | .name + \"=\" + .value" \
+    '["ARANGODB_HOST=arango.example.test","ARANGODB_PORT=8529","ARANGODB_SCHEME=https"]'
+  # The password stays a $(KEY) reference, expanded by the kubelet from envFrom.
+  expect external-db "${controller} uses the external Valkey URL, password by reference" \
+    "$(env_of "${controller}" REDIS_URL)" '["rediss://:$(VALKEY_PASSWORD)@valkey.example.test:6380/0"]'
+done
+expect external-db "the backup dumps from the external database and maps https to ssl://" \
+  "${backup_pod} | .initContainers[] | select(.name == \"dump\") | [(.env[] | select(.name | test(\"^ARANGODB_(HOST|SCHEME)$\")) | .name + \"=\" + .value), (.args[0] | test(\"https\\) endpoint=\\\"ssl://\"))]" \
+  '[["ARANGODB_HOST=arango.example.test","ARANGODB_SCHEME=https",true]]'
+policy_of() { printf 'select(.kind == "NetworkPolicy" and .metadata.name == "kamerplanter-%s")' "$1"; }
+expect external-db "the ArangoDB egress policy selects every database client of this release" \
+  "$(policy_of arangodb-external) | {\"instance\": .spec.podSelector.matchLabels[\"app.kubernetes.io/instance\"], \"controllers\": (.spec.podSelector.matchExpressions[] | select(.key == \"app.kubernetes.io/controller\" and .operator == \"In\") | .values | sort), \"types\": .spec.policyTypes}" \
+  '[{"instance":"kamerplanter","controllers":["arangodb-backup","backend","celery-beat","celery-worker","celery-worker-bulk","celery-worker-default"],"types":["Egress"]}]'
+expect external-db "the ArangoDB egress policy admits the configured cidr on 8529 and 443" \
+  "$(policy_of arangodb-external) | .spec.egress[] | {\"to\": [.to[] | .ipBlock.cidr], \"ports\": [.ports[] | .port]}" \
+  '[{"to":["203.0.113.10/32"],"ports":[8529,443]}]'
+expect external-db "the Valkey egress policy selects every Valkey client of this release" \
+  "$(policy_of valkey-external) | (.spec.podSelector.matchExpressions[] | select(.key == \"app.kubernetes.io/controller\" and .operator == \"In\") | .values | sort)" \
+  '[["backend","celery-beat","celery-worker","celery-worker-bulk","celery-worker-default"]]'
+expect external-db "the Valkey egress policy admits the configured cidr on 6379 and 6380" \
+  "$(policy_of valkey-external) | .spec.egress[] | {\"to\": [.to[] | .ipBlock.cidr], \"ports\": [.ports[] | .port]}" \
+  '[{"to":["203.0.113.20/32"],"ports":[6379,6380]}]'
+# Rendered together with the switches the overlays already flip, not instead.
+for profile in values-dev values-dev-ki values-dev-recognition; do
+  render "external-db-${profile}" -f "${CHART}/${profile}.yaml" "${external_db[@]}"
+done
+expect external-db-values-dev "dev with external databases renders no bundled ArangoDB or Valkey" \
+  'select(.metadata.name | test("^kamerplanter-(arangodb|valkey)(-config)?$")) | .kind' '[]'
+
+# Each half on its own.
+render external-arangodb-only --set database.arangodb.external.enabled=true \
+  --set database.arangodb.external.host=10.20.0.5 --set database.arangodb.external.cidr=10.20.0.5/32
+expect external-arangodb-only "an external ArangoDB on http keeps the scheme the backend always used" \
+  "$(env_of backend ARANGODB_SCHEME)" '["http"]'
+expect_set external-arangodb-only "an external ArangoDB leaves the bundled Valkey and its policy in place" \
+  'select(.metadata.name == "kamerplanter-valkey") | .kind' '["Deployment","NetworkPolicy","PersistentVolumeClaim","Service","ServiceAccount"]'
+render external-valkey-only --set valkey.enabled=false \
+  --set-string 'database.valkey.external.url=redis://valkey.other-ns.svc:6379/0' --set database.valkey.external.cidr=10.96.0.0/12
+expect_set external-valkey-only "an external Valkey leaves the bundled ArangoDB in place" \
+  'select(.metadata.name == "kamerplanter-arangodb") | .kind' '["NetworkPolicy","Service","StatefulSet"]'
+expect external-valkey-only "the Valkey policy of the bundled subchart goes with it" \
+  "$(policy_of valkey) | .metadata.name" '[]'
+expect external-valkey-only "no ArangoDB egress policy without the ArangoDB switch" \
+  "$(policy_of arangodb-external) | .metadata.name" '[]'
+# A port outside the policy's literals is fine once the policy admits it.
+render external-arangodb-custom-port --set database.arangodb.external.enabled=true \
+  --set database.arangodb.external.host=arango.example.test --set database.arangodb.external.port=18529 \
+  --set database.arangodb.external.cidr=203.0.113.10/32 \
+  --set 'networkpolicies.arangodb-external.rules.egress[0].to[0].ipBlock.cidr=203.0.113.10/32' \
+  --set 'networkpolicies.arangodb-external.rules.egress[0].ports[0].protocol=TCP' \
+  --set 'networkpolicies.arangodb-external.rules.egress[0].ports[0].port=18529'
+expect external-arangodb-custom-port "a replaced egress rule carries a non-default port" \
+  "$(env_of backend ARANGODB_PORT)" '["18529"]'
+
+ext_arango=(--set database.arangodb.external.enabled=true --set database.arangodb.external.host=arango.example.test
+  --set database.arangodb.external.cidr=203.0.113.10/32)
+expect_refusal external-arangodb-no-host "needs database.arangodb.external.host" \
+  --set database.arangodb.external.enabled=true --set database.arangodb.external.cidr=203.0.113.10/32
+expect_refusal external-arangodb-url-as-host "bare host name" "${ext_arango[@]}" \
+  --set database.arangodb.external.host=https://arango.example.test
+expect_refusal external-arangodb-bad-scheme "must be http or https" "${ext_arango[@]}" \
+  --set database.arangodb.external.scheme=ssl
+expect_refusal external-arangodb-no-cidr "needs cidr" \
+  --set database.arangodb.external.enabled=true --set database.arangodb.external.host=arango.example.test
+expect_refusal external-arangodb-port-not-admitted "does not admit" "${ext_arango[@]}" \
+  --set database.arangodb.external.port=18529
+expect_refusal external-arangodb-and-bundled "would run unused" "${ext_arango[@]}" \
+  --set controllers.arangodb.enabled=true
+expect_refusal external-valkey-no-url "needs database.valkey.external.url" --set valkey.enabled=false
+expect_refusal external-valkey-bad-scheme "must start with redis:// or rediss://" --set valkey.enabled=false \
+  --set database.valkey.external.url=http://valkey.example.test:6379 --set database.valkey.external.cidr=203.0.113.20/32
+expect_refusal external-valkey-no-cidr "needs cidr" --set valkey.enabled=false \
+  --set database.valkey.external.url=redis://valkey.example.test:6379/0
+expect_refusal external-valkey-port-not-admitted "does not admit" --set valkey.enabled=false \
+  --set database.valkey.external.url=redis://valkey.example.test:7000/0 --set database.valkey.external.cidr=203.0.113.20/32
+expect_refusal external-valkey-url-ignored "URL ignored" \
+  --set database.valkey.external.url=redis://valkey.example.test:6379/0
+
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2
   exit 1

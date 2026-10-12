@@ -232,6 +232,86 @@ renderChecks:
     {{- if and .Values.backup.enabled (empty .Values.backup.s3.bucket) -}}
     {{- fail "backup.enabled=true needs backup.s3.bucket (and the Secret named in backup.s3.credentialsRef). See docs/deployment/backup-restore.md (#2122)." -}}
     {{- end -}}
+  # #2127 (MT-031) — external databases. Each refusal is a combination that
+  # renders cleanly and fails only in the cluster: a client pointed at an empty
+  # host or at a Valkey Service that no longer exists, a scheme the backend
+  # refuses at start, both an external and the bundled ArangoDB, or a
+  # NetworkPolicy that under default-deny never lets the client through.
+  externalDatabases: >-
+    {{- $policies := .Values.networkpolicies | default dict -}}
+    {{- $arango := .Values.database.arangodb.external -}}
+    {{- if $arango.enabled -}}
+    {{- if empty $arango.host -}}
+    {{- fail "database.arangodb.external.enabled=true needs database.arangodb.external.host (a bare host name or address, no scheme). See docs/deployment/helm.md#externe-datenbanken (#2127)." -}}
+    {{- end -}}
+    {{- if or (contains "/" (toString $arango.host)) (contains "@" (toString $arango.host)) -}}
+    {{- fail "database.arangodb.external.host must be a bare host name or address; the scheme goes into database.arangodb.external.scheme (#2127)." -}}
+    {{- end -}}
+    {{- if not (has (toString $arango.scheme) (list "http" "https")) -}}
+    {{- fail (printf "database.arangodb.external.scheme must be http or https, got %q (#2127)." (toString $arango.scheme)) -}}
+    {{- end -}}
+    {{- if not (regexMatch "^[0-9]+$" (toString $arango.port)) -}}
+    {{- fail (printf "database.arangodb.external.port must be a port number, got %q (#2127)." (toString $arango.port)) -}}
+    {{- end -}}
+    {{- if eq (toString .Values.controllers.arangodb.enabled) "true" -}}
+    {{- fail "database.arangodb.external.enabled=true and controllers.arangodb.enabled=true: the backend would use the external database and the bundled one would run unused. Remove controllers.arangodb.enabled; the external switch turns the bundled database off (#2127)." -}}
+    {{- end -}}
+    {{- end -}}
+    {{- $valkeyClients := false -}}
+    {{- range $name := list "backend" "celery-worker" "celery-beat" -}}
+    {{- if ne (toString (dig $name "enabled" true $.Values.controllers)) "false" -}}
+    {{- $valkeyClients = true -}}
+    {{- end -}}
+    {{- end -}}
+    {{- $valkeyUrl := toString .Values.database.valkey.external.url -}}
+    {{- if and (not .Values.valkey.enabled) $valkeyClients -}}
+    {{- if empty $valkeyUrl -}}
+    {{- fail "valkey.enabled=false needs database.valkey.external.url (redis://… or rediss://…): backend, celery-worker and celery-beat would otherwise look for the bundled Valkey Service, which is gone. See docs/deployment/helm.md#externe-datenbanken (#2127)." -}}
+    {{- end -}}
+    {{- if not (regexMatch "^rediss?://" $valkeyUrl) -}}
+    {{- fail "database.valkey.external.url must start with redis:// or rediss:// (value withheld) (#2127)." -}}
+    {{- end -}}
+    {{- end -}}
+    {{- if and .Values.valkey.enabled $valkeyUrl -}}
+    {{- fail "database.valkey.external.url is set but valkey.enabled is true: the bundled Valkey would be used and the URL ignored. Set valkey.enabled=false to use the external Valkey (#2127)." -}}
+    {{- end -}}
+    {{- /* Each external policy admits literal ports (a templated port renders as a string, which Kubernetes reads as a
+           port NAME). The configured port must be one of them, and a policy with an ipBlock needs a cidr. */ -}}
+    {{- $checks := list -}}
+    {{- if $arango.enabled -}}
+    {{- $checks = append $checks (dict "policy" "arangodb-external" "port" (toString $arango.port) "cidr" (toString $arango.cidr) "key" "database.arangodb.external") -}}
+    {{- end -}}
+    {{- if and (not .Values.valkey.enabled) $valkeyClients $valkeyUrl -}}
+    {{- $port := "6379" -}}
+    {{- $authority := regexReplaceAll "/.*$" (regexReplaceAll "^[a-z]+://([^/]*@)?" $valkeyUrl "") "" -}}
+    {{- if regexMatch ":[0-9]+$" $authority -}}
+    {{- $port = regexFind "[0-9]+$" $authority -}}
+    {{- end -}}
+    {{- $checks = append $checks (dict "policy" "valkey-external" "port" $port "cidr" (toString .Values.database.valkey.external.cidr) "key" "database.valkey.external") -}}
+    {{- end -}}
+    {{- range $check := $checks -}}
+    {{- $policy := index $policies $check.policy | default dict -}}
+    {{- if ne (toString $policy.enabled) "false" -}}
+    {{- $ports := list -}}
+    {{- $usesCidr := false -}}
+    {{- range $rule := (dig "rules" "egress" list $policy) -}}
+    {{- range $peer := ($rule.to | default list) -}}
+    {{- if and (kindIs "map" $peer) (hasKey $peer "ipBlock") -}}
+    {{- $usesCidr = true -}}
+    {{- end -}}
+    {{- end -}}
+    {{- range $p := ($rule.ports | default list) -}}
+    {{- $ports = append $ports (toString $p.port) -}}
+    {{- end -}}
+    {{- end -}}
+    {{- if and $usesCidr (empty $check.cidr) -}}
+    {{- fail (printf "%s needs cidr: networkpolicies.%s admits the clients to that address range, and under the default-deny baseline nothing else lets them reach the database. Set %s.cidr (e.g. 203.0.113.10/32), or replace networkpolicies.%s.rules.egress / disable that policy and ship your own. See docs/deployment/helm.md#externe-datenbanken (#2127)." $check.key $check.policy $check.key $check.policy) -}}
+    {{- end -}}
+    {{- if not (has $check.port $ports) -}}
+    {{- fail (printf "%s uses port %s, which networkpolicies.%s does not admit (it admits %s): the clients would be dropped under default-deny. Replace networkpolicies.%s.rules.egress with a rule for that port (#2127)." $check.key $check.port $check.policy (join ", " $ports) $check.policy) -}}
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
 
 # -- ArangoDB application account (#2126). The backend, celery-worker and
 # celery-beat connect with this account (their ARANGODB_USERNAME renders it), and
@@ -251,6 +331,45 @@ database:
     # default keeps today's place; set a Secret of its own to take the root
     # password out of what the backend receives.
     rootPasswordSecret: kamerplanter-secrets
+    # -- #2127 (MT-031) An ArangoDB outside this chart (managed, another
+    # namespace, another cluster). `enabled: true` is the ONE switch: the bundled
+    # arangodb StatefulSet, its Service, NetworkPolicy and volumes are not
+    # rendered, and backend, celery-worker, celery-beat and the backup CronJob
+    # connect to `scheme://host:port` (ARANGODB_HOST / _PORT / _SCHEME).
+    #
+    # The chart then provisions nothing in that database: the application
+    # database and the account named in `appUsername` (rw on that database)
+    # must exist, and ARANGODB_PASSWORD in kamerplanter-secrets is its password.
+    # `scheme: https` verifies the server certificate against the image's trust
+    # store; a private CA goes in via REQUESTS_CA_BUNDLE (docs/deployment/helm.md).
+    #
+    # NetworkPolicy: under the default-deny baseline the clients reach the
+    # database only through `networkpolicies.arangodb-external`, which admits
+    # TCP 8529 and 443 to `cidr`. `cidr` is therefore required; a database
+    # reached by namespace / pod selector instead replaces that policy's
+    # `rules.egress` (and still names a cidr, or disables the policy and ships
+    # its own). A port the policy does not admit is refused at render time.
+    external:
+      enabled: false
+      host: ""
+      port: 8529
+      scheme: http   # http | https
+      cidr: ""       # e.g. 203.0.113.10/32
+  # -- #2127 (MT-031) A Valkey / Redis outside this chart. Switched by
+  # `valkey.enabled: false` (the subchart's own condition); `url` is then the
+  # REDIS_URL of backend, celery-worker and celery-beat — broker, result
+  # backend, cache and rate-limit counters. Scheme `redis://` or `rediss://`
+  # (TLS). A password never goes into values: reference a key of
+  # kamerplanter-secrets, which the pods receive by envFrom, as `$(KEY)` —
+  # Kubernetes expands it at container start, e.g.
+  # `rediss://:$(VALKEY_PASSWORD)@valkey.example.net:6380/0` (percent-encode
+  # `/ # ? @` inside the password, the backend refuses them unencoded).
+  # `networkpolicies.valkey-external` admits TCP 6379 and 6380 to `cidr`, like
+  # the ArangoDB policy above.
+  valkey:
+    external:
+      url: ""
+      cidr: ""
 
 # -- Application Secret from a secret store (#2127, NFR-002 §3.7). OFF by
 # default: the chart then expects `kamerplanter-secrets` to exist, created out
@@ -507,13 +626,18 @@ controllers:
           # entry is needed here.
           - secret: kamerplanter-secrets
         env:
-          ARANGODB_HOST: kamerplanter-arangodb
-          ARANGODB_PORT: "8529"
+          # #2127 — the bundled database, or `database.arangodb.external` when that
+          # switch is on. celery-worker and celery-beat reuse these (YAML anchors).
+          ARANGODB_HOST: &arangodb-host '{{ if .Values.database.arangodb.external.enabled }}{{ .Values.database.arangodb.external.host }}{{ else }}kamerplanter-arangodb{{ end }}'
+          ARANGODB_PORT: &arangodb-port '{{ if .Values.database.arangodb.external.enabled }}{{ .Values.database.arangodb.external.port }}{{ else }}8529{{ end }}'
+          ARANGODB_SCHEME: &arangodb-scheme '{{ if .Values.database.arangodb.external.enabled }}{{ .Values.database.arangodb.external.scheme }}{{ else }}http{{ end }}'
           ARANGODB_DATABASE: kamerplanter
           # #2126 — the application account, provisioned by the arangodb
           # `app-user` container; see `database.arangodb.appUsername`.
           ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
-          REDIS_URL: redis://kamerplanter-valkey:6379/0
+          # #2127 — the bundled Valkey, or `database.valkey.external.url` with
+          # `valkey.enabled: false`.
+          REDIS_URL: &redis-url '{{ if .Values.valkey.enabled }}redis://kamerplanter-valkey:6379/0{{ else }}{{ .Values.database.valkey.external.url }}{{ end }}'
           # #2127 — follows controllers.timescaledb.enabled (the one switch);
           # TIMESCALEDB_PASSWORD arrives through envFrom of kamerplanter-secrets.
           TIMESCALEDB_ENABLED: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ else }}false{{ end }}'
@@ -848,6 +972,10 @@ controllers:
             memory: 256Mi
 
   arangodb:
+    # #2127 — off with `database.arangodb.external.enabled` (the one switch); an
+    # overlay may still set `enabled: false` directly (the ki / recognition
+    # profiles do). Service, NetworkPolicy and volumes below follow both.
+    enabled: '{{ if not .Values.database.arangodb.external.enabled }}true{{ end }}'
     type: statefulset
     replicas: 1
     pod:
@@ -1060,8 +1188,13 @@ controllers:
           - |
             set -eu
             stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            # arangodump names TLS `ssl://`, plain text `tcp://` (#2127).
+            case "${ARANGODB_SCHEME}" in
+              https) endpoint="ssl://${ARANGODB_HOST}:${ARANGODB_PORT}" ;;
+              *) endpoint="tcp://${ARANGODB_HOST}:${ARANGODB_PORT}" ;;
+            esac
             arangodump \
-              --server.endpoint "tcp://${ARANGODB_HOST}:${ARANGODB_PORT}" \
+              --server.endpoint "${endpoint}" \
               --server.username "${ARANGODB_USERNAME}" \
               --server.password @ARANGODB_PASSWORD@ \
               --server.database "${ARANGODB_DATABASE}" \
@@ -1074,6 +1207,7 @@ controllers:
           # uses, the backup uses.
           ARANGODB_HOST: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_HOST $ }}'
           ARANGODB_PORT: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_PORT $ }}'
+          ARANGODB_SCHEME: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_SCHEME $ }}'
           ARANGODB_DATABASE: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_DATABASE $ }}'
           ARANGODB_USERNAME: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME $ }}'
           ARANGODB_PASSWORD:
@@ -1215,13 +1349,14 @@ controllers:
           # entry is needed here.
           - secret: kamerplanter-secrets
         env:
-          ARANGODB_HOST: kamerplanter-arangodb
-          ARANGODB_PORT: "8529"
+          ARANGODB_HOST: *arangodb-host
+          ARANGODB_PORT: *arangodb-port
+          ARANGODB_SCHEME: *arangodb-scheme
           ARANGODB_DATABASE: kamerplanter
           # #2126 — the application account, provisioned by the arangodb
           # `app-user` container; see `database.arangodb.appUsername`.
           ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
-          REDIS_URL: redis://kamerplanter-valkey:6379/0
+          REDIS_URL: *redis-url
           # #2127 — follows controllers.timescaledb.enabled (the one switch);
           # TIMESCALEDB_PASSWORD arrives through envFrom of kamerplanter-secrets.
           TIMESCALEDB_ENABLED: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ else }}false{{ end }}'
@@ -1369,13 +1504,14 @@ controllers:
           # entry is needed here.
           - secret: kamerplanter-secrets
         env:
-          ARANGODB_HOST: kamerplanter-arangodb
-          ARANGODB_PORT: "8529"
+          ARANGODB_HOST: *arangodb-host
+          ARANGODB_PORT: *arangodb-port
+          ARANGODB_SCHEME: *arangodb-scheme
           ARANGODB_DATABASE: kamerplanter
           # #2126 — the application account, provisioned by the arangodb
           # `app-user` container; see `database.arangodb.appUsername`.
           ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
-          REDIS_URL: redis://kamerplanter-valkey:6379/0
+          REDIS_URL: *redis-url
           # #2127 — follows controllers.timescaledb.enabled (the one switch);
           # TIMESCALEDB_PASSWORD arrives through envFrom of kamerplanter-secrets.
           TIMESCALEDB_ENABLED: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ else }}false{{ end }}'
@@ -1877,6 +2013,8 @@ service:
         port: 80
         targetPort: 8080
   arangodb:
+    # #2127 — follows the arangodb controller (see there).
+    enabled: '{{ if and (ne (toString .Values.controllers.arangodb.enabled) "false") (not .Values.database.arangodb.external.enabled) }}true{{ end }}'
     controller: arangodb
     ports:
       http:
@@ -2049,7 +2187,9 @@ persistence:
 
   # -- ArangoDB apps directory (required at startup, not persisted)
   arangodb-apps:
-    enabled: true
+    # #2127 — follows the arangodb controller: bjw-s refuses a persistence item
+    # whose controller is disabled.
+    enabled: '{{ if and (ne (toString .Values.controllers.arangodb.enabled) "false") (not .Values.database.arangodb.external.enabled) }}true{{ end }}'
     type: emptyDir
     sizeLimit: 64Mi
     advancedMounts:
@@ -2064,7 +2204,7 @@ persistence:
   # release that runs without the database (the ki / recognition overlays) must
   # not have to know this item exists.
   arangodb-app-user-tmp:
-    enabled: '{{ if ne (toString .Values.controllers.arangodb.enabled) "false" }}true{{ end }}'
+    enabled: '{{ if and (ne (toString .Values.controllers.arangodb.enabled) "false") (not .Values.database.arangodb.external.enabled) }}true{{ end }}'
     type: emptyDir
     medium: Memory
     sizeLimit: 16Mi
@@ -2545,6 +2685,8 @@ networkpolicies:
   # ArangoDB: accept from backend + celery-worker (+ the backup CronJob when
   # enabled, #2122), no egress needed
   arangodb:
+    # #2127 — follows the arangodb controller (see there).
+    enabled: '{{ if and (ne (toString .Values.controllers.arangodb.enabled) "false") (not .Values.database.arangodb.external.enabled) }}true{{ end }}'
     controller: arangodb
     policyTypes:
       - Ingress
@@ -2626,6 +2768,8 @@ networkpolicies:
   # subchart's ``app.kubernetes.io/name: valkey`` label (same selector the backend
   # and celery egress rules already target), not by a chart ``controller``.
   valkey:
+    # #2127 — follows the subchart's own switch.
+    enabled: '{{ if .Values.valkey.enabled }}true{{ end }}'
     podSelector:
       matchLabels:
         app.kubernetes.io/name: valkey
@@ -2659,6 +2803,63 @@ networkpolicies:
               port: 53
             - protocol: TCP
               port: 53
+
+  # -- #2127 (MT-031) External ArangoDB: egress from every client of the
+  # database — backend, the celery workers (dedicated-queue copies included), celery-beat
+  # and the backup CronJob — to `database.arangodb.external.cidr` on 8529 and
+  # 443. Rendered only with `database.arangodb.external.enabled`. Rules of all
+  # policies selecting a pod are a union, so this adds exactly that path. The
+  # ports are literals (a templated port is a string, i.e. a port NAME), and
+  # renderChecks.externalDatabases refuses an external port not listed here.
+  # For a database reached by namespace / pod selector, replace `rules.egress`.
+  arangodb-external:
+    enabled: '{{ if .Values.database.arangodb.external.enabled }}true{{ end }}'
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/instance: '{{ .Release.Name }}'
+      matchExpressions:
+        - key: app.kubernetes.io/controller
+          operator: In
+          values: [backend, celery-worker, celery-worker-default, celery-worker-bulk, celery-beat, arangodb-backup]
+    policyTypes:
+      - Egress
+    rules:
+      egress:
+        - to:
+            - ipBlock:
+                cidr: '{{ .Values.database.arangodb.external.cidr }}'
+          ports:
+            - protocol: TCP
+              port: 8529
+            - protocol: TCP
+              port: 443
+
+  # -- #2127 (MT-031) External Valkey: egress from every Valkey client —
+  # backend, the celery workers and celery-beat — to
+  # `database.valkey.external.cidr` on 6379 and 6380 (the common TLS port).
+  # Rendered only with `valkey.enabled: false` and an external URL; see
+  # `arangodb-external` above for ports and selectors.
+  valkey-external:
+    enabled: '{{ if and (not .Values.valkey.enabled) .Values.database.valkey.external.url }}true{{ end }}'
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/instance: '{{ .Release.Name }}'
+      matchExpressions:
+        - key: app.kubernetes.io/controller
+          operator: In
+          values: [backend, celery-worker, celery-worker-default, celery-worker-bulk, celery-beat]
+    policyTypes:
+      - Egress
+    rules:
+      egress:
+        - to:
+            - ipBlock:
+                cidr: '{{ .Values.database.valkey.external.cidr }}'
+          ports:
+            - protocol: TCP
+              port: 6379
+            - protocol: TCP
+              port: 6380
 
   # -- REQ-029-A inference-service: accept from backend + celery-worker on 8000,
   # talk to the vectordb (5432) + DNS. Disabled by default; operator enables

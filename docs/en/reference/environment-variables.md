@@ -16,6 +16,7 @@ All configuration parameters for the Kamerplanter backend are controlled via env
 |----------|---------|---------|-------------|
 | `ARANGODB_HOST` | `localhost` | Yes | Hostname or IP address of the ArangoDB instance |
 | `ARANGODB_PORT` | `8529` | No | TCP port of ArangoDB |
+| `ARANGODB_SCHEME` | `http` | No | `https` for an ArangoDB that serves TLS itself (external or managed instance); any other value refuses to start |
 | `ARANGODB_DATABASE` | `kamerplanter` | Yes | Name of the target database |
 | `ARANGODB_USERNAME` | `root` | Yes | Database user |
 | `ARANGODB_PASSWORD` | — | Yes | Password for the database user |

@@ -237,7 +237,7 @@ def main() -> int:
     # NOT `ArangoConnection`: its `connect()` creates the database when absent, so a
     # mistyped ARANGODB_DATABASE would leave this script reporting an all-clear about
     # an empty database it had just created.
-    client = ArangoClient(hosts=f"http://{settings.arangodb_host}:{settings.arangodb_port}")
+    client = ArangoClient(hosts=settings.arangodb_url)
     db = client.db(
         settings.arangodb_database,
         username=settings.arangodb_username,

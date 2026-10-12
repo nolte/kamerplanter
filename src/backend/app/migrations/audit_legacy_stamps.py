@@ -49,7 +49,7 @@ def _connect() -> StandardDatabase:
     from app.config.settings import settings
     from app.data_access.arango import collections as col
 
-    client = ArangoClient(hosts=f"http://{settings.arangodb_host}:{settings.arangodb_port}")
+    client = ArangoClient(hosts=settings.arangodb_url)
     db = client.db(settings.arangodb_database, username=settings.arangodb_username, password=settings.arangodb_password)
     if not db.has_collection(col.MEMBERSHIPS) or not db.has_collection(col.TENANTS):
         msg = (

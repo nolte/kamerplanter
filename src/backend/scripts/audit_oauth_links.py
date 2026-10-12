@@ -471,7 +471,7 @@ def main() -> int:
     # a mistyped ARANGODB_DATABASE would leave this script reporting "nothing was
     # ever linked" about an empty database it had just created. A read-only audit
     # opens what is there and says so when it is not.
-    client = ArangoClient(hosts=f"http://{settings.arangodb_host}:{settings.arangodb_port}")
+    client = ArangoClient(hosts=settings.arangodb_url)
     db = client.db(
         settings.arangodb_database,
         username=settings.arangodb_username,

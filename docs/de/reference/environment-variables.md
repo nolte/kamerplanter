@@ -16,6 +16,7 @@ Alle Konfigurationsparameter des Kamerplanter-Backends werden über Umgebungsvar
 |----------|---------|---------|-------------|
 | `ARANGODB_HOST` | `localhost` | Ja | Hostname oder IP-Adresse der ArangoDB-Instanz |
 | `ARANGODB_PORT` | `8529` | Nein | TCP-Port der ArangoDB |
+| `ARANGODB_SCHEME` | `http` | Nein | `https` für eine ArangoDB, die TLS selbst anbietet (externe oder verwaltete Instanz); andere Werte verweigern den Start |
 | `ARANGODB_DATABASE` | `kamerplanter` | Ja | Name der Zieldatenbank |
 | `ARANGODB_USERNAME` | `root` | Ja | Datenbanknutzer |
 | `ARANGODB_PASSWORD` | — | Ja | Passwort des Datenbanknutzers |
