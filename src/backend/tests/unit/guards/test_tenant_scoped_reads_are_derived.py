@@ -847,6 +847,11 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "fish-to-plant compatibility edges are written by seeds only (link_compatible_plant has no "
         "application caller), so every plant species reached is a global one",
     ),
+    ("ArangoModeSwitchRepository", "earliest_eligible_person_key"): Exclusion(
+        "account",
+        "#1855 SEC-008: for each candidate account it asks only whether that account holds an active membership in "
+        "a personal tenant the account itself owns; it returns one account key, never a membership or tenant data",
+    ),
     ("ArangoFavoritesRepository", "find_edge"): Exclusion(
         "account", "starts at the calling account's own user vertex (from_id): every edge is that account's favourite"
     ),

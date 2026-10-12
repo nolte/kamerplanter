@@ -320,6 +320,16 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "mcp.McpAuditLog.entity_keys": _I,
     "mcp.McpIdempotencyRecord.service_account_key": _A,
     "mcp.McpIdempotencyRecord.idempotency_key": _I,
+    # #1855 R2-001/002: the take-over receipt; every key in it is written by the take-over itself (server code),
+    # stored only embedded in system_meta/pending_takeover when its undo failed.
+    "mode_switch.TakeoverReceipt.created_membership_key": _I,
+    "mode_switch.TakeoverReceipt.ended_system_membership_key": _I,
+    "mode_switch.TakeoverReceipt.new_owner_key": _I,
+    "mode_switch.TakeoverReceipt.platform_created_membership_key": _I,
+    "mode_switch.TakeoverReceipt.platform_raised_membership_key": _I,
+    "mode_switch.TakeoverReceipt.previous_owner_key": _I,
+    "mode_switch.TakeoverReceipt.raised_membership_key": _I,
+    "mode_switch.TakeoverReceipt.system_user_key": _I,
     "security_audit.SecurityAuditEntry.actor_user_key": _A,  # #2111: proof of who acted, never read back as a reference
     "security_audit.SecurityAuditEntry.target_user_key": _A,
     "security_audit.SecurityAuditEntry.membership_key": _I,

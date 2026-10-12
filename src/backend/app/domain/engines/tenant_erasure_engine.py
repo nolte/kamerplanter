@@ -319,6 +319,7 @@ class TenantErasureEngine:
             " (REQ-056 §13.5, #2138: a platform admin's import request; the tenant it founds does not exist "
             "when the request is written, and the record names it only once the run founded it)"
         ),
+        "system_meta": _PLATFORM + " (REQ-027 deployment-mode bookkeeping, #1855)",
     }
 
     # ── What happens to the rows that stay (NFR-011 §2.3, #1789) ────────

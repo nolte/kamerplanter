@@ -3,10 +3,14 @@ from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.auth_provider import IAuthProvider
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.auth import TokenPayload
+from app.domain.models.mode_switch import system_account_refused
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
 
 _API_KEY_PREFIX = "kp_"
+
+#: This provider is the full-mode one: the light-mode system account never resolves through it (#1855 SEC-006).
+_MODE = "full"
 
 
 def is_api_key_authorization(authorization: str | None) -> bool:
@@ -53,7 +57,7 @@ class FullAuthProvider(IAuthProvider):
 
         if token.startswith(_API_KEY_PREFIX):
             user = self._auth_service.authenticate_api_key(token, client_ip=client_ip)
-            if user is None:
+            if user is None or system_account_refused(user.key, mode=_MODE):
                 raise UnauthorizedError("Invalid or revoked API key.")
             return user
 
@@ -63,7 +67,7 @@ class FullAuthProvider(IAuthProvider):
             raise UnauthorizedError(str(e)) from e
 
         user = self._user_repo.get_by_key(payload.sub)
-        if user is None or not user.is_active:
+        if user is None or not user.is_active or system_account_refused(user.key, mode=_MODE):
             raise UnauthorizedError("User not found or inactive.")
         if not access_token_is_current(payload, user):
             raise UnauthorizedError("Token has been revoked.")
@@ -77,7 +81,8 @@ class FullAuthProvider(IAuthProvider):
         token = authorization[7:]
 
         if token.startswith(_API_KEY_PREFIX):
-            return self._auth_service.authenticate_api_key(token, client_ip=client_ip)
+            keyed = self._auth_service.authenticate_api_key(token, client_ip=client_ip)
+            return None if keyed is None or system_account_refused(keyed.key, mode=_MODE) else keyed
 
         try:
             payload: TokenPayload = self._token_engine.decode_access_token(token)
@@ -86,6 +91,8 @@ class FullAuthProvider(IAuthProvider):
 
         user = self._user_repo.get_by_key(payload.sub)
         if user is None or not user.is_active or not access_token_is_current(payload, user):
+            return None
+        if system_account_refused(user.key, mode=_MODE):
             return None
         return user
 

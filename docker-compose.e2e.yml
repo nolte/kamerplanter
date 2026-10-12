@@ -346,6 +346,12 @@ services:
       RATE_LIMIT_UPLOAD: "300/minute"
       RATE_LIMIT_INFERENCE: "200/minute"
       RATE_LIMIT_EXPORT: "200/minute"
+      # #1855 R3 W-5 — the take-over probe (`GET /system/takeover-status`) runs on every
+      # full-mode app bootstrap (`LightModeTakeoverDialog` in `MainLayout`), so for this suite
+      # it is as busy as the refresh path: every `page.open()` of one account. A refusal only
+      # hides the dialog, but the budget would be spent in seconds by four browsers; sized like
+      # RATE_LIMIT_TOKEN_REFRESH. The POST shares the setting and no test decides a take-over.
+      RATE_LIMIT_TAKEOVER: "600/minute"
       # A *second* account, with platform-admin rights (#1155). Not the demo
       # user: much of this suite asserts what an ordinary member is refused, and
       # promoting the single account those cases share would leave every one of

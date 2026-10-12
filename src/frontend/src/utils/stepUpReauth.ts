@@ -56,6 +56,7 @@ const STEP_UP_ACTION_SET: Readonly<Record<StepUpAction, true>> = {
   service_account_change: true,
   tenant_export: true,
   tenant_import: true,
+  light_mode_takeover: true,
 };
 
 /**
@@ -85,6 +86,7 @@ const TARGETED_STEP_UP_ACTIONS: Readonly<Record<StepUpAction, boolean>> = {
   service_account_change: true,
   tenant_export: true,
   tenant_import: true,
+  light_mode_takeover: true,
 };
 
 export function isTargetedStepUpAction(action: StepUpAction): boolean {

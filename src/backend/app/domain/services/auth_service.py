@@ -79,6 +79,7 @@ from app.domain.models.auth import (
     api_key_control_errors,
     new_api_key_secret,
 )
+from app.domain.models.mode_switch import system_account_refused
 from app.domain.models.oidc_config import OidcProviderConfig, admits_default_tenant
 from app.domain.models.user import User, UserProfile, allows_interactive_auth, is_tombstone_email
 from app.domain.services.api_key_controls import ApiKeyRateLimiter, enforce_api_key_controls
@@ -2437,6 +2438,9 @@ class AuthService:
             self._api_key_repo.update_last_used(api_key.key)
         user = self._user_repo.get_by_key(api_key.user_key)
         if user is None or not user.is_active:
+            return None
+        # #1855 SEC-006 — in full mode the light-mode system account never authenticates, whatever is stored.
+        if system_account_refused(user.key, mode="light" if self._light_mode else "full"):
             return None
         # The key's tenant restriction travels with the principal (#1817): the
         # tenant resolvers refuse every tenant it does not admit.

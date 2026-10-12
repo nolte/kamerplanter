@@ -26,6 +26,7 @@ import LanguageSelector from '@/components/layout/LanguageSelector';
 import NotificationBell from '@/components/layout/NotificationBell';
 import TenantSwitcher from '@/components/layout/TenantSwitcher';
 import ThemeToggle from '@/components/layout/ThemeToggle';
+import LightModeTakeoverDialog from '@/components/tenants/LightModeTakeoverDialog';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar } from '@/store/slices/uiSlice';
 import { logoutUser } from '@/store/slices/authSlice';
@@ -273,6 +274,8 @@ export default function MainLayout() {
         <ModuleGuard>
           <Outlet />
         </ModuleGuard>
+        {/* REQ-027 §7a (#1855) — the take-over of a former light-mode garden; renders nothing otherwise. */}
+        {!isLightMode && <LightModeTakeoverDialog />}
       </Box>
     </Box>
   );

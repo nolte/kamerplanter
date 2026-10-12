@@ -73,6 +73,10 @@ OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "locations", "description": "Locations within sites: beds, tents, shelves (REQ-002)."},
     {"name": "mcp", "description": "Model Context Protocol server endpoints."},
     {"name": "mode", "description": "Deployment mode information: light or full (REQ-027)."},
+    {
+        "name": "system",
+        "description": "Light-to-full upgrade: take-over of the light-mode data by the first account (REQ-027).",
+    },
     {"name": "notifications", "description": "User notifications and notification-channel settings."},
     {"name": "nutrient-calculations", "description": "Nutrient mix calculations: EC targets and dosing (REQ-004)."},
     {"name": "nutrient-plans", "description": "Nutrient plans per species and phase (REQ-004)."},

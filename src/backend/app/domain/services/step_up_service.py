@@ -183,6 +183,8 @@ type StepUpAction = Literal[
     "tenant_export",
     # #2138 (REQ-056 §12.1) — a platform admin importing a tenant archive (``archive:<sha256 prefix>``).
     "tenant_import",
+    # #1855 SEC-003 — deciding the take-over of a former light-mode installation's garden (bound to its key).
+    "light_mode_takeover",
 ]
 
 #: The acts that act on something other than the requester's own account (#1884).
@@ -224,6 +226,7 @@ TARGETED_ACTIONS: frozenset[str] = frozenset(
         "service_account_change",
         "tenant_export",
         "tenant_import",
+        "light_mode_takeover",
     }
 )
 
@@ -285,6 +288,7 @@ CODE_PURPOSES: dict[str, str] = {
     "service_account_change": "create, re-key or remove a service account of your garden (tenant)",
     "tenant_export": "export all data of a garden (tenant)",
     "tenant_import": "import a garden (tenant) archive as a platform administrator",
+    "light_mode_takeover": "take over or decline the garden of the former light-mode installation",
 }
 
 #: Attempts per account across all addresses before the account-wide lock starts.

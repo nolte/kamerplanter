@@ -55,6 +55,7 @@ from app.domain.interfaces.location_assignment_repository import (
     ILocationAssignmentRepository,
 )
 from app.domain.interfaces.membership_repository import IMembershipRepository
+from app.domain.interfaces.mode_switch_repository import IModeSwitchRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.observation_repository import IObservationRepository
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
@@ -77,6 +78,7 @@ from app.domain.models.auth import (
 from app.domain.models.invitation import Invitation, InvitationLink
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
+from app.domain.models.mode_switch import TakeoverClaimLostError, TakeoverReceipt
 from app.domain.models.privacy import (
     OrganisationErasurePreview,
     OrganisationSettlement,
@@ -177,7 +179,11 @@ class TenantService:
         calendar_feed_repo: ICalendarFeedRepository | None = None,
         entitlements: EntitlementService | None = None,
         max_organizations_per_user: int = 10,
+        takeover_repo: IModeSwitchRepository | None = None,
     ) -> None:
+        # #1855 R3 W-4 — an open light-to-full take-over whose undo failed keeps the light-mode tenant out of
+        # an account erasure's personal tenants; ``get_tenant_service`` wires it.
+        self._takeover_repo = takeover_repo
         # #2226 review SEC-001 — the iCal feeds a membership that ends takes with it. ``None`` only where no
         # membership is ever ended (doubles); ``get_tenant_service`` wires it. The public feed route checks the
         # owner's membership itself, so a leftover feed answers 404 - this delete is the tidy-up.
@@ -1820,7 +1826,14 @@ class TenantService:
         By owner and type, like :meth:`get_personal_tenant`, but all of them, not
         the newest: an account erasure must not leave a second one behind.
         """
-        return self._tenant_repo.personal_tenant_keys_by_owner(user_key)
+        keys = self._tenant_repo.personal_tenant_keys_by_owner(user_key)
+        pending = self._takeover_repo.get_pending_takeover() if self._takeover_repo is not None else None
+        if pending is not None and pending.receipt is not None and pending.system_tenant_key in keys:
+            # #1855 R3 W-4: a failed take-over left the light-mode garden named after the account - it is
+            # not the account's garden until a decision stands; the stored receipt gives it back first.
+            logger.warning("light_mode_tenant_kept_from_account_erasure", tenant=log_tenant(pending.system_tenant_key))
+            keys = [key for key in keys if key != pending.system_tenant_key]
+        return keys
 
     def revoke_invitations_into_personal_tenants_of(self, user_key: str) -> int:
         """Revoke every pending invitation into every personal tenant of *user_key* (REQ-025 AK-IE-06).
@@ -2344,7 +2357,7 @@ class TenantService:
         return self._tenant_erasure_repo
 
     def _claim_tenant_erasure(self, record_key: str, now: datetime) -> TenantErasureRecord | None:
-        stale_before = now - timedelta(hours=TenantErasureEngine.STALE_AFTER_HOURS)
+        stale_before: datetime = now - timedelta(hours=TenantErasureEngine.STALE_AFTER_HOURS)
         return self._require_tenant_erasure_repo().claim_for_run(
             record_key, now_iso=now.isoformat(), stale_before_iso=stale_before.isoformat()
         )
@@ -3958,7 +3971,8 @@ class TenantService:
         invitations (any tenant, any status) over the last 24 hours - durable across replicas and
         restarts - and asked before anything is stored or mailed.
         """
-        since = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+        day_ago: datetime = datetime.now(UTC) - timedelta(days=1)
+        since = day_ago.isoformat()
         issued = int(self._invitation_repo.count_email_invitations_issued_since(invited_by_user_key, since))
         if issued >= self._invitation_emails_per_day:
             logger.warning("email_invitation_budget_exhausted", subject=log_subject(invited_by_user_key))
@@ -4329,6 +4343,383 @@ class TenantService:
         if not assignment or assignment.tenant_key != tenant_key:
             raise NotFoundError("LocationAssignment", assignment_key)
         return self._assignment_repo.delete(assignment_key)
+
+    # --- Light-to-full take-over (REQ-027 §7a.2, #1855) ---
+
+    def take_over_light_mode_tenant(
+        self, *, tenant_key: str, system_user_key: str, new_owner: User, receipt: TakeoverReceipt
+    ) -> TakeoverReceipt:
+        """Hand the light-mode tenant to *new_owner* in place: no resource document is rewritten.
+
+        Every resource of the light-mode installation carries ``tenant_key = tenant_key``; access to
+        it is decided by the membership, so the take-over is three writes, not a data migration
+        (measured: no read path keys a tenant resource on the system account):
+
+        1. the system account's membership is ended - kept with ``is_active = false`` so a later
+           switch back to light mode can restore it (REQ-027 Szenario 7);
+        2. *new_owner* becomes ``lead`` with both administrative scopes (REQ-049 §6), through the one
+           join door (:meth:`_create_membership_unless_erasing`), or, already a member (a second
+           upgrade after a roundtrip, Szenario 8), is raised to that;
+        3. the tenant names *new_owner* as its owner and carries their display name. The slug stays,
+           so links and bookmarks into the garden keep working.
+
+        Authorisation and the step-up are the caller's (``ModeSwitchService.decide_takeover``: a claimed
+        pending take-over, the ``light_mode_takeover`` step-up, a platform admin or the earliest eligible
+        account). Refused before anything is written: a service account (403), an unknown tenant (404),
+        a tenant that is not active or is being erased (422/403).
+
+        *receipt* is the caller's (#1855 R2-001): every write is entered into it as it happens - an
+        intended state change before the write, a created key right after it - so when any step here
+        (a write or its audit row) raises, the caller holds the record of everything written before and
+        undoes it once (:meth:`undo_light_mode_takeover`). This method does not undo on its own.
+        """
+        self._refuse_service_account(new_owner, "A service account cannot take over the light-mode data.")
+        owner_key = new_owner.key or ""
+        tenant = self.get_tenant(tenant_key)
+        if not tenant.is_active:
+            raise ValidationError("The light-mode tenant is not active and cannot be taken over.")
+        self._refuse_while_erasing(tenant_key)
+        receipt.tenant_slug = tenant.slug
+        receipt.previous_owner_key = tenant.owner_user_key
+        receipt.previous_name = tenant.name
+
+        system_membership = self._membership_repo.get_by_user_and_tenant(system_user_key, tenant_key)
+        ended: Membership | None = None
+        if system_membership is not None and system_membership.is_active and system_membership.key:
+            receipt.ended_system_membership_key = system_membership.key
+            ended = self._membership_repo.update_fields(system_membership.key, {"is_active": False})
+
+        lead_scopes = [AdminScope.MANAGEMENT, AdminScope.TECHNICAL]
+        existing = self._membership_repo.get_by_user_and_tenant(owner_key, tenant_key)
+        if existing is None or not existing.key:
+            # R3 W-1: the intent first - a check after the insert can fail before the key is returned.
+            receipt.lead_membership_intended = True
+            granted = self._create_membership_unless_erasing(
+                Membership(
+                    user_key=owner_key,
+                    tenant_key=tenant_key,
+                    role=TenantRole.LEAD,
+                    admin_scopes=lead_scopes,
+                    is_active=True,
+                    joined_at=datetime.now(UTC).isoformat(),
+                )
+            )
+            receipt.created_membership_key = granted.key
+            receipt.lead_membership_intended = False
+        else:
+            receipt.raised_membership_key = existing.key
+            receipt.raised_previous_role = str(existing.role)
+            receipt.raised_previous_scopes = [str(scope) for scope in existing.admin_scopes]
+            receipt.raised_previous_active = existing.is_active
+            granted = (
+                self._membership_repo.update_fields(
+                    existing.key, {"role": TenantRole.LEAD, "admin_scopes": lead_scopes, "is_active": True}
+                )
+                or existing
+            )
+
+        if ended is not None:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_REMOVED,
+                via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                actor_user_key=owner_key,
+                target_user_key=system_user_key,
+                tenant_key=tenant_key,
+                membership=ended,
+            )
+        if existing is None or not existing.key:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_ADDED,
+                via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                actor_user_key=owner_key,
+                target_user_key=owner_key,
+                tenant_key=tenant_key,
+                membership=granted,
+            )
+        else:
+            self._audit_raised_membership(existing, granted, actor_user_key=owner_key)
+
+        fields: dict[str, Any] = {"owner_user_key": owner_key}
+        if not self._tenant_engine.validate_tenant_name(new_owner.display_name):
+            fields["name"] = new_owner.display_name
+        receipt.tenant_changed = True
+        if self._tenant_repo.update_fields(tenant_key, fields) is None:
+            raise NotFoundError("Tenant", tenant_key)
+        self._audit_tenant(
+            SecurityAuditAction.TENANT_TAKEN_OVER,
+            via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+            actor_user_key=owner_key,
+            tenant_key=tenant_key,
+        )
+        logger.info("light_mode_tenant_taken_over", subject=log_subject(owner_key), tenant=log_tenant(tenant_key))
+        return receipt
+
+    def undo_light_mode_takeover(
+        self,
+        receipt: TakeoverReceipt,
+        *,
+        actor_user_key: str,
+        still_holds: Callable[[], bool] | None = None,
+    ) -> None:
+        """Take back exactly what the take-over decision wrote, as recorded in *receipt* (#1855 SEC-004, R2-001).
+
+        First the intended-but-unconfirmed inserts are resolved to their keys (R3 W-1; by account and tenant,
+        only while the deciding account is known - in memory). Then, in reverse order: the ``platform``
+        membership the first-admin grant created is removed (or a raised one set back), the new owner's created
+        membership removed (or a raised one set back to its previous role, scopes and state), the system
+        account's membership reactivated, the tenant's owner and name restored - a tenant gone meanwhile has
+        nothing left to restore (R3 W-4, logged as critical). Each step clears its entry in *receipt* once it
+        stood, so a receipt that raises midway names only what is left (R2-002).
+
+        *still_holds* is asked before every step (R3 W-2): ``False`` raises :class:`TakeoverClaimLostError`
+        before writing - another decision may own the tenant now. The audit rows name *actor_user_key*, the
+        account whose decision runs the undo (or the system account on a light-mode start), never a key from a
+        stored receipt (W-3).
+        """
+        actor = actor_user_key
+        undone = False
+
+        def step() -> None:
+            if still_holds is not None and not still_holds():
+                raise TakeoverClaimLostError
+
+        # R3 W-1: an insert whose key never came back, looked up by the deciding account.
+        for intended, slot, tenant_key in (
+            ("platform_membership_intended", "platform_created_membership_key", _PLATFORM_TENANT_KEY),
+            ("lead_membership_intended", "created_membership_key", receipt.tenant_key),
+        ):
+            if not getattr(receipt, intended):
+                continue
+            step()
+            if receipt.new_owner_key:
+                inserted = self._membership_repo.get_by_user_and_tenant(receipt.new_owner_key, tenant_key)
+                if inserted is not None and inserted.key and not getattr(receipt, slot):
+                    setattr(receipt, slot, inserted.key)
+            else:
+                logger.critical("light_mode_takeover_intent_unresolvable", tenant=log_tenant(tenant_key))
+            setattr(receipt, intended, False)
+        # The created memberships: the platform grant's first, then the take-over's.
+        for slot in ("platform_created_membership_key", "created_membership_key"):
+            created_key = getattr(receipt, slot)
+            if not created_key:
+                continue
+            step()
+            created = self._membership_repo.get_by_key(created_key)
+            if created is not None and self._membership_repo.delete(created_key):
+                self._end_membership(created.tenant_key, created.user_key)
+                self._audit_membership(
+                    action=SecurityAuditAction.MEMBERSHIP_REMOVED,
+                    via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                    actor_user_key=actor,
+                    target_user_key=created.user_key,
+                    tenant_key=created.tenant_key,
+                    membership=created,
+                )
+            setattr(receipt, slot, None)
+            undone = True
+        # The raised memberships, set back to their previous role, scopes and state.
+        for prefix in ("platform_", ""):
+            raised_key = getattr(receipt, f"{prefix}raised_membership_key")
+            if not raised_key:
+                continue
+            step()
+            previous_role = getattr(receipt, f"{prefix}raised_previous_role")
+            previous_scopes = getattr(receipt, f"{prefix}raised_previous_scopes")
+            before = self._membership_repo.get_by_key(raised_key)
+            restored = self._membership_repo.update_fields(
+                raised_key,
+                {
+                    "role": TenantRole(previous_role or TenantRole.VIEWER),
+                    "admin_scopes": [AdminScope(scope) for scope in previous_scopes or []],
+                    "is_active": bool(getattr(receipt, f"{prefix}raised_previous_active")),
+                },
+            )
+            if before is not None and restored is not None:
+                self._audit_membership(
+                    action=SecurityAuditAction.MEMBERSHIP_ROLE_CHANGED,
+                    via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                    actor_user_key=actor,
+                    target_user_key=restored.user_key,
+                    tenant_key=restored.tenant_key,
+                    membership=restored,
+                    old_role=str(before.role),
+                )
+            setattr(receipt, f"{prefix}raised_membership_key", None)
+            undone = True
+        if receipt.ended_system_membership_key:
+            step()
+            current = self._membership_repo.get_by_key(receipt.ended_system_membership_key)
+            if current is not None and not current.is_active:
+                reactivated = self._membership_repo.update_fields(
+                    receipt.ended_system_membership_key, {"is_active": True}
+                )
+                if reactivated is not None:
+                    self._audit_membership(
+                        action=SecurityAuditAction.MEMBERSHIP_ADDED,
+                        via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                        actor_user_key=actor,
+                        target_user_key=receipt.system_user_key,
+                        tenant_key=receipt.tenant_key,
+                        membership=reactivated,
+                    )
+            receipt.ended_system_membership_key = None
+            undone = True
+        if receipt.tenant_changed:
+            step()
+            restored_tenant: dict[str, Any] = {"owner_user_key": receipt.previous_owner_key}
+            if receipt.previous_name is not None:
+                restored_tenant["name"] = receipt.previous_name
+            if self._tenant_repo.update_fields(receipt.tenant_key, restored_tenant) is None:
+                # R3 W-4: the tenant is gone - nothing left to give back; not a reason to keep the take-over stuck.
+                logger.critical("light_mode_takeover_tenant_gone", tenant=log_tenant(receipt.tenant_key))
+            receipt.tenant_changed = False
+            undone = True
+        if not undone:
+            return
+        self._audit_tenant(
+            SecurityAuditAction.TAKEOVER_REVERTED,
+            via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+            actor_user_key=actor,
+            tenant_key=receipt.tenant_key,
+        )
+        logger.warning("light_mode_takeover_undone", subject=log_subject(actor), tenant=log_tenant(receipt.tenant_key))
+
+    def _audit_raised_membership(self, before: Membership, after: Membership, *, actor_user_key: str) -> None:
+        """The audit rows of an existing membership the take-over raised to ``lead`` with both scopes."""
+        if before.role != after.role or not before.is_active:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_ROLE_CHANGED,
+                via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                actor_user_key=actor_user_key,
+                target_user_key=after.user_key,
+                tenant_key=after.tenant_key,
+                membership=after,
+                old_role=str(before.role),
+            )
+        if list(before.admin_scopes) != list(after.admin_scopes):
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_SCOPES_CHANGED,
+                via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                actor_user_key=actor_user_key,
+                target_user_key=after.user_key,
+                tenant_key=after.tenant_key,
+                membership=after,
+                old_scopes=list(before.admin_scopes),
+            )
+
+    def has_platform_admin(self) -> bool:
+        """Whether any active account holds the platform role (an active ``lead`` membership in ``platform``)."""
+        return any(
+            membership.role == TenantRole.LEAD
+            for membership in self._membership_repo.active_memberships_of(tenant_key=_PLATFORM_TENANT_KEY)
+        )
+
+    def grant_first_platform_admin(self, account: User, *, receipt: TakeoverReceipt) -> bool:
+        """Make *account* the platform administrator of an instance that has none (REQ-027 §7a.2, #1855).
+
+        A light-mode installation has no platform tenant: its system account is the operator because
+        ``is_platform_admin`` is always true there (REQ-027 AK-12). After the switch to full mode the
+        instance has no administrator at all until the first account decides the pending take-over;
+        that decision - accepted or declined (Szenario 5 step 7e, Szenario 6 step 9) - hands it the role.
+
+        Returns ``False`` without writing when an active platform administrator exists already: the role
+        is never handed out by this path beside one. Creates the platform tenant (resolved by slug, as
+        ``seed_auth`` does - the stored row cannot carry the literal key) when it is missing. The new
+        membership is recorded in the security audit.
+
+        The membership write is entered into the caller's *receipt* (#1855 R2-001) - a raised one with its
+        previous values before the write, a created one right after - so a failing audit row (or a later
+        step of the decision) is undone by :meth:`undo_light_mode_takeover` together with the take-over.
+        """
+        self._refuse_service_account(account, "A service account cannot become the platform administrator.")
+        if self.has_platform_admin():
+            return False
+        account_key = account.key or ""
+        if self._tenant_repo.get_by_slug(_PLATFORM_TENANT_KEY) is None:
+            self._tenant_repo.create(
+                Tenant(
+                    name="Kamerplanter Platform",
+                    slug=_PLATFORM_TENANT_KEY,
+                    tenant_type=TenantType.ORGANIZATION,
+                    owner_user_key=account_key,
+                    is_platform=True,
+                    max_members=self._entitlements.members_ceiling(),
+                )
+            )
+            logger.info("platform_tenant_created", subject=log_subject(account_key))
+        lead_scopes = [AdminScope.MANAGEMENT, AdminScope.TECHNICAL]
+        existing = self._membership_repo.get_by_user_and_tenant(account_key, _PLATFORM_TENANT_KEY)
+        if existing is not None and existing.key:
+            receipt.platform_raised_membership_key = existing.key
+            receipt.platform_raised_previous_role = str(existing.role)
+            receipt.platform_raised_previous_scopes = [str(scope) for scope in existing.admin_scopes]
+            receipt.platform_raised_previous_active = existing.is_active
+            raised = (
+                self._membership_repo.update_fields(
+                    existing.key, {"role": TenantRole.LEAD, "admin_scopes": lead_scopes, "is_active": True}
+                )
+                or existing
+            )
+            self._audit_raised_membership(existing, raised, actor_user_key=account_key)
+            return True
+        receipt.platform_membership_intended = True  # R3 W-1: before the insert
+        created = self._membership_repo.create(
+            Membership(
+                user_key=account_key,
+                tenant_key=_PLATFORM_TENANT_KEY,
+                role=TenantRole.LEAD,
+                admin_scopes=lead_scopes,
+                is_active=True,
+                joined_at=datetime.now(UTC).isoformat(),
+            )
+        )
+        receipt.platform_created_membership_key = created.key
+        receipt.platform_membership_intended = False
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+            actor_user_key=account_key,
+            target_user_key=account_key,
+            tenant_key=_PLATFORM_TENANT_KEY,
+            membership=created,
+        )
+        logger.info("first_platform_admin_granted", subject=log_subject(account_key))
+        return True
+
+    def restore_light_mode_membership(self, *, tenant_key: str, system_user_key: str) -> bool:
+        """Reactivate the system account's membership a take-over ended (REQ-027 Szenario 7, #1855).
+
+        Called by the start that finds the instance back in light mode. The membership is raised back to
+        ``lead`` with both scopes - light mode resolves every request to the system account, which has to
+        be able to manage its tenant. ``False`` when there was nothing to restore (active already, or no
+        membership - the light-mode seed writes it together with the account). Recorded in the audit.
+        """
+        membership = self._membership_repo.get_by_user_and_tenant(system_user_key, tenant_key)
+        if membership is None or not membership.key:
+            logger.warning("light_mode_system_membership_missing", tenant=log_tenant(tenant_key))
+            return False
+        if membership.is_active:
+            return False
+        restored = (
+            self._membership_repo.update_fields(
+                membership.key,
+                {
+                    "role": TenantRole.LEAD,
+                    "admin_scopes": [AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
+                    "is_active": True,
+                },
+            )
+            or membership
+        )
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.MODE_SWITCH,
+            actor_user_key=system_user_key,
+            target_user_key=system_user_key,
+            tenant_key=tenant_key,
+            membership=restored,
+        )
+        return True
 
     # --- Helpers ---
 

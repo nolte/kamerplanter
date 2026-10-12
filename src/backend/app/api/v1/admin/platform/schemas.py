@@ -304,5 +304,9 @@ class SecurityAuditEntryResponse(BaseModel):
     #: #2138 — tenant-import rows: the archive's SHA-256 and the outcome (``accepted``, ``refused:<code>`` …).
     archive_sha256: str | None = None
     outcome: str | None = None
+    #: #1855 SEC-005 — a take-over decision: whether it made the actor the first platform admin.
+    platform_admin_granted: bool | None = None
+    #: #1855 SEC-005 — a sealed light-mode system account: what the start revoked (counts only).
+    revoked_counts: dict[str, int] | None = None
     request_id: str | None = None
     created_at: datetime | None = None

@@ -151,6 +151,14 @@ def _build_jobs() -> list[SeedJob]:
 
         jobs.append(SeedJob("light_mode", lambda db: run_seed_light_mode()))
 
+    # REQ-027 §7a (#1855) — after the light-mode seed, in both modes, on every start: full mode
+    # seals the light-mode system account and opens the take-over of its data; light mode makes the
+    # account usable again. Fatal: a full-mode start that could not seal the account would serve
+    # with every key minted unauthenticated in light mode still valid (#1844).
+    from app.migrations.reconcile_deployment_mode import run_reconcile_deployment_mode
+
+    jobs.append(SeedJob("deployment_mode", lambda db: run_reconcile_deployment_mode(), fatal=True))
+
     # E2E only (#1155). Appended unconditionally; the seed itself decides, and it
     # refuses unless *both* its gates hold — see its module docstring for why a
     # single environment variable is not allowed to mint a platform admin. Kept

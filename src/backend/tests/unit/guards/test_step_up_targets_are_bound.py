@@ -40,7 +40,8 @@ _ENTRIES = {"verify", "issue_code", "admit_reauth", "issue_reauth_token"}
 #: 16 since #2032 (``admin_change_membership_role``, ``change_member_role``, ``remove_member``);
 #: 17 since #2106 (``admin_add_membership``).
 EXPECTED_CALL_SITES = (
-    22  # +1 tenant_erasure_cancel (#2123); +3 service_account_change (#2137: create, rotate, remove);
+    23  # +1 light_mode_takeover (#1855 SEC-003: ModeSwitchService.decide_takeover, bound to the light-mode tenant);
+    # +1 tenant_erasure_cancel (#2123); +3 service_account_change (#2137: create, rotate, remove);
     # +1 change_member_scopes (MT-045.2, #2144: the scope change passes tenant_member_role_change, bound to the
     # membership — the credential-change guard counts it as before, now gated instead of classified)
 )

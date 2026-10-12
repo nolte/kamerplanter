@@ -315,8 +315,7 @@ Kamerplanter can be run without sign-in — as a local single-person installatio
 
 Everything described on this page only becomes relevant once the installation runs with sign-in. Details under [Light Mode](../user-guide/light-mode.md).
 
-!!! warning "Not implemented yet"
-    A guided switch from light mode to sign-in mode, in which the first registered account takes over the existing garden, is planned but not built yet. After a switch the data stay with the former single account; a newly registered account starts with its own empty garden. <!-- REQ-027 §7a, #1855 -->
+When switching from light mode to sign-in mode, Kamerplanter locks the former single account. The first registered account can take the existing garden over in a dialog: it becomes its lead with both management scopes and, as long as there is none yet, platform admin. Details under [Light Mode](../user-guide/light-mode.md#upgrade-light-full). <!-- REQ-027 §7a, #1855 -->
 
 ---
 

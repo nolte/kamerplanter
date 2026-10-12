@@ -141,6 +141,7 @@ if TYPE_CHECKING:
     from app.data_access.arango.legal_retention_repository import ArangoLegalRetentionRepository
     from app.data_access.arango.location_type_repository import ArangoLocationTypeRepository
     from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository, ArangoMcpIdempotencyRepository
+    from app.data_access.arango.mode_switch_repository import ArangoModeSwitchRepository
     from app.data_access.arango.notification_preference_repository import ArangoNotificationPreferenceRepository
     from app.data_access.arango.notification_repository import ArangoNotificationRepository
     from app.data_access.arango.onboarding_state_repository import ArangoOnboardingStateRepository
@@ -186,6 +187,7 @@ if TYPE_CHECKING:
     from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
     from app.domain.models.species import Species
     from app.domain.models.substrate import SubstrateBatch
+    from app.domain.models.user import User
     from app.domain.services.activity_plan_service import ActivityPlanService
     from app.domain.services.activity_service import ActivityService
     from app.domain.services.actuator_service import ActuatorService
@@ -212,6 +214,7 @@ if TYPE_CHECKING:
     from app.domain.services.import_service import ImportService
     from app.domain.services.inventree_service import InvenTreeService
     from app.domain.services.location_type_service import LocationTypeService
+    from app.domain.services.mode_switch_service import ModeSwitchService
     from app.domain.services.notification_propagation_service import NotificationPropagationService
     from app.domain.services.notification_service import NotificationService
     from app.domain.services.oidc_provider_admin_service import OidcProviderAdminService
@@ -1136,8 +1139,15 @@ def get_step_up_verifier() -> StepUpVerifier:
             tenant_erasure_repo=get_tenant_erasure_repo(),
             auth_provider_repo=get_auth_provider_repo(),
             oidc_config_repo=get_oidc_config_repo(),
+            # #1855 R2 review — a ``light_mode_takeover`` factor only for an account that may decide it.
+            takeover_eligibility=_may_decide_light_mode_takeover,
         ),
     )
+
+
+def _may_decide_light_mode_takeover(requester: User) -> bool:
+    """Resolved per call: the mode-switch service is built over the step-up verifier this one feeds."""
+    return get_mode_switch_service().may_decide_takeover(requester)
 
 
 def get_registration_notice_store() -> RedisRegistrationNoticeStore:
@@ -1306,6 +1316,9 @@ def get_tenant_service() -> TenantService:
         entitlements=get_entitlement_service(),
         # REQ-056 §6.2 (#2142) — organisations one account may own; an account limit, not a plan dimension.
         max_organizations_per_user=settings.tenant_max_organizations_per_user,
+        # #1855 R3 W-4 — the light-mode garden stays out of an account erasure while a failed take-over's
+        # receipt still names it.
+        takeover_repo=get_mode_switch_repo(),
     )
 
 
@@ -1533,6 +1546,31 @@ def get_onboarding_service() -> OnboardingService:
         get_starter_kit_service(),
         favorites_service=get_favorites_service(),
         user_preference_service=get_user_preference_service(),
+    )
+
+
+def get_mode_switch_repo() -> ArangoModeSwitchRepository:
+    """REQ-027 §7a (#1855) — the deployment-mode bookkeeping in ``system_meta``."""
+    from app.data_access.arango.mode_switch_repository import ArangoModeSwitchRepository
+
+    return ArangoModeSwitchRepository(get_db())
+
+
+def get_mode_switch_service() -> ModeSwitchService:
+    """REQ-027 §7a (#1855) — the light/full switch: sealing the system account and the data take-over."""
+    from app.domain.services.mode_switch_service import ModeSwitchService
+
+    return ModeSwitchService(
+        repo=get_mode_switch_repo(),
+        user_repo=get_user_repo(),
+        tenant_service=get_tenant_service(),
+        api_key_repo=get_api_key_repo(),
+        refresh_token_repo=get_refresh_token_repo(),
+        calendar_feed_repo=get_calendar_feed_repo(),
+        security_audit=get_security_audit_service(),
+        # #1855 SEC-003 — the take-over decision passes the account's own step-up (``light_mode_takeover``).
+        step_up_verifier=get_step_up_verifier(),
+        onboarding_service=get_onboarding_service(),
     )
 
 

@@ -148,7 +148,10 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: +2 with #2137: create_service_account (joins) and remove_service_account (removes).
 #: +1 with #2182: join_provider_default_tenant (audited, via oidc_auto_join).
 #: +1 with #2138: found_imported_tenant (audited, via platform_admin).
-EXPECTED_MEMBERS = 17  # +1 with #2134: _hand_management_to (the account erasure's INV-1 handover); +1 with #2133
+#: +3 with #1855 (REQ-027 light-to-full): take_over_light_mode_tenant, grant_first_platform_admin and
+#: restore_light_mode_membership - all audited (via light_mode_takeover / mode_switch).
+#: +1 with #1855 SEC-004: undo_light_mode_takeover (audited, via light_mode_takeover).
+EXPECTED_MEMBERS = 21  # +1 with #2134: _hand_management_to (the account erasure's INV-1 handover); +1 with #2133
 
 
 def test_every_membership_mutation_writes_the_audit_or_is_classified() -> None:
@@ -311,6 +314,8 @@ def test_the_ending_predicate_sees_the_class() -> None:
         ("tenant_service.py", "TenantService._settle_join_against_member_limit"),
         # +1 with #2182 review I-1: the take-back of an unaudited OIDC auto-join (classified).
         ("tenant_service.py", "TenantService.join_provider_default_tenant"),
+        # +1 with #1855 SEC-004: undoing a failed light-to-full take-over removes the membership it created.
+        ("tenant_service.py", "TenantService.undo_light_mode_takeover"),
     }
     assert [name for (_, name), clears in found.items() if clears] != []
 
@@ -429,6 +434,12 @@ _CREATION_CLASSIFIED: dict[tuple[str, str], str] = {
         "tenant nobody else can be in yet, and every member limit is at least 1 (Tenant.max_members ge=1, "
         "TENANT_MAX_MEMBERS_CEILING ge=1)"
     ),
+    ("tenant_service.py", "TenantService.grant_first_platform_admin"): (
+        "the first platform admin of an instance that has none (REQ-027 §7a.2, #1855): the membership names the "
+        "literal key ``platform`` (what is_platform_admin reads), which the stored platform row cannot carry - "
+        "the limited helper resolves the tenant by that key and would answer 404; the seat is the first one, "
+        "refused as soon as one active admin exists, and the platform tenant is created with the ceiling"
+    ),
 }
 
 
@@ -519,6 +530,10 @@ def test_the_creation_predicate_sees_the_class() -> None:
         ("tenant_service.py", "TenantService.join_provider_default_tenant"): "helper",
         # #2138 - the mapped members of an imported tenant take their seats through the same door.
         ("tenant_service.py", "TenantService.found_imported_tenant"): "helper",
+        # #1855 - the light-to-full take-over joins the light-mode tenant through the limited door; the first
+        # platform admin is a classified raw insert (_CREATION_CLASSIFIED).
+        ("tenant_service.py", "TenantService.take_over_light_mode_tenant"): "helper",
+        ("tenant_service.py", "TenantService.grant_first_platform_admin"): "raw",
     }
 
 

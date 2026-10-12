@@ -1028,6 +1028,10 @@ _NOT_INSTALLATION_WIDE: dict[str, str] = {
     "auth": "session lifecycle; a caller reaches login/register/reset before having one",
     "users": "the caller's own account, sessions and federated identities",
     "privacy": "DSGVO Art. 15-21 self-service; the rows belong to the user",
+    "system": (
+        "REQ-027 §7a light-to-full take-over (#1855): the caller takes the light-mode tenant over or declines it; "
+        "ModeSwitchService admits only the platform admin or, without one, the earliest person account"
+    ),
     "tenants": "tenant lifecycle and membership, gated on require_admin_scope",
     "tenant_exports": (
         "REQ-056 §8 (#2138): export requests of one tenant (lead + management from the stored membership, or "

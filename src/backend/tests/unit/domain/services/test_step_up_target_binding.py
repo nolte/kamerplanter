@@ -425,3 +425,31 @@ def test_without_the_management_scope_or_a_membership_there_is_no_factor(action:
     # A platform admin who is no member of the tenant acts through the platform routes, not these.
     with pytest.raises(ForbiddenError):
         _World(platform_admin=True).authorize(action, "m-1")
+
+
+@pytest.mark.parametrize("eligible", [True, False])
+def test_a_light_mode_takeover_factor_is_issued_only_to_an_account_that_may_decide(eligible: bool) -> None:
+    """#1855 R2 review — no code is mailed to an account the decision would refuse anyway."""
+    world = _World()
+    tenants = {
+        "system-tenant": Tenant.model_validate(
+            {"_key": "system-tenant", "name": "G", "slug": "g", "owner_user_key": "system-user"}
+        )
+    }
+    world.policy._tenants = MagicMock(**{"get_by_key.side_effect": tenants.get})
+    asked: list[str | None] = []
+
+    def decide(requester: User) -> bool:
+        asked.append(requester.key)
+        return eligible
+
+    world.policy._takeover_eligibility = decide
+
+    if eligible:
+        world.authorize("light_mode_takeover", "system-tenant")
+    else:
+        with pytest.raises(ForbiddenError):
+            world.authorize("light_mode_takeover", "system-tenant")
+    assert asked == ["admin-1"]
+    with pytest.raises(NotFoundError):  # another target is never the light-mode garden
+        world.authorize("light_mode_takeover", "t-1")

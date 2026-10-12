@@ -118,6 +118,22 @@ _SITES: dict[str, tuple[str, str, str]] = {
         "platform admin; a membership in a deactivated tenant resolves for nobody",
     ),
     f"{_TS}:TenantService.list_all_tenants": (_DECIDED, "", "platform-admin catalogue listing"),
+    # -- REQ-027 §7a light-to-full take-over (#1855) ------------------------------------
+    "app/domain/services/mode_switch_service.py:ModeSwitchService._open_takeover": (
+        _READS,
+        "system_tenant",
+        "a take-over is opened only for an active light-mode tenant",
+    ),
+    "app/domain/services/mode_switch_service.py:ModeSwitchService.takeover_status": (
+        _DECIDED,
+        "",
+        "shows name and size to the account that may decide; the decision itself refuses an inactive tenant",
+    ),
+    f"{_TS}:TenantService.grant_first_platform_admin": (
+        _DECIDED,
+        "",
+        "existence check of the platform tenant by slug before creating it; no authorization context",
+    ),
     "app/domain/services/oidc_provider_admin_service.py:OidcProviderAdminService._refuse_unfit_default_tenant": (
         _DECIDED,
         "",

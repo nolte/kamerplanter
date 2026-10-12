@@ -1856,6 +1856,21 @@ class SecurityAuditAction(StrEnum):
     TENANT_EXPORT_DOWNLOADED = "tenant_export_downloaded"
     TENANT_IMPORT_REQUESTED = "tenant_import_requested"
     TENANT_IMPORTED = "tenant_imported"
+    # REQ-027 §7a.2 (#1855) — after the switch from light to full mode an account took the light-mode
+    # system tenant over: the row names the tenant and the account that now owns it.
+    TENANT_TAKEN_OVER = "tenant_taken_over"
+    # #1855 SEC-005 — the decision itself: who accepted or declined the take-over of which tenant and whether
+    # it made them the first platform admin (``platform_admin_granted``); a decision undone after a failure.
+    TAKEOVER_ACCEPTED = "takeover_accepted"
+    TAKEOVER_DECLINED = "takeover_declined"
+    TAKEOVER_REVERTED = "takeover_reverted"
+    # #1855 R2 review — a refused decision (API key, not eligible, nothing open, claimed by another) and a
+    # failed decision whose writes could not be undone (``reason``; the receipt is kept on the take-over).
+    TAKEOVER_REFUSED = "takeover_refused"
+    TAKEOVER_UNDO_FAILED = "takeover_undo_failed"
+    # #1855 SEC-005 — one aggregate row per start that sealed the light-mode system account in full mode:
+    # how many API keys, sessions and calendar feeds it revoked (``revoked_counts``).
+    SYSTEM_ACCOUNT_SEALED = "system_account_sealed"
 
 
 class SecurityAuditVia(StrEnum):
@@ -1873,6 +1888,12 @@ class SecurityAuditVia(StrEnum):
     #: A new account's first sign-in through an OIDC provider with ``default_tenant_key`` placed
     #: it in that tenant (REQ-024 AK-09, #2182). The platform admin who configured it is the decision.
     OIDC_AUTO_JOIN = "oidc_auto_join"
+    #: REQ-027 §7a (#1855): the backend start found the deployment mode switched and sealed or restored
+    #: the light-mode system account. No person acted; the row names the system account as actor.
+    MODE_SWITCH = "mode_switch"
+    #: REQ-027 §7a.2 (#1855): the first account of a full-mode instance took the light-mode data over
+    #: (or declined it) through ``POST /system/takeover``.
+    LIGHT_MODE_TAKEOVER = "light_mode_takeover"
 
 
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {
