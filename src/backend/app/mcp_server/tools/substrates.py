@@ -318,7 +318,7 @@ class SetPlantSubstrate(WriteToolBase):
             plant.substrate_key = args.substrate_key
         if args.substrate_batch_key is not None:
             plant.substrate_batch_key = args.substrate_batch_key
-        updated = ctx.plant_service.update_plant(args.plant_key, plant)
+        updated = ctx.plant_service.update_plant(args.plant_key, plant, tenant_key=ctx.tenant_key)
         return self._response(
             summary=f"Set the substrate of plant '{updated.key}'.",
             data={

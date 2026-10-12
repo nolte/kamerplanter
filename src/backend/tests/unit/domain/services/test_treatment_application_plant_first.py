@@ -45,7 +45,27 @@ def test_a_foreign_plant_answers_404_before_its_history_is_read() -> None:
     application = TreatmentApplication(treatment_key="tr1", tenant_key="t_a", plant_key="x")
 
     with pytest.raises(NotFoundError):
-        service.create_treatment_application("plant_foreign", application)
+        service.create_treatment_application("plant_foreign", application, tenant_key="t_a")
 
     repo.get_recent_applications.assert_not_called()
     repo.create_treatment_application.assert_not_called()
+
+
+def test_the_tenant_argument_decides_not_the_model_field() -> None:
+    """#2107: the plant is verified against the caller's tenant, never the model's defaulted field.
+
+    The model is built the way a caller that forgot the tenant builds it — no
+    ``tenant_key``, so the field is ``""``. Before the argument existed, that empty
+    field was the tenant the plant was verified against and the tenant the row was
+    stored under.
+    """
+    service, repo = _service()
+    repo.verify_plant_ownership.side_effect = None
+    service._resistance.validate_treatment.return_value = (True, None)  # type: ignore[attr-defined]
+    repo.create_treatment_application.side_effect = lambda app: app
+    application = TreatmentApplication(treatment_key="tr1", plant_key="x")
+
+    created = service.create_treatment_application("plant_own", application, tenant_key="t_a")
+
+    repo.verify_plant_ownership.assert_called_once_with("plant_own", "t_a")
+    assert created.tenant_key == "t_a"

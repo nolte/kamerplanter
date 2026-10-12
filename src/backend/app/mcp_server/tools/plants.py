@@ -94,7 +94,7 @@ class SetPlantLocation(WriteToolBase):
             plant.location_key = args.location_key
         if args.slot_key is not None:
             plant.slot_key = args.slot_key
-        updated = ctx.plant_service.update_plant(args.plant_key, plant)
+        updated = ctx.plant_service.update_plant(args.plant_key, plant, tenant_key=ctx.tenant_key)
         return self._response(
             summary=f"Moved plant '{updated.key}'.",
             data={

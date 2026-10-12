@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 import structlog
 
 from app.common.enums import ReminderType, TaskPriority
+from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.care_reminder_engine import evaluate_quarter_climate_violation
 from app.domain.engines.sensor_metrics import is_air_temperature
 from app.domain.services.care_reminder_service import build_care_reminder_task, create_care_reminder_task
@@ -53,17 +54,24 @@ class QuarterClimateService:
         self._plant_repo = plant_repo
         self._task_repo = task_repo
 
-    def evaluate_plant(self, plant_key: str) -> Task | None:
+    def evaluate_plant(self, plant_key: str, *, tenant_key: str) -> Task | None:
         """Emit a HIGH ``quarter_climate_check`` task iff the quarter band is violated.
 
         Returns the created :class:`Task`, or ``None`` when the plant is not in
         dormancy-care, has no winter quarter / temperature band, the quarter carries
         no fresh temperature reading, the reading is inside the band, or an
         equivalent open task already exists (idempotent).
+
+        ``tenant_key`` is keyword-only without a default (#2107): the plant is
+        verified against it before a task is written into its tenant. The only
+        caller today is the ``evaluate_quarter_climate`` beat, which walks the active
+        tenants and passes each plant's own tenant; a caller that addresses a plant
+        by a key it was handed cannot leave the check out.
         """
         plant = self._plant_repo.get_by_key(plant_key)
         if plant is None:
             return None
+        verify_tenant_ownership(plant, tenant_key, "PlantInstance")
 
         profile = self._overwintering_repo.get_profile_by_plant_key(plant_key)
         if profile is None or not profile.winter_quarter_key:

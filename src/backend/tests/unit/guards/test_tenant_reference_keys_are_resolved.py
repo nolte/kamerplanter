@@ -75,16 +75,11 @@ _PATH_KEYS_VERIFIED_ELSEWHERE: dict[tuple[str, str, str], str] = {
         "unused; the cultivar is resolved and authorised under the tenant"
     ),
     ("POST", "/api/v1/plant-instances/{plant_key}/phases/transition", "plant_key"): _REQUIRE_OWNED_PLANT,
-    ("PUT", "/api/v1/t/{tenant_slug}/tasks/phases/{key}", "key"): (
-        "the phase's workflow template is resolved under the tenant (own or global); system templates refused"
-    ),
-    ("DELETE", "/api/v1/t/{tenant_slug}/tasks/phases/{key}", "key"): (
-        "the phase's workflow template is resolved under the tenant (own or global); system templates refused"
+    ("POST", "/api/v1/t/{tenant_slug}/tasks/workflows/{wf_key}/phases", "wf_key"): (
+        "set as the new phase's workflow_template_key; TaskService.create_workflow_phase resolves that workflow "
+        "under the tenant and refuses a system or shared one (#2107)"
     ),
     ("POST", "/api/v1/t/{tenant_slug}/ipm/plants/{plant_key}/inspections", "plant_key"): _REPO_PLANT_GUARD,
-    ("POST", "/api/v1/t/{tenant_slug}/ipm/plants/{plant_key}/treatment-applications", "plant_key"): (
-        "the service resolves the plant under the tenant before the resistance read (#1871 B7)"
-    ),
     ("DELETE", "/api/v1/t/{tenant_slug}/ipm/pests/{pest_key}/images/{image_id}", "pest_key"): (
         "global pest catalogue; the contribution is resolved and deleted by (id, tenant_key)"
     ),

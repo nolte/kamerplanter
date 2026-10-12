@@ -108,7 +108,7 @@ def evaluate_quarter_climate(self) -> dict:  # noqa: ANN001 — Celery bound-tas
             continue
         evaluated += 1
         try:
-            if service.evaluate_plant(plant.key) is not None:
+            if service.evaluate_plant(plant.key, tenant_key=plant.tenant_key) is not None:
                 warnings += 1
         except Exception as exc:  # noqa: BLE001 — one bad plant must not abort the run
             logger.warning("quarter_climate_evaluate_failed", plant_key=plant.key, error=loggable_error(exc))

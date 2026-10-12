@@ -110,6 +110,8 @@ class KeyedWrite:
     owner: str
     name: str
     shape: str
+    #: ``is_platform_admin`` keyword-only without a default — the decision a global-catalogue write takes instead.
+    admin_gated: bool = False
 
     @property
     def qualname(self) -> str:
@@ -134,6 +136,17 @@ def _shape(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
         if ast.unparse(arg.annotation or ast.Constant(None)).endswith("TenantContext") and default is None:
             return "strict"
     return "none"
+
+
+def _takes_platform_admin_strictly(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """``is_platform_admin`` keyword-only without a default, and not also positional."""
+    args = fn.args
+    if "is_platform_admin" in {a.arg for a in [*args.posonlyargs, *args.args]}:
+        return False
+    return any(
+        arg.arg == "is_platform_admin" and default is None
+        for arg, default in zip(args.kwonlyargs, args.kw_defaults, strict=True)
+    )
 
 
 def _loads_by_key(fn: ast.AST, methods: dict[str, ast.AST], seen: frozenset[str]) -> bool:
@@ -167,7 +180,7 @@ def keyed_writes(root: Path, writers: set[str]) -> list[KeyedWrite]:
                 if name.startswith("_") or f"{module}::{klass.name}.{name}" not in writers:
                     continue
                 if _loads_by_key(fn, methods, frozenset({name})):
-                    found.append(KeyedWrite(klass.name, name, _shape(fn)))
+                    found.append(KeyedWrite(klass.name, name, _shape(fn), _takes_platform_admin_strictly(fn)))
     return found
 
 
@@ -176,12 +189,69 @@ def _inventory() -> tuple[KeyedWrite, ...]:
     return tuple(keyed_writes(_APP, call_graph().writers()))
 
 
+def _excused(write: KeyedWrite) -> bool:
+    """Excused by class, by method, or as a global-catalogue write that takes the admin decision."""
+    return (
+        write.owner in _NOT_TENANT_DATA
+        or write.qualname in _GLOBAL_METHODS
+        or write.qualname in _NOT_TENANT_ADDRESSED
+        or (write.qualname in _GLOBAL_CATALOGUE_WRITES and write.admin_gated)
+    )
+
+
 def _not_strict() -> set[str]:
-    return {
-        w.qualname
-        for w in _inventory()
-        if w.shape != "strict" and w.owner not in _NOT_TENANT_DATA and w.qualname not in _GLOBAL_METHODS
-    }
+    return {w.qualname for w in _inventory() if w.shape != "strict" and not _excused(w)}
+
+
+# ── Single methods excused (#2107, IPM/task/plant slice) ────────────────────────────────────────────
+#
+# :data:`_NOT_TENANT_DATA` excuses whole classes. The classes below also hold tenant writes, which stay
+# under the rule, so only the named method is excused — each with the reason, measured at file:line.
+
+_IPM_CATALOGUE = (
+    "global IPM catalogue (Pest/Disease/Treatment carry no tenant_key, app/domain/models/ipm.py); the service "
+    "refuses anyone but a platform admin (IpmService._require_catalogue_admin, #1501)"
+)
+
+#: Writes to a global catalogue with no tenant: the decision is the platform-admin gate, which the method
+#: must take as ``is_platform_admin`` keyword-only without a default — checked, not trusted
+#: (:func:`test_every_global_catalogue_write_takes_the_admin_decision`).
+_GLOBAL_CATALOGUE_WRITES: dict[str, str] = {
+    "IpmService.update_pest": _IPM_CATALOGUE,
+    "IpmService.delete_pest": _IPM_CATALOGUE,
+    "IpmService.update_disease": _IPM_CATALOGUE,
+    "IpmService.delete_disease": _IPM_CATALOGUE,
+    "IpmService.update_treatment": _IPM_CATALOGUE,
+    "IpmService.delete_treatment": _IPM_CATALOGUE,
+}
+
+_PHASE_CALLBACK = (
+    "post-transition callback (register_on_transition, app/common/dependencies.py:{line}); invoked only by "
+    "PhaseService.transition_phase with the plant key the transition engine just wrote "
+    "(app/domain/services/phase_service.py:510) — no request hands it a key, and the tenant would be read off "
+    "that same plant"
+)
+
+#: Keyed writes no request addresses with a key of its own choosing: internal callbacks, beat entry
+#: points that take a loaded document, and cross-tenant platform-admin moderation.
+_NOT_TENANT_ADDRESSED: dict[str, str] = {
+    "TaskService.activate_dormant_tasks_for_phase": _PHASE_CALLBACK.format(line=535),
+    "PlantInstanceService.handle_monocarpic_terminal_transition": _PHASE_CALLBACK.format(line=541),
+    "SeasonStateService.evaluate_site": ("takes a loaded Site, not a key; delegates to evaluate_site_detailed"),
+    "SeasonStateService.evaluate_site_detailed": (
+        "takes a loaded Site, not a key; its only caller is the evaluate_season_states beat "
+        "(app/tasks/season_tasks.py:61), which skips inactive tenants, and every read below is scoped by the "
+        "site's own tenant (app/domain/services/season_state_service.py:97, :270)"
+    ),
+    "PestImageService.set_promotion": (
+        "cross-tenant moderation of contributed pest images; the only route is behind require_platform_admin "
+        "(app/api/v1/admin/pests/router.py:181)"
+    ),
+    "PestImageService.set_active": (
+        "cross-tenant moderation of contributed pest images; the only route is behind require_platform_admin "
+        "(app/api/v1/admin/pests/router.py:181)"
+    ),
+}
 
 
 #: Measured 2026-10-05 after the first slices of #2107 (activity-plan apply, site,
@@ -195,7 +265,10 @@ def _not_strict() -> set[str]:
 #: ``PlantPhotoService``): 68. Re-measured 2026-10-12 after the catalogue slice
 #: (species, cultivar and substrate writes strict; phase-history writes strict;
 #: ``PhaseSequenceService`` and the global lifecycle methods of ``PhaseService``
-#: classified as global): 40. Each line is
+#: classified as global): 40. Re-measured 2026-10-12 after the IPM, task, plant,
+#: propagation, diary, quarter-climate and hardiness slice — 15 converted, 10
+#: excused per method in :data:`_GLOBAL_CATALOGUE_WRITES` /
+#: :data:`_NOT_TENANT_ADDRESSED`: 15 (both slices merged). Each line is
 #: a keyed write that can still be called without a tenant, or with a defaulted /
 #: positional one. Convert the method to ``*, tenant_key: str`` (and drop the
 #: router's pre-check), then delete the line.
@@ -216,31 +289,6 @@ _REMAINING: frozenset[str] = frozenset(
         "CareReminderService.update_profile",
         "HaPublishService.bulk_set_published",
         "HaPublishService.set_published",
-        "HardinessZoneService.resolve_for_site",
-        "IpmService.create_treatment_application",
-        "IpmService.delete_disease",
-        "IpmService.delete_pest",
-        "IpmService.delete_treatment",
-        "IpmService.update_disease",
-        "IpmService.update_pest",
-        "IpmService.update_treatment",
-        "PestImageService.set_active",
-        "PestImageService.set_promotion",
-        "PlantDiaryService.delete_entry",
-        "PlantInstanceService.create_plant",
-        "PlantInstanceService.handle_monocarpic_terminal_transition",
-        "PlantInstanceService.remove_plant",
-        "PlantInstanceService.update_plant",
-        "PropagationService.create_batch",
-        "PropagationService.finalize_batch",
-        "QuarterClimateService.evaluate_plant",
-        "SeasonStateService.evaluate_site",
-        "SeasonStateService.evaluate_site_detailed",
-        "TaskService.activate_dormant_tasks_for_phase",
-        "TaskService.create_workflow_phase",
-        "TaskService.delete_workflow_phase",
-        "TaskService.duplicate_workflow_template",
-        "TaskService.update_workflow_phase",
     }
 )
 
@@ -263,6 +311,23 @@ def test_every_excluded_class_still_has_a_keyed_write() -> None:
     """An exclusion that excuses nothing is a hole the next method in that class walks through."""
     owners = {w.owner for w in _inventory()}
     assert sorted(set(_NOT_TENANT_DATA) - owners) == []
+
+
+def test_every_excused_method_is_still_a_keyed_write() -> None:
+    """A stale method excuse is a name a new method of the same name would inherit unread."""
+    names = {w.qualname for w in _inventory()}
+    excused = set(_GLOBAL_CATALOGUE_WRITES) | set(_NOT_TENANT_ADDRESSED)
+    assert sorted(excused - names) == []
+    assert not set(_GLOBAL_CATALOGUE_WRITES) & set(_NOT_TENANT_ADDRESSED)
+    assert not excused & set(_GLOBAL_METHODS)
+    assert not {name.split(".")[0] for name in excused} & set(_NOT_TENANT_DATA)
+
+
+def test_every_global_catalogue_write_takes_the_admin_decision() -> None:
+    """The catalogue excuse holds only while the method takes ``is_platform_admin`` keyword-only, no default."""
+    by_name = {w.qualname: w for w in _inventory()}
+    loose = sorted(name for name in _GLOBAL_CATALOGUE_WRITES if not by_name[name].admin_gated)
+    assert loose == [], f"is_platform_admin must be keyword-only without a default (#1501, #2107): {loose}"
 
 
 def test_every_global_method_is_still_a_keyed_write_without_a_tenant() -> None:
@@ -386,6 +451,12 @@ class TestTheRuleSeesTheShapes:
         assert _shape(self._fn('def f(self, key, tenant_key: str = ""): ...')) == "positional-with-default"
         assert _shape(self._fn("def f(self, key, ctx: TenantContext | None = None): ...")) == "none"
         assert _shape(self._fn("def f(self, key): ...")) == "none"
+
+    def test_the_admin_decision_shapes(self) -> None:
+        assert _takes_platform_admin_strictly(self._fn("def f(self, key, *, is_platform_admin: bool): ..."))
+        assert not _takes_platform_admin_strictly(self._fn("def f(self, key, *, is_platform_admin: bool = False): ..."))
+        assert not _takes_platform_admin_strictly(self._fn("def f(self, key, is_platform_admin: bool): ..."))
+        assert not _takes_platform_admin_strictly(self._fn("def f(self, key): ..."))
 
     def test_a_load_through_a_same_class_helper_counts_and_a_self_getter_alone_does_not(self) -> None:
         klass = ast.parse(

@@ -258,7 +258,7 @@ class TestCreateEagerMaterialisation:
     def test_outdoor_yellow_ampel_materialises_profile(self) -> None:
         service, ow_repo, _ = _real_service({"site-out": _site("site-out", SiteType.OUTDOOR)})
 
-        created = service.create_plant(_plant("site-out"))
+        created = service.create_plant(_plant("site-out"), tenant_key=TENANT)
 
         profile = ow_repo.get_profile_by_plant_key(created.key)
         assert profile is not None
@@ -268,7 +268,7 @@ class TestCreateEagerMaterialisation:
     def test_greenhouse_materialises_profile(self) -> None:
         service, ow_repo, _ = _real_service({"site-gh": _site("site-gh", SiteType.GREENHOUSE)})
 
-        created = service.create_plant(_plant("site-gh"))
+        created = service.create_plant(_plant("site-gh"), tenant_key=TENANT)
 
         assert ow_repo.get_profile_by_plant_key(created.key) is not None
 
@@ -277,7 +277,7 @@ class TestCreateEagerMaterialisation:
         # trigger materialises a profile there just like outdoor/greenhouse.
         service, ow_repo, _ = _real_service({"site-bal": _site("site-bal", SiteType.BALCONY)})
 
-        created = service.create_plant(_plant("site-bal"))
+        created = service.create_plant(_plant("site-bal"), tenant_key=TENANT)
 
         assert ow_repo.get_profile_by_plant_key(created.key) is not None
 
@@ -288,21 +288,21 @@ class TestCreateEagerMaterialisation:
             frost=FrostTolerance.HARDY,
         )
 
-        created = service.create_plant(_plant("site-out"))
+        created = service.create_plant(_plant("site-out"), tenant_key=TENANT)
 
         assert ow_repo.get_profile_by_plant_key(created.key) is None
 
     def test_indoor_site_creates_no_profile_even_when_yellow(self) -> None:
         service, ow_repo, _ = _real_service({"site-in": _site("site-in", SiteType.INDOOR)})
 
-        created = service.create_plant(_plant("site-in"))
+        created = service.create_plant(_plant("site-in"), tenant_key=TENANT)
 
         assert ow_repo.get_profile_by_plant_key(created.key) is None
 
     def test_no_site_key_creates_no_profile_and_does_not_crash(self) -> None:
         service, ow_repo, _ = _real_service({})
 
-        created = service.create_plant(_plant(None))
+        created = service.create_plant(_plant(None), tenant_key=TENANT)
 
         assert created.key is not None
         assert ow_repo.get_profile_by_plant_key(created.key) is None
@@ -310,7 +310,7 @@ class TestCreateEagerMaterialisation:
     def test_indoor_site_does_not_call_materialiser(self) -> None:
         service, materializer, _ow_service, _pr, _sr = _mock_service()
 
-        service.create_plant(_plant("site-in"))
+        service.create_plant(_plant("site-in"), tenant_key=TENANT)
 
         materializer.materialize.assert_not_called()
 
@@ -321,7 +321,7 @@ class TestCreateEagerMaterialisation:
         service._site_repo.sites["site-foreign"] = _site("site-foreign", SiteType.OUTDOOR, tenant=FOREIGN)
 
         with pytest.raises(NotFoundError):
-            service.create_plant(_plant("site-foreign"))
+            service.create_plant(_plant("site-foreign"), tenant_key=TENANT)
 
         materializer.materialize.assert_not_called()
 
@@ -339,7 +339,7 @@ class TestUpdateMoveSync:
         plant = plant_repo.seed(_plant("site-in", key="plant-1"))
 
         moved = plant.model_copy(update={"site_key": "site-out"})
-        service.update_plant("plant-1", moved)
+        service.update_plant("plant-1", moved, tenant_key=TENANT)
 
         assert ow_repo.get_profile_by_plant_key("plant-1") is not None
 
@@ -354,7 +354,7 @@ class TestUpdateMoveSync:
         assert ow_repo.get_profile_by_plant_key("plant-1") is not None
 
         moved = _plant("site-in", key="plant-1")
-        service.update_plant("plant-1", moved)
+        service.update_plant("plant-1", moved, tenant_key=TENANT)
 
         assert ow_repo.get_profile_by_plant_key("plant-1") is None
 
@@ -368,7 +368,7 @@ class TestUpdateMoveSync:
         ow_repo.create_profile(_auto_profile("plant-1", user_overridden=True))
 
         moved = _plant("site-in", key="plant-1")
-        service.update_plant("plant-1", moved)
+        service.update_plant("plant-1", moved, tenant_key=TENANT)
 
         assert ow_repo.get_profile_by_plant_key("plant-1") is not None
 
@@ -378,7 +378,7 @@ class TestUpdateMoveSync:
         ow_repo.create_profile(_auto_profile("plant-1"))
 
         moved = _plant(None, key="plant-1")
-        service.update_plant("plant-1", moved)
+        service.update_plant("plant-1", moved, tenant_key=TENANT)
 
         assert ow_repo.get_profile_by_plant_key("plant-1") is None
 
@@ -387,7 +387,7 @@ class TestUpdateMoveSync:
         plant_repo.seed(_plant("site-out", key="plant-1", name="old"))
 
         renamed = _plant("site-out", key="plant-1", name="new")
-        service.update_plant("plant-1", renamed)
+        service.update_plant("plant-1", renamed, tenant_key=TENANT)
 
         materializer.materialize.assert_not_called()
         ow_service.remove_auto_profile_for_plant.assert_not_called()
@@ -414,7 +414,7 @@ class TestWithoutOverwinteringCollaborators:
     def test_create_without_materialiser_does_not_crash(self) -> None:
         service, _ = self._plain_service()
 
-        created = service.create_plant(_plant("site-out"))
+        created = service.create_plant(_plant("site-out"), tenant_key=TENANT)
 
         assert created.key is not None
 
@@ -423,7 +423,7 @@ class TestWithoutOverwinteringCollaborators:
         plant_repo.seed(_plant("site-out", key="plant-1"))
 
         moved = _plant("site-in", key="plant-1")
-        result = service.update_plant("plant-1", moved)
+        result = service.update_plant("plant-1", moved, tenant_key=TENANT)
 
         assert result.site_key == "site-in"
 
@@ -467,7 +467,7 @@ class TestLocationFrostExposedOverride:
 
         # Plant on indoor site but at a frost-exposed location.
         plant = _plant("site-in", key="plant-1", location_key="loc-exposed")
-        created = service.create_plant(plant)
+        created = service.create_plant(plant, tenant_key=TENANT)
 
         # The location override must cause a profile to be materialised.
         profile = ow_repo.get_profile_by_plant_key(created.key)
@@ -489,7 +489,7 @@ class TestLocationFrostExposedOverride:
         service, ow_repo, plant_repo = _real_service(sites, locations=locations)
 
         plant = _plant("site-out", key="plant-1", location_key="loc-protected")
-        created = service.create_plant(plant)
+        created = service.create_plant(plant, tenant_key=TENANT)
 
         # The location override must prevent materialisation.
         profile = ow_repo.get_profile_by_plant_key(created.key)
@@ -508,7 +508,7 @@ class TestLocationFrostExposedOverride:
         service, ow_repo, plant_repo = _real_service(sites, locations=locations)
 
         plant = _plant("site-out", key="plant-1", location_key="loc-inherit")
-        created = service.create_plant(plant)
+        created = service.create_plant(plant, tenant_key=TENANT)
 
         # frost_exposed=None falls back to site type (outdoor), so profile is materialised.
         profile = ow_repo.get_profile_by_plant_key(created.key)
@@ -531,7 +531,7 @@ class TestLocationFrostExposedOverride:
         service, _ow_repo, _plant_repo = _real_service(sites, locations=locations)
 
         with pytest.raises(ValidationError) as exc:
-            service.create_plant(_plant("site-out", key="plant-1", location_key="loc-foreign"))
+            service.create_plant(_plant("site-out", key="plant-1", location_key="loc-foreign"), tenant_key=TENANT)
 
         assert exc.value.status_code == 422
 
@@ -543,17 +543,15 @@ class TestLocationFrostExposedOverride:
         ``resolve_frost_exposure`` must ignore that location and fall back to the
         site type rather than trusting it.
 
-        Reached here through a **tenantless** plant, which is the path that still
-        produces such a row: seeds, migrations and light-mode callers skip reference
-        resolution entirely (there is nothing to anchor against), exactly as
-        ``get_plant`` and ``_verify_site_ownership`` already skip for them. Going
-        through ``create_plant`` with a tenant would now be refused by the chain
-        check — see the test above — and asserting the fallback on a state the write
-        path rejects would be asserting it on nothing.
+        No write path produces such a row any more: ``create_plant`` refuses the
+        chain (see the test above) and, since #2107, a plant without a tenant too —
+        the escape this test used to take to get the row stored. The row is therefore
+        handed to the sync seam directly, as a stored legacy row would reach it, and
+        the fallback is asserted there.
         """
         sites = {
-            "site-out": _site("site-out", SiteType.OUTDOOR, tenant=""),
-            "site-in": _site("site-in", SiteType.INDOOR, tenant=""),
+            "site-out": _site("site-out", SiteType.OUTDOOR),
+            "site-in": _site("site-in", SiteType.INDOOR),
         }
         locations = {
             # This location belongs to site-in, but the plant is on site-out.
@@ -561,9 +559,10 @@ class TestLocationFrostExposedOverride:
         }
         service, ow_repo, plant_repo = _real_service(sites, locations=locations)
 
-        plant = _plant("site-out", key="plant-1", location_key="loc-foreign", tenant="")
-        created = service.create_plant(plant)
+        stored = _plant("site-out", key="plant-1", location_key="loc-foreign")
+        plant_repo.store["plant-1"] = stored
+        service._sync_overwintering_for_site(stored)
 
         # The foreign location must be ignored; profile is materialised due to site type.
-        profile = ow_repo.get_profile_by_plant_key(created.key)
+        profile = ow_repo.get_profile_by_plant_key("plant-1")
         assert profile is not None, "Foreign location override must be ignored (fallback to site type)"

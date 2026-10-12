@@ -169,8 +169,8 @@ def create_batch(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Create a propagation batch for the tenant."""
-    batch = PropagationBatch(**body.model_dump(), tenant_key=ctx.tenant_key)
-    return _batch_response(service.create_batch(batch))
+    batch = PropagationBatch(**body.model_dump())
+    return _batch_response(service.create_batch(batch, tenant_key=ctx.tenant_key))
 
 
 @router.get("/propagation/batches", response_model=list[PropagationBatchResponse])
@@ -230,7 +230,7 @@ def finalize_batch(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Finalize a propagation batch into a target planting run."""
-    updated = service.finalize_batch(batch_key, ctx.tenant_key, body.target_planting_run_key)
+    updated = service.finalize_batch(batch_key, body.target_planting_run_key, tenant_key=ctx.tenant_key)
     return _batch_response(updated)
 
 

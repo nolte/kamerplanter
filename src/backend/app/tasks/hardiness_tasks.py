@@ -68,7 +68,7 @@ def refresh_site_hardiness_zones(self) -> dict:  # noqa: ANN001 — Celery bound
             skipped += 1
             continue
         try:
-            service.resolve_for_site(site.key, site.tenant_key)
+            service.resolve_for_site(site.key, tenant_key=site.tenant_key)
             resolved += 1
         except ValidationError:
             # No usable climate normals yet — retried on the next beat.

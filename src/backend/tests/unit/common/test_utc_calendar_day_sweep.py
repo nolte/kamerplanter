@@ -80,7 +80,7 @@ class TestRemovedOnIsAUtcDay:
         service, _ = self._service()
 
         with local_timezone(timezone_on_another_calendar_day()):
-            updated = service.remove_plant("plant-1")
+            updated = service.remove_plant("plant-1", tenant_key="tenant_anna")
 
             assert updated.removed_on == today_utc()
 

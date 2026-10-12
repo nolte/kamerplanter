@@ -74,7 +74,10 @@ class _IpmService:
         self.inspections.append(inspection)
         return inspection.model_copy(update={"key": "in-1", "plant_key": plant_key})
 
-    def create_treatment_application(self, plant_key: str, app: TreatmentApplication) -> TreatmentApplication:
+    def create_treatment_application(
+        self, plant_key: str, app: TreatmentApplication, *, tenant_key: str
+    ) -> TreatmentApplication:
+        app.tenant_key = tenant_key
         self.applications.append(app)
         return app.model_copy(update={"key": "ta-1", "plant_key": plant_key})
 

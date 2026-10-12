@@ -201,7 +201,7 @@ def test_a_non_existent_substrate_is_refused_and_nothing_is_written() -> None:
     service, plant_repo = _service()
 
     with pytest.raises(NotFoundError):
-        service.create_plant(_plant(substrate_key="sub-ghost"))
+        service.create_plant(_plant(substrate_key="sub-ghost"), tenant_key=TENANT)
 
     plant_repo.create.assert_not_called()
 
@@ -216,9 +216,9 @@ def test_a_foreign_substrate_is_refused_indistinguishably_from_an_absent_one() -
     service, plant_repo = _service(substrates={"sub-foreign": _substrate("sub-foreign", tenant=FOREIGN)})
 
     with pytest.raises(NotFoundError) as foreign:
-        service.create_plant(_plant(substrate_key="sub-foreign"))
+        service.create_plant(_plant(substrate_key="sub-foreign"), tenant_key=TENANT)
     with pytest.raises(NotFoundError) as absent:
-        service.create_plant(_plant(substrate_key="sub-ghost"))
+        service.create_plant(_plant(substrate_key="sub-ghost"), tenant_key=TENANT)
 
     def shape(exc: NotFoundError, key: str) -> tuple:
         return (
@@ -237,7 +237,7 @@ def test_an_own_amendment_is_refused_as_a_growing_medium() -> None:
     service, plant_repo = _service(substrates={"sub-amend": _substrate("sub-amend", is_amendment=True)})
 
     with pytest.raises(ValidationError) as exc:
-        service.create_plant(_plant(substrate_key="sub-amend"))
+        service.create_plant(_plant(substrate_key="sub-amend"), tenant_key=TENANT)
 
     assert exc.value.status_code == 422
     plant_repo.create.assert_not_called()
@@ -254,7 +254,7 @@ def test_a_foreign_amendment_answers_404_not_422() -> None:
     service, _ = _service(substrates={"sub-foreign": _substrate("sub-foreign", tenant=FOREIGN, is_amendment=True)})
 
     with pytest.raises(NotFoundError):
-        service.create_plant(_plant(substrate_key="sub-foreign"))
+        service.create_plant(_plant(substrate_key="sub-foreign"), tenant_key=TENANT)
 
 
 def test_a_global_growing_medium_stays_bindable() -> None:
@@ -266,7 +266,7 @@ def test_a_global_growing_medium_stays_bindable() -> None:
     """
     service, plant_repo = _service(substrates={"sub-global": _substrate("sub-global", tenant="")})
 
-    created = service.create_plant(_plant(substrate_key="sub-global"))
+    created = service.create_plant(_plant(substrate_key="sub-global"), tenant_key=TENANT)
 
     assert created.substrate_key == "sub-global"
     plant_repo.create.assert_called_once()
@@ -279,7 +279,7 @@ def test_a_foreign_batch_is_refused() -> None:
     service, plant_repo = _service(batches={"batch-foreign": _batch("batch-foreign", tenant=FOREIGN)})
 
     with pytest.raises(NotFoundError):
-        service.create_plant(_plant(substrate_batch_key="batch-foreign"))
+        service.create_plant(_plant(substrate_batch_key="batch-foreign"), tenant_key=TENANT)
 
     plant_repo.create.assert_not_called()
 
@@ -287,7 +287,7 @@ def test_a_foreign_batch_is_refused() -> None:
 def test_an_own_batch_is_accepted() -> None:
     service, plant_repo = _service(batches={"batch-own": _batch("batch-own")})
 
-    created = service.create_plant(_plant(substrate_batch_key="batch-own"))
+    created = service.create_plant(_plant(substrate_batch_key="batch-own"), tenant_key=TENANT)
 
     assert created.substrate_batch_key == "batch-own"
     plant_repo.create.assert_called_once()
@@ -310,7 +310,7 @@ def test_an_own_location_is_accepted_although_its_own_tenant_key_is_empty() -> N
         locations={"loc-own": _location("loc-own", "site-own")},
     )
 
-    created = service.create_plant(_plant(location_key="loc-own"))
+    created = service.create_plant(_plant(location_key="loc-own"), tenant_key=TENANT)
 
     assert created.location_key == "loc-own"
     plant_repo.create.assert_called_once()
@@ -323,7 +323,7 @@ def test_a_location_under_a_foreign_site_is_refused() -> None:
     )
 
     with pytest.raises(NotFoundError):
-        service.create_plant(_plant(location_key="loc-foreign"))
+        service.create_plant(_plant(location_key="loc-foreign"), tenant_key=TENANT)
 
     plant_repo.create.assert_not_called()
 
@@ -332,7 +332,7 @@ def test_an_unknown_location_is_refused() -> None:
     service, plant_repo = _service()
 
     with pytest.raises(NotFoundError):
-        service.create_plant(_plant(location_key="loc-ghost"))
+        service.create_plant(_plant(location_key="loc-ghost"), tenant_key=TENANT)
 
     plant_repo.create.assert_not_called()
 
@@ -344,7 +344,7 @@ def test_an_own_slot_is_accepted() -> None:
         slots={"slot-own": _slot("slot-own", "loc-own")},
     )
 
-    created = service.create_plant(_plant(slot_key="slot-own"), skip_validation=True)
+    created = service.create_plant(_plant(slot_key="slot-own"), skip_validation=True, tenant_key=TENANT)
 
     assert created.slot_key == "slot-own"
     plant_repo.create.assert_called_once()
@@ -360,7 +360,7 @@ def test_a_slot_under_a_foreign_site_is_refused() -> None:
     )
 
     with pytest.raises(NotFoundError):
-        service.create_plant(_plant(slot_key="slot-foreign"), skip_validation=True)
+        service.create_plant(_plant(slot_key="slot-foreign"), skip_validation=True, tenant_key=TENANT)
 
     plant_repo.create.assert_not_called()
 
@@ -376,7 +376,7 @@ def test_the_reference_guard_runs_before_the_rotation_and_companion_engines() ->
     rotation, companion = service._rotation, service._companion
 
     with pytest.raises(NotFoundError):
-        service.create_plant(_plant(slot_key="slot-ghostloc"))
+        service.create_plant(_plant(slot_key="slot-ghostloc"), tenant_key=TENANT)
 
     rotation.validate_or_raise.assert_not_called()
     companion.check_or_raise.assert_not_called()
@@ -390,7 +390,7 @@ def test_a_foreign_species_is_refused() -> None:
     service, plant_repo = _service(species={"sp-foreign": _species("sp-foreign", tenant=FOREIGN)})
 
     with pytest.raises(NotFoundError):
-        service.create_plant(_plant(species_key="sp-foreign"))
+        service.create_plant(_plant(species_key="sp-foreign"), tenant_key=TENANT)
 
     plant_repo.create.assert_not_called()
 
@@ -399,7 +399,7 @@ def test_a_global_species_stays_bindable() -> None:
     """The seeded catalogue is global (``tenant_key == ""``) and must stay usable."""
     service, plant_repo = _service(species={"sp-global": _species("sp-global", tenant="")})
 
-    created = service.create_plant(_plant(species_key="sp-global"))
+    created = service.create_plant(_plant(species_key="sp-global"), tenant_key=TENANT)
 
     assert created.species_key == "sp-global"
     plant_repo.create.assert_called_once()
@@ -416,7 +416,7 @@ def test_a_granted_species_stays_bindable() -> None:
         grants={"sp-shared": {TENANT}},
     )
 
-    created = service.create_plant(_plant(species_key="sp-shared"))
+    created = service.create_plant(_plant(species_key="sp-shared"), tenant_key=TENANT)
 
     assert created.species_key == "sp-shared"
     plant_repo.create.assert_called_once()
@@ -426,7 +426,7 @@ def test_an_unknown_species_is_refused() -> None:
     service, plant_repo = _service(species={})
 
     with pytest.raises(NotFoundError):
-        service.create_plant(_plant(species_key="sp-ghost"))
+        service.create_plant(_plant(species_key="sp-ghost"), tenant_key=TENANT)
 
     plant_repo.create.assert_not_called()
 
@@ -439,7 +439,7 @@ def test_updating_re_points_a_substrate_and_the_new_one_is_resolved() -> None:
     plant_repo.get_or_raise.return_value = _plant(key="p1", substrate_key=None)
 
     with pytest.raises(NotFoundError):
-        service.update_plant("p1", _plant(key="p1", substrate_key="sub-foreign"))
+        service.update_plant("p1", _plant(key="p1", substrate_key="sub-foreign"), tenant_key=TENANT)
 
     plant_repo.update.assert_not_called()
 
@@ -458,7 +458,9 @@ def test_an_unchanged_reference_does_not_make_the_row_uneditable() -> None:
     stored = _plant(key="p1", substrate_key="sub-amend")
     plant_repo.get_or_raise.return_value = stored
 
-    updated = service.update_plant("p1", _plant(key="p1", substrate_key="sub-amend", plant_name="renamed"))
+    updated = service.update_plant(
+        "p1", _plant(key="p1", substrate_key="sub-amend", plant_name="renamed"), tenant_key=TENANT
+    )
 
     assert updated.plant_name == "renamed"
     plant_repo.update.assert_called_once()
@@ -470,7 +472,7 @@ def test_clearing_a_reference_is_never_refused() -> None:
     service, plant_repo = _service(substrates={"sub-amend": _substrate("sub-amend", is_amendment=True)})
     plant_repo.get_or_raise.return_value = _plant(key="p1", substrate_key="sub-amend")
 
-    updated = service.update_plant("p1", _plant(key="p1", substrate_key=None))
+    updated = service.update_plant("p1", _plant(key="p1", substrate_key=None), tenant_key=TENANT)
 
     assert updated.substrate_key is None
     plant_repo.update.assert_called_once()
@@ -479,19 +481,21 @@ def test_clearing_a_reference_is_never_refused() -> None:
 # ── the escapes the other guards on this service already take ───────────
 
 
-def test_a_tenantless_plant_skips_resolution() -> None:
-    """Mirrors the ``if tenant_key`` gate on ``get_plant`` / ``_verify_site_ownership``.
+def test_a_plant_without_a_tenant_is_refused_rather_than_left_unresolved() -> None:
+    """#2107: an empty tenant no longer buys a write with no reference resolved.
 
-    Seeds, migrations and light-mode callers create plants without a tenant; there
-    is nothing to anchor against, and refusing them would cost those callers their
-    records over a check that cannot be performed.
+    This test used to pin the skip: "seeds, migrations and light-mode callers create
+    plants without a tenant". Measured, ``create_plant`` has two callers — the tenant
+    route and the onboarding wizard — and both pass a tenant; the skip was an escape
+    any caller could take by omitting it. The tenant is now a required argument and
+    an empty one fails closed before anything is resolved or written.
     """
     service, plant_repo = _service()
 
-    created = service.create_plant(_plant(tenant="", substrate_key="sub-ghost", species_key="sp-ghost"))
+    with pytest.raises(ValueError, match="tenant_key"):
+        service.create_plant(_plant(tenant="", substrate_key="sub-ghost", species_key="sp-ghost"), tenant_key="")
 
-    assert created.substrate_key == "sub-ghost"
-    plant_repo.create.assert_called_once()
+    plant_repo.create.assert_not_called()
 
 
 def test_resolution_is_skipped_when_the_collaborators_are_unwired() -> None:
@@ -505,7 +509,7 @@ def test_resolution_is_skipped_when_the_collaborators_are_unwired() -> None:
     plant_repo.create.side_effect = lambda p: p
     service = PlantInstanceService(plant_repo, FakeSiteRepo(), MagicMock(), MagicMock())
 
-    created = service.create_plant(_plant(substrate_key="sub-ghost"))
+    created = service.create_plant(_plant(substrate_key="sub-ghost"), tenant_key=TENANT)
 
     assert created.substrate_key == "sub-ghost"
 
@@ -532,7 +536,7 @@ def test_an_empty_species_key_is_resolved_and_refused_rather_than_skipped() -> N
     service, plant_repo = _service()
 
     with pytest.raises(NotFoundError):
-        service.create_plant(_plant(species_key=""))
+        service.create_plant(_plant(species_key=""), tenant_key=TENANT)
 
     plant_repo.create.assert_not_called()
 
@@ -541,7 +545,7 @@ def test_an_empty_substrate_key_is_resolved_and_refused_rather_than_skipped() ->
     service, plant_repo = _service()
 
     with pytest.raises(NotFoundError):
-        service.create_plant(_plant(substrate_key=""))
+        service.create_plant(_plant(substrate_key=""), tenant_key=TENANT)
 
     plant_repo.create.assert_not_called()
 
@@ -553,7 +557,7 @@ def test_an_update_cannot_strip_a_species_to_the_empty_string() -> None:
     plant_repo.get_or_raise.return_value = _plant(key="p1", species_key="sp-own")
 
     with pytest.raises(NotFoundError):
-        service.update_plant("p1", _plant(key="p1", species_key=""))
+        service.update_plant("p1", _plant(key="p1", species_key=""), tenant_key=TENANT)
 
     plant_repo.update.assert_not_called()
 
@@ -568,7 +572,7 @@ def test_clearing_an_optional_reference_to_none_is_still_never_refused() -> None
     service, plant_repo = _service(substrates={"sub-own": _substrate("sub-own")})
     plant_repo.get_or_raise.return_value = _plant(key="p1", substrate_key="sub-own")
 
-    updated = service.update_plant("p1", _plant(key="p1", substrate_key=None))
+    updated = service.update_plant("p1", _plant(key="p1", substrate_key=None), tenant_key=TENANT)
 
     assert updated.substrate_key is None
     plant_repo.update.assert_called_once()
@@ -598,7 +602,7 @@ def test_a_location_under_a_different_site_than_the_plants_own_is_refused() -> N
     service, plant_repo = _two_site_service()
 
     with pytest.raises(ValidationError) as exc:
-        service.create_plant(_plant(site_key="site-a", location_key="loc-b"))
+        service.create_plant(_plant(site_key="site-a", location_key="loc-b"), tenant_key=TENANT)
 
     assert exc.value.status_code == 422
     plant_repo.create.assert_not_called()
@@ -608,7 +612,9 @@ def test_a_slot_in_a_different_location_than_the_plants_own_is_refused() -> None
     service, plant_repo = _two_site_service()
 
     with pytest.raises(ValidationError) as exc:
-        service.create_plant(_plant(site_key="site-a", location_key="loc-a", slot_key="slot-b"), skip_validation=True)
+        service.create_plant(
+            _plant(site_key="site-a", location_key="loc-a", slot_key="slot-b"), skip_validation=True, tenant_key=TENANT
+        )
 
     assert exc.value.status_code == 422
     plant_repo.create.assert_not_called()
@@ -619,7 +625,9 @@ def test_the_full_measured_incoherent_placement_is_refused() -> None:
     service, plant_repo = _two_site_service()
 
     with pytest.raises(ValidationError):
-        service.create_plant(_plant(site_key="site-a", location_key="loc-b", slot_key="slot-b"), skip_validation=True)
+        service.create_plant(
+            _plant(site_key="site-a", location_key="loc-b", slot_key="slot-b"), skip_validation=True, tenant_key=TENANT
+        )
 
     plant_repo.create.assert_not_called()
 
@@ -629,7 +637,9 @@ def test_a_coherent_placement_chain_is_accepted() -> None:
     all three assertions above."""
     service, plant_repo = _two_site_service()
 
-    created = service.create_plant(_plant(site_key="site-a", location_key="loc-a", slot_key="slot-a"))
+    created = service.create_plant(
+        _plant(site_key="site-a", location_key="loc-a", slot_key="slot-a"), tenant_key=TENANT
+    )
 
     assert (created.site_key, created.location_key, created.slot_key) == ("site-a", "loc-a", "slot-a")
     plant_repo.create.assert_called_once()
@@ -646,7 +656,7 @@ def test_a_slot_without_a_location_derives_the_location_from_the_slot() -> None:
     """
     service, plant_repo = _two_site_service()
 
-    created = service.create_plant(_plant(slot_key="slot-b"), skip_validation=True)
+    created = service.create_plant(_plant(slot_key="slot-b"), skip_validation=True, tenant_key=TENANT)
 
     assert created.location_key == "loc-b"
     plant_repo.create.assert_called_once()
@@ -663,7 +673,7 @@ def test_changing_only_the_site_re_checks_the_location_that_did_not_change() -> 
     plant_repo.get_or_raise.return_value = _plant(key="p1", site_key="site-a", location_key="loc-a")
 
     with pytest.raises(ValidationError):
-        service.update_plant("p1", _plant(key="p1", site_key="site-b", location_key="loc-a"))
+        service.update_plant("p1", _plant(key="p1", site_key="site-b", location_key="loc-a"), tenant_key=TENANT)
 
     plant_repo.update.assert_not_called()
 
@@ -678,7 +688,9 @@ def test_an_update_that_touches_no_placement_key_costs_no_placement_read() -> No
         reads.append(key) or _location("loc-a", "site-a")
     )
 
-    service.update_plant("p1", _plant(key="p1", site_key="site-a", location_key="loc-a", plant_name="renamed"))
+    service.update_plant(
+        "p1", _plant(key="p1", site_key="site-a", location_key="loc-a", plant_name="renamed"), tenant_key=TENANT
+    )
 
     assert reads == []
     plant_repo.update.assert_called_once()
@@ -741,7 +753,7 @@ def test_a_reference_that_goes_unchecked_because_of_an_unwired_collaborator_is_l
     service = PlantInstanceService(plant_repo, FakeSiteRepo(), MagicMock(), MagicMock())
 
     with structlog.testing.capture_logs() as logs:
-        service.create_plant(_plant(substrate_key="sub-ghost", species_key="sp-ghost"))
+        service.create_plant(_plant(substrate_key="sub-ghost", species_key="sp-ghost"), tenant_key=TENANT)
 
     warnings = [entry for entry in logs if entry.get("event") == "reference_resolver_unwired"]
     assert len(warnings) == 1
@@ -755,6 +767,6 @@ def test_a_wired_service_logs_nothing_when_every_reference_resolves() -> None:
     service, _ = _service(substrates={"sub-own": _substrate("sub-own")})
 
     with structlog.testing.capture_logs() as logs:
-        service.create_plant(_plant(substrate_key="sub-own"))
+        service.create_plant(_plant(substrate_key="sub-own"), tenant_key=TENANT)
 
     assert [entry for entry in logs if entry.get("event") == "reference_resolver_unwired"] == []

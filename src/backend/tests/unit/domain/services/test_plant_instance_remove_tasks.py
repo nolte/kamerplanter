@@ -7,8 +7,10 @@ and failed tasks are kept as history.
 
 from unittest.mock import MagicMock
 
+import pytest
 import structlog.testing
 
+from app.common.exceptions import NotFoundError
 from app.domain.models.task import Task
 from app.domain.services.plant_instance_service import PlantInstanceService
 
@@ -56,7 +58,7 @@ class TestRemovePlantTaskCleanup:
         ]
         service = self._service(task_repo=self.task_repo)
 
-        service.remove_plant("plant-1")
+        service.remove_plant("plant-1", tenant_key="tenant-a")
 
         deleted_keys = {c.args[0] for c in self.task_repo.delete_task.call_args_list}
         assert deleted_keys == {"t-pending", "t-progress", "t-dormant"}
@@ -71,7 +73,7 @@ class TestRemovePlantTaskCleanup:
         ]
         service = self._service(task_repo=self.task_repo)
 
-        service.remove_plant("plant-1")
+        service.remove_plant("plant-1", tenant_key="tenant-a")
 
         deleted_keys = {c.args[0] for c in self.task_repo.delete_task.call_args_list}
         assert deleted_keys == {"t-open"}
@@ -80,7 +82,7 @@ class TestRemovePlantTaskCleanup:
         """Without a task repository, removal still succeeds without error."""
         service = self._service(task_repo=None)
 
-        result = service.remove_plant("plant-1")
+        result = service.remove_plant("plant-1", tenant_key="tenant-a")
 
         assert result is self.plant
 
@@ -89,7 +91,7 @@ class TestRemovePlantTaskCleanup:
         self.task_repo.get_tasks_for_plant.return_value = []
         service = self._service(task_repo=self.task_repo)
 
-        result = service.remove_plant("plant-1")
+        result = service.remove_plant("plant-1", tenant_key="tenant-a")
 
         assert result is self.plant
         self.task_repo.get_tasks_for_plant.assert_called_once_with("plant-1", tenant_key="tenant-a")
@@ -149,7 +151,7 @@ class TestRemovePlantRunTaskCleanup:
         ]
         service = self._service()
 
-        service.remove_plant("plant-1")
+        service.remove_plant("plant-1", tenant_key="tenant-a")
 
         deleted = {c.args[0] for c in self.task_repo.delete_task.call_args_list}
         assert deleted == {"w-open"}
@@ -162,7 +164,7 @@ class TestRemovePlantRunTaskCleanup:
         ]
         service = self._service()
 
-        service.remove_plant("plant-1")
+        service.remove_plant("plant-1", tenant_key="tenant-a")
 
         self.task_repo.get_tasks_for_run.assert_not_called()
         self.task_repo.delete_task.assert_not_called()
@@ -176,7 +178,7 @@ class TestRemovePlantRunTaskCleanup:
             task_repo=self.task_repo,
         )
 
-        result = service.remove_plant("plant-1")
+        result = service.remove_plant("plant-1", tenant_key="tenant-a")
 
         assert result is self.plant
 
@@ -187,7 +189,7 @@ class TestRemovePlantRunTaskCleanup:
         self.task_repo.get_tasks_for_run.return_value = []
         service = self._service()
 
-        service.remove_plant("plant-1")
+        service.remove_plant("plant-1", tenant_key="tenant-a")
 
         self.task_repo.get_tasks_for_run.assert_called_once_with("run-1", tenant_key="tenant-a")
 
@@ -225,17 +227,38 @@ class TestATenantlessPlantSaysSoInsteadOfSkippingSilently:
             planting_run_repo=self.run_repo,
         )
 
+    # ``remove_plant`` no longer reaches the two cleanups for such a plant: since
+    # #2107 it requires the caller's tenant and verifies the plant against it, and a
+    # plant without a tenant is owned by no caller (see the last test). The cleanups
+    # keep their own fail-closed skip, so they are driven directly here.
+
+    def _run_both_cleanups(self) -> None:
+        service = self._service()
+        service._delete_open_tasks_for_plant("plant-1", tenant_key="")
+        service._delete_orphaned_run_tasks("plant-1", tenant_key="")
+
     def test_neither_cleanup_runs_an_unscoped_read(self):
-        self._service().remove_plant("plant-1")
+        self._run_both_cleanups()
 
         self.task_repo.get_tasks_for_plant.assert_not_called()
         self.task_repo.get_tasks_for_run.assert_not_called()
 
     def test_both_skips_are_logged_rather_than_silent(self):
         with structlog.testing.capture_logs() as logs:
-            self._service().remove_plant("plant-1")
+            self._run_both_cleanups()
 
         events = {entry["event"] for entry in logs if entry.get("log_level") == "warning"}
         assert "open_task_cleanup_skipped_tenantless_plant" in events
         assert "orphaned_run_task_cleanup_skipped_tenantless_plant" in events
         assert all(entry.get("plant_key") == "plant-1" for entry in logs if entry["event"] in events)
+
+    def test_removing_a_tenantless_plant_is_refused_before_anything_is_written(self):
+        """#2107: no caller owns a plant without a tenant, so no caller removes it."""
+        self.plant.tenant_key = ""
+        self.plant.key = "plant-1"
+
+        with pytest.raises(NotFoundError):
+            self._service().remove_plant("plant-1", tenant_key="tenant-a")
+
+        self.plant_repo.update.assert_not_called()
+        self.task_repo.get_tasks_for_plant.assert_not_called()
