@@ -173,6 +173,34 @@ class Settings(BaseSettings):
     arangodb_database: str = "kamerplanter"
     arangodb_username: str = "root"
     arangodb_password: str = "rootpassword"
+    #: #2127 (MT-031) — how the backend speaks to ArangoDB. ``http`` is what every
+    #: client hard-coded until #2127 and stays the default, so a deployment that
+    #: sets nothing connects exactly as before. ``https`` is for a database that
+    #: terminates TLS itself — an external or managed instance; the Helm chart sets
+    #: it from ``database.arangodb.external.scheme``. The certificate is verified
+    #: against the system trust store (``REQUESTS_CA_BUNDLE`` names a private CA).
+    #: Anything else refuses to load: a typo must not fall back to plain text.
+    arangodb_scheme: Literal["http", "https"] = "http"
+
+    @field_validator("arangodb_host")
+    @classmethod
+    def _arangodb_host_is_a_bare_host(cls, value: str) -> str:
+        """Refuse a URL in ``ARANGODB_HOST`` (#2127).
+
+        The connection URL is ``{ARANGODB_SCHEME}://{ARANGODB_HOST}:{ARANGODB_PORT}``.
+        A host written as ``https://db.example`` would yield
+        ``http://https://db.example:8529`` — a connection that fails far from its
+        cause, and with ``http`` the TLS the operator asked for silently gone.
+        """
+        if "/" in value or "@" in value:
+            msg = "ARANGODB_HOST must be a bare host name or address; set the scheme in ARANGODB_SCHEME"
+            raise ValueError(msg)
+        return value
+
+    @property
+    def arangodb_url(self) -> str:
+        """The ArangoDB endpoint every client connects to (#2127)."""
+        return f"{self.arangodb_scheme}://{self.arangodb_host}:{self.arangodb_port}"
 
     redis_url: str = "redis://localhost:6379/0"
 

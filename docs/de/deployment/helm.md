@@ -825,11 +825,64 @@ kubectl patch secret kamerplanter-secrets -n kamerplanter --type merge \
 
 ## Externe Datenbanken {#externe-datenbanken}
 
-!!! warning "Noch nicht unterstützt"
-    Das Chart betreibt ArangoDB und Valkey immer selbst im Cluster. Eine verwaltete Datenbank außerhalb des Clusters kannst du derzeit nicht sicher anbinden:
+Statt der mitgelieferten ArangoDB und des Valkey-Subcharts kannst du Datenbanken außerhalb des Charts anbinden, etwa einen verwalteten Dienst oder eine Instanz in einem anderen Namespace. Beide Schalter sind standardmäßig aus; ohne sie rendert das Chart wie bisher.
 
-    - **ArangoDB:** Das Backend verbindet sich nur unverschlüsselt per `http://`. Zugangsdaten und alle Daten gingen im Klartext über das Netz. Außerdem bricht `controllers.arangodb.enabled: false` allein die Darstellung ab, weil Service, NetworkPolicy und das Volume `arangodb-apps` an den Datenbank-Controller gebunden sind. Schaltest du die mit ab, rendert das Chart zwar, aber Backend, Worker und Beat sprechen weiter `kamerplanter-arangodb` an, und ihre NetworkPolicies lassen nur den Datenbank-Pod im Cluster zu.
-    - **Valkey:** `valkey.enabled: false` schaltet den Cache ab, aber Backend, Worker und Beat sprechen weiter `kamerplanter-valkey` an, und ihre NetworkPolicies lassen nur den Valkey-Pod im Cluster zu.
+### ArangoDB
+
+`database.arangodb.external.enabled: true` ist der einzige Schalter. Das ArangoDB-StatefulSet, sein Service, seine NetworkPolicy und seine Volumes entfallen. Backend, Celery-Worker, Celery-Beat und das Backup verbinden sich mit `scheme://host:port`:
+
+```yaml
+database:
+  arangodb:
+    appUsername: kamerplanter
+    external:
+      enabled: true
+      host: arango.example.net    # nur der Hostname, ohne Schema
+      port: 8529
+      scheme: https               # http | https
+      cidr: 203.0.113.10/32       # Adressbereich der Datenbank (NetworkPolicy)
+```
+
+- Das Chart legt in einer externen Datenbank nichts an. Die Anwendungsdatenbank (`kamerplanter`) und das Konto aus `appUsername` mit Lese-/Schreibrecht darauf müssen existieren; `ARANGODB_PASSWORD` in `kamerplanter-secrets` ist sein Passwort.
+- `scheme: https` setzt `ARANGODB_SCHEME=https`. Das Backend prüft das Serverzertifikat gegen die Zertifikate im Image. Für eine eigene Zertifizierungsstelle legst du deren Zertifikat in den Container und nennst den Pfad in `REQUESTS_CA_BUNDLE`.
+- Das Backup (`backup.enabled`) sichert dann die externe Datenbank und verbindet sich bei `https` per TLS.
+
+### Valkey
+
+`valkey.enabled: false` schaltet das Valkey-Subchart ab. Backend, Worker und Beat bekommen dann `database.valkey.external.url` als `REDIS_URL`:
+
+```yaml
+valkey:
+  enabled: false
+database:
+  valkey:
+    external:
+      url: "rediss://:$(VALKEY_PASSWORD)@valkey.example.net:6380/0"
+      cidr: 203.0.113.20/32
+```
+
+- Erlaubt sind `redis://` und `rediss://` (TLS).
+- Ein Passwort gehört nie in die Values. Lege es als Schlüssel in `kamerplanter-secrets` ab (hier `VALKEY_PASSWORD`) und verweise mit `$(SCHLÜSSEL)` darauf; Kubernetes setzt den Wert beim Containerstart ein. Die Zeichen `/ # ? @` im Passwort musst du URL-kodieren, sonst verweigert das Backend den Start.
+
+### NetworkPolicies
+
+Mit der Default-Deny-Basis erreichen die Pods eine externe Datenbank nur über eine eigene Egress-Policy. Das Chart rendert sie mit dem jeweiligen Schalter:
+
+| Policy | Pods | Ziel | Ports |
+|---|---|---|---|
+| `arangodb-external` | Backend, alle Celery-Worker, Backup | `database.arangodb.external.cidr` | 8529, 443 |
+| `valkey-external` | Backend, alle Celery-Worker, Celery-Beat | `database.valkey.external.cidr` | 6379, 6380 |
+
+- `cidr` ist deshalb Pflicht. Erreichst du die Datenbank über einen Namespace- oder Pod-Selektor, ersetze `networkpolicies.<policy>.rules.egress` durch deine Regel, oder schalte die Policy mit `enabled: false` ab und bring deine eigene mit.
+- Läuft die Datenbank auf einem anderen Port, ersetze ebenfalls `rules.egress`. Ports in einer NetworkPolicy müssen Zahlen sein; aus einem Template entstünde ein Text, den Kubernetes als Portnamen liest.
+
+### Render-Prüfungen
+
+Das Chart verweigert die Darstellung, wenn eine Kombination im Cluster still scheitern würde:
+
+- externe ArangoDB ohne `host`, mit einem Schema im `host`, mit einem anderen Schema als `http`/`https` oder zusätzlich `controllers.arangodb.enabled: true`
+- `valkey.enabled: false` ohne `url` oder mit einer URL, die nicht mit `redis://` bzw. `rediss://` beginnt, und eine gesetzte `url` bei laufendem Valkey-Subchart
+- eine Egress-Policy ohne `cidr` oder ohne den Port, den du konfiguriert hast
 
 ## Siehe auch
 
