@@ -74,7 +74,9 @@ deploy:
           controllers.celery-beat.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_backend}}"
           controllers.celery-beat.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_backend}}"
           valkey.dataStorage.enabled: true
-          valkey.dataStorage.size: 1Gi
+          # `requestedSize`, not `size`: the valkey subchart renders its claim
+          # only from requestedSize, so `size` left /data on an emptyDir (#2127).
+          valkey.dataStorage.requestedSize: 1Gi
           valkey.dataStorage.keepPvc: true
 
 portForward:

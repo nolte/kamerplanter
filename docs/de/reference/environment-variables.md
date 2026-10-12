@@ -376,7 +376,7 @@ Diese Variablen aktivieren die optionale TimescaleDB-Anbindung für hochfrequent
 | `TIMESCALEDB_POOL_MAX_SIZE` | `10` | Nein | Maximale Connection-Pool-Größe. |
 
 !!! note "Docker Compose: eigenes Profil"
-    In der lokalen Docker-Compose-Umgebung startet TimescaleDB nur mit `docker-compose --profile timescaledb up -d`. In Kubernetes ist der `timescaledb`-Controller im Chart standardmäßig auskommentiert — der Operator ergänzt ihn per `valuesObject` (siehe [Helm Charts](../deployment/helm.md)).
+    In der lokalen Docker-Compose-Umgebung startet TimescaleDB nur mit `docker-compose --profile timescaledb up -d`. In Kubernetes schaltest du ihn mit `controllers.timescaledb.enabled: true` ein; das Chart setzt dann `TIMESCALEDB_ENABLED`, `TIMESCALEDB_HOST` und die übrigen Werte selbst (siehe [Helm Charts](../deployment/helm.md#timescaledb)).
 
 ---
 

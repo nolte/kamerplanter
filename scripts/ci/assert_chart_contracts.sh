@@ -447,7 +447,9 @@ expect workers-off-stray "a copy's key without the switch renders no copy" \
 expect workers-dedicated "the copies mount the worker's attachment claim, and no second claim exists" \
   "${worker_deploys} | .spec.template.spec.volumes[] | select(.persistentVolumeClaim) | .persistentVolumeClaim.claimName" \
   '["kamerplanter","kamerplanter","kamerplanter"]'
-expect workers-dedicated "one attachment claim" 'select(.kind == "PersistentVolumeClaim") | .metadata.name' '["kamerplanter"]'
+# Chart-owned claims only: since #2127 the valkey subchart renders its own claim.
+expect workers-dedicated "one attachment claim" \
+  'select(.kind == "PersistentVolumeClaim" and .metadata.labels["app.kubernetes.io/name"] == "kamerplanter") | .metadata.name' '["kamerplanter"]'
 expect workers-dedicated "every worker writes and probes its readiness file on its own /tmp" \
   "${worker_mains} | [(.env[] | select(.name == \"WORKER_READY_FILE\") | .value), (.volumeMounts[] | select(.mountPath == \"/tmp\") | .mountPath), (.readinessProbe.exec.command | join(\" \"))] | join(\"|\")" \
   '["/tmp/worker-ready|/tmp|test -f /tmp/worker-ready","/tmp/worker-ready|/tmp|test -f /tmp/worker-ready","/tmp/worker-ready|/tmp|test -f /tmp/worker-ready"]'
@@ -657,6 +659,131 @@ expect external-secret "the pods read their envFrom Secret from that same name" 
   'select(.kind == "Deployment" or .kind == "StatefulSet") | .spec.template.spec.containers[] | (.envFrom // [])[] | .secretRef.name' \
   '["kamerplanter-secrets","kamerplanter-secrets","kamerplanter-secrets"]'
 expect_refusal external-secret-without-store "has no SecretStore reference" --set externalSecrets.app.enabled=true
+
+# ---------------------------------------------------------------------------
+# #2127 (MT-031) — TimescaleDB as a chart controller, Valkey hardened.
+#
+# `controllers.timescaledb.enabled` is the one switch: Service, NetworkPolicy,
+# scratch volumes and TIMESCALEDB_ENABLED on backend, worker and beat follow
+# it. Half a switch fails silently in the cluster — a database without its
+# NetworkPolicy is unreachable under the default-deny baseline, an application
+# with TIMESCALEDB_ENABLED=false never writes to a running database, one with
+# `true` and no database fails every sensor ingestion. The password comes from
+# kamerplanter-secrets by secretKeyRef, never as a literal.
+#
+# Valkey is the Celery broker: the queued tasks live in it. The chart used to
+# set `valkey.dataStorage.size`, which the subchart does not read — no claim
+# was rendered and /data was an emptyDir, so every restart lost the queue.
+# ---------------------------------------------------------------------------
+ts_kinds='select(.metadata.name == "kamerplanter-timescaledb") | .kind'
+expect storage-default "the default renders no TimescaleDB object" "${ts_kinds}" '[]'
+for controller in backend celery-worker celery-beat; do
+  expect storage-default "${controller} runs with TIMESCALEDB_ENABLED=false by default" \
+    "$(env_of "${controller}" TIMESCALEDB_ENABLED)" '["false"]'
+done
+
+render timescaledb --set controllers.timescaledb.enabled=true
+expect_set timescaledb "one switch renders the database, its Service and its NetworkPolicy" "${ts_kinds}" \
+  '["NetworkPolicy","Service","StatefulSet"]'
+for controller in backend celery-worker celery-beat; do
+  expect timescaledb "${controller} follows the switch (TIMESCALEDB_ENABLED=true)" \
+    "$(env_of "${controller}" TIMESCALEDB_ENABLED)" '["true"]'
+  expect timescaledb "${controller} looks for the database under the Service's name" \
+    "$(env_of "${controller}" TIMESCALEDB_HOST)" '["kamerplanter-timescaledb"]'
+done
+ts_main='select(.kind == "StatefulSet" and .metadata.name == "kamerplanter-timescaledb") | .spec.template.spec.containers[] | select(.name == "main")'
+expect timescaledb "the database password comes from kamerplanter-secrets by secretKeyRef, under the key the backend reads" \
+  "${ts_main} | .env[] | select(.name == \"POSTGRES_PASSWORD\") | {\"value\": has(\"value\"), \"ref\": .valueFrom.secretKeyRef}" \
+  '[{"value":false,"ref":{"key":"TIMESCALEDB_PASSWORD","name":"kamerplanter-secrets"}}]'
+expect timescaledb "the database reads no Secret in full" "${ts_main} | (.envFrom // [])[]" '[]'
+expect timescaledb "the database runs non-root as the image's postgres user, RuntimeDefault seccomp" \
+  'select(.kind == "StatefulSet" and .metadata.name == "kamerplanter-timescaledb") | .spec.template.spec.securityContext | {"nonRoot": .runAsNonRoot, "uid": .runAsUser, "fsGroup": .fsGroup, "seccomp": .seccompProfile.type}' \
+  '[{"nonRoot":true,"uid":70,"fsGroup":70,"seccomp":"RuntimeDefault"}]'
+expect timescaledb "the database container: read-only root, no escalation, no capabilities" \
+  "${ts_main} | .securityContext | {\"ro\": .readOnlyRootFilesystem, \"esc\": .allowPrivilegeEscalation, \"drop\": .capabilities.drop}" \
+  '[{"ro":true,"esc":false,"drop":["ALL"]}]'
+expect timescaledb "the only writable paths besides the data volume are the socket directory and /tmp" \
+  "${ts_main} | [.volumeMounts[] | .mountPath] | sort" \
+  '[["/tmp","/var/lib/postgresql/data","/var/run/postgresql"]]'
+expect timescaledb "the NetworkPolicy governs both directions (default-deny compatible)" \
+  'select(.kind == "NetworkPolicy" and .metadata.name == "kamerplanter-timescaledb") | .spec.policyTypes' '[["Ingress","Egress"]]'
+expect timescaledb "the database's only egress is DNS to kube-dns" \
+  'select(.kind == "NetworkPolicy" and .metadata.name == "kamerplanter-timescaledb") | .spec.egress[] | {"dns": [.to[] | .podSelector.matchLabels["k8s-app"]], "ports": [.ports[] | (.protocol + "/" + (.port | tostring))]}' \
+  '[{"dns":["kube-dns"],"ports":["UDP/53","TCP/53"]}]'
+expect timescaledb "the NetworkPolicy admits backend and celery-worker on 5432" \
+  'select(.kind == "NetworkPolicy" and .metadata.name == "kamerplanter-timescaledb") | .spec.ingress[] | {"from": [.from[] | .podSelector.matchLabels["app.kubernetes.io/controller"]], "ports": [.ports[] | .port]}' \
+  '[{"from":["backend","celery-worker"],"ports":[5432]}]'
+# A password literal anywhere in the rendered workloads is a secret in the values.
+expect timescaledb "no workload carries a *PASSWORD* env literal" \
+  'select(.kind == "Deployment" or .kind == "StatefulSet" or .kind == "CronJob") | .. | select(tag == "!!map" and has("name") and has("value")) | select(.name | test("PASSWORD")) | .name' '[]'
+expect_refusal timescaledb-replicas "runs exactly one pod" \
+  --set controllers.timescaledb.enabled=true --set controllers.timescaledb.replicas=2
+expect_refusal timescaledb-hpa "runs exactly one pod" \
+  --set controllers.timescaledb.enabled=true --set controllers.timescaledb.horizontalPodAutoscaler.maxReplicas=2
+render timescaledb-workers --set controllers.timescaledb.enabled=true --set celeryWorkers.dedicatedQueues=true
+expect_set timescaledb-workers "every dedicated worker reaches the database" \
+  'select(.kind == "NetworkPolicy" and .metadata.name == "kamerplanter-timescaledb") | .spec.ingress[].from[] | .podSelector.matchLabels["app.kubernetes.io/controller"]' \
+  '["backend","celery-worker","celery-worker-bulk","celery-worker-default"]'
+# The dev profile keeps PGDATA at the volume root (existing dev data). A fresh
+# root-owned volume (root:70 2770 under fsGroup, 0777 on local-path) makes
+# initdb as uid 70 fail ("could not change permissions"), so an init container
+# hands the root directory to uid 70 first — with CHOWN/FOWNER only.
+expect profile-values-dev "dev TimescaleDB hands its volume root to uid 70 before postgres starts, with CHOWN/FOWNER only" \
+  'select(.kind == "StatefulSet" and .metadata.name == "kamerplanter-timescaledb") | .spec.template.spec as $p | {"pgdata": ($p.containers[] | select(.name == "main") | .env[] | select(.name == "PGDATA") | .value), "init": [$p.initContainers[] | {"args": (.args | join(" ")), "add": .securityContext.capabilities.add, "drop": .securityContext.capabilities.drop, "esc": .securityContext.allowPrivilegeEscalation, "mount": [.volumeMounts[] | .mountPath]}]}' \
+  '[{"pgdata":"/var/lib/postgresql/data","init":[{"args":"chown 70:70 /var/lib/postgresql/data && chmod 0700 /var/lib/postgresql/data","add":["CHOWN","FOWNER"],"drop":["ALL"],"esc":false,"mount":["/var/lib/postgresql/data"]}]}]'
+expect profile-values-dev "the dev profile runs TimescaleDB and tells the backend so" \
+  "select(.kind == \"StatefulSet\" and .metadata.name == \"kamerplanter-timescaledb\") | .metadata.name" '["kamerplanter-timescaledb"]'
+
+valkey_deploy='select(.kind == "Deployment" and .metadata.name == "kamerplanter-valkey")'
+expect storage-default "Valkey keeps its data on a claim, not on an emptyDir" \
+  "${valkey_deploy} | .spec.template.spec.volumes[] | select(.name == \"valkey-data\") | {\"claim\": .persistentVolumeClaim.claimName, \"emptyDir\": has(\"emptyDir\")}" \
+  '[{"claim":"kamerplanter-valkey","emptyDir":false}]'
+expect storage-default "the Valkey claim survives helm uninstall" \
+  'select(.kind == "PersistentVolumeClaim" and .metadata.name == "kamerplanter-valkey") | {"size": .spec.resources.requests.storage, "keep": .metadata.annotations["helm.sh/resource-policy"]}' \
+  '[{"size":"1Gi","keep":"keep"}]'
+expect storage-default "Valkey is replaced by Recreate (its claim is ReadWriteOnce)" \
+  "${valkey_deploy} | .spec.strategy.type" '["Recreate"]'
+expect storage-default "Valkey refuses writes when full and logs every write (maxmemory, noeviction, AOF)" \
+  'select(.kind == "ConfigMap" and .metadata.name == "kamerplanter-valkey-config") | .data["valkey.conf"] | split("\n") | map(select(test("^(maxmemory|appendonly|appendfsync)")))' \
+  '[["maxmemory 256mb","maxmemory-policy noeviction","appendonly yes","appendfsync everysec"]]'
+# A relation, not a literal: raising maxmemory without the limit must fail.
+# Valkey reads `mb`/`gb` as 1024-based (like Mi/Gi) and `m`/`g` as 1000-based.
+to_bytes() {
+  local v="${1,,}" n unit
+  n="${v%%[a-z]*}"
+  unit="${v#"${n}"}"
+  case "${unit}" in
+    "" | b) echo "${n}" ;;
+    k) echo $((n * 1000)) ;;
+    kb | ki) echo $((n * 1024)) ;;
+    m) echo $((n * 1000 * 1000)) ;;
+    mb | mi) echo $((n * 1024 * 1024)) ;;
+    g) echo $((n * 1000 * 1000 * 1000)) ;;
+    gb | gi) echo $((n * 1024 * 1024 * 1024)) ;;
+    *) echo "-1" ;;
+  esac
+}
+expect_valkey_memory_headroom() {
+  local name="$1" maxmemory limit
+  maxmemory="$(yq e '.[] | select(.kind == "ConfigMap" and .metadata.name == "kamerplanter-valkey-config") | .data["valkey.conf"] | split("\n") | .[] | select(test("^maxmemory ")) | sub("^maxmemory +"; "")' "${work}/${name}.yaml")"
+  limit="$(yq e '.[] | select(.kind == "Deployment" and .metadata.name == "kamerplanter-valkey") | .spec.template.spec.containers[] | select(.name == "kamerplanter-valkey") | .resources.limits.memory // ""' "${work}/${name}.yaml")"
+  if [[ -z "${maxmemory}" || -z "${limit}" ]]; then
+    fail "${name}: Valkey needs both maxmemory and a memory limit — rendered maxmemory='${maxmemory}', limit='${limit}'"
+  elif (($(to_bytes "${maxmemory}") <= 0 || $(to_bytes "${limit}") < 2 * $(to_bytes "${maxmemory}"))); then
+    fail "${name}: Valkey's memory limit ${limit} is below twice maxmemory ${maxmemory} (an AOF rewrite forks and holds changed pages twice)"
+  fi
+}
+for name in storage-default profile-values-dev timescaledb; do
+  expect_valkey_memory_headroom "${name}"
+done
+
+# NFR-002 §11 "Resource Limits gesetzt": every container of every workload —
+# init containers, the optional database and the backup job included — has a
+# memory limit; one without can take the node's memory from the others.
+render all-workloads --set controllers.timescaledb.enabled=true \
+  --set backup.enabled=true --set backup.s3.bucket=kp-backup-render
+expect all-workloads "every container has a memory limit" \
+  'select(.kind == "Deployment" or .kind == "StatefulSet" or .kind == "CronJob") | (.spec.template.spec // .spec.jobTemplate.spec.template.spec) | ((.containers // []) + (.initContainers // []))[] | select((.resources.limits.memory // "") == "") | .name' '[]'
 
 if [[ "${failures}" -gt 0 ]]; then
   echo "${failures} chart contract(s) violated." >&2
