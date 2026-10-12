@@ -20,7 +20,7 @@ coverage_areas:
   - Erfahrungsstufen-Integration (REQ-021)
   - Rückkopplung Quell-Aufgabe/Erinnerung → Benachrichtigung (Update/Zyklus/Abschluss/Löschen, Soll-Verhalten)
 generated: 2026-03-21
-version: "1.0"
+version: "1.1"
 ---
 
 # TC-REQ-030: Multi-Kanal-Benachrichtigungssystem
@@ -356,60 +356,59 @@ REQ-030 schliesst die Zustellluecke von REQ-022 (Pflegeerinnerungen) und REQ-006
 
 ---
 
-### TC-REQ-030-013: E-Mail-Kanal aktivieren und E-Mail-Adresse eintragen
+### TC-REQ-030-013: E-Mail-Kanal aktivieren — Empfänger ist die bestätigte Konto-Adresse
 
 **Requirement**: REQ-030 § 5.1 Kanaele-Sektion (E-Mail)
 **Priority**: High
-**Category**: Formvalidierung
+**Category**: Happy Path
 **Preconditions**:
 - Nutzer befindet sich auf dem Benachrichtigungseinstellungen-Tab
+- Die E-Mail-Adresse des Kontos ist bestätigt
 - E-Mail-Kanal ist aktuell deaktiviert
 
 **Testschritte**:
 1. Nutzer schaltet den Toggle "E-Mail" auf "An"
-2. Ein Eingabefeld fuer die E-Mail-Adresse erscheint
-3. Nutzer gibt "anna@example.com" ein
-4. Nutzer waehlt den Digest-Modus "Taeglich" aus dem Dropdown
-5. Nutzer waehlt Digest-Zeit "07:00"
-6. Nutzer klickt "Speichern"
+2. Ein Nur-Lese-Block "E-Mail-Empfänger" erscheint (`data-testid="email-recipient"`)
+3. Nutzer waehlt den Digest-Modus "Tägliche Zusammenfassung" aus dem Dropdown (`data-testid="email-digest-mode"`)
+4. Nutzer klickt "Speichern"
 
 **Erwartete Ergebnisse**:
-- Das E-Mail-Eingabefeld wird sichtbar, wenn der Toggle aktiviert wird
-- Digest-Modus-Dropdown zeigt Optionen: "Sofort" und "Taeglich"
-- Digest-Zeit-Auswahl erscheint nur wenn "Taeglich" gewaehlt
+- Es gibt **kein** Eingabefeld für eine E-Mail-Adresse: Benachrichtigungen gehen nur an die Adresse des eigenen Kontos (#1885)
+- Der Block zeigt die Konto-Adresse des angemeldeten Nutzers (`data-testid="email-recipient-address"`)
+- Unter der Adresse steht der Hinweistext (`data-testid="email-recipient-helper"`), dass die bestätigte Konto-Adresse genutzt wird und eine andere Adresse unter "E-Mail-Adresse ändern" eingestellt wird; der Warnhinweis `email-recipient-unverified` erscheint nicht
+- Digest-Modus-Dropdown zeigt Optionen: "Sofort" und "Tägliche Zusammenfassung"
 - Nach dem Speichern: Snackbar "Einstellungen gespeichert" erscheint
-- Die eingegebene E-Mail-Adresse bleibt gespeichert (nach Seiten-Reload sichtbar)
+- Nach Seiten-Reload ist der E-Mail-Toggle weiterhin aktiv und der Block zeigt weiterhin die Konto-Adresse
 
 **Nachbedingungen**:
-- E-Mail-Kanal aktiv mit "anna@example.com", Digest-Modus "Taeglich", 07:00
+- E-Mail-Kanal aktiv, Empfänger ist die Konto-Adresse, Digest-Modus "Tägliche Zusammenfassung"
 
-**Tags**: [req-030, settings, email-channel, enable, digest-mode, form-validation]
+**Tags**: [req-030, settings, email-channel, enable, digest-mode, account-address]
 
 ---
 
-### TC-REQ-030-014: E-Mail-Kanal speichern ohne E-Mail-Adresse — Validierungsfehler
+### TC-REQ-030-014: E-Mail-Kanal bei unbestätigter Konto-Adresse — Warnhinweis
 
 **Requirement**: REQ-030 § 5.1 Kanaele-Sektion (E-Mail)
 **Priority**: High
-**Category**: Formvalidierung
+**Category**: Fehlermeldung
 **Preconditions**:
 - Nutzer befindet sich auf dem Benachrichtigungseinstellungen-Tab
-- E-Mail-Toggle ist aktiviert
-- Das E-Mail-Eingabefeld ist leer
+- Die E-Mail-Adresse des Kontos ist noch **nicht** bestätigt
 
 **Testschritte**:
-1. Nutzer laesst das E-Mail-Adressfeld leer
-2. Nutzer klickt "Speichern"
+1. Nutzer schaltet den Toggle "E-Mail" auf "An"
 
 **Erwartete Ergebnisse**:
-- Ein Validierungsfehler erscheint direkt am Eingabefeld: "E-Mail-Adresse ist erforderlich" oder aequivalent
-- Das Formular wird NICHT gespeichert
-- Die Einstellungsseite bleibt geoeffnet
+- Der Block "E-Mail-Empfänger" zeigt die (unbestätigte) Konto-Adresse
+- Statt des Hinweistexts erscheint ein gelber Warnhinweis (`data-testid="email-recipient-unverified"`): Solange die Adresse nicht bestätigt ist, verschickt Kamerplanter keine Benachrichtigungen per E-Mail; der Nutzer soll den Bestätigungslink aus der Registrierungs-Mail öffnen
+- Der Hinweistext `email-recipient-helper` erscheint nicht
+- Es gibt kein Eingabefeld, über das eine andere Adresse eingetragen werden könnte
 
 **Nachbedingungen**:
-- E-Mail-Kanal bleibt unveraendert (nicht gespeichert)
+- Keine E-Mail-Zustellung, bis die Konto-Adresse bestätigt ist
 
-**Tags**: [req-030, settings, email-channel, validation-error, required-field]
+**Tags**: [req-030, settings, email-channel, unverified-address, warning]
 
 ---
 
@@ -836,7 +835,7 @@ REQ-030 schliesst die Zustellluecke von REQ-022 (Pflegeerinnerungen) und REQ-006
 **Category**: Fehlermeldung
 **Preconditions**:
 - Nutzer befindet sich auf dem Benachrichtigungseinstellungen-Tab
-- E-Mail-Kanal ist aktiviert, aber die E-Mail-Adresse ist leer oder SMTP ist nicht konfiguriert
+- E-Mail-Kanal ist aktiviert, aber die Konto-Adresse ist nicht bestätigt oder SMTP ist nicht konfiguriert
 
 **Testschritte**:
 1. Nutzer klickt auf "Test senden" neben dem E-Mail-Kanal
@@ -1279,7 +1278,7 @@ REQ-030 schliesst die Zustellluecke von REQ-022 (Pflegeerinnerungen) und REQ-006
 **Erwartete Ergebnisse**:
 - Alle gespeicherten Einstellungen werden korrekt angezeigt:
   - E-Mail-Toggle: aktiv
-  - E-Mail-Adresse: "anna@example.com"
+  - E-Mail-Empfänger: die Konto-Adresse des Nutzers (nur lesend)
   - Quiet Hours: aktiviert, 22:00–07:00
   - Batching: aktiviert, 30 Minuten
 

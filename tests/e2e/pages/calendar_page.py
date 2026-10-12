@@ -401,12 +401,6 @@ class CalendarPage(BasePage):
         cards = self.driver.find_elements(By.CSS_SELECTOR, ".MuiCard-outlined")
         return cards[0] if cards else None
 
-    # ── List view ───────────────────────────────────────────────────────
-
-    def get_list_events(self) -> list[WebElement]:
-        """Return all event items in the list/agenda view."""
-        return self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='calendar-list-event-']")
-
     # ── Feed management ─────────────────────────────────────────────────
 
     def toggle_feeds_section(self) -> None:

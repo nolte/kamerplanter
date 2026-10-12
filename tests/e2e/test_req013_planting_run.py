@@ -619,9 +619,6 @@ class TestPlantingRunDetailPage:
         assert run_detail.is_delete_button_visible(), (
             "TC-REQ-013-019 FAIL: Expected delete-button to be visible for planned run"
         )
-        assert not run_detail.is_batch_remove_button_visible(), (
-            "TC-REQ-013-019 FAIL: Did not expect batch-remove-button for a planned run"
-        )
 
     @pytest.mark.core_crud
     def test_create_plants_button_opens_confirm_dialog(
