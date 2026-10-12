@@ -57,7 +57,7 @@ def test_set_status_enables_entity():
     )
     assert resp.status_code == 200
     assert resp.json()["enabled"] is True
-    service.set_published.assert_called_once_with(TENANT_KEY, HaPublishEntityType.TANK, "tank-1", True)
+    service.set_published.assert_called_once_with(HaPublishEntityType.TANK, "tank-1", True, tenant_key=TENANT_KEY)
 
 
 def test_list_settings_filtered_by_type():
@@ -119,9 +119,9 @@ def test_bulk_set():
     assert resp.status_code == 200
     assert len(resp.json()) == 2
     service.bulk_set_published.assert_called_once_with(
-        TENANT_KEY,
         HaPublishEntityType.LOCATION,
         {"loc-1": True, "loc-2": False},
+        tenant_key=TENANT_KEY,
     )
 
 

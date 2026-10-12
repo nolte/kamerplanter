@@ -183,7 +183,7 @@ def test_a_publish_setting_names_only_the_tenants_entity(entity_type: HaPublishE
     service, repo = _ha()
 
     with pytest.raises(NotFoundError):
-        service.set_published(OWN, entity_type, key, True)
+        service.set_published(entity_type, key, True, tenant_key=OWN)
 
     repo.upsert.assert_not_called()
 
@@ -192,7 +192,7 @@ def test_a_bulk_publish_with_one_foreign_key_writes_nothing() -> None:
     service, repo = _ha()
 
     with pytest.raises(NotFoundError):
-        service.bulk_set_published(OWN, HaPublishEntityType.PLANT, {"p_own": True, "p_foreign": True})
+        service.bulk_set_published(HaPublishEntityType.PLANT, {"p_own": True, "p_foreign": True}, tenant_key=OWN)
 
     repo.upsert.assert_not_called()
 
@@ -360,8 +360,8 @@ def test_an_existing_setting_can_still_be_switched_off() -> None:
     service, repo = _ha()
     repo.get_for_entity.return_value = SimpleNamespace(enabled=True)
 
-    service.set_published(OWN, HaPublishEntityType.PLANT, "p_foreign", False)
-    service.bulk_set_published(OWN, HaPublishEntityType.PLANT, {"p_foreign": False})
+    service.set_published(HaPublishEntityType.PLANT, "p_foreign", False, tenant_key=OWN)
+    service.bulk_set_published(HaPublishEntityType.PLANT, {"p_foreign": False}, tenant_key=OWN)
 
     assert repo.upsert.call_count == 2
 
@@ -371,6 +371,6 @@ def test_a_new_foreign_setting_cannot_be_created_even_switched_off() -> None:
     repo.get_for_entity.return_value = None
 
     with pytest.raises(NotFoundError):
-        service.set_published(OWN, HaPublishEntityType.PLANT, "p_foreign", False)
+        service.set_published(HaPublishEntityType.PLANT, "p_foreign", False, tenant_key=OWN)
 
     repo.upsert.assert_not_called()

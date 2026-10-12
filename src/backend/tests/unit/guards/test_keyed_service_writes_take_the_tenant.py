@@ -268,7 +268,9 @@ _NOT_TENANT_ADDRESSED: dict[str, str] = {
 #: classified as global): 40. Re-measured 2026-10-12 after the IPM, task, plant,
 #: propagation, diary, quarter-climate and hardiness slice — 15 converted, 10
 #: excused per method in :data:`_GLOBAL_CATALOGUE_WRITES` /
-#: :data:`_NOT_TENANT_ADDRESSED`: 15 (both slices merged). Each line is
+#: :data:`_NOT_TENANT_ADDRESSED`: 15 (both slices merged). Re-measured
+#: 2026-10-12 after the Home Assistant publish slice (``HaPublishService``
+#: set/bulk-set keyword-only, ownership checked in the service): 13. Each line is
 #: a keyed write that can still be called without a tenant, or with a defaulted /
 #: positional one. Convert the method to ``*, tenant_key: str`` (and drop the
 #: router's pre-check), then delete the line.
@@ -287,8 +289,6 @@ _REMAINING: frozenset[str] = frozenset(
         "CareReminderService.reset_profile",
         "CareReminderService.snooze_reminder",
         "CareReminderService.update_profile",
-        "HaPublishService.bulk_set_published",
-        "HaPublishService.set_published",
     }
 )
 

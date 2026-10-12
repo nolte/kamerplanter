@@ -59,9 +59,9 @@ def bulk_set(
 ):
     """Set the publish flag for several entities of one type at once."""
     settings = service.bulk_set_published(
-        ctx.tenant_key,
         body.entity_type,
         {entry.entity_key: entry.enabled for entry in body.entries},
+        tenant_key=ctx.tenant_key,
     )
     return [_to_response(s.entity_type, s.entity_key, s.enabled) for s in settings]
 
@@ -87,5 +87,5 @@ def set_status(
     service: HaPublishService = Depends(get_ha_publish_service),
 ):
     """Enable or disable publishing a single entity to Home Assistant."""
-    setting = service.set_published(ctx.tenant_key, entity_type, entity_key, body.enabled)
+    setting = service.set_published(entity_type, entity_key, body.enabled, tenant_key=ctx.tenant_key)
     return _to_response(setting.entity_type, setting.entity_key, setting.enabled)

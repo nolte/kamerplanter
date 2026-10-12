@@ -85,11 +85,18 @@ class HaPublishService:
 
     def set_published(
         self,
-        tenant_key: str,
         entity_type: HaPublishEntityType,
         entity_key: str,
         enabled: bool,
+        *,
+        tenant_key: str,
     ) -> HaPublishSetting:
+        """Upsert the publish flag of one entity of *tenant_key*.
+
+        Ownership is checked here, not by the caller (#2107): the entity must be a
+        plant, tank or location of *tenant_key*, else ``NotFoundError`` and nothing
+        is written.
+        """
         # Switching off a setting the tenant already has needs no resolution
         # (/code-review of #1899): a row stored before #1872 — or whose entity was
         # deleted since — must stay switchable off, or it would sit in the
@@ -115,17 +122,20 @@ class HaPublishService:
 
     def bulk_set_published(
         self,
-        tenant_key: str,
         entity_type: HaPublishEntityType,
         entries: dict[str, bool],
+        *,
+        tenant_key: str,
     ) -> list[HaPublishSetting]:
+        """Upsert the publish flag of several entities of one type, all or nothing (#2107)."""
         # Every key before the first write: a foreign key refuses the whole batch
         # (switching off an existing setting excepted, as in ``set_published``).
         for entity_key, enabled in entries.items():
             if enabled or self._repo.get_for_entity(tenant_key, entity_type, entity_key) is None:
                 self._require_owned_entity(tenant_key, entity_type, entity_key)
         return [
-            self.set_published(tenant_key, entity_type, entity_key, enabled) for entity_key, enabled in entries.items()
+            self.set_published(entity_type, entity_key, enabled, tenant_key=tenant_key)
+            for entity_key, enabled in entries.items()
         ]
 
     def list_enabled_keys(
