@@ -5332,6 +5332,40 @@ export interface TenantEntitlements {
   limits: EntitlementUsage[];
 }
 
+/**
+ * State of a tenant export (REQ-056 §8, #2138) — mirrors `TenantExportStatus` in the backend's
+ * `domain/models/tenant_export.py`: `pending` → `running` → `completed` / `failed` → `expired`.
+ */
+export type TenantExportStatus = 'pending' | 'running' | 'completed' | 'failed' | 'expired';
+
+/** Who asked for the export (REQ-056 §8.2). */
+export type TenantExportOrigin = 'tenant_management' | 'platform_admin';
+
+/** The only failure reasons the backend puts on the record — never an exception text. */
+export type TenantExportFailureReason =
+  | 'too_large'
+  | 'tenant_not_exportable'
+  | 'storage_unavailable'
+  | 'internal_error';
+
+/**
+ * One tenant export request — `TenantExportResponse` of `POST/GET /tenants/{slug}/exports`.
+ * The archive itself is read through the download route.
+ */
+export interface TenantExport {
+  key: string;
+  status: TenantExportStatus;
+  origin: TenantExportOrigin;
+  failure_reason: TenantExportFailureReason | null;
+  size_bytes: number | null;
+  /** Rows per archive part (`collections/<name>.jsonl`, …). */
+  counts: Record<string, number>;
+  requested_at: string;
+  completed_at: string | null;
+  /** When the archive is removed (NFR-011 R-05, 72 h); the download answers 404 after. */
+  expires_at: string | null;
+}
+
 export interface AdminUserTenantRole {
   tenant_key: string;
   tenant_name: string;

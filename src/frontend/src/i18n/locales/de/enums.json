@@ -878,6 +878,13 @@
       "deleted": "Wird gelöscht",
       "importing": "Wird importiert"
     },
+    "tenantExportStatus": {
+      "pending": "Angefordert",
+      "running": "Wird erstellt",
+      "completed": "Fertig",
+      "failed": "Fehlgeschlagen",
+      "expired": "Abgelaufen"
+    },
     "invitationType": {
       "email": "E-Mail",
       "link": "Link"

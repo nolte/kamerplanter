@@ -1213,6 +1213,38 @@
         "introMember": "Was dieser Garten nutzen darf und wie viel davon schon belegt ist. Bei den KI-Aufrufen siehst du nur deinen eigenen Verbrauch; Dienstkonten und KI-Tokens sieht nur die Leitung.",
         "loadFailed": "Die Kontingente konnten nicht geladen werden.",
         "footnote": "Ein Limit, das gesenkt wurde, entfernt nichts – abgelehnt wird erst die nächste Anlage. KI-Zähler laufen je UTC-Tag."
+      },
+      "tabExport": "Export",
+      "export": {
+        "title": "Garten exportieren",
+        "intro": "Lade alle Daten dieses Gartens als ein ZIP-Archiv herunter – zum Sichern oder um den Garten in eine andere Kamerplanter-Installation umzuziehen. Dort spielt der Betreiber das Archiv als neuen Garten ein.",
+        "contentHint": "Enthalten sind Standorte, Pflanzen, Durchläufe, Aufgaben, Fotos und die Mitgliederliste ohne E-Mail-Adressen. Nicht enthalten sind Zugangsdaten, API-Schlüssel, Integrationsgeheimnisse und Sensor-Messreihen.",
+        "request": "Export anfordern",
+        "requestHint": "Das Archiv wird im Hintergrund erstellt; das kann bei großen Gärten einige Minuten dauern. Pro Tag sind höchstens drei Exporte möglich.",
+        "requestBlockedHint": "Ein Export wird gerade erstellt. Sobald er fertig ist, kannst du ihn hier herunterladen oder einen neuen anfordern.",
+        "dialogTitle": "Export des Gartens anfordern",
+        "dialogDescription": "Du forderst ein Archiv mit allen Daten von „{{name}}“ an. Wer es herunterlädt, sieht den ganzen Garten – deshalb bestätigst du das mit deinem eigenen Zugang. Alle Mitglieder mit Verwaltungsrecht werden per E-Mail informiert.",
+        "dialogConfirm": "Export anfordern",
+        "requested": "Export angefordert – das Archiv wird jetzt erstellt.",
+        "alreadyRunning": "Für diesen Garten wird bereits ein Export erstellt. Warte, bis er fertig ist.",
+        "dailyLimitReached": "Für diesen Garten wurden in den letzten 24 Stunden schon drei Exporte angefordert. Versuche es später noch einmal.",
+        "listTitle": "Deine Exporte",
+        "empty": "Du hast für diesen Garten noch keinen Export angefordert.",
+        "loadFailed": "Die Exporte konnten nicht geladen werden.",
+        "requestedAt": "Angefordert am {{date}}",
+        "activeInfo": "Das Archiv wird erstellt. Diese Liste aktualisiert sich von selbst.",
+        "completedInfo": "Fertig. Herunterladen kannst du es bis {{date}}; danach wird es gelöscht.",
+        "completedNoExpiryInfo": "Fertig. Du kannst das Archiv jetzt herunterladen.",
+        "expiredInfo": "Abgelaufen: Das Archiv wurde nach 72 Stunden gelöscht. Fordere bei Bedarf einen neuen Export an.",
+        "failureReason": {
+          "too_large": "Fehlgeschlagen: Das Archiv wäre größer als der Speicher, den dieser Garten nutzen darf.",
+          "tenant_not_exportable": "Fehlgeschlagen: Der Garten konnte in seinem aktuellen Zustand nicht exportiert werden.",
+          "storage_unavailable": "Fehlgeschlagen: Der Dateispeicher war nicht erreichbar. Fordere den Export später noch einmal an.",
+          "internal_error": "Fehlgeschlagen: Beim Erstellen ist ein Fehler aufgetreten. Fordere den Export noch einmal an."
+        },
+        "download": "Herunterladen",
+        "downloadExpired": "Dieses Archiv ist abgelaufen und nicht mehr verfügbar. Fordere bei Bedarf einen neuen Export an.",
+        "downloadFailed": "Das Archiv konnte nicht heruntergeladen werden: {{reason}}"
       }
     },
     "dashboard": {
