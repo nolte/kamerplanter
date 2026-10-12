@@ -225,23 +225,29 @@ class SpeciesService:
         self,
         species: Species,
         *,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> Species:
         """Create (or idempotently resolve) a species, role-gated — SEC-005 (#1113).
 
         ``caller_role`` / ``is_platform_admin`` are the create pendant of the pair
-        :meth:`update_species` already takes; both default to the **system context**
-        (no role → no gate), which is what keeps the seeders, the CSV import and the
-        enrichment paths creating master data without an HTTP caller. The
-        interactive route always passes the role of the caller's *active* tenant, so
-        a viewer is refused (see :func:`_authorize_tenant_owned_create`).
+        :meth:`update_species` takes; a viewer is refused (see
+        :func:`_authorize_tenant_owned_create`). Required since #2107: the only
+        caller is the HTTP route — the seeders, the CSV import and the enrichment
+        paths write through the repository (measured) — so a defaulted "system
+        context" here was an escape no caller used and any future caller could fall
+        into.
 
-        Deliberately no ``tenant_key`` argument: ownership is stamped on the model
-        by the route from :func:`~app.common.auth.get_creating_tenant_key`, and
-        adding a second tenant input here would create exactly the two-sources
-        problem the shared resolver was built to remove.
+        ``tenant_key`` is the owner, keyword-only without a default (#2107), and this
+        method stamps it on the model: the **one** source of ownership. It used to
+        trust the ``tenant_key`` the route had set on the model; a caller that forgot
+        to set it created a *global* species (the model default is ``""``) and
+        checked its default nutrient plan against the global catalogue. The route
+        passes the value of :func:`~app.common.auth.get_creating_tenant_key` here —
+        the same one it builds the model with — and this stamp is the one that holds.
         """
+        species.tenant_key = tenant_key
         _authorize_tenant_owned_create(
             plural_noun="species",
             caller_role=caller_role,
@@ -507,9 +513,9 @@ class SpeciesService:
         key: SpeciesKey,
         species: Species,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> Species:
         # Unscoped load so a foreign key resolves and is answered with the
         # ownership-hiding 404 below, not a leaky "exists but forbidden".
@@ -702,9 +708,9 @@ class SpeciesService:
         self,
         key: SpeciesKey,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> bool:
         existing = self.get_species(key)
         self._authorize_species_write(
@@ -759,21 +765,21 @@ class SpeciesService:
         self,
         cultivar: Cultivar,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> Cultivar:
         """Create a cultivar under a species, co-scoping the parent lookup (C-4, #1090).
 
-        ``tenant_key`` scopes the **parent species** existence check, not the new
-        row's ownership (that is stamped on the model by the route, #1000). Two
-        modes, mirroring :meth:`list_cultivars`:
-
-        * ``None`` (the default) — the unscoped **system-context** create the seed
-          loaders and the CSV import use: they populate cultivars for every species
-          in the catalogue and must not start 404-ing (P5).
-        * a string (including ``""``) — the interactive create: the parent species
-          must be the caller's own or global, otherwise :class:`NotFoundError`.
+        ``tenant_key`` scopes the **parent species** existence check and is the new
+        row's owner: this method stamps it on the model (#2107), so the scope the
+        parent is resolved in and the owner the row is written under cannot differ.
+        Keyword-only without a default since #2107: the only caller is the HTTP
+        route — the seed loaders and the CSV import write cultivars through the
+        repository (measured) — so the former ``None`` "system context" default was
+        an unscoped create no caller needed. The parent species must be the caller's
+        own, global or granted, otherwise :class:`NotFoundError`; ``""`` (light
+        mode) collapses the check to the global catalogue.
 
         Without the co-scoping (the state C-4 inherited) a POST under a *foreign*
         tenant's species answered 201: it confirmed that species key exists — a
@@ -783,9 +789,8 @@ class SpeciesService:
         co-scoped list read (operator decision Q3).
 
         ``caller_role`` / ``is_platform_admin`` are the SEC-005 (#1113) role gate,
-        the create pendant of the pair :meth:`update_cultivar` takes; both default
-        to the system context (no role → no gate), so the seeders and the import
-        stay unaffected. See :func:`_authorize_tenant_owned_create`.
+        the create pendant of the pair :meth:`update_cultivar` takes; required, like
+        ``tenant_key``. See :func:`_authorize_tenant_owned_create`.
 
         Order: the parent-species scope is decided **first**, so a cultivar
         addressed under a species the caller cannot see answers 404 regardless of
@@ -795,6 +800,7 @@ class SpeciesService:
         privilege can be probed by varying privilege.
         """
         self.get_species(cultivar.species_key, tenant_key=tenant_key)
+        cultivar.tenant_key = tenant_key
         _authorize_tenant_owned_create(
             plural_noun="cultivars",
             caller_role=caller_role,
@@ -862,9 +868,9 @@ class SpeciesService:
         cultivar: Cultivar,
         *,
         species_key: SpeciesKey | None = None,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> Cultivar:
         # Tenant-unscoped load (no ``tenant_key=``) on purpose: the ownership gate
         # below needs the *stored* owner to answer a foreign row with 404 and a
@@ -910,9 +916,9 @@ class SpeciesService:
         key: CultivarKey,
         *,
         species_key: SpeciesKey | None = None,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> bool:
         # Tenant-unscoped but species-scoped load, same reasoning as update_cultivar:
         # the gate needs the real stored owner to separate foreign→404 from

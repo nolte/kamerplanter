@@ -75,14 +75,6 @@ _PATH_KEYS_VERIFIED_ELSEWHERE: dict[tuple[str, str, str], str] = {
         "unused; the cultivar is resolved and authorised under the tenant"
     ),
     ("POST", "/api/v1/plant-instances/{plant_key}/phases/transition", "plant_key"): _REQUIRE_OWNED_PLANT,
-    ("PATCH", "/api/v1/plant-instances/{plant_key}/phases/history/{history_key}", "plant_key"): _REQUIRE_OWNED_PLANT,
-    ("PATCH", "/api/v1/plant-instances/{plant_key}/phases/history/{history_key}", "history_key"): (
-        "resolved within the owned plant's history (phase_service)"
-    ),
-    ("DELETE", "/api/v1/plant-instances/{plant_key}/phases/history/{history_key}", "plant_key"): _REQUIRE_OWNED_PLANT,
-    ("DELETE", "/api/v1/plant-instances/{plant_key}/phases/history/{history_key}", "history_key"): (
-        "resolved within the owned plant's history (phase_service)"
-    ),
     ("PUT", "/api/v1/t/{tenant_slug}/tasks/phases/{key}", "key"): (
         "the phase's workflow template is resolved under the tenant (own or global); system templates refused"
     ),

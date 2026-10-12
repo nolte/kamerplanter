@@ -36,6 +36,15 @@ class SubstrateService:
         self._lifecycle_mgr = SubstrateLifecycleManager(substrate_repo)
 
     # ── Substrate catalogue — hybrid, like species (#1195) ───────────────
+    #
+    # Every keyed write below takes ``tenant_key``, ``caller_role`` and
+    # ``is_platform_admin`` keyword-only **without** a default (#2107). They used to
+    # default to the system context (``None`` / no role), the escape the seed
+    # loaders were said to need — measured, they write through the repository, and
+    # the only callers of these methods are the substrate routes and the MCP mix
+    # tool. A default nobody passes on purpose is one a new caller passes by
+    # forgetting: an omitted tenant skipped the ownership gate and an omitted role
+    # skipped the batch role gate.
 
     def list_substrates(
         self, offset: int = 0, limit: int = 50, query: str | None = None, *, tenant_key: str | None = None
@@ -104,9 +113,9 @@ class SubstrateService:
         key: SubstrateKey,
         substrate: Substrate,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> Substrate:
         existing = self.get_substrate(key)
         self._authorize_write(
@@ -123,9 +132,9 @@ class SubstrateService:
         self,
         key: SubstrateKey,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> bool:
         existing = self.get_substrate(key)
         self._authorize_write(
@@ -155,9 +164,9 @@ class SubstrateService:
         self,
         batch: SubstrateBatch,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> SubstrateBatch:
         # The parent substrate is resolved in the caller's scope, so a batch can
         # never be hung off a foreign tenant's mix.
@@ -165,8 +174,7 @@ class SubstrateService:
         require_role_for_catalogue_create(
             plural_noun="substrates", caller_role=caller_role, is_platform_admin=is_platform_admin
         )
-        if tenant_key is not None:
-            batch.tenant_key = tenant_key
+        batch.tenant_key = tenant_key
         return self._repo.create_batch(batch)
 
     def update_batch(
@@ -174,9 +182,9 @@ class SubstrateService:
         key: BatchKey,
         batch: SubstrateBatch,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> SubstrateBatch:
         existing = self.get_batch(key, tenant_key=tenant_key)
         self._authorize_batch_write(caller_role, is_platform_admin, MembershipEngine.can_edit_resource)
@@ -191,9 +199,9 @@ class SubstrateService:
         self,
         key: BatchKey,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> bool:
         self.get_batch(key, tenant_key=tenant_key)
         self._authorize_batch_write(caller_role, is_platform_admin, MembershipEngine.can_delete_resource)
@@ -328,9 +336,9 @@ class SubstrateService:
         name_de: str = "",
         name_en: str = "",
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> Substrate:
         """Create a substrate mix from multiple component substrates.
 
@@ -388,7 +396,7 @@ class SubstrateService:
             cec_meq_per_100cm3=props["cec_meq_per_100cm3"],
             bulk_density_g_per_l=props["bulk_density_g_per_l"],
             irrigation_strategy=props["irrigation_strategy"],
-            tenant_key=tenant_key or "",
+            tenant_key=tenant_key,
         )
         return self._repo.create_substrate(mix)
 

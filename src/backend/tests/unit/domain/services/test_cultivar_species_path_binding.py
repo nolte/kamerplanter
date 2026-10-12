@@ -176,6 +176,7 @@ def test_update_under_the_wrong_species_is_404_and_writes_nothing(service, repo)
             species_key="sp_rose",
             tenant_key="t1",
             caller_role=TenantRole.LEAD,
+            is_platform_admin=False,
         )
 
     assert repo.updated == [], "a PUT under the wrong species reached the repository"
@@ -190,6 +191,7 @@ def test_update_under_the_right_species_still_works(service, repo):
         species_key="sp_basil",
         tenant_key="t1",
         caller_role=TenantRole.LEAD,
+        is_platform_admin=False,
     )
 
     assert updated.name == "Edited name"
@@ -197,11 +199,14 @@ def test_update_under_the_right_species_still_works(service, repo):
     assert [key for key, _cv in repo.updated] == ["cv_own"]
 
 
-def test_a_system_context_update_cannot_re_parent_either(service, repo):
-    # The second layer: no species_key argument at all (the ungated seed/import
-    # path) and a payload naming a different species. The stored parent wins, so the
-    # document can never drift away from its has_cultivar edge.
-    result = service.update_cultivar("cv_own", _incoming("sp_rose"))
+def test_an_update_without_a_species_key_cannot_re_parent_either(service, repo):
+    # The second layer: no species_key argument at all and a payload naming a
+    # different species. The stored parent wins, so the document can never drift
+    # away from its has_cultivar edge. (Until #2107 this ran in the system context —
+    # no tenant at all — which the service no longer offers.)
+    result = service.update_cultivar(
+        "cv_own", _incoming("sp_rose"), tenant_key="t1", caller_role=TenantRole.LEAD, is_platform_admin=False
+    )
 
     assert result.species_key == "sp_basil"
     assert repo.get_cultivar_or_raise("cv_own").species_key == "sp_basil"
@@ -212,12 +217,16 @@ def test_a_system_context_update_cannot_re_parent_either(service, repo):
 
 def test_delete_under_the_wrong_species_is_404_and_deletes_nothing(service, repo):
     with pytest.raises(NotFoundError):
-        service.delete_cultivar("cv_own", species_key="sp_rose", tenant_key="t1", caller_role=TenantRole.LEAD)
+        service.delete_cultivar(
+            "cv_own", species_key="sp_rose", tenant_key="t1", caller_role=TenantRole.LEAD, is_platform_admin=False
+        )
 
     assert repo.deleted == []
     assert repo.get_cultivar_or_raise("cv_own").name == "Own Basil"
 
 
 def test_delete_under_the_right_species_still_works(service, repo):
-    assert service.delete_cultivar("cv_own", species_key="sp_basil", tenant_key="t1", caller_role=TenantRole.LEAD)
+    assert service.delete_cultivar(
+        "cv_own", species_key="sp_basil", tenant_key="t1", caller_role=TenantRole.LEAD, is_platform_admin=False
+    )
     assert repo.deleted == ["cv_own"]

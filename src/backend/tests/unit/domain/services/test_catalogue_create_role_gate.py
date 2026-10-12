@@ -23,12 +23,13 @@ entities call:
 * grower / lead → created (``can_edit_resource``, REQ-049 §2.3).
 * platform admin → created whatever the domain rank, so light-mode curation
   (REQ-027) of the shared catalogue keeps working.
-* ``caller_role is None`` → the **system context**: no gate at all, mirroring the
-  ``tenant_key is None`` escape of the write gate. The seed loaders
-  (``seed_plant_info``, ``seed_data``, ``seed_adventskalender``,
+* no defaulted **system context** on these two methods since #2107: the seed
+  loaders (``seed_plant_info``, ``seed_data``, ``seed_adventskalender``,
   ``seed_plant_info_extended``) and the CSV import reach the *repository*
-  directly, and the enrichment/identify paths call the service with no role —
-  none of them may start failing.
+  directly, and the identify→create path is the HTTP route — measured, the routes
+  are the only callers of ``create_species`` / ``create_cultivar``. So the tenant,
+  the role and the platform-admin flag are required, and an omitted one is a
+  ``TypeError`` rather than an ungated create.
 
 Plus the property the shared helper exists for: species and cultivar must answer
 *identically* for the same role. Two copies of the same rule pass their own tests
@@ -100,7 +101,7 @@ def service(repo: _FakeRepo) -> SpeciesService:
 
 
 def _create_species(service: SpeciesService, **gate: object) -> None:
-    service.create_species(Species(scientific_name="Ocimum basilicum", tenant_key="t1"), **gate)  # type: ignore[arg-type]
+    service.create_species(Species(scientific_name="Ocimum basilicum"), tenant_key="t1", **gate)  # type: ignore[arg-type]
 
 
 def _create_cultivar(service: SpeciesService, **gate: object) -> None:
@@ -168,37 +169,43 @@ def test_a_platform_admin_may_create_despite_the_viewer_role(
     assert len(repo.created_species) + len(repo.created_cultivars) == 1
 
 
-# ── the system-context escape (seeders, CSV import, enrichment) ──────────────
-
-
-def test_create_species_without_a_caller_role_is_ungated(service: SpeciesService, repo: _FakeRepo):
-    # The identify→create and enrichment paths call the service with no role at all.
-    service.create_species(Species(scientific_name="Ocimum basilicum"))
-
-    assert [s.scientific_name for s in repo.created_species] == ["Ocimum basilicum"]
-
-
-def test_create_cultivar_in_system_context_is_ungated(service: SpeciesService, repo: _FakeRepo):
-    # P5 (#1090) plus SEC-005 (#1113): the unscoped seed/import create passes neither
-    # a tenant nor a role — under a *foreign* species at that — and must not start
-    # failing on either count.
-    service.create_cultivar(Cultivar(name="Seeded", species_key="sp_foreign"), tenant_key=None)
-
-    assert [c.name for c in repo.created_cultivars] == ["Seeded"]
+# ── no defaulted system context (#2107) ──────────────────────────────────────
 
 
 @pytest.mark.parametrize("method", ["create_species", "create_cultivar"])
-def test_the_system_context_stays_the_default(method: str):
-    # The escape is the *default*, which is what makes the seeders' unannotated calls
-    # system-context calls. Pinned so a later "tighten the default" edit — to a
-    # required argument, or to VIEWER — fails here rather than in a seed run: those
-    # loaders (seed_plant_info, seed_data, seed_adventskalender,
-    # seed_plant_info_extended) and the CSV import reach the repository directly and
-    # would have no role to offer.
+def test_the_tenant_role_and_admin_flag_are_required_keywords(method: str):
+    # Until #2107 both creates defaulted to the system context (no tenant, no role →
+    # no gate), justified by seeders that, measured, write through the repository.
+    # A default no caller passes on purpose is one a new caller passes by forgetting.
     parameters = inspect.signature(getattr(SpeciesService, method)).parameters
 
-    assert parameters["caller_role"].default is None
-    assert parameters["is_platform_admin"].default is False
+    for name in ("tenant_key", "caller_role", "is_platform_admin"):
+        assert parameters[name].kind is inspect.Parameter.KEYWORD_ONLY, name
+        assert parameters[name].default is inspect.Parameter.empty, name
+
+
+def test_create_species_stamps_the_tenant_it_is_given(service: SpeciesService, repo: _FakeRepo):
+    # The model's own ``tenant_key`` (default ``""`` = global) no longer decides the owner:
+    # a caller that forgot to stamp it created a global species.
+    service.create_species(
+        Species(scientific_name="Ocimum basilicum"),
+        tenant_key="t1",
+        caller_role=TenantRole.GROWER,
+        is_platform_admin=False,
+    )
+
+    assert [s.tenant_key for s in repo.created_species] == ["t1"]
+
+
+def test_create_cultivar_stamps_the_tenant_it_resolves_the_parent_in(service: SpeciesService, repo: _FakeRepo):
+    service.create_cultivar(
+        Cultivar(name="My Genovese", species_key="sp_global"),
+        tenant_key="t1",
+        caller_role=TenantRole.GROWER,
+        is_platform_admin=False,
+    )
+
+    assert [c.tenant_key for c in repo.created_cultivars] == ["t1"]
 
 
 # ── the anti-drift property the shared helper exists for ─────────────────────
