@@ -239,7 +239,9 @@ def test_refresh_site_hardiness_zones_resolves_the_sites_of_the_active_tenant_on
 
     refresh_site_hardiness_zones.run()
 
-    assert [call.args for call in service.resolve_for_site.call_args_list] == [("site-open", OPEN)]
+    assert [(*call.args, call.kwargs["tenant_key"]) for call in service.resolve_for_site.call_args_list] == [
+        ("site-open", OPEN)
+    ]
 
 
 def test_compute_irrigation_demand_materialises_for_the_active_tenant_only(deps: _Deps) -> None:

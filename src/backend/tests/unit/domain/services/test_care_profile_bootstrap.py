@@ -59,7 +59,7 @@ def test_creating_a_plant_creates_its_care_profile():
     bootstrap = MagicMock()
     service, _repo = _service(bootstrap)
 
-    created = service.create_plant(_plant(), skip_validation=True)
+    created = service.create_plant(_plant(), skip_validation=True, tenant_key="tenant-a")
 
     bootstrap.assert_called_once()
     assert bootstrap.call_args.args[0].key == created.key == "pi-new"
@@ -74,7 +74,7 @@ def test_a_failing_bootstrap_does_not_fail_the_plant():
     bootstrap = MagicMock(side_effect=RuntimeError("care service unavailable"))
     service, repo = _service(bootstrap)
 
-    created = service.create_plant(_plant(), skip_validation=True)
+    created = service.create_plant(_plant(), skip_validation=True, tenant_key="tenant-a")
 
     assert created.key == "pi-new"
     repo.create.assert_called_once()
@@ -88,4 +88,4 @@ def test_the_service_still_works_without_a_bootstrap():
     """
     service, _repo = _service(bootstrap=None)
 
-    assert service.create_plant(_plant(), skip_validation=True).key == "pi-new"
+    assert service.create_plant(_plant(), skip_validation=True, tenant_key="tenant-a").key == "pi-new"

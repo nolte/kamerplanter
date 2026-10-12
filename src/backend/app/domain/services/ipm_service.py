@@ -331,13 +331,25 @@ class IpmService:
         self,
         plant_key: str,
         application: TreatmentApplication,
+        *,
+        tenant_key: str,
     ) -> TreatmentApplication:
+        """Record a treatment application on ``tenant_key``'s plant ``plant_key``.
+
+        ``tenant_key`` is keyword-only without a default (#2107): the plant used to
+        be verified against ``application.tenant_key``, a model field that defaults
+        to ``""`` — a caller that built the model without it verified against no
+        tenant at all. The argument is now the only authority; it is stamped onto
+        the application, so the stored row and the ownership check name the same
+        tenant.
+        """
         application.plant_key = plant_key
+        application.tenant_key = tenant_key
         # The plant first (#1871 B7): the resistance read below looks at the
         # plant's history without a tenant filter, and an over-limit ingredient
         # answered 422 with a count — for a foreign plant, before the repository's
         # 404. Resolved here, a foreign and an unknown plant answer the same.
-        self._require_own_plant(plant_key, application.tenant_key)
+        self._require_own_plant(plant_key, tenant_key)
 
         # Resistance check
         treatment = self.get_treatment(application.treatment_key)

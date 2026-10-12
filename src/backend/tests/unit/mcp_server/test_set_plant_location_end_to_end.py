@@ -85,7 +85,7 @@ def _ctx(plant_service) -> ToolContext:
 def _plant_service(written: dict):
     plant = SimpleNamespace(key="pl-1", site_key="site_own", location_key="loc_start", slot_key=None)
 
-    def _update(key, p):
+    def _update(key, p, *, tenant_key):
         written["location_key"] = p.location_key
         return p
 

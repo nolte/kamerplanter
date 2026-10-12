@@ -191,9 +191,9 @@ def list_inspections(
     return [_inspection_response(i) for i in inspections]
 
 
-# tenant-scope-ok: the plant is verified in
-# ArangoIpmRepository.create_treatment_application (verify_entity_ownership on
-# plant_instances, #517) before the applied-to edge is wired.
+# tenant-scope-ok: the plant is verified in IpmService.create_treatment_application
+# (keyword-only tenant, #2107) and again in the repository (verify_entity_ownership
+# on plant_instances, #517) before the applied-to edge is wired.
 @router.post(
     "/plants/{plant_key}/treatment-applications",
     response_model=TreatmentApplicationResponse,
@@ -210,8 +210,8 @@ def create_treatment_application(
     ``applied_by_key`` comes from the resolved caller, never from the body
     (#1669); ``TreatmentApplicationCreate`` does not declare it.
     """
-    app = TreatmentApplication(**body.model_dump(), tenant_key=ctx.tenant_key, applied_by_key=ctx.user_key)
-    created = service.create_treatment_application(plant_key, app)
+    app = TreatmentApplication(**body.model_dump(), applied_by_key=ctx.user_key)
+    created = service.create_treatment_application(plant_key, app, tenant_key=ctx.tenant_key)
     return _application_response(created)
 
 

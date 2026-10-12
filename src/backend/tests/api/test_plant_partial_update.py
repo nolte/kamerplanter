@@ -67,7 +67,7 @@ class _Service:
     def get_plant(self, key, tenant_key=None):
         return _STORED.model_copy(deep=True)
 
-    def update_plant(self, key, plant):
+    def update_plant(self, key, plant, *, tenant_key):
         self.written = plant
         return plant
 

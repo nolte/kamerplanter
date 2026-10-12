@@ -46,7 +46,7 @@ class TestPhotoCascadeOnRemove:
         seen: list[list[str]] = []
         service = _service(plant, lambda p: seen.append(list(p.photo_refs)))
 
-        updated = service.remove_plant("plant-1")
+        updated = service.remove_plant("plant-1", tenant_key="tenant_anna")
 
         # Cleanup ran with the plant that still held the refs.
         assert seen == [["att1", "att2"]]
@@ -63,7 +63,7 @@ class TestPhotoCascadeOnRemove:
         cleanup = MagicMock()
         service = _service(plant, cleanup)
 
-        service.remove_plant("plant-1")
+        service.remove_plant("plant-1", tenant_key="tenant_anna")
 
         cleanup.assert_not_called()
 
@@ -71,7 +71,7 @@ class TestPhotoCascadeOnRemove:
         plant = _plant(["att1"])
         service = _service(plant, None)
 
-        updated = service.remove_plant("plant-1")
+        updated = service.remove_plant("plant-1", tenant_key="tenant_anna")
 
         # No callback wired → photos are left untouched (still removable later).
         assert updated.removed_on == today_utc()

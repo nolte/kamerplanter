@@ -183,6 +183,8 @@ class TestEvaluateQuarterClimate:
 
         assert result == {"status": "ok", "evaluated": 2, "warnings": 1, "errors": 0}
         assert plant_repo.walks == [(["t1"], [("removed_on", "==", None)])]
+        # #2107: each plant is evaluated under its own tenant, which the service verifies.
+        assert [c.kwargs["tenant_key"] for c in service.evaluate_plant.call_args_list] == ["t1", "t1"]
 
     def test_one_bad_plant_is_isolated(self, task_module, monkeypatch):
         module, deps = task_module

@@ -74,8 +74,8 @@ class HardinessZoneService:
     def resolve_for_site(
         self,
         site_key: str,
-        tenant_key: str,
         *,
+        tenant_key: str,
         force: bool = False,
         fetch_if_missing: bool = False,
     ) -> Site:
@@ -86,6 +86,9 @@ class HardinessZoneService:
         climate normals are fetched on demand from its GPS coordinates (REQ-041)
         before giving up. Raises :class:`ValidationError` (422) when no climate
         normals with a usable minimum temperature can be obtained.
+
+        ``tenant_key`` is keyword-only (#2107): positionally beside ``site_key`` a
+        swapped pair of ``str`` keys is invisible to the type checker.
         """
         site = self._load_site(site_key, tenant_key)
 

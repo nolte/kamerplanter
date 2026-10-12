@@ -89,6 +89,7 @@ class TestTermination:
             "plant-1",
             termination_type=TerminationType.DIED,
             termination_cause=TerminationCause.DISEASE,
+            tenant_key="tenant-a",
         )
 
         assert result.termination_type == TerminationType.DIED
@@ -110,22 +111,25 @@ class TestTermination:
 
         The task cascade reads a tenant-scoped repository query. A plant whose
         tenant cannot be established must therefore leave its tasks alone rather
-        than have the service fall back to a scan across every tenant.
+        than have the service fall back to a scan across every tenant. Since #2107
+        the removal itself is refused: no caller's tenant owns such a plant.
         """
         tenantless = _plant(tenant_key="")
         self.plant_repo.get_or_raise.return_value = tenantless
         self.plant_repo.get_by_key.return_value = tenantless
         service = self._service()
 
-        service.remove_plant("plant-1", termination_type=TerminationType.HARVESTED)
+        with pytest.raises(NotFoundError):
+            service.remove_plant("plant-1", termination_type=TerminationType.HARVESTED, tenant_key="tenant-a")
 
+        self.plant_repo.update.assert_not_called()
         self.task_repo.get_tasks_for_plant.assert_not_called()
         self.task_repo.delete_task.assert_not_called()
 
     def test_harvested_does_not_freeze_into_died_semantics(self) -> None:
         service = self._service()
 
-        result = service.remove_plant("plant-1", termination_type=TerminationType.HARVESTED)
+        result = service.remove_plant("plant-1", termination_type=TerminationType.HARVESTED, tenant_key="tenant-a")
 
         assert result.termination_type == TerminationType.HARVESTED
         assert result.termination_cause is None
@@ -137,7 +141,7 @@ class TestTermination:
     def test_cancelled_only_stamps_type(self) -> None:
         service = self._service()
 
-        result = service.remove_plant("plant-1", termination_type=TerminationType.CANCELLED)
+        result = service.remove_plant("plant-1", termination_type=TerminationType.CANCELLED, tenant_key="tenant-a")
 
         assert result.termination_type == TerminationType.CANCELLED
         assert result.termination_cause is None
@@ -151,18 +155,19 @@ class TestTermination:
                 "plant-1",
                 termination_type=TerminationType.HARVESTED,
                 termination_cause=TerminationCause.PEST,
+                tenant_key="tenant-a",
             )
 
     def test_cause_without_any_type_is_rejected(self) -> None:
         service = self._service()
 
         with pytest.raises(ValidationError):
-            service.remove_plant("plant-1", termination_cause=TerminationCause.FROST)
+            service.remove_plant("plant-1", termination_cause=TerminationCause.FROST, tenant_key="tenant-a")
 
     def test_plain_removal_is_backward_compatible(self) -> None:
         service = self._service()
 
-        result = service.remove_plant("plant-1")
+        result = service.remove_plant("plant-1", tenant_key="tenant-a")
 
         assert result.termination_type is None
         assert result.termination_cause is None
@@ -193,6 +198,7 @@ class TestTermination:
             "plant-1",
             termination_type=TerminationType.DIED,
             termination_cause=TerminationCause.DROUGHT,
+            tenant_key="tenant-a",
         )
 
         assert result.termination_type == TerminationType.DIED

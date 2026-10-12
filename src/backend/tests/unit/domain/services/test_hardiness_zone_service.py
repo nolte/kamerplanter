@@ -73,7 +73,7 @@ class TestResolveForSite:
     def test_derives_zone_and_persists(self) -> None:
         service, site_repo, _climate, zone_repo = _service(_site(), [_normal()])
 
-        result = service.resolve_for_site("site1", "t1")
+        result = service.resolve_for_site("site1", tenant_key="t1")
 
         assert result.hardiness_zone == "7a"
         assert result.hardiness_zone_source == "derived_gps"
@@ -89,7 +89,7 @@ class TestResolveForSite:
     def test_fills_frost_defaults_when_unset(self) -> None:
         service, _repo, _climate, _zone = _service(_site(), [_normal()])
 
-        result = service.resolve_for_site("site1", "t1")
+        result = service.resolve_for_site("site1", tenant_key="t1")
 
         assert result.last_frost_date_avg == date(datetime.now(tz=UTC).year, 5, 15)
         assert result.first_frost_date_avg == date(datetime.now(tz=UTC).year, 10, 10)
@@ -99,7 +99,7 @@ class TestResolveForSite:
         site = _site(last_frost_date_avg=existing, first_frost_date_avg=existing)
         service, _repo, _climate, _zone = _service(site, [_normal()])
 
-        result = service.resolve_for_site("site1", "t1")
+        result = service.resolve_for_site("site1", tenant_key="t1")
 
         assert result.last_frost_date_avg == existing
         assert result.first_frost_date_avg == existing
@@ -108,7 +108,7 @@ class TestResolveForSite:
         site = _site(hardiness_zone="6b", hardiness_zone_source="manual")
         service, site_repo, climate_repo, zone_repo = _service(site, [_normal()])
 
-        result = service.resolve_for_site("site1", "t1")
+        result = service.resolve_for_site("site1", tenant_key="t1")
 
         assert result.hardiness_zone == "6b"
         assert result.hardiness_zone_source == "manual"
@@ -120,7 +120,7 @@ class TestResolveForSite:
         site = _site(hardiness_zone="6b", hardiness_zone_source="manual")
         service, site_repo, _climate, _zone = _service(site, [_normal()])
 
-        result = service.resolve_for_site("site1", "t1", force=True)
+        result = service.resolve_for_site("site1", tenant_key="t1", force=True)
 
         assert result.hardiness_zone == "7a"
         assert result.hardiness_zone_source == "derived_gps"
@@ -130,7 +130,7 @@ class TestResolveForSite:
         service, site_repo, _climate, zone_repo = _service(_site(), [])
 
         with pytest.raises(ValidationError):
-            service.resolve_for_site("site1", "t1")
+            service.resolve_for_site("site1", tenant_key="t1")
         site_repo.update_site.assert_not_called()
         zone_repo.assign_site_to_zone.assert_not_called()
 
@@ -142,7 +142,7 @@ class TestResolveForSite:
         fetcher = MagicMock()
         service._normals_fetcher = fetcher  # noqa: SLF001 — inject the on-demand fetcher
 
-        result = service.resolve_for_site("site1", "t1", fetch_if_missing=True)
+        result = service.resolve_for_site("site1", tenant_key="t1", fetch_if_missing=True)
 
         assert result.hardiness_zone == "7a"
         fetcher.fetch_for_site.assert_called_once()
@@ -155,7 +155,7 @@ class TestResolveForSite:
         service._normals_fetcher = fetcher  # noqa: SLF001
 
         with pytest.raises(ValidationError):
-            service.resolve_for_site("site1", "t1", fetch_if_missing=True)
+            service.resolve_for_site("site1", tenant_key="t1", fetch_if_missing=True)
         fetcher.fetch_for_site.assert_called_once()
         site_repo.update_site.assert_not_called()
 
@@ -165,7 +165,7 @@ class TestResolveForSite:
         service._normals_fetcher = fetcher  # noqa: SLF001
 
         with pytest.raises(ValidationError):
-            service.resolve_for_site("site1", "t1")
+            service.resolve_for_site("site1", tenant_key="t1")
         fetcher.fetch_for_site.assert_not_called()
 
     def test_normals_without_minimum_raise_422(self) -> None:
@@ -174,20 +174,20 @@ class TestResolveForSite:
         service, _repo, _climate, _zone = _service(_site(), [blank])
 
         with pytest.raises(ValidationError):
-            service.resolve_for_site("site1", "t1")
+            service.resolve_for_site("site1", tenant_key="t1")
 
     def test_foreign_tenant_is_not_found(self) -> None:
         service, _repo, _climate, _zone = _service(_site(tenant_key="other"), [_normal()])
 
         with pytest.raises(NotFoundError):
-            service.resolve_for_site("site1", "t1")
+            service.resolve_for_site("site1", tenant_key="t1")
 
     def test_unknown_site_is_not_found(self) -> None:
         service, site_repo, _climate, _zone = _service(_site(), [_normal()])
         site_repo.get_site_by_key.return_value = None
 
         with pytest.raises(NotFoundError):
-            service.resolve_for_site("site1", "t1")
+            service.resolve_for_site("site1", tenant_key="t1")
 
 
 class TestGetSiteHardiness:

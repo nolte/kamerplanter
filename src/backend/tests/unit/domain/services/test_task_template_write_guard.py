@@ -344,6 +344,7 @@ class TestTheSiblingUpdatesAreAllowListedToo:
         updated = service.update_workflow_phase(
             "ph-1",
             {"name": "Bluete", "workflow_template_key": FOREIGN_WORKFLOW},
+            tenant_key=TENANT_KEY,
         )
 
         assert updated.name == "Bluete"

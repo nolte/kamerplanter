@@ -175,6 +175,7 @@ class TestASystemWorkflowRefusesPhaseChildren:
         with pytest.raises(ValidationError):
             service.create_workflow_phase(
                 WorkflowPhase(workflow_template_key=SYSTEM_WORKFLOW, name="Neue Phase"),
+                tenant_key=TENANT_KEY,
             )
 
         repo.create_phase.assert_not_called()
@@ -183,7 +184,7 @@ class TestASystemWorkflowRefusesPhaseChildren:
         service, repo = _service()
 
         with pytest.raises(ValidationError):
-            service.update_workflow_phase("ph-sys", {"name": "Umbenannt"})
+            service.update_workflow_phase("ph-sys", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
 
         repo.update_phase.assert_not_called()
 
@@ -191,7 +192,7 @@ class TestASystemWorkflowRefusesPhaseChildren:
         service, repo = _service()
 
         with pytest.raises(ValidationError):
-            service.delete_workflow_phase("ph-sys")
+            service.delete_workflow_phase("ph-sys", tenant_key=TENANT_KEY)
 
         repo.delete_phase.assert_not_called()
 
@@ -309,6 +310,7 @@ class TestTheTenantsOwnWorkflowStillAcceptsChildren:
 
         created = service.create_workflow_phase(
             WorkflowPhase(workflow_template_key=OWN_WORKFLOW, name="Neue Phase"),
+            tenant_key=TENANT_KEY,
         )
 
         assert created.workflow_template_key == OWN_WORKFLOW
@@ -317,8 +319,8 @@ class TestTheTenantsOwnWorkflowStillAcceptsChildren:
     def test_the_callers_own_phase_is_still_editable_and_deletable(self) -> None:
         service, repo = _service()
 
-        assert service.update_workflow_phase("ph-own", {"name": "Umbenannt"}).name == "Umbenannt"
-        assert service.delete_workflow_phase("ph-own") is True
+        assert service.update_workflow_phase("ph-own", {"name": "Umbenannt"}, tenant_key=TENANT_KEY).name == "Umbenannt"
+        assert service.delete_workflow_phase("ph-own", tenant_key=TENANT_KEY) is True
         repo.update_phase.assert_called_once()
         repo.delete_phase.assert_called_once()
 
@@ -349,14 +351,59 @@ class TestTheTenantsOwnWorkflowStillAcceptsChildren:
         repo.update_task_template.assert_not_called()
         repo.delete_task_template.assert_not_called()
 
-    def test_a_phase_with_no_parent_workflow_is_left_alone(self) -> None:
-        """An unparented phase has nothing to anchor on; the guard must not 404 it."""
+    def test_a_phase_with_no_parent_workflow_has_no_owner_to_write_for(self) -> None:
+        """An unparented phase has nothing to anchor a tenant on, so no tenant writes it (#2107).
+
+        This test used to pin the orphan as editable at the service, while the
+        routes in front of it answered 404: they resolved ``get_workflow_template("")``
+        under the caller's tenant before calling the service. Now that the tenant
+        check lives in the service, the service gives the route's answer itself.
+        """
         service, repo = _service()
 
-        assert service.update_workflow_phase("ph-orphan", {"name": "Umbenannt"}).name == "Umbenannt"
-        assert service.delete_workflow_phase("ph-orphan") is True
-        repo.update_phase.assert_called_once()
-        repo.delete_phase.assert_called_once()
+        with pytest.raises(NotFoundError):
+            service.update_workflow_phase("ph-orphan", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
+        with pytest.raises(NotFoundError):
+            service.delete_workflow_phase("ph-orphan", tenant_key=TENANT_KEY)
+        repo.update_phase.assert_not_called()
+        repo.delete_phase.assert_not_called()
+
+
+class TestAForeignTenantsWorkflowRefusesPhaseWrites:
+    """#2107: the phase writes check the parent's tenant themselves, not the calling route.
+
+    ``create_workflow_phase`` / ``update_workflow_phase`` / ``delete_workflow_phase``
+    resolved the parent workflow **without** a tenant; the router ran the tenant
+    check first. A second caller (an MCP tool, a task) that skipped that pre-check
+    wrote into another tenant's workflow.
+    """
+
+    def test_creating_a_phase_in_a_foreign_workflow_is_refused(self) -> None:
+        service, repo = _service()
+
+        with pytest.raises(NotFoundError):
+            service.create_workflow_phase(
+                WorkflowPhase(workflow_template_key=FOREIGN_WORKFLOW, name="Eingeschleust"),
+                tenant_key=TENANT_KEY,
+            )
+
+        repo.create_phase.assert_not_called()
+
+    def test_updating_a_phase_of_a_foreign_workflow_is_refused(self) -> None:
+        service, repo = _service()
+
+        with pytest.raises(NotFoundError):
+            service.update_workflow_phase("ph-foreign", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
+
+        repo.update_phase.assert_not_called()
+
+    def test_deleting_a_phase_of_a_foreign_workflow_is_refused(self) -> None:
+        service, repo = _service()
+
+        with pytest.raises(NotFoundError):
+            service.delete_workflow_phase("ph-foreign", tenant_key=TENANT_KEY)
+
+        repo.delete_phase.assert_not_called()
 
 
 class TestWhatTheUiLegitimatelyDoesWithSystemWorkflowsStillWorks:

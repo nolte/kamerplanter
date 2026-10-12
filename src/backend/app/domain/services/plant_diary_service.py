@@ -670,9 +670,13 @@ class PlantDiaryService:
             if attachment.created_by != user_key:
                 raise ForbiddenError("Only the uploader of a photo, or a tenant lead, may attach it to a diary entry.")
 
-    def delete_entry(self, key: str) -> bool:
-        """Delete a diary entry. Raises NotFoundError if missing."""
-        self.get_entry(key)
+    def delete_entry(self, key: str, *, tenant_key: str) -> bool:
+        """Delete ``tenant_key``'s diary entry ``key``; foreign or missing raises NotFoundError.
+
+        The entry is resolved under the tenant here (#2107), the way
+        :meth:`update_entry` resolves it, rather than only by the calling route.
+        """
+        self._load_scoped(key, tenant_key)
         return self._repo.delete(key)
 
     def list_entries_for_plant(

@@ -179,7 +179,7 @@ def delete_plant_diary_entry(
     """Delete a diary entry of this plant, along with its analysis result (AK-23)."""
     plant_service.get_plant(key, tenant_key=ctx.tenant_key)
     _load_entry_in_scope(diary_service, entry_key, key, ctx.tenant_key)
-    diary_service.delete_entry(entry_key)
+    diary_service.delete_entry(entry_key, tenant_key=ctx.tenant_key)
 
 
 # ── REQ-050 §2.5.1 — marking an entry for AI analysis ────────────────
