@@ -525,7 +525,7 @@ class TestDeletingTheOpenPhaseReopensThePreviousOne:
 
         previous_key, current_key = history_keys
 
-        self._service(db).delete_phase_history(self._PLANT_KEY, current_key)
+        self._service(db).delete_phase_history(self._PLANT_KEY, current_key, tenant_key=_TENANT_KEY)
 
         _assert_cleared(
             _raw(db, col.PHASE_HISTORIES, previous_key),
@@ -538,7 +538,7 @@ class TestDeletingTheOpenPhaseReopensThePreviousOne:
 
         previous_key, current_key = history_keys
 
-        self._service(db).delete_phase_history(self._PLANT_KEY, current_key)
+        self._service(db).delete_phase_history(self._PLANT_KEY, current_key, tenant_key=_TENANT_KEY)
 
         stored = _raw(db, col.PHASE_HISTORIES, previous_key)
         assert stored["phase_name"] == "Vegetative"

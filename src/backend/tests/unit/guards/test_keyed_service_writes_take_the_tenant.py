@@ -78,6 +78,30 @@ _NOT_TENANT_DATA: dict[str, str] = {
         "global companion edges (REQ-028), written only behind require_platform_admin and only between global "
         "species (MT-054, #2144) — the keyed load is the global-species check itself"
     ),
+    "PhaseSequenceService": (
+        "global-only catalogue: PhaseDefinition, PhaseSequence and PhaseSequenceEntry carry no tenant_key "
+        "(app/domain/models/phase_sequence.py); every write takes is_platform_admin keyword-only without a "
+        "default and refuses a non-admin in the service (#1501)"
+    ),
+}
+
+#: Single methods of an otherwise tenant-bearing class whose keys address global data — the
+#: method-level twin of :data:`_NOT_TENANT_DATA`, for a class that mixes both. Each entry names
+#: why no tenant can own the row it writes; a stale entry (no longer a keyed write) fails.
+_GLOBAL_LIFECYCLE = (
+    "LifecycleConfig and GrowthPhase carry no tenant_key (app/domain/models/lifecycle.py); the routes are "
+    "mounted behind require_platform_admin (lifecycle_configs/router.py, growth_phases/router.py, "
+    "profiles/router.py)"
+)
+_GLOBAL_METHODS: dict[str, str] = {
+    "PhaseService.update_lifecycle": _GLOBAL_LIFECYCLE,
+    "PhaseService.update_phase": _GLOBAL_LIFECYCLE,
+    "PhaseService.delete_phase": _GLOBAL_LIFECYCLE,
+    "PhaseService.generate_default_profiles": _GLOBAL_LIFECYCLE + "; the profiles hang off a global GrowthPhase",
+    "PhaseService.assign_phase_sequence": (
+        _GLOBAL_LIFECYCLE + "; the MCP tool admits only a global species and the dispatcher refuses a global "
+        "write to anyone but a platform admin (mcp_server/dispatcher.py, #2103)"
+    ),
 }
 
 
@@ -153,7 +177,11 @@ def _inventory() -> tuple[KeyedWrite, ...]:
 
 
 def _not_strict() -> set[str]:
-    return {w.qualname for w in _inventory() if w.shape != "strict" and w.owner not in _NOT_TENANT_DATA}
+    return {
+        w.qualname
+        for w in _inventory()
+        if w.shape != "strict" and w.owner not in _NOT_TENANT_DATA and w.qualname not in _GLOBAL_METHODS
+    }
 
 
 #: Measured 2026-10-05 after the first slices of #2107 (activity-plan apply, site,
@@ -164,7 +192,10 @@ def _not_strict() -> set[str]:
 #: aquaponics and InvenTree slice (positional tenant → keyword-only, every
 #: method of the class, see :data:`_WHOLE_CLASS_KEYWORD_ONLY`): 73. Re-measured
 #: 2026-10-11 after the plant-photo gallery slice (every method of
-#: ``PlantPhotoService``): 68. Each line is
+#: ``PlantPhotoService``): 68. Re-measured 2026-10-12 after the catalogue slice
+#: (species, cultivar and substrate writes strict; phase-history writes strict;
+#: ``PhaseSequenceService`` and the global lifecycle methods of ``PhaseService``
+#: classified as global): 40. Each line is
 #: a keyed write that can still be called without a tenant, or with a defaulted /
 #: positional one. Convert the method to ``*, tenant_key: str`` (and drop the
 #: router's pre-check), then delete the line.
@@ -195,22 +226,6 @@ _REMAINING: frozenset[str] = frozenset(
         "IpmService.update_treatment",
         "PestImageService.set_active",
         "PestImageService.set_promotion",
-        "PhaseSequenceService.clone_sequence",
-        "PhaseSequenceService.create_entry",
-        "PhaseSequenceService.delete_definition",
-        "PhaseSequenceService.delete_entry",
-        "PhaseSequenceService.delete_sequence",
-        "PhaseSequenceService.reorder_entries",
-        "PhaseSequenceService.update_definition",
-        "PhaseSequenceService.update_entry",
-        "PhaseSequenceService.update_sequence",
-        "PhaseService.assign_phase_sequence",
-        "PhaseService.delete_phase",
-        "PhaseService.delete_phase_history",
-        "PhaseService.generate_default_profiles",
-        "PhaseService.update_lifecycle",
-        "PhaseService.update_phase",
-        "PhaseService.update_phase_history_dates",
         "PlantDiaryService.delete_entry",
         "PlantInstanceService.create_plant",
         "PlantInstanceService.handle_monocarpic_terminal_transition",
@@ -221,18 +236,6 @@ _REMAINING: frozenset[str] = frozenset(
         "QuarterClimateService.evaluate_plant",
         "SeasonStateService.evaluate_site",
         "SeasonStateService.evaluate_site_detailed",
-        "SpeciesService.create_cultivar",
-        "SpeciesService.create_species",
-        "SpeciesService.delete_cultivar",
-        "SpeciesService.delete_species",
-        "SpeciesService.update_cultivar",
-        "SpeciesService.update_species",
-        "SubstrateService.create_batch",
-        "SubstrateService.create_mix",
-        "SubstrateService.delete_batch",
-        "SubstrateService.delete_substrate",
-        "SubstrateService.update_batch",
-        "SubstrateService.update_substrate",
         "TaskService.activate_dormant_tasks_for_phase",
         "TaskService.create_workflow_phase",
         "TaskService.delete_workflow_phase",
@@ -260,6 +263,13 @@ def test_every_excluded_class_still_has_a_keyed_write() -> None:
     """An exclusion that excuses nothing is a hole the next method in that class walks through."""
     owners = {w.owner for w in _inventory()}
     assert sorted(set(_NOT_TENANT_DATA) - owners) == []
+
+
+def test_every_global_method_is_still_a_keyed_write_without_a_tenant() -> None:
+    """A method-level exclusion is stale once the method is gone or takes a tenant — then it must leave."""
+    shapes = {w.qualname: w.shape for w in _inventory()}
+    stale = sorted(m for m in _GLOBAL_METHODS if shapes.get(m) in (None, "strict"))
+    assert stale == [], f"No longer a tenant-less keyed write — drop them from _GLOBAL_METHODS: {stale}"
 
 
 def test_the_inventory_is_not_vacuous() -> None:

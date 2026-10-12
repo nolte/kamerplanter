@@ -18,7 +18,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.enums import ApplicationMethod
+from app.common.enums import ApplicationMethod, TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.models.feeding_event import FeedingEvent
@@ -348,7 +348,7 @@ def test_an_inherited_default_plan_the_owner_may_not_use_is_dropped() -> None:
     )
 
     created = service.create_species(
-        Species(scientific_name="Mentha spicata", tenant_key=OWN), caller_role=None, is_platform_admin=True
+        Species(scientific_name="Mentha spicata"), tenant_key=OWN, caller_role=TenantRole.LEAD, is_platform_admin=False
     )
 
     assert created.default_nutrient_plan_key is None
