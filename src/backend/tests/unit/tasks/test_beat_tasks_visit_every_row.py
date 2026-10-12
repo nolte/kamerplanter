@@ -145,7 +145,13 @@ class TestPlantTasks:
 
         plant_repo = TenantRows(_plants(1001))
         phase_service = MagicMock()
-        phase_service.get_current_phase.return_value = {"days_in_phase": 1}
+        seen: list[str] = []
+
+        def positions(plants):
+            seen.extend(plant.key for plant in plants)
+            return {plant.key: {"days_in_phase": 1} for plant in plants}
+
+        phase_service.get_current_phases.side_effect = positions
         phase_service.get_transition_rules.return_value = []
         _repoint(
             monkeypatch,
@@ -158,9 +164,11 @@ class TestPlantTasks:
             get_tenant_repo=active("t1"),
         )
 
-        module.check_auto_transitions()
+        result = module.check_auto_transitions()
 
-        assert phase_service.get_current_phase.call_count == 1001
+        # MT-032 (#2128): the positions are read per page, and the pages together cover every plant.
+        assert sorted(seen) == [plant.key for plant in plant_repo.rows]
+        assert result == {"transitioned": 0, "errors": 0, "checked": 1001}
 
     def test_quarter_climate_evaluates_every_plant(self, monkeypatch, deps):
         import app.tasks.season_tasks as module

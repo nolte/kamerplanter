@@ -1,3 +1,7 @@
+from collections.abc import Collection
+from typing import cast
+
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.common.types import PhaseKey, PlantID, ProfileKey
@@ -299,6 +303,33 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
         results = self.get_edges(col.PHASE_HISTORY_EDGE, plant_id, direction="outbound")
         histories = [PhaseHistory(**self._from_doc(r["vertex"])) for r in results]
         return sorted(histories, key=lambda h: h.entered_at)
+
+    def get_active_phase_histories(self, plant_keys: Collection[PlantID]) -> dict[PlantID, PhaseHistory]:
+        """The earliest-entered open history entry per plant, for a whole page of plants in one query.
+
+        Walks the ``phase_history_edge`` collection by its ``_from`` edge index — the
+        same edges :meth:`get_phase_history` traverses one plant at a time — and keeps
+        only the entries without ``exited_at`` (a missing field reads as ``null``,
+        like the ``None`` the per-plant read compares against). The earliest
+        ``entered_at`` wins, which is the entry ``next(h for h in sorted(...) if
+        h.exited_at is None)`` picks there (MT-032, #2128).
+        """
+        ids = sorted({f"{col.PLANT_INSTANCES}/{key}" for key in plant_keys if key})
+        if not ids:
+            return {}
+        query = """
+        FOR edge IN @@edge
+          FILTER edge._from IN @ids
+          LET history = DOCUMENT(edge._to)
+          FILTER history != null AND history.exited_at == null
+          RETURN {plant_id: edge._from, history: history}
+        """
+        cursor = cast(Cursor, self._db.aql.execute(query, bind_vars={"@edge": col.PHASE_HISTORY_EDGE, "ids": ids}))
+        open_by_plant: dict[PlantID, list[PhaseHistory]] = {}
+        for row in cursor:
+            plant_key = str(row["plant_id"]).split("/", 1)[1]
+            open_by_plant.setdefault(plant_key, []).append(PhaseHistory(**self._from_doc(row["history"])))
+        return {key: min(entries, key=lambda h: h.entered_at) for key, entries in open_by_plant.items()}
 
     def create_phase_history(self, history: PhaseHistory) -> PhaseHistory:
         created = self._phase_histories.create(history)

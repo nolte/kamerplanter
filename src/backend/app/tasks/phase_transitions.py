@@ -1,4 +1,7 @@
+from collections.abc import Callable
 from datetime import UTC, datetime
+from itertools import batched
+from typing import Any
 
 import structlog
 
@@ -16,10 +19,20 @@ from app.domain.calculators.sun_calculator import calculate_sun_times
 from app.domain.engines.cycle_resolver import resolve_effective_cycle
 from app.domain.engines.cyclic_lifecycle_engine import CyclicLifecycleEngine
 from app.domain.engines.transition_trigger_evaluator import TransitionTriggerEvaluator
-from app.domain.services.location_ownership import find_owned_location
+from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.models.lifecycle import LifecycleConfig
+from app.domain.models.phase import PhaseTransitionRule
+from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.site import Location, Site, Slot
+from app.domain.services.location_ownership import SiteAnchorSource, find_owned_location
+from app.domain.services.phase_service import PhaseService, SequenceAutoTarget
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
+
+#: Plants per evaluation batch — the walk's own page size, so one batch is one page
+#: of the keyset walk and the batched reads cover exactly what the walk holds.
+_PAGE_SIZE = 1000
 
 
 def _day_length_for_plant(plant, site_repo) -> float | None:
@@ -102,14 +115,16 @@ def _should_restart_cycle(
     return True, "no lifecycle config — sequence is_repeating governs the restart"
 
 
-def _advance_sequence_plant(plant, info: dict, days_in_phase: int, lifecycle, phase_service, cyclic) -> bool:  # noqa: ANN001
+def _advance_sequence_plant(
+    plant, info: dict, days_in_phase: int, lifecycle, phase_service, cyclic, reads: _PageReads
+) -> bool:
     """WP-2 — advance one PhaseSequence-driven plant along its sequence (Weg B).
 
     Fires a time-based forward step once the current phase's duration has elapsed and,
     from the terminal phase, the perennial cycle restart at ``cycle_restart_entry_order``
     (gated by :func:`_should_restart_cycle`). Returns ``True`` when a transition fired.
     """
-    advance = phase_service.resolve_sequence_auto_target(plant.species_key, plant.current_phase_key)
+    advance = reads.sequence_target(plant.species_key, plant.current_phase_key)
     if advance is None or days_in_phase < advance.duration_days:
         return False
 
@@ -147,6 +162,194 @@ def _advance_sequence_plant(plant, info: dict, days_in_phase: int, lifecycle, ph
     return True
 
 
+class _MemoSiteReads:
+    """The site reads of one page, each key read once (MT-032, #2128).
+
+    Satisfies :class:`~app.domain.services.location_ownership.SiteAnchorSource`, so
+    the SEC-B4 ownership walk (:func:`find_owned_location`) runs unchanged on every
+    plant — only the documents it reads are shared between the plants of a page that
+    stand in the same location or site. A read that raises is not remembered.
+    """
+
+    def __init__(self, site_repo: SiteAnchorSource) -> None:
+        self._site_repo = site_repo
+        self._sites: dict[str, Site | None] = {}
+        self._locations: dict[str, Location | None] = {}
+        self._slots: dict[str, Slot | None] = {}
+
+    def get_site_by_key(self, key: str) -> Site | None:
+        return _remembered(self._sites, key, lambda: self._site_repo.get_site_by_key(key))
+
+    def get_location_by_key(self, key: str) -> Location | None:
+        return _remembered(self._locations, key, lambda: self._site_repo.get_location_by_key(key))
+
+    def get_slot_by_key(self, key: str) -> Slot | None:
+        return _remembered(self._slots, key, lambda: self._site_repo.get_slot_by_key(key))
+
+
+class _PageReads:
+    """Catalogue and site reads of one page of plants, each distinct key read once (MT-032, #2128).
+
+    The scan used to ask for the species' lifecycle, the phase's transition rules,
+    the sequence's next entry and the plant's location/site once **per plant**, so
+    its query count grew with the plant count. Plants of a page share species,
+    phases and locations; this answers the second plant from the first one's read.
+    The memo lives for one page only, so the worker's memory is bounded by the page
+    and not by the installation. A read that raises is not remembered: the next plant
+    asks again and fails on its own, as before.
+    """
+
+    def __init__(
+        self, phase_service: PhaseService, lifecycle_repo: IPhaseRepository, site_repo: SiteAnchorSource
+    ) -> None:
+        self._phase_service = phase_service
+        self._lifecycle_repo = lifecycle_repo
+        self.sites = _MemoSiteReads(site_repo)
+        self._lifecycles: dict[str, LifecycleConfig | None] = {}
+        self._rules: dict[str, list[PhaseTransitionRule]] = {}
+        self._targets: dict[tuple[str | None, str | None], SequenceAutoTarget | None] = {}
+
+    def lifecycle(self, species_key: str) -> LifecycleConfig | None:
+        return _remembered(
+            self._lifecycles, species_key, lambda: self._lifecycle_repo.get_lifecycle_by_species(species_key)
+        )
+
+    def transition_rules(self, phase_key: str) -> list[PhaseTransitionRule]:
+        return _remembered(self._rules, phase_key, lambda: self._phase_service.get_transition_rules(phase_key))
+
+    def sequence_target(self, species_key: str | None, phase_key: str | None) -> SequenceAutoTarget | None:
+        return _remembered(
+            self._targets,
+            (species_key, phase_key),
+            lambda: self._phase_service.resolve_sequence_auto_target(species_key, phase_key),
+        )
+
+
+def _remembered[K, V](cache: dict[K, V], key: K, read: Callable[[], V]) -> V:
+    """``cache[key]``, reading it first when absent; an exception leaves the cache untouched."""
+    if key not in cache:
+        cache[key] = read()
+    return cache[key]
+
+
+def _evaluate_rules(
+    plant: PlantInstance,
+    info: dict[str, Any],
+    lifecycle: LifecycleConfig | None,
+    reads: _PageReads,
+    evaluator: TransitionTriggerEvaluator,
+    cyclic: CyclicLifecycleEngine,
+    phase_service: PhaseService,
+) -> bool:
+    """The legacy GrowthPhase rule path for one plant; ``True`` when a transition fired."""
+    days_in_phase = info["days_in_phase"]
+    for rule in reads.transition_rules(plant.current_phase_key or ""):
+        fire = False
+        reason = ""
+
+        if (
+            rule.trigger_type == TransitionTriggerType.TIME_BASED
+            and rule.auto_transition_after_days
+            and days_in_phase >= rule.auto_transition_after_days
+        ):
+            fire, reason = True, "auto_time_based"
+        elif rule.trigger_type == TransitionTriggerType.PHOTOPERIOD_BASED and lifecycle:
+            day_length = _day_length_for_plant(plant, reads.sites)
+            if day_length is not None and evaluator.photoperiod_should_fire(
+                lifecycle.photoperiod_type,
+                lifecycle.critical_day_length_hours,
+                day_length,
+            ):
+                fire, reason = True, "auto_photoperiod"
+        elif (
+            rule.trigger_type == TransitionTriggerType.VERNALIZATION_BASED
+            and lifecycle
+            and evaluator.vernalization_should_fire(
+                lifecycle.vernalization_min_days,
+                plant.chill_days_accumulated,
+            )
+        ):
+            fire, reason = True, "auto_vernalization"
+
+        # E4: an indeterminate species stays in its stable productive phase —
+        # suppress any onward auto-advance even though the trigger would fire.
+        current_phase_name = info.get("phase", "")
+        if fire and lifecycle and cyclic.stays_in_productive_phase(lifecycle, current_phase_name):
+            logger.info(
+                "auto_transition_suppressed_indeterminate",
+                plant_key=plant.key,
+                current_phase=current_phase_name,
+            )
+            continue
+
+        if fire:
+            # AUTO trigger: the D10 clonal-pup spawn only reacts to
+            # automatic transitions (a manual API correction must not).
+            phase_service.transition_phase(
+                plant.key or "", rule.to_phase_key, reason=reason, trigger=TransitionTrigger.AUTO
+            )
+            logger.info(
+                "auto_transition",
+                plant_key=plant.key,
+                to_phase=rule.to_phase_key,
+                trigger=rule.trigger_type.value,
+            )
+            return True
+    return False
+
+
+def _check_page(
+    page: list[PlantInstance],
+    phase_service: PhaseService,
+    lifecycle_repo: IPhaseRepository,
+    site_repo: SiteAnchorSource,
+    evaluator: TransitionTriggerEvaluator,
+    cyclic: CyclicLifecycleEngine,
+) -> tuple[int, int]:
+    """Evaluate one page of plants; returns ``(transitioned, errors)``.
+
+    The page's phase positions come from one batched read
+    (:meth:`PhaseService.get_current_phases`) and every catalogue/site read from a
+    page-scoped memo (:class:`_PageReads`), so a plant that shares its species, phase
+    and location with an earlier plant of the page costs no query (MT-032, #2128).
+    If the batched read itself fails, every plant of the page that would have been
+    evaluated counts as an error — the same count the per-plant read produced when
+    the store was unreachable.
+    """
+    candidates = [plant for plant in page if plant.current_phase_key]
+    if not candidates:
+        return 0, 0
+    try:
+        positions = phase_service.get_current_phases(candidates)
+    except Exception as e:
+        logger.error("auto_transition_page_error", plants=len(candidates), error=loggable_error(e))
+        return 0, len(candidates)
+
+    reads = _PageReads(phase_service, lifecycle_repo, site_repo)
+    transitioned = 0
+    errors = 0
+    for plant in candidates:
+        try:
+            info = positions[plant.key or ""]
+            lifecycle = reads.lifecycle(plant.species_key)
+
+            # WP-2: PhaseSequence-driven plants (Weg B) advance along their sequence,
+            # including the terminal→restart cycle loop. This is the cyclic path after
+            # the #565 migration; the legacy GrowthPhase rule loop is unchanged.
+            if info.get("source") == "phase_sequence":
+                fired = _advance_sequence_plant(
+                    plant, info, info["days_in_phase"], lifecycle, phase_service, cyclic, reads
+                )
+            else:
+                fired = _evaluate_rules(plant, info, lifecycle, reads, evaluator, cyclic, phase_service)
+            if fired:
+                transitioned += 1
+        except Exception as e:
+            errors += 1
+            logger.error("auto_transition_error", plant_key=plant.key, error=loggable_error(e))
+    return transitioned, errors
+
+
 @celery_app.task(name="check_auto_transitions")
 def check_auto_transitions() -> dict:
     """Check active plants for automatic phase transitions.
@@ -175,82 +378,15 @@ def check_auto_transitions() -> dict:
     checked = 0
 
     # REQ-056 §5.2 / MT-032 (#2128): only the plants of active tenants that are not removed, selected in
-    # AQL and read one page at a time. The per-plant reads below are still N+1 (#2128).
+    # AQL and read one page at a time; each page is evaluated with batched reads (no query per plant).
     active_tenants = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE})
-    for plant in plant_repo.iter_for_tenants(active_tenants, filters=[("removed_on", "==", None)]):
-        checked += 1
-        if not plant.current_phase_key:
-            continue
-
-        try:
-            current_phase_info = phase_service.get_current_phase(plant.key or "")
-            days_in_phase = current_phase_info["days_in_phase"]
-            lifecycle = lifecycle_repo.get_lifecycle_by_species(plant.species_key)
-
-            # WP-2: PhaseSequence-driven plants (Weg B) advance along their sequence,
-            # including the terminal→restart cycle loop. This is the cyclic path after
-            # the #565 migration; the legacy GrowthPhase rule loop below is unchanged.
-            if current_phase_info.get("source") == "phase_sequence":
-                if _advance_sequence_plant(plant, current_phase_info, days_in_phase, lifecycle, phase_service, cyclic):
-                    transitioned += 1
-                continue
-
-            rules = phase_service.get_transition_rules(plant.current_phase_key)
-            for rule in rules:
-                fire = False
-                reason = ""
-
-                if (
-                    rule.trigger_type == TransitionTriggerType.TIME_BASED
-                    and rule.auto_transition_after_days
-                    and days_in_phase >= rule.auto_transition_after_days
-                ):
-                    fire, reason = True, "auto_time_based"
-                elif rule.trigger_type == TransitionTriggerType.PHOTOPERIOD_BASED and lifecycle:
-                    day_length = _day_length_for_plant(plant, site_repo)
-                    if day_length is not None and evaluator.photoperiod_should_fire(
-                        lifecycle.photoperiod_type,
-                        lifecycle.critical_day_length_hours,
-                        day_length,
-                    ):
-                        fire, reason = True, "auto_photoperiod"
-                elif (
-                    rule.trigger_type == TransitionTriggerType.VERNALIZATION_BASED
-                    and lifecycle
-                    and evaluator.vernalization_should_fire(
-                        lifecycle.vernalization_min_days,
-                        plant.chill_days_accumulated,
-                    )
-                ):
-                    fire, reason = True, "auto_vernalization"
-
-                # E4: an indeterminate species stays in its stable productive phase —
-                # suppress any onward auto-advance even though the trigger would fire.
-                current_phase_name = current_phase_info.get("phase", "")
-                if fire and lifecycle and cyclic.stays_in_productive_phase(lifecycle, current_phase_name):
-                    logger.info(
-                        "auto_transition_suppressed_indeterminate",
-                        plant_key=plant.key,
-                        current_phase=current_phase_name,
-                    )
-                    continue
-
-                if fire:
-                    # AUTO trigger: the D10 clonal-pup spawn only reacts to
-                    # automatic transitions (a manual API correction must not).
-                    phase_service.transition_phase(
-                        plant.key or "", rule.to_phase_key, reason=reason, trigger=TransitionTrigger.AUTO
-                    )
-                    transitioned += 1
-                    logger.info(
-                        "auto_transition",
-                        plant_key=plant.key,
-                        to_phase=rule.to_phase_key,
-                        trigger=rule.trigger_type.value,
-                    )
-                    break
-        except Exception as e:
-            errors += 1
-            logger.error("auto_transition_error", plant_key=plant.key, error=loggable_error(e))
+    walk = plant_repo.iter_for_tenants(active_tenants, filters=[("removed_on", "==", None)], page_size=_PAGE_SIZE)
+    for page in batched(walk, _PAGE_SIZE, strict=False):
+        checked += len(page)
+        page_transitioned, page_errors = _check_page(
+            list(page), phase_service, lifecycle_repo, site_repo, evaluator, cyclic
+        )
+        transitioned += page_transitioned
+        errors += page_errors
 
     return {"transitioned": transitioned, "errors": errors, "checked": checked}

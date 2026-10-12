@@ -66,6 +66,11 @@ def _serve_plants(deps, plants) -> TenantRows:
     return rows
 
 
+def _positions(info: dict):
+    """``get_current_phases`` answering *info* for every plant of the page it is handed (MT-032, #2128)."""
+    return lambda plants: {plant.key: dict(info) for plant in plants}
+
+
 def _plant(**overrides):
     data = {
         "key": "plant_1",
@@ -119,7 +124,7 @@ def _serve_own_site(deps) -> None:
 
 def _photoperiod_phase_service(days_in_phase: int = 5):
     phase_service = MagicMock()
-    phase_service.get_current_phase.return_value = {"days_in_phase": days_in_phase}
+    phase_service.get_current_phases.side_effect = _positions({"days_in_phase": days_in_phase})
     phase_service.get_transition_rules.return_value = [
         SimpleNamespace(
             trigger_type=TransitionTriggerType.PHOTOPERIOD_BASED,
@@ -158,7 +163,7 @@ class TestCheckAutoTransitions:
         _serve_plants(deps, [_plant()])
 
         phase_service = MagicMock()
-        phase_service.get_current_phase.return_value = {"days_in_phase": 30}
+        phase_service.get_current_phases.side_effect = _positions({"days_in_phase": 30})
         phase_service.get_transition_rules.return_value = [
             SimpleNamespace(
                 trigger_type=TransitionTriggerType.TIME_BASED,
@@ -180,7 +185,7 @@ class TestCheckAutoTransitions:
         _serve_plants(deps, [_plant()])
 
         phase_service = MagicMock()
-        phase_service.get_current_phase.return_value = {"days_in_phase": 10}
+        phase_service.get_current_phases.side_effect = _positions({"days_in_phase": 10})
         phase_service.get_transition_rules.return_value = [
             SimpleNamespace(
                 trigger_type=TransitionTriggerType.TIME_BASED,
@@ -200,7 +205,7 @@ class TestCheckAutoTransitions:
         _serve_plants(deps, [_plant()])
 
         phase_service = MagicMock()
-        phase_service.get_current_phase.side_effect = RuntimeError("lookup failed")
+        phase_service.get_current_phases.side_effect = RuntimeError("lookup failed")
         deps.get_phase_service.return_value = phase_service
 
         result = module.check_auto_transitions()
@@ -221,7 +226,7 @@ class TestCheckAutoTransitions:
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = lifecycle
 
         phase_service = MagicMock()
-        phase_service.get_current_phase.return_value = {"days_in_phase": 5}
+        phase_service.get_current_phases.side_effect = _positions({"days_in_phase": 5})
         phase_service.get_transition_rules.return_value = [
             SimpleNamespace(
                 trigger_type=TransitionTriggerType.PHOTOPERIOD_BASED,
@@ -249,7 +254,7 @@ class TestCheckAutoTransitions:
     def _productive_phase_service(self) -> MagicMock:
         phase_service = MagicMock()
         # a would-fire time trigger out of the productive phase (fruiting -> ripening)
-        phase_service.get_current_phase.return_value = {"days_in_phase": 30, "phase": "fruiting"}
+        phase_service.get_current_phases.side_effect = _positions({"days_in_phase": 30, "phase": "fruiting"})
         phase_service.get_transition_rules.return_value = [
             SimpleNamespace(
                 trigger_type=TransitionTriggerType.TIME_BASED,
@@ -303,7 +308,7 @@ class TestCheckAutoTransitions:
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = lifecycle
 
         phase_service = MagicMock()
-        phase_service.get_current_phase.return_value = {"days_in_phase": 5}
+        phase_service.get_current_phases.side_effect = _positions({"days_in_phase": 5})
         phase_service.get_transition_rules.return_value = [
             SimpleNamespace(
                 trigger_type=TransitionTriggerType.VERNALIZATION_BASED,
@@ -427,13 +432,15 @@ class TestCheckAutoTransitions:
 
     def _seq_phase_service(self, *, is_terminal: bool, is_restart: bool, cycle_number: int = 1, days: int = 200):
         phase_service = MagicMock()
-        phase_service.get_current_phase.return_value = {
-            "days_in_phase": days,
-            "source": "phase_sequence",
-            "phase": "dormancy" if is_terminal else "sprouting",
-            "cycle_number": cycle_number,
-            "is_terminal": is_terminal,
-        }
+        phase_service.get_current_phases.side_effect = _positions(
+            {
+                "days_in_phase": days,
+                "source": "phase_sequence",
+                "phase": "dormancy" if is_terminal else "sprouting",
+                "cycle_number": cycle_number,
+                "is_terminal": is_terminal,
+            }
+        )
         phase_service.resolve_sequence_auto_target.return_value = SequenceAutoTarget(
             target_phase_key="e-target",
             duration_days=120 if is_terminal else 21,
@@ -558,3 +565,42 @@ class TestCheckAutoTransitions:
 
         assert result["transitioned"] == 0
         phase_service.transition_phase.assert_not_called()
+
+    # ── MT-032 (#2128): batched reads keep the per-plant error accounting ──
+
+    def test_a_failed_page_read_counts_every_plant_it_would_have_evaluated(self, _task_module):
+        """The batched position read failing is one error per evaluable plant, as the per-plant read was."""
+        module, deps = _task_module
+        _serve_plants(deps, [_plant(key="p1"), _plant(key="p2"), _plant(key="p3", current_phase_key=None)])
+        phase_service = MagicMock()
+        phase_service.get_current_phases.side_effect = RuntimeError("store unreachable")
+        deps.get_phase_service.return_value = phase_service
+
+        result = module.check_auto_transitions()
+
+        assert result == {"transitioned": 0, "errors": 2, "checked": 3}
+        phase_service.transition_phase.assert_not_called()
+
+    def test_a_failed_shared_read_is_not_remembered_for_the_next_plant(self, _task_module):
+        """A lifecycle read that raises for one plant is asked again for the next one of the same species."""
+        module, deps = _task_module
+        _serve_plants(deps, [_plant(key="p1"), _plant(key="p2")])
+        deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.side_effect = [RuntimeError("blip"), None]
+        phase_service = MagicMock()
+        phase_service.get_current_phases.side_effect = _positions({"days_in_phase": 30})
+        phase_service.get_transition_rules.return_value = [
+            SimpleNamespace(
+                trigger_type=TransitionTriggerType.TIME_BASED,
+                auto_transition_after_days=28,
+                to_phase_key="phase_flower",
+            )
+        ]
+        deps.get_phase_service.return_value = phase_service
+
+        result = module.check_auto_transitions()
+
+        assert result == {"transitioned": 1, "errors": 1, "checked": 2}
+        phase_service.transition_phase.assert_called_once_with(
+            "p2", "phase_flower", reason="auto_time_based", trigger=TransitionTrigger.AUTO
+        )
+        assert deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.call_count == 2
