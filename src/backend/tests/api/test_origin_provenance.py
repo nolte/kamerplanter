@@ -241,7 +241,9 @@ def test_update_species_preserves_origin():
     # The edit form submits a species with the default 'system' origin; the
     # enriched marker must survive the full-replace update.
     incoming = Species(_key="sp_1", scientific_name="Rosa canina", origin=DataOrigin.SYSTEM)
-    updated = service.update_species("sp_1", incoming)
+    updated = service.update_species(
+        "sp_1", incoming, tenant_key="", caller_role=TenantRole.VIEWER, is_platform_admin=True
+    )
 
     assert updated.origin is DataOrigin.ENRICHMENT
 
@@ -258,7 +260,9 @@ def test_update_species_preserves_tenant_key():
     service = SpeciesService(repo, MagicMock())
 
     incoming = Species(_key="sp_1", scientific_name="Rosa canina")  # default tenant_key ""
-    updated = service.update_species("sp_1", incoming)
+    updated = service.update_species(
+        "sp_1", incoming, tenant_key="tenant_42", caller_role=TenantRole.LEAD, is_platform_admin=False
+    )
 
     assert updated.tenant_key == "tenant_42"
 
@@ -274,7 +278,9 @@ def test_update_cultivar_preserves_origin():
     service = SpeciesService(repo, MagicMock())
 
     incoming = Cultivar(_key="c1", name="Nina", species_key="sp_1", origin=DataOrigin.SYSTEM)
-    updated = service.update_cultivar("c1", incoming)
+    updated = service.update_cultivar(
+        "c1", incoming, tenant_key="", caller_role=TenantRole.VIEWER, is_platform_admin=True
+    )
 
     assert updated.origin is DataOrigin.TENANT
 
@@ -295,6 +301,8 @@ def test_update_cultivar_preserves_tenant_key():
     service = SpeciesService(repo, MagicMock())
 
     incoming = Cultivar(_key="c1", name="Nina", species_key="sp_1")  # default tenant_key ""
-    updated = service.update_cultivar("c1", incoming)
+    updated = service.update_cultivar(
+        "c1", incoming, tenant_key="tenant_42", caller_role=TenantRole.LEAD, is_platform_admin=False
+    )
 
     assert updated.tenant_key == "tenant_42"

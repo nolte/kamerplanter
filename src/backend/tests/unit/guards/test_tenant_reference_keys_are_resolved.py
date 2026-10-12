@@ -75,14 +75,6 @@ _PATH_KEYS_VERIFIED_ELSEWHERE: dict[tuple[str, str, str], str] = {
         "unused; the cultivar is resolved and authorised under the tenant"
     ),
     ("POST", "/api/v1/plant-instances/{plant_key}/phases/transition", "plant_key"): _REQUIRE_OWNED_PLANT,
-    ("PATCH", "/api/v1/plant-instances/{plant_key}/phases/history/{history_key}", "plant_key"): _REQUIRE_OWNED_PLANT,
-    ("PATCH", "/api/v1/plant-instances/{plant_key}/phases/history/{history_key}", "history_key"): (
-        "resolved within the owned plant's history (phase_service)"
-    ),
-    ("DELETE", "/api/v1/plant-instances/{plant_key}/phases/history/{history_key}", "plant_key"): _REQUIRE_OWNED_PLANT,
-    ("DELETE", "/api/v1/plant-instances/{plant_key}/phases/history/{history_key}", "history_key"): (
-        "resolved within the owned plant's history (phase_service)"
-    ),
     ("POST", "/api/v1/t/{tenant_slug}/tasks/workflows/{wf_key}/phases", "wf_key"): (
         "set as the new phase's workflow_template_key; TaskService.create_workflow_phase resolves that workflow "
         "under the tenant and refuses a system or shared one (#2107)"

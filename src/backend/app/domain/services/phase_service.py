@@ -5,6 +5,7 @@ import structlog
 
 from app.common.enums import TransitionTrigger
 from app.common.exceptions import NotFoundError
+from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PhaseKey, PlantID
 from app.domain.engines.phase_key_resolver import PhaseKeyResolver
 from app.domain.engines.phase_role_map import core_phase
@@ -523,8 +524,21 @@ class PhaseService:
     def get_phase_history(self, plant_key: PlantID) -> list[PhaseHistory]:
         return self._repo.get_phase_history(plant_key)
 
-    def delete_phase_history(self, plant_key: PlantID, history_key: str) -> None:
+    def _owned_plant(self, plant_key: PlantID, *, tenant_key: str) -> PlantInstance:
+        """The plant ``plant_key`` of ``tenant_key``, or 404 (#2107).
+
+        The phase-history writes used to trust the router's ``require_owned_plant``
+        and load the plant unscoped. The router gate stays — it also covers the
+        reads and the transition on that router — but the write no longer depends on
+        it: a foreign plant, an absent one and an empty caller tenant all answer the
+        same 404 here.
+        """
         plant = self._plant_repo.get_or_raise(plant_key)
+        verify_tenant_ownership(plant, tenant_key, "PlantInstance")
+        return plant
+
+    def delete_phase_history(self, plant_key: PlantID, history_key: str, *, tenant_key: str) -> None:
+        plant = self._owned_plant(plant_key, tenant_key=tenant_key)
 
         all_history = self._repo.get_phase_history(plant_key)
         history = None
@@ -561,8 +575,10 @@ class PhaseService:
         history_key: str,
         entered_at: datetime | None = None,
         exited_at: datetime | None = None,
+        *,
+        tenant_key: str,
     ) -> PhaseHistory:
-        plant = self._plant_repo.get_or_raise(plant_key)
+        plant = self._owned_plant(plant_key, tenant_key=tenant_key)
 
         # Find the history entry
         all_history = self._repo.get_phase_history(plant_key)

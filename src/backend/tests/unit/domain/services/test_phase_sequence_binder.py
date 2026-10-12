@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.common.enums import CycleType, GrowthHabit
+from app.common.enums import CycleType, GrowthHabit, TenantRole
 from app.domain.models.lifecycle import LifecycleConfig
 from app.domain.models.phase_sequence import PhaseSequence
 from app.domain.models.species import Species
@@ -145,7 +145,9 @@ class TestSpeciesServiceWiring:
         binder = MagicMock()
 
         service = SpeciesService(species_repo, MagicMock(), binder)
-        result = service.create_species(_species())
+        result = service.create_species(
+            _species(), tenant_key="", caller_role=TenantRole.VIEWER, is_platform_admin=True
+        )
 
         assert result is created
         binder.bind_default.assert_called_once_with(created)
@@ -157,7 +159,12 @@ class TestSpeciesServiceWiring:
         species_repo = MagicMock()
         species_repo.upsert_by_normalized_scientific_name.return_value = _species()
 
-        assert SpeciesService(species_repo, MagicMock()).create_species(_species()) is not None
+        assert (
+            SpeciesService(species_repo, MagicMock()).create_species(
+                _species(), tenant_key="", caller_role=TenantRole.VIEWER, is_platform_admin=True
+            )
+            is not None
+        )
 
 
 class TestImportServiceWiring:

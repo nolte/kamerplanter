@@ -9,8 +9,8 @@ job: npm-audit-dev
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-05'
-measured_at_commit: b84592b0423e8106218d048d4b3fd5b83cf83226
+measured_on: '2026-10-12'
+measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
 replay_seconds: 3
 job_spec_sha256: a0314c10464a1a45bce8e82764ff54aebcac5eb5a78302de38246968de9cab07
 invocations:

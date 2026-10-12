@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-10-05'
-measured_at_commit: b84592b0423e8106218d048d4b3fd5b83cf83226
-replay_seconds: 5
+measured_on: '2026-10-12'
+measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
+replay_seconds: 6
 job_spec_sha256: 9f6de1a291f1a22579582e4eca297ec6c784ebe3c0a6b235a575f6ae2863693f
 invocations:
 - command: npm run deadcode
@@ -20,7 +20,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 796
+  untracked_reads_dropped: 812
 subprocesses:
 - knip
 - node
@@ -40,6 +40,7 @@ reads:
 - src/frontend/public/
 - src/frontend/public/icons/
 - src/frontend/public/runtime-config.js
+- src/frontend/public/sw.js
 - src/frontend/scripts/
 - src/frontend/scripts/check-bundle-budget.mjs
 - src/frontend/src/
@@ -53,6 +54,7 @@ reads:
 - src/frontend/src/api/endpoints/adminHaEntityGrants.ts
 - src/frontend/src/api/endpoints/adminOidcProviders.ts
 - src/frontend/src/api/endpoints/adminPestRecognition.ts
+- src/frontend/src/api/endpoints/adminPlans.ts
 - src/frontend/src/api/endpoints/adminPlatform.ts
 - src/frontend/src/api/endpoints/adminReferenceImages.ts
 - src/frontend/src/api/endpoints/adminSettings.ts
@@ -103,6 +105,7 @@ reads:
 - src/frontend/src/api/endpoints/starterKits.ts
 - src/frontend/src/api/endpoints/substrates.ts
 - src/frontend/src/api/endpoints/successionPlans.ts
+- src/frontend/src/api/endpoints/system.ts
 - src/frontend/src/api/endpoints/tanks.ts
 - src/frontend/src/api/endpoints/tasks.ts
 - src/frontend/src/api/endpoints/tenants.ts
@@ -139,11 +142,14 @@ reads:
 - src/frontend/src/components/admin/OidcTestResultBody.tsx
 - src/frontend/src/components/admin/PestContributionsAdminCard.tsx
 - src/frontend/src/components/admin/PestRecognitionAdminCard.tsx
+- src/frontend/src/components/admin/PlanFormDialog.tsx
 - src/frontend/src/components/admin/RecognitionStatusCard.tsx
+- src/frontend/src/components/admin/TenantPlanCard.tsx
 - src/frontend/src/components/ai/
 - src/frontend/src/components/ai/AIResponse.tsx
 - src/frontend/src/components/ai/AiChatDrawer.tsx
 - src/frontend/src/components/ai/DailyTipCard.tsx
+- src/frontend/src/components/ai/KnowledgeQuestionConsentGate.tsx
 - src/frontend/src/components/ai/TipCardsPanel.tsx
 - src/frontend/src/components/ai/WhyButton.tsx
 - src/frontend/src/components/ai/WhyDrawer.tsx
@@ -254,6 +260,8 @@ reads:
 - src/frontend/src/components/print/
 - src/frontend/src/components/print/PlantLabelDialog.tsx
 - src/frontend/src/components/privacy/
+- src/frontend/src/components/privacy/AppConsentBanner.tsx
+- src/frontend/src/components/privacy/BrowserConsentSettings.tsx
 - src/frontend/src/components/privacy/ConsentBanner.tsx
 - src/frontend/src/components/privacy/ErasurePreviewNotice.tsx
 - src/frontend/src/components/sensors/
@@ -261,7 +269,11 @@ reads:
 - src/frontend/src/components/tanks/
 - src/frontend/src/components/tanks/TankStateChart.tsx
 - src/frontend/src/components/tenants/
+- src/frontend/src/components/tenants/EntitlementUsageList.tsx
+- src/frontend/src/components/tenants/LightModeTakeoverDialog.tsx
+- src/frontend/src/components/tenants/ScheduledTenantDeletionsCard.tsx
 - src/frontend/src/components/tenants/TenantDeleteDialog.tsx
+- src/frontend/src/components/tenants/TenantQuotaCard.tsx
 - src/frontend/src/components/tenants/TenantStatusChip.tsx
 - src/frontend/src/components/water/
 - src/frontend/src/components/water/WaterSourceSection.tsx
@@ -287,6 +299,7 @@ reads:
 - src/frontend/src/hooks/useCatalogFavorites.ts
 - src/frontend/src/hooks/useCatalogue.ts
 - src/frontend/src/hooks/useColumnFilters.ts
+- src/frontend/src/hooks/useConsent.ts
 - src/frontend/src/hooks/useContentRowFloors.ts
 - src/frontend/src/hooks/useCountdownTimer.ts
 - src/frontend/src/hooks/useDashboardLayout.ts
@@ -305,6 +318,7 @@ reads:
 - src/frontend/src/hooks/useNotification.ts
 - src/frontend/src/hooks/useOriginProtection.ts
 - src/frontend/src/hooks/usePagination.ts
+- src/frontend/src/hooks/usePlanCatalogue.ts
 - src/frontend/src/hooks/usePlantInstanceOptions.ts
 - src/frontend/src/hooks/usePlatformAdmin.ts
 - src/frontend/src/hooks/usePropagationEvents.ts
@@ -313,6 +327,7 @@ reads:
 - src/frontend/src/hooks/useResetShowAllFieldsOnClose.ts
 - src/frontend/src/hooks/useRetryFocus.ts
 - src/frontend/src/hooks/useRunNutrientData.ts
+- src/frontend/src/hooks/useServerConsentGrant.ts
 - src/frontend/src/hooks/useServerFavorites.ts
 - src/frontend/src/hooks/useSignedInUserKey.ts
 - src/frontend/src/hooks/useSiteClimateNormals.ts
@@ -326,6 +341,7 @@ reads:
 - src/frontend/src/hooks/useSurvivalStats.ts
 - src/frontend/src/hooks/useTabUrl.ts
 - src/frontend/src/hooks/useTableState.ts
+- src/frontend/src/hooks/useTenantEntitlements.ts
 - src/frontend/src/hooks/useTenantPermissions.ts
 - src/frontend/src/hooks/useWateringVolumeSuggestion.ts
 - src/frontend/src/hooks/useWebcamCapture.ts
@@ -363,6 +379,7 @@ reads:
 - src/frontend/src/lib/serviceWorkerRegistration.ts
 - src/frontend/src/main.tsx
 - src/frontend/src/observability/
+- src/frontend/src/observability/consent.ts
 - src/frontend/src/observability/errorTracking.ts
 - src/frontend/src/pages/
 - src/frontend/src/pages/DashboardPage.tsx
@@ -373,6 +390,7 @@ reads:
 - src/frontend/src/pages/admin/AdminEditTenantPage.tsx
 - src/frontend/src/pages/admin/AdminEditUserPage.tsx
 - src/frontend/src/pages/admin/AdminOidcProvidersPage.tsx
+- src/frontend/src/pages/admin/AdminPlansPage.tsx
 - src/frontend/src/pages/aquaponik/
 - src/frontend/src/pages/aquaponik/AquaponicSystemDialog.tsx
 - src/frontend/src/pages/aquaponik/AquaponikPage.tsx
@@ -479,6 +497,7 @@ reads:
 - src/frontend/src/pages/inventree/EquipmentDialog.tsx
 - src/frontend/src/pages/inventree/InventreePage.tsx
 - src/frontend/src/pages/kalender/
+- src/frontend/src/pages/kalender/CalendarFeedUrlDialog.tsx
 - src/frontend/src/pages/kalender/CalendarPage.tsx
 - src/frontend/src/pages/kalender/PhaseTimelineView.tsx
 - src/frontend/src/pages/kalender/PlantFilterTree.tsx
@@ -660,6 +679,7 @@ reads:
 - src/frontend/src/store/createListSlice.ts
 - src/frontend/src/store/hooks.ts
 - src/frontend/src/store/rootReducer.ts
+- src/frontend/src/store/sessionEpochMiddleware.ts
 - src/frontend/src/store/sessionListener.ts
 - src/frontend/src/store/slices/
 - src/frontend/src/store/slices/activitiesSlice.ts
@@ -702,6 +722,7 @@ reads:
 - src/frontend/src/test/a11y/
 - src/frontend/src/test/a11y/accessibility.test.tsx
 - src/frontend/src/test/a11y/adminOidcProviders.a11y.test.tsx
+- src/frontend/src/test/a11y/adminPlans.a11y.test.tsx
 - src/frontend/src/test/a11y/dialogs.a11y.test.tsx
 - src/frontend/src/test/a11y/emailChangePages.a11y.test.tsx
 - src/frontend/src/test/a11y/expectNoA11yViolations.test.tsx
@@ -723,11 +744,13 @@ reads:
 - src/frontend/src/test/api/endpoints/activities.test.ts
 - src/frontend/src/test/api/endpoints/activityPlans.test.ts
 - src/frontend/src/test/api/endpoints/adminOidcProviders.test.ts
+- src/frontend/src/test/api/endpoints/adminPlans.test.ts
 - src/frontend/src/test/api/endpoints/adminPlatform.test.ts
 - src/frontend/src/test/api/endpoints/adminSettings.test.ts
 - src/frontend/src/test/api/endpoints/adminWeatherProviders.test.ts
 - src/frontend/src/test/api/endpoints/auth.test.ts
 - src/frontend/src/test/api/endpoints/botanicalFamilies.test.ts
+- src/frontend/src/test/api/endpoints/boundedListPaging.test.ts
 - src/frontend/src/test/api/endpoints/calculations.test.ts
 - src/frontend/src/test/api/endpoints/calendar.test.ts
 - src/frontend/src/test/api/endpoints/careReminders.test.ts
@@ -773,6 +796,8 @@ reads:
 - src/frontend/src/test/api/liveStateFixture.ts
 - src/frontend/src/test/api/paginate.test.ts
 - src/frontend/src/test/api/propagation.test.ts
+- src/frontend/src/test/auth/
+- src/frontend/src/test/auth/pendingInvitation.test.tsx
 - src/frontend/src/test/checkBundleBudget.test.ts
 - src/frontend/src/test/components/
 - src/frontend/src/test/components/AuthImage.test.tsx
@@ -815,6 +840,7 @@ reads:
 - src/frontend/src/test/components/RecognitionStatusCard.test.tsx
 - src/frontend/src/test/components/ReferenceImageCuration.test.tsx
 - src/frontend/src/test/components/ReferenceImageGallery.test.tsx
+- src/frontend/src/test/components/ScheduledTenantDeletionsCard.test.tsx
 - src/frontend/src/test/components/SeasonOverviewPanel.test.tsx
 - src/frontend/src/test/components/SensorHistoryChart.test.tsx
 - src/frontend/src/test/components/ShowAllFieldsToggle.test.tsx
@@ -835,6 +861,7 @@ reads:
 - src/frontend/src/test/components/admin/HaEntityGrantsCard.test.tsx
 - src/frontend/src/test/components/admin/PestContributionsAdminCard.test.tsx
 - src/frontend/src/test/components/admin/PestRecognitionAdminCard.test.tsx
+- src/frontend/src/test/components/admin/TenantPlanCard.test.tsx
 - src/frontend/src/test/components/ai/
 - src/frontend/src/test/components/ai/AIResponse.test.tsx
 - src/frontend/src/test/components/ai/DailyTipCard.test.tsx
@@ -873,9 +900,13 @@ reads:
 - src/frontend/src/test/components/pests/PestImageGallery.test.tsx
 - src/frontend/src/test/components/pests/PestScanButton.test.tsx
 - src/frontend/src/test/components/privacy/
+- src/frontend/src/test/components/privacy/AppConsentBanner.test.tsx
 - src/frontend/src/test/components/privacy/ConsentBanner.test.tsx
 - src/frontend/src/test/components/tanks/
 - src/frontend/src/test/components/tanks/TankStateChart.test.tsx
+- src/frontend/src/test/components/tenants/
+- src/frontend/src/test/components/tenants/LightModeTakeoverDialog.test.tsx
+- src/frontend/src/test/components/tenants/TenantQuotaCard.test.tsx
 - src/frontend/src/test/config/
 - src/frontend/src/test/config/moduleCatalog.test.ts
 - src/frontend/src/test/contracts/
@@ -888,6 +919,7 @@ reads:
 - src/frontend/src/test/guards/effectDepsAreStablePerRender.test.ts
 - src/frontend/src/test/guards/queueScopeIsAskedOfTheServer.test.ts
 - src/frontend/src/test/guards/stepUpActionsHaveASurface.test.ts
+- src/frontend/src/test/guards/trackerSdkBehindConsent.test.ts
 - src/frontend/src/test/helpers.tsx
 - src/frontend/src/test/hooks/
 - src/frontend/src/test/hooks/catalogueReducersMounted.test.ts
@@ -906,9 +938,11 @@ reads:
 - src/frontend/src/test/hooks/useNotification.test.tsx
 - src/frontend/src/test/hooks/useOriginProtection.test.tsx
 - src/frontend/src/test/hooks/usePagination.test.ts
+- src/frontend/src/test/hooks/usePlanCatalogue.test.tsx
 - src/frontend/src/test/hooks/useServerFavorites.test.ts
 - src/frontend/src/test/hooks/useSowingFavorites.test.tsx
 - src/frontend/src/test/hooks/useTableState.test.ts
+- src/frontend/src/test/hooks/useTenantEntitlements.test.tsx
 - src/frontend/src/test/hooks/useTenantPermissions.test.tsx
 - src/frontend/src/test/hooks/useWebcamCapture.test.ts
 - src/frontend/src/test/i18n/
@@ -918,6 +952,7 @@ reads:
 - src/frontend/src/test/i18n/notificationChannels.test.ts
 - src/frontend/src/test/i18n/privacyInformalAddress.test.ts
 - src/frontend/src/test/i18n/successionPlans.test.ts
+- src/frontend/src/test/i18n/tenantInvitations.test.ts
 - src/frontend/src/test/i18nTestResources.ts
 - src/frontend/src/test/kiosk/
 - src/frontend/src/test/kiosk/KioskLayout.test.tsx
@@ -939,7 +974,9 @@ reads:
 - src/frontend/src/test/mocks/handlers.ts
 - src/frontend/src/test/mocks/server.ts
 - src/frontend/src/test/observability/
+- src/frontend/src/test/observability/consent.test.ts
 - src/frontend/src/test/observability/errorTracking.test.ts
+- src/frontend/src/test/observability/errorTrackingChunkLoad.test.ts
 - src/frontend/src/test/pages/
 - src/frontend/src/test/pages/AccountDeletionStepUp.test.tsx
 - src/frontend/src/test/pages/AccountSettingsApiKeysLightMode.test.tsx
@@ -948,6 +985,7 @@ reads:
 - src/frontend/src/test/pages/AccountSettingsPageFlows.test.tsx
 - src/frontend/src/test/pages/AccountSettingsPasswordStepUp.test.tsx
 - src/frontend/src/test/pages/AccountSettingsPlantnet.test.tsx
+- src/frontend/src/test/pages/AccountSettingsPlatformTabGating.test.tsx
 - src/frontend/src/test/pages/AccountSettingsSessions.test.tsx
 - src/frontend/src/test/pages/ActivityDetailPage.test.tsx
 - src/frontend/src/test/pages/ActivityListPageGating.test.tsx
@@ -965,6 +1003,7 @@ reads:
 - src/frontend/src/test/pages/AdminEditUserRoleChangeStepUp.test.tsx
 - src/frontend/src/test/pages/AdminEditUserTrustRaiseStepUp.test.tsx
 - src/frontend/src/test/pages/AdminOidcProvidersPage.test.tsx
+- src/frontend/src/test/pages/AdminPlansPage.test.tsx
 - src/frontend/src/test/pages/AquaponikPage.test.tsx
 - src/frontend/src/test/pages/BatchDetailPage.test.tsx
 - src/frontend/src/test/pages/BotanicalFamilyCreateDialog.test.tsx
@@ -1019,6 +1058,7 @@ reads:
 - src/frontend/src/test/pages/InvitationAcceptPage.test.tsx
 - src/frontend/src/test/pages/IpmCatalogueCurationGating.test.tsx
 - src/frontend/src/test/pages/IpmCreateDialogValidation.test.tsx
+- src/frontend/src/test/pages/KIAssistentPage.test.tsx
 - src/frontend/src/test/pages/LifecycleConfigSectionHelpers.test.tsx
 - src/frontend/src/test/pages/LifecycleConfigSectionPhaseA.test.tsx
 - src/frontend/src/test/pages/LocationCreateDialog.test.tsx
@@ -1118,7 +1158,11 @@ reads:
 - src/frontend/src/test/pages/TaskQueuePage.test.tsx
 - src/frontend/src/test/pages/TaskQueuePageCompactCard.test.tsx
 - src/frontend/src/test/pages/TaskQueuePlantScope.test.tsx
+- src/frontend/src/test/pages/TenantCreateOrganizationLimit.test.tsx
+- src/frontend/src/test/pages/TenantSettingsInvitationDelivery.test.tsx
+- src/frontend/src/test/pages/TenantSettingsInvitationsMobile.test.tsx
 - src/frontend/src/test/pages/TenantSettingsMemberRemovalStepUp.test.tsx
+- src/frontend/src/test/pages/TenantSettingsQuotaTab.test.tsx
 - src/frontend/src/test/pages/TerminationDialog.test.tsx
 - src/frontend/src/test/pages/ToxicityBadge.test.tsx
 - src/frontend/src/test/pages/TreatmentDetailPage.test.tsx
@@ -1193,6 +1237,7 @@ reads:
 - src/frontend/src/test/theme/kioskTheme.test.tsx
 - src/frontend/src/test/theme/paletteContrast.test.ts
 - src/frontend/src/test/utils/
+- src/frontend/src/test/utils/entitlements.test.ts
 - src/frontend/src/test/utils/formatting.test.ts
 - src/frontend/src/test/utils/idGenerator.test.ts
 - src/frontend/src/test/utils/imageNormalization.test.ts
@@ -1218,10 +1263,12 @@ reads:
 - src/frontend/src/utils/
 - src/frontend/src/utils/browserNavigation.ts
 - src/frontend/src/utils/careConfirmActions.ts
+- src/frontend/src/utils/entitlements.ts
 - src/frontend/src/utils/formatting.ts
 - src/frontend/src/utils/idGenerator.ts
 - src/frontend/src/utils/imageNormalization.ts
 - src/frontend/src/utils/oidcProviders.ts
+- src/frontend/src/utils/pendingInvitation.ts
 - src/frontend/src/utils/phaseSequenceMapper.ts
 - src/frontend/src/utils/plantDisplay.ts
 - src/frontend/src/utils/stepUp.ts

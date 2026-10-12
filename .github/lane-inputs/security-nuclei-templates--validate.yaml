@@ -9,9 +9,9 @@ job: validate
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-05'
-measured_at_commit: b84592b0423e8106218d048d4b3fd5b83cf83226
-replay_seconds: 415
+measured_on: '2026-10-12'
+measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
+replay_seconds: 2
 job_spec_sha256: b0d88bf6512a460fe8104ec7a94db13c49dec70db34197e591e1f5c70bae25a8
 invocations:
 - command: yq e .nuclei_templates_commit .github/renovate-pins.yaml

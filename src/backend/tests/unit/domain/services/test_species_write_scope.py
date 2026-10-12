@@ -153,11 +153,13 @@ def test_update_own_species_by_grower_proceeds():
     assert repo.updated == ["own"]
 
 
-def test_update_unscoped_none_keeps_internal_callers_working():
-    # The system-context update path (no tenant) applies no ownership/role gate.
+def test_an_update_without_a_tenant_does_not_run():
+    # #2107: the system-context default (no tenant → no gate) is gone; the only caller
+    # is the route, so an omitted tenant is a TypeError rather than an ungated write.
     repo = _FakeRepo(_catalogue())
-    _service(repo).update_species("foreign", _incoming())
-    assert repo.updated == ["foreign"]
+    with pytest.raises(TypeError):
+        _service(repo).update_species("foreign", _incoming())  # type: ignore[call-arg]
+    assert repo.updated == []
 
 
 # ── SEC-002: delete ownership + the stricter delete role boundary ────────────

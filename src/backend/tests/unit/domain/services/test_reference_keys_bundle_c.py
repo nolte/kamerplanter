@@ -16,6 +16,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError, ValidationError
 from app.domain.models.actuator import (
     ActionCommand,
@@ -437,6 +438,8 @@ def test_a_substrate_batch_update_cannot_repoint_to_a_foreign_substrate() -> Non
             "b1",
             SubstrateBatch(batch_id="B1", volume_liters=10, mixed_on=date(2026, 1, 1), substrate_key="sub_foreign"),
             tenant_key=OWN,
+            caller_role=TenantRole.LEAD,
+            is_platform_admin=False,
         )
 
     repo.update_batch.assert_not_called()

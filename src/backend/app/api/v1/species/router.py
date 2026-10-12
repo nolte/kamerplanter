@@ -174,8 +174,12 @@ def create_species(
     # newly created species to its owner so F-5's read predicate can keep it out of
     # foreign tenants while the global seed catalogue (tenant_key == "") stays
     # visible to all.
+    # The service re-stamps the owner from the ``tenant_key`` passed by name (#2107);
+    # it is the same resolved value, so the model and the service cannot disagree.
     species = Species(**body.model_dump(), origin=DataOrigin.TENANT, tenant_key=tenant_key)
-    created = service.create_species(species, caller_role=ctx.role, is_platform_admin=is_platform_admin)
+    created = service.create_species(
+        species, tenant_key=tenant_key, caller_role=ctx.role, is_platform_admin=is_platform_admin
+    )
     return _species_response(created, family_repo)
 
 

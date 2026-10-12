@@ -10,7 +10,7 @@ from app.api.v1.phases.schemas import (
     TransitionRequest,
 )
 from app.api.v1.plant_instances.schemas import PlantResponse
-from app.common.auth import get_current_user, require_active_tenant_role
+from app.common.auth import get_active_tenant_context, get_current_user, require_active_tenant_role
 from app.common.dependencies import get_phase_service, get_plant_instance_service
 from app.common.enums import TenantRole
 from app.common.openapi_responses import (
@@ -19,6 +19,7 @@ from app.common.openapi_responses import (
     UNAUTHORIZED_RESPONSE,
 )
 from app.common.plant_ownership import require_owned_plant
+from app.domain.models.tenant_context import TenantContext
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
 
@@ -94,12 +95,15 @@ def update_phase_history_dates(
     history_key: Annotated[str, Path(description="Document key of the phase-history entry.")],
     body: PhaseHistoryDateUpdate,
     service: PhaseService = Depends(get_phase_service),
+    ctx: TenantContext = Depends(get_active_tenant_context),
 ):
     """Adjust the entered/exited dates of a phase-history entry."""
     if body.entered_at is None and body.exited_at is None:
         raise HTTPException(status_code=422, detail="At least one of entered_at or exited_at must be provided")
     try:
-        h = service.update_phase_history_dates(plant_key, history_key, body.entered_at, body.exited_at)
+        h = service.update_phase_history_dates(
+            plant_key, history_key, body.entered_at, body.exited_at, tenant_key=ctx.tenant_key
+        )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     return to_response(h, PhaseHistoryResponse)
@@ -115,9 +119,10 @@ def delete_phase_history(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     history_key: Annotated[str, Path(description="Document key of the phase-history entry.")],
     service: PhaseService = Depends(get_phase_service),
+    ctx: TenantContext = Depends(get_active_tenant_context),
 ):
     """Delete a phase-history entry of a plant instance."""
     try:
-        service.delete_phase_history(plant_key, history_key)
+        service.delete_phase_history(plant_key, history_key, tenant_key=ctx.tenant_key)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
