@@ -49,6 +49,7 @@ _EXPECTED_MEMBERS = {
     "common/dependencies.py:_throttle_redis_client_for",
     "common/rate_limit.py:_build_primary",
     "data_access/external/redis_oauth_state.py:__init__",
+    "observability/queue_metrics.py:install_queue_length_collector",
 }
 
 

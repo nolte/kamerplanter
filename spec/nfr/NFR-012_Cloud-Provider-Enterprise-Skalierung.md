@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Kubernetes 1.28+, ArangoDB 3.11+, TimescaleDB 2.13+, PostgreSQL 18, Valkey 8.0+, Traefik, Prometheus, Grafana
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.3 (§10.3 Umsetzungsstand: Pläne und Organisationslimit gebaut; #2142); 1.2 (§10.3 Kontingente je Mandant aus REQ-056; #2143); 1.1 (§9.1/§9.2 Umsetzungsstand: nur das nächtliche ArangoDB-Backup ist gebaut; #2121)
+Version: 1.4 (§4.1/§10.2 Umsetzungsstand Worker-HPA nach Queue-Länge; #2128); 1.3 (§10.3 Umsetzungsstand: Pläne und Organisationslimit gebaut; #2142); 1.2 (§10.3 Kontingente je Mandant aus REQ-056; #2143); 1.1 (§9.1/§9.2 Umsetzungsstand: nur das nächtliche ArangoDB-Backup ist gebaut; #2121)
 Autor: Business Analyst - Agrotech
 Datum: 2026-03-31
 Tags: [cloud, enterprise, scaling, ha, dsgvo, backup, disaster-recovery, cost-estimation, sla]
@@ -21,6 +21,7 @@ Betroffene Module: [ALL]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.4 | 2026-10-13 | **#2128 (MT-032), #2127 (MT-031):** §4.1 und §10.2 tragen den Umsetzungsstand des Worker-HPA nach Queue-Länge: Opt-in im Chart über `celeryWorkers.queueAutoscaling` auf der External-Metrik `celery_queue_length` (Prometheus Adapter, Betreiberentscheidung 2026-10-12); Ziel je Pod statt fester Schwelle. |
 | 1.3 | 2026-10-11 | **#2142 (MT-049):** §10.3 trägt den Umsetzungsstand: Plan-Katalog (`plans`, Default `standard`), `Tenant.plan_key` (Migration `v0091`), `EntitlementService` als einzige Leserin der Kontingent-Settings und `TENANT_MAX_ORGANIZATIONS_PER_USER` sind gebaut; die Admin-Oberfläche für Pläne fehlt noch (REQ-056 AK-45). |
 | 1.2 | 2026-10-11 | **#2143 (MT-050):** Neuer §10.3 „Kontingente je Mandant“ — die Tabelle, auf die NFR-013 O-03 verwies und die es nicht gab. Kontingente hängen am **Plan** eines Mandanten (REQ-056 §7), nicht an der Skalierungsstufe; die Stufe bestimmt nur, wie viel Infrastruktur die Summe der Kontingente braucht. Der Default-Plan `standard` übernimmt die heutigen Instanzwerte. |
 | 1.1 | 2026-10-05 | **#2121 (MT-025):** §9.1/§9.2 tragen einen Umsetzungsstand. Gemessen: Der Chart liefert seit #2122 ein nächtliches `arangodump`-Backup nach S3 (Default aus, NFR-002 §8.0); Cluster-Replikation, WAL-Archivierung, pgvector-Snapshots, Cross-Region-Kopie und ein RPO von 1 h existieren nicht. Die Tabelle ist Zielbild für den Enterprise-Betrieb. |
@@ -157,6 +158,8 @@ Diese NFR definiert die **Mindestanforderungen an einen Cloud-Provider** und die
 | **Frontend (Nginx)** | 2–4 | 0.25 CPU / 256 MB | HPA: RPS |
 | **Embedding Service (ONNX)** | 1–3 | 2 CPU / 4 GB | HPA: Latenz P95 > 500ms |
 | **LLM Adapter** | 1–2 | 1 CPU / 2 GB | Optional GPU-Node |
+
+**Umsetzungsstand Celery Workers (#2128):** Der Chart bietet den Queue-Length-HPA als Opt-in (`celeryWorkers.queueAutoscaling`, Default aus): je Worker ein HPA auf der `External`-Metrik `celery_queue_length{queue}`, die das Backend exportiert und ein vom Betreiber installierter Prometheus Adapter bereitstellt (NFR-002 §4.1). Replica-Grenzen setzt die Installation; die Chart-Defaults sind 1–3 (`celery-worker`, `celery-worker-default`) und 1–2 (`celery-worker-bulk`), nicht die 2–8 dieser Tabelle. Nicht im Cluster gemessen.
 
 ### 4.2 GPU-Anforderungen (Optional)
 
@@ -324,6 +327,8 @@ Für lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 | ArangoDB Disk Usage | > 80% | Alert + Storage erweitern |
 | TimescaleDB Disk Usage | > 75% | Alert + Retention prüfen |
 | API Latenz P95 | > 500ms über 10 Minuten | HPA + Investigate |
+
+**Umsetzungsstand Queue Length (#2128):** Der HPA rechnet nicht mit einer festen Schwelle „> 100 → +1“, sondern mit einem Ziel je Pod (`target.type: AverageValue`, `targetPerReplica`; Default 20 für `critical`/`celery`, 5 für `bulk`): gewünschte Pods = wartende Aufgaben / Ziel, begrenzt durch `minReplicas`/`maxReplicas` und das Herunterskalier-Verhalten (10 min Stabilisierung, höchstens 1 Pod je 5 min).
 
 ### 10.3 Kontingente je Mandant
 
