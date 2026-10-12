@@ -844,7 +844,7 @@ database:
 ```
 
 - Das Chart legt in einer externen Datenbank nichts an. Die Anwendungsdatenbank (`kamerplanter`) und das Konto aus `appUsername` mit Lese-/Schreibrecht darauf müssen existieren; `ARANGODB_PASSWORD` in `kamerplanter-secrets` ist sein Passwort.
-- `scheme: https` setzt `ARANGODB_SCHEME=https`. Das Backend prüft das Serverzertifikat gegen die Zertifikate im Image. Für eine eigene Zertifizierungsstelle legst du deren Zertifikat in den Container und nennst den Pfad in `REQUESTS_CA_BUNDLE`.
+- `scheme: https` setzt `ARANGODB_SCHEME=https`. Das Backend prüft das Serverzertifikat gegen die Zertifikate im Image. Für eine eigene Zertifizierungsstelle legst du deren Zertifikat in den Container und nennst den Pfad in `REQUESTS_CA_BUNDLE`. Das gilt nur für die Anwendung: `arangodump` im Backup-Job liest diese Variable nicht, mit eigener Zertifizierungsstelle deckt das Chart das Backup also nicht ab.
 - Das Backup (`backup.enabled`) sichert dann die externe Datenbank und verbindet sich bei `https` per TLS.
 
 ### Valkey

@@ -846,7 +846,7 @@ expect external-db "the backup dumps from the external database and maps https t
 policy_of() { printf 'select(.kind == "NetworkPolicy" and .metadata.name == "kamerplanter-%s")' "$1"; }
 expect external-db "the ArangoDB egress policy selects every database client of this release" \
   "$(policy_of arangodb-external) | {\"instance\": .spec.podSelector.matchLabels[\"app.kubernetes.io/instance\"], \"controllers\": (.spec.podSelector.matchExpressions[] | select(.key == \"app.kubernetes.io/controller\" and .operator == \"In\") | .values | sort), \"types\": .spec.policyTypes}" \
-  '[{"instance":"kamerplanter","controllers":["arangodb-backup","backend","celery-worker","celery-worker-bulk","celery-worker-default"],"types":["Egress"]}]'
+  '[{"instance":"kamerplanter","controllers":["arangodb-backup","backend","celery-beat","celery-worker","celery-worker-bulk","celery-worker-default"],"types":["Egress"]}]'
 expect external-db "the ArangoDB egress policy admits the configured cidr on 8529 and 443" \
   "$(policy_of arangodb-external) | .spec.egress[] | {\"to\": [.to[] | .ipBlock.cidr], \"ports\": [.ports[] | .port]}" \
   '[{"to":["203.0.113.10/32"],"ports":[8529,443]}]'

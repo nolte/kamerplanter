@@ -843,7 +843,7 @@ database:
 ```
 
 - The chart creates nothing in an external database. The application database (`kamerplanter`) and the account from `appUsername` with read/write access to it must exist; `ARANGODB_PASSWORD` in `kamerplanter-secrets` is its password.
-- `scheme: https` sets `ARANGODB_SCHEME=https`. The backend verifies the server certificate against the certificates in the image. For a private certificate authority, put its certificate into the container and name the path in `REQUESTS_CA_BUNDLE`.
+- `scheme: https` sets `ARANGODB_SCHEME=https`. The backend verifies the server certificate against the certificates in the image. For a private certificate authority, put its certificate into the container and name the path in `REQUESTS_CA_BUNDLE`. This covers the application only: the backup job's `arangodump` does not read that variable, so with a private certificate authority the backup is not covered by this chart.
 - The backup (`backup.enabled`) then dumps the external database and connects over TLS with `https`.
 
 ### Valkey

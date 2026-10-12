@@ -2805,7 +2805,7 @@ networkpolicies:
               port: 53
 
   # -- #2127 (MT-031) External ArangoDB: egress from every client of the
-  # database — backend, the celery workers (dedicated-queue copies included)
+  # database — backend, the celery workers (dedicated-queue copies included), celery-beat
   # and the backup CronJob — to `database.arangodb.external.cidr` on 8529 and
   # 443. Rendered only with `database.arangodb.external.enabled`. Rules of all
   # policies selecting a pod are a union, so this adds exactly that path. The
@@ -2820,7 +2820,7 @@ networkpolicies:
       matchExpressions:
         - key: app.kubernetes.io/controller
           operator: In
-          values: [backend, celery-worker, celery-worker-default, celery-worker-bulk, arangodb-backup]
+          values: [backend, celery-worker, celery-worker-default, celery-worker-bulk, celery-beat, arangodb-backup]
     policyTypes:
       - Egress
     rules:
