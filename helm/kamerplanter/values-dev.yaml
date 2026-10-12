@@ -350,10 +350,39 @@ controllers:
     type: statefulset
     replicas: 1
     # Runs with the base hardening (uid 70, read-only root filesystem, no
-    # capabilities, #2127) — nothing here hot-reloads. The dev volume was
-    # initialised by the image's root entrypoint, which hands PGDATA to the
-    # same uid 70 (measured: a volume initialised that way starts as uid 70
-    # with the base securityContext).
+    # capabilities, #2127) — nothing here hot-reloads. PGDATA stays at the
+    # volume root (see env below), and a FRESH volume root is root-owned
+    # (root:70 with fsGroup, 2770, or 0777 on local-path): initdb as uid 70
+    # then fails with "could not change permissions of directory ... Operation
+    # not permitted" (measured with docker on a bind mount). This init
+    # container hands the root directory to uid 70 with mode 0700 before
+    # postgres starts — only CHOWN and FOWNER, no escalation. An existing dev
+    # volume (already owned by 70) passes through unchanged; the base chart
+    # does not need it, because its PGDATA is a subdirectory uid 70 creates.
+    initContainers:
+      data-dir-owner:
+        image:
+          repository: timescale/timescaledb
+          tag: "2.30.2-pg16"
+          pullPolicy: IfNotPresent
+        command: ["sh", "-c"]
+        args:
+          - chown 70:70 /var/lib/postgresql/data && chmod 0700 /var/lib/postgresql/data
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          runAsGroup: 0
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+            add: ["CHOWN", "FOWNER"]
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            memory: 64Mi
     containers:
       main:
         image:

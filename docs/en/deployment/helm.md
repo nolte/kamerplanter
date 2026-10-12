@@ -314,17 +314,22 @@ valkey:
       cpu: 50m
       memory: 128Mi
     limits:
-      memory: 512Mi    # at least twice maxmemory
+      memory: 640Mi    # at least twice maxmemory
 ```
 
 - **Own volume:** Valkey keeps its data on a `PersistentVolumeClaim` (`kamerplanter-valkey`, 1 GiB, `ReadWriteOnce`). It survives `helm uninstall`. The Valkey chart calls the size `requestedSize` — it does not read a `size` key.
 - **`Recreate`:** the old Valkey pod ends before the new one starts. A `ReadWriteOnce` volume attaches to one node; a new pod next to the old one could not reach the volume from another node.
 - **`noeviction` rather than an eviction policy:** when memory is full, Valkey refuses new writes instead of silently dropping waiting tasks. A full memory thus shows up as an error.
 - **`appendonly yes`** records every change (written to disk once per second); after a restart the tasks of the last seconds are back too.
-- **Memory limit at least twice `maxmemory`:** to rewrite the append-only file and to take snapshots, Valkey forks a child process that copies the data set; every page that changes meanwhile occupies memory twice. With a tight limit, Kubernetes kills Valkey before Valkey itself can refuse. If you raise `maxmemory`, raise `resources.limits.memory` with it.
+- **Memory limit at least twice `maxmemory`** (default 640 MiB for 256 MB): to rewrite the append-only file and to take snapshots, Valkey forks a child process that copies the data set; every page that changes meanwhile occupies memory twice. On top come the rewrite buffer and the client buffers, which do not count against `maxmemory`. With a tight limit, Kubernetes kills Valkey before Valkey itself can refuse. If you raise `maxmemory`, raise `resources.limits.memory` with it — the chart's render check requires at least twice.
+- **Watch the memory:** with `noeviction` a full Valkey reports errors (`OOM command not allowed`) instead of losing tasks — backend and worker can then no longer queue tasks. Set up an alert on `used_memory` relative to `maxmemory` (for example from 80 %) so you can step in first.
 
 !!! info "On upgrade"
-    Up to this version Valkey's `/data` sat on an ephemeral `emptyDir`: the chart set `valkey.dataStorage.size`, a key the Valkey chart does not know, so no volume was created. Every Valkey restart lost the waiting tasks. The upgrade creates the volume and restarts Valkey once; tasks waiting at that moment are lost, as with every restart so far. Celery Beat queues scheduled tasks again at their next run. Your cluster needs a default StorageClass for this, or you name one in `valkey.dataStorage.className`.
+    Up to this version Valkey's `/data` sat on an ephemeral `emptyDir`: the chart set `valkey.dataStorage.size`, a key the Valkey chart does not know, so no volume was created. Every Valkey restart lost the waiting tasks. The upgrade creates the volume and restarts Valkey once (`Recreate`).
+
+    - **One-time loss of waiting tasks:** whatever is queued at the restart is lost. Let the queue drain first — for example scale Celery Beat to 0 (`kubectl scale deployment kamerplanter-celery-beat --replicas=0`), wait until the worker has processed everything, then upgrade; Beat starts again with the upgrade. Beat queues scheduled tasks again at their next run anyway.
+    - **A StorageClass is a prerequisite:** the volume names no StorageClass. If your cluster has no default StorageClass, the volume — and with it Valkey — stays `Pending`; without the broker no component can queue tasks. Check with `kubectl get storageclass` (marked `(default)`), or name a StorageClass explicitly in `valkey.dataStorage.className`.
+    - **Reinstallation:** the volume survives `helm uninstall`. On start Valkey replays its append-only file — including the tasks of an old installation. Delete the PVC `kamerplanter-valkey` before reinstalling if those should not run.
 
 !!! warning "Valkey without password and without TLS"
     Backend, worker and beat connect through `REDIS_URL` (`redis://kamerplanter-valkey:6379/0`) without a password and without encryption; the Valkey chart runs with its default of no authentication (`auth.enabled: false`) and no TLS. Valkey is protected only by the chart's NetworkPolicies: only backend, worker and beat may reach the Valkey pod. So do not switch the NetworkPolicies off, and run Kamerplanter only in a cluster whose CNI enforces NetworkPolicies.

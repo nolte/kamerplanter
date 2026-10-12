@@ -2785,9 +2785,14 @@ networkpolicies:
 #    without bound.
 #  * `appendonly yes` (fsync every second): a restart replays the tasks of the
 #    last seconds instead of falling back to the last snapshot.
-#  * The memory limit is twice `maxmemory`: an AOF rewrite or snapshot forks
-#    the process, and pages written meanwhile are held twice. Too tight a limit
-#    and Kubernetes kills Valkey before Valkey can refuse a write.
+#  * The memory limit is at least twice `maxmemory` (640Mi for 256mb): an AOF
+#    rewrite or snapshot forks the process, and pages written meanwhile are
+#    held twice; the rest covers the AOF rewrite buffer, client buffers and
+#    allocator overhead outside `maxmemory`. Too tight a limit and Kubernetes
+#    kills Valkey before Valkey can refuse a write. Raise both together —
+#    scripts/ci/assert_chart_contracts.sh checks limit >= 2 x maxmemory.
+#  * No storageClass: the claim needs a default StorageClass, else Valkey stays
+#    Pending and the broker is gone. Name one in `dataStorage.className`.
 # The subchart already runs non-root (uid 1000), read-only root filesystem, all
 # capabilities dropped, RuntimeDefault seccomp.
 valkey:
@@ -2807,7 +2812,7 @@ valkey:
       cpu: 50m
       memory: 128Mi
     limits:
-      memory: 512Mi
+      memory: 640Mi
   # The init container only writes valkey.conf (a few lines of shell).
   initResources:
     requests:

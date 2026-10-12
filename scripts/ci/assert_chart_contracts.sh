@@ -705,6 +705,11 @@ expect timescaledb "the database container: read-only root, no escalation, no ca
 expect timescaledb "the only writable paths besides the data volume are the socket directory and /tmp" \
   "${ts_main} | [.volumeMounts[] | .mountPath] | sort" \
   '[["/tmp","/var/lib/postgresql/data","/var/run/postgresql"]]'
+expect timescaledb "the NetworkPolicy governs both directions (default-deny compatible)" \
+  'select(.kind == "NetworkPolicy" and .metadata.name == "kamerplanter-timescaledb") | .spec.policyTypes' '[["Ingress","Egress"]]'
+expect timescaledb "the database's only egress is DNS to kube-dns" \
+  'select(.kind == "NetworkPolicy" and .metadata.name == "kamerplanter-timescaledb") | .spec.egress[] | {"dns": [.to[] | .podSelector.matchLabels["k8s-app"]], "ports": [.ports[] | (.protocol + "/" + (.port | tostring))]}' \
+  '[{"dns":["kube-dns"],"ports":["UDP/53","TCP/53"]}]'
 expect timescaledb "the NetworkPolicy admits backend and celery-worker on 5432" \
   'select(.kind == "NetworkPolicy" and .metadata.name == "kamerplanter-timescaledb") | .spec.ingress[] | {"from": [.from[] | .podSelector.matchLabels["app.kubernetes.io/controller"]], "ports": [.ports[] | .port]}' \
   '[{"from":["backend","celery-worker"],"ports":[5432]}]'
@@ -719,6 +724,13 @@ render timescaledb-workers --set controllers.timescaledb.enabled=true --set cele
 expect_set timescaledb-workers "every dedicated worker reaches the database" \
   'select(.kind == "NetworkPolicy" and .metadata.name == "kamerplanter-timescaledb") | .spec.ingress[].from[] | .podSelector.matchLabels["app.kubernetes.io/controller"]' \
   '["backend","celery-worker","celery-worker-bulk","celery-worker-default"]'
+# The dev profile keeps PGDATA at the volume root (existing dev data). A fresh
+# root-owned volume (root:70 2770 under fsGroup, 0777 on local-path) makes
+# initdb as uid 70 fail ("could not change permissions"), so an init container
+# hands the root directory to uid 70 first — with CHOWN/FOWNER only.
+expect profile-values-dev "dev TimescaleDB hands its volume root to uid 70 before postgres starts, with CHOWN/FOWNER only" \
+  'select(.kind == "StatefulSet" and .metadata.name == "kamerplanter-timescaledb") | .spec.template.spec as $p | {"pgdata": ($p.containers[] | select(.name == "main") | .env[] | select(.name == "PGDATA") | .value), "init": [$p.initContainers[] | {"args": (.args | join(" ")), "add": .securityContext.capabilities.add, "drop": .securityContext.capabilities.drop, "esc": .securityContext.allowPrivilegeEscalation, "mount": [.volumeMounts[] | .mountPath]}]}' \
+  '[{"pgdata":"/var/lib/postgresql/data","init":[{"args":"chown 70:70 /var/lib/postgresql/data && chmod 0700 /var/lib/postgresql/data","add":["CHOWN","FOWNER"],"drop":["ALL"],"esc":false,"mount":["/var/lib/postgresql/data"]}]}]'
 expect profile-values-dev "the dev profile runs TimescaleDB and tells the backend so" \
   "select(.kind == \"StatefulSet\" and .metadata.name == \"kamerplanter-timescaledb\") | .metadata.name" '["kamerplanter-timescaledb"]'
 
@@ -734,8 +746,36 @@ expect storage-default "Valkey is replaced by Recreate (its claim is ReadWriteOn
 expect storage-default "Valkey refuses writes when full and logs every write (maxmemory, noeviction, AOF)" \
   'select(.kind == "ConfigMap" and .metadata.name == "kamerplanter-valkey-config") | .data["valkey.conf"] | split("\n") | map(select(test("^(maxmemory|appendonly|appendfsync)")))' \
   '[["maxmemory 256mb","maxmemory-policy noeviction","appendonly yes","appendfsync everysec"]]'
-expect storage-default "Valkey's memory limit leaves room for the fork of an AOF rewrite (twice maxmemory)" \
-  "${valkey_deploy} | .spec.template.spec.containers[] | select(.name == \"kamerplanter-valkey\") | .resources.limits.memory" '["512Mi"]'
+# A relation, not a literal: raising maxmemory without the limit must fail.
+# Valkey reads `mb`/`gb` as 1024-based (like Mi/Gi) and `m`/`g` as 1000-based.
+to_bytes() {
+  local v="${1,,}" n unit
+  n="${v%%[a-z]*}"
+  unit="${v#"${n}"}"
+  case "${unit}" in
+    "" | b) echo "${n}" ;;
+    k) echo $((n * 1000)) ;;
+    kb | ki) echo $((n * 1024)) ;;
+    m) echo $((n * 1000 * 1000)) ;;
+    mb | mi) echo $((n * 1024 * 1024)) ;;
+    g) echo $((n * 1000 * 1000 * 1000)) ;;
+    gb | gi) echo $((n * 1024 * 1024 * 1024)) ;;
+    *) echo "-1" ;;
+  esac
+}
+expect_valkey_memory_headroom() {
+  local name="$1" maxmemory limit
+  maxmemory="$(yq e '.[] | select(.kind == "ConfigMap" and .metadata.name == "kamerplanter-valkey-config") | .data["valkey.conf"] | split("\n") | .[] | select(test("^maxmemory ")) | sub("^maxmemory +"; "")' "${work}/${name}.yaml")"
+  limit="$(yq e '.[] | select(.kind == "Deployment" and .metadata.name == "kamerplanter-valkey") | .spec.template.spec.containers[] | select(.name == "kamerplanter-valkey") | .resources.limits.memory // ""' "${work}/${name}.yaml")"
+  if [[ -z "${maxmemory}" || -z "${limit}" ]]; then
+    fail "${name}: Valkey needs both maxmemory and a memory limit — rendered maxmemory='${maxmemory}', limit='${limit}'"
+  elif (($(to_bytes "${maxmemory}") <= 0 || $(to_bytes "${limit}") < 2 * $(to_bytes "${maxmemory}"))); then
+    fail "${name}: Valkey's memory limit ${limit} is below twice maxmemory ${maxmemory} (an AOF rewrite forks and holds changed pages twice)"
+  fi
+}
+for name in storage-default profile-values-dev timescaledb; do
+  expect_valkey_memory_headroom "${name}"
+done
 
 # NFR-002 §11 "Resource Limits gesetzt": every container of every workload —
 # init containers, the optional database and the backup job included — has a

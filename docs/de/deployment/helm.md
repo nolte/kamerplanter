@@ -315,17 +315,22 @@ valkey:
       cpu: 50m
       memory: 128Mi
     limits:
-      memory: 512Mi    # mindestens das Doppelte von maxmemory
+      memory: 640Mi    # mindestens das Doppelte von maxmemory
 ```
 
 - **Eigenes Volume:** Valkey legt seine Daten auf ein `PersistentVolumeClaim` (`kamerplanter-valkey`, 1 GiB, `ReadWriteOnce`). Es bleibt bei `helm uninstall` erhalten. Die Größe heißt im Valkey-Chart `requestedSize` — einen Schlüssel `size` liest es nicht.
 - **`Recreate`:** Der alte Valkey-Pod endet, bevor der neue startet. Ein `ReadWriteOnce`-Volume hängt an einem Node; ein neuer Pod daneben käme auf einem anderen Node nicht an das Volume.
 - **`noeviction` statt einer Verdrängungsstrategie:** Ist der Speicher voll, lehnt Valkey neue Schreibzugriffe ab, statt still wartende Aufgaben zu löschen. Ein voller Speicher fällt so als Fehler auf.
 - **`appendonly yes`** schreibt jede Änderung mit (einmal pro Sekunde auf die Platte); nach einem Neustart sind auch die Aufgaben der letzten Sekunden wieder da.
-- **Speicherlimit mindestens doppelt so groß wie `maxmemory`:** Für das Umschreiben des Append-Only-Logs und für Snapshots startet Valkey einen Kindprozess, der den Datenbestand kopiert; jede Seite, die sich währenddessen ändert, belegt den Speicher doppelt. Liegt das Limit zu knapp, beendet Kubernetes Valkey, bevor Valkey selbst ablehnen kann. Hebst du `maxmemory` an, hebe `resources.limits.memory` mit an.
+- **Speicherlimit mindestens doppelt so groß wie `maxmemory`** (Standard 640 MiB bei 256 MB): Für das Umschreiben des Append-Only-Logs und für Snapshots startet Valkey einen Kindprozess, der den Datenbestand kopiert; jede Seite, die sich währenddessen ändert, belegt den Speicher doppelt. Dazu kommen der Puffer für das Umschreiben und die Puffer der Verbindungen, die nicht unter `maxmemory` zählen. Liegt das Limit zu knapp, beendet Kubernetes Valkey, bevor Valkey selbst ablehnen kann. Hebst du `maxmemory` an, hebe `resources.limits.memory` mit an — die Render-Prüfung des Charts verlangt mindestens das Doppelte.
+- **Überwache den Speicher:** Mit `noeviction` meldet ein voller Valkey Fehler (`OOM command not allowed`), statt Aufgaben zu verlieren — Backend und Worker können dann keine Aufgaben mehr einreihen. Richte einen Alarm auf `used_memory` im Verhältnis zu `maxmemory` ein (zum Beispiel ab 80 %), damit du vorher eingreifst.
 
 !!! info "Beim Upgrade"
-    Bis zu dieser Version lag `/data` von Valkey auf einem flüchtigen `emptyDir`: Das Chart setzte `valkey.dataStorage.size`, einen Schlüssel, den das Valkey-Chart nicht kennt, und legte deshalb kein Volume an. Jeder Neustart von Valkey verlor die wartenden Aufgaben. Das Upgrade legt das Volume neu an und startet Valkey einmal neu; Aufgaben, die in diesem Moment warten, gehen dabei verloren, wie bei jedem Neustart bisher. Geplante Aufgaben stellt Celery Beat beim nächsten Termin wieder ein. Dein Cluster braucht dafür eine Standard-StorageClass, oder du nennst eine in `valkey.dataStorage.className`.
+    Bis zu dieser Version lag `/data` von Valkey auf einem flüchtigen `emptyDir`: Das Chart setzte `valkey.dataStorage.size`, einen Schlüssel, den das Valkey-Chart nicht kennt, und legte deshalb kein Volume an. Jeder Neustart von Valkey verlor die wartenden Aufgaben. Das Upgrade legt das Volume neu an und startet Valkey einmal neu (`Recreate`).
+
+    - **Einmaliger Verlust wartender Aufgaben:** Was beim Neustart in der Warteschlange steht, geht verloren. Lass die Warteschlange vorher leerlaufen — etwa Celery Beat auf 0 skalieren (`kubectl scale deployment kamerplanter-celery-beat --replicas=0`), warten, bis der Worker alles abgearbeitet hat, dann upgraden; Beat startet mit dem Upgrade wieder. Geplante Aufgaben stellt Beat ohnehin beim nächsten Termin wieder ein.
+    - **StorageClass ist Voraussetzung:** Das Volume nennt keine StorageClass. Hat dein Cluster keine Standard-StorageClass, bleibt das Volume und damit Valkey `Pending` — ohne Broker reiht keine Komponente mehr Aufgaben ein. Prüfe das mit `kubectl get storageclass` (Markierung `(default)`), oder nenne eine StorageClass ausdrücklich in `valkey.dataStorage.className`.
+    - **Neuinstallation:** Das Volume bleibt bei `helm uninstall` erhalten. Valkey spielt beim Start sein Append-Only-Log ab — auch die Aufgaben einer alten Installation. Lösche das PVC `kamerplanter-valkey` vor einer Neuinstallation, wenn diese nicht weiterlaufen sollen.
 
 !!! warning "Valkey ohne Passwort und ohne TLS"
     Backend, Worker und Beat verbinden sich über `REDIS_URL` (`redis://kamerplanter-valkey:6379/0`) ohne Passwort und ohne Verschlüsselung; der Valkey-Chart läuft mit seinem Standard ohne Anmeldung (`auth.enabled: false`) und ohne TLS. Geschützt ist Valkey nur durch die NetworkPolicies des Charts: Nur Backend, Worker und Beat dürfen den Valkey-Pod erreichen. Schalte die NetworkPolicies deshalb nicht ab, und betreibe Kamerplanter nur in einem Cluster, dessen CNI NetworkPolicies durchsetzt.
