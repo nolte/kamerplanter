@@ -37,6 +37,11 @@ REPO = BACKEND.parents[1]
 #: Roots whose ArangoDB clients connect to an operator's database.
 SWEPT_ROOTS = (BACKEND / "app", BACKEND / "scripts", REPO / "scripts" / "reach")
 
+#: Tools that take the endpoint as an explicit ``--url`` for a throwaway database
+#: of their own (``perf_`` prefix, created and dropped by the tool) — they never
+#: connect to an operator's database, so the deployment setting is not theirs.
+OWN_URL_TOOLS = (BACKEND / "scripts" / "measure_task_queue_indexes.py",)
+
 
 class TestTheDefaultIsUnchanged:
     def test_the_default_scheme_is_http(self) -> None:
@@ -143,6 +148,8 @@ class TestEveryClientReadsTheSetting:
         offenders = []
         for root in SWEPT_ROOTS:
             for path in sorted(root.rglob("*.py")):
+                if path in OWN_URL_TOOLS:
+                    continue
                 for call in _arango_client_calls(ast.parse(path.read_text(encoding="utf-8"))):
                     if not _reads_the_setting(_hosts_argument(call)):
                         offenders.append(f"{path.relative_to(REPO)}:{call.lineno}")
