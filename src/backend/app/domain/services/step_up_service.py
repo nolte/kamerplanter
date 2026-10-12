@@ -179,6 +179,8 @@ type StepUpAction = Literal[
     "tenant_erasure_cancel",
     # #2137 — a tenant's lead with the technical scope creating, re-keying or removing a service account.
     "service_account_change",
+    # #1855 SEC-003 — deciding the take-over of a former light-mode installation's garden (bound to its key).
+    "light_mode_takeover",
 ]
 
 #: The acts that act on something other than the requester's own account (#1884).
@@ -216,6 +218,7 @@ TARGETED_ACTIONS: frozenset[str] = frozenset(
         "admin_membership_add",
         "tenant_erasure_cancel",
         "service_account_change",
+        "light_mode_takeover",
     }
 )
 
@@ -275,6 +278,7 @@ CODE_PURPOSES: dict[str, str] = {
     "admin_membership_add": "add an account to a garden (tenant) as a platform administrator",
     "tenant_erasure_cancel": "cancel the scheduled deletion of a garden (tenant)",
     "service_account_change": "create, re-key or remove a service account of your garden (tenant)",
+    "light_mode_takeover": "take over or decline the garden of the former light-mode installation",
 }
 
 #: Attempts per account across all addresses before the account-wide lock starts.

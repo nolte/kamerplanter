@@ -29,9 +29,11 @@ from datetime import UTC, datetime
 from app.common.auth import is_platform_admin
 from app.common.exceptions import ForbiddenError, UnauthorizedError
 from app.common.log_privacy import log_api_key, loggable_ip
+from app.config.settings import settings
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.auth import api_key_scope_admits
+from app.domain.models.mode_switch import system_account_refused
 from app.domain.services.api_key_controls import ApiKeyRateLimiter, enforce_api_key_controls
 from app.domain.services.tenant_service import TenantService
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
@@ -102,6 +104,9 @@ class McpAuthenticator:
 
         user = self._user_repo.get_by_key(api_key.user_key)
         if user is None or not user.is_active:
+            raise UnauthorizedError("Account not found or inactive.")
+        # #1855 SEC-006 — in full mode the light-mode system account never authenticates, whatever is stored.
+        if system_account_refused(user.key, mode=settings.kamerplanter_mode):
             raise UnauthorizedError("Account not found or inactive.")
         is_service = user.account_type == "service"
         if service_accounts_only and not is_service:

@@ -53,6 +53,26 @@ _CLASSIFIED: dict[tuple[str, str], str] = {
         "ceiling - and never in the platform tenant (refused before the membership is built), so there is "
         "nothing to escalate; the platform admin's step-up confirmed the configuration (#1883)"
     ),
+    ("tenant_service.py", "TenantService.take_over_light_mode_tenant"): (
+        "the light-to-full take-over (REQ-027 §7a.2, #1855): lead with both scopes in the light-mode tenant - never "
+        "the platform tenant - for the platform admin or the earliest person account only "
+        "(ModeSwitchService.may_decide_takeover), on a take-over the start opened and the decision claimed atomically; "
+        "nobody else holds a role there (the system account's membership is the one it ends)"
+    ),
+    ("tenant_service.py", "TenantService.grant_first_platform_admin"): (
+        "the bootstrap of the platform role on an instance without any holder (REQ-027 Szenario 5/6, #1855): the "
+        "rule 'only a holder hands out lead in platform' has no holder to ask; refused as soon as one active "
+        "platform admin exists, reached only from the take-over decision"
+    ),
+    ("tenant_service.py", "TenantService.undo_light_mode_takeover"): (
+        "the undoing of a failed take-over decision (#1855 SEC-004): it only writes back the role the same account "
+        "held in the light-mode tenant before the take-over raised it (read from the take-over's receipt) - never "
+        "a role nobody held, never in the platform tenant"
+    ),
+    ("tenant_service.py", "TenantService.restore_light_mode_membership"): (
+        "the light-mode start (REQ-027 Szenario 7, #1855): restores the system account's own lead membership in its "
+        "own light-mode tenant; no request, no person, never the platform tenant"
+    ),
     ("tenant_service.py", "TenantService.admin_change_membership_role"): (
         "platform-admin path: both routes require require_platform_admin and a platform admin may change any "
         "role in any tenant; the acting admin's step-up is checked here (#2032)"
@@ -133,7 +153,9 @@ def members(root: Path = SERVICES) -> dict[tuple[str, str], tuple[list[str], boo
 #: vanished one may mean the predicate went blind.
 #: +1 with #2137: create_service_account (viewer/grower, checked).
 #: +1 with #2182: join_provider_default_tenant (constant viewer, classified).
-EXPECTED_MEMBERS = 9  # 8 until #2118 merged the two founding functions into ``_found_tenant``
+#: +3 with #1855: take_over_light_mode_tenant, grant_first_platform_admin, restore_light_mode_membership (classified).
+#: +1 with #1855 SEC-004: undo_light_mode_takeover (classified).
+EXPECTED_MEMBERS = 13  # 8 until #2118 merged the two founding functions into ``_found_tenant``
 
 
 def test_every_role_grant_checks_for_escalation_or_is_classified() -> None:

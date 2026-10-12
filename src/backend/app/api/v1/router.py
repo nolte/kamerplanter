@@ -161,11 +161,14 @@ if settings.kamerplanter_mode == "full":
     from app.api.v1.admin.platform.router import router as platform_admin_router
     from app.api.v1.auth.router import router as auth_router
     from app.api.v1.privacy.router import router as privacy_router
+    from app.api.v1.system.router import router as system_router
 
     api_router.include_router(auth_router)
     api_router.include_router(oidc_providers_router)
     api_router.include_router(platform_admin_router)
     api_router.include_router(privacy_router)
+    # REQ-027 §7a (#1855) — the take-over of a former light-mode installation's data.
+    api_router.include_router(system_router)
 
 api_router.include_router(users_router)
 api_router.include_router(health_router)

@@ -315,8 +315,7 @@ Kamerplanter kann ohne Anmeldung betrieben werden — als lokale Einzelinstallat
 
 Alles auf dieser Seite Beschriebene wird erst relevant, wenn die Installation mit Anmeldung betrieben wird. Details unter [Light-Modus](../user-guide/light-mode.md).
 
-!!! warning "Noch nicht implementiert"
-    Ein geführter Umstieg vom Light-Modus auf den Betrieb mit Anmeldung, bei dem das erste registrierte Konto den bestehenden Garten übernimmt, ist geplant, aber noch nicht gebaut. Nach einem Wechsel bleiben die Daten beim bisherigen Einzelkonto; ein neu registriertes Konto beginnt mit einem eigenen, leeren Garten. <!-- REQ-027 §7a, #1855 -->
+Beim Wechsel vom Light-Modus auf den Betrieb mit Anmeldung sperrt Kamerplanter das bisherige Einzelkonto. Das erste registrierte Konto kann den bestehenden Garten in einem Dialog übernehmen: Es wird seine Leitung mit beiden Verwaltungsrechten und, solange es noch keinen gibt, Plattform-Admin. Details unter [Light-Modus](../user-guide/light-mode.md#upgrade-light-full). <!-- REQ-027 §7a, #1855 -->
 
 ---
 

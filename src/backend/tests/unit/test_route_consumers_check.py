@@ -219,9 +219,13 @@ class TestTheRouteOperand:
         (#2142, REQ-056 §7.6/§7.7) — the plan catalogue and a tenant's quotas; consumed since
         REQ-056 AK-45 by ``src/frontend/src/api/endpoints/adminPlans.ts``, ``fetchAdminTenantDetail``
         in ``adminPlatform.ts`` and ``getTenantEntitlements`` in ``tenants.ts`` (no longer candidates).
+
+        +2: ``GET /system/takeover-status`` and ``POST /system/takeover`` (#1855, REQ-027 §7a) — the
+        take-over of a former light-mode installation's data; consumed by ``getTakeoverStatus`` and
+        ``decideTakeover`` in ``src/frontend/src/api/endpoints/system.ts``.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 822
+        assert len(checker.collect_operations(app)) == 824
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

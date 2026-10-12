@@ -63,6 +63,10 @@ _NOT_TENANT_DATA: dict[str, str] = {
         "keys address tenants, memberships and invitations themselves; authorised by membership role, "
         "step-up and the platform-admin gate (REQ-024/REQ-049), not by a tenant predicate"
     ),
+    "ModeSwitchService": (
+        "keys address the light-mode system account and the installation's system_meta bookkeeping (REQ-027 §7a, "
+        "#1855); the start runs without a request, the take-over is authorised as platform admin or first account"
+    ),
     "ActivityService": "global activity catalogue, written only behind require_platform_admin (#2119 owns tenant rows)",
     "LocationTypeService": "global location-type catalogue, written only behind require_platform_admin",
     "CompanionEdgeService": (

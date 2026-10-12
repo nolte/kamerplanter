@@ -84,26 +84,44 @@ Ein Neustart der Dienste ist nach jeder Änderung erforderlich. Bestehende Daten
 
 Du möchtest Kamerplanter mit anderen teilen oder mehrere Konten verwenden? Du kannst jederzeit auf den Full-Modus upgraden.
 
-<!-- diagram-source: user-described — upgrade flow from Light Mode to Full Mode with optional takeover of existing data -->
+<!-- diagram-source: src/backend/app/domain/services/mode_switch_service.py — upgrade flow from Light Mode to Full Mode with the take-over dialog -->
 ```mermaid
 flowchart TD
-    A["KAMERPLANTER_MODE=light<br/>App running, data present"] --> B["Set variable to 'full'<br/>Restart services"]
-    B --> C["Login screen appears"]
-    C --> D["Register first account"]
+    A["KAMERPLANTER_MODE=light<br/>App running, data present"] --> B["Set both variables to 'full'<br/>Restart services"]
+    B --> S["First start: system account locked,<br/>its API keys revoked"]
+    S --> C["Login screen appears"]
+    C --> D["Register the first account<br/>(own empty garden)"]
     D --> E{"Take over<br/>existing data?"}
-    E -- "Yes, take over" --> F["Your account takes ownership<br/>of the system garden with<br/>all existing data"]
-    E -- "No, start fresh" --> G["Empty personal<br/>garden is created"]
+    E -- "Yes, take over" --> F["You lead the old garden,<br/>all data unchanged"]
+    E -- "No, start fresh" --> G["Old garden stays,<br/>visible in the admin area"]
+    E -- "Decide later" --> D
     F --> H["Dashboard with<br/>existing data"]
     G --> H
 ```
 
-Nach dem Neustart im Full-Modus siehst du den Login-Screen. Registriere dich — dabei erscheint ein Dialog:
+1. Setze `KAMERPLANTER_MODE=full` (Backend) und `VITE_KAMERPLANTER_MODE=full` (Frontend) und starte beide Dienste neu.
+2. Beim ersten Start im Full-Modus sperrt Kamerplanter das System-Konto des Light-Modus. Es lässt sich danach nicht mehr anmelden, und alles, was im Light-Modus ohne Anmeldung dafür ausgestellt wurde, wird ungültig: API-Schlüssel (`kp_…`) und Kalender-Abo-Links. Deine Pflanzen, Standorte und Pläne bleiben unverändert erhalten.
+3. Du siehst den Login-Screen. Registriere dich — dein Konto bekommt wie jedes neue Konto einen eigenen, leeren Garten.
+4. Nach der Anmeldung erscheint ein Dialog mit dem, was der alte Garten enthält, zum Beispiel „30 Pflanzen, 3 Standorte“.
 
-> "Es gibt bestehende Daten (X Pflanzen, Y Standorte). Möchtest du diese in dein Konto übernehmen?"
+**Ja, übernehmen:** Der alte Garten gehört jetzt dir. Du wirst seine Leitung mit allen Verwaltungsrechten, er trägt deinen Namen, und Kamerplanter wechselt direkt in ihn. Die Daten selbst werden dabei nicht verändert oder kopiert, und die Adresse des Gartens bleibt dieselbe. Danach kannst du weitere Mitglieder einladen.
 
-**Ja, übernehmen:** Dein neues Konto übernimmt den System-Garten mit allen Pflanzen, Standorten und Nährstoffplänen. Du kannst danach weitere Mitglieder einladen.
+**Nein, neu starten:** Du arbeitest in deinem eigenen leeren Garten weiter. Der alte Garten bleibt mit allen Daten erhalten und ist im Admin-Bereich unter den Mandanten zu finden.
 
-**Nein, neu starten:** Für dein Konto wird ein leerer persönlicher Garten erstellt. Die alten Daten bleiben in der Datenbank und können über das Admin-Panel eingesehen oder gelöscht werden.
+**Später entscheiden:** Der Dialog schließt sich. Er erscheint bei deiner nächsten Anmeldung wieder.
+
+Übernehmen und Ablehnen bestätigst du mit deinem Passwort. Hast du kein Passwort, meldest du dich dafür noch einmal bei deinem Anmeldeanbieter an oder gibst einen Code aus einer E-Mail ein.
+
+Wer den Dialog sieht: der Plattform-Admin, falls es schon einen gibt. Sonst das **erste Konto, das nach dem Umstieg registriert wurde**, dessen E-Mail-Adresse bestätigt ist und das seinen eigenen Garten hat. Konten von vor dem Umstieg, deaktivierte Konten und Service-Konten zählen nicht. Andere Konten sehen den Dialog nicht. Gibt es noch keinen Plattform-Admin, wirst du es mit deiner Entscheidung, egal ob du übernimmst oder ablehnst. <!-- REQ-027 Szenario 5/6, Issue #1855 -->
+
+!!! danger "Registriere dich zuerst, bevor andere die Instanz erreichen"
+    Das erste Konto nach dem Umstieg wird Plattform-Admin, also Verwalter der ganzen Installation. Ist die Registrierung offen und erreicht jemand anderes die Instanz vor dir, kann diese Person das sein. Starte deshalb im Full-Modus zuerst nur für dich (zum Beispiel ohne Freigabe nach außen oder mit `REGISTRATION_ALLOWED_DOMAINS` auf deine eigene E-Mail-Domain beschränkt): Registriere dich, bestätige deine E-Mail-Adresse und entscheide über die Übernahme — alle drei Schritte, bevor andere die Instanz erreichen. Es zählt nämlich das früheste Konto mit bestätigter Adresse, nicht das zuerst registrierte: Bestätigt jemand anderes seine Adresse vor dir, ist diese Person das „erste Konto“. Oder lege vorher einen Plattform-Admin an (`python -m app.migrations.add_platform_admin <E-Mail>`): Dann entscheidet nur er. Gab es schon vor dem Umstieg Konten, ist das sogar nötig, denn solche Konten zählen nicht als „erstes Konto“. <!-- REQ-027 §7a SEC-001, Issue #1855 -->
+
+!!! warning "Alle Instanzen gleichzeitig umstellen"
+    Stelle Backend, Worker und Frontend in einem Schritt auf `full` um. Laufen Light- und Full-Instanzen gegen dieselbe Datenbank nebeneinander, bedient die Light-Instanz weiter jeden ohne Anmeldung. Im Full-Modus meldet Kamerplanter das System-Konto unabhängig von der Datenbank nie an. <!-- Issue #1855 SEC-006 -->
+
+!!! warning "Externe Zugriffe neu einrichten"
+    Home Assistant, ein MCP-Client oder andere Programme, die im Light-Modus einen API-Schlüssel des System-Kontos benutzt haben, bekommen nach dem Upgrade `401`. Lege im Full-Modus einen neuen Schlüssel an, zum Beispiel für ein Service-Konto, und trage ihn dort ein. Ein Kalender-Abo legst du in den Kalender-Einstellungen neu an.
 
 !!! tip "Tipp"
     Wenn du dir unsicher bist, wähle "Ja, übernehmen". Du kannst nachher immer noch Daten löschen — du verlierst aber nichts.
@@ -115,11 +133,14 @@ Du möchtest vom Full-Modus zurück zum Light-Modus wechseln?
 !!! warning "Achtung: Nur System-Garten sichtbar"
     Im Light-Modus ist ausschließlich der System-Garten zugänglich. Wenn du im Full-Modus mehrere Gärten oder Nutzerkonten angelegt hast, sind diese im Light-Modus nicht sichtbar. Die Daten gehen **nicht verloren** — sie sind bei einem erneuten Upgrade auf Full wieder vollständig zugänglich.
 
-Ändere die Umgebungsvariable auf `light` und starte die Dienste neu. Das System reaktiviert automatisch den System-Benutzer und den System-Garten. Du landest direkt auf dem Dashboard ohne Login.
+Ändere beide Umgebungsvariablen auf `light` und starte die Dienste neu. Kamerplanter entsperrt das System-Konto und gibt ihm seinen Garten zurück. Gibt es zu diesem Zeitpunkt andere Konten, schreibt der Start eine Warnung der Stufe `critical` ins Protokoll (`light_mode_start_with_person_accounts`): Im Light-Modus kommt jeder ohne Anmeldung an die Daten des System-Gartens. Du landest direkt auf dem Dashboard ohne Login. Hast du den Garten im Full-Modus übernommen, behält er seinen neuen Namen.
+
+!!! warning "Noch nicht implementiert"
+    Künftig wird Kamerplanter einen System-Garten, den ein Admin im Full-Modus gesperrt oder gelöscht hat, beim Downgrade wieder aktivieren oder neu anlegen und ihm alle Stammdaten zuordnen. Bis dahin entsperrst du einen gesperrten Garten vor dem Downgrade selbst im Admin-Bereich. <!-- REQ-027 AK-23, AK-24, Issue #1855 -->
 
 ### Roundtrip: Light → Full → Light → Full
 
-Ein vollständiger Hin-und-her-Wechsel ist möglich und sicher. Alle Daten bleiben in der Datenbank erhalten. Beim erneuten Upgrade auf Full siehst du wieder den Übernahme-Dialog — du kannst die bestehenden Daten erneut übernehmen.
+Ein vollständiger Hin-und-her-Wechsel ist möglich. Alle Daten bleiben in der Datenbank erhalten. Beim erneuten Upgrade auf Full sperrt Kamerplanter das System-Konto wieder, und der Übernahme-Dialog erscheint erneut — du kannst den Garten noch einmal übernehmen.
 
 ---
 

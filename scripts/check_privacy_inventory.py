@@ -223,6 +223,11 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
     "TenantContext": "request-scoped auth context, built per request (common/auth.py)",
     "ErasurePlan": "the plan itself, built in memory by ErasureEngine.build_erasure_plan",
     "MemberInfo": "read projection of memberships joined with users (tenant_service.list_members)",
+    "TakeoverReceipt": (
+        "no collection of its own: kept in memory for one take-over decision, and only when its undo failed "
+        "embedded as 'receipt' in the one system_meta/pending_takeover document until a decision undoes it; "
+        "the stored form excludes the deciding account (new_owner_key, Field(exclude=True), #1855 R3 W-3)"
+    ),
 }
 
 #: Floor for R6. Measured on 2026-09-24: 52 user-reference model fields
@@ -230,7 +235,8 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
 #: below that — not at a token 6 — so a reader that loses one models module, or
 #: the base-class walk, trips it instead of shrinking R6 silently. A legitimate
 #: removal of more than four such fields lowers it here, in the same change.
-MIN_USER_REFERENCE_FIELDS = 48
+#: 51 since #1855: 55 measured (TakeoverReceipt's account references, in memory only).
+MIN_USER_REFERENCE_FIELDS = 51
 
 
 def _class_list_calls(tree: ast.AST, class_name: str, attr: str) -> list[ast.Call]:

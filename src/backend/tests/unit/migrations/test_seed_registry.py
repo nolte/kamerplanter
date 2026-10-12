@@ -73,8 +73,12 @@ class TestSeedRegistry:
 
         assert by_name["location_types"].fatal is True
         assert by_name["core_data"].fatal is False
-        # The lifecycle reconcile is the last data step (post-seed).
-        assert jobs[-1].name == "lifecycle_to_phase_sequence_reconcile"
+        # The lifecycle reconcile is the last data step (post-seed); after it only the deployment-mode
+        # reconciliation (REQ-027 §7a, #1855), which runs in both modes and is fatal.
+        data_jobs = [job.name for job in jobs if job.name != "deployment_mode"]
+        assert data_jobs[-1] == "lifecycle_to_phase_sequence_reconcile"
+        assert jobs[-1].name == "deployment_mode"
+        assert by_name["deployment_mode"].fatal is True
         # The overwintering seed (REQ-022, #371) is registered between
         # plant_info_extended and fertilizers, matching the pre-framework order.
         assert "overwintering_profiles" in by_name

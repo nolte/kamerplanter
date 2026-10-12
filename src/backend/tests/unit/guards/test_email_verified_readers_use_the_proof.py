@@ -27,6 +27,14 @@ _AQL_READ = re.compile(r"\b\w+\.email_verified\b")
 
 #: (relative path, function) -> why reading the flag without the proof is not a trust decision.
 DECIDED: dict[tuple[str, str], str] = {
+    ("data_access/arango/mode_switch_repository.py", "<module>"): (
+        "_EARLIEST_ELIGIBLE_QUERY (#1855 SEC-008): one of several filters on who may be 'the first account' of a "
+        "light-to-full take-over - besides registered after the switch, active, a person, its own personal garden; "
+        "the decision itself also passes the account's step-up. The flag, not the proof, on purpose: an instance "
+        "without mail delivery (REQUIRE_EMAIL_VERIFICATION=false, the typical light-mode installation) stamps the flag "
+        "at registration and never records a proof, so requiring it would leave such an instance without anybody "
+        "able to decide. Nothing is mailed to the address."
+    ),
     ("domain/services/auth_service.py", "AuthService.login_local"): (
         "Sign-in gate of the account's own password, enforced only while REQUIRE_EMAIL_VERIFICATION is on: it "
         "decides whether the holder of the credential may enter, not whether a third party's assertion may "

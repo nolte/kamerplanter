@@ -805,6 +805,10 @@ class Settings(BaseSettings):
     #: noise. Testing a channel is a rare, deliberate act: a handful of attempts an
     #: hour covers a misconfigured endpoint plus a retry after fixing it.
     rate_limit_notification_test: str = "5/hour"
+    #: ``GET /api/v1/system/takeover-status`` and ``POST /api/v1/system/takeover`` (REQ-027 §7a, #1855 R3 W-5),
+    #: per account. Every refused decision writes an audit row and the eligibility check scans the accounts;
+    #: a person decides once, the dialog asks the status once per session - ten a minute is ample.
+    rate_limit_takeover: str = "10/minute"
     #: ``POST /api/v1/privacy/email-change/confirm`` (REQ-025 Art. 16), per client IP.
     #:
     #: **Why there is a limit at all** (#990). The endpoint is unauthenticated and

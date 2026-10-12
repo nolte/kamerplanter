@@ -311,6 +311,7 @@ class TenantErasureEngine:
         "system_settings": _PLATFORM,
         "plans": _PLATFORM + " (REQ-056 plan catalogue; a tenant points at a plan, no plan names a tenant)",
         "schema_migrations": _PLATFORM,
+        "system_meta": _PLATFORM + " (REQ-027 deployment-mode bookkeeping, #1855)",
     }
 
     # ── What happens to the rows that stay (NFR-011 §2.3, #1789) ────────
