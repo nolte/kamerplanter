@@ -878,6 +878,13 @@
       "deleted": "Being deleted",
       "importing": "Being imported"
     },
+    "tenantExportStatus": {
+      "pending": "Requested",
+      "running": "Being created",
+      "completed": "Ready",
+      "failed": "Failed",
+      "expired": "Expired"
+    },
     "invitationType": {
       "email": "Email",
       "link": "Link"

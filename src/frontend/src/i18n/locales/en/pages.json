@@ -1213,6 +1213,38 @@
         "introMember": "What this garden may use and how much of it is taken. For AI calls you see your own usage only; service accounts and AI tokens are shown to leads only.",
         "loadFailed": "The quotas could not be loaded.",
         "footnote": "A lowered limit removes nothing – only the next creation is refused. AI counters run per UTC day."
+      },
+      "tabExport": "Export",
+      "export": {
+        "title": "Export garden",
+        "intro": "Download all data of this garden as one ZIP archive – as a backup or to move the garden to another Kamerplanter installation. There, the operator imports the archive as a new garden.",
+        "contentHint": "It contains locations, plants, runs, tasks, photos and the member list without e-mail addresses. It does not contain credentials, API keys, integration secrets or sensor time series.",
+        "request": "Request export",
+        "requestHint": "The archive is created in the background; for a large garden this can take a few minutes. At most three exports are possible per day.",
+        "requestBlockedHint": "An export is being created. Once it is ready, you can download it here or request a new one.",
+        "dialogTitle": "Request a garden export",
+        "dialogDescription": "You are requesting an archive with all data of “{{name}}”. Whoever downloads it sees the whole garden – so you confirm this with your own credentials. Every member with the management permission is notified by e-mail.",
+        "dialogConfirm": "Request export",
+        "requested": "Export requested – the archive is being created now.",
+        "alreadyRunning": "An export of this garden is already being created. Wait until it has finished.",
+        "dailyLimitReached": "Three exports of this garden were already requested in the last 24 hours. Please try again later.",
+        "listTitle": "Your exports",
+        "empty": "You have not requested an export of this garden yet.",
+        "loadFailed": "The exports could not be loaded.",
+        "requestedAt": "Requested on {{date}}",
+        "activeInfo": "The archive is being created. This list updates by itself.",
+        "completedInfo": "Ready. You can download it until {{date}}; after that it is deleted.",
+        "completedNoExpiryInfo": "Ready. You can download the archive now.",
+        "expiredInfo": "Expired: the archive was deleted after 72 hours. Request a new export if you need one.",
+        "failureReason": {
+          "too_large": "Failed: the archive would be larger than the storage this garden may use.",
+          "tenant_not_exportable": "Failed: the garden could not be exported in its current state.",
+          "storage_unavailable": "Failed: the file storage was unreachable. Request the export again later.",
+          "internal_error": "Failed: an error occurred while creating the archive. Request the export again."
+        },
+        "download": "Download",
+        "downloadExpired": "This archive has expired and is no longer available. Request a new export if you need one.",
+        "downloadFailed": "The archive could not be downloaded: {{reason}}"
       }
     },
     "dashboard": {

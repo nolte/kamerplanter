@@ -21,6 +21,7 @@ vi.mock('@/api/endpoints/tenants', () => ({
   createLinkInvitation: vi.fn(),
   revokeInvitation: vi.fn(),
   getTenantEntitlements: vi.fn(),
+  listTenantExports: vi.fn().mockResolvedValue([]),
 }));
 
 const tenantApi = await import('@/api/endpoints/tenants');
@@ -48,10 +49,10 @@ describe('TenantSettingsPage — quota tab (REQ-056 AK-45)', () => {
     expect(screen.getByTestId('tenant-quota-members-value')).toHaveTextContent('3 von 50 Mitglieder');
   });
 
-  it('keeps the invitations tab for management and adds the quota tab after it', async () => {
+  it('keeps the invitations tab for management and adds the quota tab after it (export last, #2138)', async () => {
     renderWithProviders(<TenantSettingsPage />, { store: createStoreWithTenantRole('lead', ['management']) });
     const tabs = await screen.findAllByRole('tab');
-    expect(tabs.map((t) => t.textContent)).toEqual(['Mitglieder', 'Einladungen', 'Kontingente']);
+    expect(tabs.map((t) => t.textContent)).toEqual(['Mitglieder', 'Einladungen', 'Kontingente', 'Export']);
     await userEvent.click(screen.getByRole('tab', { name: 'Einladungen' }));
     expect(screen.queryByTestId('tenant-quota-card')).toBeNull();
     await userEvent.click(screen.getByRole('tab', { name: 'Kontingente' }));

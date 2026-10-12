@@ -28,6 +28,8 @@ import { parseApiError } from '@/api/errors';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import ScheduledTenantDeletionsCard from '@/components/tenants/ScheduledTenantDeletionsCard';
 import TenantQuotaCard from '@/components/tenants/TenantQuotaCard';
+import TenantExportCard from '@/components/tenants/TenantExportCard';
+import { isLightMode } from '@/config/mode';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { useStepUpResume } from '@/hooks/useStepUpReauth';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
@@ -63,13 +65,14 @@ export default function TenantSettingsPage() {
   const { canManageMembers: isAdmin } = useTenantPermissions();
   // REQ-056 §15 (AK-45): the quota tab is for every member — reading the plan and the usage is open
   // to all of them (REQ-024 §1a); the backend trims what a member who is not a lead may see.
-  const tabSlugs = useMemo(
-    () =>
-      isAdmin
-        ? (['members', 'invitations', 'quota'] as const)
-        : (['members', 'quota'] as const),
-    [isAdmin],
-  );
+  // REQ-056 §8.2/§15 (#2138): the export is for a lead holding the `management` scope, and only in
+  // full mode — the routes exist nowhere else. The backend decides again from the stored membership.
+  const canExport = !isLightMode && isAdmin && activeTenant?.role === 'lead';
+  const tabSlugs = useMemo(() => {
+    const slugs: string[] = isAdmin ? ['members', 'invitations', 'quota'] : ['members', 'quota'];
+    if (canExport) slugs.push('export');
+    return slugs;
+  }, [isAdmin, canExport]);
   const [tab, setTab] = useTabUrl(tabSlugs);
   const activeTab = tabSlugs[tab] ?? 'members';
   const [members, setMembers] = useState<Membership[]>([]);
@@ -364,6 +367,7 @@ export default function TenantSettingsPage() {
         <Tab label={t('pages.tenants.tabMembers')} />
         {isAdmin && <Tab label={t('pages.tenants.tabInvitations')} />}
         <Tab label={t('pages.tenants.tabQuota')} data-testid="tenant-tab-quota" />
+        {canExport && <Tab label={t('pages.tenants.tabExport')} data-testid="tenant-tab-export" />}
       </Tabs>
 
       {activeTab === 'members' && (
@@ -580,6 +584,14 @@ export default function TenantSettingsPage() {
 
       {activeTab === 'quota' && (
         <TenantQuotaCard slug={activeTenant.slug} isLead={activeTenant.role === 'lead'} />
+      )}
+
+      {activeTab === 'export' && canExport && (
+        <TenantExportCard
+          slug={activeTenant.slug}
+          tenantKey={activeTenant.key}
+          tenantName={activeTenant.name}
+        />
       )}
 
       {isAdmin && (

@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
+import { ApiError } from '@/api/errors';
 
 const mocks = vi.hoisted(() => {
   const client = {
@@ -179,5 +181,68 @@ describe('tenants endpoints — entitlements (REQ-056 §7.7, #2142)', () => {
     const result = await tenants.getTenantEntitlements('mein-garten');
     expect(client.get).toHaveBeenCalledWith('/tenants/mein-garten/entitlements');
     expect(result.plan.name).toBe('Standard');
+  });
+});
+
+describe('tenants endpoints — exports (REQ-056 §8, #2138)', () => {
+  function blobErrorResponse(status: number, body: string): AxiosError {
+    const config = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
+    return new AxiosError('Request failed', 'ERR_BAD_REQUEST', config, {}, {
+      data: new Blob([body], { type: 'application/json' }),
+      status,
+      statusText: '',
+      headers: {},
+      config,
+    });
+  }
+
+  it('requestTenantExport posts the step-up to /tenants/{slug}/exports', async () => {
+    client.post.mockResolvedValue({ data: { key: 'e1', status: 'pending' } });
+    const result = await tenants.requestTenantExport('club', { current_password: 'x' });
+    expect(client.post).toHaveBeenCalledWith('/tenants/club/exports', { current_password: 'x' });
+    expect(result.key).toBe('e1');
+  });
+
+  it('listTenantExports reads the first bounded page, newest first', async () => {
+    client.get.mockResolvedValue({ data: [] });
+    await tenants.listTenantExports('club');
+    expect(client.get).toHaveBeenCalledWith('/tenants/club/exports', {
+      params: { offset: 0, limit: tenants.TENANT_EXPORT_LIST_LIMIT },
+    });
+  });
+
+  it('downloadTenantExport reads the archive as a blob', async () => {
+    const blob = new Blob(['zip']);
+    client.get.mockResolvedValue({ data: blob });
+    await expect(tenants.downloadTenantExport('club', 'e1')).resolves.toBe(blob);
+    expect(client.get).toHaveBeenCalledWith('/tenants/club/exports/e1/download', { responseType: 'blob' });
+  });
+
+  it('downloadTenantExport turns a blob-typed error envelope into an ApiError', async () => {
+    client.get.mockRejectedValue(
+      blobErrorResponse(
+        404,
+        JSON.stringify({
+          error_id: 'err-1',
+          error_code: 'NOT_FOUND',
+          message: 'The export has expired.',
+          details: [],
+          timestamp: '',
+          path: '/x',
+          method: 'GET',
+        }),
+      ),
+    );
+    const error = await tenants.downloadTenantExport('club', 'e1').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).statusCode).toBe(404);
+    expect((error as ApiError).errorCode).toBe('NOT_FOUND');
+    expect((error as ApiError).message).toBe('The export has expired.');
+  });
+
+  it('downloadTenantExport rethrows a blob error that is not the envelope unchanged', async () => {
+    const raw = blobErrorResponse(502, '<html>Bad gateway</html>');
+    client.get.mockRejectedValue(raw);
+    await expect(tenants.downloadTenantExport('club', 'e1')).rejects.toBe(raw);
   });
 });

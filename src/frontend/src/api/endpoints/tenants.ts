@@ -1,6 +1,9 @@
+import axios from 'axios';
 import client from '../client';
+import { ApiError } from '../errors';
 import { fetchAllPages } from '../paginate';
 import type {
+  ApiErrorResponse,
   CredentialStepUp,
   Invitation,
   InvitationCreate,
@@ -13,6 +16,7 @@ import type {
   TenantDeleteRequest,
   TenantDeletionAccepted,
   TenantEntitlements,
+  TenantExport,
   TenantUpdate,
   TenantWithRole,
 } from '../types';
@@ -81,6 +85,70 @@ export async function deleteTenant(
 ): Promise<TenantDeletionAccepted> {
   const res = await client.delete<TenantDeletionAccepted>(`${BASE}/${slug}`, { data: stepUp });
   return res.data;
+}
+
+// ── Exports (REQ-056 §8, #2138) — full mode only ────────────────────
+
+/** How many of the caller's own exports the settings card shows (newest first). */
+export const TENANT_EXPORT_LIST_LIMIT = 10;
+
+/**
+ * Request an export of the whole tenant (REQ-056 §8.2) — `202 Accepted` with the pending record.
+ * Lead **and** `management` scope; the body carries the requester's **own** step-up for the act
+ * `tenant_export`, bound to the tenant's key. `409 EXPORT_ALREADY_RUNNING` while one runs,
+ * `429 RATE_LIMIT_EXCEEDED` past the daily limit.
+ */
+export async function requestTenantExport(
+  slug: string,
+  stepUp: CredentialStepUp,
+): Promise<TenantExport> {
+  const res = await client.post<TenantExport>(`${BASE}/${slug}/exports`, stepUp);
+  return res.data;
+}
+
+/** The caller's own exports of the tenant, newest first — the first {@link TENANT_EXPORT_LIST_LIMIT}. */
+export async function listTenantExports(slug: string): Promise<TenantExport[]> {
+  const res = await client.get<TenantExport[]>(`${BASE}/${slug}/exports`, {
+    params: { offset: 0, limit: TENANT_EXPORT_LIST_LIMIT },
+  });
+  return res.data;
+}
+
+/**
+ * Read a blob-typed error body back as the API's error envelope.
+ *
+ * With `responseType: 'blob'` the error body arrives as a `Blob`, so the client's interceptor
+ * cannot recognise the envelope and rethrows the raw Axios error; without this the card would
+ * show "Request failed with status code 404" for an expired archive.
+ */
+async function rethrowBlobError(error: unknown): Promise<never> {
+  if (axios.isAxiosError(error) && error.response?.data instanceof Blob) {
+    let parsed: Partial<ApiErrorResponse> | null;
+    try {
+      parsed = JSON.parse(await error.response.data.text()) as Partial<ApiErrorResponse>;
+    } catch {
+      parsed = null;
+    }
+    if (parsed?.error_id && parsed.error_code) {
+      throw new ApiError(parsed as ApiErrorResponse, error.response.status);
+    }
+  }
+  throw error;
+}
+
+/**
+ * The archive of a completed export as a ZIP blob — only for the person who requested it and
+ * only until it expires (404 after, NFR-011 R-05). Every download is audited by the backend.
+ */
+export async function downloadTenantExport(slug: string, exportKey: string): Promise<Blob> {
+  try {
+    const res = await client.get<Blob>(`${BASE}/${slug}/exports/${exportKey}/download`, {
+      responseType: 'blob',
+    });
+    return res.data;
+  } catch (error) {
+    return rethrowBlobError(error);
+  }
 }
 
 // ── Members ─────────────────────────────────────────────────────────
