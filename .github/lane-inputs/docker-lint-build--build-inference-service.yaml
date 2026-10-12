@@ -10,10 +10,10 @@ gate:
   kind: paths-filter
   filter: inference-service
 status: derived
-measured_on: '2026-10-05'
-measured_at_commit: b84592b0423e8106218d048d4b3fd5b83cf83226
+measured_on: '2026-10-12'
+measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
 replay_seconds: 1
-job_spec_sha256: 935e5ef0d0e586f27fcd508b55d3b7ad423ca83da4cfe68272e0ec3f969ad45e
+job_spec_sha256: 9fd8040c9e934935486e4cc0b577682d8083f0e9b46471b54ea891114a24cd15
 invocations:
 - command: derive-docker --context src/inference-service --dockerfile src/inference-service/Dockerfile
   cwd: .

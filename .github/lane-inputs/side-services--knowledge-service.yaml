@@ -9,9 +9,9 @@ job: knowledge-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-05'
-measured_at_commit: b84592b0423e8106218d048d4b3fd5b83cf83226
-replay_seconds: 12
+measured_on: '2026-10-12'
+measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
+replay_seconds: 10
 job_spec_sha256: 086772ed392e80e46d208deb4b300b94d53619ebe5996ce5085ac995167cc87f
 invocations:
 - command: task deps:sync:knowledge-service
@@ -19,13 +19,13 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 211
+  untracked_reads_dropped: 209
 - command: task test:knowledge-service
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2112
+  untracked_reads_dropped: 2113
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
@@ -55,7 +55,10 @@ reads:
 - src/knowledge-service/app/ingestor.py
 - src/knowledge-service/app/llm/
 - src/knowledge-service/app/llm/__init__.py
+- src/knowledge-service/app/llm/anthropic.py
 - src/knowledge-service/app/llm/interface.py
+- src/knowledge-service/app/llm/ollama.py
+- src/knowledge-service/app/llm/openai_compatible.py
 - src/knowledge-service/app/main.py
 - src/knowledge-service/app/observability/
 - src/knowledge-service/app/observability/__init__.py
@@ -76,10 +79,12 @@ reads:
 - src/knowledge-service/tests/__init__.py
 - src/knowledge-service/tests/conftest.py
 - src/knowledge-service/tests/test_access_log_redacted.py
+- src/knowledge-service/tests/test_ask_context_bounds.py
 - src/knowledge-service/tests/test_auth.py
 - src/knowledge-service/tests/test_chunk_response.py
 - src/knowledge-service/tests/test_embedding.py
 - src/knowledge-service/tests/test_error_tracking_redacts_texts.py
+- src/knowledge-service/tests/test_llm_factory.py
 - src/knowledge-service/tests/test_logs_carry_no_user_text.py
 - src/knowledge-service/tests/test_prompt_engine.py
 - src/knowledge-service/tests/test_reranker.py
@@ -92,10 +97,12 @@ reads:
 - src/libs/kp_vectordb/kp_vectordb/schema.py
 test_modules:
 - src/knowledge-service/tests/test_access_log_redacted.py
+- src/knowledge-service/tests/test_ask_context_bounds.py
 - src/knowledge-service/tests/test_auth.py
 - src/knowledge-service/tests/test_chunk_response.py
 - src/knowledge-service/tests/test_embedding.py
 - src/knowledge-service/tests/test_error_tracking_redacts_texts.py
+- src/knowledge-service/tests/test_llm_factory.py
 - src/knowledge-service/tests/test_logs_carry_no_user_text.py
 - src/knowledge-service/tests/test_prompt_engine.py
 - src/knowledge-service/tests/test_reranker.py
