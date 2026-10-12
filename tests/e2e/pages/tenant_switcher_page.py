@@ -7,6 +7,7 @@ from contextlib import suppress
 from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 
 from .base_page import BasePage, DEFAULT_TIMEOUT
@@ -32,6 +33,17 @@ class TenantSwitcherPage(BasePage):
     # See #778 A11.
     MENU = (By.CSS_SELECTOR, "[data-testid='tenant-switcher-menu']")
     MENU_ITEMS = (By.CSS_SELECTOR, "[data-testid='tenant-switcher-menu'] li[role='menuitem']")
+    # Only the tenant entries. `TenantSwitcher` keys each tenant item
+    # ``tenant-switcher-item-<slug>``; the action entries after the divider
+    # (``tenant-switcher-garden-settings``, ``tenant-switcher-create-organization``)
+    # carry their own ids and never this prefix. Positional trimming ("drop the
+    # last item after the divider") broke the moment #2166 added a second
+    # action entry: "Garten-Einstellungen" was then read as a tenant, and
+    # TC-024-009 "switched" to it.
+    TENANT_ITEMS = (
+        By.CSS_SELECTOR,
+        "[data-testid='tenant-switcher-menu'] [data-testid^='tenant-switcher-item-']",
+    )
     # Active tenant has the 'selected' class
     SELECTED_ITEM = (By.CSS_SELECTOR, "[data-testid='tenant-switcher-menu'] li.Mui-selected")
     # Check icon next to active tenant
@@ -42,10 +54,8 @@ class TenantSwitcherPage(BasePage):
     # Type icons
     PERSON_ICON = (By.CSS_SELECTOR, "[data-testid='PersonIcon']")
     GROUPS_ICON = (By.CSS_SELECTOR, "[data-testid='GroupsIcon']")
-    # The "Create organization" menu item (last, after divider)
-    CREATE_ORG_ITEM = (By.CSS_SELECTOR, "[data-testid='tenant-switcher-menu'] li:last-child")
-    # Divider before create item
-    DIVIDER = (By.CSS_SELECTOR, "[data-testid='tenant-switcher-menu'] .MuiDivider-root")
+    # The "Create organization" action entry after the divider
+    CREATE_ORG_ITEM = (By.CSS_SELECTOR, "[data-testid='tenant-switcher-create-organization']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -192,28 +202,18 @@ class TenantSwitcherPage(BasePage):
     def get_tenant_names(self) -> list[str]:
         """Return the names of all tenants in the open dropdown.
 
-        Excludes the last "Create organization" item after the divider.
+        Reads only the ``tenant-switcher-item-<slug>`` entries, so the action
+        entries after the divider (garden settings, create organization) are
+        never counted as tenants, however many of them there are.
 
         Anchored on :meth:`wait_for_menu_labels`, so the scan reads the menu the
         user sees rather than the frame it was mounted in.
         """
         self.wait_for_menu_labels()
-        items = self.driver.find_elements(*self.MENU_ITEMS)
-        names = []
-        for item in items:
-            # The last item after divider is the create-org item; skip it
-            text_els = item.find_elements(By.CSS_SELECTOR, ".MuiListItemText-primary")
-            if text_els:
-                names.append(text_els[0].text)
-            else:
-                names.append(item.text.strip())
-        # Remove the last entry if it's the create-org button
-        if names and self._has_divider():
-            names = names[:-1]
-        return names
+        return [self._item_name(item) for item in self.driver.find_elements(*self.TENANT_ITEMS)]
 
     def get_tenant_count(self) -> int:
-        """Return the number of tenant entries (excluding create-org item)."""
+        """Return the number of tenant entries (excluding the action entries)."""
         return len(self.get_tenant_names())
 
     def get_selected_tenant_name(self) -> str:
@@ -239,11 +239,8 @@ class TenantSwitcherPage(BasePage):
 
         Returns None if the tenant is not found.
         """
-        items = self.driver.find_elements(*self.MENU_ITEMS)
-        for item in items:
-            text_els = item.find_elements(By.CSS_SELECTOR, ".MuiListItemText-primary")
-            name = text_els[0].text if text_els else item.text.strip()
-            if name == tenant_name:
+        for item in self.driver.find_elements(*self.TENANT_ITEMS):
+            if self._item_name(item) == tenant_name:
                 person = item.find_elements(By.CSS_SELECTOR, "[data-testid='PersonIcon']")
                 groups = item.find_elements(By.CSS_SELECTOR, "[data-testid='GroupsIcon']")
                 if person:
@@ -255,7 +252,7 @@ class TenantSwitcherPage(BasePage):
 
     def has_create_org_item(self) -> bool:
         """Check if the 'Create organization' menu item is present."""
-        return self._has_divider()
+        return self.is_present(self.CREATE_ORG_ITEM)
 
     # -- Interactions: Switching -------------------------------------------
 
@@ -265,11 +262,8 @@ class TenantSwitcherPage(BasePage):
         Note: The TenantSwitcher triggers window.location.reload() on switch,
         so the caller should wait for the page to reload afterwards.
         """
-        items = self.driver.find_elements(*self.MENU_ITEMS)
-        for item in items:
-            text_els = item.find_elements(By.CSS_SELECTOR, ".MuiListItemText-primary")
-            name = text_els[0].text if text_els else item.text.strip()
-            if name == tenant_name:
+        for item in self.driver.find_elements(*self.TENANT_ITEMS):
+            if self._item_name(item) == tenant_name:
                 self.scroll_and_click(item)
                 return
         raise ValueError(f"Tenant '{tenant_name}' not found in switcher menu")
@@ -281,7 +275,8 @@ class TenantSwitcherPage(BasePage):
 
     # -- Private helpers ---------------------------------------------------
 
-    def _has_divider(self) -> bool:
-        """Check if a divider is present in the menu (separates tenants from create-org)."""
-        elements = self.driver.find_elements(*self.DIVIDER)
-        return len(elements) > 0
+    @staticmethod
+    def _item_name(item: WebElement) -> str:
+        """The label of one menu entry (the ``ListItemText`` primary, else the text)."""
+        text_els = item.find_elements(By.CSS_SELECTOR, ".MuiListItemText-primary")
+        return text_els[0].text if text_els else item.text.strip()

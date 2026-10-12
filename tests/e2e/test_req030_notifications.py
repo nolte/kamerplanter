@@ -3,7 +3,7 @@
 Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-030.md):
   TC-REQ-030-001  ->  TC-REQ-030-009  Notification-Einstellungs-Tab in Kontoeinstellungen navigieren
   TC-REQ-030-002  ->  TC-REQ-030-010  Kanalverwaltung -- Uebersicht aller Kanaele
-  TC-REQ-030-003  ->  TC-REQ-030-013  E-Mail-Kanal aktivieren und E-Mail-Adresse eintragen
+  TC-REQ-030-003  ->  TC-REQ-030-013  E-Mail-Kanal aktivieren -- Empfaenger ist die Konto-Adresse
   TC-REQ-030-004  ->  TC-006-082  Aufgabe neu zuweisen -- Zuweisungs-Benachrichtigung (Soll)
   TC-REQ-030-005  ->  TC-006-083  Aufgabe bearbeiten -- Benachrichtigung synchron aktualisiert (Soll)
   TC-REQ-030-006  ->  TC-006-084  Aufgabe loeschen -- veraltete Benachrichtigung entfernt (Soll)
@@ -331,7 +331,7 @@ class TestNotificationChannelOverview:
 
 
 class TestNotificationEmailChannelEnable:
-    """Enable email channel and configure address (Spec: TC-REQ-030-013)."""
+    """Enable email channel, recipient is the account address (Spec: TC-REQ-030-013)."""
 
     @pytest.mark.core_crud
     @pytest.mark.requires_auth
@@ -341,15 +341,20 @@ class TestNotificationEmailChannelEnable:
         notif_page: NotificationSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-013: Enable email channel, type address, save and verify.
+        """TC-REQ-030-013: Enable email channel, check recipient, save and verify.
 
-        Spec: TC-REQ-030-013 -- E-Mail-Kanal aktivieren und E-Mail-Adresse
-        eintragen.
+        Spec: TC-REQ-030-013 -- E-Mail-Kanal aktivieren; Empfaenger ist die
+        verifizierte Konto-Adresse.
+
+        Since #1885/#1952 the channel has no editable address: mail goes only
+        to the signed-in account's own address, which the tab shows read-only.
+        The seeded demo account is verified (``seed_auth.py`` sets
+        ``email_verified=True``), so the helper text is the expected branch and
+        the unverified warning must not render.
 
         We deliberately do NOT trigger the test-send button -- the test only
         exercises the configuration workflow, not real delivery.  The test
-        is idempotent: it always sets the same email value and toggles the
-        channel ON, so re-runs converge.
+        is idempotent: it always toggles the channel ON, so re-runs converge.
         """
         _ensure_logged_in(login_page)
         notif_page.open()
@@ -361,12 +366,19 @@ class TestNotificationEmailChannelEnable:
         # Activate email channel (idempotent — only flips when needed).
         notif_page.set_channel_enabled("email", enabled=True)
 
-        # Conditional config field appears once the switch is on.
-        target_address = "demo+e2e@kamerplanter.example"
-        notif_page.set_email_address(target_address)
+        # The read-only recipient block appears once the switch is on.
+        recipient = notif_page.get_email_recipient_address()
         screenshot(
             "TC-REQ-030-003_email-channel-configured",
-            "Email channel enabled with test address filled",
+            "Email channel enabled, recipient is the account address",
+        )
+        assert recipient == DEMO_EMAIL, (
+            f"TC-REQ-030-003 FAIL: Expected recipient to be the account address "
+            f"'{DEMO_EMAIL}', got: '{recipient}'"
+        )
+        assert notif_page.get_email_recipient_verification() == "verified", (
+            "TC-REQ-030-003 FAIL: Expected the verified-recipient helper for the "
+            "seeded (verified) demo account, got the unverified warning"
         )
 
         notif_page.save()
@@ -377,7 +389,8 @@ class TestNotificationEmailChannelEnable:
             "TC-REQ-030-003 FAIL: Expected success snackbar after saving notification settings"
         )
 
-        # Persistence check 2: reload tab and verify the toggle + address persisted.
+        # Persistence check 2: reload tab and verify the toggle persisted and the
+        # recipient is still the account address.
         notif_page.open()
         screenshot(
             "TC-REQ-030-003_email-channel-after-reload",
@@ -386,9 +399,10 @@ class TestNotificationEmailChannelEnable:
         assert notif_page.is_channel_enabled("email"), (
             "TC-REQ-030-003 FAIL: Email channel toggle did not persist across reload"
         )
-        assert notif_page.get_email_address() == target_address, (
-            f"TC-REQ-030-003 FAIL: Expected email '{target_address}' to persist, "
-            f"got: '{notif_page.get_email_address()}'"
+        recipient_after_reload = notif_page.get_email_recipient_address()
+        assert recipient_after_reload == DEMO_EMAIL, (
+            f"TC-REQ-030-003 FAIL: Expected recipient '{DEMO_EMAIL}' after reload, "
+            f"got: '{recipient_after_reload}'"
         )
 
 

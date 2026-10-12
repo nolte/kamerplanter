@@ -35,6 +35,16 @@ of exactly that surface makes "the label lands on the third look" expressible as
 a number instead of a sleep. `BasePage.poll` builds a real `WebDriverWait` over
 whatever object it is handed, so Selenium's own polling still runs.
 
+A third property arrived with #2166, which added a second action entry
+("Garten-Einstellungen") after the divider:
+
+3. **Only tenant entries are tenants.** The reader used to drop the *last*
+   entry after the divider and keep everything else, so the new action entry
+   was returned as a tenant and TC-024-009 "switched" to it. It now reads only
+   the ``tenant-switcher-item-<slug>`` entries; the double answers the
+   tenant-item selector with the tenant entries alone and the generic
+   ``li[role='menuitem']`` selector with every entry, as the browser would.
+
 This is a browser-free unit test and belongs in this tier, never under
 `tests/e2e/` — see this package's `README.md`.
 """
@@ -46,6 +56,8 @@ import time
 from tests.e2e.pages.tenant_switcher_page import TenantSwitcherPage
 
 NAMES = ["Mein Garten", "Gemeinschaftsgarten Nord"]
+#: The action entries `TenantSwitcher` renders after the divider (#2166).
+ACTIONS = ["Garten-Einstellungen", "Organisation erstellen"]
 
 
 class FakeText:
@@ -78,16 +90,20 @@ class FakeItem:
 class FakeMenuDriver:
     """Answers the three lookups the reader makes, and counts the item lookups."""
 
-    def __init__(self, names: list[str], *, reveal_at: int = 1, has_divider: bool = False) -> None:
+    def __init__(
+        self, names: list[str], *, reveal_at: int = 1, actions: list[str] | None = None
+    ) -> None:
         self.item_lookups = 0
-        self._has_divider = has_divider
+        self._actions = [FakeItem(name, self, reveal_at) for name in actions or []]
         self._items = [FakeItem(name, self, reveal_at) for name in names]
 
     def find_elements(self, _by: str, value: str) -> list[object]:
         if "MuiDivider-root" in value:
-            return [object()] if self._has_divider else []
+            return [object()] if self._actions else []
         self.item_lookups += 1
-        return list(self._items)
+        if "tenant-switcher-item-" in value:
+            return list(self._items)
+        return [*self._items, *self._actions]
 
 
 def _page(driver: FakeMenuDriver, *, budget: int | None = None) -> TenantSwitcherPage:
@@ -144,8 +160,27 @@ class TestTheAnchorNeverRaises:
 
         assert _page(driver, budget=1).get_tenant_names() == [""]
 
-    def test_the_create_org_entry_is_still_trimmed_off(self) -> None:
-        """The divider-based trim is unchanged by the anchor."""
-        driver = FakeMenuDriver([*NAMES, "Organisation erstellen"], has_divider=True)
+
+class TestOnlyTenantEntriesAreTenants:
+    """Property 3 — the action entries after the divider are never tenants."""
+
+    def test_every_action_entry_after_the_divider_is_excluded(self) -> None:
+        """The shape of the TC-024-009 nightly failure after #2166.
+
+        "Expected active tenant 'Garten-Einstellungen', got 'Mein Garten'": the
+        reader dropped only the last action entry, so the garden-settings entry
+        reached the caller as a tenant to switch to.
+        """
+        driver = FakeMenuDriver(NAMES, actions=ACTIONS)
 
         assert _page(driver).get_tenant_names() == NAMES
+
+    def test_a_single_tenant_menu_counts_one_tenant(self) -> None:
+        """One tenant plus two action entries is one tenant, not two.
+
+        TC-024-009 skips below two tenants; counting an action entry as a tenant
+        is what turned that skip into a switch to a non-tenant.
+        """
+        driver = FakeMenuDriver(["Mein Garten"], actions=ACTIONS)
+
+        assert _page(driver).get_tenant_count() == 1

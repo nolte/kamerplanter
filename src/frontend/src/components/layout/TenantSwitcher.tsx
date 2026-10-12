@@ -109,6 +109,7 @@ export default function TenantSwitcher() {
             key={tenant.key}
             selected={tenant.slug === activeTenant?.slug}
             onClick={() => handleSwitch(tenant.slug)}
+            data-testid={`tenant-switcher-item-${tenant.slug}`}
           >
             <ListItemIcon>
               {tenant.tenant_type === 'organization' ? (
@@ -130,7 +131,7 @@ export default function TenantSwitcher() {
           </ListItemIcon>
           {t('pages.tenants.gardenSettings')}
         </MenuItem>
-        <MenuItem onClick={handleCreateOrg}>
+        <MenuItem onClick={handleCreateOrg} data-testid="tenant-switcher-create-organization">
           <ListItemIcon>
             <AddIcon fontSize="small" />
           </ListItemIcon>

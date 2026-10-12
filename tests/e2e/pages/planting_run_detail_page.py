@@ -18,7 +18,6 @@ class PlantingRunDetailPage(BasePage):
     # Action buttons — visibility depends on current status
     CREATE_PLANTS_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-plants-button']")
     DELETE_BUTTON = (By.CSS_SELECTOR, "[data-testid='delete-button']")
-    BATCH_REMOVE_BUTTON = (By.CSS_SELECTOR, "[data-testid='batch-remove-button']")
 
     # ── Tab locators ───────────────────────────────────────────────────
     # MUI Tabs render as <button role="tab"> elements
@@ -208,17 +207,6 @@ class PlantingRunDetailPage(BasePage):
         """
         return len(self.driver.find_elements(*self.DELETE_BUTTON)) > 0
 
-    def is_batch_remove_button_visible(self) -> bool:
-        """True when status is 'active' or 'harvesting'.
-
-        Its one call site reads it negated (``assert not
-        is_batch_remove_button_visible()``) alongside its two siblings above,
-        at the same point in the same test -- see
-        :meth:`is_create_plants_button_visible` for why the caller's prior
-        :meth:`get_status` already anchors all three.
-        """
-        return len(self.driver.find_elements(*self.BATCH_REMOVE_BUTTON)) > 0
-
     def click_create_plants(self) -> None:
         """Click 'Create Plants' and wait for the confirmation dialog."""
         self.wait_and_click(self.CREATE_PLANTS_BUTTON)
@@ -227,11 +215,6 @@ class PlantingRunDetailPage(BasePage):
     def click_delete(self) -> None:
         """Click 'Delete' and wait for the confirmation dialog."""
         self.wait_and_click(self.DELETE_BUTTON)
-        self.wait_for_element_visible(self.CONFIRM_DIALOG)
-
-    def click_batch_remove(self) -> None:
-        """Click 'Batch Remove' and wait for the confirmation dialog."""
-        self.wait_and_click(self.BATCH_REMOVE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_action(self) -> None:
