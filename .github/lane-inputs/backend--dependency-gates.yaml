@@ -9,9 +9,9 @@ job: dependency-gates
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-05'
-measured_at_commit: b84592b0423e8106218d048d4b3fd5b83cf83226
-replay_seconds: 13
+measured_on: '2026-10-12'
+measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
+replay_seconds: 12
 job_spec_sha256: c02d23fc6df5717243f60216ae66dd36d664c82b5b6a80469bddd16d96c2fc92
 invocations:
 - command: task deps:check
@@ -20,7 +20,7 @@ invocations:
   exit_code: 0
   env:
   - UV_PROJECT_ENVIRONMENT=/tmp/lane-inputs-scratch/depsenv
-  untracked_reads_dropped: 7
+  untracked_reads_dropped: 1
 - command: uv sync --locked --no-install-project
   cwd: src/backend
   recorder: strace -ff -y -z
