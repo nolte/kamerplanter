@@ -1,7 +1,8 @@
+from collections.abc import Generator
 from datetime import datetime
 
 from app.domain.interfaces.observation_repository import IObservationRepository
-from app.domain.models.observation import AggregatedReading, SensorReading
+from app.domain.models.observation import AggregatedReading, ArchivedReading, SensorReading
 
 
 class NullObservationRepository(IObservationRepository):
@@ -57,6 +58,13 @@ class NullObservationRepository(IObservationRepository):
 
     def delete_by_tenant(self, tenant_key: str) -> int:
         return 0
+
+    def iter_tenant_readings(self, tenant_key: str, *, page_size: int) -> Generator[list[ArchivedReading]]:
+        """A deployment without TimescaleDB stores no reading, so a tenant has none to export."""
+        if not tenant_key:
+            msg = "iter_tenant_readings needs a tenant key"
+            raise ValueError(msg)
+        yield from ()
 
     def is_available(self) -> bool:
         return False

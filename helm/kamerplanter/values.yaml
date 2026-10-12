@@ -106,6 +106,49 @@ storage:
       accessKeyIdKey: STORAGE_S3_ACCESS_KEY_ID
       secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
 
+# -- REQ-056 §8 tenant export and import (#2138).
+#
+# ``importMaxUploadMb`` is the largest archive the platform admin's import
+# (``POST /api/v1/admin/platform/tenant-imports``) takes, in MiB
+# (TENANT_IMPORT_MAX_UPLOAD_MB). That ONE route gets its own body ceiling of
+# importMaxUploadMb + 1 MiB on all three layers: the backend's
+# RequestBodyLimitMiddleware, a `location =` in the frontend nginx, and a
+# derived Ingress `tenant-import` (templates/_tenant_import_ingress.tpl) for
+# ingress-nginx. Every other path keeps storage.maxFileSizeMb + 1 MiB.
+#
+# THE /tmp BUDGET (docs: tenant-export-import.md, "Archivgröße und /tmp").
+# FastAPI spools the upload into the backend's /tmp before the route runs, and
+# that /tmp is memory (backend-tmp, 64Mi). The backend therefore lowers the
+# import ceiling to UPLOAD_SPOOL_BUDGET_MB (52 by default): out of the box an
+# archive up to ~51 MiB is accepted, a larger one is refused with 413. To take
+# archives up to N MiB, set importMaxUploadMb: N, raise
+# controllers.backend.containers.main.env.UPLOAD_SPOOL_BUDGET_MB to at least
+# N + 1, raise persistence.backend-tmp.sizeLimit above it (bjw-s does not
+# template sizeLimit) and the backend's memory limit by the same amount — a
+# memory-backed /tmp is charged to the pod. The worker writes and reads the
+# archive through a temporary file too: raise persistence.celery-worker-tmp.sizeLimit
+# (and the worker's memory) to the largest archive you export or import.
+#
+# ``signingSecret`` names an OPTIONAL Secret key holding
+# TENANT_EXPORT_SIGNING_SECRET (at least 32 characters, e.g.
+# `openssl rand -hex 32`) — the key tenant archives are signed and checked with.
+# Absent (the default: the key is not in kamerplanter-secrets) the backend
+# derives the key from JWT_SECRET_KEY as before. Backend (checks imports) and
+# celery-worker (signs exports) read it; changing it makes older archives
+# import as unverified. Never put the value into values.yaml.
+tenantExport:
+  importMaxUploadMb: 512
+  signingSecret:
+    secretName: kamerplanter-secrets
+    key: TENANT_EXPORT_SIGNING_SECRET
+  # The derived ingress for the import path (rendered only when ingress.main
+  # renders). Its annotations are the body limit and timeouts for ingress-nginx;
+  # set more here (they are merged), never certificate annotations — the TLS
+  # Secret of ingress.main is reused, its certificate is issued for main.
+  importIngress:
+    enabled: true
+    annotations: {}
+
 # -- Celery workers per queue (MT-032, #2128).
 #
 # The application routes every task to one of three queues
@@ -771,6 +814,16 @@ controllers:
           # backend requires at start. bjw-s does not template emptyDir sizeLimit:
           # raise persistence.backend-tmp.sizeLimit yourself above ~60 MiB uploads.
           UPLOAD_SPOOL_BUDGET_MB: '{{ max 52 (add (int .Values.storage.maxFileSizeMb) 1) }}'
+          # REQ-056 §8.4 (#2138) — the import route's own body ceiling, bounded by
+          # UPLOAD_SPOOL_BUDGET_MB above (see tenantExport for the /tmp sizing).
+          TENANT_IMPORT_MAX_UPLOAD_MB: '{{ .Values.tenantExport.importMaxUploadMb }}'
+          # REQ-056 §8.3 (#2138) — optional; absent, the key derives from JWT_SECRET_KEY.
+          TENANT_EXPORT_SIGNING_SECRET:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.tenantExport.signingSecret.secretName }}'
+                key: '{{ .Values.tenantExport.signingSecret.key }}'
+                optional: true
           # NFR-013 Object storage (§4.1) — rendered from the top-level
           # ``storage`` block (#2124); set the backend THERE, not here. The
           # celery-worker carries the same lines and must stay identical.
@@ -1416,6 +1469,13 @@ controllers:
                 name: '{{ .Values.storage.s3.credentialsRef.secretName }}'
                 key: '{{ .Values.storage.s3.credentialsRef.secretAccessKeyKey }}'
                 optional: true
+          # REQ-056 §8.3 (#2138) — the worker signs the export archives; same optional key as the backend.
+          TENANT_EXPORT_SIGNING_SECRET:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.tenantExport.signingSecret.secretName }}'
+                key: '{{ .Values.tenantExport.signingSecret.key }}'
+                optional: true
         probes:
           # #2154 — a worker is ready when its consumer runs, which the worker
           # itself records (WORKER_READY_FILE above): `test -f` costs nothing
@@ -1970,6 +2030,24 @@ configMaps:
             }
 
             location /api/ {
+                proxy_pass http://kamerplanter-backend:8000;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+
+            # #2138 — the platform admin's tenant import takes an archive up to
+            # tenantExport.importMaxUploadMb (+ 1 MiB framing); this exact path only,
+            # every other path keeps the server-level limit above. Streamed to the
+            # backend (no buffering into /var/cache/nginx, a 64Mi tmpfs), with time
+            # for the backend to verify the archive before it answers. Same
+            # expression as the derived Ingress `tenant-import`.
+            location = /api/v1/admin/platform/tenant-imports {
+                client_max_body_size {{ add (int .Values.tenantExport.importMaxUploadMb) 1 }}m;
+                proxy_request_buffering off;
+                proxy_read_timeout 300s;
+                proxy_send_timeout 300s;
                 proxy_pass http://kamerplanter-backend:8000;
                 proxy_set_header Host $host;
                 proxy_set_header X-Real-IP $remote_addr;

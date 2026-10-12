@@ -1371,7 +1371,7 @@ def get_tenant_export_service() -> TenantExportService:
         ArangoTenantExportRequestRepository,
         ArangoTenantImportRequestRepository,
     )
-    from app.domain.services.tenant_export_service import TenantExportService, export_signing_key
+    from app.domain.services.tenant_export_service import TenantExportService, resolve_export_signing_key
 
     # Dispatched by task name: ``celery_app`` is typed (Celery), the decorated task objects are not, and
     # ``task_routes`` (``app/tasks/routing.py``) routes both names to the ``bulk`` queue either way.
@@ -1414,9 +1414,13 @@ def get_tenant_export_service() -> TenantExportService:
         import_max_upload_bytes=settings.tenant_import_max_upload_mb * 1024 * 1024,
         dispatch_export=dispatch_export,
         dispatch_import=dispatch_import,
-        signing_key=export_signing_key(settings.jwt_secret_key),
+        signing_key=resolve_export_signing_key(
+            dedicated_secret=settings.tenant_export_signing_secret, jwt_secret=settings.jwt_secret_key
+        ),
         allowed_mime_types=settings.allowed_mime_types_for_category,
         max_object_bytes=settings.storage_max_file_size_mb * 1024 * 1024,
+        # REQ-056 §8.3 (#2138) — readings travel as timeseries/readings.csv only with TimescaleDB.
+        readings=get_observation_repo() if settings.timescaledb_enabled else None,
     )
 
 

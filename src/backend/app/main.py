@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 from app.api.v1.auth.router import limiter, process_memory_limiter
 from app.api.v1.openapi_tags import OPENAPI_TAGS
 from app.api.v1.router import api_router
-from app.common.body_limit import RequestBodyLimitMiddleware, request_body_limit_bytes
+from app.common.body_limit import RequestBodyLimitMiddleware, RouteBodyCeiling, request_body_limit_bytes
 from app.common.dependencies import close_connection, get_connection, get_ha_client, get_ha_entity_grant_service
 from app.common.error_handlers import (
     app_error_handler,
@@ -403,6 +403,22 @@ app.openapi = _openapi_postprocessed  # type: ignore[method-assign]
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_with_retry_after)
 
+
+def _route_body_ceilings() -> tuple[RouteBodyCeiling, ...]:
+    """#2138 — the one route with a body ceiling of its own: the platform admin's tenant import (full mode)."""
+    if settings.kamerplanter_mode != "full":
+        return ()
+    from app.api.v1.tenant_exports.router import TENANT_IMPORT_PATH
+
+    return (
+        RouteBodyCeiling(
+            method="POST",
+            path=TENANT_IMPORT_PATH,
+            max_body_bytes=request_body_limit_bytes(settings.tenant_import_max_upload_mb),
+        ),
+    )
+
+
 # #2254 — body ceiling and upload spool budget, enforced before FastAPI parses a
 # multipart body (which it does before any route code or dependency runs).
 # Registered first, so it is the innermost user middleware: its 413/503 answers
@@ -412,6 +428,7 @@ app.add_middleware(
     max_body_bytes=request_body_limit_bytes(settings.storage_max_file_size_mb),
     spool_budget_bytes=settings.upload_spool_budget_mb * 1024 * 1024,
     spool_wait_seconds=settings.upload_spool_wait_seconds,
+    route_ceilings=_route_body_ceilings(),
 )
 
 

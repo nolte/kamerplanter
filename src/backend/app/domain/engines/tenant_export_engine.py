@@ -31,13 +31,21 @@ instance id, per part the row count and the SHA-256), ``tenant.json``,
 ``objects/<path>`` (the originals of the tenant's attachments, path relative to
 ``t/<tenant_key>/``). :class:`TenantArchiveWriter` writes it into a caller-supplied
 binary file, :func:`read_tenant_archive` verifies and parses one.
+
+**Optional parts** (``timeseries/``, #2138): format 1 carries the tenant's TimescaleDB readings as
+``timeseries/readings.csv`` when the source has any (:data:`READINGS_COLUMNS`; the manifest lists its
+hash like every part and describes it under ``timeseries``). A format-1 reader checks that every
+``timeseries/`` part is listed in the manifest, never decompresses it and imports nothing from it —
+the import of readings is not part of format 1's reader. An archive without the part is complete.
 """
 
 from __future__ import annotations
 
 import contextlib
+import csv
 import hashlib
 import hmac
+import io
 import json
 import re
 import zipfile
@@ -52,6 +60,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
+from app.domain.models.observation import ArchivedReading
 from app.domain.models.tenant_erasure import TenantErasureEntry
 from app.domain.models.tenant_export import TenantArchive, TenantArchiveMember
 
@@ -64,6 +73,34 @@ MEMBERS_NAME = "members.jsonl"
 COLLECTIONS_DIR = "collections/"
 EDGES_DIR = "edges/"
 OBJECTS_DIR = "objects/"
+#: Optional parts a format-1 reader lists but never reads (module docstring, "Optional parts").
+TIMESERIES_DIR = "timeseries/"
+READINGS_NAME = f"{TIMESERIES_DIR}readings.csv"
+
+#: The columns of ``timeseries/readings.csv``, in order (:class:`ArchivedReading`). ``series`` is
+#: ``raw`` / ``hourly`` / ``daily``; ``time`` is ISO 8601 with offset; ``metadata`` is JSON; an empty
+#: cell is ``None``. A text cell that starts with ``=``, ``+``, ``-``, ``@``, a tab or a carriage
+#: return is prefixed with ``'`` so a spreadsheet opening the file does not run it as a formula; a
+#: reader strips one leading ``'`` before such a character.
+READINGS_COLUMNS: tuple[str, ...] = (
+    "series",
+    "time",
+    "sensor_key",
+    "sensor_type",
+    "value",
+    "unit",
+    "source",
+    "quality_score",
+    "raw_value",
+    "metadata",
+    "avg_value",
+    "min_value",
+    "max_value",
+    "sample_count",
+)
+
+#: The first characters a spreadsheet reads as the start of a formula (CSV injection).
+_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 
 #: The storage category the archives are kept under (``t/<tenant>/tenant_export/<export_key>.zip``).
 ARCHIVE_STORAGE_CATEGORY = "tenant_export"
@@ -638,14 +675,11 @@ class TenantExportEngine:
 
     @classmethod
     def excluded_manifest(cls) -> list[dict[str, str]]:
-        """The ``excluded[]`` block: every inventory collection left out, plus the stores outside ArangoDB."""
+        """The ``excluded[]`` block: every inventory collection left out, plus the stores outside ArangoDB.
+
+        TimescaleDB readings are not excluded: they travel as the optional ``timeseries/readings.csv``.
+        """
         rows = [{"collection": name, "reason": reason} for name, reason in sorted(cls.EXCLUDED.items())]
-        rows.append(
-            {
-                "collection": "timescale:sensor_readings",
-                "reason": "not yet part of format 1 (REQ-056 §8.3 timeseries/readings.csv is open, #2138)",
-            }
-        )
         rows.append(
             {
                 "collection": "pgvector:recognition_embeddings",
@@ -717,6 +751,46 @@ def _without(node: Any, segments: list[str]) -> Any:
     return copy
 
 
+def _csv_text(value: str | None) -> str:
+    if not value:
+        return ""
+    return f"'{value}" if value.startswith(_FORMULA_PREFIXES) else value
+
+
+def _csv_number(value: float | None) -> str:
+    return "" if value is None else repr(value)
+
+
+def readings_csv_rows(readings: Iterable[ArchivedReading]) -> list[list[str]]:
+    """The cells of ``timeseries/readings.csv`` for *readings*, in :data:`READINGS_COLUMNS` order."""
+    rows: list[list[str]] = []
+    for reading in readings:
+        metadata = (
+            json.dumps(reading.metadata, ensure_ascii=False, sort_keys=True, default=_json_default)
+            if reading.metadata is not None
+            else ""
+        )
+        rows.append(
+            [
+                reading.series,
+                reading.time.isoformat(),
+                _csv_text(reading.sensor_key),
+                _csv_text(reading.sensor_type),
+                _csv_number(reading.value),
+                _csv_text(reading.unit),
+                _csv_text(reading.source),
+                _csv_number(reading.quality_score),
+                _csv_number(reading.raw_value),
+                _csv_text(metadata),
+                _csv_number(reading.avg_value),
+                _csv_number(reading.min_value),
+                _csv_number(reading.max_value),
+                "" if reading.sample_count is None else str(reading.sample_count),
+            ]
+        )
+    return rows
+
+
 def manifest_signature(manifest: dict[str, Any], signing_key: bytes) -> str:
     """HMAC-SHA256 over the canonical manifest without its ``signature`` (SEC-003).
 
@@ -741,9 +815,9 @@ class TenantArchiveWriter:
     """Writes one archive into a seekable binary file; hashes and counts every part.
 
     Each part is opened once and written line by line (no part is held whole in memory).
-    The size limit is checked against the bytes written to the file after every part
-    and every object — a run past the limit stops with :class:`ArchiveTooLargeError`
-    before more is read.
+    The size limit is checked against the bytes written to the file after every page of a
+    part, every part and every object — a run past the limit stops with
+    :class:`ArchiveTooLargeError` before more is read.
     """
 
     def __init__(self, target: IO[bytes], *, max_bytes: int | None) -> None:
@@ -778,6 +852,40 @@ class TenantArchiveWriter:
                     handle.write(line)
                     digest.update(line)
                     rows += 1
+                if handle is not None:
+                    self._check_size()
+        finally:
+            if handle is not None:
+                handle.close()
+        if rows:
+            self._parts[name] = {"rows": rows, "sha256": digest.hexdigest()}
+            self._check_size()
+        return rows
+
+    def write_csv(self, name: str, header: Iterable[str], pages: Iterable[list[list[str]]]) -> int:
+        """Write *pages* of CSV rows under one *header* as one part; returns the data rows (``0`` writes nothing).
+
+        Streams: each page is encoded and written before the next is read, and the size limit is
+        checked after every page — a part past the limit stops the source it is read from.
+        """
+        digest = hashlib.sha256()
+        rows = 0
+        handle = None
+        try:
+            for page in pages:
+                if not page:
+                    continue
+                buffer = io.StringIO()
+                out = csv.writer(buffer, lineterminator="\r\n")
+                if handle is None:
+                    handle = self._zip.open(name, mode="w", force_zip64=True)
+                    out.writerow(list(header))
+                out.writerows(page)
+                data = buffer.getvalue().encode("utf-8")
+                handle.write(data)
+                digest.update(data)
+                rows += len(page)
+                self._check_size()
         finally:
             if handle is not None:
                 handle.close()
@@ -980,12 +1088,13 @@ def read_tenant_archive(
 
 def _check_directory(infos: dict[str, zipfile.ZipInfo], limits: _ReadLimits) -> None:
     """The bounds the ZIP directory alone can prove, before one entry is decompressed (SEC-008, SEC-R2-01)."""
-    if sum(info.file_size for info in infos.values()) > limits.total:
+    read = {name: info for name, info in infos.items() if not is_ignored_part(name)}
+    if sum(info.file_size for info in read.values()) > limits.total:
         raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive unpacks beyond the import limit")
-    documents = sum(info.file_size for name, info in infos.items() if name[: len(OBJECTS_DIR)] != OBJECTS_DIR)
+    documents = sum(info.file_size for name, info in read.items() if name[: len(OBJECTS_DIR)] != OBJECTS_DIR)
     if documents > limits.documents:
         raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive's documents unpack beyond the import limit")
-    for name, info in infos.items():
+    for name, info in read.items():
         if info.file_size > _RATIO_FLOOR_BYTES and info.file_size > limits.ratio * max(info.compress_size, 1):
             raise TenantArchiveError(
                 "IMPORT_FORMAT_UNSUPPORTED", f"an entry exceeds the compression ratio limit of {limits.ratio}: {name}"
@@ -1009,7 +1118,7 @@ def _read(source: IO[bytes], limits: _ReadLimits, signing_key: bytes | None) -> 
             info: zipfile.ZipInfo = listed
             if info.is_dir():
                 continue
-            if info.file_size > limits.entry:
+            if info.file_size > limits.entry and not is_ignored_part(info.filename):
                 raise TenantArchiveError(
                     "IMPORT_FORMAT_UNSUPPORTED", f"an entry unpacks beyond the limit: {info.filename}"
                 )
@@ -1035,11 +1144,17 @@ def _read(source: IO[bytes], limits: _ReadLimits, signing_key: bytes | None) -> 
                 entries=[*(f"unlisted:{name}" for name in unlisted), *(f"missing:{name}" for name in missing)],
             )
         contents: dict[str, bytes] = {}
+        ignored: dict[str, int] = {}
         mismatched: list[str] = []
         listed_files: dict[str, Any] = files
         for name, part in listed_files.items():
-            data = archive.read(name)
             entry: dict[str, Any] = part if isinstance(part, dict) else {}
+            if is_ignored_part(name):
+                # Listed (above) but never decompressed: a format-1 reader imports nothing from it.
+                stated_rows = entry.get("rows")
+                ignored[name] = stated_rows if isinstance(stated_rows, int) and stated_rows >= 0 else 0
+                continue
+            data = archive.read(name)
             expected: Any = entry.get("sha256")
             if expected is None or hashlib.sha256(data).hexdigest() != expected:
                 mismatched.append(name)
@@ -1048,7 +1163,7 @@ def _read(source: IO[bytes], limits: _ReadLimits, signing_key: bytes | None) -> 
             raise TenantArchiveError(
                 "IMPORT_CHECKSUM_MISMATCH", "a part of the archive does not match its checksum", entries=mismatched
             )
-    return _assemble(manifest, contents, limits, verified=_signature_valid(manifest, signing_key))
+    return _assemble(manifest, contents, limits, verified=_signature_valid(manifest, signing_key), ignored=ignored)
 
 
 def _signature_valid(manifest: dict[str, Any], signing_key: bytes | None) -> bool:
@@ -1062,7 +1177,12 @@ def _signature_valid(manifest: dict[str, Any], signing_key: bytes | None) -> boo
 
 
 def _assemble(
-    manifest: dict[str, Any], contents: dict[str, bytes], limits: _ReadLimits, *, verified: bool
+    manifest: dict[str, Any],
+    contents: dict[str, bytes],
+    limits: _ReadLimits,
+    *,
+    verified: bool,
+    ignored: dict[str, int] | None = None,
 ) -> TenantArchive:
     if TENANT_NAME not in contents:
         raise TenantArchiveError("IMPORT_FORMAT_UNSUPPORTED", "the archive has no tenant.json")
@@ -1116,7 +1236,13 @@ def _assemble(
         members=members,
         objects=objects,
         verified=verified,
+        ignored_parts=ignored or {},
     )
+
+
+def is_ignored_part(name: str) -> bool:
+    """Whether a format-1 reader skips the part (``timeseries/…``, module docstring "Optional parts")."""
+    return name[: len(TIMESERIES_DIR)] == TIMESERIES_DIR
 
 
 def _require_name(collection: str, part: str) -> None:

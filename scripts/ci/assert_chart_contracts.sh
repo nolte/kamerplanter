@@ -528,7 +528,9 @@ expect_set storage-default "no other pod requires the attachment-volume label" \
 # derivation is src/backend/tests/unit/guards/test_proxy_body_limit.py.
 # ---------------------------------------------------------------------------
 nginx_limit='select(.kind == "ConfigMap" and .metadata.name == "kamerplanter") | .data["default.conf"] | capture("(?m)^\s*client_max_body_size\s+(?P<v>[^;]+);") | .v'
-ingress_limit='select(.kind == "Ingress") | .metadata.annotations["nginx.ingress.kubernetes.io/proxy-body-size"]'
+# `main` by name: since #2138 a second Ingress (`tenant-import`) carries its own limit;
+# main keeps the name it had alone (the import template pins it).
+ingress_limit='select(.kind == "Ingress" and .metadata.name == "kamerplanter") | .metadata.annotations["nginx.ingress.kubernetes.io/proxy-body-size"]'
 ingress_hosts=(--set 'ingress.main.hosts[0].host=kp.example.test'
   --set 'ingress.main.hosts[0].paths[0].path=/'
   --set 'ingress.main.hosts[0].paths[0].service.identifier=frontend')
@@ -549,14 +551,72 @@ render body-limit-ingress-off --set ingress.main.enabled=false "${ingress_hosts[
 expect body-limit-ingress-off "ingress.main.enabled=false still switches the ingress off" \
   'select(.kind == "Ingress") | .metadata.name' '[]'
 
+# ---------------------------------------------------------------------------
+# #2138 — the tenant import's own body limit, on that one path only.
+#
+# The platform admin's import (POST /api/v1/admin/platform/tenant-imports) takes
+# an archive up to tenantExport.importMaxUploadMb; every other path keeps the
+# storage.maxFileSizeMb + 1 MiB above. One expression on the three layers: the
+# backend env (TENANT_IMPORT_MAX_UPLOAD_MB, the middleware's route ceiling), the
+# frontend nginx `location =` and the derived Ingress `tenant-import`
+# (templates/_tenant_import_ingress.tpl — ingress-nginx sets the body size per
+# Ingress, not per path). The derived Ingress follows main: no hosts, no Ingress;
+# main off, no Ingress; and it routes to the frontend like main (#1159). The
+# optional signing secret reaches backend and worker by secretKeyRef, optional,
+# never as a literal.
+# ---------------------------------------------------------------------------
+import_location='select(.kind == "ConfigMap" and .metadata.name == "kamerplanter") | .data["default.conf"] | capture("(?s)location = /api/v1/admin/platform/tenant-imports \{(?P<b>[^}]*)\}") | .b | capture("client_max_body_size\s+(?P<v>[^;]+);") | .v'
+import_ingress='select(.kind == "Ingress" and .metadata.name == "kamerplanter-tenant-import")'
+signing_ref() { printf '%s | .env[] | select(.name == "TENANT_EXPORT_SIGNING_SECRET") | {"value": has("value"), "ref": .valueFrom.secretKeyRef}' "$(main_of "$1")"; }
+signing_expected='[{"value":false,"ref":{"key":"TENANT_EXPORT_SIGNING_SECRET","name":"kamerplanter-secrets","optional":true}}]'
+
+expect storage-default "the backend receives the import ceiling" "$(env_of backend TENANT_IMPORT_MAX_UPLOAD_MB)" '["512"]'
+expect storage-default "nginx gives the import path its own limit" "${import_location}" '["513m"]'
+expect storage-default "nginx keeps the global limit at server level" "${nginx_limit}" '["26m"]'
+expect storage-default "no import ingress renders without hosts" "${import_ingress} | .metadata.name" '[]'
+expect storage-default "the backend reads the optional signing secret by reference" "$(signing_ref backend)" "${signing_expected}"
+expect storage-default "the worker reads the optional signing secret by reference" "$(signing_ref celery-worker)" "${signing_expected}"
+
+expect body-limit-ingress "the import ingress carries the import limit" \
+  "${import_ingress} | .metadata.annotations[\"nginx.ingress.kubernetes.io/proxy-body-size\"]" '["513m"]'
+expect body-limit-ingress "the import ingress streams the body" \
+  "${import_ingress} | .metadata.annotations[\"nginx.ingress.kubernetes.io/proxy-request-buffering\"]" '["off"]'
+expect body-limit-ingress "the import ingress serves the import path only, exactly" \
+  "${import_ingress} | .spec.rules[].http.paths[] | {\"path\": .path, \"type\": .pathType}" \
+  '[{"path":"/api/v1/admin/platform/tenant-imports","type":"Exact"}]'
+expect body-limit-ingress "the import ingress serves main's hosts" "${import_ingress} | .spec.rules[].host" '["kp.example.test"]'
+
+render import-limit-raised --set tenantExport.importMaxUploadMb=1024 "${ingress_hosts[@]}"
+expect import-limit-raised "a raised import bound raises the backend's ceiling" \
+  "$(env_of backend TENANT_IMPORT_MAX_UPLOAD_MB)" '["1024"]'
+expect import-limit-raised "a raised import bound raises the nginx import limit" "${import_location}" '["1025m"]'
+expect import-limit-raised "a raised import bound raises the import ingress limit" \
+  "${import_ingress} | .metadata.annotations[\"nginx.ingress.kubernetes.io/proxy-body-size\"]" '["1025m"]'
+expect import-limit-raised "a raised import bound leaves every other path's limit" "${ingress_limit}" '["26m"]'
+
+expect body-limit-ingress-off "main off takes the import ingress with it" "${import_ingress} | .metadata.name" '[]'
+render import-ingress-off --set tenantExport.importIngress.enabled=false "${ingress_hosts[@]}"
+expect import-ingress-off "tenantExport.importIngress.enabled=false switches the import ingress off" \
+  'select(.kind == "Ingress") | .metadata.name' '["kamerplanter"]'
+
+render import-signing-own-secret --set tenantExport.signingSecret.secretName=kp-archive-signing "${ingress_hosts[@]}"
+expect import-signing-own-secret "the signing secret can live in a Secret of its own" \
+  "$(main_of backend) | .env[] | select(.name == \"TENANT_EXPORT_SIGNING_SECRET\") | .valueFrom.secretKeyRef.name" \
+  '["kp-archive-signing"]'
+
 expect profile-values-dev "the dev ingress carries the nginx limit as proxy-body-size" "${ingress_limit}" '["26m"]'
+expect profile-values-dev "the dev import ingress carries the import limit" \
+  "${import_ingress} | .metadata.annotations[\"nginx.ingress.kubernetes.io/proxy-body-size\"]" '["513m"]'
 # /api reaches the backend through the frontend (#1159): the backend policy
 # admits only the frontend, and only that path carries the body limit and the
 # X-Forwarded-For depth TRUSTED_PROXY_HOPS is set for. Every in-chart ingress
 # routes to the frontend Service and nowhere else.
 ingress_targets='select(.kind == "Ingress") | .spec.rules[].http.paths[] | .backend.service.name'
-expect profile-values-dev "the dev ingress routes every path to the frontend" "${ingress_targets}" '["kamerplanter-frontend"]'
-expect body-limit-ingress "the ingress routes every path to the frontend" "${ingress_targets}" '["kamerplanter-frontend"]'
+# Two Ingresses since #2138 (main and the derived tenant-import), one path each.
+expect profile-values-dev "the dev ingress routes every path to the frontend" "${ingress_targets}" '["kamerplanter-frontend","kamerplanter-frontend"]'
+expect body-limit-ingress "the ingress routes every path to the frontend" "${ingress_targets}" '["kamerplanter-frontend","kamerplanter-frontend"]'
+expect_set body-limit-ingress "main keeps its name next to the import ingress" \
+  'select(.kind == "Ingress") | .metadata.name' '["kamerplanter","kamerplanter-tenant-import"]'
 
 # ---------------------------------------------------------------------------
 # #2127 (MT-031) — scaling and secret-store switches are opt-in.
