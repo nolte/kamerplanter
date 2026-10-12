@@ -2050,6 +2050,22 @@ LEGACY_PLANT_INSTANCE_ID_INDEX_FIELDS = ["instance_id"]
 #: Non-unique and additive; ``ensure_collections`` builds it on the next start.
 TENANT_KEY_ORDER_INDEX_FIELDS = ["tenant_key", "_key"]
 
+#: The tenant's task queue (#1534, MT-021). ``GET /t/{slug}/tasks/queue``,
+#: ``.../overdue`` and the status-filtered list read ``FILTER doc.tenant_key == @t
+#: AND doc.status == @s``. With only the single-field ``status`` index the
+#: optimizer took that and filtered the tenant afterwards, so every tenant's queue
+#: read *all pending tasks of the installation*: measured on ArangoDB 3.12.12 at
+#: 970 426 tasks / 3 406 tenants, a 277-task tenant scanned 533 680 index entries
+#: and took ~1.4 s per query (two per queue call); with this index it reads 149
+#: entries in ~2 ms (``spec/analysis/task-queue-index-measurement-2026-10.md``).
+#: ``due_date`` as a third field changed no plan of the queries as written
+#: (``DATE_TIMESTAMP`` sort, ``_key`` tie-breaker, orphan guard before the
+#: ``SORT``), so it is left out. The single-field ``status`` index stays: a read
+#: on status without a tenant (cross-tenant maintenance) cannot use this one, and
+#: retiring it is not part of #1534. Non-unique and additive; v0092 builds it on
+#: a volume that predates it.
+TASK_TENANT_STATUS_INDEX_FIELDS = ["tenant_key", "status"]
+
 #: The collections whose list route pages by keyset (``get_cursor_pagination``).
 KEYSET_PAGED_COLLECTIONS = (PLANT_INSTANCES, WATERING_LOGS, WATERING_EVENTS, FEEDING_EVENTS)
 
@@ -2296,6 +2312,8 @@ def ensure_collections(db: StandardDatabase) -> None:
     tasks_col.add_persistent_index(fields=["plant_key"], unique=False)
     tasks_col.add_persistent_index(fields=["status"], unique=False)
     tasks_col.add_persistent_index(fields=["planting_run_key"], unique=False)
+    # #1534: the tenant's queue reads its own pending tasks, not the installation's.
+    tasks_col.add_persistent_index(fields=TASK_TENANT_STATUS_INDEX_FIELDS, unique=False, in_background=True)
     # "At most one OPEN care task per (tenant, plant, reminder type)" — the
     # storage-level half of the guarantee ``find_open_care_task`` used to make on
     # its own with a read-then-create (#1301).

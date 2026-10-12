@@ -96,6 +96,7 @@ class _NoopCollection:
             # v0018 propagation indexes
             {"type": "persistent", "fields": ["tenant_key", "batch_key"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "species_key"], "unique": False},
+            # also v0092 (#1534): tasks.(tenant_key, status) is bootstrapped on a fresh volume
             {"type": "persistent", "fields": ["tenant_key", "status"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "method"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "plant_key"], "unique": False},
