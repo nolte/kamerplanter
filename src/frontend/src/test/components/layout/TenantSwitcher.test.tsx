@@ -82,6 +82,34 @@ describe('TenantSwitcher', () => {
     expect(screen.getByRole('menuitem', { name: 'Organisation erstellen' })).toBeInTheDocument();
   });
 
+  it('marks exactly the tenant entries with a slug-keyed test id, not the action entries', async () => {
+    // The E2E page object counts tenants by this prefix. The action entries
+    // after the divider (garden settings, create organization) must not carry
+    // it, or a switcher test picks "Garten-Einstellungen" as a tenant.
+    const user = userEvent.setup();
+    renderWithProviders(<TenantSwitcher />, {
+      store: storeWith(personalTenant, [personalTenant, orgTenant]),
+    });
+
+    await user.click(screen.getByRole('button', { name: /Mein Garten/ }));
+
+    const menu = screen.getByRole('menu');
+    const tenantItems = menu.querySelectorAll('[data-testid^="tenant-switcher-item-"]');
+    expect(Array.from(tenantItems, (el) => el.getAttribute('data-testid'))).toEqual([
+      'tenant-switcher-item-mein-garten',
+      'tenant-switcher-item-gemeinschaft',
+    ]);
+    expect(screen.getByTestId('tenant-switcher-item-gemeinschaft')).toHaveTextContent(
+      'Gemeinschaftsgarten',
+    );
+    expect(screen.getByTestId('tenant-switcher-garden-settings')).toHaveTextContent(
+      'Garten-Einstellungen',
+    );
+    expect(screen.getByTestId('tenant-switcher-create-organization')).toHaveTextContent(
+      'Organisation erstellen',
+    );
+  });
+
   it('falls back to the placeholder label when no tenant is active', () => {
     renderWithProviders(<TenantSwitcher />, {
       store: storeWith(null, [personalTenant]),
