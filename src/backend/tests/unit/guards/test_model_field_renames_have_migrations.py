@@ -153,12 +153,6 @@ _UNCALLED_OIDC_REQUEST_DTO = _NoStoredDocuments(
 #: can be affected, and "I don't think anyone used it" is not evidence.
 _CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
     ("substrate.py", "Substrate", "cec_meq_per_100g"): _MigratedBy("0051"),
-    # #2138 (PR #2267 review SEC-003) — replaced by ``member_grants`` (account plus the admin-confirmed role).
-    ("tenant_export.py", "TenantImportRequest", "member_accounts"): _NoStoredDocuments(
-        "Added and replaced on the same unmerged branch (feat/2138-tenant-export, b6c0517b7 -> the SEC-003 "
-        "fix): no release and no deployment ever wrote a tenant_import_requests document with it, and the "
-        "collection itself is new with #2138. A request also clears the field when it ends."
-    ),
     # #2123 (MT-027) — the bool became the ``status`` lifecycle state; ``is_active`` is a derived property now.
     ("tenant.py", "Tenant", "is_active"): _MigratedBy("0085"),
     # #2107 (MT-010) — never written; the site is the owner. v0087 unsets the stored "".
