@@ -222,7 +222,7 @@ def test_reset_profile_clears_every_nullable_field_the_presets_replace(db, profi
     """
     service = _make_service(db)
 
-    returned = service.reset_profile(_PLANT_KEY)
+    returned = service.reset_profile(_PLANT_KEY, tenant_key=_TENANT_KEY)
 
     assert getattr(returned, field) is None, f"reset answered with the replaced {field}"
     assert _stored_profile(db).get(field) is None, f"the replaced {field} survived the reset in storage"
@@ -245,7 +245,7 @@ def test_reset_profile_leaves_the_season_state_to_the_season_state_machine(db, p
     """
     service = _make_service(db)
 
-    returned = service.reset_profile(_PLANT_KEY)
+    returned = service.reset_profile(_PLANT_KEY, tenant_key=_TENANT_KEY)
 
     stored = _stored_profile(db)
     assert returned.dormancy_watering == _STORED_NULLABLES["dormancy_watering"]
@@ -266,7 +266,7 @@ def test_reset_profile_keeps_an_attribute_the_model_does_not_declare(db, profile
     """
     service = _make_service(db)
 
-    service.reset_profile(_PLANT_KEY)
+    service.reset_profile(_PLANT_KEY, tenant_key=_TENANT_KEY)
 
     stored = _stored_profile(db)
     for attribute, value in _UNDECLARED_ATTRIBUTES.items():
@@ -282,7 +282,7 @@ def test_reset_profile_keeps_writing_the_values_the_presets_do_set(db, profile_k
     """
     service = _make_service(db)
 
-    returned = service.reset_profile(_PLANT_KEY)
+    returned = service.reset_profile(_PLANT_KEY, tenant_key=_TENANT_KEY)
 
     stored = _stored_profile(db)
     assert returned.care_style.value == "herb_tropical"
@@ -306,7 +306,7 @@ def test_update_profile_with_an_explicit_none_clears_the_stored_note(db, profile
     """
     service = _make_service(db)
 
-    returned = service.update_profile(_PLANT_KEY, {"notes": None})
+    returned = service.update_profile(_PLANT_KEY, {"notes": None}, tenant_key=_TENANT_KEY)
 
     assert returned.notes is None
     assert _stored_profile(db).get("notes") is None
@@ -321,7 +321,7 @@ def test_update_profile_leaves_the_fields_it_was_not_given_alone(db, profile_key
     """
     service = _make_service(db)
 
-    returned = service.update_profile(_PLANT_KEY, {"watering_interval_days": 9})
+    returned = service.update_profile(_PLANT_KEY, {"watering_interval_days": 9}, tenant_key=_TENANT_KEY)
 
     stored = _stored_profile(db)
     assert stored["watering_interval_days"] == 9

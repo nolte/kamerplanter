@@ -168,7 +168,7 @@ def _race_ensure_next_watering_task(plant_key: str) -> list[BaseException]:
             service = _make_service(db)
             profile = _profile(plant_key)
             barrier.wait(timeout=30)
-            service.ensure_next_watering_task(profile)
+            service.ensure_next_watering_task(profile, tenant_key=_TENANT_KEY)
         except BaseException as exc:  # noqa: BLE001 — recorded and asserted on by the caller
             with errors_lock:
                 errors.append(exc)
@@ -334,8 +334,8 @@ def test_sequential_idempotency_is_unchanged(db, plant):
     """AC-2: a second call after the first still creates nothing (and returns ``None``)."""
     service = _make_service(db)
 
-    first = service.ensure_next_watering_task(_profile(plant))
-    second = service.ensure_next_watering_task(_profile(plant))
+    first = service.ensure_next_watering_task(_profile(plant), tenant_key=_TENANT_KEY)
+    second = service.ensure_next_watering_task(_profile(plant), tenant_key=_TENANT_KEY)
 
     assert first is not None
     assert second is None
