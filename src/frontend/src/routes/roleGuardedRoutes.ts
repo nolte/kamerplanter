@@ -259,7 +259,8 @@ export interface PlatformAdminRoute {
  * backend `/admin/**` operation read for its dependency. Six routes reach the
  * platform-admin gate, and only three of them are whole admin pages:
  *
- * - `admin/tenants/:key`, `admin/users/:key`, `admin/oidc-providers` (#1906), `admin/plans` (#2142) —
+ * - `admin/tenants/:key`, `admin/users/:key`, `admin/oidc-providers` (#1906), `admin/plans` (#2142),
+ *   `admin/tenant-imports` (#2138) —
  *   **listed below.** Every request these pages make is `require_platform_admin`,
  *   including the `GET`s they load with. A refused member has nothing to read here at all.
  * - `settings` — the account page **every member owns**. Its *platform* tab is
@@ -329,5 +330,11 @@ export const PLATFORM_ADMIN_ROUTES: Readonly<Record<string, PlatformAdminRoute>>
   // `require_platform_admin` on `/admin/platform/plans` (the read included); no step-up.
   'admin/plans': {
     gate: 'GET /api/v1/admin/platform/plans — require_platform_admin',
+  },
+  // REQ-056 §8.4 / §15 (#2138) — importing a tenant archive: the upload and the status read are both
+  // `require_platform_admin` on `/admin/platform/tenant-imports` (never an API key), the upload behind
+  // the admin's step-up `tenant_import`. The page also reads the plan catalogue (same gate).
+  'admin/tenant-imports': {
+    gate: 'POST /api/v1/admin/platform/tenant-imports — require_platform_admin',
   },
 };

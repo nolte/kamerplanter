@@ -62,6 +62,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import DataUsageIcon from '@mui/icons-material/DataUsage';
+import UnarchiveIcon from '@mui/icons-material/Unarchive';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -1868,6 +1869,29 @@ export default function AccountSettingsPage() {
                     data-testid="admin-plans-open"
                   >
                     {t('pages.plans.navCardOpen')}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* REQ-056 §8.4 / §15 (#2138): import a tenant archive — its own page, platform admin only */}
+              <Card variant="outlined" data-testid="admin-tenant-imports-card">
+                <CardContent
+                  sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { sm: 'center' }, gap: 2 }}
+                >
+                  <UnarchiveIcon color="primary" aria-hidden />
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="h6" component="h3">{t('pages.tenantImports.navCardTitle')}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {t('pages.tenantImports.navCardDescription')}
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="outlined"
+                    onClick={() => navigate('/admin/tenant-imports')}
+                    sx={{ minHeight: { xs: 48, sm: 36 } }}
+                    data-testid="admin-tenant-imports-open"
+                  >
+                    {t('pages.tenantImports.navCardOpen')}
                   </Button>
                 </CardContent>
               </Card>
