@@ -344,31 +344,61 @@ controllers:
             cpu: 500m
             memory: 256Mi
 
-  # -- TimescaleDB (dev only — StatefulSet like ArangoDB)
+  # -- TimescaleDB (switched on here; off by default in values.yaml, #2127)
   timescaledb:
+    enabled: true
     type: statefulset
     replicas: 1
-    pod:
-      securityContext:
-        # See backend: override base runAsNonRoot: true for dev root/hot-reload.
-        # Not strictly required today (base values.yaml sets no runAsNonRoot for
-        # timescaledb) but future-proofs against a later base hardening.
-        runAsNonRoot: false
-        runAsUser: 0
-        runAsGroup: 0
-        fsGroup: 0
+    # Runs with the base hardening (uid 70, read-only root filesystem, no
+    # capabilities, #2127) — nothing here hot-reloads. PGDATA stays at the
+    # volume root (see env below), and a FRESH volume root is root-owned
+    # (root:70 with fsGroup, 2770, or 0777 on local-path): initdb as uid 70
+    # then fails with "could not change permissions of directory ... Operation
+    # not permitted" (measured with docker on a bind mount). This init
+    # container hands the root directory to uid 70 with mode 0700 before
+    # postgres starts — only CHOWN and FOWNER, no escalation. An existing dev
+    # volume (already owned by 70) passes through unchanged; the base chart
+    # does not need it, because its PGDATA is a subdirectory uid 70 creates.
+    initContainers:
+      data-dir-owner:
+        image:
+          repository: timescale/timescaledb
+          tag: "2.30.2-pg16"
+          pullPolicy: IfNotPresent
+        command: ["sh", "-c"]
+        args:
+          - chown 70:70 /var/lib/postgresql/data && chmod 0700 /var/lib/postgresql/data
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          runAsGroup: 0
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+            add: ["CHOWN", "FOWNER"]
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            memory: 64Mi
     containers:
       main:
         image:
           repository: timescale/timescaledb
           tag: "2.30.2-pg16"
           pullPolicy: IfNotPresent
-        securityContext:
-          readOnlyRootFilesystem: false
         env:
           POSTGRES_DB: kamerplanter_sensors
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: devpassword
+          # Dev literal instead of the base's secretKeyRef (null drops it).
+          POSTGRES_PASSWORD:
+            value: devpassword
+            valueFrom: null
+          # The base moved PGDATA into a subdirectory (#2127); the existing dev
+          # volume holds its cluster at the volume root, so keep that here.
+          PGDATA: /var/lib/postgresql/data
         probes:
           liveness:
             enabled: true

@@ -14,7 +14,7 @@ Für Docker Compose gilt [Docker Compose Dauerbetrieb](docker-dauerbetrieb.md).
 | Anhänge (Fotos, Exporte) mit `storage.backend: s3` | Versionierung bzw. Replikation des Buckets | Am Bucket einstellen, nicht im Chart |
 | Anhänge mit `storage.backend: local-fs` | **nicht** durch das Chart | VolumeSnapshot des PVC `backend-attachments` über deinen CSI-Treiber |
 | `kamerplanter-secrets` | **nicht** durch das Chart | Getrennt sichern, z. B. im Secret-Store des External Secrets Operators |
-| TimescaleDB | **nicht** durch das Chart | Gehört nicht zu den Produktions-Values des Charts |
+| TimescaleDB (optional, `controllers.timescaledb.enabled`) | **nicht** durch das Chart | VolumeSnapshot des Volumes `data-kamerplanter-timescaledb-0` über deinen CSI-Treiber oder `pg_dump` |
 | Valkey | nicht nötig | Cache und Task-Warteschlange, keine Fachdaten |
 
 !!! danger "Ohne die alten Secrets ist eine Wiederherstellung unvollständig"

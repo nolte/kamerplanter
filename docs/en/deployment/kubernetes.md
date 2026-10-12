@@ -29,7 +29,7 @@ flowchart TB
             FE["Frontend<br/>(Deployment, 2 Replicas)"]
             BE["Backend<br/>(Deployment, 2 Replicas)"]
             DB["ArangoDB<br/>(StatefulSet, 1 Replica)"]
-            VK["Valkey<br/>(StatefulSet, 1 Replica)"]
+            VK["Valkey<br/>(Deployment, 1 Replica)"]
         end
     end
 
@@ -50,7 +50,7 @@ flowchart TB
 | Backend | Deployment | 2 | FastAPI application (API + Celery worker) |
 | Frontend | Deployment | 2 | React app behind nginx, proxies `/api` to the backend |
 | ArangoDB | StatefulSet | 1 | Document/graph database with Persistent Volume (5 Gi) |
-| Valkey | StatefulSet | 1 | Redis-compatible cache + Celery broker (1 Gi) |
+| Valkey | Deployment (`Recreate`) | 1 | Redis-compatible cache + Celery broker, own volume (1 Gi, append-only file) |
 
 ---
 
@@ -121,6 +121,8 @@ kubectl create secret generic kamerplanter-secrets \
   --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)" \
   --from-literal=LOG_PSEUDONYM_SALT="$(openssl rand -hex 32)"
 ```
+
+If you switch TimescaleDB on (`controllers.timescaledb.enabled: true`), the Secret also needs `TIMESCALEDB_PASSWORD` — see [TimescaleDB](helm.md#timescaledb).
 
 #### Database credentials
 

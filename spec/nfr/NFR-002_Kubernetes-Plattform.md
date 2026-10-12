@@ -6,7 +6,7 @@ Kategorie: Infrastruktur / Deployment Unterkategorie: Container-Orchestrierung, 
 Technologie: Python 3.14, ArangoDB, Kubernetes 1.28+, Helm, Docker, Traefik
 Status: Genehmigt
 Priorität: Kritisch
-Version: 2.7
+Version: 2.8
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [kubernetes, helm, docker, deployment, scaling, high-availability, ci-cd, network-policies, seccomp, container-security]
@@ -436,6 +436,8 @@ spec:
 - **Geordnete Identitäten**: arangodb-0, arangodb-1, arangodb-2
 - **Persistente PVCs**: Überstehen Pod-Neustarts
 - **Headless Service**: Für die clusterinterne Kommunikation
+
+**Im Chart (#2127, v2.8):** ArangoDB, VectorDB und TimescaleDB laufen als StatefulSet mit genau einem Pod (kein Cluster; `renderChecks.scaling` verweigert `replicas` > 1 und einen Autoscaler). TimescaleDB ist ein Controller mit Default `enabled: false`; `controllers.timescaledb.enabled` ist der einzige Schalter — Service, NetworkPolicy (Ingress nur Backend und Worker auf 5432), Scratch-Volumes und `TIMESCALEDB_ENABLED` bei Backend, Worker und Beat folgen ihm zur Render-Zeit. Passwort per `secretKeyRef` (Schluessel `TIMESCALEDB_PASSWORD` in `kamerplanter-secrets`), kein Literal; uid 70, `readOnlyRootFilesystem`, keine Capabilities. Valkey (Subchart) laeuft als Deployment mit `Recreate` auf einem eigenen `ReadWriteOnce`-PVC (`requestedSize` — der bis v2.7 gesetzte Schluessel `size` war dem Subchart unbekannt, `/data` lag auf einem `emptyDir`), mit `maxmemory 256mb`, `maxmemory-policy noeviction`, `appendonly yes` und einem Speicherlimit von mindestens dem Doppelten von `maxmemory` (640Mi; Render-Vertrag prueft die Relation, nicht das Literal). Gepruefte Render-Vertraege in `scripts/ci/assert_chart_contracts.sh`.
 
 ### 3.4 Services
 
@@ -1320,7 +1322,7 @@ Die Beispiele in §8.1 und §8.2 sind eine Skizze aus der Zeit vor dem Helm-Char
 
 - **ArangoDB-Backup als CronJob im Chart** (Controller `arangodb-backup`, Schalter `backup.enabled`, Default aus): Init-Container `arangodump` (dasselbe ArangoDB-Image wie die Datenbank) mit dem Anwendungskonto, Upload per `rclone` nach `s3://<bucket>/<prefix>/<UTC-Zeitstempel>/`, Datei `<prefix>/LATEST` als messbarer Wiederherstellungspunkt (RPO = jetzt − LATEST), serverseitige Verschluesselung (`AES256` / `aws:kms`), Aufbewahrung `retentionDays` ohne den gerade geschriebenen Dump je zu loeschen. Kein Passwort auf einer Kommandozeile (`@ARANGODB_PASSWORD@` wird vom Werkzeug selbst expandiert), eigene NetworkPolicy, `readOnlyRootFilesystem`, kein Root. Render-Vertraege in `scripts/ci/assert_chart_contracts.sh`.
 - **Wiederherstellung**: Runbook `docs/{de,en}/deployment/backup-restore.md` (leerer Namespace, `arangorestore` im ArangoDB-Container mit `@ARANGO_ROOT_PASSWORD@`); am 2026-10-04 durchgespielt, Protokoll `test-reports/backup-restore/2026-10-04-arangodb-restore-drill.md` (309 Collections, identische Dokumentanzahl und Indizes).
-- **Nicht Teil des Chart-Backups**: Anhaenge (bei `s3` Bucket-Versionierung, bei `local-fs` CSI-VolumeSnapshot — NFR-013 §7.1), `kamerplanter-secrets` (getrennt sichern; ohne denselben `FERNET_KEY` bleiben verschluesselte Felder unlesbar), TimescaleDB (nicht in den Produktions-Values). Velero (§8.1) bleibt eine Option des Betreibers, keine Voraussetzung.
+- **Nicht Teil des Chart-Backups**: Anhaenge (bei `s3` Bucket-Versionierung, bei `local-fs` CSI-VolumeSnapshot — NFR-013 §7.1), `kamerplanter-secrets` (getrennt sichern; ohne denselben `FERNET_KEY` bleiben verschluesselte Felder unlesbar), TimescaleDB (optionaler Controller seit v2.8; VolumeSnapshot des Volumes `data-kamerplanter-timescaledb-0` oder `pg_dump` durch den Betreiber). Velero (§8.1) bleibt eine Option des Betreibers, keine Voraussetzung.
 
 ### 8.1 Velero (Backup & Restore)
 
@@ -1684,7 +1686,7 @@ spec:
 - [ ] **Kubernetes Resources**
 
     - [ ] Deployments für stateless Workloads
-    - [ ] StatefulSets für Datenbanken
+    - [x] StatefulSets für Datenbanken (ArangoDB, VectorDB, TimescaleDB; Valkey kommt als Subchart-Deployment mit `Recreate` und eigenem PVC, weil das Valkey-Chart im Standalone-Betrieb ein Deployment rendert) — #2127
     - [ ] Services (ClusterIP, LoadBalancer)
     - [ ] Ingress mit TLS konfiguriert
 - [ ] **Helm Charts**
@@ -1697,7 +1699,7 @@ spec:
 
     - [x] HPA im Chart konfigurierbar (Opt-in je Controller; Groesse min/max je Installation, NFR-012 §4.1 nennt 3–10 fuer den Enterprise-Betrieb) — #2127
     - [x] PDB im Chart konfigurierbar (Opt-in; Render-Pruefung verweigert ein PDB, das jeden Drain blockiert) — #2127
-    - [ ] Resource Limits gesetzt
+    - [x] Resource Limits gesetzt (jeder Container einschliesslich Init-Containern, TimescaleDB und Backup-Job hat ein Speicherlimit; Render-Vertrag `all-workloads`) — #2127
 - [ ] **Security**
 
     - [ ] Default-Deny Network Policy aktiv im Namespace
@@ -1979,6 +1981,7 @@ helm dependency build <chart-path>
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.8 | 2026-10-12 | **TimescaleDB als Controller, Valkey gehaertet (#2127 MT-031 Rest):** §3.3 — TimescaleDB als StatefulSet-Controller mit Default `enabled: false` nach dem VectorDB-Muster, ein Schalter fuer Datenbank, Service, NetworkPolicy und `TIMESCALEDB_ENABLED`; Passwort per `secretKeyRef`, non-root, `readOnlyRootFilesystem`; Singleton-Pruefung erweitert. Valkey: eigenes PVC (der bisherige Schluessel `dataStorage.size` war wirkungslos, die Warteschlange lag auf `emptyDir`), `Recreate`, `maxmemory`/`noeviction`/AOF und Ressourcen als Default statt Empfehlung. §8 TimescaleDB-Sicherung als Betreiberaufgabe. §11 „StatefulSets fuer Datenbanken" und „Resource Limits gesetzt" abgehakt (Render-Vertraege). Offen aus MT-031: externe ArangoDB/Valkey (Backend spricht ArangoDB nur per `http://`; Codeaenderung noetig), Worker-HPA nach Queue-Laenge (MT-033). |
 | 2.7 | 2026-10-11 | **Ein Worker je Queue, `acks_late` fuer idempotente Laeufe (#2128 MT-032 teilweise):** §3.2 — `celeryWorkers.dedicatedQueues` (Default aus) startet `celery-worker` nur fuer `critical` und die Kopien `celery-worker-default`/`celery-worker-bulk` (zur Render-Zeit aus den zusammengefuehrten Worker-Values abgeleitet: Image, Umgebung, `securityContext`, Anhaenge-Volume, eigene NetworkPolicy, Peers); Render-Vertraege fuer beide Zustaende. Idempotente Aufraeumlaeufe (`ACKS_LATE_TASKS`) bestaetigen nach dem Lauf. Offen aus MT-032: Beat-Abfragen je Mandant (Saison, Tank, Aktoren, Ruhephase, Vernalisation), N+1 in `check_auto_transitions`, Worker-HPA nach Queue-Laenge (MT-033). |
 | 2.6 | 2026-10-10 | **Startbudget als Betreibervertrag, HPA/PDB/ExternalSecret im Chart (#2125 MT-029, #2127 MT-031 teilweise):** §3.2 Betreiberentscheidung — Migrationen/Seeds bleiben im Lifespan, kein Pre-Upgrade-Job; maximale Startdauer, Barrier und Lock-TTL in der Deployment-Doku, gegen Chart und Code geprueft. §3.7 `externalSecrets.app` (Opt-in). §4.1/§4.3 HPA und PDB als Opt-in je Controller mit Render-Pruefungen (Singletons, `ReadWriteOnce`, Drain-blockierendes PDB). §11 Skalierung korrigiert: konfigurierbar statt fester 3–10 im Default. Offen aus MT-031: externe ArangoDB/Valkey (Backend spricht ArangoDB nur per `http://`), TimescaleDB als Controller, Valkey-`maxmemory`/AOF als Default (dokumentierte Empfehlung statt Default-Aenderung), Worker-HPA nach Queue-Laenge. |
 | 2.5 | 2026-10-05 | **Celery-Worker im Chart (#2128 MT-032 teilweise, #2154, #2153):** §3.2 neuer Absatz — drei Queues mit `-Q` und Vertrags-Pruefung, Zeitlimits, Prefetch 1, `visibility_timeout`; Readiness ueber eine vom Worker geschriebene Datei mit vorgeschalteter Datenbank-Anmeldepruefung, Liveness gezielt auf den eigenen Knoten; Backend und Worker per `podAffinity` auf dem Node des `ReadWriteOnce`-Anhaenge-Volumes. Offen aus MT-032: eigener Worker je Queue, Beat-Abfragen je Mandant. |
