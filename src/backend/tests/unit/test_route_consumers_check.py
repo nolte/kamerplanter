@@ -138,7 +138,7 @@ class TestTheRouteOperand:
         assert mine == theirs
 
     def test_the_measured_candidate_count(self) -> None:
-        """815 mounted ``/api/v1`` operations (full mode).
+        """830 mounted ``/api/v1`` operations (full mode).
 
         Pinned deliberately. The candidate *count* moves with every triage
         decision and is not pinned anywhere; the denominator moving is a route
@@ -219,9 +219,17 @@ class TestTheRouteOperand:
         (#2142, REQ-056 §7.6/§7.7) — the plan catalogue and a tenant's quotas; consumed since
         REQ-056 AK-45 by ``src/frontend/src/api/endpoints/adminPlans.ts``, ``fetchAdminTenantDetail``
         in ``adminPlatform.ts`` and ``getTenantEntitlements`` in ``tenants.ts`` (no longer candidates).
+
+        +8: the tenant export and import (#2138, REQ-056 §8), measured 2026-10-12 as the exact set
+        difference against ``origin/develop`` (822 → 830): ``/tenants/{tenant_slug}/exports`` POST/GET,
+        ``…/exports/{export_key}/download`` GET, ``/admin/platform/tenants/{key}/exports`` POST/GET,
+        ``…/exports/{export_key}/download`` GET, ``POST /admin/platform/tenant-imports`` and
+        ``GET /admin/platform/tenant-imports/{import_key}``. No consumer in the tree yet — the UI is
+        REQ-056 §15, open — so all eight are reported candidates, used through the API directly
+        (runbook ``docs/*/deployment/tenant-export-import.md``).
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 822
+        assert len(checker.collect_operations(app)) == 830
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.
