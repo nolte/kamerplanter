@@ -137,6 +137,7 @@ const AdminEditTenantPage = lazy(() => import('@/pages/admin/AdminEditTenantPage
 const AdminEditUserPage = lazy(() => import('@/pages/admin/AdminEditUserPage'));
 const AdminOidcProvidersPage = lazy(() => import('@/pages/admin/AdminOidcProvidersPage'));
 const AdminPlansPage = lazy(() => import('@/pages/admin/AdminPlansPage'));
+const AdminTenantImportsPage = lazy(() => import('@/pages/admin/AdminTenantImportsPage'));
 
 // UI-NFR-019 Kiosk mode
 const KioskStartPage = lazy(() => import('@/pages/kiosk/KioskStartPage'));
@@ -362,6 +363,17 @@ export const router = createBrowserRouter(
                   <RequirePlatformAdmin>
                     <Suspense fallback={<LoadingSkeleton variant="table" />}>
                       <AdminPlansPage />
+                    </Suspense>
+                  </RequirePlatformAdmin>
+                }
+              />
+              {/* REQ-056 §8.4 / §15 (#2138): import a tenant archive as a new tenant. */}
+              <Route
+                path="admin/tenant-imports"
+                element={
+                  <RequirePlatformAdmin>
+                    <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                      <AdminTenantImportsPage />
                     </Suspense>
                   </RequirePlatformAdmin>
                 }

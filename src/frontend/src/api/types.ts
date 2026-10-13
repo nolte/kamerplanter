@@ -5366,6 +5366,53 @@ export interface TenantExport {
   expires_at: string | null;
 }
 
+/**
+ * State of a tenant import (REQ-056 §8.4, #2138) — mirrors `TenantImportStatus` in the backend's
+ * `domain/models/tenant_export.py`: `pending` → `validating` → `running` → `completed` / `failed`;
+ * `cleanup_pending` when a failed run left rows the hourly sweep still has to remove.
+ */
+export type TenantImportStatus =
+  | 'pending'
+  | 'validating'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cleanup_pending';
+
+/**
+ * One tenant import — `TenantImportResponse` of `POST /admin/platform/tenant-imports` and
+ * `GET /admin/platform/tenant-imports/{import_key}`. The report holds counts only, no contents.
+ */
+export interface TenantImport {
+  key: string;
+  status: TenantImportStatus;
+  /** The archive's format, e.g. `kamerplanter-tenant-export/1`. */
+  source_format: string;
+  /** The new tenant's key, once the run founded it. */
+  target_tenant_key: string | null;
+  plan_key: string | null;
+  /** This installation signed the archive; `false` = foreign, unsigned or changed. */
+  verified: boolean;
+  /** Rows written per collection. */
+  report: Record<string, number>;
+  /** An `IMPORT_*` or quota code; never an exception text. */
+  failure_reason: string | null;
+  missing_catalog_entries: string[];
+  requested_at: string;
+  completed_at: string | null;
+}
+
+/**
+ * What the importing admin confirms for one member of the archive (REQ-056 §8.4 step 4) — the
+ * value of one `member_mapping` entry, keyed by the member's user key **in the archive**. The role
+ * and scopes are the admin's, never the archive's; the address must belong to an existing account.
+ */
+export interface TenantImportMemberGrant {
+  email: string;
+  role: TenantRole;
+  admin_scopes: AdminScope[];
+}
+
 export interface AdminUserTenantRole {
   tenant_key: string;
   tenant_name: string;

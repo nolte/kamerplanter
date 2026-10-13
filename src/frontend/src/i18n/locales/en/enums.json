@@ -885,6 +885,14 @@
       "failed": "Failed",
       "expired": "Expired"
     },
+    "tenantImportStatus": {
+      "pending": "Requested",
+      "validating": "Checking",
+      "running": "Importing",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cleanup_pending": "Clean-up pending"
+    },
     "invitationType": {
       "email": "Email",
       "link": "Link"
