@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: derived
-measured_on: '2026-10-12'
-measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
-replay_seconds: 2
+measured_on: '2026-10-13'
+measured_at_commit: 6e5271d9d40444b6e93b28d5d9fd410ad3b860b9
+replay_seconds: 1
 job_spec_sha256: 8ce42a07e85165cf79183e65a01fd6fe059dcecf6001e80de8dd0c433138539d
 invocations:
 - command: derive-docker --context src/frontend --dockerfile src/frontend/Dockerfile
@@ -34,7 +34,7 @@ invocations:
   - nginx.conf
   - nginx-security-headers.inc
   - docker-entrypoint.d/
-  context_files_after_dockerignore: 1195
+  context_files_after_dockerignore: 1207
 subprocesses: []
 accepted_gaps: []
 reads:
@@ -77,6 +77,7 @@ reads:
 - src/frontend/src/api/endpoints/adminPlatform.ts
 - src/frontend/src/api/endpoints/adminReferenceImages.ts
 - src/frontend/src/api/endpoints/adminSettings.ts
+- src/frontend/src/api/endpoints/adminTenantImports.ts
 - src/frontend/src/api/endpoints/adminWeatherProviders.ts
 - src/frontend/src/api/endpoints/ai.ts
 - src/frontend/src/api/endpoints/aquaponik.ts
@@ -204,6 +205,7 @@ reads:
 - src/frontend/src/components/admin/PestRecognitionAdminCard.tsx
 - src/frontend/src/components/admin/PlanFormDialog.tsx
 - src/frontend/src/components/admin/RecognitionStatusCard.tsx
+- src/frontend/src/components/admin/TenantImportStatusCard.tsx
 - src/frontend/src/components/admin/TenantPlanCard.tsx
 - src/frontend/src/components/ai/AIResponse.tsx
 - src/frontend/src/components/ai/AiChatDrawer.tsx
@@ -315,6 +317,7 @@ reads:
 - src/frontend/src/components/tenants/LightModeTakeoverDialog.tsx
 - src/frontend/src/components/tenants/ScheduledTenantDeletionsCard.tsx
 - src/frontend/src/components/tenants/TenantDeleteDialog.tsx
+- src/frontend/src/components/tenants/TenantExportCard.tsx
 - src/frontend/src/components/tenants/TenantQuotaCard.tsx
 - src/frontend/src/components/tenants/TenantStatusChip.tsx
 - src/frontend/src/components/water/WaterSourceSection.tsx
@@ -418,6 +421,7 @@ reads:
 - src/frontend/src/pages/admin/AdminEditUserPage.tsx
 - src/frontend/src/pages/admin/AdminOidcProvidersPage.tsx
 - src/frontend/src/pages/admin/AdminPlansPage.tsx
+- src/frontend/src/pages/admin/AdminTenantImportsPage.tsx
 - src/frontend/src/pages/aquaponik/AquaponicSystemDialog.tsx
 - src/frontend/src/pages/aquaponik/AquaponikPage.tsx
 - src/frontend/src/pages/aquaponik/WaterTestDialog.tsx
@@ -710,6 +714,7 @@ reads:
 - src/frontend/src/test/a11y/accessibility.test.tsx
 - src/frontend/src/test/a11y/adminOidcProviders.a11y.test.tsx
 - src/frontend/src/test/a11y/adminPlans.a11y.test.tsx
+- src/frontend/src/test/a11y/adminTenantImports.a11y.test.tsx
 - src/frontend/src/test/a11y/dialogs.a11y.test.tsx
 - src/frontend/src/test/a11y/emailChangePages.a11y.test.tsx
 - src/frontend/src/test/a11y/expectNoA11yViolations.test.tsx
@@ -732,6 +737,7 @@ reads:
 - src/frontend/src/test/api/endpoints/adminPlans.test.ts
 - src/frontend/src/test/api/endpoints/adminPlatform.test.ts
 - src/frontend/src/test/api/endpoints/adminSettings.test.ts
+- src/frontend/src/test/api/endpoints/adminTenantImports.test.ts
 - src/frontend/src/test/api/endpoints/adminWeatherProviders.test.ts
 - src/frontend/src/test/api/endpoints/auth.test.ts
 - src/frontend/src/test/api/endpoints/botanicalFamilies.test.ts
@@ -836,6 +842,8 @@ reads:
 - src/frontend/src/test/components/SubstrateSelectField.test.tsx
 - src/frontend/src/test/components/TabPanel.test.tsx
 - src/frontend/src/test/components/TaskOriginBadge.test.tsx
+- src/frontend/src/test/components/TenantExportCard.test.tsx
+- src/frontend/src/test/components/TenantImportStatusCard.test.tsx
 - src/frontend/src/test/components/UnsavedChangesGuard.test.tsx
 - src/frontend/src/test/components/WaterSourceSection.test.tsx
 - src/frontend/src/test/components/WeatherForecastWidget.test.tsx
@@ -965,6 +973,7 @@ reads:
 - src/frontend/src/test/pages/AdminEditUserTrustRaiseStepUp.test.tsx
 - src/frontend/src/test/pages/AdminOidcProvidersPage.test.tsx
 - src/frontend/src/test/pages/AdminPlansPage.test.tsx
+- src/frontend/src/test/pages/AdminTenantImportsPage.test.tsx
 - src/frontend/src/test/pages/AquaponikPage.test.tsx
 - src/frontend/src/test/pages/BatchDetailPage.test.tsx
 - src/frontend/src/test/pages/BotanicalFamilyCreateDialog.test.tsx
@@ -1120,6 +1129,7 @@ reads:
 - src/frontend/src/test/pages/TaskQueuePageCompactCard.test.tsx
 - src/frontend/src/test/pages/TaskQueuePlantScope.test.tsx
 - src/frontend/src/test/pages/TenantCreateOrganizationLimit.test.tsx
+- src/frontend/src/test/pages/TenantSettingsExportTab.test.tsx
 - src/frontend/src/test/pages/TenantSettingsInvitationDelivery.test.tsx
 - src/frontend/src/test/pages/TenantSettingsInvitationsMobile.test.tsx
 - src/frontend/src/test/pages/TenantSettingsMemberRemovalStepUp.test.tsx
@@ -1202,6 +1212,7 @@ reads:
 - src/frontend/src/test/utils/plantDisplay.test.ts
 - src/frontend/src/test/utils/stepUp.test.ts
 - src/frontend/src/test/utils/stepUpReauth.test.ts
+- src/frontend/src/test/utils/tenantImport.test.ts
 - src/frontend/src/test/utils/weekCalculation.test.ts
 - src/frontend/src/test/validation/zodErrorMap.test.ts
 - src/frontend/src/test/waitBudget.test.ts
@@ -1225,6 +1236,7 @@ reads:
 - src/frontend/src/utils/plantDisplay.ts
 - src/frontend/src/utils/stepUp.ts
 - src/frontend/src/utils/stepUpReauth.ts
+- src/frontend/src/utils/tenantImport.ts
 - src/frontend/src/utils/weekCalculation.ts
 - src/frontend/src/validation/zodErrorMap.ts
 - src/frontend/src/vite-env.d.ts

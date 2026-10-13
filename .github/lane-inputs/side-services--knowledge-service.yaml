@@ -9,9 +9,9 @@ job: knowledge-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-12'
-measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
-replay_seconds: 10
+measured_on: '2026-10-13'
+measured_at_commit: 6e5271d9d40444b6e93b28d5d9fd410ad3b860b9
+replay_seconds: 11
 job_spec_sha256: 086772ed392e80e46d208deb4b300b94d53619ebe5996ce5085ac995167cc87f
 invocations:
 - command: task deps:sync:knowledge-service
