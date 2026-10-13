@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -359,17 +360,19 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         no member request writes into a tenant while it is being erased.
         """
         return self._count_updated(
-            """
+            lambda: self._db.aql.execute(
+                """
             FOR m IN @@collection
               FILTER m.tenant_key == @tenant_key AND m.is_active != false
               UPDATE m WITH { is_active: false } IN @@collection
               COLLECT WITH COUNT INTO affected
               RETURN affected
             """,
-            {"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key},
+                bind_vars={"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key},
+            )
         )
 
-    def _count_updated(self, query: str, bind_vars: dict[str, Any]) -> int:
+    def _count_updated(self, execute: Callable[[], Any]) -> int:
         """Run a bulk ``UPDATE ... RETURN <count>``; a write-write conflict (``1200``) is retried, then surfaced.
 
         The statement updates every membership the filter selects, so a join rolling its own membership
@@ -380,7 +383,7 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         """
         for _attempt in range(self._ROLLBACK_ATTEMPTS):
             try:
-                return int(next(cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars)), 0))
+                return int(next(cast(Cursor, execute()), 0))
             except AQLQueryExecuteError as exc:
                 if exc.error_code != 1200:
                     raise
@@ -390,7 +393,8 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         if not tenant_key:
             raise ValueError("activate_all_for_importing_tenant needs a tenant key")
         return self._count_updated(
-            """
+            lambda: self._db.aql.execute(
+                """
             LET tenant = DOCUMENT(@@tenants, @tenant_key)
             FOR m IN @@collection
               FILTER tenant != null AND tenant.status == @importing
@@ -399,12 +403,13 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
               COLLECT WITH COUNT INTO affected
               RETURN affected
             """,
-            {
-                "@collection": col.MEMBERSHIPS,
-                "@tenants": col.TENANTS,
-                "tenant_key": tenant_key,
-                "importing": TenantStatus.IMPORTING.value,
-            },
+                bind_vars={
+                    "@collection": col.MEMBERSHIPS,
+                    "@tenants": col.TENANTS,
+                    "tenant_key": tenant_key,
+                    "importing": TenantStatus.IMPORTING.value,
+                },
+            )
         )
 
     def active_member_user_keys(self, *, tenant_key: str) -> list[str]:
