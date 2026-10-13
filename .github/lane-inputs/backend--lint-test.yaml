@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-10-13'
-measured_at_commit: 6e5271d9d40444b6e93b28d5d9fd410ad3b860b9
-replay_seconds: 2828
+measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
+replay_seconds: 2012
 job_spec_sha256: fc8f2ede3180ff60840ba4542c5064f146dc8cdd02619004becbca4403b4fa12
 invocations:
 - command: task lint:backend
@@ -49,7 +49,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 6748
+  untracked_reads_dropped: 6747
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -3768,6 +3768,7 @@ reads:
 - src/backend/tests/unit/data_access/arango/test_lifecycle_active_phase_histories.py
 - src/backend/tests/unit/data_access/arango/test_lifecycle_delete_phase_edges.py
 - src/backend/tests/unit/data_access/arango/test_location_label_anchor.py
+- src/backend/tests/unit/data_access/arango/test_membership_bulk_update_write_conflict.py
 - src/backend/tests/unit/data_access/arango/test_notification_preference_repository.py
 - src/backend/tests/unit/data_access/arango/test_notification_repository.py
 - src/backend/tests/unit/data_access/arango/test_nutrient_plan_repository_catalog_union.py
@@ -6779,6 +6780,7 @@ test_modules:
 - src/backend/tests/unit/data_access/arango/test_lifecycle_active_phase_histories.py
 - src/backend/tests/unit/data_access/arango/test_lifecycle_delete_phase_edges.py
 - src/backend/tests/unit/data_access/arango/test_location_label_anchor.py
+- src/backend/tests/unit/data_access/arango/test_membership_bulk_update_write_conflict.py
 - src/backend/tests/unit/data_access/arango/test_notification_preference_repository.py
 - src/backend/tests/unit/data_access/arango/test_notification_repository.py
 - src/backend/tests/unit/data_access/arango/test_nutrient_plan_repository_catalog_union.py

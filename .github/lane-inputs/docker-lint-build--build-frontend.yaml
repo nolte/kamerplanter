@@ -11,7 +11,7 @@ gate:
   filter: frontend
 status: derived
 measured_on: '2026-10-13'
-measured_at_commit: 6e5271d9d40444b6e93b28d5d9fd410ad3b860b9
+measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
 replay_seconds: 2
 job_spec_sha256: 5eede31e2cd40a895cc48468242d1a3bf2736b34dc67239693d16a6f99f764ac
 invocations:
