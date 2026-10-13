@@ -140,7 +140,7 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         self._db.aql.execute(query, bind_vars={"key": key})
         return super().delete(key)
 
-    #: Attempts at the rollback below when a concurrent write on the deletion
+    #: Attempts at the rollback below, and at the bulk membership updates, when a concurrent write on the deletion
     #: record (its withdrawal or its claim) conflicts with the touch.
     _ROLLBACK_ATTEMPTS = 3
 
@@ -358,7 +358,7 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         A deactivated membership is refused by ``_membership_for_slug`` (403), so
         no member request writes into a tenant while it is being erased.
         """
-        cursor = self._db.aql.execute(
+        return self._count_updated(
             """
             FOR m IN @@collection
               FILTER m.tenant_key == @tenant_key AND m.is_active != false
@@ -366,17 +366,31 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
               COLLECT WITH COUNT INTO affected
               RETURN affected
             """,
-            bind_vars={"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key},
+            {"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key},
         )
-        return int(next(cursor, 0))
+
+    def _count_updated(self, query: str, bind_vars: dict[str, Any]) -> int:
+        """Run a bulk ``UPDATE ... RETURN <count>``; a write-write conflict (``1200``) is retried, then surfaced.
+
+        The statement updates every membership the filter selects, so a join rolling its own membership
+        back (:meth:`delete_while_tenant_frozen`) or inserting one in the same instant can hold a row it
+        is about to write. The filter makes the statement idempotent, so a retry only touches what is
+        still left; ``1200`` that outlasts :attr:`_ROLLBACK_ATTEMPTS` becomes :class:`WriteConflictError`
+        (409, retried by the caller's next run) instead of a raw driver error.
+        """
+        for _attempt in range(self._ROLLBACK_ATTEMPTS):
+            try:
+                return int(next(cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars)), 0))
+            except AQLQueryExecuteError as exc:
+                if exc.error_code != 1200:
+                    raise
+        raise WriteConflictError(col.MEMBERSHIPS)
 
     def activate_all_for_importing_tenant(self, tenant_key: str) -> int:
         if not tenant_key:
             raise ValueError("activate_all_for_importing_tenant needs a tenant key")
-        cursor = cast(
-            Cursor,
-            self._db.aql.execute(
-                """
+        return self._count_updated(
+            """
             LET tenant = DOCUMENT(@@tenants, @tenant_key)
             FOR m IN @@collection
               FILTER tenant != null AND tenant.status == @importing
@@ -385,15 +399,13 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
               COLLECT WITH COUNT INTO affected
               RETURN affected
             """,
-                bind_vars={
-                    "@collection": col.MEMBERSHIPS,
-                    "@tenants": col.TENANTS,
-                    "tenant_key": tenant_key,
-                    "importing": TenantStatus.IMPORTING.value,
-                },
-            ),
+            {
+                "@collection": col.MEMBERSHIPS,
+                "@tenants": col.TENANTS,
+                "tenant_key": tenant_key,
+                "importing": TenantStatus.IMPORTING.value,
+            },
         )
-        return int(next(cursor, 0))
 
     def active_member_user_keys(self, *, tenant_key: str) -> list[str]:
         """The distinct accounts that still use the tenant: an active membership of an active account (#1788).
