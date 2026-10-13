@@ -410,14 +410,34 @@ def _action_name(uses: str) -> str:
     return uses.split("@", 1)[0] if not uses.startswith("./") else uses
 
 
+#: A whole env value that is ONE image reference pinned by digest:
+#: ``<name>[:<tag>]@sha256:<64 hex>``. The tag is a ``:`` in the last path
+#: segment only, so a registry port (``host:5000/repo``) stays in the name.
+_PINNED_IMAGE = re.compile(r"^(?P<name>(?:[^\s/@]+/)*[^\s/:@]+)(?::[^\s/:@]+)?@sha256:[0-9a-f]{64}$")
+
+
+def _image_pin_name(value: Any) -> Any:
+    if not isinstance(value, str) or "${{" in value:
+        return value
+    match = _PINNED_IMAGE.match(value)
+    return f"{match.group('name')}@<pinned>" if match else value
+
+
+def _env_without_image_pins(env: Any) -> Any:
+    return {key: _image_pin_name(value) for key, value in env.items()} if isinstance(env, dict) else env
+
+
 def job_spec_hash(job: Any) -> str:
-    """The recorder's ``hash_job_spec``, verbatim: the parsed job minus paths-filter patterns and ``uses:`` refs.
+    """The recorder's ``hash_job_spec``, verbatim: the parsed job minus paths-filter patterns, ``uses:`` refs
+    and the tag+digest of every digest-pinned image in a job or step ``env:`` value.
 
     The patterns are compared live by this file, so editing them must not
     stale the manifest. Nor may an action's ``@<ref>`` (#1683): the recorder
     replays ``run:`` commands, never actions, so a Renovate pin bump (#1734)
-    changes nothing it measured. Every other change to the job — the action's
-    name included — must.
+    changes nothing it measured. Nor may an env image pin
+    (``ZAP_IMAGE: <repo>:<tag>@sha256:<digest>``, operator decision 2026-10-12):
+    the container reads in the daemon, not on the traced host. Every other
+    change to the job — the action's and the image's name included — must.
     """
     if isinstance(job, dict) and isinstance(job.get("steps"), list):
         job = dict(job)
@@ -432,10 +452,14 @@ def job_spec_hash(job: Any) -> str:
                 step["with"] = {key: value for key, value in step["with"].items() if key != "filters"}
             if isinstance(step, dict) and isinstance(step.get("uses"), str):
                 step = {**step, "uses": _action_name(step["uses"])}
+            if isinstance(step, dict) and "env" in step:
+                step = {**step, "env": _env_without_image_pins(step["env"])}
             cleaned.append(step)
         job["steps"] = cleaned
     if isinstance(job, dict) and isinstance(job.get("uses"), str):
         job = {**job, "uses": _action_name(job["uses"])}
+    if isinstance(job, dict) and "env" in job:
+        job = {**job, "env": _env_without_image_pins(job["env"])}
     canonical = json.dumps(job, sort_keys=True, default=str, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 

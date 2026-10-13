@@ -117,7 +117,8 @@ every manifest's own ``invocations`` and replays them::
     python3 scripts/ci/lane_inputs.py replay --out-dir "$OUT_DIR" backend-guards.yml/guards
 
     # the verdict: committed vs recorded — new reads OUTSIDE the job's relevance filter,
-    # job hash (action pins excluded), status, invocations, empty recordings
+    # job hash (action pins and env image pins excluded), status, invocations
+    # (env image pins normalised), empty recordings
     python3 scripts/ci/lane_inputs.py compare recorded/lane-inputs --run-id "$GITHUB_RUN_ID"
 
 A hand-edited ``reads:`` that drops a path outside the job's relevance filter
@@ -647,7 +648,7 @@ def job_spec_hash(document: dict[str, Any], job: str) -> str:
 
 
 def hash_job_spec(job: Any) -> str:
-    """SHA-256 of the parsed job, minus paths-filter patterns and minus the ref of every ``uses:``.
+    """SHA-256 of the parsed job, minus paths-filter patterns, the ref of every ``uses:`` and env image pins.
 
     The patterns are held against the manifest LIVE by the guard; they are not
     an input to what the job reads, so editing them must not demand a
@@ -658,13 +659,78 @@ def hash_job_spec(job: Any) -> str:
     ``report-findings`` and reddened the next unrelated pull request. The
     action's NAME stays in the hash (another action is another job), as does
     everything else about the job — every step, every ``run:``, every
-    ``with:``, ``env``, ``working-directory``. The guard computes the same
-    function; keep the two identical.
+    ``with:``, ``env``, ``working-directory``.
+
+    An image pinned by digest in a job or step ``env:`` value
+    (``ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:<tag>@sha256:<digest>``, operator
+    decision 2026-10-12 on #1683) is the same kind of pin: what runs inside
+    that container reads in the daemon, never on the traced host, so its
+    version cannot change the recorded read set, and a Renovate bump of it must
+    not stale the manifest. It is reduced the way a ``uses:`` is — tag AND
+    digest, because the ``uses:`` precedent drops a tag ref (``@v4``) as well
+    and Renovate moves an image's tag with its digest — to its repository name
+    (:func:`image_pin_name`). The name stays: another image is another job.
+    The replay still hands the job's LIVE value to the leg (:func:`replay_env`).
+    The guard computes the same function; keep the two identical.
     """
     canonical = json.dumps(
-        _without_action_refs(_without_filter_patterns(job)), sort_keys=True, default=str, separators=(",", ":")
+        _without_env_image_pins(_without_action_refs(_without_filter_patterns(job))),
+        sort_keys=True,
+        default=str,
+        separators=(",", ":"),
     )
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+#: A whole value that is ONE image reference pinned by digest:
+#: ``<name>[:<tag>]@sha256:<64 hex>``. The tag is a ``:`` in the last path
+#: segment only, so a registry port (``host:5000/repo``) stays in the name.
+_PINNED_IMAGE = re.compile(r"^(?P<name>(?:[^\s/@]+/)*[^\s/:@]+)(?::[^\s/:@]+)?@sha256:[0-9a-f]{64}$")
+
+#: What a digest-pinned image reference is reduced to: its repository name plus
+#: a marker that it WAS pinned, so a pinned value and the same bare name differ.
+IMAGE_PIN_MARKER = "@<pinned>"
+
+
+def image_pin_name(value: str) -> str | None:
+    """``registry/repo[:tag]@sha256:<digest>`` → ``registry/repo@<pinned>``; ``None`` if *value* is not one.
+
+    Only a whole value that is a single digest-pinned reference counts — a
+    tag-only reference (``repo:1.2``), a command line that mentions an image,
+    or a ``${{ }}`` expression stays as written.
+    """
+    if not isinstance(value, str) or "${{" in value:
+        return None
+    match = _PINNED_IMAGE.match(value)
+    return f"{match.group('name')}{IMAGE_PIN_MARKER}" if match else None
+
+
+def without_image_pin(value: str) -> str:
+    """*value* with a digest-pinned image reference reduced to :func:`image_pin_name`, else unchanged."""
+    name = image_pin_name(value)
+    return value if name is None else name
+
+
+def _env_without_image_pins(env: Any) -> Any:
+    if not isinstance(env, dict):
+        return env
+    return {key: without_image_pin(value) if isinstance(value, str) else value for key, value in env.items()}
+
+
+def _without_env_image_pins(job: Any) -> Any:
+    """*job* with every digest-pinned image in its own and its steps' ``env:`` reduced to its name (#1683)."""
+    if not isinstance(job, dict):
+        return job
+    copy = dict(job)
+    if "env" in copy:
+        copy["env"] = _env_without_image_pins(copy["env"])
+    steps = copy.get("steps")
+    if isinstance(steps, list):
+        copy["steps"] = [
+            {**step, "env": _env_without_image_pins(step["env"])} if isinstance(step, dict) and "env" in step else step
+            for step in steps
+        ]
+    return copy
 
 
 def action_name(uses: str) -> str:
@@ -1936,6 +2002,17 @@ def command_plan(args: argparse.Namespace) -> int:
 # -------------------------------------------------------------------- compare
 
 
+def _comparable_env_entry(entry: str) -> str:
+    """``KEY=value`` as ``compare`` sees it: scratch paths normalised, a digest-pinned image reduced to its name.
+
+    The replay hands the leg the job's LIVE image pin, and the recording writes
+    it down; a Renovate bump of that pin is not drift (#1683, operator decision
+    2026-10-12), exactly as it does not move ``job_spec_sha256``.
+    """
+    key, sep, value = normalise_scratch(entry).partition("=")
+    return f"{key}{sep}{without_image_pin(value)}" if sep else key
+
+
 def _comparable_invocation(invocation: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {
         "command": normalise_scratch(str(invocation.get("command", ""))),
@@ -1944,7 +2021,7 @@ def _comparable_invocation(invocation: dict[str, Any]) -> dict[str, Any]:
     if _is_derived(invocation):
         out["copy_sources"] = list(invocation.get("copy_sources") or [])
     else:
-        out["env"] = sorted(normalise_scratch(str(entry)) for entry in invocation.get("env") or [])
+        out["env"] = sorted(_comparable_env_entry(str(entry)) for entry in invocation.get("env") or [])
         out["exit_code"] = invocation.get("exit_code")
         out["scratch_inputs"] = dict(sorted((invocation.get("scratch_inputs") or {}).items()))
     return out
@@ -2307,9 +2384,12 @@ def compare_manifests(
 
     Compared: ``reads`` — as drift only where the job's live relevance filter
     does not select a new read (:func:`read_drift`, #1683) — ``job_spec_sha256``
-    (which no longer moves with an action's pin), ``status``, the
-    ``invocations`` (command, cwd, env, exit code — scratch paths normalised),
-    and whether the recording read anything at all.
+    (which moves neither with an action's pin nor with a digest-pinned image in
+    the job's or a step's ``env:``), ``status``, the ``invocations`` (command,
+    cwd, env, exit code — scratch paths normalised, and an env value that is a
+    digest-pinned image reduced to its name, so a Renovate image bump is not
+    drift while the replay still runs the live pin), and whether the recording
+    read anything at all.
     Not compared: when and where the recording ran (``measured_on``,
     ``measured_at_commit``, ``subprocesses``, ``untracked_reads_dropped``), how
     long it took (``replay_seconds`` — wall clock varies run to run; it sizes the
