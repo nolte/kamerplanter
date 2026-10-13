@@ -11,7 +11,7 @@ gate:
   filter: knowledge-service
 status: derived
 measured_on: '2026-10-13'
-measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
+measured_at_commit: c309758a064771f5b88a80a91ebb90c8175742ba
 replay_seconds: 1
 job_spec_sha256: a033c9b855103c9c15bef2d2f73df4e4ac78bffc245b34a2eb554a27b5fd8029
 invocations:
