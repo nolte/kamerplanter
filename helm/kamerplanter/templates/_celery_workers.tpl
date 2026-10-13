@@ -139,3 +139,97 @@ Contracts: scripts/ci/assert_chart_contracts.sh (both states, base and dev).
     {{- end -}}
   {{- end -}}
 {{- end -}}
+
+{{/*
+#2128 / #2127 — worker autoscaling by queue length (`celeryWorkers.queueAutoscaling`).
+
+Runs AFTER the copies exist (so a copy is not a copy of an autoscaler) and
+BEFORE the bjw-s loader (templates/common.yaml). For every `workers` entry whose
+controller exists and is enabled, sets `controllers.<worker>.horizontalPodAutoscaler`
+to an autoscaling/v2 spec on one `External` metric: `metricName`, selected on
+the `queue` label by the queues the worker's own `-Q` / `--queues` argument
+names (rendered, so `dedicatedQueues` decides), with an `AverageValue` target of
+`targetPerReplica`. The bjw-s HPA class renders it; the existing render checks
+(attachment volume, PDB, renderChecks.autoscalers) then see it like a
+hand-written one. Refusals here are about this block's inputs; the HPA shape is
+held by renderChecks.autoscalers. Contracts: scripts/ci/assert_chart_contracts.sh.
+*/}}
+{{- define "kamerplanter.celeryWorkerAutoscaling" -}}
+  {{- $root := . -}}
+  {{- $values := .Values -}}
+  {{- $settings := dig "queueAutoscaling" dict ($values.celeryWorkers | default dict) -}}
+  {{- if $settings.enabled -}}
+    {{- if not (dig "enabled" false ($values.monitoring | default dict)) -}}
+      {{- fail "celeryWorkers.queueAutoscaling.enabled needs monitoring.enabled=true: the queue length is exported on the backend's metrics port and scraped by Prometheus, which the Prometheus Adapter reads. See docs/deployment/helm.md#worker-autoscaling-nach-queue-laenge (#2128)." -}}
+    {{- end -}}
+    {{- $metric := toString ($settings.metricName | default "") -}}
+    {{- if not $metric -}}
+      {{- fail "celeryWorkers.queueAutoscaling.metricName is empty: name the External metric the Prometheus Adapter serves (its rule's name.as, default celery_queue_length) (#2128)." -}}
+    {{- end -}}
+    {{- $controllers := $values.controllers | default dict -}}
+    {{- $workers := list "celery-worker" "celery-worker-default" "celery-worker-bulk" -}}
+    {{- range $name, $entry := ($settings.workers | default dict) -}}
+      {{- if not (has $name $workers) -}}
+        {{- fail (printf "celeryWorkers.queueAutoscaling.workers.%s: not a Celery worker of this chart (one of %s) (#2128)." $name (join ", " $workers)) -}}
+      {{- end -}}
+      {{- $entry = $entry | default dict -}}
+      {{- $controller := index $controllers $name -}}
+      {{- $on := and (kindIs "map" $controller) (ne (toString (dig "enabled" true $entry)) "false") -}}
+      {{- if and $on (hasKey $controller "enabled") -}}
+        {{- if eq (toString $controller.enabled) "false" -}}
+          {{- $on = false -}}
+        {{- end -}}
+      {{- end -}}
+      {{- if $on -}}
+        {{- if $controller.horizontalPodAutoscaler -}}
+          {{- fail (printf "controllers.%s carries a horizontalPodAutoscaler and celeryWorkers.queueAutoscaling scales it too: keep one of the two (a copy inherits the autoscaler of controllers.celery-worker) (#2128)." $name) -}}
+        {{- end -}}
+        {{- if not (hasKey $entry "maxReplicas") -}}
+          {{- fail (printf "celeryWorkers.queueAutoscaling.workers.%s.maxReplicas is required (#2128)." $name) -}}
+        {{- end -}}
+        {{- $max := int $entry.maxReplicas -}}
+        {{- $min := 1 -}}
+        {{- if hasKey $entry "minReplicas" -}}
+          {{- $min = int $entry.minReplicas -}}
+        {{- end -}}
+        {{- if lt $min 1 -}}
+          {{- fail (printf "celeryWorkers.queueAutoscaling.workers.%s.minReplicas must be at least 1, got %d: scaling a worker to zero needs a feature gate and leaves its queue unread (#2128)." $name $min) -}}
+        {{- end -}}
+        {{- if ge $min $max -}}
+          {{- fail (printf "celeryWorkers.queueAutoscaling.workers.%s: minReplicas %d is not below maxReplicas %d, so the autoscaler can never change the replica count (#2128)." $name $min $max) -}}
+        {{- end -}}
+        {{- $target := "" -}}
+        {{- if hasKey $entry "targetPerReplica" -}}
+          {{- $target = toString $entry.targetPerReplica -}}
+        {{- end -}}
+        {{- if or (not (regexMatch "^[0-9]+(\\.[0-9]+)?$" $target)) (le (float64 (default "0" $target)) 0.0) -}}
+          {{- fail (printf "celeryWorkers.queueAutoscaling.workers.%s.targetPerReplica must be a number above 0 (waiting messages per worker pod), got %q (#2128)." $name $target) -}}
+        {{- end -}}
+        {{- $queues := list -}}
+        {{- $next := false -}}
+        {{- range $arg := (dig "containers" "main" "args" list $controller) -}}
+          {{- $text := tpl (toString $arg) $root -}}
+          {{- if $next -}}
+            {{- $queues = splitList "," $text -}}
+            {{- $next = false -}}
+          {{- else if hasPrefix "--queues=" $text -}}
+            {{- $queues = splitList "," (trimPrefix "--queues=" $text) -}}
+          {{- else if or (eq $text "-Q") (eq $text "--queues") -}}
+            {{- $next = true -}}
+          {{- end -}}
+        {{- end -}}
+        {{- if not $queues -}}
+          {{- fail (printf "controllers.%s names no queue (-Q / --queues), so its queue length cannot be selected (#2128)." $name) -}}
+        {{- end -}}
+        {{- $selector := dict "matchExpressions" (list (dict "key" "queue" "operator" "In" "values" $queues)) -}}
+        {{- $external := dict "metric" (dict "name" $metric "selector" $selector) "target" (dict "type" "AverageValue" "averageValue" $target) -}}
+        {{- $hpa := dict "minReplicas" $min "maxReplicas" $max "metrics" (list (dict "type" "External" "external" $external)) -}}
+        {{- $behavior := $entry.behavior | default $settings.behavior -}}
+        {{- if $behavior -}}
+          {{- $_ := set $hpa "behavior" (deepCopy $behavior) -}}
+        {{- end -}}
+        {{- $_ := set $controller "horizontalPodAutoscaler" $hpa -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}

@@ -18,6 +18,11 @@ tenant is not a label either: the per-tenant view is the ``tenant=ten_…`` log
 field (#2130); as a label it would multiply every series by the tenant count
 and publish the tenant set to anyone who can scrape.
 
+**Queue lengths.** The listener also serves ``celery_queue_length{queue}`` and
+``celery_broker_up`` (``app.observability.queue_metrics``, #2128) — the signal the
+chart's opt-in worker autoscaler reads through the Prometheus Adapter. Read from
+the broker at scrape time, never on a request.
+
 **Where it is served.** On its own listener (``METRICS_PORT``, off when ``0``),
 never as a route of the API app. The public ingress reaches the API through
 the frontend's nginx on port 8000; the metrics port is not behind it, and the
@@ -43,6 +48,7 @@ from prometheus_client.process_collector import ProcessCollector
 from starlette.routing import compile_path
 
 from app.config.settings import settings
+from app.observability.queue_metrics import install_queue_length_collector
 
 logger = structlog.get_logger(__name__)
 
@@ -203,9 +209,14 @@ def start_metrics_server(port: int, address: str) -> WSGIServer | None:
 
 
 def start_configured_metrics_server() -> WSGIServer | None:
-    """Start the listener ``METRICS_PORT`` asks for; ``None`` when it is ``0`` (the default)."""
+    """Start the listener ``METRICS_PORT`` asks for; ``None`` when it is ``0`` (the default).
+
+    The listener serves the Celery queue lengths too (``app.observability.queue_metrics``):
+    the broker is the one the application publishes to, ``settings.redis_url``.
+    """
     if settings.metrics_port <= 0:
         return None
+    install_queue_length_collector(REGISTRY, settings.redis_url)
     return start_metrics_server(settings.metrics_port, settings.metrics_bind_address)
 
 

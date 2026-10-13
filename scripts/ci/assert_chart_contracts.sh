@@ -721,6 +721,126 @@ expect external-secret "the pods read their envFrom Secret from that same name" 
 expect_refusal external-secret-without-store "has no SecretStore reference" --set externalSecrets.app.enabled=true
 
 # ---------------------------------------------------------------------------
+# #2128 (MT-032) / #2127 (MT-031) — worker autoscaling by queue length.
+#
+# `celeryWorkers.queueAutoscaling` (off by default; the default and profile
+# renders above already hold "no HPA") gives each listed worker an
+# autoscaling/v2 HPA on ONE External metric — `celery_queue_length` from the
+# backend's /metrics, served to the HPA by a Prometheus Adapter the chart does
+# not install — selected on `queue` by exactly the queues that worker's `-Q`
+# consumes. The relation, not a literal: an HPA that selects a queue its worker
+# does not read scales the wrong pods, and one that misses a queue its worker
+# reads ignores that backlog. With dedicated workers each queue is selected by
+# exactly one HPA. The autoscaled Deployment carries no fixed replica count
+# (every sync would reset the HPA). Refused: the switch without monitoring or
+# without a metric name; an entry without maxReplicas / targetPerReplica > 0,
+# with minReplicas < 1 or not below maxReplicas; a hand-written HPA on the
+# same worker; a name that is not a worker; more than one pod on a ReadWriteOnce
+# attachment volume. renderChecks.autoscalers holds every controller's HPA to
+# min < max and an External metric to a name and a target.
+# ---------------------------------------------------------------------------
+queue_scaling_on=(--set celeryWorkers.queueAutoscaling.enabled=true --set monitoring.enabled=true
+  --set storage.backend=s3 --set storage.s3.bucket=kp-attachments-render)
+hpas='select(.kind == "HorizontalPodAutoscaler")'
+hpa_of() { printf '%s | select(.spec.scaleTargetRef.name == "%s-%s")' "${hpas}" "${RELEASE}" "$1"; }
+hpa_queues_of() { printf '%s | .spec.metrics[] | select(.type == "External") | .external.metric.selector.matchExpressions[] | select(.key == "queue" and .operator == "In") | .values[]' "$(hpa_of "$1")"; }
+
+# hpa_follows_worker <render> <worker> — the HPA of <worker> selects exactly the
+# queues the worker's Deployment consumes, on the configured metric, per pod.
+hpa_follows_worker() {
+  local name="$1" worker="$2" consumed
+  consumed="$(yq e "[.[] | $(queues_of "${worker}")] | sort | to_json(0)" "${work}/${name}.yaml")"
+  if [[ "${consumed}" == "[]" ]]; then
+    fail "${name}: ${worker} renders no queue to compare its autoscaler with"
+  fi
+  expect_set "${name}" "the ${worker} HPA selects exactly the queues ${worker} consumes" "$(hpa_queues_of "${worker}")" "${consumed}"
+  expect "${name}" "the ${worker} HPA scales its Deployment on the queue-length metric, per pod" \
+    "$(hpa_of "${worker}") | {\"kind\": .spec.scaleTargetRef.kind, \"metrics\": (.spec.metrics | length), \"type\": .spec.metrics[0].type, \"metric\": .spec.metrics[0].external.metric.name, \"target\": .spec.metrics[0].external.target.type}" \
+    '[{"kind":"Deployment","metrics":1,"type":"External","metric":"celery_queue_length","target":"AverageValue"}]'
+  expect "${name}" "the autoscaled ${worker} Deployment carries no fixed replica count" \
+    "$(deploy "${worker}") | .spec | has(\"replicas\")" '[false]'
+}
+
+render queue-scaling-single "${queue_scaling_on[@]}"
+expect queue-scaling-single "one worker for all queues: one HPA, on the worker" \
+  "${hpas} | .spec.scaleTargetRef.name" '["kamerplanter-celery-worker"]'
+hpa_follows_worker queue-scaling-single celery-worker
+expect queue-scaling-single "the worker HPA carries the configured bounds, target and slow scale-down" \
+  "$(hpa_of celery-worker) | {\"min\": .spec.minReplicas, \"max\": .spec.maxReplicas, \"per_pod\": .spec.metrics[0].external.target.averageValue, \"down_window\": .spec.behavior.scaleDown.stabilizationWindowSeconds}" \
+  '[{"min":1,"max":3,"per_pod":"20","down_window":600}]'
+expect queue-scaling-single "the metric it reads is exported: the backend serves /metrics" \
+  "$(env_of backend METRICS_PORT)" '["9464"]'
+
+render queue-scaling-dedicated "${queue_scaling_on[@]}" --set celeryWorkers.dedicatedQueues=true
+for worker in celery-worker celery-worker-default celery-worker-bulk; do
+  hpa_follows_worker queue-scaling-dedicated "${worker}"
+done
+expect_set queue-scaling-dedicated "with dedicated workers every queue is selected by exactly one HPA" \
+  "${hpas} | .spec.metrics[] | .external.metric.selector.matchExpressions[] | .values[]" '["bulk","celery","critical"]'
+render queue-scaling-dedicated-dev -f "${CHART}/values-dev.yaml" "${queue_scaling_on[@]}" --set celeryWorkers.dedicatedQueues=true
+for worker in celery-worker celery-worker-default celery-worker-bulk; do
+  hpa_follows_worker queue-scaling-dedicated-dev "${worker}"
+done
+
+render queue-scaling-tuned "${queue_scaling_on[@]}" --set celeryWorkers.dedicatedQueues=true \
+  --set celeryWorkers.queueAutoscaling.metricName=kp_waiting_messages \
+  --set celeryWorkers.queueAutoscaling.workers.celery-worker.enabled=false \
+  --set celeryWorkers.queueAutoscaling.workers.celery-worker-bulk.targetPerReplica=2.5
+expect_set queue-scaling-tuned "an entry switched off renders no HPA for that worker only" \
+  "${hpas} | .spec.scaleTargetRef.name" '["kamerplanter-celery-worker-bulk","kamerplanter-celery-worker-default"]'
+expect queue-scaling-tuned "the metric name and a per-worker target reach the HPA" \
+  "$(hpa_of celery-worker-bulk) | [.spec.metrics[0].external.metric.name, .spec.metrics[0].external.target.averageValue] | join(\" \")" \
+  '["kp_waiting_messages 2.5"]'
+expect queue-scaling-tuned "the worker without an autoscaler keeps its replica count" \
+  "$(deploy celery-worker) | .spec.replicas" '[1]'
+
+for profile in values-dev-ki values-dev-recognition; do
+  render "queue-scaling-${profile}" -f "${CHART}/${profile}.yaml" "${queue_scaling_on[@]}"
+  expect "queue-scaling-${profile}" "a profile without the worker gets no worker HPA" "${hpas} | .metadata.name" '[]'
+done
+
+entry=celeryWorkers.queueAutoscaling.workers.celery-worker
+expect_refusal queue-scaling-without-monitoring "needs monitoring.enabled=true" \
+  --set celeryWorkers.queueAutoscaling.enabled=true --set storage.backend=s3 --set storage.s3.bucket=kp-attachments-render
+expect_refusal queue-scaling-without-metric-name "metricName is empty" "${queue_scaling_on[@]}" \
+  --set celeryWorkers.queueAutoscaling.metricName=
+expect_refusal queue-scaling-min-equals-max "minReplicas 3 is not below maxReplicas 3" "${queue_scaling_on[@]}" \
+  --set "${entry}.minReplicas=3" --set "${entry}.maxReplicas=3"
+expect_refusal queue-scaling-min-zero "minReplicas must be at least 1" "${queue_scaling_on[@]}" --set "${entry}.minReplicas=0"
+expect_refusal queue-scaling-without-max "maxReplicas is required" "${queue_scaling_on[@]}" --set "${entry}.maxReplicas=null"
+expect_refusal queue-scaling-without-target "targetPerReplica must be a number above 0" "${queue_scaling_on[@]}" \
+  --set "${entry}.targetPerReplica=null"
+expect_refusal queue-scaling-zero-target "targetPerReplica must be a number above 0" "${queue_scaling_on[@]}" \
+  --set "${entry}.targetPerReplica=0"
+expect_refusal queue-scaling-twice "scales it too: keep one of the two" "${queue_scaling_on[@]}" \
+  --set controllers.celery-worker.horizontalPodAutoscaler.maxReplicas=3
+expect_refusal queue-scaling-not-a-worker "not a Celery worker of this chart" "${queue_scaling_on[@]}" \
+  --set celeryWorkers.queueAutoscaling.workers.celery-beat.maxReplicas=3
+expect_refusal queue-scaling-rwo "ReadWriteMany" --set celeryWorkers.queueAutoscaling.enabled=true --set monitoring.enabled=true
+
+# renderChecks.autoscalers — any controller's hand-written HPA.
+s3_on=(--set storage.backend=s3 --set storage.s3.bucket=kp-attachments-render)
+expect_refusal autoscaler-min-equals-max "minReplicas 2 is not below maxReplicas 2" "${s3_on[@]}" \
+  --set controllers.backend.horizontalPodAutoscaler.minReplicas=2 --set controllers.backend.horizontalPodAutoscaler.maxReplicas=2
+expect_refusal autoscaler-external-without-name "an External metric needs external.metric.name" "${s3_on[@]}" \
+  --set controllers.celery-worker.horizontalPodAutoscaler.maxReplicas=3 \
+  --set 'controllers.celery-worker.horizontalPodAutoscaler.metrics[0].type=External' \
+  --set 'controllers.celery-worker.horizontalPodAutoscaler.metrics[0].external.target.type=AverageValue' \
+  --set 'controllers.celery-worker.horizontalPodAutoscaler.metrics[0].external.target.averageValue=20'
+expect_refusal autoscaler-external-without-target "an External metric needs external.metric.name" "${s3_on[@]}" \
+  --set controllers.celery-worker.horizontalPodAutoscaler.maxReplicas=3 \
+  --set 'controllers.celery-worker.horizontalPodAutoscaler.metrics[0].type=External' \
+  --set 'controllers.celery-worker.horizontalPodAutoscaler.metrics[0].external.metric.name=celery_queue_length'
+render autoscaler-external-complete "${s3_on[@]}" \
+  --set controllers.celery-worker.horizontalPodAutoscaler.maxReplicas=3 \
+  --set 'controllers.celery-worker.horizontalPodAutoscaler.metrics[0].type=External' \
+  --set 'controllers.celery-worker.horizontalPodAutoscaler.metrics[0].external.metric.name=celery_queue_length' \
+  --set 'controllers.celery-worker.horizontalPodAutoscaler.metrics[0].external.target.type=Value' \
+  --set-string 'controllers.celery-worker.horizontalPodAutoscaler.metrics[0].external.target.value=50'
+expect autoscaler-external-complete "a complete hand-written External metric renders" \
+  "$(hpa_of celery-worker) | .spec.metrics[0].external.target.value" '["50"]'
+
+# ---------------------------------------------------------------------------
 # #2127 (MT-031) — TimescaleDB as a chart controller, Valkey hardened.
 #
 # `controllers.timescaledb.enabled` is the one switch: Service, NetworkPolicy,

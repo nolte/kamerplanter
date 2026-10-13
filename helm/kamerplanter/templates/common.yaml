@@ -1,3 +1,4 @@
 {{- include "kamerplanter.celeryWorkerCopies" . -}}
 {{- include "kamerplanter.tenantImportIngress" . -}}
+{{- include "kamerplanter.celeryWorkerAutoscaling" . -}}
 {{ include "bjw-s.common.loader.all" . }}

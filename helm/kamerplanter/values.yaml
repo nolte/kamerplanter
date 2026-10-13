@@ -189,6 +189,75 @@ celeryWorkers:
   copies:
     celery-worker-default: celery
     celery-worker-bulk: bulk
+  # -- Worker autoscaling by queue length (#2128 MT-032, #2127 MT-031). OFF by default.
+  #
+  # With ``enabled: true`` every worker listed under ``workers`` gets a
+  # HorizontalPodAutoscaler (autoscaling/v2) on an ``External`` metric: the
+  # messages waiting in the queues that worker consumes, divided by its pods
+  # (``target.type: AverageValue`` = ``targetPerReplica``). The queues are read
+  # from the worker's own ``-Q`` argument, so the selector follows
+  # ``dedicatedQueues``: one worker for all three queues scales on their sum;
+  # with dedicated workers ``celery-worker`` scales on ``critical``,
+  # ``celery-worker-default`` on ``celery``, ``celery-worker-bulk`` on ``bulk``.
+  # An entry for a copy is ignored while ``dedicatedQueues`` is off (the copy
+  # does not exist), like every other key of a copy.
+  #
+  # The series is ``celery_queue_length{queue}`` from the backend's ``/metrics``
+  # (app/observability/queue_metrics.py), so ``monitoring.enabled`` is required.
+  # The chart does NOT install the Prometheus Adapter: it must run in the cluster
+  # and serve this series on the external metrics API under ``metricName``
+  # (``external.metrics.k8s.io``). The adapter rule, and how to check it with
+  # ``kubectl get --raw``, is in docs/de/deployment/helm.md#worker-autoscaling-nach-queue-laenge.
+  # Without it the HPA reports ``FailedGetExternalMetric`` and keeps its current
+  # replica count — it never scales on a missing value.
+  #
+  # Refused at render time (templates/_celery_workers.tpl, renderChecks.autoscalers):
+  # enabled without ``monitoring.enabled`` or without ``metricName``; an entry
+  # without ``maxReplicas`` or ``targetPerReplica`` > 0; ``minReplicas`` < 1 or
+  # not below ``maxReplicas``; a worker that also carries a hand-written
+  # ``controllers.<worker>.horizontalPodAutoscaler``. More than one pod of a
+  # worker needs the attachments on S3 or a ReadWriteMany volume, as for every
+  # other autoscaler (renderChecks.attachmentVolume).
+  #
+  # Scaling DOWN stops a worker pod: Celery finishes its running tasks on
+  # SIGTERM within the pod's termination grace period (30 s unless set), then
+  # the pod is killed. A task acknowledged at start (not in ACKS_LATE_TASKS) is
+  # then lost, an acks-late one runs again after the visibility timeout. Hence
+  # the slow default scale-down below; for ``celery-worker-bulk`` (runs of up to
+  # 3 h) raise ``controllers.celery-worker-bulk.pod.terminationGracePeriodSeconds``
+  # or keep its ``minReplicas`` at the level it normally needs.
+  queueAutoscaling:
+    enabled: false
+    # The External metric name the adapter serves (its rule's ``name.as``).
+    metricName: celery_queue_length
+    # Default HPA ``behavior`` for every worker; an entry's own ``behavior`` replaces it.
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        policies:
+          - type: Pods
+            value: 2
+            periodSeconds: 60
+      scaleDown:
+        stabilizationWindowSeconds: 600
+        policies:
+          - type: Pods
+            value: 1
+            periodSeconds: 300
+    workers:
+      celery-worker:
+        minReplicas: 1
+        maxReplicas: 3
+        # Waiting messages per worker pod the HPA aims for.
+        targetPerReplica: 20
+      celery-worker-default:
+        minReplicas: 1
+        maxReplicas: 3
+        targetPerReplica: 20
+      celery-worker-bulk:
+        minReplicas: 1
+        maxReplicas: 2
+        targetPerReplica: 5
 
 # -- Render-time checks (#2124). bjw-s renders every string in these values as a
 # template, and ``fail`` aborts ``helm template`` / ``helm upgrade`` / the ArgoCD
@@ -266,6 +335,47 @@ renderChecks:
     {{- end -}}
     {{- if $blocking -}}
     {{- fail (printf "controllers.%s.podDisruptionBudget.%s with %d replica(s) admits no eviction: every node drain and cluster upgrade would hang. Keep at least one pod evictable: minAvailable below the replica count (a percentage is rounded up to whole pods), or maxUnavailable of at least 1 (or a percentage above 0%%); raise replicas (or horizontalPodAutoscaler.minReplicas) if needed. See docs/deployment/helm.md#skalierung (#2127)." $name $blocking $minReplicas) -}}
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
+  # #2128 — an autoscaler that cannot scale, or cannot read its metric, renders
+  # cleanly and only shows up in the cluster as an HPA that never moves:
+  #  * minReplicas not below maxReplicas (the count is fixed — set replicas);
+  #  * an ``External`` metric without ``metric.name``, or without a target
+  #    (``type: Value`` with ``value`` / ``type: AverageValue`` with ``averageValue``).
+  # Applies to every controller's horizontalPodAutoscaler, hand-written or
+  # derived from celeryWorkers.queueAutoscaling.
+  autoscalers: >-
+    {{- range $name, $controller := .Values.controllers -}}
+    {{- if and (kindIs "map" $controller) (ne (toString $controller.enabled) "false") $controller.horizontalPodAutoscaler -}}
+    {{- $hpa := $controller.horizontalPodAutoscaler -}}
+    {{- $min := int (default 1 $controller.replicas) -}}
+    {{- if hasKey $hpa "minReplicas" -}}
+    {{- $min = int $hpa.minReplicas -}}
+    {{- end -}}
+    {{- $max := int (default 0 $hpa.maxReplicas) -}}
+    {{- if and (gt $max 0) (ge $min $max) -}}
+    {{- fail (printf "controllers.%s.horizontalPodAutoscaler: minReplicas %d is not below maxReplicas %d, so the autoscaler can never change the replica count. Lower minReplicas or raise maxReplicas, or drop the autoscaler and set replicas. See docs/deployment/helm.md#skalierung (#2128)." $name $min $max) -}}
+    {{- end -}}
+    {{- range $metric := ($hpa.metrics | default list) -}}
+    {{- if and (kindIs "map" $metric) (eq (toString $metric.type) "External") -}}
+    {{- $external := $metric.external | default dict -}}
+    {{- $target := $external.target | default dict -}}
+    {{- $metricName := "" -}}
+    {{- if kindIs "map" $external.metric -}}
+    {{- $metricName = toString ($external.metric.name | default "") -}}
+    {{- end -}}
+    {{- $targetType := toString ($target.type | default "") -}}
+    {{- $targetValue := "" -}}
+    {{- if eq $targetType "Value" -}}
+    {{- $targetValue = toString ($target.value | default "") -}}
+    {{- else if eq $targetType "AverageValue" -}}
+    {{- $targetValue = toString ($target.averageValue | default "") -}}
+    {{- end -}}
+    {{- if or (not $metricName) (not $targetValue) -}}
+    {{- fail (printf "controllers.%s.horizontalPodAutoscaler: an External metric needs external.metric.name and external.target (type Value with value, or AverageValue with averageValue); got name %q, target type %q. Without them the autoscaler reads nothing and never scales. See docs/deployment/helm.md#worker-autoscaling-nach-queue-laenge (#2128)." $name $metricName $targetType) -}}
+    {{- end -}}
+    {{- end -}}
     {{- end -}}
     {{- end -}}
     {{- end -}}

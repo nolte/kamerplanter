@@ -724,7 +724,9 @@ Die Metriken sind **nicht öffentlich**: Sie laufen auf einem eigenen Port, nie 
 
 Ausgeliefert werden `http_request_duration_seconds` (Histogramm) und `http_requests_total` mit den Labels `method`, `handler` (Routenmuster, nie der Pfad; `unmatched` für eine Anfrage ohne Route) und `status`, `http_requests_in_progress` sowie Prozess-Metriken (Speicher, CPU, Dateideskriptoren). Ein Mandant ist bewusst **kein** Label — das vervielfacht jede Zeitreihe mit der Mandantenzahl und legt die Mandantenliste jedem offen, der scrapen darf. Für die Sicht pro Mandant tragen die Logzeilen `tenant=ten_…`.
 
-Noch nicht enthalten: Metriken des Celery-Workers, Recording- und Alert-Regeln (`PrometheusRule`) aus NFR-007.
+Dazu kommen die Längen der Celery-Warteschlangen: `celery_queue_length` mit dem Label `queue` (`critical`, `celery`, `bulk`) zählt die Aufgaben, die im Valkey auf einen Worker warten, und `celery_broker_up` ist `1`, wenn der letzte Lesezugriff auf Valkey geklappt hat. Das Backend liest die Längen beim Scrapen, nicht bei einer Anfrage, und höchstens alle 5 Sekunden. Ist Valkey nicht erreichbar, fehlen die Warteschlangen-Werte in diesem Scrape (kein alter Wert) und `celery_broker_up` steht auf `0`; der Scrape selbst schlägt nicht fehl. Jedes Backend-Replikat liefert dieselben Zahlen — fasse sie mit `max`, nicht mit `sum` zusammen.
+
+Noch nicht enthalten: Metriken aus dem Celery-Worker selbst (Laufzeiten, Fehler je Aufgabe), Recording- und Alert-Regeln (`PrometheusRule`) aus NFR-007.
 
 ## Skalierung (HPA und PDB) {#skalierung}
 
@@ -757,7 +759,7 @@ controllers:
 
 - **Autoscaler:** Mit `horizontalPodAutoscaler` entfällt `replicas` aus dem Deployment; `minReplicas` übernimmt seine Rolle. So setzt ein `helm upgrade` oder ein ArgoCD-Sync die Pod-Zahl nicht auf den festen Wert zurück. Der Autoscaler braucht den metrics-server im Cluster.
 - **Ein neuer Backend-Pod hilft erst nach seinem Start** — bis zu einigen Minuten, siehe [Startdauer des Backends](kubernetes.md#startdauer-des-backends). Kurze Lastspitzen fängt der Autoscaler deshalb nicht ab.
-- **Celery-Worker:** CPU ist für den Worker das falsche Signal — er wartet meist auf externe Dienste. Ein Autoscaler nach Länge der Warteschlange braucht die Worker-Metriken, die noch fehlen. Mehr Worker-Pods setzt du bis dahin fest über `replicas`.
+- **Celery-Worker:** CPU ist für den Worker das falsche Signal — er wartet meist auf externe Dienste. Skaliere ihn nach der Länge seiner Warteschlange, siehe [Worker-Autoscaling nach Queue-Länge](#worker-autoscaling-nach-queue-laenge).
 
 Das Chart verweigert die Darstellung (`helm template`, `helm upgrade`, ArgoCD) mit einer Meldung, wenn eine Einstellung im Cluster still schiefgehen würde:
 
@@ -766,8 +768,79 @@ Das Chart verweigert die Darstellung (`helm template`, `helm upgrade`, ArgoCD) m
 | Backend oder Celery-Worker mit mehr als einem Pod (`replicas` oder `maxReplicas`) auf dem Standard-Volume `ReadWriteOnce` | Ein zweiter Pod auf einem anderen Node startet nie (`Multi-Attach error`). Lösung: [S3](#storage-konfiguration-nfr-013) oder `ReadWriteMany`. |
 | Mehr als ein Pod oder ein Autoscaler für `celery-beat`, `arangodb`, `vectordb` oder `timescaledb` | Zwei Beat-Pods führen jede geplante Aufgabe doppelt aus, auch Lösch- und Aufbewahrungsläufe. Zwei ArangoDB-, VectorDB- oder TimescaleDB-Pods sind zwei getrennte Datenbanken, kein Cluster. |
 | `podDisruptionBudget.minAvailable` gleich oder größer als die Pod-Zahl, auch als Prozentwert (`"100%"`; Kubernetes rundet auf ganze Pods auf, `"50%"` von einem Pod ist dieser Pod), oder `maxUnavailable: 0` bzw. `"0%"` | Kubernetes darf dann keinen Pod verdrängen; jedes Leeren eines Nodes und jedes Cluster-Upgrade bleibt hängen. Prozentwerte, die mindestens einen Pod verdrängbar lassen (`minAvailable: "50%"` bei zwei Pods, `maxUnavailable: "25%"`), sind erlaubt. |
+| `minReplicas` gleich oder größer als `maxReplicas` bei einem Autoscaler | Der Autoscaler kann die Pod-Zahl nie ändern. Für eine feste Zahl setzt du `replicas`. |
+| Eine Metrik `type: External` ohne `external.metric.name` oder ohne Ziel (`target.type: Value` mit `value` bzw. `AverageValue` mit `averageValue`) | Der Autoscaler liest nichts und skaliert nie. |
 
 Der Celery-Beat bleibt immer ein einzelner Pod mit der Strategie `Recreate`: Der alte Pod endet, bevor der neue startet.
+
+### Worker-Autoscaling nach Queue-Länge {#worker-autoscaling-nach-queue-laenge}
+
+Die Celery-Worker kann das Chart nach der Zahl der wartenden Aufgaben skalieren. Dafür braucht es drei Dinge, von denen das Chart zwei mitbringt:
+
+1. **Die Metrik** `celery_queue_length{queue}` vom Backend — eingeschaltet mit `monitoring.enabled: true` (siehe [Metriken](#metriken-prometheus)).
+2. **Den [Prometheus Adapter](https://github.com/kubernetes-sigs/prometheus-adapter)** im Cluster, der diese Reihe als *External Metric* (`external.metrics.k8s.io`) bereitstellt. Den installierst und konfigurierst du selbst; das Chart installiert ihn **nicht**.
+3. **Die Autoscaler** der Worker — eingeschaltet mit `celeryWorkers.queueAutoscaling.enabled: true`.
+
+```yaml title="values-production.yaml (Ausschnitt)"
+storage:
+  backend: s3                      # Voraussetzung für mehr als einen Worker-Pod
+  # ...
+
+monitoring:
+  enabled: true                    # Pflicht: liefert celery_queue_length
+
+celeryWorkers:
+  dedicatedQueues: true            # optional: ein Worker je Queue, siehe oben
+  queueAutoscaling:
+    enabled: true
+    metricName: celery_queue_length   # Name, unter dem der Adapter die Reihe anbietet
+    workers:
+      celery-worker:               # liest critical (bzw. alle drei ohne dedicatedQueues)
+        minReplicas: 1
+        maxReplicas: 3
+        targetPerReplica: 20       # wartende Aufgaben pro Worker-Pod
+      celery-worker-default:       # liest celery
+        minReplicas: 1
+        maxReplicas: 3
+        targetPerReplica: 20
+      celery-worker-bulk:          # liest bulk
+        minReplicas: 1
+        maxReplicas: 2
+        targetPerReplica: 5
+```
+
+Jeder Worker bekommt einen `HorizontalPodAutoscaler` (`autoscaling/v2`) mit genau einer Metrik vom Typ `External`. Welche Warteschlangen sie auswählt, liest das Chart aus dem `-Q` des Workers: Ohne `dedicatedQueues` skaliert der eine Worker nach der Summe aller drei Warteschlangen, mit `dedicatedQueues` jeder Worker nach seiner eigenen. Das Ziel ist `AverageValue`: wartende Aufgaben geteilt durch die Pods des Workers. Ein Eintrag für `celery-worker-default` oder `celery-worker-bulk` wirkt nur mit `dedicatedQueues: true`; mit `enabled: false` in einem Eintrag nimmst du einen einzelnen Worker heraus.
+
+**Regel für den Prometheus Adapter** (Values des Charts `prometheus-community/prometheus-adapter`):
+
+```yaml
+rules:
+  external:
+    - seriesQuery: 'celery_queue_length{namespace!="",queue!=""}'
+      resources:
+        overrides:
+          namespace: {resource: namespace}
+      name:
+        matches: "^celery_queue_length$"
+        as: "celery_queue_length"     # = celeryWorkers.queueAutoscaling.metricName
+      # Jedes Backend-Replikat meldet dieselben Zahlen: max, nicht sum.
+      metricsQuery: 'max by (queue) (<<.Series>>{<<.LabelMatchers>>})'
+```
+
+Ob der Adapter die Reihe liefert, prüfst du so (Namespace anpassen):
+
+```bash
+kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/kamerplanter/celery_queue_length?labelSelector=queue%20in%20(critical)"
+kubectl describe hpa kamerplanter-celery-worker
+```
+
+!!! warning "Ohne Adapter skaliert nichts"
+    Fehlt der Adapter oder seine Regel, meldet der Autoscaler `FailedGetExternalMetric` und behält die aktuelle Pod-Zahl. Dasselbe gilt, solange Valkey nicht erreichbar ist: Die Warteschlangen-Werte fehlen dann, und der Autoscaler skaliert weder hoch noch herunter.
+
+!!! warning "Herunterskalieren beendet laufende Aufgaben"
+    Ein Worker-Pod, der beim Herunterskalieren stoppt, beendet seine laufenden Aufgaben innerhalb der Termination-Grace-Period des Pods (ohne Einstellung 30 Sekunden); danach wird er beendet. Eine Aufgabe, die schon beim Start bestätigt wurde, ist dann verloren; eine, die erst nach dem Lauf bestätigt wird, läuft nach dem Visibility-Timeout erneut. Deshalb skaliert das Chart standardmäßig langsam herunter (`behavior`: 10 Minuten Stabilisierung, höchstens ein Pod je 5 Minuten). Für `celery-worker-bulk` mit Läufen bis zu 3 Stunden setzt du `controllers.celery-worker-bulk.pod.terminationGracePeriodSeconds` hoch oder hältst `minReplicas` auf der Zahl, die er normalerweise braucht.
+
+Das Chart verweigert die Darstellung, wenn `queueAutoscaling.enabled` ohne `monitoring.enabled` oder ohne `metricName` gesetzt ist, ein Eintrag kein `maxReplicas` oder kein `targetPerReplica` über 0 hat, `minReplicas` kleiner als 1 oder nicht kleiner als `maxReplicas` ist, ein Worker zusätzlich einen eigenen `controllers.<worker>.horizontalPodAutoscaler` trägt oder der Name kein Worker des Charts ist. Mehr als ein Worker-Pod auf dem Standard-Volume `ReadWriteOnce` wird wie bei jedem Autoscaler abgelehnt.
 
 ## Secrets aus einem Secret-Store {#secrets-aus-einem-secret-store}
 
